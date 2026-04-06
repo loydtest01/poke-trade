@@ -339,7 +339,8 @@ body { background: #0a0a0f; overflow-x: hidden; }
 .book-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 6px;
 }
 
 /* Card in book view — taller, more realistic */
@@ -396,7 +397,7 @@ body { background: #0a0a0f; overflow-x: hidden; }
 @media (max-width: 768px) {
   .book-pages { grid-template-columns: 1fr; }
   .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
-  .book-grid { grid-template-columns: repeat(3, 1fr); }
+  .book-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
 }
 
 /* Prázdný stav */
@@ -657,6 +658,15 @@ body { background: #0a0a0f; overflow-x: hidden; }
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
+      <select id="sortSelect" onchange="setSort(this.value)"
+        style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;outline:none;">
+        <option value="added">Pořadí přidání</option>
+        <option value="name_az">Název A–Z</option>
+        <option value="name_za">Název Z–A</option>
+        <option value="number">Číslo pokémona</option>
+        <option value="series">Série</option>
+        <option value="element">Element</option>
+      </select>
       <div class="view-toggle">
         <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')" title="Mřížka">
           ⊞ Mřížka
@@ -786,6 +796,9 @@ let editingAlbumId = null;
   await Promise.all([loadCards(), loadAlbums()]);
   renderAlbumList();
   render();
+  // Obnov uložený view mode po načtení dat (musí být až po render())
+  const savedMode = localStorage.getItem('pkc_view_mode') || 'grid';
+  if (savedMode === 'book') setViewMode('book');
   // Po načtení dat synchronizuj album "Výměna" (tiše, bez čekání)
   syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
   autoSync();
@@ -872,6 +885,7 @@ function render() {
                (c.number||'').toLowerCase().includes(q))) return false;
     return true;
   });
+  filtered = sortCards(filtered);
 
   // Stat chips
   const fChip = document.getElementById('filteredChip');
@@ -1393,12 +1407,85 @@ function esc(s) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-//  ALBUM BOOK VIEW
+//  SORT + ALBUM BOOK VIEW
 // ══════════════════════════════════════════════════════════════════
-const BOOK_CARDS_PER_PAGE = 6; // 3 na každé stránce (levá + pravá)
-let bookViewMode = localStorage.getItem('pkc_view_mode') || 'grid';
-let bookCurrentPage = 0; // index dvoustránky (0 = strana 1-2, 1 = strana 3-4 ...)
-let bookFilteredCards = [];
+const BOOK_CARDS_PER_PAGE = 18; // 9 na každé stránce 3×3 (levá + pravá)
+const BOOK_PAGE_SIZE = 9;       // karet na jednu stránku
+let bookViewMode = 'grid'; // initialized from localStorage after DOM ready
+let bookCurrentPage = 0;
+let bookFilteredCards = []; // flat list of cards + null-spacers for element groups
+let activeSort = localStorage.getItem('pkc_sort') || 'added';
+
+function setSort(val) {
+  activeSort = val;
+  localStorage.setItem('pkc_sort', val);
+  render();
+  if (bookViewMode === 'book') { bookCurrentPage = 0; renderBookView(); }
+}
+
+// Restore saved sort on init
+(function restoreSort() {
+  const s = localStorage.getItem('pkc_sort') || 'added';
+  activeSort = s;
+  const sel = document.getElementById('sortSelect');
+  if (sel) sel.value = s;
+})();
+
+const ELEMENT_ORDER = ['fire','water','grass','lightning','psychic','darkness','dragon',
+  'metal','fighting','fairy','bug','poison','ground','ghost','ice','normal','flying','rock','colorless'];
+
+function getCardElement(c) {
+  const t = ((c.types?.[0] || c.type || '')).toLowerCase();
+  for (const e of ELEMENT_ORDER) if (t.includes(e)) return e;
+  return 'other';
+}
+
+function sortCards(cards) {
+  const c = [...cards];
+  if (activeSort === 'added')   return c; // původní pořadí
+  if (activeSort === 'name_az') return c.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'cs'));
+  if (activeSort === 'name_za') return c.sort((a,b) => (b.name||'').localeCompare(a.name||'', 'cs'));
+  if (activeSort === 'number')  return c.sort((a,b) => {
+    const na = parseInt((a.number||'0').replace(/\D/g,'')) || 0;
+    const nb = parseInt((b.number||'0').replace(/\D/g,'')) || 0;
+    return na - nb || (a.name||'').localeCompare(b.name||'', 'cs');
+  });
+  if (activeSort === 'series')  return c.sort((a,b) =>
+    (a.set||'').localeCompare(b.set||'', 'cs') || (a.name||'').localeCompare(b.name||'', 'cs'));
+  if (activeSort === 'element') return c.sort((a,b) => {
+    const ea = ELEMENT_ORDER.indexOf(getCardElement(a));
+    const eb = ELEMENT_ORDER.indexOf(getCardElement(b));
+    return (ea < 0 ? 99 : ea) - (eb < 0 ? 99 : eb) || (a.name||'').localeCompare(b.name||'', 'cs');
+  });
+  return c;
+}
+
+// Build flat page array with null-padding for element grouping in book view
+// Each element group starts on a new page (fills remaining slots with null)
+function buildBookPages(cards) {
+  if (activeSort !== 'element') {
+    // Simple flat layout - pad last page
+    return cards;
+  }
+  // Group by element, each group starts fresh on a new page
+  const groups = {};
+  const order = [];
+  for (const c of cards) {
+    const el = getCardElement(c);
+    if (!groups[el]) { groups[el] = []; order.push(el); }
+    groups[el].push(c);
+  }
+  const result = [];
+  for (const el of order) {
+    // Pad previous page to fill BOOK_PAGE_SIZE slots
+    const rem = result.length % BOOK_PAGE_SIZE;
+    if (rem !== 0 && result.length > 0) {
+      for (let i = 0; i < BOOK_PAGE_SIZE - rem; i++) result.push(null);
+    }
+    result.push(...groups[el]);
+  }
+  return result;
+}
 
 function setViewMode(mode) {
   bookViewMode = mode;
@@ -1429,7 +1516,7 @@ function renderBookView() {
     ? (allAlbums.find(a => a.id === activeAlbumId)?.cardIds || [])
     : null;
 
-  bookFilteredCards = allCards.filter(c => {
+  let rawFiltered = allCards.filter(c => {
     if (activeView === 'trade' && !c.for_trade) return false;
     if (activeView === 'sell'  && !c.for_sell)  return false;
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
@@ -1441,6 +1528,8 @@ function renderBookView() {
                (c.number||'').toLowerCase().includes(q))) return false;
     return true;
   });
+  rawFiltered = sortCards(rawFiltered);
+  bookFilteredCards = buildBookPages(rawFiltered);
 
   const totalSpreads = Math.max(1, Math.ceil(bookFilteredCards.length / BOOK_CARDS_PER_PAGE));
   bookCurrentPage = Math.min(bookCurrentPage, totalSpreads - 1);
@@ -1452,11 +1541,11 @@ function renderBookView() {
   document.getElementById('bookPrev').disabled = bookCurrentPage === 0;
   document.getElementById('bookNext').disabled = bookCurrentPage >= totalSpreads - 1;
 
-  // Slice cards for this spread (6 per spread = 3 left + 3 right)
+  // Slice cards for this spread (18 per spread = 9 left + 9 right, 3×3 each page)
   const startIdx = bookCurrentPage * BOOK_CARDS_PER_PAGE;
   const spreadCards = bookFilteredCards.slice(startIdx, startIdx + BOOK_CARDS_PER_PAGE);
-  const leftCards   = spreadCards.slice(0, 3);
-  const rightCards  = spreadCards.slice(3, 6);
+  const leftCards   = spreadCards.slice(0, 9);
+  const rightCards  = spreadCards.slice(9, 18);
 
   function renderBookCard(c) {
     if (!c) return '<div class="book-card-empty"></div>';
@@ -1482,8 +1571,8 @@ function renderBookView() {
   }
 
   // Pad to 3 cards each side
-  while (leftCards.length  < 3) leftCards.push(null);
-  while (rightCards.length < 3) rightCards.push(null);
+  while (leftCards.length  < 9) leftCards.push(null);
+  while (rightCards.length < 9) rightCards.push(null);
 
   const leftPageNum  = bookCurrentPage * 2 + 1;
   const rightPageNum = bookCurrentPage * 2 + 2;
