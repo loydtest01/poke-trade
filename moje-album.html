@@ -154,6 +154,24 @@ body { background: #0a0a0f; overflow-x: hidden; }
 }
 .stat-chip strong { color: var(--yellow); font-family: 'Unbounded', sans-serif; font-size: 12px; }
 
+/* Supertype lišta (Pokémon / Trenéři / Energie) */
+.supertype-bar {
+  display: flex; gap: 6px; margin-bottom: 10px;
+}
+.st-btn {
+  padding: 5px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.1); background: transparent;
+  color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.st-btn:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.st-btn.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+.st-btn .st-cnt {
+  background: rgba(255,255,255,0.1); border-radius: 10px;
+  padding: 0 6px; font-size: 10px; font-weight: 800;
+}
+.st-btn.active .st-cnt { background: rgba(245,200,66,0.25); }
+
 /* Typ bary */
 .type-bar {
   display: flex; gap: 6px; flex-wrap: wrap;
@@ -447,6 +465,14 @@ body { background: #0a0a0f; overflow-x: hidden; }
       </div>
     </div>
 
+    <!-- Supertype lišta -->
+    <div class="supertype-bar">
+      <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
+    </div>
+
     <!-- Typ bary -->
     <div class="type-bar">
       <button class="type-chip active" onclick="setType('')">Vše</button>
@@ -536,6 +562,7 @@ let userId     = null, token = null, uname = '';
 let activeView    = 'all';   // all | trade | sell
 let activeType    = '';
 let activeCond    = '';
+let activeSupertype = '';    // '' | 'Pokémon' | 'Trainer' | 'Energy'
 let activeAlbumId = null;    // null = všechny karty
 let selectMode    = false;
 let selectedIds   = new Set();
@@ -656,6 +683,7 @@ function render() {
     if (activeView === 'sell'  && !c.for_sell)  return false;
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
     if (activeType && !matchType(c, activeType)) return false;
+    if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
                (c.set||'').toLowerCase().includes(q)  ||
@@ -947,6 +975,28 @@ function updateStats() {
   document.getElementById('statTrade').textContent = allCards.filter(c => c.for_trade).length;
   document.getElementById('cnt-sell').textContent  = allCards.filter(c => c.for_sell).length;
   document.getElementById('statSell').textContent  = allCards.filter(c => c.for_sell).length;
+  // Supertype počty
+  document.getElementById('st-cnt-all').textContent     = allCards.length;
+  document.getElementById('st-cnt-pokemon').textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
+  document.getElementById('st-cnt-trainer').textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
+  document.getElementById('st-cnt-energy').textContent  = allCards.filter(c => matchSupertype(c,'Energy')).length;
+}
+
+function setSupertype(st) {
+  activeSupertype = st;
+  document.querySelectorAll('.st-btn').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
+  });
+  render();
+}
+
+function matchSupertype(c, st) {
+  const s = (c.supertype || c.cardType || '').toLowerCase();
+  if (st === 'Pokémon') return s === 'pokémon' || s === 'pokemon';
+  if (st === 'Trainer') return s === 'trainer' || s === 'trenér';
+  if (st === 'Energy')  return s === 'energy'  || s === 'energie';
+  return true;
 }
 
 function setSyncState(state, label) {
