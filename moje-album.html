@@ -360,8 +360,8 @@ body { background: #0a0a0f; overflow-x: hidden; }
   <a href="index.html" class="app-logo">⚡ Poké<strong>Trade</strong></a>
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html" class="active">🎴 Moje album</a>
-    <a href="album.html">🔄 Výměny</a>
     <a href="compare.html">Porovnat alba</a>
   </nav>
   <div class="topbar-right">
@@ -558,7 +558,7 @@ let editingAlbumId = null;
     document.getElementById('userName').textContent     = uname;
     document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
   } else {
-    showLoginPrompt(); return;
+    setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
   }
 
   document.getElementById('syncModeSelect').value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
