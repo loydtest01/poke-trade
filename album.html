@@ -77,39 +77,190 @@ body { background: #0a0a0f; overflow-x: hidden; }
 }
 .sync-dot.ok      { background: #22c55e; }
 .sync-dot.syncing { background: var(--yellow); animation: blink .8s infinite; }
-.sync-dot.warn    { background: #f97316; animation: blink .5s infinite; }
-.sync-dot.off     { background: #ef4444; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* ── Inactivity warning banner ─────────────────────────────────── */
-#syncWarningBanner {
-  display: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-  background: rgba(20,12,5,0.95); border: 1px solid #f97316;
-  border-radius: 14px; padding: 14px 18px; min-width: 280px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.5); font-family: inherit;
+/* ── View toggle ───────────────────────────────────────────── */
+.view-toggle {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 3px;
 }
-#syncWarningBanner .wb-title {
-  font-size: 13px; font-weight: 600; color: #f97316; margin-bottom: 6px;
+.vt-btn {
+  padding: 5px 12px; border-radius: 7px; border: none;
+  background: transparent; color: var(--text3); font-size: 12px;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+  display: flex; align-items: center; gap: 5px;
 }
-#syncWarningBanner .wb-msg {
-  font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 10px; line-height: 1.5;
+.vt-btn:hover { color: var(--text2); }
+.vt-btn.active { background: rgba(245,200,66,0.15); color: var(--yellow); }
+
+/* ── Sort select ───────────────────────────────────────────── */
+.sort-select {
+  padding: 6px 10px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: var(--text2);
+  font-family: inherit; font-size: 12px; cursor: pointer; outline: none;
 }
-#syncWarningBanner .wb-countdown {
-  font-size: 22px; font-weight: 700; color: #fff; text-align: center;
-  margin-bottom: 10px; letter-spacing: 0.04em;
+
+/* ── Album book ─────────────────────────────────────────────── */
+.album-book { display: none; }
+.album-book.visible { display: block; }
+.cards-grid.hidden { display: none; }
+
+.book-wrap {
+  background: linear-gradient(160deg, #1a1208 0%, #0e0c06 100%);
+  border: 1px solid rgba(245,200,66,0.15); border-radius: 16px; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
 }
-#syncWarningBanner .wb-actions { display: flex; gap: 8px; }
-#syncWarningBanner .wb-btn {
-  flex: 1; padding: 7px 0; border-radius: 8px; font-size: 12px; font-weight: 600;
-  cursor: pointer; border: none; font-family: inherit; transition: opacity .15s;
+.book-size-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.2);
 }
-#syncWarningBanner .wb-btn:hover { opacity: .85; }
-#syncWarningBanner .wb-btn-keep {
-  background: #f97316; color: #000;
+.book-size-row label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.book-size-row input[type=range] { flex: 1; max-width: 180px; }
+.book-size-val { font-size: 11px; color: var(--text2); min-width: 30px; }
+.book-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px; background: rgba(0,0,0,0.4);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
 }
-#syncWarningBanner .wb-btn-dismiss {
-  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
-  border: 1px solid rgba(255,255,255,0.12) !important;
+.book-page-info {
+  font-family: 'Unbounded', sans-serif; font-size: 11px;
+  color: rgba(245,200,66,0.7); letter-spacing: .08em;
+}
+.book-nav-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(245,200,66,0.08); border: 1px solid rgba(245,200,66,0.2);
+  color: rgba(245,200,66,0.8); border-radius: 8px; padding: 5px 14px;
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.book-nav-btn:hover:not(:disabled) { background: rgba(245,200,66,0.18); color: var(--yellow); }
+.book-nav-btn:disabled { opacity: .3; cursor: default; }
+.book-pages {
+  display: grid; grid-template-columns: 1fr 1fr; min-height: 480px;
+  --book-scale: 1;
+}
+.book-page {
+  padding: 20px 16px 24px; position: relative;
+}
+.book-page:first-child {
+  border-right: 2px solid rgba(0,0,0,0.6);
+  background: linear-gradient(to right, rgba(245,200,66,0.02) 0%, transparent 100%);
+}
+.book-page:last-child {
+  background: linear-gradient(to left, rgba(245,200,66,0.02) 0%, transparent 100%);
+}
+.page-number {
+  position: absolute; bottom: 8px; font-size: 10px;
+  color: rgba(255,255,255,0.15); font-family: 'Unbounded', sans-serif;
+}
+.book-page:first-child .page-number { right: 14px; }
+.book-page:last-child  .page-number { left: 14px; }
+.book-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr); gap: 6px;
+}
+.book-card {
+  position: relative; border-radius: 8px; overflow: hidden;
+  aspect-ratio: 63/88; min-width: 0;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.book-card:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5); border-color: rgba(245,200,66,0.4); z-index: 2;
+}
+.book-card.trade { border-color: rgba(74,158,255,0.5); }
+.book-card.sell  { border-color: rgba(34,197,94,0.5); }
+.book-card.both  { border-color: rgba(245,200,66,0.5); }
+.book-card img   { width: 100%; height: 100%; object-fit: cover; display: block; }
+.book-card .card-footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9)); padding: 16px 5px 4px;
+}
+.book-card .card-name { font-size: 8px; font-weight: 700; color: #fff; line-height: 1.2; }
+.book-card .card-sub  { font-size: 7px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+.book-card .trade-badge {
+  position: absolute; top: 3px; right: 3px;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+}
+.book-card .badge-pill { font-size: 7px; font-weight: 800; padding: 1px 4px; border-radius: 4px; }
+.book-card-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 6px;
+}
+.book-card-placeholder .emoji { font-size: 22px; }
+.book-card-placeholder .name  { font-size: 8px; color: var(--text2); text-align: center; }
+.book-card-empty {
+  border-radius: 8px; aspect-ratio: 63/88;
+  background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.06);
+}
+.book-spine {
+  position: absolute; top: 0; bottom: 0; left: 50%; width: 2px;
+  transform: translateX(-50%);
+  background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.8) 20%,
+    rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.8) 80%, transparent);
+  pointer-events: none; z-index: 5;
+}
+
+/* ── Card detail modal ─────────────────────────────────────── */
+#cardDetailModal {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.82); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+#cardDetailModal.open { display: flex; }
+.cd-box {
+  background: #0e0c12; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; width: 100%; max-width: 680px;
+  display: flex; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7); max-height: 90vh; position: relative;
+}
+.cd-left {
+  flex: 0 0 260px; background: rgba(0,0,0,0.4);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 28px 20px; gap: 14px;
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+.cd-img { width: 100%; max-width: 220px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); transition: transform .2s; }
+.cd-img:hover { transform: scale(1.04); }
+.cd-no-img {
+  width: 180px; height: 252px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text3); font-size: 13px;
+}
+.cd-no-img .big-emoji { font-size: 48px; }
+.cd-right {
+  flex: 1; padding: 24px 24px 20px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.cd-close {
+  position: absolute; top: 16px; right: 18px;
+  background: rgba(255,255,255,0.08); border: none; border-radius: 8px;
+  color: var(--text2); font-size: 16px; cursor: pointer; padding: 5px 10px;
+}
+.cd-close:hover { background: rgba(255,255,255,0.15); }
+.cd-name { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 800; color: #fff; line-height: 1.2; }
+.cd-set  { font-size: 12px; color: var(--text3); }
+.cd-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.cd-badge { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.cd-badge.trade { background: rgba(74,158,255,0.2); color: #74b4ff; border: 1px solid rgba(74,158,255,0.3); }
+.cd-badge.sell  { background: rgba(34,197,94,0.2);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.cd-badge.cond  { background: rgba(245,200,66,0.1); color: var(--yellow); border: 1px solid rgba(245,200,66,0.2); }
+.cd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cd-row { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
+.cd-row-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+.cd-row-val   { font-size: 13px; color: var(--text); font-weight: 500; }
+.cd-row.wide  { grid-column: 1 / -1; }
+
+@media (max-width: 768px) {
+  .book-pages { grid-template-columns: 1fr; }
+  .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
+  .cd-box { flex-direction: column; }
+  .cd-left { flex: none; border-right: none; border-bottom: 1px solid rgba(255,255,255,0.07); padding: 16px; }
 }
 
 /* ── Page wrapper ────────────────────────────────────────────────────────── */
@@ -307,17 +458,6 @@ body { background: #0a0a0f; overflow-x: hidden; }
   </div>
 </header>
 
-<!-- Inactivity warning banner -->
-<div id="syncWarningBanner">
-  <div class="wb-title">⏰ Synchronizace se brzy zastaví</div>
-  <div class="wb-msg">Posledních 30 minut nebyla zaznamenána žádná aktivita.</div>
-  <div class="wb-countdown" id="wbCountdown">5:00</div>
-  <div class="wb-actions">
-    <button class="wb-btn wb-btn-keep" onclick="keepSyncAlive()">✓ Pokračovat v synchronizaci</button>
-    <button class="wb-btn wb-btn-dismiss" onclick="dismissSyncWarning()">Odpojit</button>
-  </div>
-</div>
-
 <div class="page-wrap">
   <!-- Sidebar -->
   <aside class="side-panel">
@@ -379,6 +519,18 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <div class="search-box">
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
+      <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
+        <option value="added">Pořadí přidání</option>
+        <option value="name_az">Název A–Z</option>
+        <option value="name_za">Název Z–A</option>
+        <option value="number">Číslo pokémona</option>
+        <option value="series">Série</option>
+        <option value="element">Element</option>
+      </select>
+      <div class="view-toggle">
+        <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')">⊞ Mřížka</button>
+        <button class="vt-btn"        id="vt-book" onclick="setViewMode('book')">📖 Album</button>
+      </div>
       <div class="stats-chips">
         <div class="stat-chip">Celkem <strong id="statCount">0</strong></div>
         <div class="stat-chip">🔄 <strong id="statTrade">0</strong></div>
@@ -392,6 +544,42 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <div class="empty-state-app">
         <div class="icon">🎴</div>
         <h3>Načítám album…</h3>
+      </div>
+    </div>
+
+    <!-- Album book view -->
+    <div class="album-book" id="albumBook">
+      <div class="book-wrap">
+        <div class="book-size-row">
+          <label>Velikost karet</label>
+          <input type="range" min="60" max="160" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
+          <span class="book-size-val" id="bookSizeVal">100%</span>
+        </div>
+        <div class="book-nav">
+          <button class="book-nav-btn" id="bookPrev" onclick="bookPrevPage()">← Předchozí</button>
+          <span class="book-page-info" id="bookPageInfo">Strana 1 / 1</span>
+          <button class="book-nav-btn" id="bookNext" onclick="bookNextPage()">Další →</button>
+        </div>
+        <div class="book-pages" id="bookPages"><div class="book-spine"></div></div>
+      </div>
+    </div>
+
+    <!-- Card detail modal -->
+    <div id="cardDetailModal">
+      <div class="cd-box">
+        <button class="cd-close" onclick="closeCardDetail()">✕</button>
+        <div class="cd-left"><div id="cdImgWrap"></div></div>
+        <div class="cd-right">
+          <div>
+            <div class="cd-name" id="cdName">—</div>
+            <div class="cd-set"  id="cdSet">—</div>
+          </div>
+          <div class="cd-badges" id="cdBadges"></div>
+          <div class="cd-grid"   id="cdGrid"></div>
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">
+            Kontaktujte majitele karty přes Nabídky nebo zprávu.
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -586,87 +774,6 @@ function updateCounts() {
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
-
-// Activity timeout constants
-const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minut
-const WARNING_BEFORE_MS   =  5 * 60 * 1000; // varování 5 minut před odpojením
-let _syncTimer = null, _inactTimer = null, _warnCountdown = null;
-let _syncRunning = false;
-
-function registerActivity() {
-  if (!_syncRunning) return;
-  // Reset inactivity timer on any user activity
-  clearTimeout(_inactTimer);
-  _inactTimer = setTimeout(showSyncWarning, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS);
-}
-
-function startActivityTracking() {
-  clearTimeout(_inactTimer);
-  _inactTimer = setTimeout(showSyncWarning, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS);
-  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
-    window.addEventListener(ev, registerActivity, { passive: true }));
-}
-
-function stopActivityTracking() {
-  clearTimeout(_inactTimer); _inactTimer = null;
-  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
-    window.removeEventListener(ev, registerActivity));
-}
-
-function showSyncWarning() {
-  const banner = document.getElementById('syncWarningBanner');
-  if (!banner) return;
-  banner.style.display = 'block';
-  setSyncState('warn', 'Upozornění');
-  let secondsLeft = WARNING_BEFORE_MS / 1000;
-  updateCountdown(secondsLeft);
-  _warnCountdown = setInterval(() => {
-    secondsLeft--;
-    updateCountdown(secondsLeft);
-    if (secondsLeft <= 0) {
-      clearInterval(_warnCountdown); _warnCountdown = null;
-      doDisconnectSync();
-    }
-  }, 1000);
-}
-
-function updateCountdown(s) {
-  const el = document.getElementById('wbCountdown');
-  if (!el) return;
-  const m = Math.floor(s / 60), sec = s % 60;
-  el.textContent = m + ':' + String(sec).padStart(2, '0');
-}
-
-function keepSyncAlive() {
-  clearInterval(_warnCountdown); _warnCountdown = null;
-  document.getElementById('syncWarningBanner').style.display = 'none';
-  setSyncState('ok', 'Synchronizováno');
-  registerActivity(); // reset timer
-  startActivityTracking();
-}
-
-function dismissSyncWarning() {
-  clearInterval(_warnCountdown); _warnCountdown = null;
-  doDisconnectSync();
-}
-
-function doDisconnectSync() {
-  document.getElementById('syncWarningBanner').style.display = 'none';
-  stopAutoSync();
-  setSyncState('off', 'Odpojeno');
-  const info = document.getElementById('lastSyncInfo');
-  if (info) info.innerHTML = 'Sync zastaven – <a href="#" onclick="reconnectSyncNow()" style="color:#f97316">znovu připojit</a>';
-}
-
-function reconnectSyncNow() {
-  const mode = localStorage.getItem(SYNC_MODE_KEY) || 'realtime';
-  stopAutoSync();
-  autoSync(mode);
-  setSyncState('ok', 'Synchronizováno');
-  updateLastSyncInfo();
-  return false;
-}
-
 async function manualSync() {
   const token   = localStorage.getItem('sb_token');
   const _su2    = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
@@ -679,23 +786,13 @@ async function manualSync() {
 }
 
 function autoSync(mode) {
-  stopAutoSync();
-  _syncRunning = true;
-  if (mode === 'hourly')   _syncTimer = setInterval(manualSync, 60 * 60 * 1000);
-  if (mode === 'realtime') _syncTimer = setInterval(manualSync, 30_000);
-  startActivityTracking();
-}
-
-function stopAutoSync() {
-  _syncRunning = false;
-  if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
-  stopActivityTracking();
-  clearInterval(_warnCountdown); _warnCountdown = null;
+  if (mode === 'hourly')   setInterval(manualSync, 60 * 60 * 1000);
+  if (mode === 'realtime') setInterval(manualSync, 30_000);
 }
 
 function changeSyncMode(mode) {
   localStorage.setItem(SYNC_MODE_KEY, mode);
-  if (_syncRunning) autoSync(mode); // restartuj se správným módem
+  // Restartovat auto-sync by vyžadovalo reload – stačí info
   updateLastSyncInfo();
 }
 
@@ -748,6 +845,237 @@ function typeEmoji(t) {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ══ SORT ══════════════════════════════════════════════════════════
+const ELEMENT_ORDER = ['fire','water','grass','lightning','psychic','darkness','dragon',
+  'metal','fighting','fairy','bug','poison','ground','ghost','ice','normal','flying','rock','colorless'];
+
+let activeSort = localStorage.getItem('pkc_album_sort') || 'added';
+
+(function restoreSort() {
+  const sel = document.getElementById('sortSelect');
+  if (sel) sel.value = activeSort;
+})();
+
+function setSort(val) {
+  activeSort = val;
+  localStorage.setItem('pkc_album_sort', val);
+  render();
+  if (bookViewMode === 'book') { bookCurrentPage = 0; renderBookView(); }
+}
+
+function getCardElement(c) {
+  const t = ((c.types?.[0] || c.type || '')).toLowerCase();
+  for (const e of ELEMENT_ORDER) if (t.includes(e)) return e;
+  return 'other';
+}
+
+function sortCards(cards) {
+  const c = [...cards];
+  if (activeSort === 'added')   return c;
+  if (activeSort === 'name_az') return c.sort((a,b) => (a.name||'').localeCompare(b.name||'', 'cs'));
+  if (activeSort === 'name_za') return c.sort((a,b) => (b.name||'').localeCompare(a.name||'', 'cs'));
+  if (activeSort === 'number')  return c.sort((a,b) => {
+    const na = parseInt((a.number||'0').replace(/[^0-9]/g,'')) || 0;
+    const nb = parseInt((b.number||'0').replace(/[^0-9]/g,'')) || 0;
+    return na - nb || (a.name||'').localeCompare(b.name||'', 'cs');
+  });
+  if (activeSort === 'series')  return c.sort((a,b) =>
+    (a.set||'').localeCompare(b.set||'', 'cs') || (a.name||'').localeCompare(b.name||'', 'cs'));
+  if (activeSort === 'element') return c.sort((a,b) => {
+    const ea = ELEMENT_ORDER.indexOf(getCardElement(a));
+    const eb = ELEMENT_ORDER.indexOf(getCardElement(b));
+    return (ea<0?99:ea)-(eb<0?99:eb) || (a.name||'').localeCompare(b.name||'', 'cs');
+  });
+  return c;
+}
+
+function buildBookPages(cards) {
+  if (activeSort !== 'element') return cards;
+  const PGSZ = 9;
+  const groups = {}, order = [];
+  for (const c of cards) {
+    const el = getCardElement(c);
+    if (!groups[el]) { groups[el] = []; order.push(el); }
+    groups[el].push(c);
+  }
+  const result = [];
+  for (const el of order) {
+    const rem = result.length % PGSZ;
+    if (rem !== 0 && result.length > 0)
+      for (let i = 0; i < PGSZ - rem; i++) result.push(null);
+    result.push(...groups[el]);
+  }
+  return result;
+}
+
+// ══ BOOK VIEW ═════════════════════════════════════════════════════
+const BOOK_CARDS_PER_PAGE = 18;
+const BOOK_PAGE_SIZE = 9;
+let bookViewMode = 'grid';
+let bookCurrentPage = 0;
+let bookFilteredCards = [];
+let bookSize = parseInt(localStorage.getItem('pkc_album_book_size') || '100');
+
+function setViewMode(mode) {
+  bookViewMode = mode;
+  localStorage.setItem('pkc_album_view_mode', mode);
+  document.getElementById('vt-grid').classList.toggle('active', mode === 'grid');
+  document.getElementById('vt-book').classList.toggle('active', mode === 'book');
+  document.getElementById('cardsGrid').classList.toggle('hidden', mode === 'book');
+  document.getElementById('albumBook').classList.toggle('visible', mode === 'book');
+  if (mode === 'book') { bookCurrentPage = 0; renderBookView(); initBookSize(); }
+}
+
+function bookPrevPage() {
+  if (bookCurrentPage > 0) { bookCurrentPage--; renderBookView(); }
+}
+function bookNextPage() {
+  const total = Math.ceil(bookFilteredCards.length / BOOK_CARDS_PER_PAGE);
+  if (bookCurrentPage < total - 1) { bookCurrentPage++; renderBookView(); }
+}
+
+function renderBookView() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  let raw = allCards.filter(c => {
+    if (activeFilter === 'trade' && !c.for_trade) return false;
+    if (activeFilter === 'sell'  && !c.for_sell)  return false;
+    if (activeType && !matchType(c, activeType))   return false;
+    if (activeCond && c.condition !== activeCond)  return false;
+    if (q && !((c.name||'').toLowerCase().includes(q) ||
+               (c.set||'').toLowerCase().includes(q)  ||
+               (c.number||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+  raw = sortCards(raw);
+  bookFilteredCards = buildBookPages(raw);
+
+  const totalSpreads = Math.max(1, Math.ceil(bookFilteredCards.length / BOOK_CARDS_PER_PAGE));
+  bookCurrentPage = Math.min(bookCurrentPage, totalSpreads - 1);
+
+  document.getElementById('bookPageInfo').textContent =
+    'Strana ' + (bookCurrentPage*2+1) + '–' + (bookCurrentPage*2+2) + ' / ' + (totalSpreads*2);
+  document.getElementById('bookPrev').disabled = bookCurrentPage === 0;
+  document.getElementById('bookNext').disabled = bookCurrentPage >= totalSpreads-1;
+
+  const startIdx = bookCurrentPage * BOOK_CARDS_PER_PAGE;
+  const spread   = bookFilteredCards.slice(startIdx, startIdx + BOOK_CARDS_PER_PAGE);
+  const left = spread.slice(0, 9); while (left.length  < 9) left.push(null);
+  const right= spread.slice(9,18); while (right.length < 9) right.push(null);
+
+  function renderBookCard(c) {
+    if (!c) return '<div class="book-card-empty"></div>';
+    const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
+    const emoji = typeEmoji(c.types?.[0] || c.type || '');
+    const cls   = c.for_trade && c.for_sell ? 'both' : c.for_trade ? 'trade' : c.for_sell ? 'sell' : '';
+    return `<div class="book-card ${cls}" onclick="cardDetailOpen('${esc(String(c.id||c.name))}')">
+      ${img ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy">`
+            : `<div class="book-card-placeholder"><div class="emoji">${emoji}</div><div class="name">${esc(c.name||'?')}</div></div>`}
+      <div class="trade-badge">
+        ${c.for_trade?'<span class="badge-pill badge-trade">🔄</span>':''}
+        ${c.for_sell ?'<span class="badge-pill badge-sell">💰</span>':''}
+      </div>
+      <div class="card-footer">
+        <div class="card-name">${esc(c.name||'?')}</div>
+        <div class="card-sub">${esc(c.set||'')}${c.number?' #'+esc(c.number):''}</div>
+      </div>
+    </div>`;
+  }
+
+  document.getElementById('bookPages').innerHTML = `
+    <div class="book-spine"></div>
+    <div class="book-page">
+      <div class="book-grid">${left.map(renderBookCard).join('')}</div>
+      <div class="page-number">${bookCurrentPage*2+1}</div>
+    </div>
+    <div class="book-page">
+      <div class="book-grid">${right.map(renderBookCard).join('')}</div>
+      <div class="page-number">${bookCurrentPage*2+2}</div>
+    </div>`;
+}
+
+function setBookSize(val) {
+  bookSize = parseInt(val);
+  localStorage.setItem('pkc_album_book_size', bookSize);
+  document.getElementById('bookSizeVal').textContent = bookSize + '%';
+  document.getElementById('bookPages').style.setProperty('--book-scale', bookSize/100);
+  document.getElementById('bookPages').style.fontSize = (bookSize/100) + 'em';
+}
+
+function initBookSize() {
+  const slider = document.getElementById('bookSizeSlider');
+  if (slider) { slider.value = bookSize; setBookSize(bookSize); }
+}
+
+// ══ CARD DETAIL ════════════════════════════════════════════════════
+// Album výměny je read-only — detail jen zobrazí info
+function cardDetailOpen(id) {
+  const c = allCards.find(x => String(x.id||x.name) === String(id)) || filtered.find(x => String(x.id||x.name) === String(id));
+  if (!c) return;
+  const modal = document.getElementById('cardDetailModal');
+  const img = c.images?.large || c.images?.small || c.apiSmall || c.imageUrl || '';
+  const emoji = typeEmoji(c.types?.[0] || c.type || '');
+  document.getElementById('cdImgWrap').innerHTML = img
+    ? `<img class="cd-img" src="${esc(img)}" alt="${esc(c.name||'')}">`
+    : `<div class="cd-no-img"><div class="big-emoji">${emoji}</div><div>${esc(c.name||'?')}</div></div>`;
+  document.getElementById('cdName').textContent = c.name || '?';
+  document.getElementById('cdSet').textContent  = [c.set, c.number?'#'+c.number:''].filter(Boolean).join(' · ');
+  const cond = c.condition || 'NM';
+  const badges = [];
+  if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
+  if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
+  badges.push(`<span class="cd-badge cond">${cond}</span>`);
+  document.getElementById('cdBadges').innerHTML = badges.join('');
+  const rows = [
+    ['Typ',     c.types?.join(', ') || c.type || '—'],
+    ['Série',   c.set || '—'],
+    ['Číslo',   c.number || '—'],
+    ['Stav',    cond],
+    ['HP',      c.hp || '—'],
+    ['Cena',    c.price_czk ? c.price_czk + ' Kč' : '—', false],
+    ['Supertyp',c.supertype || c.category || '—'],
+    ['Počet',   c.count || 1],
+  ];
+  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
+    `<div class="cd-row${wide?' wide':''}">
+       <div class="cd-row-label">${label}</div>
+       <div class="cd-row-val">${esc(String(val))}</div>
+     </div>`).join('');
+  modal.classList.add('open');
+  modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
+}
+
+function closeCardDetail() {
+  document.getElementById('cardDetailModal').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardDetail(); });
+
+// ══ PATCH render() to sort + update book view ══════════════════════
+const _origRender = render;
+render = function() {
+  _origRender();
+  if (bookViewMode === 'book') renderBookView();
+};
+
+// ══ PATCH renderCard to open detail on click ══════════════════════
+const _origRenderCard = renderCard;
+renderCard = function(c) {
+  const html = _origRenderCard(c);
+  const id = esc(String(c.id||c.name||''));
+  return html.replace('<div class="card-slot', `<div onclick="cardDetailOpen('${id}')" class="card-slot`);
+};
+
+// ══ RESTORE saved view mode + sort after data loaded ══════════════
+(function restoreViewMode() {
+  const mode = localStorage.getItem('pkc_album_view_mode') || 'grid';
+  if (mode === 'book') {
+    // Wait for data then switch
+    const check = setInterval(() => {
+      if (allCards.length > 0) { clearInterval(check); setViewMode('book'); }
+    }, 100);
+  }
+})();
 </script>
 </body>
 </html>
