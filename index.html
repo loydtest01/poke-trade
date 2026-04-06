@@ -7,6 +7,119 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+/* ═══ WALLPAPER – HERO SEKCE ═══ */
+body {
+  background: #0a0608;
+}
+
+/* Tapeta pouze za hero – přes pseudo-element na .hero */
+.hero {
+  position: relative;
+  min-height: 620px;
+}
+
+/* Tapeta jako vrstva v hero-bg */
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('wallpaper.png');
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  filter: brightness(0.22) saturate(0.65);
+  z-index: 0;
+}
+
+/* Gradient přechod dole – plynulé napojení na zbytek stránky */
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 60% at 15% 65%, rgba(255,90,0,0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 60% at 85% 65%, rgba(20,60,255,0.12) 0%, transparent 65%),
+    linear-gradient(to bottom,
+      rgba(0,0,0,0.45) 0%,
+      rgba(0,0,0,0.15) 40%,
+      rgba(10,6,8,0.85) 85%,
+      rgba(10,6,8,1.00) 100%
+    );
+  z-index: 0;
+}
+
+/* Orby schovat – tapeta je víc než dost */
+.orb { display: none; }
+
+/* Grid lines zůstanou ale jemnější */
+.grid-lines {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px) !important;
+  z-index: 1;
+}
+
+/* Hero content nad vším */
+.hero-content { z-index: 2; }
+.hero-cards-visual { z-index: 2; }
+
+/* Hero badge fire styl */
+.hero-badge {
+  background: rgba(245,200,66,0.12) !important;
+  border-color: rgba(245,200,66,0.35) !important;
+  text-shadow: 0 0 10px rgba(245,200,66,0.3);
+}
+
+/* Nadpis – výraznější glow */
+.hero-title {
+  text-shadow: 0 2px 30px rgba(0,0,0,0.8), 0 0 60px rgba(245,200,66,0.08);
+}
+.hero-title em {
+  filter: drop-shadow(0 0 12px rgba(245,200,66,0.5));
+}
+
+/* Statistiky oddělené od tapety */
+.hero-stats .stat span {
+  text-shadow: 0 0 15px rgba(245,200,66,0.3);
+}
+
+/* ═══ ZBYTEK STRÁNKY – tmavý bez tapety ═══ */
+.section { background: transparent; }
+
+.how, .features, .cta-section {
+  background: #0a0608;
+  position: relative;
+}
+
+/* Jemný separátor mezi hero a sekcí */
+.how::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,0.15), transparent);
+  margin-bottom: 0;
+}
+
+/* Feature karty – tmavší pro kontrast */
+.feature-card {
+  background: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+
+/* CTA box */
+.cta-box {
+  background: rgba(245,200,66,0.05) !important;
+  border-color: rgba(245,200,66,0.15) !important;
+}
+
+/* Navbar */
+.navbar {
+  background: rgba(8,4,6,0.80) !important;
+  border-bottom-color: rgba(245,200,66,0.12) !important;
+  backdrop-filter: blur(18px) !important;
+}
+</style>
 </head>
 <body>
 
