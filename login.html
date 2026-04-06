@@ -7,6 +7,183 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+/* ═══ WALLPAPER LOGIN ═══ */
+body.auth-page {
+  background: #0a0608;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+/* Tapeta jako pozadí – ztmavená */
+body.auth-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('wallpaper.png');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  /* Ztmavení tapety – přebarvit ale neumazat detaily */
+  filter: brightness(0.28) saturate(0.7);
+  z-index: 0;
+}
+
+/* Jemný gradient overlay pro hloubku */
+body.auth-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.10) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.20) 50%, rgba(0,0,0,0.70) 100%);
+  z-index: 0;
+}
+
+/* Navbar nad tapetou */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,4,6,0.75) !important;
+  border-bottom: 1px solid rgba(245,200,66,0.15) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+/* Auth container nad overlayem */
+.auth-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Karta – frosted glass s fire/ice nádechem */
+.auth-card {
+  background: rgba(12,8,10,0.72) !important;
+  border: 1px solid rgba(245,200,66,0.20) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 8px 40px rgba(0,0,0,0.7),
+    0 0 60px rgba(245,200,66,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  border-radius: 20px !important;
+}
+
+/* Ikona – fire glow */
+.auth-icon {
+  font-size: 44px !important;
+  filter: drop-shadow(0 0 12px rgba(255,140,0,0.8)) drop-shadow(0 0 24px rgba(255,80,0,0.4));
+  animation: flicker 3s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%,100% { filter: drop-shadow(0 0 12px rgba(255,140,0,0.8)) drop-shadow(0 0 24px rgba(255,80,0,0.4)); }
+  50%      { filter: drop-shadow(0 0 18px rgba(255,160,0,1.0)) drop-shadow(0 0 36px rgba(255,80,0,0.7)); }
+}
+
+/* Nadpis */
+.auth-header h1 {
+  color: #fff !important;
+  text-shadow: 0 0 20px rgba(245,200,66,0.4);
+  letter-spacing: 0.01em;
+}
+
+.auth-header p {
+  color: rgba(255,255,255,0.5) !important;
+}
+
+/* Inputy */
+.form-group label {
+  color: rgba(255,255,255,0.55) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.form-group input {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus {
+  border-color: rgba(245,200,66,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(245,200,66,0.10) !important;
+  outline: none;
+}
+
+.form-group input::placeholder { color: rgba(255,255,255,0.25) !important; }
+
+/* Password wrap */
+.input-password-wrap {
+  position: relative;
+}
+
+.input-password-wrap input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.eye-btn {
+  position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  background: none !important; border: none !important;
+  color: rgba(255,255,255,0.35) !important;
+  cursor: pointer; padding: 4px; font-size: 16px;
+  transition: color 0.2s;
+}
+.eye-btn:hover { color: rgba(245,200,66,0.8) !important; }
+
+/* Tlačítko Přihlásit se – výrazné, fire styl */
+.btn-primary {
+  background: linear-gradient(135deg, #f5c842 0%, #ff8c00 100%) !important;
+  color: #0a0608 !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.04em;
+  box-shadow:
+    0 4px 20px rgba(255,140,0,0.4),
+    0 1px 0 rgba(255,255,255,0.15) inset !important;
+  border: none !important;
+  transition: all 0.2s !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #ffd83a 0%, #ff6a00 100%) !important;
+  box-shadow: 0 6px 28px rgba(255,120,0,0.55), 0 1px 0 rgba(255,255,255,0.2) inset !important;
+  transform: translateY(-2px) !important;
+}
+.btn-primary:active { transform: translateY(0) !important; }
+
+/* Divider */
+.auth-divider { color: rgba(255,255,255,0.2) !important; }
+.auth-divider::before, .auth-divider::after { background: rgba(255,255,255,0.10) !important; }
+
+/* Linky */
+.auth-alt { color: rgba(255,255,255,0.4) !important; }
+.auth-alt a {
+  color: #f5c842 !important;
+  text-decoration: none;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+.auth-alt a:hover {
+  color: #ffd83a !important;
+  text-shadow: 0 0 8px rgba(245,200,66,0.5);
+}
+
+/* Error box */
+.auth-error {
+  background: rgba(255,80,0,0.12) !important;
+  border: 1px solid rgba(255,80,0,0.35) !important;
+  color: #ff9966 !important;
+}
+
+/* Note */
+.auth-note {
+  background: rgba(245,200,66,0.05) !important;
+  border: 1px solid rgba(245,200,66,0.12) !important;
+  color: rgba(255,255,255,0.35) !important;
+}
+</style>
 </head>
 <body class="auth-page">
 <nav class="navbar">
