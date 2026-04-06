@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moje album – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── App-clone layout ──────────────────────────────────────── */
+body { background: #0a0a0f; overflow-x: hidden; }
+
+.app-wallpaper {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 20%, rgba(74,158,255,0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 50% at 10% 80%, rgba(155,111,255,0.1) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 50%, rgba(245,200,66,0.06) 0%, transparent 60%),
+    #0a0a0f;
+}
+
+/* ── Top bar ──────────────────────────────────────────────── */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.sync-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2); border-radius: 8px; padding: 5px 12px; font-size: 12px;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.sync-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+.sync-dot.ok      { background: #22c55e; }
+.sync-dot.syncing { background: var(--yellow); animation: blink .8s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:.3} }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+.page-wrap { position: relative; z-index: 1; display: flex; min-height: calc(100vh - 56px); }
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: rgba(8,8,12,0.7);
+  border-right: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 0; position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+.sb-section { padding: 0 10px 12px; }
+.sb-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  color: var(--text3); text-transform: uppercase;
+  padding: 0 6px 6px; display: block;
+}
+.sb-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 7px 10px; border-radius: 8px; border: none;
+  background: transparent; color: var(--text2); font-size: 13px;
+  font-family: inherit; cursor: pointer; text-align: left; transition: all .15s;
+  text-decoration: none;
+}
+.sb-btn:hover  { background: rgba(255,255,255,0.05); color: var(--text); }
+.sb-btn.active { background: rgba(245,200,66,0.12); color: var(--yellow); font-weight: 600; }
+.sb-btn .cnt   { font-size: 11px; opacity: .5; }
+.sb-divider { height: 1px; background: rgba(255,255,255,0.05); margin: 6px 10px 10px; }
+
+/* Album sekce v sidebaru */
+.album-list { padding: 0 10px; }
+.album-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 8px; cursor: pointer;
+  transition: all .15s; position: relative; border: none;
+  background: transparent; width: 100%; text-align: left; font-family: inherit;
+}
+.album-item:hover  { background: rgba(255,255,255,0.05); }
+.album-item.active { background: rgba(255,255,255,0.08); }
+.album-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.album-name { font-size: 13px; color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-item.active .album-name { color: var(--text); font-weight: 600; }
+.album-cnt { font-size: 10px; color: var(--text3); }
+.album-del-btn {
+  opacity: 0; background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 13px; padding: 0 2px;
+  transition: opacity .15s, color .15s;
+}
+.album-item:hover .album-del-btn { opacity: 1; }
+.album-del-btn:hover { color: var(--red); }
+
+.new-album-btn {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; padding: 7px 10px; border-radius: 8px;
+  border: 1px dashed rgba(255,255,255,0.1);
+  background: transparent; color: var(--text3); font-size: 12px;
+  font-family: inherit; cursor: pointer; margin-top: 6px; transition: all .15s;
+}
+.new-album-btn:hover { border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+
+/* ── Main content ──────────────────────────────────────────── */
+.main { flex: 1; padding: 20px; min-width: 0; }
+
+/* ── Toolbar ───────────────────────────────────────────────── */
+.toolbar {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px; flex-wrap: wrap;
+}
+.search-wrap { flex: 1; min-width: 200px; position: relative; }
+.search-wrap::before {
+  content: '🔍'; position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%); font-size: 12px; pointer-events: none;
+}
+.search-wrap input {
+  width: 100%; padding: 8px 14px 8px 34px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; outline: none; transition: border-color .15s;
+}
+.search-wrap input:focus { border-color: rgba(245,200,66,0.4); }
+.stat-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.stat-chip {
+  padding: 5px 10px; border-radius: 8px; font-size: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  color: var(--text2); white-space: nowrap;
+}
+.stat-chip strong { color: var(--yellow); font-family: 'Unbounded', sans-serif; font-size: 12px; }
+
+/* Typ bary */
+.type-bar {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 12px; padding: 8px 12px; margin-bottom: 14px;
+}
+.type-chip {
+  padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.08); background: transparent;
+  color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.type-chip:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
+.type-chip.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+
+/* ── Karty grid ────────────────────────────────────────────── */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.card-slot {
+  position: relative; border-radius: 10px; overflow: hidden;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  cursor: pointer; transition: transform .15s, border-color .15s;
+  aspect-ratio: 63/88;
+}
+.card-slot:hover { transform: translateY(-3px) scale(1.02); border-color: rgba(255,255,255,0.14); }
+.card-slot.selected { border-color: rgba(245,200,66,0.7); box-shadow: 0 0 0 2px rgba(245,200,66,0.25); }
+.card-slot.in-album { border-color: rgba(74,158,255,0.4); }
+
+.card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 8px; background: rgba(255,255,255,0.03);
+}
+.card-placeholder .emoji { font-size: 26px; }
+.card-placeholder .name  { font-size: 9px; color: var(--text2); text-align: center; line-height: 1.3; }
+.card-placeholder .set   { font-size: 8px; color: var(--text3); }
+
+.card-footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.85));
+  padding: 18px 6px 4px;
+}
+.card-name { font-size: 9px; font-weight: 600; color: #fff; line-height: 1.2; }
+.card-sub  { font-size: 8px; color: rgba(255,255,255,0.45); margin-top: 1px; }
+
+/* Badge vpravo nahoře */
+.card-badges {
+  position: absolute; top: 4px; right: 4px; z-index: 2;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+}
+.badge-pill {
+  font-size: 8px; font-weight: 800; padding: 1px 5px; border-radius: 5px;
+  line-height: 1.5; backdrop-filter: blur(4px); white-space: nowrap;
+}
+.badge-trade { background: rgba(74,158,255,0.88); color: #fff; }
+.badge-sell  { background: rgba(34,197,94,0.88);  color: #fff; }
+
+/* Check badge pro výběr */
+.card-check {
+  position: absolute; top: 4px; left: 4px; z-index: 3;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; transition: all .15s;
+}
+.card-slot.selected .card-check {
+  background: var(--yellow); border-color: var(--yellow); color: #000; font-weight: 900;
+}
+
+/* Skeleton */
+.skeleton {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite; border-radius: 10px;
+}
+@keyframes shimmer { 0%{background-position:200% 0}100%{background-position:-200% 0} }
+
+/* Prázdný stav */
+.empty-state {
+  grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--text3);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+.empty-state h3 { font-size: 16px; color: var(--text2); margin-bottom: 8px; }
+.empty-state p  { font-size: 13px; line-height: 1.6; max-width: 360px; margin: 0 auto; }
+
+/* Login prompt */
+.login-prompt {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 60vh; gap: 14px; color: var(--text2); text-align: center; padding: 40px;
+}
+.login-prompt .icon { font-size: 52px; }
+.login-prompt h2 { font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 800; color: var(--text); }
+.login-prompt p  { font-size: 13px; color: var(--text3); max-width: 340px; }
+
+/* ── Nové album modal ─────────────────────────────────────── */
+.modal-bg {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.modal-bg.hidden { display: none; }
+.modal-box {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 18px; width: 100%; max-width: 420px; overflow: hidden;
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 22px; border-bottom: 1px solid var(--border);
+}
+.modal-head h3 { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 700; }
+.modal-close {
+  background: none; border: none; color: var(--text3); font-size: 18px;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px;
+}
+.modal-close:hover { background: var(--bg3); }
+.modal-body { padding: 20px 22px; }
+.modal-row  { margin-bottom: 14px; }
+.modal-row label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+.modal-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px; color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+}
+.modal-input:focus { border-color: var(--yellow); }
+.color-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.color-dot {
+  width: 26px; height: 26px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: transform .15s, border-color .15s;
+}
+.color-dot:hover   { transform: scale(1.15); }
+.color-dot.active  { border-color: #fff; transform: scale(1.15); }
+.icon-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.icon-btn {
+  width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg3); font-size: 16px; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover   { background: var(--bg2); border-color: var(--border2); }
+.icon-btn.active  { border-color: var(--yellow); background: rgba(245,200,66,0.1); }
+.modal-foot { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* ── Album header bar ──────────────────────────────────────── */
+.album-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 14px; padding: 10px 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px;
+}
+.album-header-icon { font-size: 22px; }
+.album-header-name { font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 700; }
+.album-header-cnt  { font-size: 12px; color: var(--text3); }
+.album-header-actions { margin-left: auto; display: flex; gap: 8px; }
+.ah-btn {
+  padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: none; transition: all .15s;
+}
+.ah-btn.add-sel {
+  background: rgba(245,200,66,0.15); color: var(--yellow);
+  border: 1px solid rgba(245,200,66,0.3);
+}
+.ah-btn.add-sel:hover { background: rgba(245,200,66,0.25); }
+.ah-btn.rename {
+  background: rgba(255,255,255,0.06); color: var(--text2);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.ah-btn.rename:hover { color: var(--text); }
+
+/* Select mode banner */
+.select-banner {
+  display: none; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 12px;
+  background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.25);
+  border-radius: 10px; font-size: 13px; color: var(--yellow);
+}
+.select-banner.active { display: flex; }
+.select-banner strong { font-weight: 700; }
+.sel-action-btn {
+  padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: none; transition: all .15s;
+}
+.sel-confirm { background: var(--yellow); color: #000; }
+.sel-confirm:hover { background: var(--yellow2); }
+.sel-cancel  { background: rgba(255,255,255,0.08); color: var(--text2); }
+.sel-cancel:hover { background: rgba(255,255,255,0.14); }
+.sel-remove  { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3) !important; }
+.sel-remove:hover { background: rgba(248,113,113,0.25); }
+
+@media (max-width: 768px) {
+  .sidebar { display: none; }
+  .cards-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 7px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-wallpaper"></div>
+
+<!-- Top bar -->
+<header class="app-topbar">
+  <a href="index.html" class="app-logo">⚡ Poké<strong>Trade</strong></a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html">Nabídky</a>
+    <a href="moje-album.html" class="active">🎴 Moje album</a>
+    <a href="album.html">🔄 Výměny</a>
+    <a href="compare.html">Porovnat alba</a>
+  </nav>
+  <div class="topbar-right">
+    <button class="sync-btn" id="syncBtn" onclick="doSync()">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLabel">Sync</span>
+    </button>
+    <div class="user-chip" id="userChip" style="display:none">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </div>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="font-size:13px">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sb-section">
+      <span class="sb-label">Zobrazit</span>
+      <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
+      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
+      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <span class="sb-label">Stav karty</span>
+      <button class="sb-btn active" onclick="setCond('')">Vše</button>
+      <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
+      <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
+      <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
+      <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <span class="sb-label">Moje alba</span>
+      <div class="album-list" id="albumList">
+        <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+      </div>
+      <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <span class="sb-label">Sync mód</span>
+      <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
+        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
+        <option value="hourly">Každou hodinu</option>
+        <option value="realtime">Real-time (30s)</option>
+        <option value="manual">Manuálně</option>
+      </select>
+      <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Select mode banner -->
+    <div class="select-banner" id="selectBanner">
+      <strong id="selCount">0</strong> karet vybráno
+      <button class="sel-action-btn sel-confirm" onclick="addSelectedToAlbum()">➕ Přidat do alba</button>
+      <button class="sel-action-btn sel-remove"  onclick="removeSelectedFromAlbum()" id="removeFromAlbumBtn" style="display:none">➖ Odebrat z alba</button>
+      <button class="sel-action-btn sel-cancel"  onclick="cancelSelect()">✕ Zrušit</button>
+    </div>
+
+    <!-- Album header (zobrazí se jen u konkrétního alba) -->
+    <div class="album-header" id="albumHeader" style="display:none">
+      <span class="album-header-icon" id="ahIcon">📁</span>
+      <div>
+        <div class="album-header-name" id="ahName">Album</div>
+        <div class="album-header-cnt" id="ahCnt">0 karet</div>
+      </div>
+      <div class="album-header-actions">
+        <button class="ah-btn add-sel" onclick="startSelectMode()">✏️ Upravit karty</button>
+        <button class="ah-btn rename"  onclick="renameCurrentAlbum()">Přejmenovat</button>
+      </div>
+    </div>
+
+    <!-- Typ bary -->
+    <div class="type-bar">
+      <button class="type-chip active" onclick="setType('')">Vše</button>
+      <button class="type-chip" onclick="setType('fire')">🔥 Ohnivý</button>
+      <button class="type-chip" onclick="setType('water')">💧 Vodní</button>
+      <button class="type-chip" onclick="setType('grass')">🌿 Travní</button>
+      <button class="type-chip" onclick="setType('lightning')">⚡ Elektrický</button>
+      <button class="type-chip" onclick="setType('psychic')">🔮 Psychický</button>
+      <button class="type-chip" onclick="setType('darkness')">🌑 Temný</button>
+      <button class="type-chip" onclick="setType('dragon')">🐉 Dračí</button>
+      <button class="type-chip" onclick="setType('metal')">⚙️ Kovový</button>
+      <button class="type-chip" onclick="setType('fighting')">👊 Bojový</button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
+      </div>
+      <div class="stat-chips">
+        <div class="stat-chip">Celkem <strong id="statAll">0</strong></div>
+        <div class="stat-chip">🔄 <strong id="statTrade">0</strong></div>
+        <div class="stat-chip">💰 <strong id="statSell">0</strong></div>
+        <div class="stat-chip" id="filteredChip" style="display:none">Filtr: <strong id="statFiltered">0</strong></div>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div class="cards-grid" id="cardsGrid">
+      <div class="empty-state">
+        <div class="icon">🎴</div>
+        <h3>Načítám album…</h3>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Nové album modal ─────────────────────────────────────── -->
+<div class="modal-bg hidden" id="newAlbumModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">📁 Nové album</h3>
+      <button class="modal-close" onclick="closeNewAlbumModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-row">
+        <label>Název alba</label>
+        <input class="modal-input" id="newAlbumName" placeholder="Např. Scarlet &amp; Violet, Oblíbené…" maxlength="40">
+      </div>
+      <div class="modal-row">
+        <label>Barva</label>
+        <div class="color-row" id="colorRow"></div>
+      </div>
+      <div class="modal-row">
+        <label>Ikona</label>
+        <div class="icon-row" id="iconRow"></div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost btn-sm" onclick="closeNewAlbumModal()">Zrušit</button>
+      <button class="btn-primary btn-sm" onclick="saveNewAlbum()">Vytvořit album</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  STAV
+// ══════════════════════════════════════════════════════════════════
+const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3JpbnpmbXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-K1SSt_oJlaFrmttFXs';
+
+let allCards   = [];
+let allAlbums  = [];
+let userId     = null, token = null, uname = '';
+
+let activeView    = 'all';   // all | trade | sell
+let activeType    = '';
+let activeCond    = '';
+let activeAlbumId = null;    // null = všechny karty
+let selectMode    = false;
+let selectedIds   = new Set();
+
+const SYNC_MODE_KEY  = 'pkc_album_sync_mode';
+const LAST_SYNC_KEY  = 'pkc_album_last_sync';
+const ALBUMS_SYNC_KEY= 'pkc_albums_last_sync';
+
+// Barvy a ikony pro nové album
+const ALBUM_COLORS = ['#4f8ef7','#f5c842','#4ade80','#f87171','#a78bfa','#fb923c','#38bdf8','#e879f9'];
+const ALBUM_ICONS  = ['📁','⭐','🔥','💧','🌿','⚡','🔮','🌑','🐉','⚙️','👊','🃏','💎','🌈','🏆','❤️'];
+let newAlbumColor = ALBUM_COLORS[0];
+let newAlbumIcon  = ALBUM_ICONS[0];
+let editingAlbumId = null;
+
+// ══════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════
+(async () => {
+  // Načti session
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+  token  = localStorage.getItem('sb_token');
+  userId = sbUser?.id || localStorage.getItem('sb_user_id');
+  uname  = sbUser?.user_metadata?.username || sbUser?.email?.split('@')[0] || '';
+
+  if (token && userId) {
+    document.getElementById('userChip').style.display  = '';
+    document.getElementById('loginLink').style.display  = 'none';
+    document.getElementById('logoutBtn').style.display  = '';
+    document.getElementById('userName').textContent     = uname;
+    document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
+  } else {
+    showLoginPrompt(); return;
+  }
+
+  document.getElementById('syncModeSelect').value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
+  updateLastSyncInfo();
+  renderColorPicker();
+  renderIconPicker();
+
+  await Promise.all([loadCards(), loadAlbums()]);
+  renderAlbumList();
+  render();
+  autoSync();
+})();
+
+// ══════════════════════════════════════════════════════════════════
+//  DATA – KARTY
+// ══════════════════════════════════════════════════════════════════
+async function loadCards() {
+  setSyncState('syncing', 'Načítám karty…');
+  try {
+    const res = await sbReq(
+      `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk,updated_at&order=updated_at.desc`
+    );
+    if (res._err || res.message) throw new Error(res.message || res._err);
+    allCards = (Array.isArray(res) ? res : []).map(r => ({
+      ...r.card_data, id: r.local_id,
+      for_trade: r.for_trade, for_sell: r.for_sell,
+      price_czk: r.price_czk, updated_at: r.updated_at,
+    }));
+    updateStats();
+    setSyncState('ok', 'Synchronizováno');
+  } catch(e) {
+    setSyncState('', 'Chyba karet'); console.error(e);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DATA – ALBA
+// ══════════════════════════════════════════════════════════════════
+async function loadAlbums() {
+  try {
+    const res = await sbReq(
+      `rest/v1/user_albums?user_id=eq.${userId}&select=id,name,color,icon,owner_id,card_ids,updated_at&order=name.asc`
+    );
+    if (res._err || res.message) throw new Error(res.message || res._err);
+    allAlbums = Array.isArray(res) ? res.map(a => ({
+      id: a.id, name: a.name, color: a.color, icon: a.icon,
+      ownerId: a.owner_id, cardIds: a.card_ids || [],
+    })) : [];
+  } catch(e) { console.error('[albums load]', e); allAlbums = []; }
+}
+
+async function saveAlbumsToServer() {
+  if (!allAlbums.length) return;
+  const payload = allAlbums.map(a => ({
+    id: a.id, name: a.name, color: a.color, icon: a.icon,
+    owner_id: a.ownerId || null, card_ids: a.cardIds,
+    updated_at: new Date().toISOString(),
+  }));
+  await sbReq('rest/v1/rpc/upsert_user_albums', 'POST',
+    { p_user_id: userId, p_albums: payload });
+  localStorage.setItem(ALBUMS_SYNC_KEY, new Date().toISOString());
+}
+
+function saveAlbumsLocal() {
+  localStorage.setItem('pkc_albums', JSON.stringify(
+    allAlbums.map(a => ({
+      id: a.id, name: a.name, color: a.color, icon: a.icon,
+      ownerId: a.ownerId, cardIds: a.cardIds,
+      updated_at: new Date().toISOString(),
+    }))
+  ));
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════════════════════════════════
+function render() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const albumCardIds = activeAlbumId
+    ? (allAlbums.find(a => a.id === activeAlbumId)?.cardIds || [])
+    : null;
+
+  let filtered = allCards.filter(c => {
+    if (activeView === 'trade' && !c.for_trade) return false;
+    if (activeView === 'sell'  && !c.for_sell)  return false;
+    if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
+    if (activeType && !matchType(c, activeType)) return false;
+    if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
+    if (q && !((c.name||'').toLowerCase().includes(q) ||
+               (c.set||'').toLowerCase().includes(q)  ||
+               (c.number||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  // Stat chips
+  const fChip = document.getElementById('filteredChip');
+  document.getElementById('statFiltered').textContent = filtered.length;
+  fChip.style.display = (activeAlbumId || activeType || activeView !== 'all' || q) ? '' : 'none';
+
+  // Album header
+  const ah = document.getElementById('albumHeader');
+  if (activeAlbumId) {
+    const alb = allAlbums.find(a => a.id === activeAlbumId);
+    if (alb) {
+      ah.style.display = '';
+      document.getElementById('ahIcon').textContent = alb.icon || '📁';
+      document.getElementById('ahName').textContent = alb.name;
+      document.getElementById('ahCnt').textContent  = alb.cardIds.length + ' karet';
+    }
+  } else {
+    ah.style.display = 'none';
+  }
+
+  if (!filtered.length) {
+    document.getElementById('cardsGrid').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">${activeAlbumId ? '📁' : '🎴'}</div>
+        <h3>${activeAlbumId ? 'Album je prázdné' : 'Žádné karty'}</h3>
+        <p>${activeAlbumId
+          ? 'Klikni na „Upravit karty" a přidej karty z alba do tohoto alba.'
+          : 'Karty se synchronizují z aplikace. Ujisti se že jsi přihlášen a spusť sync.'}</p>
+        ${activeAlbumId ? `<button class="btn-primary btn-sm" style="margin-top:14px" onclick="startSelectMode()">✏️ Přidat karty</button>` : ''}
+      </div>`;
+    return;
+  }
+
+  document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
+}
+
+function renderCard(c, albumCardIds) {
+  const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
+  const emoji = typeEmoji(c.types?.[0] || c.type || '');
+  const sel   = selectedIds.has(String(c.id));
+  const inAlb = albumCardIds ? albumCardIds.includes(String(c.id)) : false;
+  let cls = sel ? 'selected' : (inAlb && activeAlbumId ? 'in-album' : '');
+
+  return `
+    <div class="card-slot ${cls}" data-id="${esc(c.id)}" onclick="cardClick('${esc(c.id)}')">
+      ${selectMode ? `<div class="card-check">${sel ? '✓' : ''}</div>` : ''}
+      ${img
+        ? `<img class="card-img" src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy">`
+        : `<div class="card-placeholder">
+             <div class="emoji">${emoji}</div>
+             <div class="name">${esc(c.name||'?')}</div>
+             <div class="set">${esc(c.set||'')}</div>
+           </div>`}
+      <div class="card-badges">
+        ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
+        ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
+      </div>
+      <div class="card-footer">
+        <div class="card-name">${esc(c.name||'?')}</div>
+        <div class="card-sub">${esc(c.set||'')} ${c.number ? '#'+esc(c.number) : ''}</div>
+      </div>
+    </div>`;
+}
+
+function cardClick(id) {
+  if (selectMode) {
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    updateSelectBanner();
+    render();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ALBUM SIDEBAR RENDER
+// ══════════════════════════════════════════════════════════════════
+function renderAlbumList() {
+  const el = document.getElementById('albumList');
+  if (!allAlbums.length) {
+    el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
+    return;
+  }
+  el.innerHTML = allAlbums.map(a => `
+    <button class="album-item ${activeAlbumId === a.id ? 'active' : ''}"
+      onclick="setAlbum('${esc(a.id)}')">
+      <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
+      <span class="album-name">${esc(a.name)}</span>
+      <span class="album-cnt">${(a.cardIds||[]).length}</span>
+      <button class="album-del-btn" onclick="event.stopPropagation();deleteAlbum('${esc(a.id)}')" title="Smazat album">✕</button>
+    </button>
+  `).join('');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ALBUM CRUD
+// ══════════════════════════════════════════════════════════════════
+function setAlbum(id) {
+  activeAlbumId = (activeAlbumId === id) ? null : id;
+  cancelSelect();
+  renderAlbumList();
+  render();
+}
+
+async function deleteAlbum(id) {
+  if (!confirm('Smazat album? Karty zůstanou v albumu – pouze se odstraní skupina.')) return;
+  allAlbums = allAlbums.filter(a => a.id !== id);
+  if (activeAlbumId === id) activeAlbumId = null;
+  await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&id=eq.${id}`, 'DELETE');
+  saveAlbumsLocal();
+  renderAlbumList();
+  render();
+}
+
+function renameCurrentAlbum() {
+  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  if (!alb) return;
+  const name = prompt('Nový název alba:', alb.name);
+  if (!name || !name.trim()) return;
+  alb.name = name.trim();
+  saveAlbumsLocal();
+  saveAlbumsToServer();
+  renderAlbumList();
+  render();
+}
+
+// ── Výběr karet pro přidání/odebrání z alba ──
+function startSelectMode() {
+  selectMode = true; selectedIds.clear();
+  document.getElementById('removeFromAlbumBtn').style.display = activeAlbumId ? '' : 'none';
+  updateSelectBanner();
+  render();
+}
+
+function cancelSelect() {
+  selectMode = false; selectedIds.clear();
+  document.getElementById('selectBanner').classList.remove('active');
+  render();
+}
+
+function updateSelectBanner() {
+  document.getElementById('selectBanner').classList.toggle('active', selectMode);
+  document.getElementById('selCount').textContent = selectedIds.size;
+}
+
+async function addSelectedToAlbum() {
+  if (!activeAlbumId) {
+    // Nabídni výběr alba nebo vytvoření
+    const names = allAlbums.map((a, i) => `${i+1}. ${a.name}`).join('\n');
+    const choice = prompt(`Do kterého alba přidat ${selectedIds.size} karet?\n${names}\n\nZadej číslo (nebo 0 pro nové album):`);
+    if (choice === null) return;
+    const idx = parseInt(choice) - 1;
+    if (parseInt(choice) === 0) { openNewAlbumModal(); return; }
+    if (idx < 0 || idx >= allAlbums.length) return;
+    activeAlbumId = allAlbums[idx].id;
+  }
+  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  if (!alb) return;
+  selectedIds.forEach(id => {
+    if (!alb.cardIds.includes(id)) alb.cardIds.push(id);
+  });
+  saveAlbumsLocal();
+  await saveAlbumsToServer();
+  cancelSelect();
+  renderAlbumList();
+  render();
+}
+
+async function removeSelectedFromAlbum() {
+  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  if (!alb) return;
+  alb.cardIds = alb.cardIds.filter(id => !selectedIds.has(id));
+  saveAlbumsLocal();
+  await saveAlbumsToServer();
+  cancelSelect();
+  renderAlbumList();
+  render();
+}
+
+// ── Nové album modal ──
+function openNewAlbumModal() {
+  editingAlbumId = null;
+  document.getElementById('modalTitle').textContent = '📁 Nové album';
+  document.getElementById('newAlbumName').value = '';
+  newAlbumColor = ALBUM_COLORS[0];
+  newAlbumIcon  = ALBUM_ICONS[0];
+  renderColorPicker(); renderIconPicker();
+  document.getElementById('newAlbumModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('newAlbumName').focus(), 50);
+}
+
+function closeNewAlbumModal() {
+  document.getElementById('newAlbumModal').classList.add('hidden');
+}
+
+async function saveNewAlbum() {
+  const name = document.getElementById('newAlbumName').value.trim();
+  if (!name) { alert('Zadej název alba'); return; }
+
+  const album = {
+    id:      'alb_' + Date.now(),
+    name, color: newAlbumColor, icon: newAlbumIcon,
+    ownerId: null, cardIds: [],
+  };
+  allAlbums.push(album);
+  saveAlbumsLocal();
+  await saveAlbumsToServer();
+  closeNewAlbumModal();
+  activeAlbumId = album.id;
+  renderAlbumList();
+  render();
+}
+
+function renderColorPicker() {
+  document.getElementById('colorRow').innerHTML = ALBUM_COLORS.map(c => `
+    <div class="color-dot ${c === newAlbumColor ? 'active' : ''}"
+      style="background:${c}" onclick="setNewColor('${c}')"></div>
+  `).join('');
+}
+
+function renderIconPicker() {
+  document.getElementById('iconRow').innerHTML = ALBUM_ICONS.map(ic => `
+    <button class="icon-btn ${ic === newAlbumIcon ? 'active' : ''}"
+      onclick="setNewIcon('${ic}')">${ic}</button>
+  `).join('');
+}
+
+function setNewColor(c) { newAlbumColor = c; renderColorPicker(); }
+function setNewIcon(i)  { newAlbumIcon  = i; renderIconPicker(); }
+
+// ══════════════════════════════════════════════════════════════════
+//  FILTRY
+// ══════════════════════════════════════════════════════════════════
+function setView(v) {
+  activeView = v;
+  document.querySelectorAll('[id^="vb-"]').forEach(b => b.classList.remove('active'));
+  document.getElementById('vb-' + v)?.classList.add('active');
+  render();
+}
+
+function setType(t) {
+  activeType = t;
+  document.querySelectorAll('.type-chip').forEach(b =>
+    b.classList.toggle('active', (t === '' && b.textContent === 'Vše') || (t && b.textContent.toLowerCase().includes(t)))
+  );
+  render();
+}
+
+function setCond(c) {
+  activeCond = c;
+  document.querySelectorAll('.sb-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes('setCond'))
+      b.classList.toggle('active', b.getAttribute('onclick').includes(`'${c}'`));
+  });
+  render();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SYNC
+// ══════════════════════════════════════════════════════════════════
+async function doSync() {
+  setSyncState('syncing', 'Synchronizuji…');
+  await Promise.all([loadCards(), loadAlbums()]);
+  localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
+  updateLastSyncInfo();
+  renderAlbumList();
+  render();
+}
+
+function autoSync() {
+  const mode = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
+  if (mode === 'hourly')   setInterval(doSync, 60 * 60 * 1000);
+  if (mode === 'realtime') setInterval(doSync, 30_000);
+}
+
+function changeSyncMode(mode) {
+  localStorage.setItem(SYNC_MODE_KEY, mode);
+}
+
+function updateStats() {
+  document.getElementById('cnt-all').textContent   = allCards.length;
+  document.getElementById('statAll').textContent   = allCards.length;
+  document.getElementById('cnt-trade').textContent = allCards.filter(c => c.for_trade).length;
+  document.getElementById('statTrade').textContent = allCards.filter(c => c.for_trade).length;
+  document.getElementById('cnt-sell').textContent  = allCards.filter(c => c.for_sell).length;
+  document.getElementById('statSell').textContent  = allCards.filter(c => c.for_sell).length;
+}
+
+function setSyncState(state, label) {
+  const dot = document.getElementById('syncDot');
+  dot.className = 'sync-dot' + (state ? ' ' + state : '');
+  document.getElementById('syncLabel').textContent = label;
+}
+
+function updateLastSyncInfo() {
+  const t  = localStorage.getItem(LAST_SYNC_KEY);
+  const el = document.getElementById('lastSyncInfo');
+  el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════════════
+async function sbReq(path, method = 'GET', body = null) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON,
+    'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
+  };
+  if (['POST','PATCH'].includes(method)) headers['Prefer'] = 'return=representation';
+  try {
+    const res  = await fetch(`${SUPABASE_URL}/${path}`, {
+      method, headers, body: body ? JSON.stringify(body) : undefined
+    });
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : {};
+    if (!res.ok) return { _err: data.message || 'HTTP ' + res.status };
+    return data;
+  } catch(e) { return { _err: e.message }; }
+}
+
+function matchType(c, t) {
+  return [c.type, ...(c.types||[])].some(x => (x||'').toLowerCase().includes(t));
+}
+
+function typeEmoji(t) {
+  const m = { fire:'🔥',water:'💧',grass:'🌿',lightning:'⚡',electric:'⚡',
+    psychic:'🔮',darkness:'🌑',dark:'🌑',dragon:'🐉',metal:'⚙️',steel:'⚙️',
+    fighting:'👊',colorless:'⚪',fairy:'🌸' };
+  return m[(t||'').toLowerCase()] || '🎴';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoginPrompt() {
+  document.getElementById('sidebar').style.display = 'none';
+  document.getElementById('cardsGrid').innerHTML = `
+    <div class="login-prompt">
+      <div class="icon">🔐</div>
+      <h2>Přihlaš se pro zobrazení alba</h2>
+      <p>Moje album je dostupné po přihlášení. Karty se automaticky synchronizují s aplikací.</p>
+      <a href="login.html" class="btn-primary" style="margin-top:10px">Přihlásit se →</a>
+    </div>`;
+}
+
+function doLogout() {
+  ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(k => localStorage.removeItem(k));
+  location.href = 'login.html';
+}
+
+// Zavřít modal klikem mimo
+document.getElementById('newAlbumModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('newAlbumModal')) closeNewAlbumModal();
+});
+</script>
+</body>
+</html>

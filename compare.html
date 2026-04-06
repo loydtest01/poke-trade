@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Porovnat alba – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon">⚡</span><span>Poké<strong>Trade</strong></span></a>
+    <div class="nav-links">
+      <a href="marketplace.html" class="nav-link">Nabídky</a>
+      <a href="album.html" class="nav-link">🔄 Album výměny</a>
+      <a href="moje-album.html" class="nav-link">🎴 Moje album</a>
+      <a href="compare.html" class="nav-link active">Porovnat alba</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+      <a href="login.html" class="btn-nav-outline">Přihlásit</a>
+      <a href="register.html" class="btn-nav-fill">Registrovat</a>
+    </div>
+  </div>
+</nav>
+
+<div class="compare-page">
+  <div class="container">
+    <div class="compare-header">
+      <h1>Porovnat dvě alba</h1>
+      <p>Nahraj dvě <code>.pktr</code> zálohy a hned uvidíš průniky a rozdíly.</p>
+    </div>
+
+    <!-- UPLOAD ZONE -->
+    <div class="compare-upload-row">
+      <div class="compare-drop" id="drop1"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event,1)">
+        <div class="cd-inner">
+          <div class="cd-icon">📂</div>
+          <div class="cd-label" id="label1">Album A</div>
+          <small>Přetáhni .pktr nebo .pkte</small>
+          <label class="btn-ghost">
+            Vybrat soubor
+            <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,1)" style="display:none">
+          </label>
+        </div>
+      </div>
+
+      <div class="compare-vs">VS</div>
+
+      <div class="compare-drop" id="drop2"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event,2)">
+        <div class="cd-inner">
+          <div class="cd-icon">📂</div>
+          <div class="cd-label" id="label2">Album B</div>
+          <small>Přetáhni .pktr nebo .pkte</small>
+          <label class="btn-ghost">
+            Vybrat soubor
+            <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,2)" style="display:none">
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div id="compareResults" style="display:none">
+
+      <!-- STATS BAR -->
+      <div class="compare-stats" id="compareStats"></div>
+
+      <!-- TABS -->
+      <div class="compare-tabs">
+        <button class="ct-tab active" onclick="showTab('both',this)">✅ Máte oba</button>
+        <button class="ct-tab" onclick="showTab('only1',this)">🟦 Jen Album A</button>
+        <button class="ct-tab" onclick="showTab('only2',this)">🟨 Jen Album B</button>
+        <button class="ct-tab" onclick="showTab('all',this)">📋 Vše</button>
+      </div>
+      <div id="compareGrid" class="compare-grid"></div>
+
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let albumA = null;
+let albumB = null;
+
+async function handleDrop(e, num) {
+  e.preventDefault();
+  document.getElementById('drop' + num).classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) await parseAlbum(file, num);
+}
+async function handleFile(e, num) {
+  const file = e.target.files[0];
+  if (file) await parseAlbum(file, num);
+}
+
+async function parseAlbum(file, num) {
+  document.getElementById('label' + num).textContent = '⏳ Čtu soubor...';
+
+  try {
+    const buffer  = await file.arrayBuffer();
+    const zipFiles = await readZip(buffer);
+    const payload  = JSON.parse(new TextDecoder().decode(zipFiles['data.json']));
+    const cards    = payload.cards || [];
+
+    if (num === 1) albumA = { name: file.name.replace(/\.(pktr|pkte)$/,''), cards };
+    else           albumB = { name: file.name.replace(/\.(pktr|pkte)$/,''), cards };
+
+    document.getElementById('label' + num).textContent = `✅ ${cards.length} karet`;
+    document.getElementById('drop' + num).classList.add('loaded');
+
+    if (albumA && albumB) runCompare();
+  } catch(err) {
+    document.getElementById('label' + num).textContent = '❌ Chyba';
+    alert('Chyba při čtení souboru: ' + err.message);
+  }
+}
+
+function runCompare() {
+  const idsA = new Set(albumA.cards.map(c => String(c.tcgId || c.apiId || c.id)));
+  const idsB = new Set(albumB.cards.map(c => String(c.tcgId || c.apiId || c.id)));
+
+  // Fallback: match by name if no api ID
+  const namesA = new Set(albumA.cards.map(c => normalizeCardName(c)));
+  const namesB = new Set(albumB.cards.map(c => normalizeCardName(c)));
+
+  const both  = albumA.cards.filter(c => idsB.has(String(c.tcgId||c.apiId||c.id)) || namesB.has(normalizeCardName(c)));
+  const only1 = albumA.cards.filter(c => !idsB.has(String(c.tcgId||c.apiId||c.id)) && !namesB.has(normalizeCardName(c)));
+  const only2 = albumB.cards.filter(c => !idsA.has(String(c.tcgId||c.apiId||c.id)) && !namesA.has(normalizeCardName(c)));
+
+  window._compareData = { both, only1, only2, all: [...albumA.cards, ...albumB.cards] };
+
+  document.getElementById('compareStats').innerHTML = `
+    <div class="cstat green"><span>${both.length}</span><small>Máte oba</small></div>
+    <div class="cstat blue"><span>${only1.length}</span><small>Jen ${albumA.name}</small></div>
+    <div class="cstat yellow"><span>${only2.length}</span><small>Jen ${albumB.name}</small></div>
+    <div class="cstat gray"><span>${albumA.cards.length + albumB.cards.length}</span><small>Celkem karet</small></div>
+  `;
+
+  document.getElementById('compareResults').style.display = '';
+  showTab('both', document.querySelector('.ct-tab'));
+}
+
+function normalizeCardName(c) {
+  return (c.name || '').toLowerCase().replace(/\s+/g,'').substring(0,20);
+}
+
+function showTab(key, btn) {
+  document.querySelectorAll('.ct-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const cards = window._compareData?.[key] || [];
+  renderCompareCards(cards, key);
+}
+
+function renderCompareCards(cards, key) {
+  const grid = document.getElementById('compareGrid');
+  if (!cards.length) {
+    grid.innerHTML = '<p class="empty-state">Žádné karty v této kategorii</p>';
+    return;
+  }
+
+  const colorMap = { both: 'green', only1: 'blue', only2: 'yellow', all: '' };
+  const color = colorMap[key] || '';
+
+  grid.innerHTML = cards.slice(0, 200).map(card => {
+    const img = card.images?.small || card.apiSmall || '';
+    return `
+      <div class="cc-item ${color}">
+        <div class="cc-img">
+          ${img
+            ? `<img src="${img}" alt="${card.name||'?'}" loading="lazy">`
+            : `<div class="cc-placeholder">${getTypeEmoji(card.types?.[0])}</div>`
+          }
+        </div>
+        <div class="cc-name">${card.name || '?'}</div>
+        ${card.set ? `<div class="cc-set">${card.set}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  if (cards.length > 200) {
+    grid.innerHTML += `<div class="compare-more">Zobrazeno 200 z ${cards.length} karet</div>`;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nabídky – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon">⚡</span><span>Poké<strong>Trade</strong></span></a>
+    <div class="nav-links">
+      <a href="marketplace.html" class="nav-link active">Nabídky</a>
+      <a href="album.html" class="nav-link">🔄 Album výměny</a>
+      <a href="moje-album.html" class="nav-link">🎴 Moje album</a>
+      <a href="compare.html" class="nav-link">Porovnat alba</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+      <a href="login.html" class="btn-nav-outline">Přihlásit</a>
+      <a href="register.html" class="btn-nav-fill">Registrovat</a>
+    </div>
+  </div>
+</nav>
+
+<div class="marketplace-page">
+  <div class="container">
+
+    <div class="market-header">
+      <h1>Výměnné nabídky</h1>
+      <p>Najdi kartičky od ostatních sběratelů</p>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="market-filters">
+      <input type="search" id="searchInput" placeholder="🔍 Hledat kartu (např. Charizard)..." class="search-input" oninput="filterListings()">
+      <select id="typeFilter" onchange="filterListings()" class="filter-select">
+        <option value="">Všechny typy</option>
+        <option value="fire">🔥 Oheň</option>
+        <option value="water">💧 Voda</option>
+        <option value="grass">🌿 Tráva</option>
+        <option value="electric">⚡ Elektro</option>
+        <option value="psychic">🔮 Psycho</option>
+        <option value="dark">🌑 Tma</option>
+        <option value="dragon">🐉 Drak</option>
+        <option value="colorless">⭐ Bezbarvý</option>
+      </select>
+      <select id="sortFilter" onchange="filterListings()" class="filter-select">
+        <option value="newest">Nejnovější</option>
+        <option value="price_asc">Cena ↑</option>
+        <option value="price_desc">Cena ↓</option>
+        <option value="most_cards">Nejvíce karet</option>
+      </select>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="marketResults" class="market-grid">
+      <div class="loading-full">⏳ Načítám nabídky...</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OFFER MODAL -->
+<div class="modal-overlay" id="offerModal" style="display:none">
+  <div class="modal-box modal-large">
+    <div class="modal-header">
+      <h3 id="offerModalTitle">Nabídka</h3>
+      <button class="modal-close" onclick="closeOfferModal()">✕</button>
+    </div>
+    <div id="offerModalBody"></div>
+    <div class="modal-footer" id="offerModalFooter"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let allListings = [];
+let currentUser = null;
+
+async function init() {
+  currentUser = getUser();
+  if (currentUser) {
+    document.getElementById('navAuth').innerHTML = `
+      <a href="dashboard.html" class="btn-nav-outline">Můj profil</a>
+      <span class="nav-username">${currentUser.user_metadata?.username || ''}</span>
+    `;
+  }
+  await loadListings();
+}
+
+async function loadListings() {
+  const res = await supabaseRequest(
+    'rest/v1/listings?status=eq.active&order=created_at.desc&limit=50',
+    'GET'
+  );
+
+  if (!res || res.error) {
+    document.getElementById('marketResults').innerHTML = '<p class="empty-state">Nepodařilo se načíst nabídky. Zkontroluj připojení.</p>';
+    return;
+  }
+
+  allListings = res;
+  renderListings(allListings);
+}
+
+function filterListings() {
+  const q     = document.getElementById('searchInput').value.toLowerCase();
+  const type  = document.getElementById('typeFilter').value;
+  const sort  = document.getElementById('sortFilter').value;
+
+  let filtered = allListings.filter(l => {
+    const cards = l.cards_data || [];
+    if (q && !cards.some(c => (c.name || '').toLowerCase().includes(q))) return false;
+    if (type && !cards.some(c => (c.types || []).includes(type))) return false;
+    return true;
+  });
+
+  if (sort === 'price_asc')   filtered.sort((a,b) => minPrice(a) - minPrice(b));
+  if (sort === 'price_desc')  filtered.sort((a,b) => minPrice(b) - minPrice(a));
+  if (sort === 'most_cards')  filtered.sort((a,b) => (b.cards_data?.length||0) - (a.cards_data?.length||0));
+
+  renderListings(filtered);
+}
+
+function minPrice(l) {
+  const prices = (l.cards_data||[]).map(c => c.priceCzk || 9999).filter(Boolean);
+  return Math.min(...prices, 9999);
+}
+
+function renderListings(listings) {
+  const el = document.getElementById('marketResults');
+  if (!listings.length) {
+    el.innerHTML = '<p class="empty-state">Žádné nabídky nenalezeny 🔍</p>';
+    return;
+  }
+
+  el.innerHTML = listings.map(listing => {
+    const cards   = listing.cards_data || [];
+    const preview = cards.slice(0, 6);
+    const prices  = cards.map(c => c.priceCzk).filter(Boolean);
+    const minP    = prices.length ? Math.min(...prices) : null;
+    const maxP    = prices.length ? Math.max(...prices) : null;
+
+    return `
+      <div class="market-card" onclick="openListing('${listing.id}')">
+        <div class="mc-user">
+          <div class="mc-avatar">${(listing.username || '?')[0].toUpperCase()}</div>
+          <div>
+            <div class="mc-username">${listing.username || 'Anonym'}</div>
+            <div class="mc-date">${new Date(listing.created_at).toLocaleDateString('cs')}</div>
+          </div>
+          <div class="mc-count">${cards.length} karet</div>
+        </div>
+        <div class="mc-title">${listing.title || 'Výměnná nabídka'}</div>
+        <div class="mc-cards-row">
+          ${preview.map(c => `
+            <div class="mc-card-thumb" title="${c.name||'?'}">
+              ${c.apiSmall
+                ? `<img src="${c.apiSmall}" alt="${c.name}" loading="lazy">`
+                : `<div class="mc-thumb-placeholder">${getTypeEmoji(c.types?.[0])}</div>`
+              }
+            </div>
+          `).join('')}
+          ${cards.length > 6 ? `<div class="mc-card-thumb more">+${cards.length-6}</div>` : ''}
+        </div>
+        <div class="mc-footer">
+          ${minP ? `<span class="mc-price">Od ${minP} Kč${maxP !== minP ? ' do '+maxP+' Kč' : ''}</span>` : '<span class="mc-price-any">Cena dohodou</span>'}
+          <button class="btn-primary btn-sm" onclick="event.stopPropagation();openListing('${listing.id}')">Zobrazit →</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══ OPEN LISTING DETAIL / MAKE OFFER ═══
+function openListing(id) {
+  const listing = allListings.find(l => l.id === id);
+  if (!listing) return;
+
+  if (!currentUser) {
+    if (confirm('Pro odeslání nabídky se musíš přihlásit. Přejít na přihlášení?')) {
+      window.location.href = 'login.html';
+    }
+    return;
+  }
+
+  if (listing.user_id === currentUser.id) {
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  renderOfferModal(listing);
+  document.getElementById('offerModal').style.display = 'flex';
+}
+
+function renderOfferModal(listing) {
+  const cards = listing.cards_data || [];
+  document.getElementById('offerModalTitle').textContent = listing.username + ' – ' + (listing.title || 'Nabídka');
+
+  let selectedCards = new Set();
+
+  document.getElementById('offerModalBody').innerHTML = `
+    <div class="offer-instructions">
+      Klikni na kartičky, o které máš zájem, pak navrhni cenu nebo výměnu.
+    </div>
+    <div class="offer-cards-grid" id="offerCardsGrid">
+      ${cards.map(card => `
+        <div class="offer-card-item" id="oc_${card.id}" onclick="toggleCard('${card.id}')">
+          <div class="oci-img">
+            ${card.apiSmall
+              ? `<img src="${card.apiSmall}" alt="${card.name}" loading="lazy">`
+              : `<div class="oci-placeholder">${getTypeEmoji(card.types?.[0])}</div>`
+            }
+            <div class="oci-select-badge">✓</div>
+          </div>
+          <div class="oci-name">${card.name || '?'}</div>
+          ${card.priceCzk ? `<div class="oci-price">${card.priceCzk} Kč</div>` : ''}
+        </div>
+      `).join('')}
+    </div>
+    <div class="offer-form" id="offerForm" style="display:none">
+      <h4>Tvoje nabídka</h4>
+      <div class="offer-type-tabs">
+        <button class="ot-tab active" onclick="setOfferType('price',this)">💰 Peněžní nabídka</button>
+        <button class="ot-tab" onclick="setOfferType('trade',this)">🔄 Výměna za kartu</button>
+      </div>
+      <div id="offerPriceInput">
+        <label>Nabídni cenu (Kč)</label>
+        <input type="number" id="offerPrice" placeholder="Např. 150" min="1" class="offer-input">
+      </div>
+      <div id="offerTradeInput" style="display:none">
+        <label>Popiš co nabízíš na výměnu</label>
+        <textarea id="offerTradeDesc" placeholder="Např. mám Pikachu ex, Charizard base set..." rows="3" class="offer-textarea"></textarea>
+      </div>
+      <label>Zpráva pro prodávajícího (nepovinné)</label>
+      <textarea id="offerMessage" placeholder="Ahoj! Mám zájem o..." rows="2" class="offer-textarea"></textarea>
+    </div>
+  `;
+
+  // Toggle card selection
+  window.toggleCard = function(cardId) {
+    const el = document.getElementById('oc_' + cardId);
+    if (selectedCards.has(cardId)) {
+      selectedCards.delete(cardId);
+      el.classList.remove('selected');
+    } else {
+      selectedCards.add(cardId);
+      el.classList.add('selected');
+    }
+    document.getElementById('offerForm').style.display = selectedCards.size > 0 ? '' : 'none';
+    updateOfferFooter(listing, selectedCards);
+  };
+
+  window.setOfferType = function(type, btn) {
+    document.querySelectorAll('.ot-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('offerPriceInput').style.display = type === 'price' ? '' : 'none';
+    document.getElementById('offerTradeInput').style.display = type === 'trade' ? '' : 'none';
+  };
+
+  updateOfferFooter(listing, selectedCards);
+}
+
+function updateOfferFooter(listing, selectedCards) {
+  document.getElementById('offerModalFooter').innerHTML = `
+    <button class="btn-ghost" onclick="closeOfferModal()">Zrušit</button>
+    ${selectedCards.size > 0 ? `
+      <button class="btn-primary" onclick="sendOffer('${listing.id}', '${listing.user_id}')">
+        📤 Odeslat nabídku (${selectedCards.size} ${selectedCards.size === 1 ? 'karta' : 'karet'})
+      </button>
+    ` : `<span class="empty-footer">Vyber alespoň jednu kartu</span>`}
+  `;
+}
+
+async function sendOffer(listingId, sellerId) {
+  const priceInput  = document.getElementById('offerPrice');
+  const tradeDesc   = document.getElementById('offerTradeDesc');
+  const message     = document.getElementById('offerMessage');
+  const isTradeTab  = document.querySelector('.ot-tab.active')?.textContent.includes('Výměna');
+
+  const selectedIds = Array.from(document.querySelectorAll('.offer-card-item.selected'))
+    .map(el => el.id.replace('oc_', ''));
+
+  if (!selectedIds.length) { alert('Vyber alespoň jednu kartu'); return; }
+
+  const offerData = {
+    listing_id:         listingId,
+    seller_id:          sellerId,
+    buyer_id:           currentUser.id,
+    buyer_username:     currentUser.user_metadata?.username || currentUser.email,
+    wanted_card_ids:    selectedIds,
+    offer_type:         isTradeTab ? 'trade' : 'price',
+    offered_price_czk:  isTradeTab ? null : (parseInt(priceInput?.value) || null),
+    trade_description:  isTradeTab ? (tradeDesc?.value || '') : null,
+    message:            message?.value || '',
+    status:             'pending',
+    created_at:         new Date().toISOString(),
+  };
+
+  const token = localStorage.getItem('sb_token');
+  const res   = await supabaseRequest('rest/v1/offers', 'POST', offerData, token);
+
+  if (res?.error) {
+    alert('Chyba: ' + res.error.message);
+    return;
+  }
+
+  // Increment offer count
+  const listing = allListings.find(l => l.id === listingId);
+  if (listing) {
+    await supabaseRequest(`rest/v1/listings?id=eq.${listingId}`, 'PATCH', {
+      offer_count: (listing.offer_count || 0) + 1
+    }, token);
+  }
+
+  closeOfferModal();
+  alert('✅ Nabídka odeslána! Prodávající ji uvidí ve svém profilu.');
+}
+
+function closeOfferModal() {
+  document.getElementById('offerModal').style.display = 'none';
+}
+
+init();
+</script>
+</body>
+</html>

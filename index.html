@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéTrade – Výměna Pokémon karet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-icon">⚡</span>
+      <span>Poké<strong>Trade</strong></span>
+    </a>
+    <div class="nav-links">
+      <a href="marketplace.html" class="nav-link">Nabídky</a>
+      <a href="album.html" class="nav-link">🔄 Album výměny</a>
+      <a href="moje-album.html" class="nav-link">🎴 Moje album</a>
+      <a href="compare.html" class="nav-link">Porovnat alba</a>
+    </div>
+    <div class="nav-auth" id="navAuth">
+      <a href="login.html" class="btn-nav-outline">Přihlásit</a>
+      <a href="register.html" class="btn-nav-fill">Registrovat</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="grid-lines"></div>
+  </div>
+  <div class="hero-content">
+    <div class="hero-badge">🃏 Komunita sběratelů</div>
+    <h1 class="hero-title">
+      Sdílej,&nbsp;vyměň,<br><em>získej</em> co chybí
+    </h1>
+    <p class="hero-sub">
+      Nahraj kartičky z tvé Pokémon Cards aplikace a najdi výměnu se sběrateli ve svém okolí.
+    </p>
+    <div class="hero-btns">
+      <a href="register.html" class="btn-primary">Začít zdarma</a>
+      <a href="marketplace.html" class="btn-ghost">Prohlédnout nabídky →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span id="statCards">–</span><small>karet v databázi</small></div>
+      <div class="stat"><span id="statUsers">–</span><small>sběratelů</small></div>
+      <div class="stat"><span id="statTrades">–</span><small>proběhlých výměn</small></div>
+    </div>
+  </div>
+  <div class="hero-cards-visual">
+    <div class="card-float c1">
+      <div class="card-img" style="background:linear-gradient(135deg,#ff6b35,#f7c59f)">🔥</div>
+    </div>
+    <div class="card-float c2">
+      <div class="card-img" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">💧</div>
+    </div>
+    <div class="card-float c3">
+      <div class="card-img" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)">✨</div>
+    </div>
+    <div class="card-float c4">
+      <div class="card-img" style="background:linear-gradient(135deg,#43e97b,#38f9d7)">🌿</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ HOW IT WORKS ═══════════ -->
+<section class="section how">
+  <div class="container">
+    <h2 class="section-title">Jak to funguje?</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">👤</div>
+        <h3>Vytvoř účet</h3>
+        <p>Zaregistruj se zde na webu nebo přímo v aplikaci. Jeden účet – všude stejný.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">📤</div>
+        <h3>Nahraj kartičky</h3>
+        <p>V aplikaci vyber kartičky k výměně a exportuj je jako <code>.pkte</code> soubor. Pak ho sem nahraj.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">🤝</div>
+        <h3>Domluv výměnu</h3>
+        <p>Ostatní sběratelé uvidí tvoji nabídku, pošlou protinabídku a domluvíte se na ceně nebo výměně.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">📥</div>
+        <h3>Import zpět</h3>
+        <p>Po dohodě si stáhneš karty jako <code>.pktr</code> a importuješ je do aplikace jedním kliknutím.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ FEATURES ═══════════ -->
+<section class="section features">
+  <div class="container">
+    <div class="features-grid">
+      <div class="feature-card accent-yellow">
+        <div class="fc-icon">🖼️</div>
+        <h3>Reálné fotky</h3>
+        <p>Každá karta má oficální foto z API i tvoje vlastní fotky – ostatní vidí přesně co nabízíš.</p>
+      </div>
+      <div class="feature-card accent-blue">
+        <div class="fc-icon">💰</div>
+        <h3>Cenové nabídky</h3>
+        <p>Nastav cenu v Kč nebo EUR. Kupující může poslat protinabídku a smlouvat přímo v chatu.</p>
+      </div>
+      <div class="feature-card accent-purple">
+        <div class="fc-icon">🔄</div>
+        <h3>Výměna za výměnu</h3>
+        <p>Nechceš peníze? Navrhni výměnu kartičky za kartičku z jiného alba.</p>
+      </div>
+      <div class="feature-card accent-green">
+        <div class="fc-icon">📊</div>
+        <h3>Porovnání alb</h3>
+        <p>Nahrej dvě alba a okamžitě uvidíš průniky – co máte oba, co ti chybí, co máš navíc.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CTA ═══════════ -->
+<section class="section cta-section">
+  <div class="container">
+    <div class="cta-box">
+      <h2>Připraven sdílet svoji kolekci?</h2>
+      <p>Registrace je zdarma a zabere 30 sekund.</p>
+      <a href="register.html" class="btn-primary btn-large">Vytvořit účet zdarma</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <p>© 2026 PokéTrade · Neoficiální komunitní projekt · Pokémon © Nintendo/Game Freak</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

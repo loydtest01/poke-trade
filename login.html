@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Přihlášení – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon">⚡</span><span>Poké<strong>Trade</strong></span></a>
+  </div>
+</nav>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-icon">⚡</div>
+      <h1>Přihlásit se</h1>
+      <p>Vítej zpět, trenére!</p>
+    </div>
+
+    <div id="authError" class="auth-error" style="display:none"></div>
+
+    <form id="loginForm" class="auth-form">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="tvuj@email.cz" required>
+      </div>
+      <div class="form-group">
+        <label>Heslo</label>
+        <div class="input-password-wrap"><input type="password" id="loginPassword" placeholder="Tvoje heslo" required><button type="button" class="eye-btn" onclick="toggleEye('loginPassword',this)">👁️</button></div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="loginBtn">
+        <span id="loginBtnText">Přihlásit se</span>
+        <span id="loginBtnLoad" style="display:none">⏳ Přihlašuji...</span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>nebo</span></div>
+    <div class="auth-alt">Nemáš účet? <a href="register.html">Registrovat se →</a></div>
+    <div class="auth-alt" style="margin-top:.5rem"><a href="reset-password.html">🔑 Zapomenuté heslo?</a></div>
+
+    <div class="auth-note">
+      💡 Stejné přihlašovací údaje fungují v nastavení aplikace PokémonCards.
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+
+  setLoading(true);
+  document.getElementById('authError').style.display = 'none';
+
+  try {
+    const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST', { email, password });
+    if (res.error) throw new Error(res.error.message || 'Špatný e-mail nebo heslo');
+    if (!res.access_token) throw new Error('Nepodařilo se přihlásit – zkus to znovu');
+
+    // Uložit token
+    localStorage.setItem('sb_token', res.access_token);
+    if (res.refresh_token) localStorage.setItem('sb_refresh_token', res.refresh_token);
+
+    // Načíst uživatele přes /auth/v1/user (spolehlivější než res.user)
+    let user = res.user;
+    if (!user || !user.id) {
+      const userRes = await supabaseRequest('auth/v1/user', 'GET', null, res.access_token);
+      if (userRes && userRes.id) user = userRes;
+    }
+    if (!user || !user.id) throw new Error('Nepodařilo se načíst profil uživatele');
+
+    localStorage.setItem('sb_user', JSON.stringify(user));
+    window.location.href = 'dashboard.html';
+  } catch(err) {
+    const el = document.getElementById('authError');
+    el.textContent = '⚠️ ' + err.message;
+    el.style.display = 'block';
+  }
+  setLoading(false);
+});
+
+function toggleEye(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  btn.textContent = show ? "🙈" : "👁️";
+  btn.classList.toggle("active", show);
+}
+
+function setLoading(on) {
+  document.getElementById('loginBtnText').style.display = on ? 'none' : '';
+  document.getElementById('loginBtnLoad').style.display = on ? '' : 'none';
+  document.getElementById('loginBtn').disabled = on;
+}
+</script>
+</body>
+</html>

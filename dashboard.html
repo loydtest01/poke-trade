@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Můj profil – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon">⚡</span><span>Poké<strong>Trade</strong></span></a>
+    <div class="nav-links">
+      <a href="marketplace.html" class="nav-link">Nabídky</a>
+      <a href="album.html" class="nav-link">🔄 Album výměny</a>
+      <a href="moje-album.html" class="nav-link">🎴 Moje album</a>
+      <a href="compare.html" class="nav-link">Porovnat alba</a>
+    </div>
+    <div class="nav-auth">
+      <span class="nav-username" id="navUsername">–</span>
+      <button class="btn-nav-outline" onclick="logout()">Odhlásit</button>
+    </div>
+  </div>
+</nav>
+
+<div class="dashboard">
+  <div class="container">
+
+    <!-- HEADER -->
+    <div class="dash-header">
+      <div>
+        <h1>Moje nabídky</h1>
+        <p id="dashSubtitle">Načítám profil...</p>
+      </div>
+      <button class="btn-primary" onclick="openUploadModal()">📤 Nahrát .pkte soubor</button>
+    </div>
+
+    <!-- UPLOAD AREA (drag & drop) -->
+    <div class="upload-zone" id="uploadZone"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <div class="upload-zone-inner">
+        <div class="upload-icon">📦</div>
+        <p>Přetáhni <code>.pkte</code> soubor sem</p>
+        <small>nebo</small>
+        <label class="btn-ghost upload-label">
+          Vybrat soubor
+          <input type="file" id="fileInput" accept=".pkte,.pktr" style="display:none" onchange="handleFileSelect(event)">
+        </label>
+        <small class="upload-hint">Exportuj z aplikace: Transport → Výměnná nabídka → Exportovat .pkte</small>
+      </div>
+    </div>
+
+    <!-- MY LISTINGS -->
+    <div class="dash-section">
+      <h2>Moje aktivní nabídky</h2>
+      <div id="myListings" class="listings-grid">
+        <div class="loading-cards">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INCOMING OFFERS -->
+    <div class="dash-section">
+      <h2>Příchozí nabídky <span class="badge-count" id="offerCount">0</span></h2>
+      <div id="incomingOffers" class="offers-list">
+        <p class="empty-state">Žádné nabídky zatím 🕊️</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- UPLOAD PROCESSING MODAL -->
+<div class="modal-overlay" id="uploadModal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>📦 Nahrávám nabídku</h3>
+      <button class="modal-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div id="uploadProgress">
+      <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+      <p id="progressLabel">Čtu soubor...</p>
+    </div>
+    <div id="uploadPreview" style="display:none">
+      <div class="preview-summary" id="previewSummary"></div>
+      <div class="preview-cards" id="previewCards"></div>
+      <div class="modal-footer">
+        <button class="btn-ghost" onclick="closeUploadModal()">Zrušit</button>
+        <button class="btn-primary" onclick="confirmUpload()" id="confirmBtn">✅ Zveřejnit nabídku</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ═══ INIT ═══
+let currentUser = null;
+let parsedPkte  = null;
+
+async function init() {
+  currentUser = getUser();
+  if (!currentUser) { window.location.href = 'login.html'; return; }
+
+  document.getElementById('navUsername').textContent = currentUser.user_metadata?.username || currentUser.email;
+  document.getElementById('dashSubtitle').textContent = 'Přihlášen jako ' + (currentUser.user_metadata?.username || currentUser.email);
+
+  loadMyListings();
+  loadIncomingOffers();
+}
+
+// ═══ LOAD MY LISTINGS ═══
+async function loadMyListings() {
+  const token = localStorage.getItem('sb_token');
+  const res = await supabaseRequest(
+    `rest/v1/listings?user_id=eq.${currentUser.id}&order=created_at.desc`,
+    'GET', null, token
+  );
+
+  const container = document.getElementById('myListings');
+  if (!res || res.error || res.length === 0) {
+    container.innerHTML = `<p class="empty-state">Zatím nemáš žádné nabídky. Nahraj <code>.pkte</code> soubor! ↑</p>`;
+    return;
+  }
+
+  container.innerHTML = res.map(listing => renderListingCard(listing)).join('');
+}
+
+function renderListingCard(listing) {
+  const cards = listing.cards_data || [];
+  const preview = cards.slice(0, 4);
+  return `
+    <div class="listing-card">
+      <div class="lc-header">
+        <span class="lc-count">${cards.length} karet</span>
+        <span class="lc-date">${new Date(listing.created_at).toLocaleDateString('cs')}</span>
+        <button class="lc-delete" onclick="deleteListing('${listing.id}')" title="Smazat">🗑️</button>
+      </div>
+      <div class="lc-title">${listing.title || 'Výměnná nabídka'}</div>
+      <div class="lc-cards-preview">
+        ${preview.map(c => renderMiniCard(c)).join('')}
+        ${cards.length > 4 ? `<div class="mini-card more">+${cards.length - 4}</div>` : ''}
+      </div>
+      <div class="lc-footer">
+        <a href="offer.html?id=${listing.id}" class="btn-ghost btn-sm">Zobrazit →</a>
+        <span class="lc-offers">${listing.offer_count || 0} nabídek</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderMiniCard(card) {
+  // Podpora obou formátů – web (.images.small) i app export (.image_url)
+  const apiImg = card.images?.small || card.apiSmall || card.image_url || '';
+  const emoji  = getTypeEmoji(Array.isArray(card.types) ? card.types[0] : (card.type || card.supertype || ''));
+  return `
+    <div class="mini-card" title="${card.name || '?'}">
+      ${apiImg
+        ? `<img src="${apiImg}" alt="${card.name}" loading="lazy">`
+        : `<div class="mini-card-placeholder">${emoji}</div>`
+      }
+      ${card.priceCzk ? `<div class="mini-price">${card.priceCzk} Kč</div>` : ''}
+    </div>
+  `;
+}
+
+// ═══ LOAD INCOMING OFFERS ═══
+async function loadIncomingOffers() {
+  const token = localStorage.getItem('sb_token');
+  const res = await supabaseRequest(
+    `rest/v1/offers?seller_id=eq.${currentUser.id}&status=eq.pending&order=created_at.desc`,
+    'GET', null, token
+  );
+
+  const container = document.getElementById('incomingOffers');
+  document.getElementById('offerCount').textContent = res?.length || 0;
+
+  if (!res || res.error || res.length === 0) {
+    container.innerHTML = `<p class="empty-state">Žádné nabídky zatím 🕊️</p>`;
+    return;
+  }
+
+  container.innerHTML = res.map(offer => `
+    <div class="offer-row">
+      <div class="offer-info">
+        <span class="offer-from">👤 ${offer.buyer_username || 'Anonym'}</span>
+        <span class="offer-listing">na tvoji nabídku</span>
+        <span class="offer-price">${offer.offered_price_czk ? offer.offered_price_czk + ' Kč' : 'výměna'}</span>
+        <span class="offer-date">${new Date(offer.created_at).toLocaleDateString('cs')}</span>
+      </div>
+      <div class="offer-actions">
+        <a href="offer-detail.html?id=${offer.id}" class="btn-ghost btn-sm">Detail</a>
+        <button class="btn-primary btn-sm" onclick="acceptOffer('${offer.id}')">✅ Přijmout</button>
+        <button class="btn-danger btn-sm" onclick="rejectOffer('${offer.id}')">✕ Odmítnout</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══ FILE HANDLING ═══
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+async function processFile(file) {
+  if (!file.name.endsWith('.pkte') && !file.name.endsWith('.pktr')) {
+    alert('Nahrej prosím .pkte soubor (výměnná nabídka z aplikace)');
+    return;
+  }
+
+  openUploadModal();
+  setProgress(10, 'Čtu soubor...');
+
+  try {
+    const buffer = await file.arrayBuffer();
+    setProgress(30, 'Rozbaluji ZIP...');
+
+    const zipFiles = await readZip(buffer);
+    setProgress(60, 'Parsuju data...');
+
+    if (!zipFiles['data.json']) throw new Error('Soubor neobsahuje data.json');
+
+    const payload = JSON.parse(new TextDecoder().decode(zipFiles['data.json']));
+    if (!payload._meta || payload._meta.format !== 'pktr') throw new Error('Neplatný formát souboru');
+
+    setProgress(80, 'Připravuji náhled...');
+
+    // Extrahovat fotky
+    const photoMap = {};
+    for (const [name, data] of Object.entries(zipFiles)) {
+      if (!name.startsWith('photos/')) continue;
+      const ext  = name.split('.').pop().toLowerCase();
+      const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      let bin = '';
+      const CHUNK = 8192;
+      for (let i = 0; i < data.length; i += CHUNK) {
+        bin += String.fromCharCode(...data.slice(i, i + CHUNK));
+      }
+      photoMap[name] = `data:${mime};base64,${btoa(bin)}`;
+    }
+
+    // Restore photos in cards
+    const cards = (payload.cards || []).map(card => {
+      if (!card.photos?.length) return card;
+      const photos = card.photos.map(entry => {
+        if (!entry) return null;
+        if (typeof entry === 'string') return entry;
+        if (entry.ref && photoMap[entry.ref]) return photoMap[entry.ref];
+        return null;
+      }).filter(Boolean);
+      return { ...card, photos };
+    });
+
+    // Get exchange items if .pkte
+    const exchangeItems = payload.exchangeItems || [];
+
+    parsedPkte = { payload, cards, exchangeItems, photoMap, fileName: file.name };
+
+    setProgress(100, 'Hotovo!');
+    showPreview(parsedPkte);
+
+  } catch(err) {
+    alert('Chyba při čtení souboru: ' + err.message);
+    closeUploadModal();
+  }
+}
+
+function showPreview(data) {
+  document.getElementById('uploadProgress').style.display = 'none';
+  document.getElementById('uploadPreview').style.display = '';
+
+  const meta = data.payload._meta;
+  document.getElementById('previewSummary').innerHTML = `
+    <div class="preview-meta">
+      <span>📦 ${meta.cardCount || data.cards.length} karet</span>
+      <span>🖼️ ${meta.photoCount || 0} fotek</span>
+      <span>📅 ${new Date(meta.createdAt).toLocaleDateString('cs')}</span>
+    </div>
+  `;
+
+  const previewCards = data.cards.slice(0, 12);
+  document.getElementById('previewCards').innerHTML = previewCards.map(card => {
+    const photo = card.photos?.[0] || '';
+    const apiImg = card.images?.small || card.apiSmall || '';
+    const displayImg = apiImg || photo;
+    const cfg = data.exchangeItems?.find(e => e.cardId === String(card.id));
+    return `
+      <div class="preview-card-item">
+        <div class="pci-img">
+          ${displayImg
+            ? `<img src="${displayImg}" alt="${card.name || '?'}" loading="lazy">`
+            : `<div class="pci-placeholder">${getTypeEmoji(card.types?.[0])}</div>`
+          }
+        </div>
+        <div class="pci-name">${card.name || 'Neznámá karta'}</div>
+        ${cfg?.priceCzk ? `<div class="pci-price">${cfg.priceCzk} Kč</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  if (data.cards.length > 12) {
+    document.getElementById('previewCards').innerHTML += `<div class="preview-more">a dalších ${data.cards.length - 12} karet...</div>`;
+  }
+}
+
+// ═══ CONFIRM UPLOAD → SUPABASE ═══
+async function confirmUpload() {
+  if (!parsedPkte) return;
+  document.getElementById('confirmBtn').disabled = true;
+  document.getElementById('confirmBtn').textContent = '⏳ Nahrávám...';
+
+  const token = localStorage.getItem('sb_token');
+
+  // Připravit data pro uložení (bez base64 fotek – ty se ukládají zvlášť nebo jako URL)
+  const cardsForDb = parsedPkte.cards.map(card => ({
+    id:          String(card.id),
+    name:        card.name,
+    supertype:   card.supertype,
+    types:       card.types || [],
+    subtype:     card.subtype,
+    rarity:      card.rarity,
+    set:         card.set,
+    number:      card.number,
+    condition:   card.condition,
+    apiSmall:    card.images?.small || card.apiSmall || null,
+    apiLarge:    card.images?.large || card.apiLarge || null,
+    priceCzk:    card.pTrend ? Math.round(card.pTrend * 25) : (card.priceCzk || null),
+    priceEur:    card.pTrend || null,
+    hasUserPhoto: (card.photos?.length || 0) > 0,
+    // Uložit max 1 user foto (thumbnail) – komprimovaně
+    userPhotoThumb: card.photos?.[0] ? compressBase64(card.photos[0]) : null,
+  }));
+
+  const exchangeMap = {};
+  for (const item of (parsedPkte.exchangeItems || [])) {
+    exchangeMap[String(item.cardId)] = {
+      priceCzk: item.priceCzk,
+      priceEur: item.priceEur,
+      count: item.count || 1,
+    };
+  }
+
+  const listingData = {
+    user_id:      currentUser.id,
+    username:     currentUser.user_metadata?.username || currentUser.email,
+    title:        'Výměnná nabídka ' + new Date().toLocaleDateString('cs'),
+    cards_data:   cardsForDb,
+    exchange_map: exchangeMap,
+    status:       'active',
+    created_at:   new Date().toISOString(),
+    offer_count:  0,
+  };
+
+  const res = await supabaseRequest('rest/v1/listings', 'POST', listingData, token);
+
+  if (res?.error) {
+    alert('Chyba při nahrávání: ' + res.error.message);
+  } else {
+    closeUploadModal();
+    parsedPkte = null;
+    loadMyListings();
+  }
+}
+
+// ═══ DELETE LISTING ═══
+async function deleteListing(id) {
+  if (!confirm('Opravdu smazat tuto nabídku?')) return;
+  const token = localStorage.getItem('sb_token');
+  await supabaseRequest(`rest/v1/listings?id=eq.${id}`, 'DELETE', null, token);
+  loadMyListings();
+}
+
+// ═══ ACCEPT / REJECT OFFER ═══
+async function acceptOffer(id) {
+  const token = localStorage.getItem('sb_token');
+  await supabaseRequest(`rest/v1/offers?id=eq.${id}`, 'PATCH', { status: 'accepted' }, token);
+  loadIncomingOffers();
+  alert('✅ Nabídka přijata! Kontaktuj kupujícího.');
+}
+async function rejectOffer(id) {
+  const token = localStorage.getItem('sb_token');
+  await supabaseRequest(`rest/v1/offers?id=eq.${id}`, 'PATCH', { status: 'rejected' }, token);
+  loadIncomingOffers();
+}
+
+// ═══ MODAL ═══
+function openUploadModal() {
+  document.getElementById('uploadModal').style.display = 'flex';
+  document.getElementById('uploadProgress').style.display = '';
+  document.getElementById('uploadPreview').style.display = 'none';
+  setProgress(0, '');
+}
+function closeUploadModal() {
+  document.getElementById('uploadModal').style.display = 'none';
+  document.getElementById('fileInput').value = '';
+  if (document.getElementById('confirmBtn')) {
+    document.getElementById('confirmBtn').disabled = false;
+    document.getElementById('confirmBtn').textContent = '✅ Zveřejnit nabídku';
+  }
+}
+function setProgress(pct, label) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+// ═══ HELPERS ═══
+function compressBase64(b64) {
+  // Vrati prvních ~100KB (thumbnail) – pro preview na webu stačí
+  return b64 ? b64.substring(0, 100000) : null;
+}
+
+function logout() {
+  localStorage.removeItem('sb_token');
+  localStorage.removeItem('sb_refresh_token');
+  localStorage.removeItem('sb_user');
+  window.location.href = 'login.html';
+}
+
+init();
+</script>
+</body>
+</html>

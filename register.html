@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registrace – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="auth-page">
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon">⚡</span><span>Poké<strong>Trade</strong></span></a>
+  </div>
+</nav>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-icon">⚡</div>
+      <h1>Registrace</h1>
+      <p>Vytvoř si účet trenéra!</p>
+    </div>
+
+    <div id="authError"  class="auth-error"   style="display:none"></div>
+    <div id="authSuccess" class="auth-success" style="display:none"></div>
+
+    <form id="registerForm" class="auth-form">
+      <div class="form-group">
+        <label>Uživatelské jméno</label>
+        <input type="text" id="regUsername" placeholder="trener123" required minlength="3" maxlength="30">
+        <small class="form-hint">3–30 znaků, bez mezer</small>
+      </div>
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="regEmail" placeholder="tvuj@email.cz" required>
+      </div>
+      <div class="form-group">
+        <label>Heslo</label>
+        <div class="input-password-wrap"><input type="password" id="regPassword" placeholder="Minimálně 6 znaků" required minlength="6"><button type="button" class="eye-btn" onclick="toggleEye('regPassword',this)">👁️</button></div>
+      </div>
+      <div class="form-group">
+        <label>Heslo znovu</label>
+        <div class="input-password-wrap"><input type="password" id="regPasswordConfirm" placeholder="Zopakuj heslo" required minlength="6"><button type="button" class="eye-btn" onclick="toggleEye('regPasswordConfirm',this)">👁️</button></div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="regBtn">
+        <span id="regBtnText">Vytvořit účet</span>
+        <span id="regBtnLoad" style="display:none">⏳ Registruji...</span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>nebo</span></div>
+    <div class="auth-alt">Už máš účet? <a href="login.html">Přihlásit se →</a></div>
+
+    <div class="auth-note">
+      💡 Stejné přihlašovací údaje fungují v nastavení aplikace PokémonCards.
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+document.getElementById('registerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const username = document.getElementById('regUsername').value.trim();
+  const email    = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const confirm  = document.getElementById('regPasswordConfirm').value;
+
+  // Validace
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+
+  if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
+    showError('Uživatelské jméno smí obsahovat jen písmena, čísla, _ . - (3–30 znaků)');
+    return;
+  }
+  if (password !== confirm) {
+    showError('Hesla se neshodují');
+    return;
+  }
+  if (password.length < 6) {
+    showError('Heslo musí mít alespoň 6 znaků');
+    return;
+  }
+
+  setLoading(true);
+
+  try {
+    // 1a. Zkontroluj jestli username již existuje
+    const usernameCheck = await supabaseRequest(
+      `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`
+    );
+    if (Array.isArray(usernameCheck) && usernameCheck.length > 0) {
+      throw new Error('Toto uživatelské jméno je již obsazeno');
+    }
+
+    // 1b. Zkontroluj jestli email již existuje
+    const emailCheck = await supabaseRequest(
+      `rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id`
+    );
+    if (Array.isArray(emailCheck) && emailCheck.length > 0) {
+      throw new Error('Tento e-mail je již zaregistrován');
+    }
+
+    // 2. Registrace přes Supabase Auth
+    const res = await supabaseRequest('auth/v1/signup', 'POST', {
+      email,
+      password,
+      data: { username }
+    });
+
+    if (res.error) throw new Error(res.error.message || 'Registrace se nezdařila');
+
+    // Supabase vrátí uživatele bez session pokud email nebyl ověřen –
+    // ale pokud uživatel s tímto emailem již existuje, vrátí prázdný identities[]
+    if (res.user && res.user.identities && res.user.identities.length === 0) {
+      throw new Error('Tento e-mail je již zaregistrován');
+    }
+
+    // 3. Úspěch
+    document.getElementById('registerForm').style.display = 'none';
+    const succEl = document.getElementById('authSuccess');
+    succEl.innerHTML = `
+      ✅ <strong>Účet vytvořen!</strong><br>
+      Zkontroluj svůj e-mail <strong>${email}</strong> a klikni na ověřovací odkaz.<br><br>
+      Po ověření se můžeš <a href="login.html">přihlásit →</a>
+    `;
+    succEl.style.display = 'block';
+
+  } catch(err) {
+    showError(translateError(err.message));
+  }
+
+  setLoading(false);
+});
+
+function toggleEye(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  btn.textContent = show ? "🙈" : "👁️";
+  btn.classList.toggle("active", show);
+}
+
+function showError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+function translateError(msg) {
+  if (msg.includes('already registered') || msg.includes('already exists')) return 'Tento e-mail je již registrován';
+  if (msg.includes('invalid email'))    return 'Neplatná e-mailová adresa';
+  if (msg.includes('weak password'))    return 'Heslo je příliš slabé';
+  if (msg.includes('rate limit'))       return 'Příliš mnoho pokusů, zkus to za chvíli';
+  return msg;
+}
+
+function setLoading(on) {
+  document.getElementById('regBtnText').style.display = on ? 'none' : '';
+  document.getElementById('regBtnLoad').style.display = on ? '' : 'none';
+  document.getElementById('regBtn').disabled = on;
+}
+</script>
+
+<style>
+.auth-success {
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #86efac;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  font-size: .9rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+.auth-success a { color: #fbbf24; }
+.form-hint {
+  display: block;
+  font-size: .78rem;
+  color: #6b7280;
+  margin-top: .25rem;
+}
+</style>
+</body>
+</html>
