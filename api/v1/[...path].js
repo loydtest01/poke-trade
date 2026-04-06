@@ -20,7 +20,7 @@
 // CONFIG – vyplň po registraci na Supabase
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3JpbnpmbXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM4MDQyOTQsImV4cCI6MjA1OTM4MDI5NH0.2p404Vy77CH_MsvQlnpxaO0H-K1SSt_oJlaFrmttFXs';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
 // ═══════════════════════════════════════════════════════
 // CORS helper – přijímáme volání z Electron app

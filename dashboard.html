@@ -107,6 +107,23 @@ let parsedPkte  = null;
 
 async function init() {
   currentUser = getUser();
+
+  // Záchrana: pokud getUser() selhal ale refresh token existuje → obnov session
+  if (!currentUser) {
+    const rt = localStorage.getItem('sb_refresh_token');
+    if (rt) {
+      try {
+        const r = await supabaseRequest('auth/v1/token?grant_type=refresh_token', 'POST', { refresh_token: rt });
+        if (r?.access_token && r?.user?.id) {
+          localStorage.setItem('sb_token', r.access_token);
+          if (r.refresh_token) localStorage.setItem('sb_refresh_token', r.refresh_token);
+          localStorage.setItem('sb_user', JSON.stringify(r.user));
+          currentUser = r.user;
+        }
+      } catch { /* síťová chyba */ }
+    }
+  }
+
   if (!currentUser) { window.location.href = 'login.html'; return; }
 
   document.getElementById('navUsername').textContent = currentUser.user_metadata?.username || currentUser.email;

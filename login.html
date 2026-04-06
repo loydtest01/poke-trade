@@ -52,19 +52,37 @@
 
 <script src="app.js"></script>
 <script>
+// Příznak: právě probíhá přihlášení formulářem → checkAlreadyLoggedIn nesmí mazat tokeny
+let loginInProgress = false;
+
 // Pokud je uživatel JIŽ přihlášen s platným tokenem → přesměruj na dashboard
 (async function checkAlreadyLoggedIn() {
-  const token = localStorage.getItem('sb_token');
-  const user  = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+  const token        = localStorage.getItem('sb_token');
+  const refreshToken = localStorage.getItem('sb_refresh_token');
+  const user         = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
   if (!token || !user?.id) return; // nejsme přihlášeni – zůstaň na login
 
   // Ověř token u Supabase (může být expirovaný)
   try {
     const res = await supabaseRequest('auth/v1/user', 'GET', null, token);
+    if (loginInProgress) return; // formulář právě běží – nedotýkej se localStorage
     if (res?.id) {
       window.location.href = 'dashboard.html'; // platný token → přesměruj
-    } else {
-      // Token expirovaný – vymaž a zůstaň na login
+      return;
+    }
+    // Token expirovaný – zkus refresh
+    if (refreshToken) {
+      const r = await supabaseRequest('auth/v1/token?grant_type=refresh_token', 'POST', { refresh_token: refreshToken });
+      if (loginInProgress) return;
+      if (r?.access_token) {
+        localStorage.setItem('sb_token', r.access_token);
+        if (r.refresh_token) localStorage.setItem('sb_refresh_token', r.refresh_token);
+        window.location.href = 'dashboard.html';
+        return;
+      }
+    }
+    // Obě metody selhaly – vymaž pouze pokud formulář neběží
+    if (!loginInProgress) {
       ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
     }
   } catch { /* síťová chyba – zůstaň na login */ }
@@ -75,9 +93,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
 
+  loginInProgress = true;
   setLoading(true);
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
+
+  // Vymaž staré tokeny před novým přihlášením (čistý start)
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
 
   try {
     const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST', { email, password });
@@ -99,13 +121,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
       const userRes = await supabaseRequest('auth/v1/user', 'GET', null, res.access_token);
       if (userRes?.id) user = userRes;
     }
-    if (!user?.id) throw new Error('Přihlášení proběhlo, ale nepodařilo se načíst profil');
+    if (!user?.id) throw new Error('Přihlášení proběhlo, ale nepodařilo se načíst profil – zkus znovu');
 
     localStorage.setItem('sb_user', JSON.stringify(user));
+    await new Promise(r => setTimeout(r, 50));
     window.location.href = 'dashboard.html';
 
   } catch(err) {
-    errEl.textContent = '⚠️ ' + err.message;
+    loginInProgress = false;
+    errEl.textContent = '\u26a0\ufe0f ' + err.message;
     errEl.style.display = 'block';
     setLoading(false);
   }
