@@ -52,39 +52,63 @@
 
 <script src="app.js"></script>
 <script>
+// Pokud je uživatel JIŽ přihlášen s platným tokenem → přesměruj na dashboard
+(async function checkAlreadyLoggedIn() {
+  const token = localStorage.getItem('sb_token');
+  const user  = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+  if (!token || !user?.id) return; // nejsme přihlášeni – zůstaň na login
+
+  // Ověř token u Supabase (může být expirovaný)
+  try {
+    const res = await supabaseRequest('auth/v1/user', 'GET', null, token);
+    if (res?.id) {
+      window.location.href = 'dashboard.html'; // platný token → přesměruj
+    } else {
+      // Token expirovaný – vymaž a zůstaň na login
+      ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
+    }
+  } catch { /* síťová chyba – zůstaň na login */ }
+})();
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email    = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
 
   setLoading(true);
-  document.getElementById('authError').style.display = 'none';
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
 
   try {
     const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST', { email, password });
-    if (res.error) throw new Error(res.error.message || 'Špatný e-mail nebo heslo');
+
+    // Detailní chybové hlášky
+    if (res.error || res.error_description) {
+      const msg = res.error_description || res.error?.message || res.error || 'Špatný e-mail nebo heslo';
+      throw new Error(msg);
+    }
     if (!res.access_token) throw new Error('Nepodařilo se přihlásit – zkus to znovu');
 
-    // Uložit token
+    // Uložit tokeny
     localStorage.setItem('sb_token', res.access_token);
     if (res.refresh_token) localStorage.setItem('sb_refresh_token', res.refresh_token);
 
-    // Načíst uživatele přes /auth/v1/user (spolehlivější než res.user)
+    // Načíst uživatele
     let user = res.user;
-    if (!user || !user.id) {
+    if (!user?.id) {
       const userRes = await supabaseRequest('auth/v1/user', 'GET', null, res.access_token);
-      if (userRes && userRes.id) user = userRes;
+      if (userRes?.id) user = userRes;
     }
-    if (!user || !user.id) throw new Error('Nepodařilo se načíst profil uživatele');
+    if (!user?.id) throw new Error('Přihlášení proběhlo, ale nepodařilo se načíst profil');
 
     localStorage.setItem('sb_user', JSON.stringify(user));
     window.location.href = 'dashboard.html';
+
   } catch(err) {
-    const el = document.getElementById('authError');
-    el.textContent = '⚠️ ' + err.message;
-    el.style.display = 'block';
+    errEl.textContent = '⚠️ ' + err.message;
+    errEl.style.display = 'block';
+    setLoading(false);
   }
-  setLoading(false);
 });
 
 function toggleEye(id, btn) {
