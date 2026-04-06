@@ -121,12 +121,19 @@ async function inflate(compData) {
 // ── Typ emoji ────────────────────────────────────────
 function getTypeEmoji(type) {
   const map = {
-    fire:'🔥', water:'💧', grass:'🌿', electric:'⚡',
-    psychic:'🔮', dark:'🌑', dragon:'🐉', steel:'⚙️',
-    fighting:'🥊', fairy:'🌸', colorless:'⭐',
-    pokemon:'🃏', trainer:'🧑', energy:'💡',
+    fire:'fire', water:'water', grass:'grass',
+    lightning:'electric', electric:'electric',
+    psychic:'psychic', dark:'dark', darkness:'dark',
+    dragon:'dragon', steel:'steel', metal:'steel',
+    fighting:'fighting', fairy:'fairy',
+    bug:'bug', poison:'poison', ground:'ground',
+    ghost:'ghost', ice:'ice', normal:'normal',
+    flying:'flying', rock:'rock',
+    colorless:'normal', pokemon:'normal',
   };
-  return map[(type||'').toLowerCase()] || '🃏';
+  const key = map[(type||'').toLowerCase()];
+  if (key) return `<img src="elements/${key}.png" style="width:18px;height:18px;object-fit:contain;vertical-align:middle;">`;
+  return '🃏';
 }
 
 // ── Auto navbar ──────────────────────────────────────
