@@ -90,7 +90,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   setLoading(true);
 
   try {
-    // 1a. Zkontroluj jestli username již existuje
+    // 1. Zkontroluj jestli přezdívka již existuje v tabulce profiles
     const usernameCheck = await supabaseRequest(
       `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`
     );
@@ -98,28 +98,32 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       throw new Error('Toto uživatelské jméno je již obsazeno');
     }
 
-    // 1b. Zkontroluj jestli email již existuje
-    const emailCheck = await supabaseRequest(
-      `rest/v1/profiles?email=eq.${encodeURIComponent(email)}&select=id`
-    );
-    if (Array.isArray(emailCheck) && emailCheck.length > 0) {
-      throw new Error('Tento e-mail je již zaregistrován');
-    }
-
     // 2. Registrace přes Supabase Auth
+    // Duplicitní email se detekuje spolehlivě přímo ze signup odpovědi:
+    // - email confirm zapnutý → prázdné identities[]
+    // - email confirm vypnutý → chyba "User already registered"
     const res = await supabaseRequest('auth/v1/signup', 'POST', {
       email,
       password,
       data: { username }
     });
 
-    if (res.error) throw new Error(res.error.message || 'Registrace se nezdařila');
+    // Zachyť všechny formáty chyb ze Supabase
+    const errMsg = res.error?.message || res.error_description || res.msg
+      || (typeof res.error === 'string' ? res.error : '') || '';
+    if (errMsg) {
+      if (errMsg.toLowerCase().includes('already registered') || errMsg.toLowerCase().includes('already exists')) {
+        throw new Error('Tento e-mail je již zaregistrován');
+      }
+      throw new Error(errMsg);
+    }
 
-    // Supabase vrátí uživatele bez session pokud email nebyl ověřen –
-    // ale pokud uživatel s tímto emailem již existuje, vrátí prázdný identities[]
+    // Prázdné identities[] = email existuje (při zapnutém email confirm)
     if (res.user && res.user.identities && res.user.identities.length === 0) {
       throw new Error('Tento e-mail je již zaregistrován');
     }
+
+    if (!res.user) throw new Error('Registrace se nezdařila – zkus to znovu');
 
     // 3. Úspěch
     document.getElementById('registerForm').style.display = 'none';
