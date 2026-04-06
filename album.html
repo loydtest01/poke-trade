@@ -252,7 +252,7 @@ body { background: #0a0a0f; overflow-x: hidden; }
 <!-- Top bar -->
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
-    <span>⚡ Poké<span>Trade</span></span>
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
   <nav class="app-nav">
     <a href="marketplace.html">Nabídky</a>
@@ -361,6 +361,25 @@ let activeFilter = 'all', activeType = '', activeCond = '';
 const SYNC_MODE_KEY = 'pkc_album_sync_mode';
 const LAST_SYNC_KEY = 'pkc_album_last_sync';
 
+// ── Načti avatar z Supabase profiles ────────────────────────────────────────
+async function loadAvatarAlbum(uid, token) {
+  try {
+    const res = await supabaseRequest(
+      `rest/v1/profiles?id=eq.${uid}&select=avatar_url`,
+      'GET', null, token
+    );
+    if (!Array.isArray(res) || !res[0]?.avatar_url) return;
+    const el = document.getElementById('userAvatar');
+    el.textContent = '';
+    el.style.cssText += ';padding:0;overflow:hidden';
+    const img = document.createElement('img');
+    img.src = res[0].avatar_url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+    img.onerror = () => {};
+    el.appendChild(img);
+  } catch(e) { /* tiché selhání */ }
+}
+
 // ── Init ────────────────────────────────────────────────────────────────────
 (async () => {
   const token   = localStorage.getItem('sb_token');
@@ -375,6 +394,8 @@ const LAST_SYNC_KEY = 'pkc_album_last_sync';
     document.getElementById('logoutBtn').style.display  = '';
     document.getElementById('userName').textContent     = uname;
     document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
+    // Načti profilový avatar z Supabase profiles
+    loadAvatarAlbum(userId, token);
   }
 
   // Nastav sync mode select
