@@ -349,7 +349,11 @@ body { background: #0a0a0f; overflow-x: hidden; }
   aspect-ratio: 63/88;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
   cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
+  min-width: 0;
 }
+/* book-grid scales via font-size on parent; gap scales too */
+#bookPages { --book-scale: 1; }
+#bookPages .book-grid { gap: calc(6px * var(--book-scale)); }
 .book-card:hover {
   transform: translateY(-4px) scale(1.04);
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
@@ -399,6 +403,102 @@ body { background: #0a0a0f; overflow-x: hidden; }
   .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
   .book-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
 }
+
+/* ── Card detail modal ─────────────────────────────────────── */
+#cardDetailModal {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.82); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+#cardDetailModal.open { display: flex; }
+.cd-box {
+  background: #0e0c12; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; width: 100%; max-width: 680px;
+  display: flex; gap: 0; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  max-height: 90vh;
+}
+.cd-left {
+  flex: 0 0 260px; background: rgba(0,0,0,0.4);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 28px 20px; gap: 14px;
+  border-right: 1px solid rgba(255,255,255,0.07);
+}
+.cd-img {
+  width: 100%; max-width: 220px; border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  transition: transform .2s;
+}
+.cd-img:hover { transform: scale(1.04); }
+.cd-no-img {
+  width: 180px; height: 252px; border-radius: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; color: var(--text3); font-size: 13px;
+}
+.cd-no-img .big-emoji { font-size: 48px; }
+.cd-right {
+  flex: 1; padding: 24px 24px 20px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.cd-close {
+  position: absolute; top: 16px; right: 18px;
+  background: rgba(255,255,255,0.08); border: none; border-radius: 8px;
+  color: var(--text2); font-size: 16px; cursor: pointer;
+  padding: 5px 10px; transition: background .15s;
+}
+.cd-close:hover { background: rgba(255,255,255,0.15); }
+.cd-name {
+  font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 800;
+  color: #fff; line-height: 1.2; margin-bottom: 2px;
+}
+.cd-set { font-size: 12px; color: var(--text3); }
+.cd-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.cd-badge {
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+}
+.cd-badge.trade { background: rgba(74,158,255,0.2); color: #74b4ff; border: 1px solid rgba(74,158,255,0.3); }
+.cd-badge.sell  { background: rgba(34,197,94,0.2);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.cd-badge.cond  { background: rgba(245,200,66,0.1); color: var(--yellow); border: 1px solid rgba(245,200,66,0.2); }
+.cd-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.cd-row {
+  background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px;
+}
+.cd-row-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+.cd-row-val   { font-size: 13px; color: var(--text); font-weight: 500; }
+.cd-row.wide  { grid-column: 1 / -1; }
+.cd-price-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.cd-price-inp {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 6px 10px; color: var(--text);
+  font-family: inherit; font-size: 13px; width: 100px; outline: none;
+}
+.cd-price-inp:focus { border-color: rgba(245,200,66,0.4); }
+.cd-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.cd-act-btn {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; border: none; transition: all .15s;
+}
+.cd-act-btn.trade-on  { background: rgba(74,158,255,0.2); color: #74b4ff; border: 1px solid rgba(74,158,255,0.3); }
+.cd-act-btn.trade-off { background: rgba(255,255,255,0.07); color: var(--text2); }
+.cd-act-btn.sell-on   { background: rgba(34,197,94,0.2);  color: #4ade80; border: 1px solid rgba(34,197,94,0.3); }
+.cd-act-btn.sell-off  { background: rgba(255,255,255,0.07); color: var(--text2); }
+.cd-act-btn.delete    { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.25); margin-left: auto; }
+.cd-act-btn:hover     { opacity: .85; transform: translateY(-1px); }
+
+/* ── Book size slider ──────────────────────────────────────── */
+.book-size-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.2);
+}
+.book-size-row label { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.book-size-row input[type=range] { flex: 1; max-width: 180px; }
+.book-size-val { font-size: 11px; color: var(--text2); min-width: 30px; }
 
 /* Prázdný stav */
 .empty-state {
@@ -694,6 +794,11 @@ body { background: #0a0a0f; overflow-x: hidden; }
     <!-- Album book view -->
     <div class="album-book" id="albumBook">
       <div class="book-wrap">
+        <div class="book-size-row">
+          <label>Velikost karet</label>
+          <input type="range" min="60" max="160" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
+          <span class="book-size-val" id="bookSizeVal">100%</span>
+        </div>
         <div class="book-nav">
           <button class="book-nav-btn" id="bookPrev" onclick="bookPrevPage()">← Předchozí</button>
           <span class="book-page-info" id="bookPageInfo">Strana 1 / 1</span>
@@ -701,6 +806,32 @@ body { background: #0a0a0f; overflow-x: hidden; }
         </div>
         <div class="book-pages" id="bookPages">
           <div class="book-spine"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card detail modal -->
+    <div id="cardDetailModal">
+      <div class="cd-box" style="position:relative">
+        <button class="cd-close" onclick="closeCardDetail()">✕</button>
+        <div class="cd-left">
+          <div id="cdImgWrap"></div>
+        </div>
+        <div class="cd-right">
+          <div>
+            <div class="cd-name" id="cdName">—</div>
+            <div class="cd-set"  id="cdSet">—</div>
+          </div>
+          <div class="cd-badges" id="cdBadges"></div>
+          <div class="cd-grid" id="cdGrid"></div>
+          <div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Cena (Kč)</div>
+            <div class="cd-price-row">
+              <input class="cd-price-inp" type="number" id="cdPriceInp" placeholder="Nezadána" min="0">
+              <button class="cd-act-btn trade-off" onclick="saveCdPrice()" style="padding:7px 12px">Uložit cenu</button>
+            </div>
+          </div>
+          <div class="cd-actions" id="cdActions"></div>
         </div>
       </div>
     </div>
@@ -799,6 +930,8 @@ let editingAlbumId = null;
   // Obnov uložený view mode po načtení dat (musí být až po render())
   const savedMode = localStorage.getItem('pkc_view_mode') || 'grid';
   if (savedMode === 'book') setViewMode('book');
+  // Keyboard shortcut: Escape closes card detail
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardDetail(); });
   // Po načtení dat synchronizuj album "Výměna" (tiše, bez čekání)
   syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
   autoSync();
@@ -958,6 +1091,160 @@ function cardClick(id) {
     else selectedIds.add(id);
     updateSelectBanner();
     render();
+    return;
+  }
+  // Open card detail
+  const c = allCards.find(x => String(x.id) === String(id));
+  if (c) openCardDetail(c);
+}
+
+// ── Card detail ───────────────────────────────────────────────────
+let _detailCard = null;
+
+function openCardDetail(c) {
+  _detailCard = c;
+  const modal = document.getElementById('cardDetailModal');
+
+  // Image
+  const img = c.images?.large || c.images?.small || c.apiSmall || c.imageUrl || '';
+  const emoji = typeEmoji(c.types?.[0] || c.type || '');
+  document.getElementById('cdImgWrap').innerHTML = img
+    ? `<img class="cd-img" src="${esc(img)}" alt="${esc(c.name||'')}">`
+    : `<div class="cd-no-img"><div class="big-emoji">${emoji}</div><div>${esc(c.name||'?')}</div></div>`;
+
+  // Name + set
+  document.getElementById('cdName').textContent = c.name || '?';
+  document.getElementById('cdSet').textContent  = [c.set, c.number ? '#'+c.number : ''].filter(Boolean).join(' · ');
+
+  // Badges
+  const badges = [];
+  if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
+  if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
+  const cond = c.condition || c.cond || 'NM';
+  badges.push(`<span class="cd-badge cond">${cond}</span>`);
+  document.getElementById('cdBadges').innerHTML = badges.join('');
+
+  // Info grid
+  const rows = [
+    ['Supertyp',  c.supertype || c.category || '—'],
+    ['Typ',       c.types?.join(', ') || c.type || '—'],
+    ['Série',     c.set || '—'],
+    ['Číslo',     c.number || '—'],
+    ['Stav',      cond],
+    ['HP',        c.hp || '—'],
+    ['Počet ks',  c.count || 1],
+    ['Poznámka',  c.note || '—', true],
+  ];
+  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
+    `<div class="cd-row${wide?' wide':''}">
+      <div class="cd-row-label">${label}</div>
+      <div class="cd-row-val">${esc(String(val))}</div>
+    </div>`).join('');
+
+  // Price
+  document.getElementById('cdPriceInp').value = c.price_czk || '';
+
+  // Actions
+  document.getElementById('cdActions').innerHTML = `
+    <button class="cd-act-btn ${c.for_trade?'trade-on':'trade-off'}" onclick="toggleCdTrade()">
+      🔄 ${c.for_trade ? 'Zrušit výměnu' : 'Dát k výměně'}
+    </button>
+    <button class="cd-act-btn ${c.for_sell?'sell-on':'sell-off'}" onclick="toggleCdSell()">
+      💰 ${c.for_sell ? 'Zrušit prodej' : 'Dát k prodeji'}
+    </button>
+    <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 Smazat</button>`;
+
+  modal.classList.add('open');
+  // Close on backdrop click
+  modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
+}
+
+function closeCardDetail() {
+  document.getElementById('cardDetailModal').classList.remove('open');
+  _detailCard = null;
+}
+
+async function toggleCdTrade() {
+  if (!_detailCard) return;
+  _detailCard.for_trade = !_detailCard.for_trade;
+  _detailCard.updated_at = new Date().toISOString();
+  saveLocal();
+  openCardDetail(_detailCard);
+  render();
+  await syncCardToServer(_detailCard);
+}
+
+async function toggleCdSell() {
+  if (!_detailCard) return;
+  _detailCard.for_sell = !_detailCard.for_sell;
+  _detailCard.updated_at = new Date().toISOString();
+  saveLocal();
+  openCardDetail(_detailCard);
+  render();
+  await syncCardToServer(_detailCard);
+}
+
+async function saveCdPrice() {
+  if (!_detailCard) return;
+  const val = parseFloat(document.getElementById('cdPriceInp').value) || null;
+  _detailCard.price_czk = val;
+  _detailCard.updated_at = new Date().toISOString();
+  saveLocal();
+  await syncCardToServer(_detailCard);
+  setSyncState('ok', 'Cena uložena');
+  setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
+}
+
+async function deleteCdCard() {
+  if (!_detailCard) return;
+  if (!confirm(`Smazat kartu „${_detailCard.name || _detailCard.id}"?\n\nTato akce je nevratná.`)) return;
+  closeCardDetail();
+  await deleteCard(_detailCard.id, _detailCard.name);
+}
+
+function saveLocal() {
+  try { localStorage.setItem('pkc_cards', JSON.stringify(allCards)); } catch {}
+}
+
+async function syncCardToServer(c) {
+  if (!token || !userId) return;
+  const payload = [{
+    local_id: String(c.id),
+    updated_at: c.updated_at || new Date().toISOString(),
+    for_trade: c.for_trade || false,
+    for_sell:  c.for_sell  || false,
+    price_czk: c.price_czk || null,
+    card_data: {
+      name: c.name||'', set: c.set||'', number: c.number||'',
+      condition: c.condition||'NM', category: c.category||'pokemon',
+      type: c.type||'', types: c.types||[], supertype: c.supertype||'',
+      imageUrl: c.imageUrl||null, apiSmall: c.apiSmall||null,
+      images: c.images||null, count: c.count||1, note: c.note||'',
+      hp: c.hp||null, tags: c.tags||[],
+    }
+  }];
+  await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
+    { p_user_id: userId, p_cards: payload }, token);
+}
+
+// ── Book size slider ──────────────────────────────────────────────
+let bookSize = parseInt(localStorage.getItem('pkc_book_size') || '100');
+
+function setBookSize(val) {
+  bookSize = parseInt(val);
+  localStorage.setItem('pkc_book_size', bookSize);
+  document.getElementById('bookSizeVal').textContent = bookSize + '%';
+  document.getElementById('bookPages').style.fontSize = (bookSize / 100) + 'em';
+  // Scale card sizes via CSS custom property
+  document.getElementById('bookPages').style.setProperty('--book-scale', bookSize / 100);
+}
+
+function initBookSize() {
+  const slider = document.getElementById('bookSizeSlider');
+  if (slider) {
+    slider.value = bookSize;
+    document.getElementById('bookSizeVal').textContent = bookSize + '%';
+    setBookSize(bookSize);
   }
 }
 
@@ -1497,6 +1784,7 @@ function setViewMode(mode) {
   if (mode === 'book') {
     bookCurrentPage = 0;
     renderBookView();
+    initBookSize();
   }
 }
 
