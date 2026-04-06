@@ -256,6 +256,149 @@ body { background: #0a0a0f; overflow-x: hidden; }
 }
 @keyframes shimmer { 0%{background-position:200% 0}100%{background-position:-200% 0} }
 
+/* ── View toggle button ────────────────────────────────────── */
+.view-toggle {
+  display: flex; gap: 4px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 3px;
+}
+.vt-btn {
+  padding: 5px 12px; border-radius: 7px; border: none;
+  background: transparent; color: var(--text3); font-size: 12px;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.vt-btn:hover { color: var(--text2); }
+.vt-btn.active {
+  background: rgba(245,200,66,0.15); color: var(--yellow);
+}
+
+/* ── Album book view ───────────────────────────────────────── */
+.album-book { display: none; }
+.album-book.visible { display: block; }
+.cards-grid.hidden { display: none; }
+
+.book-wrap {
+  position: relative;
+  background: linear-gradient(160deg, #1a1208 0%, #0e0c06 100%);
+  border: 1px solid rgba(245,200,66,0.15);
+  border-radius: 16px; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+/* Page navigation bar */
+.book-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 20px;
+  background: rgba(0,0,0,0.4); border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.book-page-info {
+  font-family: 'Unbounded', sans-serif; font-size: 11px;
+  color: rgba(245,200,66,0.7); letter-spacing: .08em;
+}
+.book-nav-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(245,200,66,0.08); border: 1px solid rgba(245,200,66,0.2);
+  color: rgba(245,200,66,0.8); border-radius: 8px; padding: 5px 14px;
+  font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.book-nav-btn:hover:not(:disabled) { background: rgba(245,200,66,0.18); color: var(--yellow); }
+.book-nav-btn:disabled { opacity: .3; cursor: default; }
+
+/* Book pages container */
+.book-pages {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 480px;
+}
+
+/* Single page */
+.book-page {
+  padding: 20px 16px 24px;
+  position: relative;
+}
+.book-page:first-child {
+  border-right: 2px solid rgba(0,0,0,0.6);
+  background: linear-gradient(to right, rgba(245,200,66,0.02) 0%, transparent 100%);
+}
+.book-page:last-child {
+  background: linear-gradient(to left, rgba(245,200,66,0.02) 0%, transparent 100%);
+}
+
+/* Page corner number */
+.page-number {
+  position: absolute; bottom: 8px;
+  font-size: 10px; color: rgba(255,255,255,0.15);
+  font-family: 'Unbounded', sans-serif; letter-spacing: .06em;
+}
+.book-page:first-child .page-number { right: 14px; }
+.book-page:last-child  .page-number { left: 14px; }
+
+/* Cards inside pages */
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+/* Card in book view — taller, more realistic */
+.book-card {
+  position: relative; border-radius: 8px; overflow: hidden;
+  aspect-ratio: 63/88;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.book-card:hover {
+  transform: translateY(-4px) scale(1.04);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  border-color: rgba(245,200,66,0.4);
+  z-index: 2;
+}
+.book-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.book-card .card-footer {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 16px 5px 4px;
+}
+.book-card .card-name { font-size: 8px; font-weight: 700; color: #fff; line-height: 1.2; }
+.book-card .card-sub  { font-size: 7px; color: rgba(255,255,255,0.4); margin-top: 1px; }
+.book-card .card-badges {
+  position: absolute; top: 3px; right: 3px;
+  display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+}
+.book-card .badge-pill { font-size: 7px; font-weight: 800; padding: 1px 4px; border-radius: 4px; }
+.book-card-placeholder {
+  width: 100%; height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; padding: 6px;
+}
+.book-card-placeholder .emoji { font-size: 22px; }
+.book-card-placeholder .name  { font-size: 8px; color: var(--text2); text-align: center; line-height: 1.3; }
+.book-card-placeholder .set   { font-size: 7px; color: var(--text3); }
+
+/* Book spine decoration */
+.book-spine {
+  position: absolute; top: 0; bottom: 0; left: 50%;
+  width: 2px; transform: translateX(-50%);
+  background: linear-gradient(to bottom,
+    transparent, rgba(0,0,0,0.8) 20%, rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.8) 80%, transparent);
+  pointer-events: none; z-index: 5;
+}
+
+/* Empty slot in book */
+.book-card-empty {
+  border-radius: 8px; aspect-ratio: 63/88;
+  background: rgba(255,255,255,0.02);
+  border: 1px dashed rgba(255,255,255,0.06);
+}
+
+@media (max-width: 768px) {
+  .book-pages { grid-template-columns: 1fr; }
+  .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
+  .book-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
 /* Prázdný stav */
 .empty-state {
   grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--text3);
@@ -514,6 +657,14 @@ body { background: #0a0a0f; overflow-x: hidden; }
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
+      <div class="view-toggle">
+        <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')" title="Mřížka">
+          ⊞ Mřížka
+        </button>
+        <button class="vt-btn" id="vt-book" onclick="setViewMode('book')" title="Album jako v aplikaci">
+          📖 Album
+        </button>
+      </div>
       <div class="stat-chips">
         <div class="stat-chip">Celkem <strong id="statAll">0</strong></div>
         <div class="stat-chip">🔄 <strong id="statTrade">0</strong></div>
@@ -527,6 +678,20 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <div class="empty-state">
         <div class="icon">🎴</div>
         <h3>Načítám album…</h3>
+      </div>
+    </div>
+
+    <!-- Album book view -->
+    <div class="album-book" id="albumBook">
+      <div class="book-wrap">
+        <div class="book-nav">
+          <button class="book-nav-btn" id="bookPrev" onclick="bookPrevPage()">← Předchozí</button>
+          <span class="book-page-info" id="bookPageInfo">Strana 1 / 1</span>
+          <button class="book-nav-btn" id="bookNext" onclick="bookNextPage()">Další →</button>
+        </div>
+        <div class="book-pages" id="bookPages">
+          <div class="book-spine"></div>
+        </div>
       </div>
     </div>
 
@@ -741,6 +906,7 @@ function render() {
   }
 
   document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
+  if (bookViewMode === 'book') renderBookView();
 }
 
 function renderCard(c, albumCardIds) {
@@ -1225,6 +1391,118 @@ function typeEmoji(t) {
 function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  ALBUM BOOK VIEW
+// ══════════════════════════════════════════════════════════════════
+const BOOK_CARDS_PER_PAGE = 6; // 3 na každé stránce (levá + pravá)
+let bookViewMode = localStorage.getItem('pkc_view_mode') || 'grid';
+let bookCurrentPage = 0; // index dvoustránky (0 = strana 1-2, 1 = strana 3-4 ...)
+let bookFilteredCards = [];
+
+function setViewMode(mode) {
+  bookViewMode = mode;
+  localStorage.setItem('pkc_view_mode', mode);
+  document.getElementById('vt-grid').classList.toggle('active', mode === 'grid');
+  document.getElementById('vt-book').classList.toggle('active', mode === 'book');
+  document.getElementById('cardsGrid').classList.toggle('hidden', mode === 'book');
+  document.getElementById('albumBook').classList.toggle('visible', mode === 'book');
+  if (mode === 'book') {
+    bookCurrentPage = 0;
+    renderBookView();
+  }
+}
+
+function bookPrevPage() {
+  if (bookCurrentPage > 0) { bookCurrentPage--; renderBookView(); }
+}
+
+function bookNextPage() {
+  const totalSpreads = Math.ceil(bookFilteredCards.length / BOOK_CARDS_PER_PAGE);
+  if (bookCurrentPage < totalSpreads - 1) { bookCurrentPage++; renderBookView(); }
+}
+
+function renderBookView() {
+  // Get same filtered cards as grid
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const albumCardIds = activeAlbumId
+    ? (allAlbums.find(a => a.id === activeAlbumId)?.cardIds || [])
+    : null;
+
+  bookFilteredCards = allCards.filter(c => {
+    if (activeView === 'trade' && !c.for_trade) return false;
+    if (activeView === 'sell'  && !c.for_sell)  return false;
+    if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
+    if (activeType && !matchType(c, activeType)) return false;
+    if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
+    if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
+    if (q && !((c.name||'').toLowerCase().includes(q) ||
+               (c.set||'').toLowerCase().includes(q)  ||
+               (c.number||'').toLowerCase().includes(q))) return false;
+    return true;
+  });
+
+  const totalSpreads = Math.max(1, Math.ceil(bookFilteredCards.length / BOOK_CARDS_PER_PAGE));
+  bookCurrentPage = Math.min(bookCurrentPage, totalSpreads - 1);
+
+  // Update nav
+  document.getElementById('bookPageInfo').textContent =
+    'Strana ' + (bookCurrentPage * 2 + 1) + '–' + (bookCurrentPage * 2 + 2) +
+    ' / ' + (totalSpreads * 2);
+  document.getElementById('bookPrev').disabled = bookCurrentPage === 0;
+  document.getElementById('bookNext').disabled = bookCurrentPage >= totalSpreads - 1;
+
+  // Slice cards for this spread (6 per spread = 3 left + 3 right)
+  const startIdx = bookCurrentPage * BOOK_CARDS_PER_PAGE;
+  const spreadCards = bookFilteredCards.slice(startIdx, startIdx + BOOK_CARDS_PER_PAGE);
+  const leftCards   = spreadCards.slice(0, 3);
+  const rightCards  = spreadCards.slice(3, 6);
+
+  function renderBookCard(c) {
+    if (!c) return '<div class="book-card-empty"></div>';
+    const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
+    const emoji = typeEmoji(c.types?.[0] || c.type || '');
+    return `<div class="book-card" onclick="cardClick('${esc(c.id)}')">
+      ${img
+        ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy">`
+        : `<div class="book-card-placeholder">
+             <div class="emoji">${emoji}</div>
+             <div class="name">${esc(c.name||'?')}</div>
+             <div class="set">${esc(c.set||'')}</div>
+           </div>`}
+      <div class="card-badges">
+        ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
+        ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
+      </div>
+      <div class="card-footer">
+        <div class="card-name">${esc(c.name||'?')}</div>
+        <div class="card-sub">${esc(c.set||'')}${c.number?' #'+esc(c.number):''}</div>
+      </div>
+    </div>`;
+  }
+
+  // Pad to 3 cards each side
+  while (leftCards.length  < 3) leftCards.push(null);
+  while (rightCards.length < 3) rightCards.push(null);
+
+  const leftPageNum  = bookCurrentPage * 2 + 1;
+  const rightPageNum = bookCurrentPage * 2 + 2;
+
+  document.getElementById('bookPages').innerHTML = `
+    <div class="book-spine"></div>
+    <div class="book-page">
+      <div class="book-grid">${leftCards.map(renderBookCard).join('')}</div>
+      <div class="page-number">${leftPageNum}</div>
+    </div>
+    <div class="book-page">
+      <div class="book-grid">${rightCards.map(renderBookCard).join('')}</div>
+      <div class="page-number">${rightPageNum}</div>
+    </div>`;
+}
+
+// Patch render() to also update book view when in book mode
+const _origRenderEnd = document.getElementById ? null : null; // placeholder
+// Book view gets updated via renderBookView() called from setViewMode and render override below
 
 function showLoginPrompt() {
   document.getElementById('sidebar').style.display = 'none';

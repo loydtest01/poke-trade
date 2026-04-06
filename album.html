@@ -77,7 +77,40 @@ body { background: #0a0a0f; overflow-x: hidden; }
 }
 .sync-dot.ok      { background: #22c55e; }
 .sync-dot.syncing { background: var(--yellow); animation: blink .8s infinite; }
+.sync-dot.warn    { background: #f97316; animation: blink .5s infinite; }
+.sync-dot.off     { background: #ef4444; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Inactivity warning banner ─────────────────────────────────── */
+#syncWarningBanner {
+  display: none; position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  background: rgba(20,12,5,0.95); border: 1px solid #f97316;
+  border-radius: 14px; padding: 14px 18px; min-width: 280px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5); font-family: inherit;
+}
+#syncWarningBanner .wb-title {
+  font-size: 13px; font-weight: 600; color: #f97316; margin-bottom: 6px;
+}
+#syncWarningBanner .wb-msg {
+  font-size: 12px; color: rgba(255,255,255,0.6); margin-bottom: 10px; line-height: 1.5;
+}
+#syncWarningBanner .wb-countdown {
+  font-size: 22px; font-weight: 700; color: #fff; text-align: center;
+  margin-bottom: 10px; letter-spacing: 0.04em;
+}
+#syncWarningBanner .wb-actions { display: flex; gap: 8px; }
+#syncWarningBanner .wb-btn {
+  flex: 1; padding: 7px 0; border-radius: 8px; font-size: 12px; font-weight: 600;
+  cursor: pointer; border: none; font-family: inherit; transition: opacity .15s;
+}
+#syncWarningBanner .wb-btn:hover { opacity: .85; }
+#syncWarningBanner .wb-btn-keep {
+  background: #f97316; color: #000;
+}
+#syncWarningBanner .wb-btn-dismiss {
+  background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+  border: 1px solid rgba(255,255,255,0.12) !important;
+}
 
 /* ── Page wrapper ────────────────────────────────────────────────────────── */
 .page-wrap { position: relative; z-index: 1; display: flex; min-height: calc(100vh - 56px); }
@@ -273,6 +306,17 @@ body { background: #0a0a0f; overflow-x: hidden; }
     <button id="logoutBtn" onclick="logout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
   </div>
 </header>
+
+<!-- Inactivity warning banner -->
+<div id="syncWarningBanner">
+  <div class="wb-title">⏰ Synchronizace se brzy zastaví</div>
+  <div class="wb-msg">Posledních 30 minut nebyla zaznamenána žádná aktivita.</div>
+  <div class="wb-countdown" id="wbCountdown">5:00</div>
+  <div class="wb-actions">
+    <button class="wb-btn wb-btn-keep" onclick="keepSyncAlive()">✓ Pokračovat v synchronizaci</button>
+    <button class="wb-btn wb-btn-dismiss" onclick="dismissSyncWarning()">Odpojit</button>
+  </div>
+</div>
 
 <div class="page-wrap">
   <!-- Sidebar -->
@@ -542,6 +586,87 @@ function updateCounts() {
 }
 
 // ── Sync ──────────────────────────────────────────────────────────────────────
+
+// Activity timeout constants
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000; // 30 minut
+const WARNING_BEFORE_MS   =  5 * 60 * 1000; // varování 5 minut před odpojením
+let _syncTimer = null, _inactTimer = null, _warnCountdown = null;
+let _syncRunning = false;
+
+function registerActivity() {
+  if (!_syncRunning) return;
+  // Reset inactivity timer on any user activity
+  clearTimeout(_inactTimer);
+  _inactTimer = setTimeout(showSyncWarning, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS);
+}
+
+function startActivityTracking() {
+  clearTimeout(_inactTimer);
+  _inactTimer = setTimeout(showSyncWarning, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS);
+  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
+    window.addEventListener(ev, registerActivity, { passive: true }));
+}
+
+function stopActivityTracking() {
+  clearTimeout(_inactTimer); _inactTimer = null;
+  ['mousemove','keydown','click','scroll','touchstart'].forEach(ev =>
+    window.removeEventListener(ev, registerActivity));
+}
+
+function showSyncWarning() {
+  const banner = document.getElementById('syncWarningBanner');
+  if (!banner) return;
+  banner.style.display = 'block';
+  setSyncState('warn', 'Upozornění');
+  let secondsLeft = WARNING_BEFORE_MS / 1000;
+  updateCountdown(secondsLeft);
+  _warnCountdown = setInterval(() => {
+    secondsLeft--;
+    updateCountdown(secondsLeft);
+    if (secondsLeft <= 0) {
+      clearInterval(_warnCountdown); _warnCountdown = null;
+      doDisconnectSync();
+    }
+  }, 1000);
+}
+
+function updateCountdown(s) {
+  const el = document.getElementById('wbCountdown');
+  if (!el) return;
+  const m = Math.floor(s / 60), sec = s % 60;
+  el.textContent = m + ':' + String(sec).padStart(2, '0');
+}
+
+function keepSyncAlive() {
+  clearInterval(_warnCountdown); _warnCountdown = null;
+  document.getElementById('syncWarningBanner').style.display = 'none';
+  setSyncState('ok', 'Synchronizováno');
+  registerActivity(); // reset timer
+  startActivityTracking();
+}
+
+function dismissSyncWarning() {
+  clearInterval(_warnCountdown); _warnCountdown = null;
+  doDisconnectSync();
+}
+
+function doDisconnectSync() {
+  document.getElementById('syncWarningBanner').style.display = 'none';
+  stopAutoSync();
+  setSyncState('off', 'Odpojeno');
+  const info = document.getElementById('lastSyncInfo');
+  if (info) info.innerHTML = 'Sync zastaven – <a href="#" onclick="reconnectSyncNow()" style="color:#f97316">znovu připojit</a>';
+}
+
+function reconnectSyncNow() {
+  const mode = localStorage.getItem(SYNC_MODE_KEY) || 'realtime';
+  stopAutoSync();
+  autoSync(mode);
+  setSyncState('ok', 'Synchronizováno');
+  updateLastSyncInfo();
+  return false;
+}
+
 async function manualSync() {
   const token   = localStorage.getItem('sb_token');
   const _su2    = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
@@ -554,13 +679,23 @@ async function manualSync() {
 }
 
 function autoSync(mode) {
-  if (mode === 'hourly')   setInterval(manualSync, 60 * 60 * 1000);
-  if (mode === 'realtime') setInterval(manualSync, 30_000);
+  stopAutoSync();
+  _syncRunning = true;
+  if (mode === 'hourly')   _syncTimer = setInterval(manualSync, 60 * 60 * 1000);
+  if (mode === 'realtime') _syncTimer = setInterval(manualSync, 30_000);
+  startActivityTracking();
+}
+
+function stopAutoSync() {
+  _syncRunning = false;
+  if (_syncTimer) { clearInterval(_syncTimer); _syncTimer = null; }
+  stopActivityTracking();
+  clearInterval(_warnCountdown); _warnCountdown = null;
 }
 
 function changeSyncMode(mode) {
   localStorage.setItem(SYNC_MODE_KEY, mode);
-  // Restartovat auto-sync by vyžadovalo reload – stačí info
+  if (_syncRunning) autoSync(mode); // restartuj se správným módem
   updateLastSyncInfo();
 }
 

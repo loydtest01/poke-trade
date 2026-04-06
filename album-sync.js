@@ -21,6 +21,75 @@ const HOUR_MS        = 60 * 60 * 1000;
 
 let _timer = null, _pending = null, _lock = false;
 
+// ── Activity timeout (30 min neaktivity → varování 5 min → odpojení) ──
+const INACTIVITY_LIMIT_MS = 30 * 60 * 1000;  // 30 minut
+const WARNING_BEFORE_MS   =  5 * 60 * 1000;  // varování 5 minut před odpojením
+let _lastActivity   = Date.now();
+let _inactivityTimer = null;
+let _warningTimer    = null;
+let _countdownTimer  = null;
+let _warningCallback = null;  // volitelný callback pro UI odpočet
+
+// Zaregistruj aktivitu uživatele
+function registerActivity() {
+  _lastActivity = Date.now();
+  // Pokud jsme ve stavu varování – zruš ho a restartuj ochranu
+  if (_warningTimer === null && _inactivityTimer === null) return; // sync already stopped
+  _dismissWarning();
+  _scheduleInactivityCheck();
+}
+
+// Nastav callback pro UI odpočet: fn(secondsLeft) nebo fn(null) = skryj
+export function onSyncWarning(fn) { _warningCallback = fn; }
+
+function _scheduleInactivityCheck() {
+  clearTimeout(_inactivityTimer);
+  clearTimeout(_warningTimer);
+  _stopCountdown();
+  // Za (INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS) zobraz varování
+  _inactivityTimer = setTimeout(_showWarning, INACTIVITY_LIMIT_MS - WARNING_BEFORE_MS);
+}
+
+function _showWarning() {
+  _inactivityTimer = null;
+  // Spusť odpočet 5 minut
+  let secondsLeft = WARNING_BEFORE_MS / 1000;
+  if (_warningCallback) _warningCallback(secondsLeft);
+  _countdownTimer = setInterval(() => {
+    secondsLeft--;
+    if (_warningCallback) _warningCallback(secondsLeft);
+    if (secondsLeft <= 0) {
+      _stopCountdown();
+      _doDisconnect();
+    }
+  }, 1000);
+}
+
+function _stopCountdown() {
+  if (_countdownTimer) { clearInterval(_countdownTimer); _countdownTimer = null; }
+}
+
+function _dismissWarning() {
+  _stopCountdown();
+  if (_warningCallback) _warningCallback(null); // skryj varování v UI
+}
+
+function _doDisconnect() {
+  stopAutoSync();
+  if (_warningCallback) _warningCallback(null);
+  window.dispatchEvent(new CustomEvent('album-sync-disconnected'));
+  console.log('[album-sync] Odpojeno kvůli neaktivitě (30 min)');
+}
+
+// Sleduj aktivitu uživatele na stránce
+const _activityEvents = ['mousemove','keydown','click','scroll','touchstart','visibilitychange'];
+function _attachActivityListeners() {
+  _activityEvents.forEach(ev => window.addEventListener(ev, registerActivity, { passive: true }));
+}
+function _detachActivityListeners() {
+  _activityEvents.forEach(ev => window.removeEventListener(ev, registerActivity));
+}
+
 async function sbReq(path, method = 'GET', body = null, token = null) {
   const headers = {
     'Content-Type': 'application/json',
@@ -171,15 +240,28 @@ function scheduleSync(ms = 0) {
 
 export function startAutoSync() {
   stopAutoSync();
+  _lastActivity = Date.now();
   syncAlbum(true); // vždy sync při startu
   const mode = getSyncMode();
   if (mode === 'hourly')   _timer = setInterval(() => syncAlbum(true), HOUR_MS);
   if (mode === 'realtime') _timer = setInterval(() => syncAlbum(true), 30_000);
+  _attachActivityListeners();
+  _scheduleInactivityCheck();
 }
 
 export function stopAutoSync() {
   if (_timer)   { clearInterval(_timer);  _timer   = null; }
   if (_pending) { clearTimeout(_pending); _pending = null; }
+  clearTimeout(_inactivityTimer); _inactivityTimer = null;
+  clearTimeout(_warningTimer);    _warningTimer    = null;
+  _stopCountdown();
+  _detachActivityListeners();
+}
+
+// Znovu připojit sync po odpojení (volej z UI tlačítka "Znovu připojit")
+export function reconnectSync() {
+  startAutoSync();
+  window.dispatchEvent(new CustomEvent('album-sync-reconnected'));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
