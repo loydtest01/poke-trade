@@ -365,6 +365,14 @@ body { background: #0a0a0f; overflow-x: hidden; }
 .sel-cancel:hover { background: rgba(255,255,255,0.14); }
 .sel-remove  { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3) !important; }
 .sel-remove:hover { background: rgba(248,113,113,0.25); }
+.card-del-btn {
+  position: absolute; top: 5px; right: 5px;
+  background: rgba(20,20,30,0.75); border: none; border-radius: 6px;
+  color: #f87171; font-size: 13px; cursor: pointer; padding: 2px 5px;
+  opacity: 0; transition: opacity .15s; z-index: 10; line-height: 1.4;
+}
+.card-slot:hover .card-del-btn { opacity: 1; }
+.card-del-btn:hover { background: rgba(248,113,113,0.25); }
 
 @media (max-width: 768px) {
   .sidebar { display: none; }
@@ -595,6 +603,8 @@ let editingAlbumId = null;
     document.getElementById('logoutBtn').style.display  = '';
     document.getElementById('userName').textContent     = uname;
     document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
+    // Načti profilový avatar z Supabase profiles
+    loadAvatar(userId);
   } else {
     setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
   }
@@ -747,6 +757,7 @@ function renderCard(c, albumCardIds) {
       <div class="card-badges">
         ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
+        ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')" title="Smazat kartu">🗑</button>` : ''}
       </div>
       <div class="card-footer">
         <div class="card-name">${esc(c.name||'?')}</div>
@@ -761,6 +772,32 @@ function cardClick(id) {
     else selectedIds.add(id);
     updateSelectBanner();
     render();
+  }
+}
+
+async function deleteCard(id, name) {
+  if (!confirm(`Smazat kartu „${name || id}" z tvého alba?
+
+Tato akce je nevratná.`)) return;
+  try {
+    const res = await sbReq(
+      `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${encodeURIComponent(id)}`,
+      'DELETE'
+    );
+    if (res && res._err) throw new Error(res._err);
+    // Odstraň z lokálního pole
+    allCards = allCards.filter(c => String(c.id) !== String(id));
+    // Odstraň z každého alba
+    allAlbums.forEach(a => { a.cardIds = a.cardIds.filter(x => x !== String(id)); });
+    selectedIds.delete(String(id));
+    updateStats();
+    render();
+    renderAlbumList();
+    setSyncState('ok', 'Karta smazána');
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
+  } catch(e) {
+    console.error('[deleteCard]', e);
+    alert('Chyba při mazání: ' + e.message);
   }
 }
 
@@ -993,10 +1030,12 @@ function setSupertype(st) {
 }
 
 function matchSupertype(c, st) {
-  const s = (c.supertype || c.cardType || '').toLowerCase();
-  if (st === 'Pokémon') return s === 'pokémon' || s === 'pokemon';
-  if (st === 'Trainer') return s === 'trainer' || s === 'trenér';
-  if (st === 'Energy')  return s === 'energy'  || s === 'energie';
+  // category = pole z PC aplikace ('pokemon','trainer','energy')
+  const cat = (c.category || '').toLowerCase();
+  const s   = (c.supertype || c.cardType || '').toLowerCase();
+  if (st === 'Pokémon') return cat === 'pokemon' || s === 'pokémon' || s === 'pokemon';
+  if (st === 'Trainer') return cat === 'trainer' || s === 'trainer' || s === 'trenér';
+  if (st === 'Energy')  return cat === 'energy'  || s === 'energy'  || s === 'energie';
   return true;
 }
 
@@ -1015,6 +1054,24 @@ function updateLastSyncInfo() {
 // ══════════════════════════════════════════════════════════════════
 //  HELPERS
 // ══════════════════════════════════════════════════════════════════
+async function loadAvatar(uid) {
+  try {
+    const res = await sbReq(`rest/v1/profiles?id=eq.${uid}&select=avatar_url`);
+    if (!Array.isArray(res) || !res[0]) return;
+    const url = res[0].avatar_url;
+    if (!url) return;
+    const el = document.getElementById('userAvatar');
+    el.textContent = '';
+    el.style.padding = '0';
+    el.style.overflow = 'hidden';
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%';
+    img.onerror = () => { el.textContent = (uname[0]||'?').toUpperCase(); };
+    el.appendChild(img);
+  } catch(e) { /* tiché selhání – zůstane iniciála */ }
+}
+
 async function sbReq(path, method = 'GET', body = null) {
   const headers = {
     'Content-Type': 'application/json',
