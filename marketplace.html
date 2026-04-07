@@ -424,73 +424,6 @@ body::after {
   .detail-grid { grid-template-columns: 1fr; }
   .detail-gallery { position: static; }
 }
-
-/* ── Chat dropdown ikona + panel ── */
-.chat-dropdown-wrap { position: relative; }
-.chat-icon-btn {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 8px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  color: var(--text2, rgba(240,236,228,0.65));
-  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
-}
-.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
-.chat-badge {
-  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
-  border-radius: 9px; background: #f87171; color: #fff;
-  font-size: 10px; font-weight: 800; display: flex; align-items: center;
-  justify-content: center; padding: 0 5px; line-height: 1;
-  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
-}
-.chat-drop {
-  display: none; position: absolute; top: calc(100% + 8px); right: 0;
-  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
-  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-  z-index: 300; overflow: hidden; flex-direction: column;
-}
-.chat-drop.open { display: flex; }
-.chat-drop-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
-.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
-.chat-drop-all:hover { opacity: 0.8; }
-.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
-.chat-drop-list::-webkit-scrollbar { width: 4px; }
-.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
-.cdrop-item {
-  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
-  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
-}
-.cdrop-item:hover { background: rgba(255,255,255,0.04); }
-.cdrop-item.unread { background: rgba(245,200,66,0.06); border-left-color: var(--yellow, #f5c842); }
-.cdrop-avatar {
-  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.25);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 800; color: var(--yellow, #f5c842);
-}
-.cdrop-info { flex: 1; min-width: 0; }
-.cdrop-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
-.cdrop-name { font-size: 13px; font-weight: 600; color: var(--text, #f0ece4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cdrop-item.unread .cdrop-name { color: #fff; }
-.cdrop-time { font-size: 11px; flex-shrink: 0; color: rgba(240,236,228,0.35); }
-.cdrop-item.unread .cdrop-time { color: var(--yellow, #f5c842); }
-.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cdrop-item.unread .cdrop-msg { color: rgba(240,236,228,0.7); font-weight: 500; }
-.cdrop-listing { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: rgba(245,200,66,0.7); margin-top: 3px; }
-.cdrop-listing-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(245,200,66,0.5); }
-.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
-.notif-prompt { display: none; padding: 10px 16px; background: rgba(74,158,255,0.08); border-top: 1px solid rgba(74,158,255,0.15); font-size: 12px; color: rgba(240,236,228,0.65); gap: 8px; align-items: center; }
-.notif-prompt.show { display: flex; }
-.notif-prompt-btn { padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
-.notif-allow { background: rgba(245,200,66,0.2); color: var(--yellow, #f5c842); }
-.notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); border: 1px solid rgba(255,255,255,0.08); }
-@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
-
 </style>
 </head>
 <body>
@@ -507,24 +440,6 @@ body::after {
     <a href="compare.html">Porovnat alba</a>
   </nav>
   <div class="topbar-right">
-    <div class="chat-dropdown-wrap" id="chatDropWrap">
-      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
-      </button>
-      <div class="chat-drop" id="chatDrop">
-        <div class="chat-drop-head">
-          <span class="chat-drop-title">Zprávy</span>
-          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
-        </div>
-        <div class="chat-drop-list" id="chatDropList">
-          <div class="chat-drop-empty">
-            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
-            <div>Žádné zprávy</div>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="user-chip" id="userChip" style="display:none">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
@@ -583,6 +498,13 @@ body::after {
   <main class="main">
     <!-- LIST VIEW -->
     <div id="listView">
+      <!-- Tab switcher -->
+      <div style="display:flex;gap:5px;margin-bottom:14px">
+        <button class="vt-btn act" id="tabListings" onclick="switchTab('listings')" style="padding:7px 16px;font-size:13px">🏷️ Nabídky</button>
+        <button class="vt-btn" id="tabDemands"  onclick="switchTab('demands')"  style="padding:7px 16px;font-size:13px">🔍 Poptávky</button>
+      </div>
+
+      <div id="listingsTab">
       <div class="market-toolbar">
         <div class="search-wrap">
           <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()">
@@ -600,6 +522,19 @@ body::after {
         <span class="count-info" id="countInfo">0 nabídek</span>
       </div>
       <div id="listingsWrap" class="listings-wrap"></div>
+      </div><!-- /listingsTab -->
+
+      <!-- Demands tab -->
+      <div id="demandsTab" style="display:none">
+        <div class="market-toolbar">
+          <div class="search-wrap">
+            <input type="text" id="searchDemands" placeholder="Hledat poptávanou kartu..." oninput="renderDemands()">
+          </div>
+          <button class="btn-add" id="addDemandBtn" style="display:none" onclick="openAddDemand()">+ Přidat poptávku</button>
+          <span class="count-info" id="countDemands">0 poptávek</span>
+        </div>
+        <div id="demandsWrap" class="listings-wrap"></div>
+      </div>
     </div>
 
     <!-- DETAIL VIEW -->
@@ -635,7 +570,7 @@ body::after {
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
             <button class="btn-detail-offer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
             <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
-            <button class="btn-detail-msg" onclick="openChat()">✉️ Napsat prodejci</button>
+            <button class="btn-detail-msg" onclick="togglePanel('msgPanel')">✉️ Zpráva</button>
           </div>
 
           <!-- Offer panel -->
@@ -749,6 +684,47 @@ body::after {
   </div>
 </div>
 
+<!-- Add Demand Modal -->
+<div id="addDemandModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:480px;padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Nová poptávka</div>
+      <button onclick="closeAddDemand()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Název karty *</div>
+        <input id="dName" class="panel-inp" placeholder="Např. Charizard ex, Pikachu V...">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série (nepovinné)</div>
+        <input id="dSet" class="panel-inp" placeholder="Např. Scarlet & Violet, Brilliant Stars...">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Typ / Element</div>
+        <select id="dType" class="sort-sel" style="width:100%">
+          <option value="">Libovolný</option>
+          <option value="fire">Ohnivý</option><option value="water">Vodní</option>
+          <option value="grass">Travní</option><option value="lightning">Elektrický</option>
+          <option value="psychic">Psychický</option><option value="darkness">Temný</option>
+          <option value="dragon">Dračí</option><option value="metal">Kovový</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Maximální cena (Kč)</div>
+        <input id="dMaxPrice" class="panel-inp" type="number" placeholder="Nechte prázdné pro dohodou">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis / podmínky (nepovinné)</div>
+        <textarea id="dDesc" class="panel-textarea" placeholder="Stav karty který hledáte, verze, foil/non-foil..."></textarea>
+      </div>
+      <button onclick="submitDemand()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
+        Zveřejnit poptávku
+      </button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 <script>
 const SUPABASE_URL  = typeof window.SUPABASE_URL  !== 'undefined' ? window.SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
@@ -788,6 +764,7 @@ let token=null, userId=null, username=null, myCards=[];
     document.getElementById('loginLink').style.display='none';
     document.getElementById('logoutBtn').style.display='';
     document.getElementById('addBtn').style.display='';
+    document.getElementById('addDemandBtn').style.display='';
     document.getElementById('userName').textContent=username;
     document.getElementById('userAvatar').textContent=(username[0]||'?').toUpperCase();
     loadMyCards();
@@ -810,6 +787,22 @@ let allListings=[], filteredListings=[], currentListing=null;
 let viewMode='list', addType='sell', addCardData=null;
 let tradeViewMode='img', selectedTradeIds=new Set();
 
+// ── Tab switching ─────────────────────────────────────────────
+let activeTab='listings';
+function switchTab(tab){
+  activeTab=tab;
+  document.getElementById('tabListings').classList.toggle('act',tab==='listings');
+  document.getElementById('tabDemands').classList.toggle('act',tab==='demands');
+  document.getElementById('listingsTab').style.display=tab==='listings'?'':'none';
+  document.getElementById('demandsTab').style.display=tab==='demands'?'':'none';
+  if(tab==='demands' && !demandsLoaded) loadDemands();
+}
+
+// Handle URL params
+const urlParams=new URLSearchParams(location.search);
+const urlSeller=urlParams.get('seller');
+const urlListing=urlParams.get('listing');
+
 // ── Load listings ─────────────────────────────────────────────
 (async function loadListings(){
   document.getElementById('listingsWrap').innerHTML =
@@ -821,7 +814,16 @@ let tradeViewMode='img', selectedTradeIds=new Set();
     return;
   }
   allListings = res;
+  // Filter by seller from URL
+  if(urlSeller){
+    document.getElementById('searchInput').value=urlSeller;
+  }
   applyFilters();
+  // Open specific listing from URL
+  if(urlListing){
+    const target=allListings.find(l=>l.id===urlListing);
+    if(target) openDetail(urlListing);
+  }
 })();
 
 // ── Filters + Sort ────────────────────────────────────────────
@@ -918,7 +920,7 @@ function renderListings(){
       <div class="listing-info">
         <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
         <div class="listing-meta">
-          <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
+          <span>Prodejce: <a href="profile.html?user=${esc(l.username||'')}" onclick="event.stopPropagation()" style="color:var(--yellow);font-weight:700;text-decoration:none">${esc(l.username||'?')}</a></span>
           ${set?`<span>${esc(set)}</span>`:''}
           <span>${timeAgo(l.created_at)}</span>
         </div>
@@ -983,7 +985,10 @@ async function openDetail(id){
   document.getElementById('detailView').classList.add('show');
   document.getElementById('breadTitle').textContent=name;
   document.getElementById('dTitle').textContent=name;
-  document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  document.getElementById('dSeller').innerHTML=`
+    Prodejce: <a href="profile.html?user=${esc(l.username||'')}" style="color:var(--yellow);text-decoration:none;font-weight:700">${esc(l.username||'?')}</a>
+    · <a href="marketplace.html?seller=${esc(l.username||'')}" style="color:var(--blue);text-decoration:none;font-size:11px">všechny nabídky →</a>
+    · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
 
   // Price
   if(price>0){
@@ -1267,6 +1272,83 @@ function setAddType(type){
   document.getElementById('addTradeRow').style.display=(type==='trade'||type==='both')?'':'none';
 }
 
+// ── Demands ───────────────────────────────────────────────────
+let allDemands=[], demandsLoaded=false;
+
+async function loadDemands(){
+  demandsLoaded=true;
+  document.getElementById('demandsWrap').innerHTML=
+    Array(3).fill('<div class="skeleton-row"></div>').join('');
+  const res=await sbReq('rest/v1/demands?status=eq.active&select=*&order=created_at.desc&limit=100');
+  allDemands=Array.isArray(res)?res:[];
+  renderDemands();
+}
+
+function renderDemands(){
+  const q=(document.getElementById('searchDemands').value||'').toLowerCase();
+  const filtered=allDemands.filter(d=>
+    !q||(d.card_name||'').toLowerCase().includes(q)||(d.card_set||'').toLowerCase().includes(q)
+  );
+  document.getElementById('countDemands').textContent=filtered.length+' poptávek';
+  const wrap=document.getElementById('demandsWrap');
+  if(!filtered.length){
+    wrap.innerHTML='<div class="empty-state"><div class="icon">🔍</div><h3>Žádné poptávky</h3><p>Buď první kdo hledá!</p></div>';
+    return;
+  }
+  wrap.innerHTML=filtered.map(d=>`
+    <div class="listing-row">
+      <div class="card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:28px;background:rgba(255,255,255,0.04)">🔍</div>
+      <div class="listing-info">
+        <div class="listing-title">${esc(d.card_name)}</div>
+        <div class="listing-meta">
+          <span>Hledá: <a href="profile.html?user=${esc(d.username)}" style="color:var(--yellow);font-weight:700;text-decoration:none">${esc(d.username)}</a></span>
+          ${d.card_set?`<span>${esc(d.card_set)}</span>`:''}
+          <span>${timeAgo(d.created_at)}</span>
+        </div>
+        ${d.description?`<div style="font-size:12px;color:var(--text3);margin-top:5px">${esc(d.description)}</div>`:''}
+      </div>
+      <div class="listing-right">
+        <div class="price-big">${d.max_price_czk?d.max_price_czk.toLocaleString('cs')+' Kč':'Dohodou'}<small>${d.max_price_czk?'max cena':''}</small></div>
+        ${myUserId&&myUserId!==d.user_id?`<button class="btn-offer" onclick="contactDemander('${esc(d.username)}','${esc(d.card_name)}')">Nabídnout →</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+function contactDemander(toUser, cardName){
+  if(!token){alert('Pro kontakt se přihlas.');return}
+  window.location.href=`marketplace.html?msg_to=${encodeURIComponent(toUser)}&re=${encodeURIComponent(cardName)}`;
+}
+
+let addDemandType=null;
+function openAddDemand(){
+  if(!token){alert('Pro přidání poptávky se přihlas.');return}
+  document.getElementById('addDemandModal').style.display='flex';
+}
+function closeAddDemand(){
+  document.getElementById('addDemandModal').style.display='none';
+}
+
+async function submitDemand(){
+  if(!token){alert('Přihlas se.');return}
+  const name=document.getElementById('dName').value.trim();
+  if(!name){alert('Zadej název karty.');return}
+  const payload={
+    user_id:userId,username,
+    card_name:name,
+    card_set:document.getElementById('dSet').value.trim()||null,
+    card_type:document.getElementById('dType').value||null,
+    max_price_czk:parseInt(document.getElementById('dMaxPrice').value)||null,
+    description:document.getElementById('dDesc').value.trim()||null,
+    status:'active',
+  };
+  const res=await sbReq('rest/v1/demands','POST',payload,token);
+  if(res._err){alert('Chyba: '+res._err);return}
+  alert('Poptávka přidána!');
+  closeAddDemand();
+  allDemands.unshift(Array.isArray(res)?res[0]:res);
+  renderDemands();
+}
+
 async function submitListing(){
   if(!token){ alert('Přihlas se.'); return; }
   const price = parseInt(document.getElementById('addPrice').value)||null;
@@ -1313,87 +1395,6 @@ async function submitListing(){
   allListings.unshift(Array.isArray(res)?res[0]:res);
   applyFilters();
 }
-
-function openChat() {
-  if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
-  if(!currentListing) return;
-  var l = currentListing;
-  var sellerId = l.user_id;
-  var sellerName = encodeURIComponent(l.username || '');
-  window.location.href = 'chat.html?with=' + sellerId + '&username=' + sellerName + '&listing=' + l.id;
-}
-
-// Auto-open listing from chat link (?open=LISTING_ID)
-(function checkOpenParam() {
-  var p = new URLSearchParams(location.search);
-  var openId = p.get('open');
-  if (openId) {
-    var check = setInterval(function() {
-      var listing = allListings.find(function(l){ return l.id === openId; });
-      if (listing) { clearInterval(check); showDetail(listing); }
-    }, 200);
-    setTimeout(function(){ clearInterval(check); }, 5000);
-  }
-})();
-
-</script>
-
-<script>
-/* ── Chat Dropdown + Notifikace ── */
-(function(){
-  'use strict';
-  var POLL=8000;
-  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
-  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
-  var tk=localStorage.getItem('sb_token');
-  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
-  if(!tk||!su||!su.id)return;
-  var uid=su.id,convs=[],prevUn=0,dropO=false;
-  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
-  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
-  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
-  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
-  function renderDrop(){
-    var list=document.getElementById('chatDropList');if(!list)return;
-    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
-    list.innerHTML=convs.slice(0,8).map(function(c){
-      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
-      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
-      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
-      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
-      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
-        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
-        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
-        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
-        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
-        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
-    }).join('');
-    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
-      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
-      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
-      document.getElementById('chatDrop').appendChild(pr)
-    }
-  }
-  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
-  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
-  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
-  async function poll(){
-    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
-    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
-    var bg=document.getElementById('chatBadge');
-    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
-    if(tot>prevUn&&prevUn>=0&&document.hidden){
-      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
-      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
-    }
-    prevUn=tot;
-    if(dropO)renderDrop();
-    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
-  }
-  poll();setInterval(poll,POLL);
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
-})();
 </script>
 </body>
 </html>
