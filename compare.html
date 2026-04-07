@@ -7,6 +7,73 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<style>
+/* ── Chat dropdown ikona + panel ── */
+.chat-dropdown-wrap { position: relative; }
+.chat-icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2, rgba(240,236,228,0.65));
+  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 5px; line-height: 1;
+  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+}
+.chat-drop {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 300; overflow: hidden; flex-direction: column;
+}
+.chat-drop.open { display: flex; }
+.chat-drop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
+.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
+.chat-drop-all:hover { opacity: 0.8; }
+.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
+.chat-drop-list::-webkit-scrollbar { width: 4px; }
+.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
+.cdrop-item {
+  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
+  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread { background: rgba(245,200,66,0.06); border-left-color: var(--yellow, #f5c842); }
+.cdrop-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: var(--yellow, #f5c842);
+}
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.cdrop-name { font-size: 13px; font-weight: 600; color: var(--text, #f0ece4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-item.unread .cdrop-name { color: #fff; }
+.cdrop-time { font-size: 11px; flex-shrink: 0; color: rgba(240,236,228,0.35); }
+.cdrop-item.unread .cdrop-time { color: var(--yellow, #f5c842); }
+.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-item.unread .cdrop-msg { color: rgba(240,236,228,0.7); font-weight: 500; }
+.cdrop-listing { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: rgba(245,200,66,0.7); margin-top: 3px; }
+.cdrop-listing-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(245,200,66,0.5); }
+.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
+.notif-prompt { display: none; padding: 10px 16px; background: rgba(74,158,255,0.08); border-top: 1px solid rgba(74,158,255,0.15); font-size: 12px; color: rgba(240,236,228,0.65); gap: 8px; align-items: center; }
+.notif-prompt.show { display: flex; }
+.notif-prompt-btn { padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+.notif-allow { background: rgba(245,200,66,0.2); color: var(--yellow, #f5c842); }
+.notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); border: 1px solid rgba(255,255,255,0.08); }
+@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+</style>
 </head>
 <body>
 <nav class="navbar">
@@ -190,6 +257,64 @@ function renderCompareCards(cards, key) {
     grid.innerHTML += `<div class="compare-more">Zobrazeno 200 z ${cards.length} karet</div>`;
   }
 }
+</script>
+
+<script>
+/* ── Chat Dropdown + Notifikace ── */
+(function(){
+  'use strict';
+  var POLL=8000;
+  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  var tk=localStorage.getItem('sb_token');
+  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  if(!tk||!su||!su.id)return;
+  var uid=su.id,convs=[],prevUn=0,dropO=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
+  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
+  function renderDrop(){
+    var list=document.getElementById('chatDropList');if(!list)return;
+    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
+    list.innerHTML=convs.slice(0,8).map(function(c){
+      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
+      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
+      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
+      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
+        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
+        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+    }).join('');
+    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
+      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
+      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
+      document.getElementById('chatDrop').appendChild(pr)
+    }
+  }
+  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
+  async function poll(){
+    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
+    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
+    var bg=document.getElementById('chatBadge');
+    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
+    if(tot>prevUn&&prevUn>=0&&document.hidden){
+      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
+      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
+    }
+    prevUn=tot;
+    if(dropO)renderDrop();
+    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
+  }
+  poll();setInterval(poll,POLL);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+})();
 </script>
 </body>
 </html>
