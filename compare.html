@@ -8,6 +8,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <style>
+/* ═══ WALLPAPER BACKGROUND ═══ */
+body { background: #06040c !important; overflow-x: hidden; }
+body::before {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("wallpaper.png");
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  filter: brightness(0.22) saturate(0.6);
+}
+body::after {
+  content: "";
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%);
+}
 /* ── Chat dropdown ikona + panel ── */
 .chat-dropdown-wrap { position: relative; }
 .chat-icon-btn {
