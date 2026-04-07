@@ -1126,11 +1126,20 @@ function cardClick(id) {
 let _detailCard = null;
 
 function buildCardmarketUrl(c) {
-  // Použij přímý URL uložený z pokemontcg API (nejspolehlivější)
+  // 1. Přímý URL uložený z pokemontcg API
   if (c.cardmarketUrl) return c.cardmarketUrl;
-  // Fallback — hledání podle názvu
-  const q = [c.name, c.set].filter(Boolean).join(' ');
-  return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(q)}`;
+  // 2. Sestavení Singles URL: /Singles/{set-slug}/{name-slug}
+  const slugify = s => (s||'').trim()
+    .replace(/['']/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
+  const nameSlug = slugify(c.name);
+  const setSlug  = slugify(c.set);
+  if (nameSlug && setSlug) {
+    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}`;
+  }
+  // 3. Fallback — hledej jen podle jména karty (ne série!)
+  return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name||'')}`;
 }
 
 function openCardDetail(c) {
@@ -1185,34 +1194,12 @@ function openCardDetail(c) {
       <div class="cd-row-val">${esc(String(val))}</div>
     </div>`).join('');
 
-  // Ceny z Cardmarket — uložené z pokemontcg.io API při přidání karty v aplikaci
-  // Pole: pMin (nejnižší), pTrend (trend/průměr), p30d (30denní průměr)
-  const pMin   = c.pMin   != null && c.pMin   > 0 ? Number(c.pMin  ).toFixed(2) + ' €' : null;
-  const pTrend = c.pTrend != null && c.pTrend > 0 ? Number(c.pTrend).toFixed(2) + ' €' : null;
-  const p30d   = c.p30d   != null && c.p30d   > 0 ? Number(c.p30d  ).toFixed(2) + ' €' : null;
-  let priceHtml = '';
-  if (pMin || pTrend || p30d) {
-    priceHtml = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-      <div class="cd-row">
-        <div class="cd-row-label">Nejnižší</div>
-        <div class="cd-row-val" style="color:#4ade80">${pMin || '—'}</div>
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Trend</div>
-        <div class="cd-row-val" style="color:var(--yellow)">${pTrend || '—'}</div>
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Průměr 30d</div>
-        <div class="cd-row-val" style="color:#74b4ff">${p30d || '—'}</div>
-      </div>
-    </div>
-    <div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket via pokemontcg.io</div>`;
-  } else {
-    priceHtml = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
-      Ceny nejsou k dispozici — přidej kartu přes pokemontcg.io URL v aplikaci ↗
-    </div>`;
+  // Ceny z Cardmarket (uložené z pokemontcg.io při přidání karty v aplikaci)
+  renderPrices(c, document.getElementById('cdPrices'));
+  // Pokud chybí — zkus načíst z pokemontcg.io API živě
+  if (!(c.pTrend > 0) && !(c.pMin > 0)) {
+    fetchLivePrices(c, document.getElementById('cdPrices'));
   }
-  document.getElementById('cdPrices').innerHTML = priceHtml;
 
   // Moje cena
   document.getElementById('cdPriceInp').value = c.price_czk || '';
@@ -1297,6 +1284,94 @@ async function syncCardToServer(c) {
   }];
   await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
     { p_user_id: userId, p_cards: payload }, token);
+}
+
+// ── Cardmarket ceny ──────────────────────────────────────────────
+function renderPrices(c, el) {
+  if (!el) return;
+  const fmt = v => (v != null && v > 0) ? Number(v).toFixed(2) + ' €' : null;
+  const pMin   = fmt(c.pMin);
+  const pTrend = fmt(c.pTrend);
+  const p30d   = fmt(c.p30d);
+  if (pMin || pTrend || p30d) {
+    el.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        <div class="cd-row">
+          <div class="cd-row-label">Nejnižší</div>
+          <div class="cd-row-val" style="color:#4ade80">${pMin||'—'}</div>
+        </div>
+        <div class="cd-row">
+          <div class="cd-row-label">Trend</div>
+          <div class="cd-row-val" style="color:var(--yellow)">${pTrend||'—'}</div>
+        </div>
+        <div class="cd-row">
+          <div class="cd-row-label">Průměr 30d</div>
+          <div class="cd-row-val" style="color:#74b4ff">${p30d||'—'}</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket via pokemontcg.io</div>`;
+  } else {
+    el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0" id="cdPricesLoading">
+      Načítám ceny…</div>`;
+  }
+}
+
+async function fetchLivePrices(c, el) {
+  if (!el) return;
+  try {
+    // Zkus přes apiId (přesné) nebo hledáním podle jména+čísla
+    let apiUrl;
+    const apiId = c.apiId || c.id;
+    const num   = c.number || c.num || '';
+    const name  = c.name || '';
+    const set   = c.set  || '';
+
+    // Hledání: jméno + číslo karty (nejpřesnější bez apiId)
+    if (name) {
+      const q = num
+        ? `name:"${name}" number:${num}`
+        : `name:"${name}" set.name:"${set}"`;
+      apiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+    }
+    if (!apiUrl) return;
+
+    const res  = await fetch(apiUrl);
+    const json = await res.json();
+    const card = json?.data?.[0];
+    if (!card) {
+      if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
+        Ceny nenalezeny — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
+        style="color:var(--yellow)">hledat na Cardmarket ↗</a></div>`;
+      return;
+    }
+
+    const cm = card.cardmarket?.prices || {};
+    // Ulož do karty pro příště
+    c.pMin          = cm.lowPrice   || 0;
+    c.pTrend        = cm.trendPrice || 0;
+    c.p30d          = cm.avg30 || cm.avg7 || 0;
+    c.cardmarketUrl = card.cardmarket?.url || '';
+    c.hp            = card.hp || c.hp || '';
+    if (c.pTrend > 0 || c.pMin > 0) {
+      renderPrices(c, el);
+      // Aktualizuj HP v detailu pokud bylo prázdné
+      if (c.hp) {
+        const hpEl = document.querySelector('#cdGrid .cd-row:first-child .cd-row-val');
+        if (hpEl && hpEl.textContent === '—') hpEl.textContent = c.hp;
+      }
+      // Aktualizuj cardmarket odkaz
+      if (c.cardmarketUrl) {
+        const link = document.querySelector('#cdName a');
+        if (link) link.href = c.cardmarketUrl;
+      }
+    } else {
+      if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
+        Ceny na Cardmarket nejsou k dispozici — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
+        style="color:var(--yellow)">otevřít Cardmarket ↗</a></div>`;
+    }
+  } catch(err) {
+    console.warn('[fetchLivePrices]', err);
+  }
 }
 
 // ── Book size slider ──────────────────────────────────────────────
