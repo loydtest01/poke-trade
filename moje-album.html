@@ -201,7 +201,15 @@ body { background: #0a0a0f; overflow-x: hidden; }
   cursor: pointer; transition: transform .15s, border-color .15s;
   aspect-ratio: 63/88;
 }
-.card-slot:hover { transform: translateY(-3px) scale(1.02); border-color: rgba(255,255,255,0.14); }
+.card-slot:hover { border-color: rgba(255,255,255,0.14); }
+/* Tilt via JS for grid cards too */
+.card-slot .glare {
+  position: absolute; inset: 0; border-radius: 10px;
+  pointer-events: none; z-index: 3; opacity: 0;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 60%, transparent 80%);
+  mix-blend-mode: screen;
+}
 .card-slot.selected { border-color: rgba(245,200,66,0.7); box-shadow: 0 0 0 2px rgba(245,200,66,0.25); }
 .card-slot.in-album { border-color: rgba(74,158,255,0.4); }
 
@@ -355,10 +363,18 @@ body { background: #0a0a0f; overflow-x: hidden; }
 #bookPages { --book-scale: 1; }
 #bookPages .book-grid { gap: calc(6px * var(--book-scale)); }
 .book-card:hover {
-  transform: translateY(-4px) scale(1.04);
   box-shadow: 0 8px 24px rgba(0,0,0,0.5);
   border-color: rgba(245,200,66,0.4);
   z-index: 2;
+}
+/* Tilt handled via JS — no CSS hover transform */
+.book-card .glare {
+  position: absolute; inset: 0; border-radius: 8px;
+  pointer-events: none; z-index: 3; opacity: 0;
+  background: radial-gradient(circle at 50% 50%,
+    rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 60%, transparent 80%);
+  transition: opacity .15s;
+  mix-blend-mode: screen;
 }
 .book-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .book-card .card-footer {
@@ -825,7 +841,11 @@ body { background: #0a0a0f; overflow-x: hidden; }
           <div class="cd-badges" id="cdBadges"></div>
           <div class="cd-grid" id="cdGrid"></div>
           <div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Cena (Kč)</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">📈 Ceny z Cardmarket</div>
+            <div id="cdPrices"></div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Moje cena (Kč)</div>
             <div class="cd-price-row">
               <input class="cd-price-inp" type="number" id="cdPriceInp" placeholder="Nezadána" min="0">
               <button class="cd-act-btn trade-off" onclick="saveCdPrice()" style="padding:7px 12px">Uložit cenu</button>
@@ -1101,6 +1121,15 @@ function cardClick(id) {
 // ── Card detail ───────────────────────────────────────────────────
 let _detailCard = null;
 
+function buildCardmarketUrl(c) {
+  // Sestaví URL pro cardmarket.com hledání konkrétní karty
+  const name = (c.name || '').trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+  const set  = (c.set  || '').trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
+  if (name && set) return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${encodeURIComponent(set)}/${encodeURIComponent(name.replace(/-/g,' '))}`;
+  if (name)        return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name)}`;
+  return 'https://www.cardmarket.com/en/Pokemon';
+}
+
 function openCardDetail(c) {
   _detailCard = c;
   const modal = document.getElementById('cardDetailModal');
@@ -1112,9 +1141,18 @@ function openCardDetail(c) {
     ? `<img class="cd-img" src="${esc(img)}" alt="${esc(c.name||'')}">`
     : `<div class="cd-no-img"><div class="big-emoji">${emoji}</div><div>${esc(c.name||'?')}</div></div>`;
 
-  // Name + set
-  document.getElementById('cdName').textContent = c.name || '?';
-  document.getElementById('cdSet').textContent  = [c.set, c.number ? '#'+c.number : ''].filter(Boolean).join(' · ');
+  // Name → cardmarket link
+  const cmUrl = buildCardmarketUrl(c);
+  document.getElementById('cdName').innerHTML =
+    `<a href="${esc(cmUrl)}" target="_blank" rel="noopener"
+       style="color:inherit;text-decoration:none;border-bottom:2px solid rgba(245,200,66,0.4);
+              transition:border-color .15s;cursor:pointer"
+       onmouseover="this.style.borderColor='#f5c842'"
+       onmouseout="this.style.borderColor='rgba(245,200,66,0.4)'"
+       title="Hledat na Cardmarket">${esc(c.name||'?')} <span style="font-size:12px;opacity:.5">↗</span></a>`;
+
+  document.getElementById('cdSet').textContent =
+    [c.set, c.number ? '#'+c.number : ''].filter(Boolean).join(' · ');
 
   // Badges
   const badges = [];
@@ -1126,12 +1164,12 @@ function openCardDetail(c) {
 
   // Info grid
   const rows = [
-    ['Supertyp',  c.supertype || c.category || '—'],
-    ['Typ',       c.types?.join(', ') || c.type || '—'],
-    ['Série',     c.set || '—'],
-    ['Číslo',     c.number || '—'],
-    ['Stav',      cond],
     ['HP',        c.hp || '—'],
+    ['Číslo',     c.number || '—'],
+    ['Typ',       c.types?.join(', ') || c.type || '—'],
+    ['Supertyp',  c.supertype || c.category || '—'],
+    ['Série',     c.set || '—'],
+    ['Stav',      cond],
     ['Počet ks',  c.count || 1],
     ['Poznámka',  c.note || '—', true],
   ];
@@ -1141,7 +1179,50 @@ function openCardDetail(c) {
       <div class="cd-row-val">${esc(String(val))}</div>
     </div>`).join('');
 
-  // Price
+  // Cardmarket ceny z pTrend / existující data
+  const pt = c.pTrend;
+  let priceHtml = '';
+  if (pt) {
+    // pTrend může být číslo nebo objekt
+    if (typeof pt === 'object') {
+      const low  = pt.low  != null ? Number(pt.low ).toFixed(2)  + ' €' : '—';
+      const avg  = pt.avg  != null ? Number(pt.avg ).toFixed(2)  + ' €' : '—';
+      const high = pt.high != null ? Number(pt.high).toFixed(2)  + ' €' : '—';
+      const trend= pt.trend!= null ? Number(pt.trend).toFixed(2) + ' €' : (typeof pt === 'number' ? Number(pt).toFixed(2) + ' €' : '—');
+      priceHtml = `
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
+          <div class="cd-row">
+            <div class="cd-row-label">Nejnižší</div>
+            <div class="cd-row-val" style="color:#4ade80">${low}</div>
+          </div>
+          <div class="cd-row">
+            <div class="cd-row-label">Průměr</div>
+            <div class="cd-row-val" style="color:var(--yellow)">${avg}</div>
+          </div>
+          <div class="cd-row">
+            <div class="cd-row-label">Nejvyšší</div>
+            <div class="cd-row-val" style="color:#f87171">${high}</div>
+          </div>
+        </div>
+        ${trend !== '—' ? `<div class="cd-row" style="margin-top:4px"><div class="cd-row-label">Trend cena</div><div class="cd-row-val">${trend}</div></div>` : ''}`;
+    } else if (typeof pt === 'number' || typeof pt === 'string') {
+      const val = Number(pt);
+      if (!isNaN(val)) {
+        priceHtml = `<div class="cd-row" style="margin-top:4px">
+          <div class="cd-row-label">Trend cena (Cardmarket)</div>
+          <div class="cd-row-val" style="color:var(--yellow)">${val.toFixed(2)} €</div>
+        </div>`;
+      }
+    }
+  }
+  if (!priceHtml) {
+    priceHtml = `<div style="font-size:11px;color:var(--text3);margin-top:4px;padding:6px 0">
+      Ceny z Cardmarket nejsou dostupné — klikni na název karty pro vyhledání ↗
+    </div>`;
+  }
+  document.getElementById('cdPrices').innerHTML = priceHtml;
+
+  // Moje cena
   document.getElementById('cdPriceInp').value = c.price_czk || '';
 
   // Actions
@@ -1155,7 +1236,6 @@ function openCardDetail(c) {
     <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 Smazat</button>`;
 
   modal.classList.add('open');
-  // Close on backdrop click
   modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
 }
 
@@ -1234,9 +1314,15 @@ function setBookSize(val) {
   bookSize = parseInt(val);
   localStorage.setItem('pkc_book_size', bookSize);
   document.getElementById('bookSizeVal').textContent = bookSize + '%';
-  document.getElementById('bookPages').style.fontSize = (bookSize / 100) + 'em';
-  // Scale card sizes via CSS custom property
-  document.getElementById('bookPages').style.setProperty('--book-scale', bookSize / 100);
+  // Scale celé album (wrap + nav + pages) pomocí CSS transform
+  const wrap = document.querySelector('#albumBook .book-wrap');
+  if (wrap) {
+    const scale = bookSize / 100;
+    wrap.style.transformOrigin = 'top left';
+    wrap.style.transform = `scale(${scale})`;
+    // Kompenzuj výšku aby nevznikalo prázdné místo
+    wrap.parentElement.style.height = (wrap.offsetHeight * scale) + 'px';
+  }
 }
 
 function initBookSize() {
@@ -1244,7 +1330,8 @@ function initBookSize() {
   if (slider) {
     slider.value = bookSize;
     document.getElementById('bookSizeVal').textContent = bookSize + '%';
-    setBookSize(bookSize);
+    // Počkej na render pak aplikuj
+    setTimeout(() => setBookSize(bookSize), 50);
   }
 }
 
@@ -1880,6 +1967,53 @@ function renderBookView() {
 // Patch render() to also update book view when in book mode
 const _origRenderEnd = document.getElementById ? null : null; // placeholder
 // Book view gets updated via renderBookView() called from setViewMode and render override below
+
+// ── Tilt + glare efekt na kartičkách ──────────────────────────────
+function applyTilt(card) {
+  if (card._tiltBound) return;
+  card._tiltBound = true;
+
+  // Přidej glare element pokud neexistuje
+  if (!card.querySelector('.glare')) {
+    const g = document.createElement('div');
+    g.className = 'glare';
+    card.appendChild(g);
+  }
+  const glare = card.querySelector('.glare');
+
+  card.addEventListener('mousemove', (e) => {
+    const rect = card.getBoundingClientRect();
+    const cx = (e.clientX - rect.left) / rect.width;   // 0..1
+    const cy = (e.clientY - rect.top)  / rect.height;  // 0..1
+    const rx = (cy - 0.5) * 28;  // naklon -14..14 deg
+    const ry = (cx - 0.5) * -28;
+    card.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.06)`;
+    card.style.transition = 'transform 0.05s ease-out, box-shadow .15s, border-color .15s';
+    card.style.boxShadow  = `${ry*-0.5}px ${rx*0.5}px 20px rgba(0,0,0,0.5)`;
+    // Glare — světlo z pozice myši
+    glare.style.opacity = '1';
+    glare.style.background = `radial-gradient(circle at ${cx*100}% ${cy*100}%,
+      rgba(255,255,255,0.38) 0%, rgba(255,255,255,0.05) 50%, transparent 75%)`;
+  });
+
+  card.addEventListener('mouseleave', () => {
+    card.style.transform  = '';
+    card.style.transition = 'transform 0.3s ease-out, box-shadow .3s, border-color .15s';
+    card.style.boxShadow  = '';
+    glare.style.opacity   = '0';
+  });
+}
+
+// Aplikuj tilt na všechny viditelné karty (volej po každém renderu)
+function applyTiltToAll() {
+  document.querySelectorAll('.book-card, .card-slot').forEach(applyTilt);
+}
+
+// Hooknout na MutationObserver aby se tilt aplikoval i na nově přidané karty
+const _tiltObserver = new MutationObserver(() => applyTiltToAll());
+_tiltObserver.observe(document.body, { childList: true, subtree: true });
+// Prvotní aplikace
+setTimeout(applyTiltToAll, 300);
 
 function showLoginPrompt() {
   document.getElementById('sidebar').style.display = 'none';
