@@ -1,29 +1,48 @@
-# ⚡ PokéTrade – Návod k spuštění
+# PokéScanner – webová aplikace
 
-## KROK 1 – Supabase databáze
-Jdi na supabase.com → New project → Frankfurt → po vytvoření spusť supabase_setup.sql v SQL Editoru.
-Zkopíruj Project URL a anon key ze Settings → API.
+Malá standalone webová aplikace pro skenování a ukládání Pokémon karet.
 
-## KROK 2 – Vyplň údaje
-V app.js a api/v1/[...path].js nahraď:
-  SUPABASE_URL  = 'https://TVOJE_ID.supabase.co'
-  SUPABASE_ANON = 'TVUJ_ANON_KEY'
+## Soubory
 
-## KROK 3 – Vercel
-Jdi na vercel.com → Add New → Project → Deploy without Git → přetáhni tuto složku → Deploy.
-Dostaneš URL jako https://pokemon-trade-xyz.vercel.app
+```
+scanner-app/
+├── scanner.html      ← celá aplikace (SPA)
+├── api/
+│   └── groq.js       ← Vercel serverless proxy pro Groq API
+└── vercel.json       ← Vercel konfigurace
+```
 
-## KROK 4 – Doplň Vercel URL
-V app.js: VERCEL_URL = 'https://pokemon-trade-xyz.vercel.app'
-Znovu nahraj na Vercel.
+## Deploy na Vercel
 
-## KROK 5 – Propoj aplikaci
-V online-market-NEW.js: API_BASE = 'https://pokemon-trade-xyz.vercel.app/v1'
-V sync-NEW.js: MANIFEST_URL = 'https://pokemon-trade-xyz.vercel.app/pkc-manifest.json'
-Nahraď app/js/online-market.js a app/js/sync.js těmito soubory.
+1. Zkopíruj `scanner.html`, `api/groq.js` a `vercel.json` do tvého `pokemon-market-v2` projektu
+2. Zkopíruj tam i `wallpaper.png` a `pokemon.png` ze stávajícího projektu (kvůli pozadí)
+3. Push na GitHub → Vercel automaticky nasadí
+4. Přístup přes: `https://tvuj-projekt.vercel.app/scanner.html`
 
-## KROK 6 – Otestuj
-1. Registrace na webu: /register.html
-2. V aplikaci: ikona tržiště → Přihlásit se → stejné údaje
-3. Vyber karty K výměně → Odeslat
-4. Web → Nabídky → vidíš je!
+## Jak to funguje
+
+### Přihlášení
+- Stejný Supabase účet jako web (PokéTrade)
+- Funguje username i e-mail
+- Odkaz na registraci → pokemon-trade-ruddy.vercel.app/register.html
+
+### Nastavení Groq
+1. Jdi na https://console.groq.com → Sign Up (zdarma, bez karty)
+2. API Keys → Create API Key (začíná `gsk_`)
+3. Vlož klíč v ⚙️ Nastavení v aplikaci
+4. Klíč se uloží jen do localStorage tvého prohlížeče
+
+### Skenování karet
+1. Klikni na upload zónu nebo přetáhni fotky
+2. Na mobilu → otevře kameru nebo galerii
+3. Klikni "🤖 Rozpoznat kartičky" → Groq AI identifikuje
+4. Stáhnou se data z TCGdex (název, HP, typy, obrázek)
+5. Uprav případné chyby v editovatelných polích
+6. Zaškrtni karty k uložení → "💾 Uložit do alba"
+
+### Groq proxy
+Vercel funkce `/api/groq.js` přijímá Groq API klíč v záhlaví `X-Groq-Key`
+a přeposílá requesty na api.groq.com. Obchází CORS a schovává klíč mimo frontend URL.
+
+Volitelně lze nastavit serverový klíč přes Vercel env proměnnou `GROQ_API_KEY`
+(pak uživatelé nemusí zadávat vlastní – ale platíš za všechny).

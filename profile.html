@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <link rel="icon" type="image/png" href="pokemon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profil trenéra – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+<style>
+:root {
+  --yellow: #f5c842; --yellow2: #ffd83a;
+  --text: #f0ece4; --text2: rgba(240,236,228,0.65); --text3: rgba(240,236,228,0.35);
+  --bg1: rgba(12,10,18,0.88); --bg2: rgba(18,14,26,0.92); --bg3: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --red: #f87171; --green: #4ade80; --blue: #74b4ff;
+  --orange: #fb923c;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #06040c;
+  font-family: 'DM Sans', sans-serif;
+  color: var(--text);
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url('wallpaper.png');
+  background-size: cover; background-position: center 30%;
+  filter: brightness(0.18) saturate(0.5);
+}
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 70%, rgba(255,80,0,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 70% 50% at 85% 70%, rgba(30,80,255,0.07) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.65) 100%);
+}
+
+/* ═══ TOPBAR ═══ */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,4,6,0.82);
+  border-bottom: 1px solid rgba(245,200,66,0.12);
+  backdrop-filter: blur(18px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  cursor: pointer; text-decoration: none; color: var(--text);
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+
+/* ═══ LAYOUT ═══ */
+.page-wrap {
+  position: relative; z-index: 1;
+  max-width: 900px; margin: 0 auto;
+  padding: 32px 20px 80px;
+}
+
+/* ═══ HERO PROFIL ═══ */
+.profile-hero {
+  background: rgba(12,10,18,0.80);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  backdrop-filter: blur(22px);
+  padding: 32px;
+  margin-bottom: 24px;
+  display: flex; gap: 28px; align-items: flex-start;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.profile-avatar-wrap { position: relative; flex-shrink: 0; }
+.profile-avatar {
+  width: 88px; height: 88px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--yellow) 0%, #ff8c00 100%);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 800;
+  color: #000; letter-spacing: -1px;
+  box-shadow: 0 0 0 3px rgba(245,200,66,0.25), 0 0 24px rgba(245,200,66,0.15);
+}
+.profile-online-dot {
+  position: absolute; bottom: 4px; right: 4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--green); border: 2px solid #06040c;
+}
+
+.profile-info { flex: 1; min-width: 0; }
+.profile-username {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 22px; font-weight: 700;
+  color: #fff; margin-bottom: 6px;
+}
+.profile-badges { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.badge-verified { background: rgba(116,180,255,0.12); color: var(--blue); border: 1px solid rgba(116,180,255,0.2); }
+.badge-seller   { background: rgba(245,200,66,0.10);  color: var(--yellow); border: 1px solid rgba(245,200,66,0.2); }
+.badge-power    { background: rgba(251,146,60,0.12);  color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+
+.profile-meta { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
+.profile-meta-item { font-size: 12.5px; color: var(--text3); display: flex; align-items: center; gap: 5px; }
+.profile-meta-item span { color: var(--text2); }
+
+.profile-bio { font-size: 13.5px; color: var(--text2); line-height: 1.6; margin-bottom: 16px; max-width: 520px; }
+
+.profile-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-msg {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: linear-gradient(135deg, var(--yellow) 0%, #ff8c00 100%);
+  color: #0a0608; font-weight: 700; font-size: 13px;
+  border: none; border-radius: 10px; padding: 9px 18px;
+  cursor: pointer; transition: all .2s; text-decoration: none;
+  box-shadow: 0 4px 16px rgba(255,140,0,0.3);
+}
+.btn-msg:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(255,140,0,0.45); }
+.btn-outline-sm {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--text2); font-size: 13px; font-weight: 500;
+  border-radius: 10px; padding: 9px 16px;
+  cursor: pointer; transition: all .2s; text-decoration: none;
+}
+.btn-outline-sm:hover { background: var(--bg3); color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+/* ═══ STATS STRIP ═══ */
+.stats-strip {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin-bottom: 24px;
+}
+.stat-card {
+  background: rgba(12,10,18,0.75);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 16px;
+  text-align: center;
+  backdrop-filter: blur(14px);
+  transition: border-color .2s;
+}
+.stat-card:hover { border-color: rgba(245,200,66,0.25); }
+.stat-num {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 22px; font-weight: 700;
+  color: var(--yellow); margin-bottom: 4px;
+}
+.stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* ═══ RATINGS SECTION ═══ */
+.section-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 13px; font-weight: 700;
+  color: var(--text2); text-transform: uppercase;
+  letter-spacing: 0.08em; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--border);
+}
+
+.ratings-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; margin-bottom: 24px;
+}
+
+.rating-card {
+  background: rgba(12,10,18,0.80);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 22px 24px;
+  backdrop-filter: blur(18px);
+}
+
+.rating-card-title {
+  font-size: 11px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text3); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 6px;
+}
+.role-icon { font-size: 15px; }
+
+/* Velký score */
+.rating-score-row {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+}
+.big-score {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 42px; font-weight: 800;
+  color: #fff; line-height: 1;
+}
+.big-score-meta { flex: 1; }
+.big-stars { display: flex; gap: 3px; margin-bottom: 4px; }
+.star { font-size: 18px; color: #2d2720; }
+.star.filled { color: var(--yellow); }
+.star.half { color: var(--yellow); opacity: 0.5; }
+.score-count { font-size: 12px; color: var(--text3); }
+
+/* Histogram */
+.histogram { margin-bottom: 18px; }
+.histo-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 5px;
+}
+.histo-label { font-size: 11px; color: var(--text3); width: 14px; text-align: right; flex-shrink: 0; }
+.histo-bar-wrap { flex: 1; height: 6px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.histo-bar { height: 100%; border-radius: 3px; background: var(--yellow); transition: width 0.8s cubic-bezier(0.34,1.56,0.64,1); }
+.histo-count { font-size: 11px; color: var(--text3); width: 20px; text-align: right; flex-shrink: 0; }
+
+/* Kategoriální hodnocení */
+.cat-ratings { display: flex; flex-direction: column; gap: 12px; }
+.cat-row { display: flex; flex-direction: column; gap: 5px; }
+.cat-row-top { display: flex; justify-content: space-between; align-items: center; }
+.cat-name { font-size: 12px; color: var(--text2); }
+.cat-pct {
+  font-size: 12px; font-weight: 700;
+  color: var(--green);
+}
+.cat-pct.mid { color: var(--orange); }
+.cat-pct.low { color: var(--red); }
+.cat-bar-wrap { height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; }
+.cat-bar {
+  height: 100%; border-radius: 3px;
+  transition: width 1s cubic-bezier(0.34,1.56,0.64,1) 0.3s;
+}
+.cat-bar.high { background: var(--green); }
+.cat-bar.mid  { background: var(--orange); }
+.cat-bar.low  { background: var(--red); }
+
+/* ═══ TABS ═══ */
+.tabs-wrap { display: flex; gap: 4px; margin-bottom: 20px; }
+.tab-btn {
+  padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  border: 1px solid transparent; cursor: pointer; transition: all .15s;
+  color: var(--text3); background: transparent;
+  display: flex; align-items: center; gap: 6px;
+}
+.tab-btn:hover { background: var(--bg3); color: var(--text2); }
+.tab-btn.active {
+  background: rgba(245,200,66,0.10);
+  border-color: rgba(245,200,66,0.25);
+  color: var(--yellow);
+}
+.tab-count {
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 1px 7px;
+  font-size: 11px; color: var(--text3);
+}
+.tab-btn.active .tab-count { background: rgba(245,200,66,0.15); color: var(--yellow); }
+
+/* ═══ REVIEW CARDS ═══ */
+.reviews-list { display: flex; flex-direction: column; gap: 12px; }
+
+.review-card {
+  background: rgba(12,10,18,0.75);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+  backdrop-filter: blur(14px);
+  transition: border-color .2s;
+  animation: fadeInUp 0.35s ease both;
+}
+.review-card:hover { border-color: var(--border2); }
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.review-header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+.review-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.08);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  border: 1px solid var(--border);
+}
+.review-meta { flex: 1; min-width: 0; }
+.review-username {
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+  text-decoration: none;
+}
+.review-username:hover { color: var(--yellow); }
+.review-date { font-size: 11.5px; color: var(--text3); margin-top: 2px; }
+
+.review-stars { display: flex; gap: 2px; margin-left: auto; flex-shrink: 0; }
+.review-star { font-size: 14px; color: #2d2720; }
+.review-star.filled { color: var(--yellow); }
+
+.review-body { font-size: 13.5px; color: var(--text2); line-height: 1.65; margin-bottom: 12px; }
+
+.review-cats {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.review-cat-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 10px; font-size: 11px; color: var(--text3);
+}
+.review-cat-chip .mini-stars { display: flex; gap: 1px; }
+.review-cat-chip .mini-star { font-size: 10px; color: #2d2720; }
+.review-cat-chip .mini-star.filled { color: var(--yellow); }
+
+.review-listing-ref {
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text3);
+  display: flex; align-items: center; gap: 6px;
+}
+.review-listing-ref a { color: var(--blue); text-decoration: none; }
+.review-listing-ref a:hover { text-decoration: underline; }
+
+/* Sentiment badge */
+.sentiment {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em; margin-left: 8px;
+}
+.sentiment.pos { background: rgba(74,222,128,0.10); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+.sentiment.neu { background: rgba(251,146,60,0.10); color: var(--orange); border: 1px solid rgba(251,146,60,0.2); }
+.sentiment.neg { background: rgba(248,113,113,0.10); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+
+/* Prázdný stav */
+.empty-state {
+  text-align: center; padding: 48px 24px;
+  background: rgba(12,10,18,0.6); border: 1px dashed var(--border);
+  border-radius: 14px;
+}
+.empty-state .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-state p { font-size: 14px; color: var(--text3); }
+
+/* Načítání */
+.skeleton-card {
+  background: rgba(12,10,18,0.75);
+  border: 1px solid var(--border);
+  border-radius: 14px; padding: 18px 20px;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,100% { opacity: 0.6; } 50% { opacity: 0.3; }
+}
+.skel-line {
+  height: 12px; border-radius: 6px;
+  background: rgba(255,255,255,0.07); margin-bottom: 8px;
+}
+
+/* ═══ WRITE REVIEW MODAL ═══ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal-box {
+  background: rgba(14,10,20,0.97);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px; padding: 32px;
+  width: 100%; max-width: 520px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.8);
+  transform: translateY(20px) scale(0.97); transition: transform 0.25s;
+  max-height: 90vh; overflow-y: auto;
+}
+.modal-overlay.open .modal-box { transform: translateY(0) scale(1); }
+.modal-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 16px; font-weight: 700; margin-bottom: 4px; color: #fff;
+}
+.modal-subtitle { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+
+.review-form { display: flex; flex-direction: column; gap: 20px; }
+
+.form-field { display: flex; flex-direction: column; gap: 8px; }
+.form-label { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* Hvězdičkový výběr */
+.star-picker { display: flex; gap: 6px; }
+.star-pick {
+  font-size: 28px; cursor: pointer; color: #2d2720;
+  transition: color .1s, transform .1s;
+  user-select: none;
+}
+.star-pick:hover, .star-pick.active { color: var(--yellow); transform: scale(1.2); }
+
+/* Kategoriální hvězdičky (menší) */
+.cat-star-group {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+.cat-star-item { display: flex; flex-direction: column; gap: 6px; }
+.cat-star-label { font-size: 11.5px; color: var(--text2); }
+.mini-star-picker { display: flex; gap: 3px; }
+.mini-star-pick {
+  font-size: 18px; cursor: pointer; color: #2d2720;
+  transition: color .1s, transform .1s; user-select: none;
+}
+.mini-star-pick:hover, .mini-star-pick.active { color: var(--yellow); transform: scale(1.15); }
+
+textarea.form-textarea {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 14px; color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 14px; line-height: 1.6;
+  resize: vertical; min-height: 100px; transition: border-color .2s;
+}
+textarea.form-textarea:focus {
+  outline: none;
+  border-color: rgba(245,200,66,0.45);
+  box-shadow: 0 0 0 3px rgba(245,200,66,0.08);
+}
+textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
+.char-counter { font-size: 11px; color: var(--text3); text-align: right; margin-top: 2px; }
+
+.modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 8px; }
+.btn-primary {
+  background: linear-gradient(135deg, var(--yellow) 0%, #ff8c00 100%);
+  color: #0a0608; font-weight: 700; font-size: 13px;
+  border: none; border-radius: 10px; padding: 10px 22px;
+  cursor: pointer; transition: all .2s;
+  box-shadow: 0 4px 16px rgba(255,140,0,0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 22px rgba(255,140,0,0.45); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-cancel {
+  background: transparent; border: 1px solid var(--border2);
+  color: var(--text2); font-size: 13px;
+  border-radius: 10px; padding: 10px 18px;
+  cursor: pointer; transition: all .2s;
+}
+.btn-cancel:hover { background: var(--bg3); }
+
+/* Notification toast */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; z-index: 2000;
+  background: rgba(20,16,28,0.95); border: 1px solid var(--border2);
+  border-radius: 12px; padding: 14px 18px;
+  font-size: 13.5px; color: var(--text);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  transform: translateY(80px); opacity: 0;
+  transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  display: flex; align-items: center; gap: 10px;
+  max-width: 320px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-color: rgba(74,222,128,0.3); }
+.toast.error   { border-color: rgba(248,113,113,0.3); }
+
+/* Responsive */
+@media (max-width: 640px) {
+  .profile-hero { flex-direction: column; align-items: center; text-align: center; }
+  .profile-meta { justify-content: center; }
+  .profile-actions { justify-content: center; }
+  .ratings-grid { grid-template-columns: 1fr; }
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .cat-star-group { grid-template-columns: 1fr; }
+  .profile-badges { justify-content: center; }
+}
+@media (max-width: 420px) {
+  .stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .page-wrap { padding: 20px 14px 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="" style="width:22px;height:22px;object-fit:contain;border-radius:5px">
+    Poké<strong>Trade</strong>
+  </a>
+  <div class="nav-lnks">
+    <a href="marketplace.html">Nabídky</a>
+    <a href="dashboard.html">Moje karty</a>
+  </div>
+  <div class="topbar-right">
+    <a class="user-chip" href="dashboard.html" id="topbarUser" style="display:none">
+      <div class="user-avatar" id="topbarAvatar">?</div>
+      <span id="topbarUsername">…</span>
+    </a>
+    <a href="login.html" class="btn-nav-outline" id="topbarLogin" style="display:none; padding:6px 14px; border-radius:8px; font-size:13px; font-weight:600; border:1px solid rgba(255,255,255,0.18); background:transparent; color:rgba(240,236,228,0.65); text-decoration:none;">Přihlásit se</a>
+  </div>
+</div>
+
+<!-- PAGE -->
+<div class="page-wrap">
+
+  <!-- Skeleton při načítání -->
+  <div id="profileSkeleton">
+    <div class="skeleton-card" style="margin-bottom:24px; height:160px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+      <div class="skeleton-card" style="height:80px;"></div>
+      <div class="skeleton-card" style="height:80px;"></div>
+      <div class="skeleton-card" style="height:80px;"></div>
+      <div class="skeleton-card" style="height:80px;"></div>
+    </div>
+  </div>
+
+  <!-- Hlavní obsah -->
+  <div id="profileContent" style="display:none">
+
+    <!-- HERO -->
+    <div class="profile-hero">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar" id="heroAvatar">?</div>
+        <div class="profile-online-dot" id="onlineDot" style="display:none"></div>
+      </div>
+      <div class="profile-info">
+        <div class="profile-username" id="heroUsername">Načítám…</div>
+        <div class="profile-badges" id="heroBadges"></div>
+        <div class="profile-meta">
+          <div class="profile-meta-item">📅 Trenér od <span id="heroJoined">–</span></div>
+          <div class="profile-meta-item" id="heroLocWrap" style="display:none">📍 <span id="heroLocation">–</span></div>
+          <div class="profile-meta-item">🃏 Nabídek celkem: <span id="heroListings">0</span></div>
+        </div>
+        <div class="profile-bio" id="heroBio"></div>
+        <div class="profile-actions">
+          <button class="btn-msg" id="btnSendMsg" onclick="openMessageModal()">
+            ✉️ Napsat zprávu
+          </button>
+          <button class="btn-outline-sm" id="btnLeaveReview" onclick="openReviewModal()" style="display:none">
+            ⭐ Ohodnotit
+          </button>
+          <a href="#" class="btn-outline-sm" id="btnSeeListings">
+            🃏 Zobrazit nabídky
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS STRIP -->
+    <div class="stats-strip">
+      <div class="stat-card">
+        <div class="stat-num" id="statSales">0</div>
+        <div class="stat-label">Prodejů</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statSellerScore" style="color:var(--yellow)">–</div>
+        <div class="stat-label">Hvězdičky (prodejce)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statBuyerScore" style="color:var(--blue)">–</div>
+        <div class="stat-label">Hvězdičky (kupující)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num" id="statPositive" style="color:var(--green)">–%</div>
+        <div class="stat-label">Kladných hodnocení</div>
+      </div>
+    </div>
+
+    <!-- HODNOCENÍ PRODEJCE + KUPUJÍCÍHO -->
+    <div class="section-title">Hodnocení</div>
+    <div class="ratings-grid" id="ratingsGrid">
+
+      <!-- Prodejce -->
+      <div class="rating-card">
+        <div class="rating-card-title">
+          <span class="role-icon">🏷️</span> Jako prodejce
+        </div>
+        <div class="rating-score-row">
+          <div class="big-score" id="sellerBigScore">–</div>
+          <div class="big-score-meta">
+            <div class="big-stars" id="sellerBigStars"></div>
+            <div class="score-count" id="sellerScoreCount">0 hodnocení</div>
+          </div>
+        </div>
+        <div class="histogram" id="sellerHistogram"></div>
+        <div class="cat-ratings">
+          <div class="cat-row">
+            <div class="cat-row-top">
+              <span class="cat-name">💬 Komunikace</span>
+              <span class="cat-pct" id="sellerPctComm">–%</span>
+            </div>
+            <div class="cat-bar-wrap"><div class="cat-bar high" id="sellerBarComm" style="width:0%"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-row-top">
+              <span class="cat-name">📦 Rychlost dodání</span>
+              <span class="cat-pct" id="sellerPctDelivery">–%</span>
+            </div>
+            <div class="cat-bar-wrap"><div class="cat-bar high" id="sellerBarDelivery" style="width:0%"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-row-top">
+              <span class="cat-name">🎴 Přesnost stavu karty</span>
+              <span class="cat-pct" id="sellerPctAccuracy">–%</span>
+            </div>
+            <div class="cat-bar-wrap"><div class="cat-bar high" id="sellerBarAccuracy" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Kupující -->
+      <div class="rating-card">
+        <div class="rating-card-title">
+          <span class="role-icon">🛒</span> Jako kupující
+        </div>
+        <div class="rating-score-row">
+          <div class="big-score" id="buyerBigScore">–</div>
+          <div class="big-score-meta">
+            <div class="big-stars" id="buyerBigStars"></div>
+            <div class="score-count" id="buyerScoreCount">0 hodnocení</div>
+          </div>
+        </div>
+        <div class="histogram" id="buyerHistogram"></div>
+        <div class="cat-ratings">
+          <div class="cat-row">
+            <div class="cat-row-top">
+              <span class="cat-name">💸 Rychlost platby</span>
+              <span class="cat-pct" id="buyerPctPayment">–%</span>
+            </div>
+            <div class="cat-bar-wrap"><div class="cat-bar high" id="buyerBarPayment" style="width:0%"></div></div>
+          </div>
+          <div class="cat-row">
+            <div class="cat-row-top">
+              <span class="cat-name">📬 Převzetí zásilky</span>
+              <span class="cat-pct" id="buyerPctPickup">–%</span>
+            </div>
+            <div class="cat-bar-wrap"><div class="cat-bar high" id="buyerBarPickup" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REVIEW TABS + LIST -->
+    <div class="section-title">Komentáře</div>
+    <div class="tabs-wrap">
+      <button class="tab-btn active" onclick="switchTab('seller')" id="tabSeller">
+        🏷️ O prodejci <span class="tab-count" id="tabSellerCount">0</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('buyer')" id="tabBuyer">
+        🛒 O kupujícím <span class="tab-count" id="tabBuyerCount">0</span>
+      </button>
+    </div>
+    <div id="reviewsList" class="reviews-list"></div>
+    <div id="noReviews" class="empty-state" style="display:none">
+      <div class="empty-icon">⭐</div>
+      <p>Zatím žádné komentáře v této kategorii</p>
+    </div>
+
+  </div><!-- /profileContent -->
+</div><!-- /page-wrap -->
+
+<!-- ═══ MODAL: NAPSAT ZPRÁVU ═══ -->
+<div class="modal-overlay" id="messageModal">
+  <div class="modal-box">
+    <div class="modal-title">✉️ Napsat zprávu</div>
+    <div class="modal-subtitle" id="msgModalSubtitle">Zpráva pro …</div>
+    <div class="review-form">
+      <div class="form-field">
+        <label class="form-label">Zpráva</label>
+        <textarea class="form-textarea" id="msgText" placeholder="Napiš svou zprávu…" rows="5" oninput="updateMsgCounter()"></textarea>
+        <div class="char-counter"><span id="msgCounter">0</span> / 1000</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('messageModal')">Zrušit</button>
+      <button class="btn-primary" onclick="sendMessage()" id="btnSendMsgSubmit">Odeslat ✉️</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL: HODNOCENÍ ═══ -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal-box">
+    <div class="modal-title">⭐ Zanechat hodnocení</div>
+    <div class="modal-subtitle" id="revModalSubtitle">Hodnotíš …</div>
+    <div class="review-form">
+
+      <!-- Typ recenzenta -->
+      <div class="form-field">
+        <label class="form-label">Jaká byla tvoje role?</label>
+        <div style="display:flex;gap:10px">
+          <button class="btn-outline-sm" id="roleBtn-buyer"  onclick="setReviewerRole('buyer')"  style="flex:1">🛒 Kupoval/a jsem</button>
+          <button class="btn-outline-sm" id="roleBtn-seller" onclick="setReviewerRole('seller')" style="flex:1">🏷️ Prodával/a jsem</button>
+        </div>
+      </div>
+
+      <!-- Celkové hvězdičky -->
+      <div class="form-field">
+        <label class="form-label">Celkové hodnocení</label>
+        <div class="star-picker" id="overallStars">
+          <span class="star-pick" data-v="1" onclick="setOverallStars(1)">★</span>
+          <span class="star-pick" data-v="2" onclick="setOverallStars(2)">★</span>
+          <span class="star-pick" data-v="3" onclick="setOverallStars(3)">★</span>
+          <span class="star-pick" data-v="4" onclick="setOverallStars(4)">★</span>
+          <span class="star-pick" data-v="5" onclick="setOverallStars(5)">★</span>
+        </div>
+      </div>
+
+      <!-- Kategoriální hvězdičky (přepínají se dle role) -->
+      <div class="form-field" id="catRatingsWrap">
+        <label class="form-label">Detailní hodnocení</label>
+        <div class="cat-star-group" id="catStarGroup">
+          <!-- naplní se JS -->
+        </div>
+      </div>
+
+      <!-- Komentář -->
+      <div class="form-field">
+        <label class="form-label">Komentář</label>
+        <textarea class="form-textarea" id="revComment" placeholder="Popiš svou zkušenost… (nepovinné)" rows="4" oninput="updateRevCounter()"></textarea>
+        <div class="char-counter"><span id="revCounter">0</span> / 1000</div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('reviewModal')">Zrušit</button>
+      <button class="btn-primary" onclick="submitReview()" id="btnSubmitReview">Odeslat hodnocení</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════
+//  GLOBÁLNÍ STAV
+// ═══════════════════════════════════════════════════════════
+let profileUserId   = null;   // ID profilového uživatele z URL
+let profileUsername = '';
+let currentUser     = null;   // přihlášený uživatel
+let allReviews      = { seller: [], buyer: [] };
+let currentTab      = 'seller';
+let reviewerRole    = null;   // 'buyer' | 'seller'
+let overallStarsVal = 0;
+let catStarsVal     = {};
+
+// ═══════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════
+(async function init() {
+  // Načti přihlášeného uživatele
+  try {
+    const raw = localStorage.getItem('sb_user');
+    if (raw) currentUser = JSON.parse(raw);
+  } catch {}
+
+  // Topbar
+  if (currentUser) {
+    const uname = currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || '?';
+    document.getElementById('topbarUser').style.display   = 'flex';
+    document.getElementById('topbarLogin').style.display  = 'none';
+    document.getElementById('topbarAvatar').textContent   = uname[0].toUpperCase();
+    document.getElementById('topbarUsername').textContent = uname;
+  } else {
+    document.getElementById('topbarLogin').style.display = 'inline-flex';
+  }
+
+  // Získej user ID z URL ?user=UUID nebo ?username=jmeno
+  const params = new URLSearchParams(location.search);
+  const userParam = params.get('user') || params.get('id');
+  const usernameParam = params.get('username');
+
+  if (!userParam && !usernameParam) {
+    // Pokud není parametr, zobraz vlastní profil
+    if (currentUser?.id) {
+      profileUserId = currentUser.id;
+    } else {
+      window.location.href = 'login.html';
+      return;
+    }
+  } else if (userParam) {
+    profileUserId = userParam;
+  } else {
+    // Hledej podle username v profiles
+    await resolveUsernameToId(usernameParam);
+  }
+
+  if (!profileUserId) {
+    showToast('❌ Profil nenalezen', 'error');
+    return;
+  }
+
+  await Promise.all([loadProfile(), loadReviews()]);
+  showContent();
+})();
+
+// ─── Převod username → id ─────────────────────────────────
+async function resolveUsernameToId(username) {
+  try {
+    const res = await supabaseRequest(
+      `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`
+    );
+    if (Array.isArray(res) && res.length > 0) profileUserId = res[0].id;
+  } catch {}
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAČTI PROFIL
+// ═══════════════════════════════════════════════════════════
+async function loadProfile() {
+  try {
+    const data = await supabaseRequest(
+      `rest/v1/profiles?id=eq.${profileUserId}&select=*`
+    );
+    if (!Array.isArray(data) || data.length === 0) {
+      // Pokud profiles tabulka neexistuje nebo uživatel není tam, zkus auth.users metadata
+      loadProfileFallback();
+      return;
+    }
+    const p = data[0];
+    profileUsername = p.username || p.email?.split('@')[0] || 'Trenér';
+    renderProfile(p);
+  } catch {
+    loadProfileFallback();
+  }
+}
+
+function loadProfileFallback() {
+  // Minimální fallback – jen ID
+  profileUsername = 'Trenér';
+  renderProfile({ username: 'Trenér', joined_at: null, bio: null, location: null });
+}
+
+function renderProfile(p) {
+  const uname = p.username || 'Trenér';
+  profileUsername = uname;
+  document.title = `${uname} – PokéTrade`;
+
+  const initials = uname.slice(0,2).toUpperCase();
+  document.getElementById('heroAvatar').textContent  = initials;
+  document.getElementById('heroUsername').textContent = uname;
+
+  // Datum
+  const joined = p.joined_at || p.created_at;
+  document.getElementById('heroJoined').textContent =
+    joined ? new Date(joined).toLocaleDateString('cs-CZ', { month: 'long', year: 'numeric' }) : '–';
+
+  // Lokace
+  if (p.location) {
+    document.getElementById('heroLocWrap').style.display = 'flex';
+    document.getElementById('heroLocation').textContent = p.location;
+  }
+
+  // Bio
+  if (p.bio) document.getElementById('heroBio').textContent = p.bio;
+  else document.getElementById('heroBio').style.display = 'none';
+
+  // Badges
+  const badgesEl = document.getElementById('heroBadges');
+  const totalRev = (p.seller_review_count || 0) + (p.buyer_review_count || 0);
+  if (totalRev > 0)  badgesEl.innerHTML += `<span class="badge badge-seller">⭐ Hodnocený</span>`;
+  if (totalRev >= 10) badgesEl.innerHTML += `<span class="badge badge-power">🔥 Power Seller</span>`;
+  badgesEl.innerHTML += `<span class="badge badge-verified">✓ Ověřený</span>`;
+
+  // Stats strip
+  document.getElementById('statSellerScore').textContent = p.seller_avg_stars ? `${parseFloat(p.seller_avg_stars).toFixed(1)} ★` : '–';
+  document.getElementById('statBuyerScore').textContent  = p.buyer_avg_stars  ? `${parseFloat(p.buyer_avg_stars).toFixed(1)} ★`  : '–';
+
+  // Link na nabídky
+  document.getElementById('btnSeeListings').href = `marketplace.html?seller=${profileUserId}`;
+
+  // Skryj "Napsat zprávu" pokud vlastní profil
+  if (currentUser?.id === profileUserId) {
+    document.getElementById('btnSendMsg').style.display = 'none';
+    document.getElementById('btnLeaveReview').style.display = 'none';
+  } else if (currentUser) {
+    document.getElementById('btnLeaveReview').style.display = 'inline-flex';
+  }
+
+  document.getElementById('msgModalSubtitle').textContent = `Zpráva pro ${uname}`;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  NAČTI HODNOCENÍ
+// ═══════════════════════════════════════════════════════════
+async function loadReviews() {
+  try {
+    const data = await supabaseRequest(
+      `rest/v1/reviews?reviewed_id=eq.${profileUserId}&order=created_at.desc&select=*`
+    );
+    if (!Array.isArray(data)) return;
+
+    allReviews.seller = data.filter(r => r.reviewer_role === 'buyer');   // kupující hodnotí prodejce
+    allReviews.buyer  = data.filter(r => r.reviewer_role === 'seller');  // prodejce hodnotí kupujícího
+
+    renderRatingCards();
+    renderReviews('seller');
+  } catch (e) {
+    console.warn('Hodnocení se nepodařilo načíst:', e);
+  }
+}
+
+function renderRatingCards() {
+  renderRoleStats('seller', allReviews.seller);
+  renderRoleStats('buyer',  allReviews.buyer);
+
+  const allPos = [...allReviews.seller, ...allReviews.buyer].filter(r => r.is_positive).length;
+  const allTotal = allReviews.seller.length + allReviews.buyer.length;
+  document.getElementById('statPositive').textContent = allTotal
+    ? `${Math.round(100 * allPos / allTotal)}%` : '–%';
+  document.getElementById('statSales').textContent = allReviews.seller.length;
+
+  document.getElementById('tabSellerCount').textContent = allReviews.seller.length;
+  document.getElementById('tabBuyerCount').textContent  = allReviews.buyer.length;
+}
+
+function renderRoleStats(role, reviews) {
+  const prefix = role; // 'seller' | 'buyer'
+  const n = reviews.length;
+  if (n === 0) return;
+
+  const avg = reviews.reduce((s, r) => s + r.stars_overall, 0) / n;
+
+  document.getElementById(`${prefix}BigScore`).textContent = avg.toFixed(1);
+  document.getElementById(`${prefix}ScoreCount`).textContent = `${n} hodnocení`;
+
+  // Velké hvězdičky
+  document.getElementById(`${prefix}BigStars`).innerHTML = renderStarsHtml(avg, true);
+
+  // Celkový stat
+  if (role === 'seller') document.getElementById('statSellerScore').textContent = `${avg.toFixed(1)} ★`;
+  else document.getElementById('statBuyerScore').textContent = `${avg.toFixed(1)} ★`;
+
+  // Histogram
+  const counts = [5,4,3,2,1].map(s => reviews.filter(r => r.stars_overall === s).length);
+  let histoHtml = '';
+  [5,4,3,2,1].forEach((s, i) => {
+    const pct = n ? Math.round(100 * counts[i] / n) : 0;
+    histoHtml += `
+      <div class="histo-row">
+        <span class="histo-label">${s}</span>
+        <div class="histo-bar-wrap"><div class="histo-bar" style="width:${pct}%"></div></div>
+        <span class="histo-count">${counts[i]}</span>
+      </div>`;
+  });
+  document.getElementById(`${prefix}Histogram`).innerHTML = histoHtml;
+
+  // Kategoriální %
+  if (role === 'seller') {
+    setBarPct('sellerPctComm',     'sellerBarComm',     avgPct(reviews, 'stars_communication'));
+    setBarPct('sellerPctDelivery', 'sellerBarDelivery', avgPct(reviews, 'stars_delivery_speed'));
+    setBarPct('sellerPctAccuracy', 'sellerBarAccuracy', avgPct(reviews, 'stars_item_accuracy'));
+  } else {
+    setBarPct('buyerPctPayment', 'buyerBarPayment', avgPct(reviews, 'stars_payment_speed'));
+    setBarPct('buyerPctPickup',  'buyerBarPickup',  avgPct(reviews, 'stars_pickup'));
+  }
+}
+
+function avgPct(reviews, field) {
+  const valid = reviews.filter(r => r[field] != null);
+  if (!valid.length) return null;
+  const pos = valid.filter(r => r[field] >= 4).length;
+  return Math.round(100 * pos / valid.length);
+}
+
+function setBarPct(pctId, barId, pct) {
+  const pctEl = document.getElementById(pctId);
+  const barEl = document.getElementById(barId);
+  if (pct === null) { pctEl.textContent = '–'; return; }
+  pctEl.textContent = `${pct}%`;
+  pctEl.className = 'cat-pct' + (pct >= 80 ? '' : pct >= 50 ? ' mid' : ' low');
+  barEl.className  = 'cat-bar' + (pct >= 80 ? ' high' : pct >= 50 ? ' mid' : ' low');
+  setTimeout(() => { barEl.style.width = pct + '%'; }, 100);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER REVIEWS LIST
+// ═══════════════════════════════════════════════════════════
+function renderReviews(tab) {
+  currentTab = tab;
+  const reviews = allReviews[tab];
+  const list = document.getElementById('reviewsList');
+  const empty = document.getElementById('noReviews');
+
+  if (!reviews.length) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = reviews.map((r, i) => {
+    const uname = r.reviewer_username || 'Trenér';
+    const initials = uname.slice(0,2).toUpperCase();
+    const date = new Date(r.created_at).toLocaleDateString('cs-CZ', { day:'numeric', month:'long', year:'numeric' });
+    const sentimentClass = r.is_positive ? 'pos' : r.is_neutral ? 'neu' : 'neg';
+    const sentimentLabel = r.is_positive ? '👍 Kladné' : r.is_neutral ? '😐 Neutrální' : '👎 Záporné';
+
+    // Kategoriální čipy
+    const cats = tab === 'seller' ? [
+      { label: '💬 Komunikace', val: r.stars_communication },
+      { label: '📦 Dodání', val: r.stars_delivery_speed },
+      { label: '🎴 Stav karty', val: r.stars_item_accuracy },
+    ] : [
+      { label: '💸 Platba', val: r.stars_payment_speed },
+      { label: '📬 Převzetí', val: r.stars_pickup },
+    ];
+    const catChips = cats.filter(c => c.val != null).map(c => `
+      <span class="review-cat-chip">
+        ${c.label}
+        <span class="mini-stars">${renderMiniStars(c.val)}</span>
+      </span>`).join('');
+
+    return `
+      <div class="review-card" style="animation-delay:${i * 0.06}s">
+        <div class="review-header">
+          <div class="review-avatar">${initials}</div>
+          <div class="review-meta">
+            <a class="review-username" href="profile.html?user=${r.reviewer_id}">${uname}</a>
+            <div class="review-date">${date}</div>
+          </div>
+          <div class="review-stars">${renderStarsHtml(r.stars_overall)}</div>
+          <span class="sentiment ${sentimentClass}">${sentimentLabel}</span>
+        </div>
+        ${r.comment ? `<div class="review-body">${escHtml(r.comment)}</div>` : ''}
+        ${catChips ? `<div class="review-cats">${catChips}</div>` : ''}
+        ${r.listing_id ? `<div class="review-listing-ref">📎 K nabídce: <a href="listing.html?id=${r.listing_id}">zobrazit kartu</a></div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function switchTab(tab) {
+  document.getElementById('tabSeller').classList.toggle('active', tab === 'seller');
+  document.getElementById('tabBuyer').classList.toggle('active',  tab === 'buyer');
+  renderReviews(tab);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  HELPERS – HVĚZDIČKY
+// ═══════════════════════════════════════════════════════════
+function renderStarsHtml(score, big = false) {
+  const cls = big ? 'star' : 'review-star';
+  const filledCls = big ? 'star filled' : 'review-star filled';
+  let html = '';
+  for (let i = 1; i <= 5; i++) {
+    html += `<span class="${i <= Math.round(score) ? filledCls : cls}">★</span>`;
+  }
+  return html;
+}
+function renderMiniStars(val) {
+  let html = '';
+  for (let i = 1; i <= 5; i++)
+    html += `<span class="mini-star${i <= val ? ' filled' : ''}">★</span>`;
+  return html;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL – ZPRÁVA
+// ═══════════════════════════════════════════════════════════
+function openMessageModal() {
+  if (!currentUser) { window.location.href = 'login.html'; return; }
+  openModal('messageModal');
+}
+function updateMsgCounter() {
+  document.getElementById('msgCounter').textContent = document.getElementById('msgText').value.length;
+}
+async function sendMessage() {
+  if (!currentUser) return;
+  const text = document.getElementById('msgText').value.trim();
+  if (!text) return showToast('⚠️ Zpráva nesmí být prázdná', 'error');
+
+  document.getElementById('btnSendMsgSubmit').disabled = true;
+  try {
+    await supabaseRequest('rest/v1/messages', 'POST', {
+      sender_id: currentUser.id,
+      receiver_id: profileUserId,
+      sender_username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0],
+      receiver_username: profileUsername,
+      text
+    });
+    closeModal('messageModal');
+    document.getElementById('msgText').value = '';
+    showToast('✅ Zpráva odeslána!', 'success');
+  } catch (e) {
+    showToast('❌ Nepodařilo se odeslat zprávu', 'error');
+  }
+  document.getElementById('btnSendMsgSubmit').disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL – HODNOCENÍ
+// ═══════════════════════════════════════════════════════════
+function openReviewModal() {
+  if (!currentUser) { window.location.href = 'login.html'; return; }
+  reviewerRole    = null;
+  overallStarsVal = 0;
+  catStarsVal     = {};
+  document.getElementById('revModalSubtitle').textContent = `Hodnotíš uživatele ${profileUsername}`;
+  document.getElementById('revComment').value = '';
+  document.getElementById('revCounter').textContent = '0';
+  document.querySelectorAll('.star-pick').forEach(s => s.classList.remove('active'));
+  setReviewerRole(null);
+  openModal('reviewModal');
+}
+
+function setReviewerRole(role) {
+  reviewerRole = role;
+  ['buyer','seller'].forEach(r => {
+    const btn = document.getElementById(`roleBtn-${r}`);
+    if (btn) btn.style.background = r === role
+      ? 'rgba(245,200,66,0.15)' : 'transparent';
+    if (btn) btn.style.borderColor = r === role
+      ? 'rgba(245,200,66,0.4)' : 'rgba(255,255,255,0.14)';
+    if (btn) btn.style.color = r === role ? 'var(--yellow)' : 'rgba(240,236,228,0.65)';
+  });
+
+  // Kategoriální hvězdičky dle role
+  const group = document.getElementById('catStarGroup');
+  catStarsVal = {};
+
+  const cats = role === 'buyer' ? [
+    { key: 'communication',   label: '💬 Komunikace' },
+    { key: 'delivery_speed',  label: '📦 Rychlost dodání' },
+    { key: 'item_accuracy',   label: '🎴 Přesnost stavu' },
+  ] : role === 'seller' ? [
+    { key: 'payment_speed', label: '💸 Rychlost platby' },
+    { key: 'pickup',        label: '📬 Převzetí zásilky' },
+  ] : [];
+
+  group.innerHTML = cats.map(c => `
+    <div class="cat-star-item">
+      <span class="cat-star-label">${c.label}</span>
+      <div class="mini-star-picker" id="catPicker-${c.key}">
+        ${[1,2,3,4,5].map(v =>
+          `<span class="mini-star-pick" onclick="setCatStar('${c.key}',${v})" data-v="${v}">★</span>`
+        ).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function setOverallStars(val) {
+  overallStarsVal = val;
+  document.querySelectorAll('.star-pick').forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.v) <= val);
+  });
+}
+
+function setCatStar(key, val) {
+  catStarsVal[key] = val;
+  document.querySelectorAll(`#catPicker-${key} .mini-star-pick`).forEach(s => {
+    s.classList.toggle('active', parseInt(s.dataset.v) <= val);
+  });
+}
+
+function updateRevCounter() {
+  document.getElementById('revCounter').textContent = document.getElementById('revComment').value.length;
+}
+
+async function submitReview() {
+  if (!currentUser) return;
+  if (!reviewerRole) return showToast('⚠️ Vyber svou roli (kupující/prodávající)', 'error');
+  if (!overallStarsVal) return showToast('⚠️ Vyber celkové hodnocení', 'error');
+
+  const comment = document.getElementById('revComment').value.trim();
+  const body = {
+    reviewer_id:       currentUser.id,
+    reviewed_id:       profileUserId,
+    reviewer_username: currentUser.user_metadata?.username || currentUser.email?.split('@')[0],
+    reviewed_username: profileUsername,
+    reviewer_role:     reviewerRole,
+    stars_overall:     overallStarsVal,
+    comment:           comment || null,
+  };
+
+  if (reviewerRole === 'buyer') {
+    body.stars_communication  = catStarsVal.communication  || null;
+    body.stars_delivery_speed = catStarsVal.delivery_speed || null;
+    body.stars_item_accuracy  = catStarsVal.item_accuracy  || null;
+  } else {
+    body.stars_payment_speed = catStarsVal.payment_speed || null;
+    body.stars_pickup        = catStarsVal.pickup        || null;
+  }
+
+  document.getElementById('btnSubmitReview').disabled = true;
+  try {
+    await supabaseRequest('rest/v1/reviews', 'POST', body);
+    closeModal('reviewModal');
+    showToast('✅ Hodnocení bylo odesláno!', 'success');
+    await loadReviews();
+    renderRatingCards();
+    renderReviews(currentTab);
+  } catch(e) {
+    const msg = e.message?.includes('unique') ? 'Tuto osobu jsi již hodnotil/a' : 'Nepodařilo se odeslat hodnocení';
+    showToast(`❌ ${msg}`, 'error');
+  }
+  document.getElementById('btnSubmitReview').disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════════════════════
+function openModal(id)  { document.getElementById(id).classList.add('open'); document.body.style.overflow='hidden'; }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow=''; }
+
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
+});
+
+// ═══════════════════════════════════════════════════════════
+//  SHOW CONTENT
+// ═══════════════════════════════════════════════════════════
+function showContent() {
+  document.getElementById('profileSkeleton').style.display = 'none';
+  document.getElementById('profileContent').style.display  = 'block';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════
+function showToast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast${type ? ' '+type : ''} show`;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
