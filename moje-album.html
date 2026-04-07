@@ -282,8 +282,6 @@ body { background: #0a0a0f; overflow-x: hidden; }
 }
 
 /* ── Album book view ───────────────────────────────────────── */
-.album-book { display: none; }
-.album-book.visible { display: block; }
 .cards-grid.hidden { display: none; }
 
 .book-wrap {
@@ -292,7 +290,13 @@ body { background: #0a0a0f; overflow-x: hidden; }
   border: 1px solid rgba(245,200,66,0.15);
   border-radius: 16px; overflow: hidden;
   box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+  margin: 0 auto; /* vycentrovat */
 }
+.album-book {
+  display: none;
+  text-align: center; /* fallback center */
+}
+.album-book.visible { display: block; }
 
 /* Page navigation bar */
 .book-nav {
@@ -812,7 +816,7 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <div class="book-wrap">
         <div class="book-size-row">
           <label>Velikost karet</label>
-          <input type="range" min="60" max="160" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
+          <input type="range" min="40" max="100" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
           <span class="book-size-val" id="bookSizeVal">100%</span>
         </div>
         <div class="book-nav">
@@ -1122,12 +1126,11 @@ function cardClick(id) {
 let _detailCard = null;
 
 function buildCardmarketUrl(c) {
-  // Sestaví URL pro cardmarket.com hledání konkrétní karty
-  const name = (c.name || '').trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-  const set  = (c.set  || '').trim().replace(/\s+/g, '-').replace(/[^a-zA-Z0-9-]/g, '');
-  if (name && set) return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${encodeURIComponent(set)}/${encodeURIComponent(name.replace(/-/g,' '))}`;
-  if (name)        return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name)}`;
-  return 'https://www.cardmarket.com/en/Pokemon';
+  // Použij přímý URL uložený z pokemontcg API (nejspolehlivější)
+  if (c.cardmarketUrl) return c.cardmarketUrl;
+  // Fallback — hledání podle názvu
+  const q = [c.name, c.set].filter(Boolean).join(' ');
+  return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(q)}`;
 }
 
 function openCardDetail(c) {
@@ -1152,25 +1155,28 @@ function openCardDetail(c) {
        title="Hledat na Cardmarket">${esc(c.name||'?')} <span style="font-size:12px;opacity:.5">↗</span></a>`;
 
   document.getElementById('cdSet').textContent =
-    [c.set, c.number ? '#'+c.number : ''].filter(Boolean).join(' · ');
+    [c.set, (c.number||c.num) ? '#'+(c.number||c.num) : ''].filter(Boolean).join(' · ');
 
   // Badges
   const badges = [];
   if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
   if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
-  const cond = c.condition || c.cond || 'NM';
+  const cond = c.condition || c.cond || c.cond || 'NM';
   badges.push(`<span class="cd-badge cond">${cond}</span>`);
   document.getElementById('cdBadges').innerHTML = badges.join('');
 
-  // Info grid
+  // Info grid — app používá 'num' místo 'number', 'cond' místo 'condition', 'qty' místo 'count'
+  const cardNum = c.number || c.num || '—';
+  const cardHp  = c.hp || '—';
   const rows = [
-    ['HP',        c.hp || '—'],
-    ['Číslo',     c.number || '—'],
+    ['HP',        cardHp],
+    ['Číslo',     cardNum],
     ['Typ',       c.types?.join(', ') || c.type || '—'],
-    ['Supertyp',  c.supertype || c.category || '—'],
+    ['Supertyp',  c.supertype || c.subtypesStr || c.category || '—'],
     ['Série',     c.set || '—'],
     ['Stav',      cond],
-    ['Počet ks',  c.count || 1],
+    ['Vzácnost',  c.rarity || c.rarityCz || '—'],
+    ['Počet ks',  c.count || c.qty || 1],
     ['Poznámka',  c.note || '—', true],
   ];
   document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
@@ -1179,45 +1185,31 @@ function openCardDetail(c) {
       <div class="cd-row-val">${esc(String(val))}</div>
     </div>`).join('');
 
-  // Cardmarket ceny z pTrend / existující data
-  const pt = c.pTrend;
+  // Ceny z Cardmarket — uložené z pokemontcg.io API při přidání karty v aplikaci
+  // Pole: pMin (nejnižší), pTrend (trend/průměr), p30d (30denní průměr)
+  const pMin   = c.pMin   != null && c.pMin   > 0 ? Number(c.pMin  ).toFixed(2) + ' €' : null;
+  const pTrend = c.pTrend != null && c.pTrend > 0 ? Number(c.pTrend).toFixed(2) + ' €' : null;
+  const p30d   = c.p30d   != null && c.p30d   > 0 ? Number(c.p30d  ).toFixed(2) + ' €' : null;
   let priceHtml = '';
-  if (pt) {
-    // pTrend může být číslo nebo objekt
-    if (typeof pt === 'object') {
-      const low  = pt.low  != null ? Number(pt.low ).toFixed(2)  + ' €' : '—';
-      const avg  = pt.avg  != null ? Number(pt.avg ).toFixed(2)  + ' €' : '—';
-      const high = pt.high != null ? Number(pt.high).toFixed(2)  + ' €' : '—';
-      const trend= pt.trend!= null ? Number(pt.trend).toFixed(2) + ' €' : (typeof pt === 'number' ? Number(pt).toFixed(2) + ' €' : '—');
-      priceHtml = `
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px">
-          <div class="cd-row">
-            <div class="cd-row-label">Nejnižší</div>
-            <div class="cd-row-val" style="color:#4ade80">${low}</div>
-          </div>
-          <div class="cd-row">
-            <div class="cd-row-label">Průměr</div>
-            <div class="cd-row-val" style="color:var(--yellow)">${avg}</div>
-          </div>
-          <div class="cd-row">
-            <div class="cd-row-label">Nejvyšší</div>
-            <div class="cd-row-val" style="color:#f87171">${high}</div>
-          </div>
-        </div>
-        ${trend !== '—' ? `<div class="cd-row" style="margin-top:4px"><div class="cd-row-label">Trend cena</div><div class="cd-row-val">${trend}</div></div>` : ''}`;
-    } else if (typeof pt === 'number' || typeof pt === 'string') {
-      const val = Number(pt);
-      if (!isNaN(val)) {
-        priceHtml = `<div class="cd-row" style="margin-top:4px">
-          <div class="cd-row-label">Trend cena (Cardmarket)</div>
-          <div class="cd-row-val" style="color:var(--yellow)">${val.toFixed(2)} €</div>
-        </div>`;
-      }
-    }
-  }
-  if (!priceHtml) {
-    priceHtml = `<div style="font-size:11px;color:var(--text3);margin-top:4px;padding:6px 0">
-      Ceny z Cardmarket nejsou dostupné — klikni na název karty pro vyhledání ↗
+  if (pMin || pTrend || p30d) {
+    priceHtml = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+      <div class="cd-row">
+        <div class="cd-row-label">Nejnižší</div>
+        <div class="cd-row-val" style="color:#4ade80">${pMin || '—'}</div>
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Trend</div>
+        <div class="cd-row-val" style="color:var(--yellow)">${pTrend || '—'}</div>
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Průměr 30d</div>
+        <div class="cd-row-val" style="color:#74b4ff">${p30d || '—'}</div>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket via pokemontcg.io</div>`;
+  } else {
+    priceHtml = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
+      Ceny nejsou k dispozici — přidej kartu přes pokemontcg.io URL v aplikaci ↗
     </div>`;
   }
   document.getElementById('cdPrices').innerHTML = priceHtml;
@@ -1308,21 +1300,21 @@ async function syncCardToServer(c) {
 }
 
 // ── Book size slider ──────────────────────────────────────────────
-let bookSize = parseInt(localStorage.getItem('pkc_book_size') || '100');
+let bookSize = Math.min(100, parseInt(localStorage.getItem('pkc_book_size') || '100'));
 
 function setBookSize(val) {
   bookSize = parseInt(val);
   localStorage.setItem('pkc_book_size', bookSize);
   document.getElementById('bookSizeVal').textContent = bookSize + '%';
-  // Scale celé album (wrap + nav + pages) pomocí CSS transform
   const wrap = document.querySelector('#albumBook .book-wrap');
-  if (wrap) {
-    const scale = bookSize / 100;
-    wrap.style.transformOrigin = 'top left';
-    wrap.style.transform = `scale(${scale})`;
-    // Kompenzuj výšku aby nevznikalo prázdné místo
-    wrap.parentElement.style.height = (wrap.offsetHeight * scale) + 'px';
-  }
+  if (!wrap) return;
+  const scale = bookSize / 100;
+  wrap.style.transformOrigin = 'top center';
+  wrap.style.transform = `scale(${scale})`;
+  // Kompenzuj výšku kontejneru aby nevznikalo prázdné místo pod albem
+  requestAnimationFrame(() => {
+    wrap.parentElement.style.minHeight = Math.round(wrap.offsetHeight * scale) + 'px';
+  });
 }
 
 function initBookSize() {
@@ -1330,8 +1322,7 @@ function initBookSize() {
   if (slider) {
     slider.value = bookSize;
     document.getElementById('bookSizeVal').textContent = bookSize + '%';
-    // Počkej na render pak aplikuj
-    setTimeout(() => setBookSize(bookSize), 50);
+    setTimeout(() => setBookSize(bookSize), 80);
   }
 }
 
