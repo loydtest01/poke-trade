@@ -2,330 +2,1232 @@
 <html lang="cs">
 <head>
   <link rel="icon" type="image/png" href="pokemon.png">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Nabídky – PokéTrade</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nabídky – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+<style>
+:root {
+  --yellow: #f5c842; --yellow2: #ffd83a;
+  --text: #f0ece4; --text2: rgba(240,236,228,0.65); --text3: rgba(240,236,228,0.35);
+  --bg1: rgba(12,10,18,0.88); --bg2: rgba(18,14,26,0.92); --bg3: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --red: #f87171; --green: #4ade80; --blue: #74b4ff;
+}
+
+body { background: #06040c; overflow-x: hidden; font-family: 'DM Sans', sans-serif; color: var(--text); margin: 0; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url('wallpaper.png');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  filter: brightness(0.22) saturate(0.6);
+}
+
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%);
+}
+
+* { box-sizing: border-box; }
+
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,4,6,0.82);
+  border-bottom: 1px solid rgba(245,200,66,0.12);
+  backdrop-filter: blur(18px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+.btn-nav-outline {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.18); background: transparent;
+  color: var(--text2); text-decoration: none; cursor: pointer; transition: all .15s;
+}
+.btn-nav-outline:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.btn-add {
+  padding: 7px 16px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  border: none; background: linear-gradient(135deg, var(--yellow), #ff8c00);
+  color: #000; cursor: pointer; transition: all .15s;
+}
+.btn-add:hover { opacity: .88; transform: translateY(-1px); }
+
+.page-wrap {
+  position: relative; z-index: 1;
+  display: flex; min-height: calc(100vh - 56px);
+}
+
+.sidebar {
+  width: 220px; flex-shrink: 0;
+  background: rgba(8,4,10,0.72);
+  border-right: 1px solid var(--border);
+  padding: 14px 0;
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+  backdrop-filter: blur(12px);
+}
+.sb-section { padding: 0 12px 14px; }
+.sb-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  color: var(--text3); text-transform: uppercase;
+  padding: 0 4px 7px; display: block;
+}
+.sb-divider { height: 1px; background: var(--border); margin: 4px 12px 14px; }
+.filter-opt {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--text2); cursor: pointer;
+  padding: 4px 4px; border-radius: 6px; transition: background .1s;
+}
+.filter-opt:hover { background: rgba(255,255,255,0.05); }
+.filter-opt input { width: 14px; height: 14px; accent-color: var(--yellow); flex-shrink: 0; }
+.price-row { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text3); }
+.price-inp {
+  width: 62px; padding: 5px 7px; border-radius: 7px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+.price-inp:focus { border-color: rgba(245,200,66,0.4); }
+
+.main { flex: 1; padding: 18px 20px; min-width: 0; }
+
+.market-toolbar {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.search-wrap { flex: 1; min-width: 200px; position: relative; }
+.search-wrap::before {
+  content: '🔍'; position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%); font-size: 14px; pointer-events: none;
+}
+.search-wrap input {
+  width: 100%; padding: 9px 14px 9px 36px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; outline: none; transition: border-color .15s;
+}
+.search-wrap input:focus { border-color: rgba(245,200,66,0.4); }
+.search-wrap input::placeholder { color: var(--text3); }
+.sort-sel {
+  padding: 8px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.06);
+  color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 13px;
+  cursor: pointer; outline: none;
+}
+.view-toggle { display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 9px; padding: 3px; }
+.vt-btn {
+  padding: 5px 11px; border-radius: 6px; border: none;
+  background: transparent; color: var(--text3); font-size: 12px;
+  cursor: pointer; transition: all .15s;
+}
+.vt-btn.act { background: rgba(255,255,255,0.1); color: var(--text); }
+.count-info { font-size: 12px; color: var(--text3); white-space: nowrap; }
+
+.listings-wrap { display: flex; flex-direction: column; gap: 10px; }
+
+.listing-row {
+  display: flex; gap: 14px; padding: 14px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  border-radius: 14px; cursor: pointer;
+  transition: border-color .15s, background .15s;
+  backdrop-filter: blur(8px);
+}
+.listing-row:hover { border-color: var(--border2); background: var(--bg2); }
+
+.card-thumb {
+  width: 58px; height: 80px; border-radius: 7px; flex-shrink: 0;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.card-thumb-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; height: 100%; font-size: 9px; color: var(--text3); text-align: center; padding: 4px;
+}
+
+.listing-info { flex: 1; min-width: 0; }
+.listing-title {
+  font-size: 15px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
+}
+.listing-meta {
+  font-size: 12px; color: var(--text3); margin-bottom: 8px;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.listing-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.tag {
+  padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  white-space: nowrap;
+}
+.tag-sell  { background: rgba(34,197,94,0.15);  color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.tag-trade { background: rgba(74,158,255,0.15); color: #74b4ff; border: 1px solid rgba(74,158,255,0.25); }
+.tag-cond  { background: rgba(255,255,255,0.07); color: var(--text2); border: 1px solid var(--border); }
+.tag-warn  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+
+.listing-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  justify-content: space-between; flex-shrink: 0; min-width: 120px;
+}
+.price-big { font-size: 18px; font-weight: 700; color: var(--text); }
+.price-big small { font-size: 11px; color: var(--text3); font-weight: 400; display: block; text-align: right; }
+.price-trade { font-size: 15px; font-weight: 700; color: var(--blue); }
+.offer-count { font-size: 11px; color: var(--text3); }
+.action-btns { display: flex; gap: 5px; }
+.btn-buy {
+  padding: 6px 13px; border-radius: 7px; font-size: 12px; font-weight: 700;
+  border: none; background: rgba(34,197,94,0.2); color: #4ade80;
+  cursor: pointer; transition: all .15s;
+}
+.btn-buy:hover { background: rgba(34,197,94,0.3); }
+.btn-offer {
+  padding: 6px 11px; border-radius: 7px; font-size: 12px;
+  border: 1px solid var(--border); background: transparent; color: var(--text2);
+  cursor: pointer; transition: all .15s;
+}
+.btn-offer:hover { border-color: var(--border2); color: var(--text); }
+.btn-trade-sm {
+  padding: 6px 11px; border-radius: 7px; font-size: 12px;
+  border: 1px solid rgba(74,158,255,0.3); background: transparent; color: var(--blue);
+  cursor: pointer; transition: all .15s;
+}
+.btn-trade-sm:hover { background: rgba(74,158,255,0.1); }
+
+.empty-state {
+  text-align: center; padding: 60px 20px; color: var(--text3);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 14px; }
+.empty-state h3 { font-size: 16px; color: var(--text2); margin-bottom: 8px; }
+
+.skeleton-row {
+  height: 108px; border-radius: 14px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite;
+}
+@keyframes shimmer { 0%{background-position:200% 0}100%{background-position:-200% 0} }
+
+/* ── DETAIL PAGE ─────────────────────────────────────────────── */
+.detail-page { display: none; }
+.detail-page.show { display: block; }
+
+.breadcrumb {
+  font-size: 13px; color: var(--text3); margin-bottom: 16px;
+  display: flex; align-items: center; gap: 6px;
+}
+.breadcrumb a { color: var(--text2); text-decoration: none; }
+.breadcrumb a:hover { color: var(--yellow); }
+
+.detail-grid {
+  display: grid; grid-template-columns: 300px 1fr; gap: 20px;
+  align-items: start;
+}
+.detail-gallery {
+  position: sticky; top: 74px;
+}
+.gallery-main {
+  width: 100%; aspect-ratio: 3/4;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden; margin-bottom: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.gallery-main img { width: 100%; height: 100%; object-fit: contain; }
+.gallery-thumbs { display: flex; gap: 7px; flex-wrap: wrap; }
+.gallery-thumb {
+  width: 56px; height: 74px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border); overflow: hidden;
+  background: var(--bg2); transition: border-color .15s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: var(--text3); text-align: center;
+}
+.gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.gallery-thumb.act { border-color: var(--yellow); }
+.gallery-hint { font-size: 10px; color: var(--text3); margin-top: 7px; text-align: center; }
+
+.detail-info-box {
+  background: var(--bg1); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px; backdrop-filter: blur(8px);
+}
+.detail-title { font-family: 'Unbounded', sans-serif; font-size: 20px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 4px; }
+.detail-seller { font-size: 13px; color: var(--text3); margin-bottom: 14px; }
+.detail-seller span { color: var(--yellow); font-weight: 700; }
+
+.detail-price-row { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.detail-price { font-size: 28px; font-weight: 800; color: var(--text); }
+.detail-price-eur { font-size: 14px; color: var(--text3); }
+.detail-trend { font-size: 12px; color: var(--text3); }
+.detail-trend span { color: var(--green); }
+
+.detail-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+
+.detail-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.meta-row {
+  background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px;
+  border: 1px solid var(--border);
+}
+.meta-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
+.meta-val { font-size: 13px; font-weight: 600; color: var(--text); }
+
+.detail-desc {
+  font-size: 13px; color: var(--text2); line-height: 1.7;
+  background: rgba(255,255,255,0.03); border-radius: 9px; padding: 12px;
+  border: 1px solid var(--border); margin-bottom: 16px;
+}
+
+.detail-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.btn-detail-buy {
+  flex: 1; padding: 12px 20px; border-radius: 10px; font-size: 15px; font-weight: 700;
+  border: none; background: linear-gradient(135deg, #22c55e, #15803d);
+  color: #fff; cursor: pointer; transition: all .15s;
+}
+.btn-detail-buy:hover { opacity: .88; transform: translateY(-1px); }
+.btn-detail-offer {
+  padding: 12px 18px; border-radius: 10px; font-size: 14px;
+  border: 1px solid var(--border2); background: transparent; color: var(--text);
+  cursor: pointer; transition: all .15s;
+}
+.btn-detail-offer:hover { background: rgba(255,255,255,0.06); }
+.btn-detail-trade {
+  padding: 12px 18px; border-radius: 10px; font-size: 14px;
+  border: 1px solid rgba(74,158,255,0.4); background: transparent; color: var(--blue);
+  cursor: pointer; transition: all .15s;
+}
+.btn-detail-trade:hover { background: rgba(74,158,255,0.08); }
+.btn-detail-msg {
+  padding: 12px 16px; border-radius: 10px; font-size: 14px;
+  border: 1px solid var(--border); background: transparent; color: var(--text3);
+  cursor: pointer; transition: all .15s;
+}
+.btn-detail-msg:hover { color: var(--text); border-color: var(--border2); }
+
+/* Panels */
+.action-panel {
+  border: 1px solid var(--border2); border-radius: 12px; padding: 14px;
+  margin-bottom: 10px; display: none; flex-direction: column; gap: 10px;
+  background: rgba(255,255,255,0.03);
+}
+.action-panel.show { display: flex; }
+.panel-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.panel-inp {
+  padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+}
+.panel-inp:focus { border-color: rgba(245,200,66,0.4); }
+.panel-textarea {
+  padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+  resize: none; height: 70px; line-height: 1.5;
+}
+.panel-textarea::placeholder, .panel-inp::placeholder { color: var(--text3); }
+
+.trade-cards-wrap { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+.trade-card-item {
+  width: 54px; height: 74px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 8px; color: var(--text3); text-align: center; padding: 3px;
+  overflow: hidden; transition: border-color .15s;
+}
+.trade-card-item img { width: 100%; height: 100%; object-fit: cover; }
+.trade-card-item.sel { border: 2px solid var(--yellow); }
+.trade-view-toggle { display: flex; gap: 5px; }
+.tv-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text3); transition: all .15s;
+}
+.tv-btn.act { background: rgba(255,255,255,0.08); color: var(--text2); }
+.trade-list-wrap { display: none; }
+.trade-list-wrap.show { display: block; }
+.trade-list-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 7px;
+  cursor: pointer; transition: background .1s; font-size: 13px; color: var(--text2);
+}
+.trade-list-item:hover { background: rgba(255,255,255,0.05); }
+.trade-list-item input { accent-color: var(--yellow); }
+
+.msg-thread {
+  border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  display: none; flex-direction: column;
+}
+.msg-thread.show { display: flex; }
+.msg-thread-head {
+  padding: 9px 12px; background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600;
+}
+.msg-list { padding: 10px; display: flex; flex-direction: column; gap: 7px; max-height: 180px; overflow-y: auto; }
+.msg-bbl {
+  padding: 7px 11px; border-radius: 10px; font-size: 13px;
+  max-width: 80%; line-height: 1.5;
+}
+.msg-bbl.them { background: rgba(255,255,255,0.07); align-self: flex-start; color: var(--text2); }
+.msg-bbl.me   { background: rgba(74,158,255,0.18); align-self: flex-end; color: var(--blue); }
+.msg-input-row {
+  display: flex; gap: 7px; padding: 8px 10px;
+  border-top: 1px solid var(--border); background: rgba(0,0,0,0.2);
+}
+.msg-input-row input {
+  flex: 1; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+}
+.msg-input-row input:focus { border-color: rgba(74,158,255,0.4); }
+.msg-send-btn {
+  padding: 7px 14px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600;
+  background: rgba(74,158,255,0.2); color: var(--blue); cursor: pointer;
+}
+
+.panel-btns { display: flex; gap: 8px; }
+.btn-confirm {
+  padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  border: none; background: rgba(245,200,66,0.2); color: var(--yellow); cursor: pointer;
+}
+.btn-cancel {
+  padding: 8px 14px; border-radius: 8px; font-size: 13px;
+  border: 1px solid var(--border); background: transparent; color: var(--text3); cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .detail-gallery { position: static; }
+}
+</style>
 </head>
 <body>
-<nav class="navbar">
-  <div class="nav-inner">
-    <a href="index.html" class="logo"><span class="logo-icon"><img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"></span><span>Poké<strong>Trade</strong></span></a>
-    <div class="nav-links">
-      <a href="marketplace.html" class="nav-link active">Nabídky</a>
-      <a href="album.html" class="nav-link">🔄 Album výměny</a>
-      <a href="moje-album.html" class="nav-link">🎴 Moje album</a>
-      <a href="compare.html" class="nav-link">Porovnat alba</a>
+
+<header class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="P" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px">
+    Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html" class="active">Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
+    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="compare.html">Porovnat alba</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="user-chip" id="userChip" style="display:none">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
     </div>
-    <div class="nav-auth" id="navAuth">
-      <a href="login.html" class="btn-nav-outline">Přihlásit</a>
-      <a href="register.html" class="btn-nav-fill">Registrovat</a>
-    </div>
+    <a href="login.html" id="loginLink" class="btn-nav-outline">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none">Odhlásit</button>
+    <button class="btn-add" id="addBtn" style="display:none" onclick="openAddListing()">+ Přidat nabídku</button>
   </div>
-</nav>
+</header>
 
-<div class="marketplace-page">
-  <div class="container">
+<div class="page-wrap">
+  <aside class="sidebar">
+    <div class="sb-section">
+      <span class="sb-label">Typ nabídky</span>
+      <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"> Prodej</label>
+      <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"> Výměna</label>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Cena (Kč)</span>
+      <div class="price-row">
+        <input class="price-inp" id="fPriceMin" type="number" placeholder="0" onchange="applyFilters()">
+        <span>—</span>
+        <input class="price-inp" id="fPriceMax" type="number" placeholder="∞" onchange="applyFilters()">
+      </div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Stav karty</span>
+      <label class="filter-opt"><input type="checkbox" id="fNM" checked onchange="applyFilters()"> NM</label>
+      <label class="filter-opt"><input type="checkbox" id="fLP" checked onchange="applyFilters()"> LP</label>
+      <label class="filter-opt"><input type="checkbox" id="fMP" checked onchange="applyFilters()"> MP</label>
+      <label class="filter-opt"><input type="checkbox" id="fHP" onchange="applyFilters()"> HP / D</label>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Element</span>
+      <label class="filter-opt"><input type="checkbox" id="fFire" onchange="applyFilters()"> Ohnivý</label>
+      <label class="filter-opt"><input type="checkbox" id="fWater" onchange="applyFilters()"> Vodní</label>
+      <label class="filter-opt"><input type="checkbox" id="fGrass" onchange="applyFilters()"> Travní</label>
+      <label class="filter-opt"><input type="checkbox" id="fElec" onchange="applyFilters()"> Elektrický</label>
+      <label class="filter-opt"><input type="checkbox" id="fPsychic" onchange="applyFilters()"> Psychický</label>
+      <label class="filter-opt"><input type="checkbox" id="fDark" onchange="applyFilters()"> Temný</label>
+      <label class="filter-opt"><input type="checkbox" id="fDragon" onchange="applyFilters()"> Dračí</label>
+      <label class="filter-opt"><input type="checkbox" id="fOther" onchange="applyFilters()"> Ostatní</label>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Vzácnost</span>
+      <label class="filter-opt"><input type="checkbox" id="fCommon" onchange="applyFilters()"> Common / Uncommon</label>
+      <label class="filter-opt"><input type="checkbox" id="fRare" onchange="applyFilters()"> Rare / Holo</label>
+      <label class="filter-opt"><input type="checkbox" id="fUltra" onchange="applyFilters()"> Ultra Rare / V / ex</label>
+    </div>
+  </aside>
 
-    <div class="market-header">
-      <h1>Výměnné nabídky</h1>
-      <p>Najdi kartičky od ostatních sběratelů</p>
+  <main class="main">
+    <!-- LIST VIEW -->
+    <div id="listView">
+      <div class="market-toolbar">
+        <div class="search-wrap">
+          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()">
+        </div>
+        <select class="sort-sel" id="sortSel" onchange="applyFilters()">
+          <option value="newest">Nejnovější</option>
+          <option value="price_asc">Cena: nejnižší</option>
+          <option value="price_desc">Cena: nejvyšší</option>
+          <option value="offers">Nejvíce nabídek</option>
+        </select>
+        <div class="view-toggle">
+          <button class="vt-btn act" id="vtList" onclick="setViewMode('list')">☰ Seznam</button>
+          <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')">⊞ Mřížka</button>
+        </div>
+        <span class="count-info" id="countInfo">0 nabídek</span>
+      </div>
+      <div id="listingsWrap" class="listings-wrap"></div>
     </div>
 
-    <!-- FILTERS -->
-    <div class="market-filters">
-      <input type="search" id="searchInput" placeholder="🔍 Hledat kartu (např. Charizard)..." class="search-input" oninput="filterListings()">
-      <select id="typeFilter" onchange="filterListings()" class="filter-select">
-        <option value="">Všechny typy</option>
-        <option value="fire">🔥 Oheň</option>
-        <option value="water">💧 Voda</option>
-        <option value="grass">🌿 Tráva</option>
-        <option value="electric">⚡ Elektro</option>
-        <option value="psychic">🔮 Psycho</option>
-        <option value="dark">🌑 Tma</option>
-        <option value="dragon">🐉 Drak</option>
-        <option value="colorless">⭐ Bezbarvý</option>
-      </select>
-      <select id="sortFilter" onchange="filterListings()" class="filter-select">
-        <option value="newest">Nejnovější</option>
-        <option value="price_asc">Cena ↑</option>
-        <option value="price_desc">Cena ↓</option>
-        <option value="most_cards">Nejvíce karet</option>
-      </select>
-    </div>
+    <!-- DETAIL VIEW -->
+    <div id="detailView" class="detail-page">
+      <div class="breadcrumb">
+        <a href="#" onclick="showList()">← Nabídky</a>
+        <span>/</span>
+        <span id="breadTitle">Detail</span>
+      </div>
+      <div class="detail-grid">
+        <div class="detail-gallery">
+          <div class="gallery-main" id="galleryMain">
+            <div style="text-align:center;color:var(--text3);font-size:13px">
+              <div style="font-size:40px;margin-bottom:8px">🃏</div>
+              Načítám...
+            </div>
+          </div>
+          <div class="gallery-thumbs" id="galleryThumbs"></div>
+          <div class="gallery-hint">1. foto = ofic. obrázek z API · ostatní = fotky prodejce</div>
+        </div>
+        <div class="detail-info-box">
+          <div class="detail-title" id="dTitle">—</div>
+          <div class="detail-seller" id="dSeller">—</div>
+          <div class="detail-price-row">
+            <div class="detail-price" id="dPrice">—</div>
+            <div class="detail-price-eur" id="dPriceEur"></div>
+            <div class="detail-trend" id="dTrend"></div>
+          </div>
+          <div class="detail-tags" id="dTags"></div>
+          <div class="detail-meta-grid" id="dMeta"></div>
+          <div class="detail-desc" id="dDesc" style="display:none"></div>
+          <div class="detail-actions">
+            <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
+            <button class="btn-detail-offer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
+            <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
+            <button class="btn-detail-msg" onclick="togglePanel('msgPanel')">✉️ Zpráva</button>
+          </div>
 
-    <!-- RESULTS -->
-    <div id="marketResults" class="market-grid">
-      <div class="loading-full">⏳ Načítám nabídky...</div>
-    </div>
+          <!-- Offer panel -->
+          <div class="action-panel" id="offerPanel">
+            <div class="panel-title">💸 Navrhni svou cenu</div>
+            <input class="panel-inp" type="number" id="offerPrice" placeholder="Vaše nabídka v Kč..." style="width:200px">
+            <textarea class="panel-textarea" id="offerMsg" placeholder="Zpráva prodejci (nepovinné)..."></textarea>
+            <div class="panel-btns">
+              <button class="btn-confirm" onclick="sendOffer()">Odeslat nabídku</button>
+              <button class="btn-cancel" onclick="togglePanel('offerPanel')">Zrušit</button>
+            </div>
+          </div>
 
-  </div>
+          <!-- Trade panel -->
+          <div class="action-panel" id="tradePanel">
+            <div class="panel-title">🔄 Navrhni výměnu</div>
+            <div style="font-size:12px;color:var(--text3)" id="tradeWants"></div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <span style="font-size:12px;color:var(--text3)">Zobrazit:</span>
+              <div class="trade-view-toggle">
+                <button class="tv-btn act" id="tvImg" onclick="setTradeView('img')">Obrázky</button>
+                <button class="tv-btn" id="tvList" onclick="setTradeView('list')">Seznam</button>
+              </div>
+            </div>
+            <div class="trade-cards-wrap" id="tradeCardsImg"></div>
+            <div class="trade-list-wrap" id="tradeCardsList"></div>
+            <textarea class="panel-textarea" id="tradeMsg" placeholder="Zpráva (nepovinné)..."></textarea>
+            <div class="panel-btns">
+              <button class="btn-confirm" onclick="sendTrade()">Odeslat výměnu</button>
+              <button class="btn-cancel" onclick="togglePanel('tradePanel')">Zrušit</button>
+            </div>
+          </div>
+
+          <!-- Message panel -->
+          <div class="msg-thread" id="msgPanel">
+            <div class="msg-thread-head" id="msgHead">Zprávy s prodejcem</div>
+            <div class="msg-list" id="msgList"></div>
+            <div class="msg-input-row">
+              <input type="text" id="msgInput" placeholder="Napište zprávu..." onkeydown="if(event.key==='Enter')sendMsg()">
+              <button class="msg-send-btn" onclick="sendMsg()">Odeslat</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
 </div>
 
-<!-- OFFER MODAL -->
-<div class="modal-overlay" id="offerModal" style="display:none">
-  <div class="modal-box modal-large">
-    <div class="modal-header">
-      <h3 id="offerModalTitle">Nabídka</h3>
-      <button class="modal-close" onclick="closeOfferModal()">✕</button>
+<!-- ADD LISTING MODAL -->
+<div id="addModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#fff">Nová nabídka</div>
+      <button onclick="closeAddListing()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
     </div>
-    <div id="offerModalBody"></div>
-    <div class="modal-footer" id="offerModalFooter"></div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Pokemontcg.io URL nebo název karty</div>
+        <div style="display:flex;gap:8px">
+          <input id="addCardUrl" class="panel-inp" placeholder="https://pokemontcg.io/... nebo Charizard V" style="flex:1">
+          <button onclick="fetchCardForListing()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
+        </div>
+        <div id="addCardPreview" style="margin-top:8px;display:none;flex;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
+          <img id="addCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
+          <div>
+            <div id="addCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
+            <div id="addCardMeta" style="font-size:11px;color:var(--text3)"></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Typ nabídky</div>
+        <div style="display:flex;gap:8px">
+          <button class="tv-btn act" id="addTypeSell" onclick="setAddType('sell')">💰 Prodej</button>
+          <button class="tv-btn" id="addTypeTrade" onclick="setAddType('trade')">🔄 Výměna</button>
+          <button class="tv-btn" id="addTypeBoth" onclick="setAddType('both')">Obojí</button>
+        </div>
+      </div>
+      <div id="addPriceRow">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Cena (Kč)</div>
+        <input id="addPrice" class="panel-inp" type="number" placeholder="Např. 450">
+      </div>
+      <div id="addTradeRow" style="display:none">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Co chcete za výměnu?</div>
+        <input id="addTradeWants" class="panel-inp" placeholder="Např. Charizard ex, silná Psycho karta...">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Stav karty</div>
+        <select id="addCond" class="sort-sel" style="width:100%">
+          <option value="NM">NM – Nová / Mint</option>
+          <option value="LP">LP – Lehce hraná</option>
+          <option value="MP">MP – Středně hraná</option>
+          <option value="HP">HP – Hodně hraná</option>
+          <option value="D">D – Poškozená</option>
+        </select>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis (nepovinné)</div>
+        <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Fotky karty (nepovinné, max 4)</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:6px">API obrázek se přidá automaticky jako první foto.</div>
+        <input type="file" id="addPhotos" multiple accept="image/*" style="font-size:12px;color:var(--text2)">
+      </div>
+      <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
+        Zveřejnit nabídku
+      </button>
+    </div>
   </div>
 </div>
 
 <script src="app.js"></script>
 <script>
-let allListings = [];
-let currentUser = null;
+const SUPABASE_URL  = typeof window.SUPABASE_URL  !== 'undefined' ? window.SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SUPABASE_ANON = typeof window.SUPABASE_ANON !== 'undefined' ? window.SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
-async function init() {
-  currentUser = getUser();
-  if (currentUser) {
-    document.getElementById('navAuth').innerHTML = `
-      <a href="dashboard.html" class="btn-nav-outline">Můj profil</a>
-      <span class="nav-username">${currentUser.user_metadata?.username || ''}</span>
-    `;
-  }
-  await loadListings();
+async function sbReq(path, method='GET', body=null, token=null) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SUPABASE_ANON,
+    'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
+  };
+  if (['POST','PATCH'].includes(method) && !path.startsWith('auth/'))
+    headers['Prefer'] = 'return=representation';
+  const res  = await fetch(`${SUPABASE_URL}/${path}`, {
+    method, headers, body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) return { _err: data.message || data.error || 'HTTP '+res.status };
+  return data;
 }
 
-async function loadListings() {
-  const res = await supabaseRequest(
-    'rest/v1/listings?status=eq.active&order=created_at.desc&limit=50',
-    'GET'
-  );
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-  if (!res || res.error) {
-    document.getElementById('marketResults').innerHTML = '<p class="empty-state">Nepodařilo se načíst nabídky. Zkontroluj připojení.</p>';
+// ── Auth ──────────────────────────────────────────────────────
+let token=null, userId=null, username=null, myCards=[];
+
+(function initAuth(){
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; } })();
+  token  = localStorage.getItem('sb_token');
+  userId = sbUser?.id;
+  username = sbUser?.user_metadata?.username || sbUser?.email?.split('@')[0] || '';
+  if (token && userId) {
+    document.getElementById('userChip').style.display='';
+    document.getElementById('loginLink').style.display='none';
+    document.getElementById('logoutBtn').style.display='';
+    document.getElementById('addBtn').style.display='';
+    document.getElementById('userName').textContent=username;
+    document.getElementById('userAvatar').textContent=(username[0]||'?').toUpperCase();
+    loadMyCards();
+  }
+})();
+
+function doLogout(){
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k=>localStorage.removeItem(k));
+  location.href='login.html';
+}
+
+async function loadMyCards(){
+  if(!token||!userId) return;
+  const res = await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade`,'GET',null,token);
+  if(Array.isArray(res)) myCards = res.map(r=>({...r.card_data,id:r.local_id,for_trade:r.for_trade}));
+}
+
+// ── State ─────────────────────────────────────────────────────
+let allListings=[], filteredListings=[], currentListing=null;
+let viewMode='list', addType='sell', addCardData=null;
+let tradeViewMode='img', selectedTradeIds=new Set();
+
+// ── Load listings ─────────────────────────────────────────────
+(async function loadListings(){
+  document.getElementById('listingsWrap').innerHTML =
+    Array(5).fill('<div class="skeleton-row"></div>').join('');
+  const res = await sbReq('rest/v1/listings?status=eq.active&select=*&order=created_at.desc&limit=100');
+  if(!Array.isArray(res) || res._err){
+    document.getElementById('listingsWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><h3>Chyba načítání</h3></div>';
     return;
   }
-
   allListings = res;
-  renderListings(allListings);
-}
+  applyFilters();
+})();
 
-function filterListings() {
-  const q     = document.getElementById('searchInput').value.toLowerCase();
-  const type  = document.getElementById('typeFilter').value;
-  const sort  = document.getElementById('sortFilter').value;
+// ── Filters + Sort ────────────────────────────────────────────
+function applyFilters(){
+  const q       = (document.getElementById('searchInput').value||'').toLowerCase();
+  const fSell   = document.getElementById('fSell').checked;
+  const fTrade  = document.getElementById('fTrade').checked;
+  const fNM     = document.getElementById('fNM').checked;
+  const fLP     = document.getElementById('fLP').checked;
+  const fMP     = document.getElementById('fMP').checked;
+  const fHP     = document.getElementById('fHP').checked;
+  const prMin   = parseFloat(document.getElementById('fPriceMin').value)||0;
+  const prMax   = parseFloat(document.getElementById('fPriceMax').value)||Infinity;
 
-  let filtered = allListings.filter(l => {
+  // Element filters
+  const elFilters = [];
+  if(document.getElementById('fFire').checked)    elFilters.push('fire');
+  if(document.getElementById('fWater').checked)   elFilters.push('water');
+  if(document.getElementById('fGrass').checked)   elFilters.push('grass');
+  if(document.getElementById('fElec').checked)    elFilters.push('lightning','electric');
+  if(document.getElementById('fPsychic').checked) elFilters.push('psychic');
+  if(document.getElementById('fDark').checked)    elFilters.push('darkness','dark');
+  if(document.getElementById('fDragon').checked)  elFilters.push('dragon');
+  if(document.getElementById('fOther').checked)   elFilters.push('other');
+  const anyEl = elFilters.length === 0;
+
+  filteredListings = allListings.filter(l => {
     const cards = l.cards_data || [];
-    if (q && !cards.some(c => (c.name || '').toLowerCase().includes(q))) return false;
-    if (type && !cards.some(c => (c.types || []).includes(type))) return false;
+    const hasName = cards.some(c =>
+      (c.name||'').toLowerCase().includes(q) ||
+      (c.set ||'').toLowerCase().includes(q)
+    ) || (l.username||'').toLowerCase().includes(q) ||
+      (l.card_name||'').toLowerCase().includes(q) ||
+      (l.title||'').toLowerCase().includes(q);
+    if(q && !hasName) return false;
+
+    const isSell  = l.allow_trade === false || l.price_czk > 0;
+    const isTrade = l.allow_trade === true;
+    if(!fSell  && isSell && !isTrade) return false;
+    if(!fTrade && isTrade && !isSell) return false;
+
+    const cond = l.card_condition || 'NM';
+    if(!fNM && cond==='NM') return false;
+    if(!fLP && cond==='LP') return false;
+    if(!fMP && cond==='MP') return false;
+    if(!fHP && (cond==='HP'||cond==='D')) return false;
+
+    const price = l.price_czk||0;
+    if(price > 0 && (price < prMin || price > prMax)) return false;
+
+    if(!anyEl) {
+      const type = (l.card_type||'').toLowerCase();
+      if(!elFilters.some(e => type.includes(e))) return false;
+    }
+
     return true;
   });
 
-  if (sort === 'price_asc')   filtered.sort((a,b) => minPrice(a) - minPrice(b));
-  if (sort === 'price_desc')  filtered.sort((a,b) => minPrice(b) - minPrice(a));
-  if (sort === 'most_cards')  filtered.sort((a,b) => (b.cards_data?.length||0) - (a.cards_data?.length||0));
+  // Sort
+  const sort = document.getElementById('sortSel').value;
+  if(sort==='price_asc')  filteredListings.sort((a,b)=>(a.price_czk||0)-(b.price_czk||0));
+  if(sort==='price_desc') filteredListings.sort((a,b)=>(b.price_czk||0)-(a.price_czk||0));
+  if(sort==='offers')     filteredListings.sort((a,b)=>(b.offer_count||0)-(a.offer_count||0));
 
-  renderListings(filtered);
+  document.getElementById('countInfo').textContent = filteredListings.length + ' nabídek';
+  renderListings();
 }
 
-function minPrice(l) {
-  const prices = (l.cards_data||[]).map(c => c.priceCzk || 9999).filter(Boolean);
-  return Math.min(...prices, 9999);
-}
-
-function renderListings(listings) {
-  const el = document.getElementById('marketResults');
-  if (!listings.length) {
-    el.innerHTML = '<p class="empty-state">Žádné nabídky nenalezeny 🔍</p>';
+function renderListings(){
+  const wrap = document.getElementById('listingsWrap');
+  if(!filteredListings.length){
+    wrap.innerHTML='<div class="empty-state"><div class="icon">🔍</div><h3>Žádné nabídky</h3><p>Zkus jiné filtry nebo hledání.</p></div>';
     return;
   }
+  wrap.innerHTML = filteredListings.map(l => {
+    const cards = l.cards_data||[];
+    const first = cards[0]||{};
+    const img   = l.api_image_url || first.imageUrl || first.apiSmall || first.images?.small || '';
+    const name  = l.card_name || first.name || l.title || 'Neznámá karta';
+    const set   = l.card_set  || first.set  || '';
+    const num   = l.card_number|| first.number||first.num||'';
+    const cond  = l.card_condition||'NM';
+    const isTrade = l.allow_trade;
+    const price   = l.price_czk;
 
-  el.innerHTML = listings.map(listing => {
-    const cards   = listing.cards_data || [];
-    const preview = cards.slice(0, 6);
-    const prices  = cards.map(c => c.priceCzk).filter(Boolean);
-    const minP    = prices.length ? Math.min(...prices) : null;
-    const maxP    = prices.length ? Math.max(...prices) : null;
+    const condColor = cond==='NM'?'tag-cond':cond==='LP'?'tag-warn':'tag-warn';
 
-    return `
-      <div class="market-card" onclick="openListing('${listing.id}')">
-        <div class="mc-user">
-          <div class="mc-avatar">${(listing.username || '?')[0].toUpperCase()}</div>
-          <div>
-            <div class="mc-username">${listing.username || 'Anonym'}</div>
-            <div class="mc-date">${new Date(listing.created_at).toLocaleDateString('cs')}</div>
-          </div>
-          <div class="mc-count">${cards.length} karet</div>
+    return `<div class="listing-row" onclick="openDetail('${esc(l.id)}')">
+      <div class="card-thumb">
+        ${img
+          ? `<img src="${esc(img)}" alt="${esc(name)}" loading="lazy">`
+          : `<div class="card-thumb-placeholder">${esc(name)}</div>`}
+      </div>
+      <div class="listing-info">
+        <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
+        <div class="listing-meta">
+          <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
+          ${set?`<span>${esc(set)}</span>`:''}
+          <span>${timeAgo(l.created_at)}</span>
         </div>
-        <div class="mc-title">${listing.title || 'Výměnná nabídka'}</div>
-        <div class="mc-cards-row">
-          ${preview.map(c => `
-            <div class="mc-card-thumb" title="${c.name||'?'}">
-              ${c.apiSmall
-                ? `<img src="${c.apiSmall}" alt="${c.name}" loading="lazy">`
-                : `<div class="mc-thumb-placeholder">${getTypeEmoji(c.types?.[0])}</div>`
-              }
-            </div>
-          `).join('')}
-          ${cards.length > 6 ? `<div class="mc-card-thumb more">+${cards.length-6}</div>` : ''}
-        </div>
-        <div class="mc-footer">
-          ${minP ? `<span class="mc-price">Od ${minP} Kč${maxP !== minP ? ' do '+maxP+' Kč' : ''}</span>` : '<span class="mc-price-any">Cena dohodou</span>'}
-          <button class="btn-primary btn-sm" onclick="event.stopPropagation();openListing('${listing.id}')">Zobrazit →</button>
+        <div class="listing-tags">
+          ${price>0 ? '<span class="tag tag-sell">Prodej</span>' : ''}
+          ${isTrade  ? '<span class="tag tag-trade">Výměna</span>' : ''}
+          <span class="tag ${condColor}">${esc(cond)}</span>
         </div>
       </div>
-    `;
+      <div class="listing-right">
+        ${price>0
+          ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(price/25).toFixed(0)} €</small></div>`
+          : `<div class="price-trade">Výměna</div>`}
+        <div class="offer-count">${l.offer_count||0} nabídek</div>
+        <div class="action-btns">
+          ${price>0 ? `<button class="btn-buy" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Koupit</button>` : ''}
+          <button class="btn-offer" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Nabídnout</button>
+          ${isTrade ? `<button class="btn-trade-sm" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Vyměnit</button>` : ''}
+        </div>
+      </div>
+    </div>`;
   }).join('');
 }
 
-// ═══ OPEN LISTING DETAIL / MAKE OFFER ═══
-function openListing(id) {
-  const listing = allListings.find(l => l.id === id);
-  if (!listing) return;
+function timeAgo(iso){
+  if(!iso) return '';
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff/60000);
+  if(m<60)   return m+'m';
+  if(m<1440) return Math.floor(m/60)+'h';
+  return Math.floor(m/1440)+'d';
+}
 
-  if (!currentUser) {
-    if (confirm('Pro odeslání nabídky se musíš přihlásit. Přejít na přihlášení?')) {
-      window.location.href = 'login.html';
-    }
+// ── View mode ─────────────────────────────────────────────────
+function setViewMode(mode){
+  viewMode=mode;
+  document.getElementById('vtList').classList.toggle('act',mode==='list');
+  document.getElementById('vtGrid').classList.toggle('act',mode==='grid');
+}
+
+function showList(){
+  document.getElementById('listView').style.display='';
+  document.getElementById('detailView').classList.remove('show');
+  currentListing=null;
+}
+
+// ── Detail ────────────────────────────────────────────────────
+async function openDetail(id){
+  currentListing = allListings.find(l=>l.id===id);
+  if(!currentListing) return;
+  const l = currentListing;
+  const cards = l.cards_data||[];
+  const first = cards[0]||{};
+  const name  = l.card_name||first.name||l.title||'?';
+  const set   = l.card_set||first.set||'';
+  const num   = l.card_number||first.number||first.num||'';
+  const cond  = l.card_condition||'NM';
+  const isTrade = l.allow_trade;
+  const price   = l.price_czk;
+
+  document.getElementById('listView').style.display='none';
+  document.getElementById('detailView').classList.add('show');
+  document.getElementById('breadTitle').textContent=name;
+  document.getElementById('dTitle').textContent=name;
+  document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+
+  // Price
+  if(price>0){
+    document.getElementById('dPrice').textContent=price.toLocaleString('cs')+' Kč';
+    document.getElementById('dPriceEur').textContent='~ '+(price/25).toFixed(0)+' €';
+    const pt = first.pTrend;
+    if(pt>0) document.getElementById('dTrend').innerHTML='Trend: <span>'+Number(pt).toFixed(2)+' €</span>';
+  } else {
+    document.getElementById('dPrice').textContent='Výměna';
+    document.getElementById('dPrice').style.color='var(--blue)';
+  }
+
+  // Tags
+  document.getElementById('dTags').innerHTML=`
+    ${price>0?'<span class="tag tag-sell">💰 Prodej</span>':''}
+    ${isTrade?'<span class="tag tag-trade">🔄 Výměna</span>':''}
+    <span class="tag tag-cond">${esc(cond)}</span>
+    ${first.rarity?`<span class="tag tag-cond">${esc(first.rarity)}</span>`:''}`;
+
+  // Meta
+  document.getElementById('dMeta').innerHTML=[
+    ['HP',      first.hp||l.card_hp||'—'],
+    ['Číslo',   num||'—'],
+    ['Typ',     (first.types||[]).join(', ')||first.type||l.card_type||'—'],
+    ['Série',   set||'—'],
+    ['Stav',    cond],
+    ['Vzácnost',first.rarity||l.card_rarity||'—'],
+  ].map(([label,val])=>`
+    <div class="meta-row">
+      <div class="meta-label">${label}</div>
+      <div class="meta-val">${esc(String(val))}</div>
+    </div>`).join('');
+
+  // Description
+  const descEl=document.getElementById('dDesc');
+  if(l.description){ descEl.textContent=l.description; descEl.style.display=''; }
+  else descEl.style.display='none';
+
+  // Buttons
+  document.getElementById('dBtnBuy').style.display=price>0?'':'none';
+  if(price>0) document.getElementById('dBtnBuy').textContent='Koupit za '+price.toLocaleString('cs')+' Kč';
+  document.getElementById('dBtnTrade').style.display=isTrade?'':'none';
+  if(isTrade && l.trade_wants) document.getElementById('tradeWants').textContent='Prodejce chce: '+l.trade_wants;
+
+  // Gallery — API image first, then user photos
+  buildGallery(l, first);
+
+  // Trade cards — load my tradeable cards
+  buildTradeCards();
+
+  // Messages
+  document.getElementById('msgHead').textContent='Zprávy s '+l.username;
+  loadMessages(l);
+
+  // Close open panels
+  ['offerPanel','tradePanel','msgPanel'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) { el.classList.remove('show'); el.style.display=''; }
+  });
+  document.getElementById('msgPanel').classList.remove('show');
+
+  // Increment view count silently
+  sbReq(`rest/v1/rpc/increment_view_count`,'POST',{listing_uuid:l.id});
+}
+
+function buildGallery(l, firstCard){
+  const apiImg = l.api_image_url || firstCard?.images?.large || firstCard?.images?.small || firstCard?.imageUrl || firstCard?.apiSmall || '';
+  const photos = []; // would load from listing_photos table in production
+
+  const allImgs = [apiImg, ...photos].filter(Boolean);
+  const mainEl  = document.getElementById('galleryMain');
+  const thumbsEl= document.getElementById('galleryThumbs');
+
+  if(allImgs.length){
+    mainEl.innerHTML=`<img src="${esc(allImgs[0])}" id="mainGalleryImg" style="width:100%;height:100%;object-fit:contain">`;
+  } else {
+    mainEl.innerHTML=`<div style="text-align:center;color:var(--text3);padding:20px"><div style="font-size:40px;margin-bottom:8px">🃏</div>${esc(firstCard?.name||'?')}</div>`;
+  }
+
+  thumbsEl.innerHTML = allImgs.map((src,i)=>
+    `<div class="gallery-thumb ${i===0?'act':''}" onclick="setGalleryImg('${esc(src)}',${i})">
+      <img src="${esc(src)}" loading="lazy">
+    </div>`
+  ).join('') + (allImgs.length===0?'':'');
+}
+
+function setGalleryImg(src, idx){
+  const img = document.getElementById('mainGalleryImg');
+  if(img) img.src=src;
+  document.querySelectorAll('.gallery-thumb').forEach((t,i)=>t.classList.toggle('act',i===idx));
+}
+
+function buildTradeCards(){
+  const tradeCards = myCards.filter(c=>c.for_trade);
+  const imgWrap  = document.getElementById('tradeCardsImg');
+  const listWrap = document.getElementById('tradeCardsList');
+  if(!tradeCards.length){
+    imgWrap.innerHTML='<div style="font-size:12px;color:var(--text3)">Nemáte žádné karty označené k výměně. Označte je v Moje album.</div>';
+    listWrap.innerHTML='';
     return;
   }
+  imgWrap.innerHTML = tradeCards.map(c=>{
+    const img=c.images?.small||c.apiSmall||c.imageUrl||'';
+    const sel=selectedTradeIds.has(String(c.id));
+    return `<div class="trade-card-item ${sel?'sel':''}" onclick="toggleTradeCard('${esc(String(c.id))}')" title="${esc(c.name||'?')}">
+      ${img?`<img src="${esc(img)}" alt="${esc(c.name||'')}">`:esc(c.name||'?')}
+    </div>`;
+  }).join('');
+  listWrap.innerHTML = tradeCards.map(c=>
+    `<label class="trade-list-item">
+      <input type="checkbox" ${selectedTradeIds.has(String(c.id))?'checked':''} onchange="toggleTradeCard('${esc(String(c.id))}')">
+      ${esc(c.name||'?')} · ${esc(c.set||'')} ${c.number||c.num?'#'+(c.number||c.num):''}
+    </label>`
+  ).join('');
+}
 
-  if (listing.user_id === currentUser.id) {
-    window.location.href = 'dashboard.html';
+function toggleTradeCard(id){
+  if(selectedTradeIds.has(id)) selectedTradeIds.delete(id);
+  else selectedTradeIds.add(id);
+  buildTradeCards();
+}
+
+function setTradeView(mode){
+  tradeViewMode=mode;
+  document.getElementById('tvImg').classList.toggle('act',mode==='img');
+  document.getElementById('tvList').classList.toggle('act',mode==='list');
+  document.getElementById('tradeCardsImg').style.display=mode==='img'?'flex':'none';
+  document.getElementById('tradeCardsList').classList.toggle('show',mode==='list');
+}
+
+function togglePanel(id){
+  const panels=['offerPanel','tradePanel'];
+  panels.forEach(p=>{
+    const el=document.getElementById(p);
+    if(el){el.classList.remove('show'); el.style.display='';}
+  });
+  const msgEl=document.getElementById('msgPanel');
+  const target=document.getElementById(id);
+  if(id==='msgPanel'){
+    const show=!msgEl.classList.contains('show');
+    msgEl.classList.toggle('show',show);
+  } else {
+    if(target) target.classList.toggle('show');
+    msgEl.classList.remove('show');
+  }
+}
+
+// ── Actions ───────────────────────────────────────────────────
+function doBuy(){
+  if(!token){ alert('Pro koupi se přihlas.'); return; }
+  if(!currentListing) return;
+  // Otevře panel pro potvrzení + zprávu
+  togglePanel('offerPanel');
+  document.getElementById('offerPrice').value=currentListing.price_czk||'';
+  document.getElementById('offerMsg').placeholder='Potvrzuji zájem o koupi za '+currentListing.price_czk+' Kč. Domluvme se na předání.';
+}
+
+async function sendOffer(){
+  if(!token){ alert('Přihlas se pro odeslání nabídky.'); return; }
+  const price = parseInt(document.getElementById('offerPrice').value)||0;
+  const msg   = document.getElementById('offerMsg').value.trim();
+  if(!price && !msg){ alert('Zadej cenu nebo zprávu.'); return; }
+  const l = currentListing;
+  const res = await sbReq('rest/v1/offers','POST',{
+    listing_id: l.id,
+    seller_id:  l.user_id,
+    buyer_id:   userId,
+    buyer_username: username,
+    offer_type: 'price',
+    offered_price_czk: price||null,
+    message: msg||null,
+    status: 'pending',
+  },token);
+  if(res._err){ alert('Chyba: '+res._err); return; }
+  alert('Nabídka odeslána!');
+  togglePanel('offerPanel');
+}
+
+async function sendTrade(){
+  if(!token){ alert('Přihlas se pro odeslání výměny.'); return; }
+  const selCards = myCards.filter(c=>selectedTradeIds.has(String(c.id)));
+  if(!selCards.length){ alert('Vyber alespoň jednu kartu k výměně.'); return; }
+  const l=currentListing;
+  const res = await sbReq('rest/v1/offers','POST',{
+    listing_id: l.id,
+    seller_id:  l.user_id,
+    buyer_id:   userId,
+    buyer_username: username,
+    offer_type: 'trade',
+    trade_card_ids: selCards.map(c=>String(c.id)),
+    trade_card_names: selCards.map(c=>c.name).join(', '),
+    message: document.getElementById('tradeMsg').value||null,
+    status: 'pending',
+  },token);
+  if(res._err){ alert('Chyba: '+res._err); return; }
+  alert('Výměna navržena!');
+  togglePanel('tradePanel');
+  selectedTradeIds.clear();
+}
+
+// ── Messages ──────────────────────────────────────────────────
+let msgPolling=null;
+
+async function loadMessages(l){
+  if(!token||!userId) return;
+  const res = await sbReq(
+    `rest/v1/messages?listing_id=eq.${l.id}&order=created_at.asc&limit=50`,
+    'GET',null,token
+  );
+  if(!Array.isArray(res)) return;
+  const list=document.getElementById('msgList');
+  if(!res.length){
+    list.innerHTML='<div style="font-size:12px;color:var(--text3);text-align:center;padding:8px">Zatím žádné zprávy. Buďte první!</div>';
     return;
   }
-
-  renderOfferModal(listing);
-  document.getElementById('offerModal').style.display = 'flex';
+  list.innerHTML=res.map(m=>`
+    <div class="msg-bbl ${m.sender_id===userId?'me':'them'}">
+      ${m.sender_id!==userId?`<div style="font-size:10px;color:var(--text3);margin-bottom:3px">${esc(m.sender_username||'?')}</div>`:''}
+      ${esc(m.text)}
+    </div>`).join('');
+  list.scrollTop=list.scrollHeight;
 }
 
-function renderOfferModal(listing) {
-  const cards = listing.cards_data || [];
-  document.getElementById('offerModalTitle').textContent = listing.username + ' – ' + (listing.title || 'Nabídka');
+async function sendMsg(){
+  if(!token){ alert('Přihlas se pro odesílání zpráv.'); return; }
+  const inp=document.getElementById('msgInput');
+  const text=inp.value.trim();
+  if(!text||!currentListing) return;
+  const l=currentListing;
+  const res=await sbReq('rest/v1/messages','POST',{
+    listing_id:       l.id,
+    sender_id:        userId,
+    receiver_id:      l.user_id,
+    sender_username:  username,
+    receiver_username:l.username,
+    text,
+  },token);
+  if(res._err){ alert('Chyba: '+res._err); return; }
+  inp.value='';
+  loadMessages(l);
+}
 
-  let selectedCards = new Set();
+// ── Add listing ───────────────────────────────────────────────
+function openAddListing(){
+  if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
+  document.getElementById('addModal').style.display='flex';
+}
+function closeAddListing(){
+  document.getElementById('addModal').style.display='none';
+  addCardData=null;
+  document.getElementById('addCardPreview').style.display='none';
+  document.getElementById('addCardUrl').value='';
+}
 
-  document.getElementById('offerModalBody').innerHTML = `
-    <div class="offer-instructions">
-      Klikni na kartičky, o které máš zájem, pak navrhni cenu nebo výměnu.
-    </div>
-    <div class="offer-cards-grid" id="offerCardsGrid">
-      ${cards.map(card => `
-        <div class="offer-card-item" id="oc_${card.id}" onclick="toggleCard('${card.id}')">
-          <div class="oci-img">
-            ${card.apiSmall
-              ? `<img src="${card.apiSmall}" alt="${card.name}" loading="lazy">`
-              : `<div class="oci-placeholder">${getTypeEmoji(card.types?.[0])}</div>`
-            }
-            <div class="oci-select-badge">✓</div>
-          </div>
-          <div class="oci-name">${card.name || '?'}</div>
-          ${card.priceCzk ? `<div class="oci-price">${card.priceCzk} Kč</div>` : ''}
-        </div>
-      `).join('')}
-    </div>
-    <div class="offer-form" id="offerForm" style="display:none">
-      <h4>Tvoje nabídka</h4>
-      <div class="offer-type-tabs">
-        <button class="ot-tab active" onclick="setOfferType('price',this)">💰 Peněžní nabídka</button>
-        <button class="ot-tab" onclick="setOfferType('trade',this)">🔄 Výměna za kartu</button>
-      </div>
-      <div id="offerPriceInput">
-        <label>Nabídni cenu (Kč)</label>
-        <input type="number" id="offerPrice" placeholder="Např. 150" min="1" class="offer-input">
-      </div>
-      <div id="offerTradeInput" style="display:none">
-        <label>Popiš co nabízíš na výměnu</label>
-        <textarea id="offerTradeDesc" placeholder="Např. mám Pikachu ex, Charizard base set..." rows="3" class="offer-textarea"></textarea>
-      </div>
-      <label>Zpráva pro prodávajícího (nepovinné)</label>
-      <textarea id="offerMessage" placeholder="Ahoj! Mám zájem o..." rows="2" class="offer-textarea"></textarea>
-    </div>
-  `;
+async function fetchCardForListing(){
+  const url=document.getElementById('addCardUrl').value.trim();
+  if(!url) return;
+  const q=`name:"${url}"`;
+  const apiUrl=url.includes('pokemontcg.io')
+    ? url
+    : `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+  try {
+    const res  = await fetch(apiUrl);
+    const json = await res.json();
+    const card = json?.data?.[0] || json;
+    if(!card?.name) { alert('Karta nenalezena.'); return; }
+    addCardData=card;
+    document.getElementById('addCardImg').src   = card.images?.small||'';
+    document.getElementById('addCardName').textContent = card.name;
+    document.getElementById('addCardMeta').textContent = (card.set?.name||'')+(card.number?' #'+card.number:'');
+    document.getElementById('addCardPreview').style.display='flex';
+  } catch(e){ alert('Chyba načítání: '+e.message); }
+}
 
-  // Toggle card selection
-  window.toggleCard = function(cardId) {
-    const el = document.getElementById('oc_' + cardId);
-    if (selectedCards.has(cardId)) {
-      selectedCards.delete(cardId);
-      el.classList.remove('selected');
-    } else {
-      selectedCards.add(cardId);
-      el.classList.add('selected');
-    }
-    document.getElementById('offerForm').style.display = selectedCards.size > 0 ? '' : 'none';
-    updateOfferFooter(listing, selectedCards);
+function setAddType(type){
+  addType=type;
+  ['sell','trade','both'].forEach(t=>{
+    document.getElementById('addType'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('act',t===type);
+  });
+  document.getElementById('addPriceRow').style.display=(type==='sell'||type==='both')?'':'none';
+  document.getElementById('addTradeRow').style.display=(type==='trade'||type==='both')?'':'none';
+}
+
+async function submitListing(){
+  if(!token){ alert('Přihlas se.'); return; }
+  const price = parseInt(document.getElementById('addPrice').value)||null;
+  const desc  = document.getElementById('addDesc').value.trim()||null;
+  const cond  = document.getElementById('addCond').value;
+  const wants = document.getElementById('addTradeWants').value.trim()||null;
+  const card  = addCardData;
+
+  const cardData = card ? {
+    name: card.name, set: card.set?.name||'', number: card.number||'',
+    hp: card.hp||'', types: card.types||[], supertype: card.supertype||'',
+    images: card.images||null, rarity: card.rarity||'',
+    pTrend: card.cardmarket?.prices?.trendPrice||null,
+    pMin:   card.cardmarket?.prices?.lowPrice||null,
+    cardmarketUrl: card.cardmarket?.url||'',
+  } : {};
+
+  const payload = {
+    user_id:        userId,
+    username:       username,
+    title:          card?.name || 'Nabídka',
+    cards_data:     [cardData],
+    card_name:      card?.name||'',
+    card_set:       card?.set?.name||'',
+    card_number:    card?.number||'',
+    card_hp:        card?.hp||'',
+    card_type:      card?.types?.[0]||'',
+    card_rarity:    card?.rarity||'',
+    card_condition: cond,
+    api_image_url:  card?.images?.large || card?.images?.small || '',
+    price_czk:      (addType==='trade') ? null : price,
+    allow_trade:    (addType==='trade'||addType==='both'),
+    allow_offer:    true,
+    trade_wants:    wants,
+    description:    desc,
+    status:         'active',
   };
 
-  window.setOfferType = function(type, btn) {
-    document.querySelectorAll('.ot-tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('offerPriceInput').style.display = type === 'price' ? '' : 'none';
-    document.getElementById('offerTradeInput').style.display = type === 'trade' ? '' : 'none';
-  };
-
-  updateOfferFooter(listing, selectedCards);
+  const res = await sbReq('rest/v1/listings','POST',payload,token);
+  if(res._err){ alert('Chyba: '+res._err); return; }
+  alert('Nabídka zveřejněna!');
+  closeAddListing();
+  // Reload
+  allListings.unshift(Array.isArray(res)?res[0]:res);
+  applyFilters();
 }
-
-function updateOfferFooter(listing, selectedCards) {
-  document.getElementById('offerModalFooter').innerHTML = `
-    <button class="btn-ghost" onclick="closeOfferModal()">Zrušit</button>
-    ${selectedCards.size > 0 ? `
-      <button class="btn-primary" onclick="sendOffer('${listing.id}', '${listing.user_id}')">
-        📤 Odeslat nabídku (${selectedCards.size} ${selectedCards.size === 1 ? 'karta' : 'karet'})
-      </button>
-    ` : `<span class="empty-footer">Vyber alespoň jednu kartu</span>`}
-  `;
-}
-
-async function sendOffer(listingId, sellerId) {
-  const priceInput  = document.getElementById('offerPrice');
-  const tradeDesc   = document.getElementById('offerTradeDesc');
-  const message     = document.getElementById('offerMessage');
-  const isTradeTab  = document.querySelector('.ot-tab.active')?.textContent.includes('Výměna');
-
-  const selectedIds = Array.from(document.querySelectorAll('.offer-card-item.selected'))
-    .map(el => el.id.replace('oc_', ''));
-
-  if (!selectedIds.length) { alert('Vyber alespoň jednu kartu'); return; }
-
-  const offerData = {
-    listing_id:         listingId,
-    seller_id:          sellerId,
-    buyer_id:           currentUser.id,
-    buyer_username:     currentUser.user_metadata?.username || currentUser.email,
-    wanted_card_ids:    selectedIds,
-    offer_type:         isTradeTab ? 'trade' : 'price',
-    offered_price_czk:  isTradeTab ? null : (parseInt(priceInput?.value) || null),
-    trade_description:  isTradeTab ? (tradeDesc?.value || '') : null,
-    message:            message?.value || '',
-    status:             'pending',
-    created_at:         new Date().toISOString(),
-  };
-
-  const token = localStorage.getItem('sb_token');
-  const res   = await supabaseRequest('rest/v1/offers', 'POST', offerData, token);
-
-  if (res?.error) {
-    alert('Chyba: ' + res.error.message);
-    return;
-  }
-
-  // Increment offer count
-  const listing = allListings.find(l => l.id === listingId);
-  if (listing) {
-    await supabaseRequest(`rest/v1/listings?id=eq.${listingId}`, 'PATCH', {
-      offer_count: (listing.offer_count || 0) + 1
-    }, token);
-  }
-
-  closeOfferModal();
-  alert('✅ Nabídka odeslána! Prodávající ji uvidí ve svém profilu.');
-}
-
-function closeOfferModal() {
-  document.getElementById('offerModal').style.display = 'none';
-}
-
-init();
 </script>
 </body>
 </html>
