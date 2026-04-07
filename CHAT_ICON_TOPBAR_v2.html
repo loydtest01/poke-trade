@@ -1,0 +1,513 @@
+<!-- ═══════════════════════════════════════════════════════════════
+     IKONA ZPRÁV PRO TOPBAR – PokéTrade v2
+     S dropdown panelem zpráv + browser notifikacemi
+
+     Vlož do <div class="topbar-right"> PŘED sync-btn
+     na všech stránkách KROMĚ chat.html (tam je plný chat UI)
+═══════════════════════════════════════════════════════════════ -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     1. HTML – vlož do topbar-right PŘED sync-btn
+══════════════════════════════════════════════════════════ -->
+
+    <div class="chat-dropdown-wrap" id="chatDropWrap">
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+      </button>
+
+      <!-- Dropdown panel -->
+      <div class="chat-drop" id="chatDrop">
+        <div class="chat-drop-head">
+          <span class="chat-drop-title">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+        </div>
+        <div class="chat-drop-list" id="chatDropList">
+          <div class="chat-drop-empty" id="chatDropEmpty">
+            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+            <div>Žádné zprávy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     2. CSS – vlož do <style> sekce
+══════════════════════════════════════════════════════════ -->
+
+<style>
+/* ── Ikona ── */
+.chat-dropdown-wrap {
+  position: relative;
+}
+.chat-icon-btn {
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2, rgba(240,236,228,0.65));
+  text-decoration: none; transition: all .15s; cursor: pointer;
+  font-family: inherit;
+}
+.chat-icon-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: var(--text, #f0ece4);
+  border-color: rgba(255,255,255,0.14);
+}
+.chat-badge {
+  position: absolute; top: -5px; right: -5px;
+  min-width: 18px; height: 18px; border-radius: 9px;
+  background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 5px; line-height: 1;
+  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+}
+
+/* ── Dropdown panel ── */
+.chat-drop {
+  display: none; position: absolute;
+  top: calc(100% + 8px); right: 0;
+  width: 380px; max-height: 480px;
+  background: rgba(14,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 300;
+  overflow: hidden;
+  flex-direction: column;
+}
+.chat-drop.open { display: flex; }
+
+.chat-drop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-drop-title {
+  font-family: 'Unbounded', sans-serif;
+  font-size: 13px; font-weight: 800; color: #fff;
+}
+.chat-drop-all {
+  font-size: 12px; color: var(--yellow, #f5c842);
+  text-decoration: none; font-weight: 600;
+  transition: opacity .15s;
+}
+.chat-drop-all:hover { opacity: 0.8; }
+
+.chat-drop-list {
+  overflow-y: auto; max-height: 400px;
+  padding: 4px 0;
+}
+.chat-drop-list::-webkit-scrollbar { width: 4px; }
+.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.chat-drop-empty {
+  text-align: center; padding: 30px 16px;
+  color: rgba(240,236,228,0.35); font-size: 13px;
+}
+
+/* ── Položka konverzace ── */
+.cdrop-item {
+  display: flex; gap: 10px; padding: 10px 16px;
+  cursor: pointer; transition: background .12s;
+  text-decoration: none; color: inherit;
+  border-left: 3px solid transparent;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread {
+  background: rgba(245,200,66,0.06);
+  border-left-color: var(--yellow, #f5c842);
+}
+
+.cdrop-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.12);
+  border: 1px solid rgba(245,200,66,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800;
+  color: var(--yellow, #f5c842);
+}
+
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px; margin-bottom: 2px;
+}
+.cdrop-name {
+  font-size: 13px; font-weight: 600;
+  color: var(--text, #f0ece4);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cdrop-item.unread .cdrop-name { color: #fff; }
+.cdrop-time {
+  font-size: 11px; flex-shrink: 0;
+  color: rgba(240,236,228,0.35);
+}
+.cdrop-item.unread .cdrop-time { color: var(--yellow, #f5c842); }
+
+.cdrop-msg {
+  font-size: 12px; color: rgba(240,236,228,0.45);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  line-height: 1.4;
+}
+.cdrop-item.unread .cdrop-msg {
+  color: rgba(240,236,228,0.7);
+  font-weight: 500;
+}
+
+/* Nabídka v preview */
+.cdrop-listing {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: rgba(245,200,66,0.7);
+  margin-top: 3px;
+}
+.cdrop-listing-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: rgba(245,200,66,0.5);
+}
+
+/* Nepřečtená tečka */
+.cdrop-unread-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--yellow, #f5c842);
+  flex-shrink: 0; align-self: center;
+}
+
+/* ── Notifikační prompt ── */
+.notif-prompt {
+  display: none; padding: 10px 16px;
+  background: rgba(74,158,255,0.08);
+  border-top: 1px solid rgba(74,158,255,0.15);
+  font-size: 12px; color: rgba(240,236,228,0.65);
+  gap: 8px; align-items: center;
+}
+.notif-prompt.show { display: flex; }
+.notif-prompt-btn {
+  padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  border: none; cursor: pointer; font-family: inherit; transition: all .12s;
+}
+.notif-allow {
+  background: rgba(245,200,66,0.2); color: var(--yellow, #f5c842);
+}
+.notif-allow:hover { background: rgba(245,200,66,0.3); }
+.notif-dismiss {
+  background: transparent; color: rgba(240,236,228,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+@media (max-width: 480px) {
+  .chat-drop { width: calc(100vw - 20px); right: -60px; }
+}
+</style>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     3. JS – vlož na konec stránky (před </body>)
+══════════════════════════════════════════════════════════ -->
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  CHAT DROPDOWN + NOTIFIKACE – PokéTrade
+// ═══════════════════════════════════════════════════════
+
+(function() {
+  'use strict';
+
+  // ── Config ──
+  const POLL_INTERVAL  = 8000;  // 8s refresh
+  const SB_URL  = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  const SB_ANON = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+  const token  = localStorage.getItem('sb_token');
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; }})();
+  if (!token || !sbUser?.id) return;
+
+  const userId   = sbUser.id;
+  const username = sbUser.user_metadata?.username || sbUser.email?.split('@')[0] || '';
+
+  let conversations = [];
+  let prevUnreadTotal = 0;
+  let dropOpen = false;
+
+  // ── Supabase helper ──
+  async function sbFetch(path) {
+    try {
+      const res = await fetch(`${SB_URL}/${path}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SB_ANON,
+          'Authorization': 'Bearer ' + token,
+        }
+      });
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch { return []; }
+  }
+
+  // ── Escape HTML ──
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  // ── Čas ──
+  function fmtTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60000) return 'teď';
+    if (diff < 3600000) return Math.floor(diff/60000) + ' min';
+    if (d.toDateString() === now.toDateString())
+      return d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
+    const yest = new Date(now); yest.setDate(yest.getDate()-1);
+    if (d.toDateString() === yest.toDateString()) return 'včera';
+    if (now.getFullYear() === d.getFullYear())
+      return d.toLocaleDateString('cs', {day:'numeric', month:'numeric'});
+    return d.toLocaleDateString('cs', {day:'numeric', month:'numeric', year:'2-digit'});
+  }
+
+  // ═══ TOGGLE DROPDOWN ═══
+  window.toggleChatDrop = function() {
+    const drop = document.getElementById('chatDrop');
+    dropOpen = !dropOpen;
+    drop.classList.toggle('open', dropOpen);
+    if (dropOpen) renderDropdown();
+  };
+
+  // Zavřít klikem mimo
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('chatDropWrap');
+    if (wrap && !wrap.contains(e.target) && dropOpen) {
+      dropOpen = false;
+      document.getElementById('chatDrop').classList.remove('open');
+    }
+  });
+
+  // ═══ RENDER DROPDOWN ═══
+  function renderDropdown() {
+    const list = document.getElementById('chatDropList');
+    const empty = document.getElementById('chatDropEmpty');
+
+    if (!conversations.length) {
+      list.innerHTML = '';
+      list.appendChild(createEmptyState());
+      return;
+    }
+
+    // Max 8 konverzací v dropdown
+    const items = conversations.slice(0, 8);
+
+    list.innerHTML = items.map(c => {
+      const isUser1 = c.user1_id === userId;
+      const partner = isUser1 ? c.user2_username : c.user1_username;
+      const unread  = isUser1 ? (c.unread_user1||0) : (c.unread_user2||0);
+      const initial = (partner||'?')[0].toUpperCase();
+      const lastMsg = c.last_message_text || 'Nová konverzace';
+      const time    = fmtTime(c.last_message_at);
+      const isUnread = unread > 0;
+
+      // Zkus najít listing referenci v poslední zprávě
+      const hasListing = lastMsg.includes('📎') || lastMsg.includes('Nabídka');
+
+      return `
+        <a class="cdrop-item${isUnread?' unread':''}" href="chat.html?conv=${c.id}">
+          <div class="cdrop-avatar">${esc(initial)}</div>
+          <div class="cdrop-info">
+            <div class="cdrop-top">
+              <div class="cdrop-name">${esc(partner)}</div>
+              <div class="cdrop-time">${esc(time)}</div>
+            </div>
+            <div class="cdrop-msg">${esc(lastMsg)}</div>
+            ${hasListing ? '<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>' : ''}
+          </div>
+          ${isUnread ? '<div class="cdrop-unread-dot"></div>' : ''}
+        </a>`;
+    }).join('');
+
+    // Notifikační prompt (pokud ještě nepovoleno)
+    if (window.Notification && Notification.permission === 'default') {
+      const existing = document.getElementById('notifPrompt');
+      if (!existing && !localStorage.getItem('pkt_notif_dismissed')) {
+        const prompt = document.createElement('div');
+        prompt.className = 'notif-prompt show';
+        prompt.id = 'notifPrompt';
+        prompt.innerHTML = `
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:rgba(74,158,255,0.7)">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span style="flex:1">Chceš dostávat oznámení o nových zprávách?</span>
+          <button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button>
+          <button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>
+        `;
+        document.getElementById('chatDrop').appendChild(prompt);
+      }
+    }
+  }
+
+  function createEmptyState() {
+    const div = document.createElement('div');
+    div.className = 'chat-drop-empty';
+    div.innerHTML = '<div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div><div style="font-size:11px;margin-top:4px;color:rgba(240,236,228,0.25)">Napiš prodejci z marketplace!</div>';
+    return div;
+  }
+
+  // ═══ NOTIFIKACE ═══
+  window.requestNotifPerm = async function() {
+    if (!window.Notification) return;
+    const perm = await Notification.requestPermission();
+    const prompt = document.getElementById('notifPrompt');
+    if (prompt) prompt.remove();
+    if (perm === 'granted') {
+      showBrowserNotif('PokéTrade', 'Oznámení zapnuta! Budeš vědět o nových zprávách.', 'pokemon.png');
+    }
+  };
+
+  window.dismissNotifPrompt = function() {
+    localStorage.setItem('pkt_notif_dismissed', '1');
+    const prompt = document.getElementById('notifPrompt');
+    if (prompt) prompt.remove();
+  };
+
+  function showBrowserNotif(title, body, icon) {
+    if (!window.Notification || Notification.permission !== 'granted') return;
+    try {
+      const notif = new Notification(title, {
+        body: body,
+        icon: icon || 'pokemon.png',
+        badge: 'pokemon.png',
+        tag: 'poketrade-msg',
+        renotify: true,
+      });
+      notif.onclick = function() {
+        window.focus();
+        window.location.href = 'chat.html';
+        notif.close();
+      };
+      // Auto-close po 6s
+      setTimeout(() => notif.close(), 6000);
+    } catch(e) {
+      // Service worker notif fallback – SW nepodporován
+      console.log('Notification error:', e);
+    }
+  }
+
+  // ═══ POLLING ═══
+  async function fetchConversations() {
+    conversations = await sbFetch(
+      `rest/v1/conversations?or=(user1_id.eq.${userId},user2_id.eq.${userId})&order=last_message_at.desc&limit=15`
+    );
+
+    // Spočítej celkové nepřečtené
+    const totalUnread = conversations.reduce((s, c) => {
+      if (c.user1_id === userId) return s + (c.unread_user1 || 0);
+      if (c.user2_id === userId) return s + (c.unread_user2 || 0);
+      return s;
+    }, 0);
+
+    // Aktualizuj badge
+    const badge = document.getElementById('chatBadge');
+    if (badge) {
+      if (totalUnread > 0) {
+        badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // Browser notifikace – pokud přibyla nová zpráva
+    if (totalUnread > prevUnreadTotal && prevUnreadTotal >= 0) {
+      // Najdi konverzaci s novou zprávou
+      const newConv = conversations.find(c => {
+        const isU1 = c.user1_id === userId;
+        const unread = isU1 ? c.unread_user1 : c.unread_user2;
+        return unread > 0 && c.last_sender_id !== userId;
+      });
+
+      if (newConv && document.hidden) {
+        const partner = newConv.user1_id === userId ? newConv.user2_username : newConv.user1_username;
+        const msg = newConv.last_message_text || 'Nová zpráva';
+        showBrowserNotif(
+          `${partner} – PokéTrade`,
+          msg.length > 80 ? msg.slice(0, 77) + '…' : msg,
+          'pokemon.png'
+        );
+      }
+    }
+
+    prevUnreadTotal = totalUnread;
+
+    // Aktualizuj dropdown pokud je otevřený
+    if (dropOpen) renderDropdown();
+
+    // Aktualizuj title stránky
+    if (totalUnread > 0) {
+      const baseTitle = document.title.replace(/^\(\d+\)\s*/, '');
+      document.title = `(${totalUnread}) ${baseTitle}`;
+    } else {
+      document.title = document.title.replace(/^\(\d+\)\s*/, '');
+    }
+  }
+
+  // ── Start ──
+  fetchConversations();
+  setInterval(fetchConversations, POLL_INTERVAL);
+
+  // Při změně viditelnosti zkontroluj hned
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) fetchConversations();
+  });
+
+})();
+</script>
+
+
+<!-- ═══════════════════════════════════════════════════════════════
+     KOMPLETNÍ PŘÍKLAD – topbar-right:
+
+     <div class="topbar-right">
+
+       <!-- NOVÉ: ikona zpráv s dropdown -->
+       <div class="chat-dropdown-wrap" id="chatDropWrap">
+         <button class="chat-icon-btn" id="chatIconBtn"
+                 onclick="toggleChatDrop()" title="Zprávy">
+           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round">
+             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+           </svg>
+           <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+         </button>
+         <div class="chat-drop" id="chatDrop">
+           <div class="chat-drop-head">
+             <span class="chat-drop-title">Zprávy</span>
+             <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+           </div>
+           <div class="chat-drop-list" id="chatDropList">
+             <div class="chat-drop-empty" id="chatDropEmpty">
+               <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+               <div>Žádné zprávy</div>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       <!-- EXISTUJÍCÍ: sync, user, logout -->
+       <button class="sync-btn" id="syncBtn" onclick="doSync()">
+         <div class="sync-dot" id="syncDot"></div>
+         <span id="syncLabel">Sync</span>
+       </button>
+       <div class="user-chip" id="userChip" style="display:none">
+         <div class="user-avatar" id="userAvatar">?</div>
+         <span id="userName"></span>
+       </div>
+       <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline"
+               style="display:none">Odhlásit</button>
+     </div>
+
+═══════════════════════════════════════════════════════════════ -->
