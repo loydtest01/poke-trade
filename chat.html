@@ -24,12 +24,12 @@ body {
   color: var(--text); overflow: hidden; height: 100vh;
 }
 body::before {
-  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background-image: url('wallpaper.png'); background-size: cover; background-position: center 30%;
   filter: brightness(0.18) saturate(0.5);
 }
 body::after {
-  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),

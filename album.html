@@ -12,7 +12,7 @@
 body { background: #06040c !important; overflow-x: hidden; }
 body::before {
   content: "";
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background-image: url("wallpaper.png");
   background-size: cover;
   background-position: center 30%;
@@ -21,7 +21,7 @@ body::before {
 }
 body::after {
   content: "";
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
@@ -32,7 +32,7 @@ body { background: #0a0a0f; overflow-x: hidden; }
 
 /* Tapeta – tmavý fire gradient jako v aplikaci */
 .app-wallpaper {
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
   background:
     radial-gradient(ellipse 80% 60% at 60% 40%, rgba(180,40,10,0.45) 0%, transparent 70%),
     radial-gradient(ellipse 50% 50% at 20% 80%, rgba(120,20,0,0.3)  0%, transparent 60%),
