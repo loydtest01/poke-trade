@@ -687,23 +687,23 @@ body::after {
 
     <div id="loginError" class="auth-error"></div>
 
-    <div class="auth-fields">
+    <form id="scannerLoginForm" class="auth-fields" onsubmit="event.preventDefault();doLogin();" autocomplete="on">
       <div class="field">
-        <label>E-mail nebo uživatelské jméno</label>
-        <input type="text" id="loginEmail" placeholder="trainer@example.com" autocomplete="username">
+        <label for="loginEmail">E-mail nebo uživatelské jméno</label>
+        <input type="text" id="loginEmail" name="username" placeholder="trainer@example.com" autocomplete="username" required>
       </div>
       <div class="field">
-        <label>Heslo</label>
+        <label for="loginPassword">Heslo</label>
         <div class="pw-wrap">
-          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password">
+          <input type="password" id="loginPassword" name="password" placeholder="••••••••" autocomplete="current-password" required>
           <button class="pw-eye" onclick="togglePw('loginPassword',this)" type="button">👁</button>
         </div>
       </div>
-    </div>
 
-    <button class="btn btn-primary btn-login" id="loginBtn" onclick="doLogin()">
-      Přihlásit se
-    </button>
+      <button class="btn btn-primary btn-login" id="loginBtn" type="submit">
+        Přihlásit se
+      </button>
+    </form>
 
     <div class="auth-links">
       Nemáš účet?
