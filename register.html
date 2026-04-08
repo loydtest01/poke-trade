@@ -108,6 +108,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       password,
       data: { username }
     });
+
     // Zachyť všechny formáty chyb ze Supabase
     const errMsg = res.error?.message || res.error_description || res.msg
       || (typeof res.error === 'string' ? res.error : '') || '';
@@ -117,20 +118,25 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       }
       throw new Error(errMsg);
     }
-    // OPRAVA: identities[] check byl odstraněn – Supabase vrací prázdné identities
-    // pro VŠECHNY nové uživatele když je email confirm zapnutý, takže špatně
-    // zobrazoval chybu i při úspěšné registraci. Duplicitní email zachytí errMsg výše.
-    if (!res.user) throw new Error('Registrace se nezdařila – zkus to znovu');
+
+    // OPRAVA: Supabase může vrátit user objekt dvěma způsoby:
+    //   a) { user: { id, email, ... } }  – starší formát
+    //   b) { id, email, ... }             – novější formát (při email confirm)
+    // Zvládneme oba formáty:
+    const user = res.user || (res.id ? res : null);
+    if (!user) throw new Error('Registrace se nezdařila – zkus to znovu');
+
     // Zaloguj registraci (IP)
     try {
       await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
-        user_id:    res.user.id,
+        user_id:    user.id,
         ip_address: clientIP,
         user_agent: navigator.userAgent.slice(0, 250),
         action:     'register',
         success:    true
       });
     } catch { /* ignoruj */ }
+
     // Úspěch – zobraz zprávu
     document.getElementById('registerForm').style.display = 'none';
     const succEl = document.getElementById('authSuccess');
