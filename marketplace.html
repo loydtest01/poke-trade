@@ -21,7 +21,7 @@ body { background: #06040c; overflow-x: hidden; font-family: 'DM Sans', sans-ser
 
 body::before {
   content: '';
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-image: url('wallpaper.png');
   background-size: cover;
   background-position: center 30%;
@@ -31,7 +31,7 @@ body::before {
 
 body::after {
   content: '';
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
@@ -63,10 +63,12 @@ body::after {
 .nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow); }
 .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .user-chip {
+  text-decoration: none; color: var(--text, #f0ece4); transition: all .15s;
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.06); border: 1px solid var(--border);
   border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
 }
+.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
 .user-avatar {
   width: 26px; height: 26px; border-radius: 50%;
   background: var(--yellow); color: #000;
@@ -424,29 +426,337 @@ body::after {
   .detail-grid { grid-template-columns: 1fr; }
   .detail-gallery { position: static; }
 }
+
+/* ── Blue aura for matching cards ── */
+.trade-card-item.match {
+  border: 2px solid #74b4ff !important;
+  box-shadow: 0 0 0 2px rgba(116,180,255,0.3), 0 0 18px 4px rgba(74,158,255,0.45);
+  animation: blueAuraPulse 2.2s ease-in-out infinite;
+  position: relative;
+}
+@keyframes blueAuraPulse {
+  0%,100% { box-shadow: 0 0 0 2px rgba(116,180,255,0.3), 0 0 14px 4px rgba(74,158,255,0.35); }
+  50%      { box-shadow: 0 0 0 2px rgba(116,180,255,0.6), 0 0 24px 8px rgba(74,158,255,0.65); }
+}
+.trade-card-item.match::after {
+  content: '✓'; position: absolute; bottom: 2px; right: 3px;
+  font-size: 9px; font-weight: 900; color: #74b4ff;
+  background: rgba(0,0,0,0.75); border-radius: 4px; padding: 1px 3px;
+}
+.trade-match-section {
+  background: rgba(74,158,255,0.07);
+  border: 1px solid rgba(74,158,255,0.2);
+  border-radius: 10px; padding: 10px; margin-bottom: 4px;
+}
+.trade-match-label {
+  font-size: 11px; font-weight: 700; color: var(--blue);
+  letter-spacing: .05em; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+.trade-match-label::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 8px var(--blue); }
+.trade-wants-box {
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+}
+.trade-wants-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 5px; }
+.trade-wants-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.trade-want-tag {
+  padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  background: rgba(116,180,255,0.12); border: 1px solid rgba(116,180,255,0.25);
+  color: var(--blue);
+}
+.trade-other-label {
+  font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em;
+  margin: 8px 0 5px;
+}
+.trade-no-match {
+  font-size: 12px; color: var(--text3); padding: 8px 0;
+  text-align: center;
+}
+
+/* ── Card search modal ── */
+.card-search-modal {
+  display: none; position: fixed; inset: 0; z-index: 600;
+  background: rgba(0,0,0,0.85); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.card-search-modal.open { display: flex; }
+.card-search-box {
+  background: #0e0c14; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px; width: 100%; max-width: 560px;
+  max-height: 85vh; overflow: hidden; display: flex; flex-direction: column;
+}
+.csb-head {
+  padding: 16px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.csb-title { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800; color: #fff; }
+.csb-close { background: none; border: none; color: var(--text3); font-size: 18px; cursor: pointer; padding: 4px 8px; }
+.csb-search-row { padding: 14px 20px; display: flex; gap: 8px; border-bottom: 1px solid var(--border); }
+.csb-inp {
+  flex: 1; padding: 9px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.06);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+}
+.csb-inp:focus { border-color: rgba(245,200,66,0.4); }
+.csb-set-inp {
+  width: 160px; padding: 9px 12px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.06);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 14px; outline: none;
+}
+.csb-set-inp:focus { border-color: rgba(245,200,66,0.4); }
+.csb-search-btn {
+  padding: 9px 16px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg,var(--yellow),#ff8c00);
+  color: #000; font-weight: 800; font-size: 13px; cursor: pointer;
+}
+.csb-results { overflow-y: auto; flex: 1; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.csb-results::-webkit-scrollbar { width: 4px; }
+.csb-results::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.csb-card-row {
+  display: flex; gap: 10px; align-items: center; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: rgba(255,255,255,0.03); cursor: pointer; transition: all .15s;
+}
+.csb-card-row:hover { border-color: var(--border2); background: rgba(255,255,255,0.06); }
+.csb-card-row.selected { border-color: var(--yellow); background: rgba(245,200,66,0.08); }
+.csb-card-img { width: 40px; height: 55px; border-radius: 5px; object-fit: cover; flex-shrink: 0; }
+.csb-card-info { flex: 1; min-width: 0; }
+.csb-card-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.csb-card-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.csb-card-select { padding: 5px 12px; border-radius: 7px; border: 1px solid rgba(245,200,66,0.3); background: transparent; color: var(--yellow); font-size: 12px; font-weight: 700; cursor: pointer; }
+.csb-card-select:hover { background: rgba(245,200,66,0.1); }
+.csb-empty { text-align: center; padding: 30px; color: var(--text3); font-size: 13px; }
+.csb-loading { text-align: center; padding: 20px; color: var(--text3); }
+.csb-hint { padding: 10px 20px 14px; font-size: 11px; color: var(--text3); text-align: center; border-top: 1px solid var(--border); }
+.btn-search-card {
+  padding: 6px 11px; border-radius: 7px; font-size: 12px;
+  border: 1px solid rgba(245,200,66,0.3); background: transparent; color: var(--yellow);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-search-card:hover { background: rgba(245,200,66,0.1); }
+
+/* ── AI Drop Zone ── */
+.ai-drop-zone {
+  border: 2px dashed rgba(116,180,255,0.25);
+  border-radius: 14px;
+  background: rgba(74,158,255,0.04);
+  padding: 22px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  position: relative;
+  overflow: hidden;
+}
+.ai-drop-zone:hover, .ai-drop-zone.drag-over {
+  border-color: rgba(116,180,255,0.6);
+  background: rgba(74,158,255,0.1);
+}
+.ai-drop-zone.drag-over { transform: scale(1.01); }
+.ai-drop-zone.scanning {
+  border-color: rgba(116,180,255,0.5);
+  animation: zoneGlow 1.5s ease-in-out infinite;
+}
+@keyframes zoneGlow {
+  0%,100% { box-shadow: 0 0 0 0 rgba(74,158,255,0); }
+  50%      { box-shadow: 0 0 20px 4px rgba(74,158,255,0.2); }
+}
+.ai-drop-icon { font-size: 32px; margin-bottom: 8px; }
+.ai-drop-title { font-size: 14px; font-weight: 600; color: var(--text2); margin-bottom: 4px; }
+.ai-drop-hint  { font-size: 12px; color: var(--text3); }
+
+/* Preview inside drop zone */
+.ai-preview-wrap {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px; padding: 10px; margin: 0;
+  cursor: default;
+}
+.ai-preview-img { width: 52px; height: 72px; border-radius: 7px; object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+.ai-preview-info { flex: 1; min-width: 0; text-align: left; }
+.ai-preview-name { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ai-preview-meta { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.ai-preview-conf {
+  display: inline-flex; align-items: center; gap: 4px; margin-top: 5px;
+  font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 20px;
+}
+.ai-preview-conf.high { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.25); }
+.ai-preview-conf.med  { background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+.ai-preview-conf.low  { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+.ai-preview-change {
+  font-size: 11px; color: var(--text3); cursor: pointer; padding: 5px;
+  border-radius: 6px; border: 1px solid var(--border); background: transparent;
+  white-space: nowrap; flex-shrink: 0;
+}
+.ai-preview-change:hover { color: var(--text2); border-color: var(--border2); }
+
+/* Scan progress bar */
+.ai-scan-bar {
+  height: 3px; background: rgba(255,255,255,0.06);
+  border-radius: 2px; overflow: hidden; margin-top: 8px;
+}
+.ai-scan-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--blue), #a78bff);
+  width: 0%; transition: width .4s ease;
+  animation: scanShimmer 1.5s ease-in-out infinite;
+}
+@keyframes scanShimmer {
+  0%   { filter: brightness(1); }
+  50%  { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
+}
+.ai-scan-status {
+  font-size: 11px; color: rgba(116,180,255,0.8);
+  text-align: center; margin-top: 5px;
+}
+
+/* AI Pick candidates */
+.ai-candidate {
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px; cursor: pointer; transition: all .15s;
+  background: rgba(255,255,255,0.03); display: flex; flex-direction: column; gap: 7px;
+}
+.ai-candidate:hover { border-color: rgba(116,180,255,0.4); background: rgba(74,158,255,0.06); }
+.ai-candidate.best-match {
+  border-color: rgba(116,180,255,0.5);
+  background: rgba(74,158,255,0.08);
+  box-shadow: 0 0 0 1px rgba(116,180,255,0.15);
+}
+.ai-candidate-img { width: 100%; aspect-ratio: 3/4; object-fit: contain; border-radius: 7px; background: rgba(255,255,255,0.03); }
+.ai-candidate-name { font-size: 12px; font-weight: 700; color: var(--text); line-height: 1.3; }
+.ai-candidate-meta { font-size: 10px; color: var(--text3); }
+.ai-candidate-badge {
+  font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 20px;
+  background: rgba(116,180,255,0.15); color: var(--blue); border: 1px solid rgba(116,180,255,0.25);
+  align-self: flex-start;
+}
+.ai-scanning-overlay {
+  position: absolute; inset: 0; background: rgba(6,4,12,0.85);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  border-radius: 12px;
+}
+.ai-scanner-line {
+  width: 70%; height: 2px; background: linear-gradient(90deg, transparent, var(--blue), transparent);
+  animation: scanLine 1.2s ease-in-out infinite;
+}
+@keyframes scanLine {
+  0%   { transform: translateY(-30px); opacity: 0; }
+  30%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateY(30px); opacity: 0; }
+}
+.ai-scanning-text { font-size: 12px; color: var(--blue); font-weight: 700; letter-spacing: .05em; }
+
+/* ── Chat dropdown ikona + panel ── */
+.chat-dropdown-wrap { position: relative; }
+.chat-icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2, rgba(240,236,228,0.65));
+  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 5px; line-height: 1;
+  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+}
+.chat-drop {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 300; overflow: hidden; flex-direction: column;
+}
+.chat-drop.open { display: flex; }
+.chat-drop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
+.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
+.chat-drop-all:hover { opacity: 0.8; }
+.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
+.chat-drop-list::-webkit-scrollbar { width: 4px; }
+.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
+.cdrop-item {
+  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
+  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread { background: rgba(245,200,66,0.06); border-left-color: var(--yellow, #f5c842); }
+.cdrop-avatar {
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: var(--yellow, #f5c842);
+}
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.cdrop-name { font-size: 13px; font-weight: 600; color: var(--text, #f0ece4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-item.unread .cdrop-name { color: #fff; }
+.cdrop-time { font-size: 11px; flex-shrink: 0; color: rgba(240,236,228,0.35); }
+.cdrop-item.unread .cdrop-time { color: var(--yellow, #f5c842); }
+.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.45); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-item.unread .cdrop-msg { color: rgba(240,236,228,0.7); font-weight: 500; }
+.cdrop-listing { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: rgba(245,200,66,0.7); margin-top: 3px; }
+.cdrop-listing-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(245,200,66,0.5); }
+.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
+.notif-prompt { display: none; padding: 10px 16px; background: rgba(74,158,255,0.08); border-top: 1px solid rgba(74,158,255,0.15); font-size: 12px; color: rgba(240,236,228,0.65); gap: 8px; align-items: center; }
+.notif-prompt.show { display: flex; }
+.notif-prompt-btn { padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; border: none; cursor: pointer; font-family: inherit; }
+.notif-allow { background: rgba(245,200,66,0.2); color: var(--yellow, #f5c842); }
+.notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); border: 1px solid rgba(255,255,255,0.08); }
+@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+
 </style>
 </head>
 <body>
 
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
-    <img src="pokemon.png" alt="P" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px">
-    Poké<strong>Trade</strong>
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
   <nav class="nav-lnks">
     <a href="marketplace.html" class="active">Nabídky</a>
     <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
+    <a href="scanner.html">📷 Skener</a>
+    <a href="dashboard.html">Moje karty</a>
   </nav>
   <div class="topbar-right">
-    <div class="user-chip" id="userChip" style="display:none">
+    <div class="chat-dropdown-wrap" id="chatDropWrap">
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+      </button>
+      <div class="chat-drop" id="chatDrop">
+        <div class="chat-drop-head">
+          <span class="chat-drop-title">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+        </div>
+        <div class="chat-drop-list" id="chatDropList">
+          <div class="chat-drop-empty">
+            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+            <div>Žádné zprávy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="btn-add" id="addBtn" style="display:none" onclick="openAddListing()">+ Přidat nabídku</button>
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
-    </div>
-    <a href="login.html" id="loginLink" class="btn-nav-outline">Přihlásit se</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none">Odhlásit</button>
-    <button class="btn-add" id="addBtn" style="display:none" onclick="openAddListing()">+ Přidat nabídku</button>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
   </div>
 </header>
 
@@ -498,13 +808,6 @@ body::after {
   <main class="main">
     <!-- LIST VIEW -->
     <div id="listView">
-      <!-- Tab switcher -->
-      <div style="display:flex;gap:5px;margin-bottom:14px">
-        <button class="vt-btn act" id="tabListings" onclick="switchTab('listings')" style="padding:7px 16px;font-size:13px">🏷️ Nabídky</button>
-        <button class="vt-btn" id="tabDemands"  onclick="switchTab('demands')"  style="padding:7px 16px;font-size:13px">🔍 Poptávky</button>
-      </div>
-
-      <div id="listingsTab">
       <div class="market-toolbar">
         <div class="search-wrap">
           <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()">
@@ -522,19 +825,6 @@ body::after {
         <span class="count-info" id="countInfo">0 nabídek</span>
       </div>
       <div id="listingsWrap" class="listings-wrap"></div>
-      </div><!-- /listingsTab -->
-
-      <!-- Demands tab -->
-      <div id="demandsTab" style="display:none">
-        <div class="market-toolbar">
-          <div class="search-wrap">
-            <input type="text" id="searchDemands" placeholder="Hledat poptávanou kartu..." oninput="renderDemands()">
-          </div>
-          <button class="btn-add" id="addDemandBtn" style="display:none" onclick="openAddDemand()">+ Přidat poptávku</button>
-          <span class="count-info" id="countDemands">0 poptávek</span>
-        </div>
-        <div id="demandsWrap" class="listings-wrap"></div>
-      </div>
     </div>
 
     <!-- DETAIL VIEW -->
@@ -570,7 +860,7 @@ body::after {
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
             <button class="btn-detail-offer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
             <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
-            <button class="btn-detail-msg" onclick="togglePanel('msgPanel')">✉️ Zpráva</button>
+            <button class="btn-detail-msg" onclick="openChat()">✉️ Napsat prodejci</button>
           </div>
 
           <!-- Offer panel -->
@@ -587,13 +877,27 @@ body::after {
           <!-- Trade panel -->
           <div class="action-panel" id="tradePanel">
             <div class="panel-title">🔄 Navrhni výměnu</div>
-            <div style="font-size:12px;color:var(--text3)" id="tradeWants"></div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <span style="font-size:12px;color:var(--text3)">Zobrazit:</span>
+
+            <!-- Co chce prodejce -->
+            <div class="trade-wants-box" id="tradeWantsBox" style="display:none">
+              <div class="trade-wants-label">Prodejce chce za tuto kartu:</div>
+              <div class="trade-wants-tags" id="tradeWantsTags"></div>
+            </div>
+
+            <!-- Shoda: karty z alba co sedí s wants -->
+            <div class="trade-match-section" id="tradeMatchSection" style="display:none">
+              <div class="trade-match-label">Karty z tvého alba, které prodejce chce</div>
+              <div class="trade-cards-wrap" id="tradeMatchCards"></div>
+            </div>
+
+            <!-- Ostatní karty -->
+            <div class="trade-other-label" id="tradeOtherLabel">Tvoje karty k výměně</div>
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
               <div class="trade-view-toggle">
                 <button class="tv-btn act" id="tvImg" onclick="setTradeView('img')">Obrázky</button>
                 <button class="tv-btn" id="tvList" onclick="setTradeView('list')">Seznam</button>
               </div>
+              <button class="btn-search-card" onclick="openCardSearch('trade')">🔍 Hledat kartu</button>
             </div>
             <div class="trade-cards-wrap" id="tradeCardsImg"></div>
             <div class="trade-list-wrap" id="tradeCardsList"></div>
@@ -633,6 +937,7 @@ body::after {
         <div style="display:flex;gap:8px">
           <input id="addCardUrl" class="panel-inp" placeholder="https://pokemontcg.io/... nebo Charizard V" style="flex:1">
           <button onclick="fetchCardForListing()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
+          <button onclick="openCardSearch('listing')" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700">🔍 Hledat</button>
         </div>
         <div id="addCardPreview" style="margin-top:8px;display:none;flex;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
           <img id="addCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
@@ -672,11 +977,31 @@ body::after {
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis (nepovinné)</div>
         <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
       </div>
+      <!-- AI SCAN ZONE -->
       <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Fotky karty (nepovinné, max 4)</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:6px">API obrázek se přidá automaticky jako první foto.</div>
-        <input type="file" id="addPhotos" multiple accept="image/*" style="font-size:12px;color:var(--text2)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka karty</div>
+          <div style="display:flex;align-items:center;gap:4px;background:rgba(116,180,255,0.12);border:1px solid rgba(116,180,255,0.25);border-radius:20px;padding:2px 9px">
+            <span style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em">AI SCAN</span>
+          </div>
+        </div>
+        <div id="aiDropZone" class="ai-drop-zone" onclick="document.getElementById('aiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleAiDrop(event)">
+          <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+          <div id="aiDropContent">
+            <div class="ai-drop-icon">📸</div>
+            <div class="ai-drop-title">Vyfot nebo přetáhni kartu</div>
+            <div class="ai-drop-hint">AI automaticky rozezná pokémona, sérii a číslo</div>
+          </div>
+        </div>
+        <!-- AI Scan progress -->
+        <div id="aiScanProgress" style="display:none">
+          <div class="ai-scan-bar">
+            <div class="ai-scan-fill" id="aiScanFill"></div>
+          </div>
+          <div class="ai-scan-status" id="aiScanStatus">Analyzuji kartu...</div>
+        </div>
       </div>
+
       <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
         Zveřejnit nabídku
       </button>
@@ -684,44 +1009,51 @@ body::after {
   </div>
 </div>
 
-<!-- Add Demand Modal -->
-<div id="addDemandModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:480px;padding:24px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#fff">🔍 Nová poptávka</div>
-      <button onclick="closeAddDemand()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+<!-- AI CARD CANDIDATES MODAL -->
+<div id="aiPickModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(116,180,255,0.2);border-radius:20px;width:100%;max-width:580px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 0 60px rgba(74,158,255,0.15)">
+    <div style="padding:18px 22px 14px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:12px;flex-shrink:0">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(74,158,255,0.15);border:1px solid rgba(74,158,255,0.3);display:flex;align-items:center;justify-content:center;font-size:18px">🤖</div>
+      <div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:#fff" id="aiPickTitle">AI rozpoznalo kartu</div>
+        <div style="font-size:12px;color:rgba(116,180,255,0.8)" id="aiPickSubtitle">Vyber správnou variantu</div>
+      </div>
+      <button onclick="closeAiPick()" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.3);font-size:20px;cursor:pointer;line-height:1">✕</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Název karty *</div>
-        <input id="dName" class="panel-inp" placeholder="Např. Charizard ex, Pikachu V...">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série (nepovinné)</div>
-        <input id="dSet" class="panel-inp" placeholder="Např. Scarlet & Violet, Brilliant Stars...">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Typ / Element</div>
-        <select id="dType" class="sort-sel" style="width:100%">
-          <option value="">Libovolný</option>
-          <option value="fire">Ohnivý</option><option value="water">Vodní</option>
-          <option value="grass">Travní</option><option value="lightning">Elektrický</option>
-          <option value="psychic">Psychický</option><option value="darkness">Temný</option>
-          <option value="dragon">Dračí</option><option value="metal">Kovový</option>
-        </select>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Maximální cena (Kč)</div>
-        <input id="dMaxPrice" class="panel-inp" type="number" placeholder="Nechte prázdné pro dohodou">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis / podmínky (nepovinné)</div>
-        <textarea id="dDesc" class="panel-textarea" placeholder="Stav karty který hledáte, verze, foil/non-foil..."></textarea>
-      </div>
-      <button onclick="submitDemand()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
-        Zveřejnit poptávku
-      </button>
+
+    <!-- AI recognition summary -->
+    <div id="aiPickSummary" style="padding:10px 22px;background:rgba(74,158,255,0.06);border-bottom:1px solid rgba(74,158,255,0.1);font-size:12px;color:rgba(116,180,255,0.9);display:flex;gap:8px;align-items:center;flex-shrink:0">
+      <span style="opacity:0.6">AI detekce:</span>
+      <span id="aiPickDetected" style="font-weight:700"></span>
     </div>
+
+    <!-- Candidates grid -->
+    <div id="aiPickList" style="overflow-y:auto;flex:1;padding:14px 18px;display:grid;grid-template-columns:1fr 1fr;gap:10px"></div>
+
+    <!-- Footer actions -->
+    <div style="padding:12px 20px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;flex-shrink:0">
+      <button onclick="openCardSearch('listing');closeAiPick()" style="flex:1;padding:10px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.5);font-size:13px;cursor:pointer">🔍 Hledat ručně</button>
+      <button onclick="closeAiPick()" style="padding:10px 18px;border-radius:9px;border:none;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.4);font-size:13px;cursor:pointer">Zrušit</button>
+    </div>
+  </div>
+</div>
+
+<!-- CARD SEARCH MODAL -->
+<div id="cardSearchModal" class="card-search-modal">
+  <div class="card-search-box">
+    <div class="csb-head">
+      <span class="csb-title">🔍 Hledat kartu</span>
+      <button class="csb-close" onclick="closeCardSearch()">✕</button>
+    </div>
+    <div class="csb-search-row">
+      <input class="csb-inp" id="csbName" placeholder="Název Pokémona (např. Charizard)..." onkeydown="if(event.key==='Enter')searchCards()">
+      <input class="csb-set-inp" id="csbSet" placeholder="Série..." onkeydown="if(event.key==='Enter')searchCards()">
+      <button class="csb-search-btn" onclick="searchCards()">Hledat</button>
+    </div>
+    <div class="csb-results" id="csbResults">
+      <div class="csb-empty">Zadej název Pokémona nebo sérii a stiskni Hledat.</div>
+    </div>
+    <div class="csb-hint">Data z pokemontcg.io · Klikni na kartu pro výběr</div>
   </div>
 </div>
 
@@ -763,8 +1095,8 @@ let token=null, userId=null, username=null, myCards=[];
     document.getElementById('userChip').style.display='';
     document.getElementById('loginLink').style.display='none';
     document.getElementById('logoutBtn').style.display='';
+    if(document.getElementById('profileBtn')) document.getElementById('profileBtn').style.display='';
     document.getElementById('addBtn').style.display='';
-    document.getElementById('addDemandBtn').style.display='';
     document.getElementById('userName').textContent=username;
     document.getElementById('userAvatar').textContent=(username[0]||'?').toUpperCase();
     loadMyCards();
@@ -787,22 +1119,6 @@ let allListings=[], filteredListings=[], currentListing=null;
 let viewMode='list', addType='sell', addCardData=null;
 let tradeViewMode='img', selectedTradeIds=new Set();
 
-// ── Tab switching ─────────────────────────────────────────────
-let activeTab='listings';
-function switchTab(tab){
-  activeTab=tab;
-  document.getElementById('tabListings').classList.toggle('act',tab==='listings');
-  document.getElementById('tabDemands').classList.toggle('act',tab==='demands');
-  document.getElementById('listingsTab').style.display=tab==='listings'?'':'none';
-  document.getElementById('demandsTab').style.display=tab==='demands'?'':'none';
-  if(tab==='demands' && !demandsLoaded) loadDemands();
-}
-
-// Handle URL params
-const urlParams=new URLSearchParams(location.search);
-const urlSeller=urlParams.get('seller');
-const urlListing=urlParams.get('listing');
-
 // ── Load listings ─────────────────────────────────────────────
 (async function loadListings(){
   document.getElementById('listingsWrap').innerHTML =
@@ -814,16 +1130,7 @@ const urlListing=urlParams.get('listing');
     return;
   }
   allListings = res;
-  // Filter by seller from URL
-  if(urlSeller){
-    document.getElementById('searchInput').value=urlSeller;
-  }
   applyFilters();
-  // Open specific listing from URL
-  if(urlListing){
-    const target=allListings.find(l=>l.id===urlListing);
-    if(target) openDetail(urlListing);
-  }
 })();
 
 // ── Filters + Sort ────────────────────────────────────────────
@@ -920,7 +1227,7 @@ function renderListings(){
       <div class="listing-info">
         <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
         <div class="listing-meta">
-          <span>Prodejce: <a href="profile.html?user=${esc(l.username||'')}" onclick="event.stopPropagation()" style="color:var(--yellow);font-weight:700;text-decoration:none">${esc(l.username||'?')}</a></span>
+          <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
           ${set?`<span>${esc(set)}</span>`:''}
           <span>${timeAgo(l.created_at)}</span>
         </div>
@@ -985,10 +1292,7 @@ async function openDetail(id){
   document.getElementById('detailView').classList.add('show');
   document.getElementById('breadTitle').textContent=name;
   document.getElementById('dTitle').textContent=name;
-  document.getElementById('dSeller').innerHTML=`
-    Prodejce: <a href="profile.html?user=${esc(l.username||'')}" style="color:var(--yellow);text-decoration:none;font-weight:700">${esc(l.username||'?')}</a>
-    · <a href="marketplace.html?seller=${esc(l.username||'')}" style="color:var(--blue);text-decoration:none;font-size:11px">všechny nabídky →</a>
-    · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
 
   // Price
   if(price>0){
@@ -1031,7 +1335,19 @@ async function openDetail(id){
   document.getElementById('dBtnBuy').style.display=price>0?'':'none';
   if(price>0) document.getElementById('dBtnBuy').textContent='Koupit za '+price.toLocaleString('cs')+' Kč';
   document.getElementById('dBtnTrade').style.display=isTrade?'':'none';
-  if(isTrade && l.trade_wants) document.getElementById('tradeWants').textContent='Prodejce chce: '+l.trade_wants;
+
+  // Trade wants - show tags + compute matches
+  currentTradeMatches = new Set();
+  const wantsBox = document.getElementById('tradeWantsBox');
+  const wantsTags = document.getElementById('tradeWantsTags');
+  if(isTrade && l.trade_wants){
+    const keywords = parseTradeWants(l.trade_wants);
+    wantsTags.innerHTML = keywords.map(k=>`<span class="trade-want-tag">${esc(k)}</span>`).join('');
+    wantsBox.style.display='';
+    currentTradeMatches = computeTradeMatches(keywords, myCards);
+  } else {
+    wantsBox.style.display='none';
+  }
 
   // Gallery — API image first, then user photos
   buildGallery(l, first);
@@ -1081,25 +1397,85 @@ function setGalleryImg(src, idx){
   document.querySelectorAll('.gallery-thumb').forEach((t,i)=>t.classList.toggle('act',i===idx));
 }
 
+// ── Trade match detection ─────────────────────────────────────
+let currentTradeMatches = new Set();
+
+function parseTradeWants(text){
+  if(!text) return [];
+  return text.split(/[,;|/\n]+/)
+    .map(s=>s.trim())
+    .filter(s=>s.length>1);
+}
+
+function computeTradeMatches(keywords, cards){
+  const matched = new Set();
+  if(!keywords.length || !cards.length) return matched;
+  const lkw = keywords.map(k=>k.toLowerCase());
+  cards.forEach(c=>{
+    const cardStr = [
+      c.name||'', c.set||'',
+      (c.types||[]).join(' '),
+      c.supertype||'', c.rarity||''
+    ].join(' ').toLowerCase();
+    const isMatch = lkw.some(k=>{
+      if(k.length < 3) return false;
+      if(cardStr.includes(k)) return true;
+      // Pokud keyword je delší, zkus začátek
+      const nameLc = (c.name||'').toLowerCase();
+      if(nameLc.startsWith(k.substring(0,4))) return true;
+      return false;
+    });
+    if(isMatch) matched.add(String(c.id));
+  });
+  return matched;
+}
+
 function buildTradeCards(){
   const tradeCards = myCards.filter(c=>c.for_trade);
   const imgWrap  = document.getElementById('tradeCardsImg');
   const listWrap = document.getElementById('tradeCardsList');
+  const matchSec = document.getElementById('tradeMatchSection');
+  const matchWrap= document.getElementById('tradeMatchCards');
+
+  // Build match section
+  const matchCards = tradeCards.filter(c=>currentTradeMatches.has(String(c.id)));
+  if(matchCards.length && matchSec){
+    matchSec.style.display='';
+    matchWrap.innerHTML = matchCards.map(c=>{
+      const img=c.images?.small||c.apiSmall||c.imageUrl||'';
+      const sel=selectedTradeIds.has(String(c.id));
+      return `<div class="trade-card-item match ${sel?'sel':''}" onclick="toggleTradeCard('${esc(String(c.id))}')" title="${esc(c.name||'?')}">
+        ${img?`<img src="${esc(img)}" alt="${esc(c.name||'')}">`:esc(c.name||'?')}
+      </div>`;
+    }).join('');
+  } else if(matchSec){
+    matchSec.style.display='none';
+  }
+
+  // Non-match trade cards
+  const otherCards = tradeCards.filter(c=>!currentTradeMatches.has(String(c.id)));
+  const labelEl = document.getElementById('tradeOtherLabel');
+  if(labelEl) labelEl.style.display = (matchCards.length && otherCards.length) ? '' : (tradeCards.length ? '' : 'none');
+
   if(!tradeCards.length){
-    imgWrap.innerHTML='<div style="font-size:12px;color:var(--text3)">Nemáte žádné karty označené k výměně. Označte je v Moje album.</div>';
+    imgWrap.innerHTML='<div class="trade-no-match">Nemáte žádné karty označené k výměně.<br><a href="moje-album.html" style="color:var(--blue)">Označte je v Moje album →</a></div>';
     listWrap.innerHTML='';
     return;
   }
-  imgWrap.innerHTML = tradeCards.map(c=>{
+
+  const displayCards = otherCards.length ? otherCards : tradeCards;
+  imgWrap.innerHTML = displayCards.map(c=>{
     const img=c.images?.small||c.apiSmall||c.imageUrl||'';
     const sel=selectedTradeIds.has(String(c.id));
-    return `<div class="trade-card-item ${sel?'sel':''}" onclick="toggleTradeCard('${esc(String(c.id))}')" title="${esc(c.name||'?')}">
+    const isMatch=currentTradeMatches.has(String(c.id));
+    return `<div class="trade-card-item ${sel?'sel':''} ${isMatch?'match':''}" onclick="toggleTradeCard('${esc(String(c.id))}')" title="${esc(c.name||'?')}">
       ${img?`<img src="${esc(img)}" alt="${esc(c.name||'')}">`:esc(c.name||'?')}
     </div>`;
   }).join('');
   listWrap.innerHTML = tradeCards.map(c=>
     `<label class="trade-list-item">
       <input type="checkbox" ${selectedTradeIds.has(String(c.id))?'checked':''} onchange="toggleTradeCard('${esc(String(c.id))}')">
+      ${currentTradeMatches.has(String(c.id))?'<span style="color:var(--blue)">★ </span>':''}
       ${esc(c.name||'?')} · ${esc(c.set||'')} ${c.number||c.num?'#'+(c.number||c.num):''}
     </label>`
   ).join('');
@@ -1235,12 +1611,306 @@ async function sendMsg(){
 function openAddListing(){
   if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
   document.getElementById('addModal').style.display='flex';
+  resetAiZone();
 }
 function closeAddListing(){
   document.getElementById('addModal').style.display='none';
   addCardData=null;
   document.getElementById('addCardPreview').style.display='none';
   document.getElementById('addCardUrl').value='';
+  resetAiZone();
+}
+
+// ── AI Photo Recognition ──────────────────────────────────────
+let aiPhotoBase64 = null;
+let aiPhotoMime   = 'image/jpeg';
+
+function resetAiZone(){
+  aiPhotoBase64 = null;
+  const zone = document.getElementById('aiDropZone');
+  if(zone){
+    zone.classList.remove('scanning');
+    zone.innerHTML=`<input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+    <div id="aiDropContent">
+      <div class="ai-drop-icon">📸</div>
+      <div class="ai-drop-title">Vyfot nebo přetáhni kartu</div>
+      <div class="ai-drop-hint">AI automaticky rozezná pokémona, sérii a číslo</div>
+    </div>`;
+  }
+  const prog = document.getElementById('aiScanProgress');
+  if(prog) prog.style.display='none';
+}
+
+function handleAiDrop(e){
+  e.preventDefault();
+  document.getElementById('aiDropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files?.[0];
+  if(file && file.type.startsWith('image/')) handleAiPhoto(file);
+}
+
+async function handleAiPhoto(file){
+  if(!file) return;
+  aiPhotoMime = file.type || 'image/jpeg';
+
+  // Show preview of uploaded image + scanning overlay
+  const zone = document.getElementById('aiDropZone');
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    aiPhotoBase64 = ev.target.result.split(',')[1];
+    const imgSrc  = ev.target.result;
+
+    // Show scanning animation inside drop zone
+    zone.classList.add('scanning');
+    zone.innerHTML = `
+      <div style="position:relative;width:100%;display:flex;align-items:center;justify-content:center;min-height:110px">
+        <img src="${imgSrc}" style="max-height:110px;max-width:100%;border-radius:9px;object-fit:contain;opacity:0.5">
+        <div class="ai-scanning-overlay" style="border-radius:9px">
+          <div class="ai-scanner-line"></div>
+          <div class="ai-scanning-text">🤖 AI skenuje...</div>
+          <div class="ai-scanner-line" style="animation-delay:.4s"></div>
+        </div>
+      </div>`;
+
+    // Show progress bar
+    const prog = document.getElementById('aiScanProgress');
+    const fill = document.getElementById('aiScanFill');
+    const stat = document.getElementById('aiScanStatus');
+    prog.style.display='';
+    fill.style.width='15%';
+    stat.textContent='Analyzuji obraz...';
+
+    try {
+      // Step 1: Claude AI vision
+      fill.style.width='35%';
+      stat.textContent='AI rozpoznává kartu...';
+      const aiResult = await callClaudeVision(aiPhotoBase64, aiPhotoMime);
+
+      fill.style.width='60%';
+      stat.textContent='Hledám v databázi pokemontcg.io...';
+
+      // Step 2: Search pokemontcg.io
+      const candidates = await searchPokemonTcg(aiResult);
+
+      fill.style.width='90%';
+      stat.textContent='Zpracovávám výsledky...';
+
+      await new Promise(r=>setTimeout(r,300));
+      fill.style.width='100%';
+      prog.style.display='none';
+      zone.classList.remove('scanning');
+
+      if(!candidates.length){
+        // Nothing found – show manual fallback
+        showAiFailure(zone, imgSrc, aiResult);
+      } else if(candidates.length === 1 || (aiResult.confidence === 'high' && candidates.length <= 2)){
+        // Auto-select best match
+        applyAiCard(candidates[0], imgSrc, aiResult.confidence || 'med');
+        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med');
+      } else {
+        // Multiple candidates – show picker
+        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med');
+        openAiPick(candidates, aiResult, imgSrc);
+      }
+    } catch(err){
+      prog.style.display='none';
+      zone.classList.remove('scanning');
+      showAiError(zone, imgSrc, err.message);
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function callClaudeVision(base64, mimeType){
+  const prompt = `You are a Pokémon TCG card recognition expert. Analyze this card image and extract:
+1. Pokemon name (exactly as printed on card)
+2. Card number (e.g. "025/198" or "SV001")
+3. Set name (e.g. "Scarlet & Violet", "Paldea Evolved", "Temporal Forces")
+4. Set code if visible (e.g. "SVI", "PAL", "TEF")
+5. Rarity (Common, Uncommon, Rare, Holo Rare, Ultra Rare, Special Illustration Rare, etc.)
+6. Card type/subtype (Pokémon, Trainer, Energy; and V, VMAX, ex, GX, etc.)
+7. HP value if visible
+
+Respond ONLY with a JSON object, no explanation:
+{
+  "name": "...",
+  "number": "...",
+  "setName": "...",
+  "setCode": "...",
+  "rarity": "...",
+  "subtype": "...",
+  "hp": "...",
+  "confidence": "high|med|low",
+  "notes": "any uncertainty"
+}
+
+If you cannot identify the card at all, return {"confidence":"low","name":"","notes":"reason"}`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+          { type: 'text', text: prompt }
+        ]
+      }]
+    })
+  });
+  const data = await response.json();
+  const raw = data.content?.map(b=>b.text||'').join('') || '{}';
+  try {
+    const clean = raw.replace(/```json|```/g,'').trim();
+    return JSON.parse(clean);
+  } catch { return { confidence:'low', name:'', notes:'Parse error' }; }
+}
+
+async function searchPokemonTcg(aiResult){
+  const { name, number, setName, setCode, confidence } = aiResult;
+  const candidates = [];
+
+  // Build queries from most specific to least
+  const queries = [];
+
+  if(name && (number || setCode)){
+    if(number && setCode) queries.push(`name:"${name}" number:"${number}" set.id:"${setCode.toLowerCase()}"`);
+    if(number && setName) queries.push(`name:"${name}" number:"${number}" set.name:"${setName}"`);
+    if(number)            queries.push(`name:"${name}" number:"${number}"`);
+    if(setName)           queries.push(`name:"${name}" set.name:"${setName}"`);
+    if(setCode)           queries.push(`name:"${name}" set.id:"${setCode.toLowerCase()}"`);
+  }
+  if(name) queries.push(`name:"${name}"`);
+
+  for(const q of queries){
+    try {
+      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=8&orderBy=-set.releaseDate`);
+      const json = await res.json();
+      if(json.data?.length){
+        json.data.forEach(c=>{ if(!candidates.find(x=>x.id===c.id)) candidates.push(c); });
+        if(candidates.length >= 2 && confidence === 'high') break;
+        if(candidates.length >= 4) break;
+      }
+    } catch{}
+  }
+
+  // Sort: exact number match first
+  if(number){
+    candidates.sort((a,b)=>{
+      const aMatch = a.number === number ? 0 : 1;
+      const bMatch = b.number === number ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }
+  return candidates.slice(0,8);
+}
+
+function applyAiCard(card, photoSrc, confidence){
+  addCardData = card;
+  // Also store user photo
+  addCardData._userPhoto = photoSrc;
+  document.getElementById('addCardImg').src   = card.images?.small || photoSrc;
+  document.getElementById('addCardName').textContent = card.name;
+  document.getElementById('addCardMeta').textContent = (card.set?.name||'')+(card.number?' · #'+card.number:'')+(card.rarity?' · '+card.rarity:'');
+  document.getElementById('addCardPreview').style.display='flex';
+}
+
+function showAiSuccess(zone, photoSrc, card, confidence){
+  const confClass = confidence==='high'?'high':confidence==='med'?'med':'low';
+  const confLabel = confidence==='high'?'✓ Vysoká jistota':confidence==='med'?'~ Střední jistota':'? Nízká jistota';
+  zone.innerHTML = `
+    <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+    <div class="ai-preview-wrap" onclick="event.stopPropagation()">
+      <img class="ai-preview-img" src="${esc(card.images?.small||photoSrc)}" onerror="this.src='${esc(photoSrc)}'">
+      <div class="ai-preview-info">
+        <div class="ai-preview-name">${esc(card.name)}</div>
+        <div class="ai-preview-meta">${esc(card.set?.name||'')}${card.number?' · #'+esc(card.number):''}${card.rarity?' · '+esc(card.rarity):''}</div>
+        <div class="ai-preview-conf ${confClass}">${confLabel}</div>
+      </div>
+      <button class="ai-preview-change" onclick="document.getElementById('aiPhotoInput').click()">📸 Změnit</button>
+    </div>`;
+}
+
+function showAiFailure(zone, photoSrc, aiResult){
+  zone.innerHTML = `
+    <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+    <div class="ai-preview-wrap" onclick="event.stopPropagation()">
+      <img class="ai-preview-img" src="${esc(photoSrc)}" style="opacity:0.5">
+      <div class="ai-preview-info">
+        <div class="ai-preview-name" style="color:var(--text3)">Karta nenalezena v databázi</div>
+        <div class="ai-preview-meta">${aiResult.name ? 'AI odhaduje: '+esc(aiResult.name) : 'Zkus lepší foto nebo ruční hledání'}</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="openCardSearch('listing')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(245,200,66,0.3);background:transparent;color:var(--yellow);cursor:pointer">🔍 Hledat ručně</button>
+          <button onclick="document.getElementById('aiPhotoInput').click()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">📸 Znovu</button>
+        </div>
+      </div>
+    </div>`;
+  // Keep photo stored for listing
+  aiPhotoBase64 && (addCardData = addCardData || {});
+  if(addCardData) addCardData._userPhoto = photoSrc;
+}
+
+function showAiError(zone, photoSrc, errMsg){
+  zone.innerHTML=`
+    <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+    <div class="ai-preview-wrap" onclick="event.stopPropagation()">
+      <img class="ai-preview-img" src="${esc(photoSrc)}" style="opacity:0.4">
+      <div class="ai-preview-info">
+        <div class="ai-preview-name" style="color:var(--red)">Chyba AI skenování</div>
+        <div class="ai-preview-meta" style="font-size:10px">${esc(errMsg||'Neznámá chyba')}</div>
+        <div style="display:flex;gap:6px;margin-top:6px">
+          <button onclick="openCardSearch('listing')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(245,200,66,0.3);background:transparent;color:var(--yellow);cursor:pointer">🔍 Hledat ručně</button>
+          <button onclick="document.getElementById('aiPhotoInput').click()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">📸 Zkusit znovu</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── AI Pick Modal ─────────────────────────────────────────────
+let aiPickPhoto = null;
+
+function openAiPick(candidates, aiResult, photoSrc){
+  aiPickPhoto = photoSrc;
+  const modal = document.getElementById('aiPickModal');
+  modal.style.display='flex';
+
+  const title   = document.getElementById('aiPickTitle');
+  const subtitle= document.getElementById('aiPickSubtitle');
+  const detected= document.getElementById('aiPickDetected');
+  const list    = document.getElementById('aiPickList');
+
+  title.textContent   = `AI rozpoznalo: ${aiResult.name || '?'}`;
+  subtitle.textContent= `Nalezeno ${candidates.length} možných karet – vyber správnou`;
+
+  const parts = [aiResult.name, aiResult.setName, aiResult.number && '#'+aiResult.number].filter(Boolean);
+  detected.textContent = parts.join(' · ') || 'Neznámé';
+
+  list.innerHTML = candidates.map((c, i) => `
+    <div class="ai-candidate ${i===0?'best-match':''}" onclick="pickAiCandidate('${esc(c.id)}')">
+      ${i===0 ? '<div class="ai-candidate-badge">⭐ Nejlepší shoda</div>' : ''}
+      <img class="ai-candidate-img" src="${esc(c.images?.small||'')}" loading="lazy" onerror="this.style.display='none'">
+      <div class="ai-candidate-name">${esc(c.name)}</div>
+      <div class="ai-candidate-meta">${esc(c.set?.name||'')}${c.number?' · #'+esc(c.number):''}${c.rarity?'<br>'+esc(c.rarity):''}</div>
+    </div>`).join('');
+
+  // Store candidates for lookup
+  window._aiCandidates = candidates;
+}
+
+function pickAiCandidate(cardId){
+  const c = window._aiCandidates?.find(x=>x.id===cardId);
+  if(!c) return;
+  applyAiCard(c, aiPickPhoto, 'high');
+  // Also update drop zone
+  const zone = document.getElementById('aiDropZone');
+  if(zone) showAiSuccess(zone, aiPickPhoto, c, 'high');
+  closeAiPick();
+}
+
+function closeAiPick(){
+  document.getElementById('aiPickModal').style.display='none';
 }
 
 async function fetchCardForListing(){
@@ -1270,83 +1940,6 @@ function setAddType(type){
   });
   document.getElementById('addPriceRow').style.display=(type==='sell'||type==='both')?'':'none';
   document.getElementById('addTradeRow').style.display=(type==='trade'||type==='both')?'':'none';
-}
-
-// ── Demands ───────────────────────────────────────────────────
-let allDemands=[], demandsLoaded=false;
-
-async function loadDemands(){
-  demandsLoaded=true;
-  document.getElementById('demandsWrap').innerHTML=
-    Array(3).fill('<div class="skeleton-row"></div>').join('');
-  const res=await sbReq('rest/v1/demands?status=eq.active&select=*&order=created_at.desc&limit=100');
-  allDemands=Array.isArray(res)?res:[];
-  renderDemands();
-}
-
-function renderDemands(){
-  const q=(document.getElementById('searchDemands').value||'').toLowerCase();
-  const filtered=allDemands.filter(d=>
-    !q||(d.card_name||'').toLowerCase().includes(q)||(d.card_set||'').toLowerCase().includes(q)
-  );
-  document.getElementById('countDemands').textContent=filtered.length+' poptávek';
-  const wrap=document.getElementById('demandsWrap');
-  if(!filtered.length){
-    wrap.innerHTML='<div class="empty-state"><div class="icon">🔍</div><h3>Žádné poptávky</h3><p>Buď první kdo hledá!</p></div>';
-    return;
-  }
-  wrap.innerHTML=filtered.map(d=>`
-    <div class="listing-row">
-      <div class="card-thumb" style="display:flex;align-items:center;justify-content:center;font-size:28px;background:rgba(255,255,255,0.04)">🔍</div>
-      <div class="listing-info">
-        <div class="listing-title">${esc(d.card_name)}</div>
-        <div class="listing-meta">
-          <span>Hledá: <a href="profile.html?user=${esc(d.username)}" style="color:var(--yellow);font-weight:700;text-decoration:none">${esc(d.username)}</a></span>
-          ${d.card_set?`<span>${esc(d.card_set)}</span>`:''}
-          <span>${timeAgo(d.created_at)}</span>
-        </div>
-        ${d.description?`<div style="font-size:12px;color:var(--text3);margin-top:5px">${esc(d.description)}</div>`:''}
-      </div>
-      <div class="listing-right">
-        <div class="price-big">${d.max_price_czk?d.max_price_czk.toLocaleString('cs')+' Kč':'Dohodou'}<small>${d.max_price_czk?'max cena':''}</small></div>
-        ${myUserId&&myUserId!==d.user_id?`<button class="btn-offer" onclick="contactDemander('${esc(d.username)}','${esc(d.card_name)}')">Nabídnout →</button>`:''}
-      </div>
-    </div>`).join('');
-}
-
-function contactDemander(toUser, cardName){
-  if(!token){alert('Pro kontakt se přihlas.');return}
-  window.location.href=`marketplace.html?msg_to=${encodeURIComponent(toUser)}&re=${encodeURIComponent(cardName)}`;
-}
-
-let addDemandType=null;
-function openAddDemand(){
-  if(!token){alert('Pro přidání poptávky se přihlas.');return}
-  document.getElementById('addDemandModal').style.display='flex';
-}
-function closeAddDemand(){
-  document.getElementById('addDemandModal').style.display='none';
-}
-
-async function submitDemand(){
-  if(!token){alert('Přihlas se.');return}
-  const name=document.getElementById('dName').value.trim();
-  if(!name){alert('Zadej název karty.');return}
-  const payload={
-    user_id:userId,username,
-    card_name:name,
-    card_set:document.getElementById('dSet').value.trim()||null,
-    card_type:document.getElementById('dType').value||null,
-    max_price_czk:parseInt(document.getElementById('dMaxPrice').value)||null,
-    description:document.getElementById('dDesc').value.trim()||null,
-    status:'active',
-  };
-  const res=await sbReq('rest/v1/demands','POST',payload,token);
-  if(res._err){alert('Chyba: '+res._err);return}
-  alert('Poptávka přidána!');
-  closeAddDemand();
-  allDemands.unshift(Array.isArray(res)?res[0]:res);
-  renderDemands();
 }
 
 async function submitListing(){
@@ -1395,6 +1988,215 @@ async function submitListing(){
   allListings.unshift(Array.isArray(res)?res[0]:res);
   applyFilters();
 }
+
+function openChat() {
+  if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
+  if(!currentListing) return;
+  var l = currentListing;
+  var sellerId = l.user_id;
+  var sellerName = encodeURIComponent(l.username || '');
+  window.location.href = 'chat.html?with=' + sellerId + '&username=' + sellerName + '&listing=' + l.id;
+}
+
+// Auto-open listing from chat link (?open=LISTING_ID)
+(function checkOpenParam() {
+  var p = new URLSearchParams(location.search);
+  var openId = p.get('open');
+  if (openId) {
+    var check = setInterval(function() {
+      var listing = allListings.find(function(l){ return l.id === openId; });
+      if (listing) { clearInterval(check); showDetail(listing); }
+    }, 200);
+    setTimeout(function(){ clearInterval(check); }, 5000);
+  }
+})();
+
+// ── Card Search Modal ─────────────────────────────────────────
+let cardSearchMode = 'trade'; // 'trade' | 'listing'
+let cardSearchSelected = null;
+
+function openCardSearch(mode){
+  cardSearchMode = mode || 'trade';
+  cardSearchSelected = null;
+  document.getElementById('cardSearchModal').classList.add('open');
+  document.getElementById('csbName').value='';
+  document.getElementById('csbSet').value='';
+  document.getElementById('csbResults').innerHTML=
+    '<div class="csb-empty">Zadej název Pokémona nebo sérii a stiskni Hledat.</div>';
+  setTimeout(()=>document.getElementById('csbName').focus(), 80);
+}
+
+function closeCardSearch(){
+  document.getElementById('cardSearchModal').classList.remove('open');
+}
+
+// Kliknutí mimo modal zavře
+document.addEventListener('click', e=>{
+  const modal = document.getElementById('cardSearchModal');
+  if(modal && modal.classList.contains('open') && e.target === modal){
+    closeCardSearch();
+  }
+});
+
+async function searchCards(){
+  const name = document.getElementById('csbName').value.trim();
+  const set  = document.getElementById('csbSet').value.trim();
+  if(!name && !set){ alert('Zadej alespoň název nebo sérii.'); return; }
+
+  const wrap = document.getElementById('csbResults');
+  wrap.innerHTML = '<div class="csb-loading">⏳ Hledám...</div>';
+
+  try {
+    let q = '';
+    if(name) q += `name:"${name}"`;
+    if(set)  q += (q?' ':'') + `set.name:"${set}"`;
+
+    // Also try partial match if exact fails
+    let url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=name`;
+
+    let res = await fetch(url);
+    let json = await res.json();
+
+    // Fallback: pokud nic, zkus bez uvozovek
+    if(!json.data?.length && name){
+      const q2 = name + (set ? ` set.name:${set}` : '');
+      res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
+      json = await res.json();
+    }
+
+    const cards = json.data || [];
+    if(!cards.length){
+      wrap.innerHTML='<div class="csb-empty">Žádné karty nenalezeny. Zkus jiné jméno nebo sérii.</div>';
+      return;
+    }
+
+    wrap.innerHTML = cards.map(c=>{
+      const img = c.images?.small || '';
+      const setName = c.set?.name || '';
+      const num  = c.number || '';
+      const rarity = c.rarity || '';
+      return `<div class="csb-card-row" id="csr-${esc(c.id)}" onclick="selectSearchCard(${JSON.stringify(JSON.stringify(c))})">
+        ${img ? `<img class="csb-card-img" src="${esc(img)}" loading="lazy">` : '<div style="width:40px;height:55px;background:rgba(255,255,255,0.05);border-radius:5px;flex-shrink:0"></div>'}
+        <div class="csb-card-info">
+          <div class="csb-card-name">${esc(c.name)}</div>
+          <div class="csb-card-meta">${esc(setName)}${num?' · #'+esc(num):''}${rarity?' · '+esc(rarity):''}</div>
+        </div>
+        <button class="csb-card-select" onclick="event.stopPropagation();useSearchCard(${JSON.stringify(JSON.stringify(c))})">
+          ${cardSearchMode==='trade' ? 'Nabídnout' : 'Vybrat'}
+        </button>
+      </div>`;
+    }).join('');
+  } catch(e){
+    wrap.innerHTML=`<div class="csb-empty">Chyba: ${esc(e.message)}</div>`;
+  }
+}
+
+function selectSearchCard(jsonStr){
+  const c = JSON.parse(jsonStr);
+  // Highlight
+  document.querySelectorAll('.csb-card-row').forEach(el=>el.classList.remove('selected'));
+  const row = document.getElementById('csr-'+c.id);
+  if(row) row.classList.add('selected');
+  cardSearchSelected = c;
+}
+
+function useSearchCard(jsonStr){
+  const c = JSON.parse(jsonStr);
+  if(cardSearchMode === 'listing'){
+    // Naplní formulář pro novou nabídku
+    addCardData = c;
+    document.getElementById('addCardImg').src  = c.images?.small||'';
+    document.getElementById('addCardName').textContent = c.name;
+    document.getElementById('addCardMeta').textContent = (c.set?.name||'')+(c.number?' #'+c.number:'');
+    document.getElementById('addCardPreview').style.display='flex';
+    document.getElementById('addCardUrl').value = c.id;
+    closeCardSearch();
+  } else {
+    // Přidá kartu do výměnného návrhu jako dočasnou kartu
+    const tempId = 'search_'+c.id;
+    // Přidej do myCards pokud tam ještě není
+    if(!myCards.find(mc=>String(mc.id)===tempId)){
+      myCards.push({
+        id: tempId,
+        name: c.name,
+        set: c.set?.name||'',
+        number: c.number||'',
+        types: c.types||[],
+        rarity: c.rarity||'',
+        images: c.images||null,
+        for_trade: true,
+        _searched: true,
+      });
+    }
+    selectedTradeIds.add(tempId);
+    buildTradeCards();
+    closeCardSearch();
+  }
+}
+
+// Rovněž přepojíme tlačítko v add modal aby šlo přes search modal
+function openCardSearchForListing(){
+  openCardSearch('listing');
+}
+
+</script>
+
+<script>
+/* ── Chat Dropdown + Notifikace ── */
+(function(){
+  'use strict';
+  var POLL=8000;
+  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  var tk=localStorage.getItem('sb_token');
+  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  if(!tk||!su||!su.id)return;
+  var uid=su.id,convs=[],prevUn=0,dropO=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
+  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
+  function renderDrop(){
+    var list=document.getElementById('chatDropList');if(!list)return;
+    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
+    list.innerHTML=convs.slice(0,8).map(function(c){
+      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
+      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
+      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
+      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
+        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
+        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+    }).join('');
+    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
+      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
+      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
+      document.getElementById('chatDrop').appendChild(pr)
+    }
+  }
+  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
+  async function poll(){
+    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
+    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
+    var bg=document.getElementById('chatBadge');
+    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
+    if(tot>prevUn&&prevUn>=0&&document.hidden){
+      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
+      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
+    }
+    prevUn=tot;
+    if(dropO)renderDrop();
+    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
+  }
+  poll();setInterval(poll,POLL);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+})();
 </script>
 </body>
 </html>

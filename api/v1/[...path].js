@@ -47,10 +47,40 @@ export default async function handler(req, res) {
   const authHeader = req.headers.authorization || '';
   const token  = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : SUPABASE_ANON;
 
+  // Získej reálnou IP ze serverových hlaviček (spolehlivější než client-side)
+  const clientIP = (req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || req.socket?.remoteAddress || 'unknown')
+    .split(',')[0].trim();
+  const userAgent = (req.headers['user-agent'] || '').slice(0, 250);
+
+  // ── Pomocná funkce: zaloguj přihlášení ──────────────────
+  async function logIP(userId, action = 'login', success = true) {
+    if (!userId || clientIP === 'unknown') return;
+    try {
+      await sbFetch('rest/v1/user_ip_logs', 'POST', {
+        user_id: userId, ip_address: clientIP,
+        user_agent: userAgent, action, success
+      }, SUPABASE_ANON);
+    } catch { /* logování nesmí blokovat přihlášení */ }
+  }
+
+  // ── Zkontroluj zda je IP blokovaná ──────────────────────
+  async function isIPBlocked() {
+    if (clientIP === 'unknown') return false;
+    try {
+      const r = await sbFetch(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(clientIP)}&select=id`, 'GET', null, SUPABASE_ANON);
+      return Array.isArray(r) && r.length > 0;
+    } catch { return false; }
+  }
+
   try {
 
     // ── POST /auth/login ─────────────────────────────
     if (path === '/auth/login' && method === 'POST') {
+      // Zkontroluj blokaci IP
+      if (await isIPBlocked()) {
+        return jsonError(res, 403, 'Přístup z této IP adresy byl zablokován');
+      }
+
       const { username, password } = body;
 
       // Najdi uživatele podle username
@@ -69,8 +99,12 @@ export default async function handler(req, res) {
       }, SUPABASE_ANON);
 
       if (authRes.error) {
+        await logIP(null, 'failed', false);
         return jsonError(res, 401, 'Špatné heslo');
       }
+
+      // Zaloguj úspěšné přihlášení ze serveru (IP je ze skutečných hlaviček)
+      await logIP(authRes.user.id, 'login', true);
 
       return jsonOk(res, {
         token:    authRes.access_token,
@@ -82,6 +116,11 @@ export default async function handler(req, res) {
 
     // ── POST /auth/register ──────────────────────────
     if (path === '/auth/register' && method === 'POST') {
+      // Zkontroluj blokaci IP i při registraci
+      if (await isIPBlocked()) {
+        return jsonError(res, 403, 'Registrace z této IP adresy je zablokována');
+      }
+
       const { username, email, password } = body;
 
       const signupRes = await sbFetch('auth/v1/signup', 'POST', {
@@ -91,6 +130,11 @@ export default async function handler(req, res) {
 
       if (signupRes.error) {
         return jsonError(res, 400, signupRes.error.message);
+      }
+
+      // Zaloguj registraci
+      if (signupRes.user?.id) {
+        await logIP(signupRes.user.id, 'register', true);
       }
 
       return jsonOk(res, { message: 'Účet vytvořen, zkontroluj e-mail.' });

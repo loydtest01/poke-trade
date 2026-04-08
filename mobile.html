@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PokéScan">
+<link rel="apple-touch-icon" href="pokemon.png">
+<title>PokéScan – Telefon</title>
+<style>
+:root {
+  --bg:      #0f1117;
+  --surface: #1a1d27;
+  --card:    #22263a;
+  --border:  #2e3348;
+  --accent:  #4f8ef7;
+  --green:   #4ade80;
+  --red:     #f87171;
+  --yellow:  #facc15;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --radius:  14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column}
+
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:11px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.hdr-logo{font-size:17px;font-weight:800;letter-spacing:1px;color:#fff;flex:1;display:flex;align-items:center;gap:7px}
+.hdr-logo span{color:var(--yellow)}
+.hdr-chip{font-size:11px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:3px 9px;color:var(--muted);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.hdr-chip.ok{background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.3);color:var(--green)}
+.hdr-chip.err{background:rgba(248,113,113,.1);border-color:rgba(248,113,113,.3);color:var(--red)}
+
+.prog-bar{height:3px;background:var(--border);flex-shrink:0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);transition:width .4s ease;width:0%}
+
+.content{flex:1;overflow-y:auto;padding:18px 14px;display:flex;flex-direction:column;gap:14px}
+.screen{display:none;flex-direction:column;gap:14px}
+.screen.active{display:flex}
+
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;flex-direction:column;gap:11px}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+.login-logo{text-align:center;padding:20px 0 10px;font-size:36px}
+.login-title{text-align:center;font-size:20px;font-weight:800;color:var(--yellow);margin-bottom:4px}
+.login-sub{text-align:center;font-size:13px;color:var(--muted)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+.field input{background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);padding:13px 14px;font-size:15px;font-family:inherit;width:100%;outline:none;-webkit-appearance:none}
+.field input:focus{border-color:rgba(79,142,247,.5);box-shadow:0 0 0 3px rgba(79,142,247,.12)}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;border-radius:11px;font-family:inherit;font-weight:700;font-size:15px;border:none;cursor:pointer;transition:all .18s;width:100%}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-primary{background:linear-gradient(135deg,#facc15,#f59e0b);color:#111}
+.btn-primary:active:not(:disabled){opacity:.85;transform:scale(.98)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.login-err{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:10px;padding:11px 14px;font-size:13px;color:var(--red);display:none}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:56px}
+.pw-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px}
+
+.photo-box{width:100%;aspect-ratio:3/4;max-height:46vh;background:var(--surface);border-radius:11px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:border-color .2s;position:relative}
+.photo-box.has-photo{border-style:solid;border-color:var(--accent)}
+.photo-box img{width:100%;height:100%;object-fit:contain}
+.ph-hint{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted)}
+.ph-hint .icon{font-size:48px}
+.ph-hint .txt{font-size:13px;text-align:center;line-height:1.5}
+
+.src-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.src-btn{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;color:var(--text);font-size:12px;font-weight:600;transition:all .15s;text-align:center}
+.src-btn .icon{font-size:24px}
+.src-btn:active{background:rgba(79,142,247,.15);border-color:rgba(79,142,247,.5);color:var(--accent)}
+
+.ai-result{background:var(--surface);border:1px solid rgba(79,142,247,.3);border-radius:10px;padding:12px;min-height:44px}
+.ai-name{font-size:15px;font-weight:700;color:var(--accent)}
+.ai-sub{color:var(--muted);font-size:12px;margin-top:2px}
+.ai-conf{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;margin-top:5px;font-weight:700}
+.ai-conf.hi{background:rgba(74,222,128,.15);color:var(--green)}
+.ai-conf.lo{background:rgba(248,113,113,.15);color:var(--red)}
+.ai-conf.med{background:rgba(250,204,21,.15);color:var(--yellow)}
+.ai-wait{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.cond-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cond-btn{padding:10px 4px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cond-btn .icon{font-size:14px}
+.cond-btn.selected{border-color:var(--accent);background:rgba(79,142,247,.15);color:var(--accent)}
+
+.count-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+
+.send-bar-wrap{background:var(--surface);border-radius:8px;height:8px;overflow:hidden;margin-top:4px}
+.send-bar{height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);border-radius:8px;transition:width .4s;width:0%}
+
+.stat-row{display:flex;gap:20px;justify-content:center}
+.stat-item{text-align:center}
+.stat-num{font-size:28px;font-weight:800;color:var(--yellow)}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:2px}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:11px 20px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:999;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:none;align-items:flex-end}
+.overlay.open{display:flex}
+.bottom-sheet{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px 16px 36px;width:100%;display:flex;flex-direction:column;gap:14px;max-height:85vh;overflow-y:auto}
+.sheet-title{font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:space-between}
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.toggle-row:last-child{border-bottom:none}
+.toggle-label{font-size:13px;display:flex;flex-direction:column;gap:3px}
+.toggle-desc{font-size:11px;color:var(--muted)}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:13px;cursor:pointer;transition:.2s}
+.toggle input:checked ~ .toggle-track{background:var(--accent)}
+.toggle-track::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:3px;left:3px;transition:.2s}
+.toggle input:checked ~ .toggle-track::after{left:21px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<header class="hdr">
+  <div class="hdr-logo">🎴 <span>PokéScan</span></div>
+  <div id="chipUser" class="hdr-chip">👤 –</div>
+  <div id="chipNet"  class="hdr-chip">📡 –</div>
+  <button onclick="openSettings()" style="background:none;border:none;color:var(--muted);font-size:20px;padding:4px 2px;cursor:pointer;line-height:1">⚙️</button>
+</header>
+<div class="prog-bar"><div class="prog-fill" id="progFill"></div></div>
+
+<div class="content">
+
+<!-- ── LOGIN ── -->
+<div class="screen active" id="scLogin">
+  <div class="login-logo">🎴</div>
+  <div class="login-title">PokéScan</div>
+  <div class="login-sub">Přihlas se svým PokéTrade účtem</div>
+
+  <div id="loginErr" class="login-err"></div>
+
+  <div class="panel" style="gap:13px">
+    <div class="field">
+      <label>E-mail nebo uživatelské jméno</label>
+      <input type="text" id="loginEmail" placeholder="trainer@example.com"
+        autocomplete="username" inputmode="email">
+    </div>
+    <div class="field">
+      <label>Heslo</label>
+      <div class="pw-wrap">
+        <input type="password" id="loginPw" placeholder="••••••••" autocomplete="current-password">
+        <button class="pw-eye" onclick="togglePw()" type="button">👁</button>
+      </div>
+    </div>
+    <button class="btn btn-primary" id="loginBtn" onclick="doLogin()">Přihlásit se</button>
+    <a href="register.html" target="_blank"
+       style="text-align:center;font-size:12px;color:var(--muted);text-decoration:none;padding:4px 0;display:block">
+      Nemáš účet? <span style="color:var(--accent)">Zaregistruj se →</span>
+    </a>
+  </div>
+
+  <div style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:12px;padding:14px;font-size:12px;color:var(--muted);line-height:1.6">
+    💡 <strong style="color:var(--text)">Tip:</strong> Po přihlášení přidej tuto stránku na plochu telefonu
+    (Safari → Sdílet → Přidat na plochu / Chrome → ⋮ → Přidat na domovskou obrazovku).
+    Příště se přihlásí automaticky a funguje i přes mobilní data.
+  </div>
+</div>
+
+<!-- ── SETUP ── -->
+<div class="screen" id="scSetup">
+  <div class="panel">
+    <div class="panel-title">Kolik karet chceš vyfotit?</div>
+    <div class="count-grid" id="countGrid"></div>
+    <div style="display:flex;gap:8px">
+      <input type="number" id="customCount" min="1" max="99" placeholder="Vlastní počet"
+        style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+               color:var(--text);padding:11px 12px;font-size:14px;font-family:inherit;outline:none">
+      <button class="btn btn-primary" onclick="startCustom()" style="flex:0 0 auto;width:auto;padding:11px 18px">Spustit</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Stav sítě</div>
+    <div id="netStatus" style="font-size:13px;color:var(--muted);line-height:1.5">Kontroluji...</div>
+  </div>
+</div>
+
+<!-- ── FOTO ── -->
+<div class="screen" id="scPhoto">
+  <div style="font-size:12px;color:var(--muted);text-align:center;font-weight:600" id="photoProgress">
+    Karta 1 / 1
+  </div>
+
+  <div class="photo-box" id="photoBox" onclick="pickCamera()">
+    <div class="ph-hint">
+      <div class="icon">📷</div>
+      <div class="txt">Klepni pro kamerku<br>nebo vyber z galerie níže</div>
+    </div>
+  </div>
+  <input type="file" id="fileCamera"  accept="image/*" capture="environment" style="display:none" onchange="onFile(this)">
+  <input type="file" id="fileGallery" accept="image/*" style="display:none" onchange="onFile(this)">
+
+  <div class="src-btns">
+    <div class="src-btn" onclick="document.getElementById('fileCamera').click()">
+      <div class="icon">📷</div>Kamera
+    </div>
+    <div class="src-btn" onclick="document.getElementById('fileGallery').click()">
+      <div class="icon">🖼</div>Galerie
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">🤖 AI rozpoznávání (volitelné)</div>
+    <div id="aiResult" class="ai-result">
+      <div class="ai-wait">Vyber foto kartičky</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-title">Stav kartičky</div>
+    <div class="cond-grid">
+      <div class="cond-btn selected" data-cond="NM" onclick="setCond('NM',this)">
+        <div class="icon">✨</div>NM
+      </div>
+      <div class="cond-btn" data-cond="LP" onclick="setCond('LP',this)">
+        <div class="icon">👍</div>LP
+      </div>
+      <div class="cond-btn" data-cond="MP" onclick="setCond('MP',this)">
+        <div class="icon">👌</div>MP
+      </div>
+      <div class="cond-btn" data-cond="HP" onclick="setCond('HP',this)">
+        <div class="icon">😬</div>HP
+      </div>
+      <div class="cond-btn" data-cond="D" onclick="setCond('D',this)">
+        <div class="icon">💀</div>D
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="sendBtn" onclick="sendCard()" disabled>📤 Odeslat kartu</button>
+  <button class="btn btn-outline"              onclick="skipCard()">Přeskočit</button>
+</div>
+
+<!-- ── ODESÍLÁNÍ ── -->
+<div class="screen" id="scSending">
+  <div class="panel" style="align-items:center;padding:32px 16px;gap:16px">
+    <div style="font-size:48px">📤</div>
+    <div style="font-size:16px;font-weight:700">Odesílám fotky...</div>
+    <div id="sendProgress" style="font-size:13px;color:var(--muted)">0 / 0</div>
+    <div class="send-bar-wrap" style="width:100%">
+      <div class="send-bar" id="sendBar"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HOTOVO ── -->
+<div class="screen" id="scDone">
+  <div class="panel" style="align-items:center;padding:32px 16px;gap:16px">
+    <div style="font-size:56px">✅</div>
+    <div style="font-size:18px;font-weight:800;color:var(--green)">Odesláno na PC!</div>
+    <div class="stat-row" id="doneStats"></div>
+    <p style="font-size:12px;color:var(--muted);text-align:center;line-height:1.6">
+      Kartičky se zobrazí v PokéScanneru na PC.<br>
+      Groq je tam automaticky rozpozná a přidáš je do alba.
+    </p>
+  </div>
+  <button class="btn btn-primary" onclick="restart()">📷 Fotit znovu</button>
+</div>
+
+</div><!-- .content -->
+</div><!-- #app -->
+
+<!-- Settings overlay -->
+<div class="overlay" id="settingsOverlay" onclick="maybeClose(event)">
+  <div class="bottom-sheet">
+    <div class="sheet-title">
+      ⚙️ Nastavení
+      <button onclick="closeSettings()" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1">✕</button>
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">
+        📶 Pouze přes WiFi
+        <div class="toggle-desc">Neposílat fotky přes mobilní data — šetří data</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="wifiOnlyToggle" onchange="saveWifiOnly()">
+        <div class="toggle-track"></div>
+      </label>
+    </div>
+
+    <div style="font-size:12px;color:var(--muted);background:var(--card);border-radius:10px;padding:12px;line-height:1.6">
+      ℹ️ Na iOS nelze zjistit typ sítě — přepínač funguje spolehlivě jen na Androidu.
+      Přes mobilní data to vždy funguje, jen spotřebuje data.
+    </div>
+
+    <div class="toggle-row" style="border-bottom:none">
+      <div class="toggle-label">
+        🤖 AI klíč na telefonu
+        <div class="toggle-desc">Groq rozpoznává na PC — telefon jen posílá fotky</div>
+      </div>
+      <div id="aiChip" class="hdr-chip">–</div>
+    </div>
+
+    <button class="btn btn-outline" onclick="doLogout()">🚪 Odhlásit se</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* CONFIG */
+const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+const BUCKET        = 'card-photo';
+
+/* STATE */
+let authToken = null;
+let userId    = null;
+let userEmail = '';
+let wifiOnly  = false;
+let totalCards = 1;
+let currentIdx = 0;
+let cards = [];
+
+/* INIT */
+(function init() {
+  wifiOnly  = localStorage.getItem('m_wifiOnly') === '1';
+  authToken = localStorage.getItem('m_token');
+  userId    = localStorage.getItem('m_user_id');
+  userEmail = localStorage.getItem('m_email') || '';
+  document.getElementById('wifiOnlyToggle').checked = wifiOnly;
+
+  if (authToken && userId) {
+    updateChips();
+    buildCountGrid();
+    showScreen('scSetup');
+  }
+  // else: scLogin is already active
+
+  checkNetwork();
+  setInterval(checkNetwork, 12000);
+})();
+
+/* AUTH */
+async function doLogin() {
+  const emailRaw = document.getElementById('loginEmail').value.trim();
+  const pw       = document.getElementById('loginPw').value;
+  const btn      = document.getElementById('loginBtn');
+  const errEl    = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+  if (!emailRaw || !pw) { showErr('Vyplň e-mail a heslo'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Přihlašuji...';
+  try {
+    let email = emailRaw;
+    if (!emailRaw.includes('@')) {
+      const r = await sbFetch(`rest/v1/profiles?username=eq.${encodeURIComponent(emailRaw)}&select=email`);
+      if (!Array.isArray(r) || !r[0]?.email) { showErr('Jméno nenalezeno'); return; }
+      email = r[0].email;
+    }
+    const d = await sbPost('auth/v1/token?grant_type=password', { email, password: pw });
+    if (d.error || d._err) { showErr(d.error_description || d.error || 'Chyba přihlášení'); return; }
+
+    authToken = d.access_token;
+    userId    = d.user?.id;
+    userEmail = d.user?.email || email;
+    localStorage.setItem('m_token',   authToken);
+    localStorage.setItem('m_refresh', d.refresh_token || '');
+    localStorage.setItem('m_user_id', userId);
+    localStorage.setItem('m_email',   userEmail);
+
+    updateChips();
+    buildCountGrid();
+    showScreen('scSetup');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Přihlásit se';
+  }
+  function showErr(msg) {
+    errEl.textContent = msg; errEl.style.display = 'block';
+    btn.disabled = false; btn.innerHTML = 'Přihlásit se';
+  }
+}
+
+function doLogout() {
+  ['m_token','m_refresh','m_user_id','m_email'].forEach(k => localStorage.removeItem(k));
+  authToken = null; userId = null; userEmail = '';
+  closeSettings();
+  showScreen('scLogin');
+  updateChips();
+  toast('Odhlášen');
+}
+
+function togglePw() {
+  const i = document.getElementById('loginPw');
+  i.type = i.type === 'password' ? 'text' : 'password';
+}
+
+/* NETWORK */
+function checkNetwork() {
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const el   = document.getElementById('chipNet');
+  const ns   = document.getElementById('netStatus');
+
+  if (!navigator.onLine) {
+    setChip(el, 'err', '📡 Offline');
+    if (ns) ns.innerHTML = '❌ Offline – bez připojení';
+    return;
+  }
+
+  if (conn?.type) {
+    const isWifi = conn.type === 'wifi';
+    setChip(el, isWifi ? 'ok' : '', `${isWifi ? '📶' : '📡'} ${conn.type}`);
+    if (ns) {
+      if (wifiOnly && !isWifi)
+        ns.innerHTML = '⚠️ <strong>WiFi-only zapnuto</strong> – přepni na WiFi nebo vypni v nastavení';
+      else
+        ns.textContent = `✅ Připojeno přes ${conn.type} – odesílání povoleno`;
+    }
+  } else {
+    setChip(el, 'ok', '📡 Online');
+    if (ns) ns.textContent = '✅ Online (iOS – typ sítě nezjistitelný)';
+  }
+}
+
+function canSend() {
+  if (!navigator.onLine) { toast('❌ Offline'); return false; }
+  if (wifiOnly) {
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (conn?.type && conn.type !== 'wifi') {
+      toast('⚠️ WiFi-only zapnuto – přepni na WiFi nebo vypni v nastavení');
+      return false;
+    }
+  }
+  return true;
+}
+
+/* SETUP */
+function buildCountGrid() {
+  const g = document.getElementById('countGrid');
+  g.innerHTML = '';
+  [1,3,5,10].forEach(n => {
+    const b = document.createElement('div');
+    b.className = 'src-btn';
+    b.innerHTML = `<div class="icon" style="font-size:20px;font-weight:800">${n}</div>${n===1?'karta':'karet'}`;
+    b.onclick = () => startBatch(n);
+    g.appendChild(b);
+  });
+}
+
+function startBatch(n) {
+  totalCards = n;
+  currentIdx = 0;
+  cards = Array.from({length: n}, () => ({ photo: null, condition: 'NM', aiResult: null }));
+  showPhotoScreen();
+}
+
+function startCustom() {
+  const n = parseInt(document.getElementById('customCount').value);
+  if (!n || n < 1 || n > 99) { toast('Zadej číslo 1–99'); return; }
+  startBatch(n);
+}
+
+/* PHOTO SCREEN */
+function showPhotoScreen() {
+  showScreen('scPhoto');
+  renderPhotoScreen();
+}
+
+function renderPhotoScreen() {
+  const card = cards[currentIdx];
+  document.getElementById('photoProgress').textContent = `Karta ${currentIdx+1} / ${totalCards}`;
+  document.getElementById('progFill').style.width = `${(currentIdx/totalCards)*100}%`;
+
+  const box = document.getElementById('photoBox');
+  if (card.photo) {
+    box.innerHTML = `<img src="${card.photo}" alt="">`;
+    box.classList.add('has-photo');
+  } else {
+    box.innerHTML = `<div class="ph-hint"><div class="icon">📷</div><div class="txt">Klepni pro kamerku<br>nebo vyber z galerie níže</div></div>`;
+    box.classList.remove('has-photo');
+  }
+
+  // Condition buttons
+  document.querySelectorAll('.cond-btn').forEach(b =>
+    b.classList.toggle('selected', b.dataset.cond === card.condition));
+
+  // AI result
+  const ar = document.getElementById('aiResult');
+  ar.innerHTML = card.aiResult
+    ? renderAI(card.aiResult)
+    : `<div class="ai-wait">Vyber foto kartičky</div>`;
+
+  document.getElementById('sendBtn').disabled = !card.photo;
+}
+
+function onFile(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    cards[currentIdx].photo = e.target.result;
+    renderPhotoScreen();
+    // Auto AI na telefonu pokud má klíč
+    if (localStorage.getItem('groqApiKey')) identifyOnPhone(e.target.result);
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function setCond(cond, el) {
+  cards[currentIdx].condition = cond;
+  document.querySelectorAll('.cond-btn').forEach(b =>
+    b.classList.toggle('selected', b.dataset.cond === cond));
+}
+
+/* AI NA TELEFONU (volitelné – pokud má uložený Groq klíč) */
+async function identifyOnPhone(dataUrl) {
+  const key = localStorage.getItem('groqApiKey');
+  if (!key) return;
+  document.getElementById('aiResult').innerHTML =
+    `<div class="ai-wait"><span class="spinner"></span> AI rozpoznávám...</div>`;
+  try {
+    const m   = dataUrl.match(/^data:(image\/[a-z+]+);base64,/);
+    const mt  = m ? m[1] : 'image/jpeg';
+    const b64 = m ? dataUrl.slice(m[0].length) : dataUrl;
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        max_tokens: 200, temperature: 0.05,
+        messages:[{role:'user',content:[
+          {type:'image_url',image_url:{url:`data:${mt};base64,${b64}`}},
+          {type:'text',text:'Pokemon TCG expert. Read card name EXACTLY as printed. Return ONLY JSON: {"name":"","set":"","number":"","type":"","condition":"NM","confidence":"high/medium/low"}'}
+        ]}]
+      })
+    });
+    const data = await res.json();
+    const raw  = data.choices?.[0]?.message?.content||'';
+    const s=raw.indexOf('{'), e=raw.lastIndexOf('}');
+    const p = s>=0 ? JSON.parse(raw.slice(s,e+1)) : null;
+    if (p?.name) {
+      cards[currentIdx].aiResult = p;
+      document.getElementById('aiResult').innerHTML = renderAI(p);
+    } else {
+      document.getElementById('aiResult').innerHTML =
+        `<div class="ai-wait" style="color:var(--red)">❌ Nepodařilo se rozpoznat</div>`;
+    }
+  } catch(e) {
+    document.getElementById('aiResult').innerHTML =
+      `<div class="ai-wait" style="color:var(--red)">❌ ${e.message}</div>`;
+  }
+}
+
+function renderAI(p) {
+  const c = p.confidence||'';
+  const cls = c==='high'?'hi':c==='low'?'lo':'med';
+  return `<div class="ai-name">${p.name||'?'}</div>
+    <div class="ai-sub">${p.set||''} ${p.number?'· #'+p.number:''} ${p.type?'· '+p.type:''}</div>
+    ${c?`<span class="ai-conf ${cls}">${c}</span>`:''}`;
+}
+
+/* SEND */
+async function sendCard() {
+  if (!canSend()) return;
+  const card = cards[currentIdx];
+  if (!card.photo) { toast('Nejdřív vyfoť kartičku'); return; }
+
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Odesílám...';
+
+  try {
+    await uploadToSupabase(card, currentIdx+1);
+    toast('✅ Karta odeslána!');
+    if (currentIdx + 1 >= totalCards) {
+      showDone();
+    } else {
+      currentIdx++;
+      renderPhotoScreen();
+    }
+  } catch(e) {
+    toast('❌ ' + e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = !cards[currentIdx]?.photo;
+    btn.innerHTML = '📤 Odeslat kartu';
+  }
+}
+
+function skipCard() {
+  if (currentIdx + 1 >= totalCards) showDone();
+  else { currentIdx++; renderPhotoScreen(); }
+}
+
+async function uploadToSupabase(card, num) {
+  if (!authToken || !userId) throw new Error('Nejsi přihlášen');
+
+  // DataURL → Blob
+  const fetchRes = await fetch(card.photo);
+  const blob     = await fetchRes.blob();
+  const ext      = blob.type.split('/')[1] || 'jpg';
+  const ts       = Date.now();
+  const rnd      = Math.random().toString(36).slice(2,6);
+  const fname    = `karta${num}_${ts}_${rnd}.${ext}`;
+  const path     = `${userId}/${fname}`;
+
+  // Upload do Storage
+  let upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+    method:  'POST',
+    headers: {
+      'Authorization': 'Bearer ' + authToken,
+      'Content-Type':  blob.type,
+      'x-upsert':      'false',
+    },
+    body: blob,
+  });
+
+  // Token expiroval – zkus refresh
+  if (upRes.status === 401) {
+    await tryRefresh();
+    upRes = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+      method:  'POST',
+      headers: { 'Authorization':'Bearer '+authToken, 'Content-Type':blob.type, 'x-upsert':'false' },
+      body: blob,
+    });
+  }
+
+  if (!upRes.ok) {
+    const err = await upRes.json().catch(()=>({}));
+    throw new Error(err.message || 'Storage upload selhal: ' + upRes.status);
+  }
+
+  // Vlož do photo_queue
+  const qRes = await fetch(`${SUPABASE_URL}/rest/v1/photo_queue`, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_ANON,
+      'Authorization': 'Bearer ' + authToken,
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({ user_id: userId, storage_path: path, filename: fname, processed: false }),
+  });
+
+  if (!qRes.ok) {
+    const err = await qRes.json().catch(()=>({}));
+    throw new Error(err.message || 'Queue insert selhal: ' + qRes.status);
+  }
+}
+
+async function tryRefresh() {
+  const refresh = localStorage.getItem('m_refresh');
+  if (!refresh) { doLogout(); throw new Error('Session vypršela, přihlaš se znovu'); }
+  try {
+    const d = await sbPost('auth/v1/token?grant_type=refresh_token', { refresh_token: refresh });
+    if (d.access_token) {
+      authToken = d.access_token;
+      localStorage.setItem('m_token',   authToken);
+      localStorage.setItem('m_refresh', d.refresh_token || refresh);
+    }
+  } catch { doLogout(); throw new Error('Session vypršela'); }
+}
+
+function showDone() {
+  const sent = cards.filter(c => c.photo).length;
+  const ai   = cards.filter(c => c.aiResult).length;
+  document.getElementById('doneStats').innerHTML = `
+    <div class="stat-item"><div class="stat-num">${sent}</div><div class="stat-lbl">Odesláno</div></div>
+    <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${ai}</div><div class="stat-lbl">AI předběžně</div></div>`;
+  document.getElementById('progFill').style.width = '100%';
+  showScreen('scDone');
+}
+
+function restart() {
+  currentIdx = 0; cards = [];
+  document.getElementById('progFill').style.width = '0%';
+  showScreen('scSetup');
+}
+
+/* SETTINGS */
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('open');
+  const key = localStorage.getItem('groqApiKey');
+  const el  = document.getElementById('aiChip');
+  if (key) setChip(el,'ok','🤖 AI ✓');
+  else     setChip(el,'err','🤖 AI ✗');
+  checkNetwork();
+}
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+function maybeClose(e)   { if (e.target.id==='settingsOverlay') closeSettings(); }
+function saveWifiOnly()  {
+  wifiOnly = document.getElementById('wifiOnlyToggle').checked;
+  localStorage.setItem('m_wifiOnly', wifiOnly?'1':'0');
+  checkNetwork();
+  toast(wifiOnly ? '📶 Pouze WiFi zapnuto' : '📡 Mobilní data povolena');
+}
+
+/* HELPERS */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id)?.classList.add('active');
+}
+
+function setChip(el, state, label) {
+  if (!el) return;
+  el.className = 'hdr-chip' + (state ? ' ' + state : '');
+  el.textContent = label;
+}
+
+function updateChips() {
+  const el = document.getElementById('chipUser');
+  if (userEmail) setChip(el, 'ok', '👤 ' + (userEmail.split('@')[0] || 'Trainer'));
+  else           setChip(el, 'err', '👤 –');
+}
+
+async function sbFetch(path) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON }
+    });
+    return r.json();
+  } catch { return null; }
+}
+
+async function sbPost(path, body) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+      body: JSON.stringify(body),
+    });
+    return r.json();
+  } catch(e) { return { _err: e.message }; }
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>

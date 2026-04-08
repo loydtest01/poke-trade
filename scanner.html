@@ -7,6 +7,7 @@
 <link rel="icon" type="image/png" href="pokemon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════════
@@ -516,6 +517,162 @@ body::after {
 .cond-MP { color: var(--gold); }
 .cond-HP { color: #e67e22; }
 .cond-D  { color: var(--red); }
+
+/* ═══════════════════════════════════════════════
+   QR BRIDGE PANEL
+═══════════════════════════════════════════════ */
+.qr-panel {
+  display: flex; gap: 24px; align-items: flex-start;
+  padding: 24px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.qr-code-box {
+  flex-shrink: 0; width: 160px; height: 160px;
+  background: #fff; border-radius: 12px; padding: 10px;
+  display: flex; align-items: center; justify-content: center;
+}
+.qr-code-box canvas, .qr-code-box img { width: 100% !important; height: 100% !important; }
+.qr-info { flex: 1; min-width: 180px; }
+.qr-title {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 700;
+  margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+}
+.qr-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
+.qr-steps { display: flex; flex-direction: column; gap: 8px; }
+.qr-step {
+  display: flex; gap: 10px; align-items: center;
+  font-size: 12px; color: var(--text-muted);
+}
+.qr-step-num {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--gold), var(--gold2));
+  color: #0a0608; font-size: 10px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.realtime-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.3);
+  color: var(--green);
+}
+.realtime-badge.off {
+  background: rgba(255,255,255,0.05); border-color: var(--border);
+  color: var(--text-muted);
+}
+.realtime-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.realtime-badge.off .realtime-dot { background: var(--text-muted); animation: none; }
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.7); }
+}
+.incoming-banner {
+  display: none; align-items: center; gap: 10px;
+  padding: 10px 16px; border-radius: var(--radius-sm);
+  background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.3);
+  color: var(--green); font-size: 13px; font-weight: 600; margin-bottom: 12px;
+}
+.incoming-banner.show { display: flex; }
+
+/* ── Unified Top bar ──────────────────────────────────────────────── */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow, #f5c842); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2, rgba(240,236,228,0.65)); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text, #f0ece4); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow, #f5c842); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  text-decoration: none; color: var(--text, #f0ece4); transition: all .15s;
+}
+.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow, #f5c842); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+/* ── Chat dropdown ── */
+.chat-dropdown-wrap { position: relative; }
+.chat-icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2, rgba(240,236,228,0.65));
+  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 5px; line-height: 1;
+  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+}
+.chat-drop {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 300; overflow: hidden; flex-direction: column;
+}
+.chat-drop.open { display: flex; }
+.chat-drop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
+.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
+.chat-drop-all:hover { opacity: 0.8; }
+.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
+.chat-drop-list::-webkit-scrollbar { width: 4px; }
+.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
+.cdrop-item {
+  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
+  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread { border-left-color: var(--yellow, #f5c842); background: rgba(245,200,66,0.04); }
+.cdrop-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.08); display: flex; align-items: center;
+  justify-content: center; font-weight: 700; font-size: 14px; color: var(--text, #f0ece4);
+}
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+.cdrop-name { font-weight: 600; font-size: 13px; color: var(--text, #f0ece4); }
+.cdrop-time { font-size: 11px; color: rgba(240,236,228,0.35); flex-shrink: 0; margin-left: 8px; }
+.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-listing { font-size: 11px; color: var(--yellow, #f5c842); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.cdrop-listing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--yellow, #f5c842); }
+.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
+.notif-prompt { display: none; padding: 10px 14px; background: rgba(74,158,255,0.08); border-top: 1px solid rgba(255,255,255,0.06); align-items: center; gap: 8px; font-size: 12px; color: rgba(240,236,228,0.65); }
+.notif-prompt.show { display: flex; }
+.notif-prompt-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; }
+.notif-allow { background: rgba(74,158,255,0.2); color: #7ab8ff; }
+.notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); }
+@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+
 </style>
 </head>
 <body>
@@ -550,26 +707,86 @@ body::after {
 
     <div class="auth-links">
       Nemáš účet?
-      <a href="https://pokemon-trade-ruddy.vercel.app/register.html" target="_blank">Zaregistruj se zdarma →</a>
+      <a href="register.html" target="_blank">Zaregistruj se zdarma →</a>
     </div>
   </div>
 </div>
 
 <!-- ═══════════════════ MAIN APP ═══════════════════ -->
 <div id="screen-main">
-  <header class="app-header">
-    <div class="app-logo">🎴 PokéScanner</div>
-    <div class="header-user">
-      <span class="username" id="headerUsername"></span>
-      <span id="groqStatus" class="badge badge-red" title="Groq API klíč">AI ✗</span>
+  <header class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html">Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
+    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="compare.html">Porovnat alba</a>
+    <a href="scanner.html" class="active">📷 Skener</a>
+    <a href="dashboard.html">Moje karty</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="chat-dropdown-wrap" id="chatDropWrap">
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+      </button>
+      <div class="chat-drop" id="chatDrop">
+        <div class="chat-drop-head">
+          <span class="chat-drop-title">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+        </div>
+        <div class="chat-drop-list" id="chatDropList">
+          <div class="chat-drop-empty">
+            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+            <div>Žádné zprávy</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="header-actions">
-      <button class="btn btn-ghost" onclick="openSettings()" title="Nastavení">⚙️</button>
-      <button class="btn btn-outline" onclick="doLogout()">Odhlásit</button>
-    </div>
-  </header>
+    <span id="realtimeBadge" class="realtime-badge off" title="Příjem fotek z telefonu" style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:var(--text2);">
+      <span class="realtime-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;margin-right:4px;"></span> Čeká
+    </span>
+    <span id="groqStatus" class="badge badge-red" title="Groq API klíč" style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(248,113,113,0.15);color:#f87171;">AI ✗</span>
+    <button class="btn-nav-outline" onclick="openQrModal()" title="QR most – propoj telefon" style="font-size:13px">📱</button>
+    <button class="btn-nav-outline" onclick="openSettings()" title="Nastavení Groq AI" style="font-size:13px">⚙️</button>
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+  </div>
+</header>
 
   <main class="app-body">
+
+    <!-- QR Bridge panel (collapses after first use) -->
+    <div id="qrPanel" class="qr-panel glass" style="display:none;">
+      <div class="qr-code-box" id="qrCodeBox"></div>
+      <div class="qr-info">
+        <div class="qr-title">📱 Propoj telefon
+          <span id="realtimeBadge2" class="realtime-badge off"><span class="realtime-dot"></span> Čeká</span>
+        </div>
+        <p class="qr-desc">Naskenuj QR kód telefonem. Odkaz je trvalý — uloži si ho do záložek a příště QR nepotřebuješ.</p>
+        <div class="qr-steps">
+          <div class="qr-step"><span class="qr-step-num">1</span> Otevři kameru telefonu a namiř na QR kód</div>
+          <div class="qr-step"><span class="qr-step-num">2</span> Vyfot kartičky v mobilní aplikaci</div>
+          <div class="qr-step"><span class="qr-step-num">3</span> Fotky se tu zobrazí automaticky</div>
+        </div>
+        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="copyMobileUrl()" style="font-size:12px; padding:8px 14px;">📋 Kopírovat odkaz</button>
+          <button class="btn btn-ghost" onclick="hideQrPanel()" style="font-size:12px; padding:8px 14px;">Skrýt</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming photos banner -->
+    <div id="incomingBanner" class="incoming-banner">
+      📲 <span id="incomingText">Přijímám fotky z telefonu...</span>
+    </div>
 
     <!-- Upload zone -->
     <div class="upload-zone" id="uploadZone">
@@ -731,12 +948,47 @@ body::after {
       🔒 Klíč se ukládá pouze do <strong>localStorage</strong> tvého prohlížeče.
       Nikdy se neposílá na náš server. Model: <code style="color:var(--gold);">llama-4-scout-17b-16e-instruct</code>
     </p>
+
+    <hr class="section-divider">
+    <div class="modal-title" style="font-size:13px; margin-bottom:12px;">📊 Počítadlo volání Groq</div>
+    <div id="groqCounter" style="display:flex; gap:16px; font-size:13px; color:var(--text-muted);
+      background:var(--surface2); border:1px solid var(--border); border-radius:var(--radius-sm);
+      padding:10px 14px; margin-bottom:10px;">
+      Dnes: <strong>0</strong> volání | Celkem: <strong>0</strong>
+    </div>
+    <p style="font-size:11px; color:var(--text-muted); margin-bottom:10px; line-height:1.5;">
+      Groq nabízí zdarma <strong>~14 400 obrázků/den</strong> (rate limit závisí na modelu).
+      Podrobný přehled vidíš po přihlášení na
+      <a href="https://console.groq.com/settings/usage" target="_blank" style="color:var(--gold);">console.groq.com/settings/usage →</a>
+    </p>
+    <button class="btn btn-outline" onclick="resetGroqCounter()" style="font-size:12px; padding:8px 14px;">🗑 Resetovat počítadlo</button>
   </div>
 </div>
 
-<!-- Toast -->
-<div id="toast"></div>
+<!-- QR Modal -->
+<div class="modal-overlay" id="qrModal" onclick="closeQrOutside(event)">
+  <div class="modal glass">
+    <div class="modal-header">
+      <div class="modal-title">📱 QR most – propoj telefon</div>
+      <button class="modal-close" onclick="closeQrModal()">✕</button>
+    </div>
+    <div style="text-align:center; margin-bottom:20px;">
+      <div style="background:#fff; border-radius:16px; padding:16px; display:inline-block;">
+        <div id="qrModalCode" style="width:200px; height:200px;"></div>
+      </div>
+    </div>
+    <p style="font-size:13px; color:var(--text-muted); text-align:center; margin-bottom:16px; line-height:1.6;">
+      Tento QR kód je <strong style="color:var(--text);">trvalý</strong> — patří jen tvému účtu.<br>
+      Naskenuj jednou, uloži odkaz do záložek.
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button class="btn btn-primary" onclick="copyMobileUrl(); closeQrModal()">📋 Kopírovat odkaz</button>
+      <button class="btn btn-outline" onclick="closeQrModal()">Zavřít</button>
+    </div>
+  </div>
+</div>
 
+<!-- Settings modal -->
 </div><!-- #app -->
 
 <script>
@@ -910,7 +1162,38 @@ function showMain() {
   document.getElementById('screen-login').style.display = 'none';
   document.getElementById('screen-main').style.display  = 'flex';
   const username = currentUser?.user_metadata?.username || currentUser?.email?.split('@')[0] || 'Trainer';
-  document.getElementById('headerUsername').textContent = username;
+  if(document.getElementById('userName')) document.getElementById('userName').textContent = username;
+  if(document.getElementById('userAvatar')) document.getElementById('userAvatar').textContent = (username[0]||'?').toUpperCase();
+  if(document.getElementById('userChip')) document.getElementById('userChip').style.display = '';
+  if(document.getElementById('loginLink')) document.getElementById('loginLink').style.display = 'none';
+  if(document.getElementById('logoutBtn')) document.getElementById('logoutBtn').style.display = '';
+  if(document.getElementById('profileBtn')) document.getElementById('profileBtn').style.display = '';
+  syncGroqKeyFromSupabase();
+  showQrPanel();
+  startPolling();
+  // Update Groq counter in settings if already open
+  setTimeout(updateGroqCounter, 100);
+}
+
+/* ═══════════════════════════════════════════════════════
+   GROQ KEY – sync ze Supabase (user_api_keys) pokud není lokálně
+═══════════════════════════════════════════════════════ */
+async function syncGroqKeyFromSupabase() {
+  if (hasGroqKey()) { updateGroqStatusBadge(); return; } // už máme
+  try {
+    const token = localStorage.getItem('sb_token');
+    if (!token || !currentUser) { updateGroqStatusBadge(); return; }
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${currentUser.id}&select=groq_key,groq_model,groq_enabled`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token } }
+    );
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
+      localStorage.setItem('groqApiKey', rows[0].groq_key);
+      if (rows[0].groq_model) localStorage.setItem('groqModel', rows[0].groq_model);
+      console.log('[Scanner] Groq klíč synchronizován ze Supabase');
+    }
+  } catch (e) { console.warn('[Scanner] Sync Groq klíče selhal:', e); }
   updateGroqStatusBadge();
 }
 
@@ -936,6 +1219,7 @@ function openSettings() {
   document.getElementById('groqKeyInput').value = key ? '•'.repeat(Math.min(key.length, 30)) : '';
   document.getElementById('groqKeyInput').dataset.real = key;
   updateKeyStatus(key);
+  updateGroqCounter();
 }
 
 function closeSettings()               { document.getElementById('settingsModal').classList.remove('open'); }
@@ -1149,8 +1433,24 @@ function setProgress(pct, label) {
 async function callGroq(dataUrl) {
   const key = getGroqKey();
   let base64 = dataUrl, mediaType = 'image/jpeg';
-  const m = dataUrl.match(/^data:(image\/[a-z+]+);base64,/);
-  if (m) { mediaType = m[1]; base64 = dataUrl.slice(m[0].length); }
+
+  if (dataUrl.startsWith('http')) {
+    // Foto z telefonu přes Supabase Storage – stáhni a převeď na base64
+    try {
+      const resp = await fetch(dataUrl);
+      const blob = await resp.blob();
+      mediaType  = blob.type || 'image/jpeg';
+      base64 = await new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(r.result.split(',')[1]);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+      });
+    } catch(e) { toast('❌ Nepodařilo se načíst foto ze Storage', 'error'); return null; }
+  } else {
+    const m = dataUrl.match(/^data:(image\/[a-z+]+);base64,/);
+    if (m) { mediaType = m[1]; base64 = dataUrl.slice(m[0].length); }
+  }
 
   const res = await fetch(GROQ_PROXY, {
     method: 'POST',
@@ -1178,6 +1478,7 @@ async function callGroq(dataUrl) {
   }
 
   const data = await res.json();
+  trackGroqCall();
   const content = data.choices?.[0]?.message?.content || '';
   try {
     const m = content.match(/\{[\s\S]*\}/);
@@ -1298,6 +1599,153 @@ function updateResult(id, field, value) {
 }
 
 /* ═══════════════════════════════════════════════════════
+   QR BRIDGE – generování QR + polling fotek ze Supabase
+═══════════════════════════════════════════════════════ */
+const MOBILE_BASE = (() => {
+  const p = window.location.pathname;
+  const dir = p.substring(0, p.lastIndexOf('/') + 1);
+  return window.location.origin + dir + 'mobile.html';
+})();
+
+let pollInterval  = null;
+
+function getMobileUrl() {
+  if (!currentUser?.id) return '';
+  return `${MOBILE_BASE}?u=${encodeURIComponent(currentUser.id)}`;
+}
+
+function renderQr(containerId, size) {
+  const url = getMobileUrl();
+  if (!url) return;
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  try {
+    new QRCode(el, { text: url, width: size, height: size,
+      colorDark: '#000', colorLight: '#fff',
+      correctLevel: QRCode.CorrectLevel.M });
+  } catch(e) { el.style.fontSize = '9px'; el.textContent = url; }
+}
+
+function openQrModal() {
+  document.getElementById('qrModal').classList.add('open');
+  renderQr('qrModalCode', 200);
+}
+function closeQrModal()    { document.getElementById('qrModal').classList.remove('open'); }
+function closeQrOutside(e) { if (e.target.id === 'qrModal') closeQrModal(); }
+function hideQrPanel()     { document.getElementById('qrPanel').style.display = 'none'; localStorage.setItem('qrPanelHidden','1'); }
+
+function showQrPanel() {
+  if (localStorage.getItem('qrPanelHidden') === '1') return;
+  document.getElementById('qrPanel').style.display = 'flex';
+  renderQr('qrCodeBox', 140);
+}
+
+function copyMobileUrl() {
+  const url = getMobileUrl();
+  if (!url) { toast('Nejdřív se přihlas', 'error'); return; }
+  navigator.clipboard.writeText(url)
+    .then(() => toast('📋 Odkaz zkopírován — vlož do záložek nebo pošli na telefon', 'success'))
+    .catch(() => { prompt('Zkopíruj odkaz:', url); });
+}
+
+/* ── REALTIME BADGE ── */
+function setRealtimeBadge(active) {
+  ['realtimeBadge', 'realtimeBadge2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = active ? 'realtime-badge' : 'realtime-badge off';
+    el.innerHTML = `<span class="realtime-dot"></span> ${active ? 'Živě' : 'Čeká'}`;
+  });
+}
+
+/* ── POLLING ── */
+function startPolling() {
+  if (pollInterval) return;
+  setRealtimeBadge(true);
+  pollNewPhotos();
+  pollInterval = setInterval(pollNewPhotos, 5000);
+}
+
+function stopPolling() {
+  clearInterval(pollInterval);
+  pollInterval = null;
+  setRealtimeBadge(false);
+}
+
+async function pollNewPhotos() {
+  if (!currentUser?.id || !currentToken) return;
+  try {
+    const rows = await sbReq(
+      `rest/v1/photo_queue?user_id=eq.${currentUser.id}&processed=eq.false&order=created_at.asc&limit=30`,
+      'GET', null, currentToken
+    );
+    if (!Array.isArray(rows) || rows.length === 0) return;
+
+    const banner   = document.getElementById('incomingBanner');
+    const incomTxt = document.getElementById('incomingText');
+    incomTxt.textContent = `Přijímám ${rows.length} foto${rows.length > 1 ? 'ky' : ''} z telefonu...`;
+    banner.classList.add('show');
+    setTimeout(() => banner.classList.remove('show'), 5000);
+
+    let added = 0;
+    for (const row of rows) {
+      // Získej signed URL na 2 hodiny
+      const signed = await sbReq(
+        `storage/v1/object/sign/card-photo/${row.storage_path}`,
+        'POST', { expiresIn: 7200 }, currentToken
+      );
+      const su = signed?.signedURL;
+      if (!su) continue;
+      const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
+
+      const id = nextId++;
+      photos.push({
+        id, dataUrl: photoUrl, isUrl: true,
+        name: row.filename || `foto-${id}.jpg`,
+        status: 'pending', result: null, tcgCard: null, queueId: row.id
+      });
+      added++;
+
+      // Označ jako zpracované
+      sbReq(`rest/v1/photo_queue?id=eq.${row.id}`, 'PATCH', { processed: true }, currentToken);
+    }
+
+    if (added) {
+      renderPhotos();
+      updateActionBar();
+      toast(`📲 ${added} foto přijato z telefonu`, 'success');
+    }
+  } catch(e) { /* silent */ }
+}
+
+/* ── GROQ USAGE TRACKER ── */
+function trackGroqCall() {
+  const total = (parseInt(localStorage.getItem('groqTotal') || '0')) + 1;
+  localStorage.setItem('groqTotal', total);
+  const today = new Date().toISOString().slice(0,10);
+  const k = 'groqDay_' + today;
+  localStorage.setItem(k, (parseInt(localStorage.getItem(k) || '0')) + 1);
+  updateGroqCounter();
+}
+
+function updateGroqCounter() {
+  const el = document.getElementById('groqCounter');
+  if (!el) return;
+  const total = parseInt(localStorage.getItem('groqTotal') || '0');
+  const today = new Date().toISOString().slice(0,10);
+  const day   = parseInt(localStorage.getItem('groqDay_' + today) || '0');
+  el.innerHTML = `<span>Dnes: <strong>${day}</strong> volání</span><span style="color:var(--border)">|</span><span>Celkem: <strong>${total}</strong></span>`;
+}
+
+function resetGroqCounter() {
+  if (!confirm('Smazat počítadlo volání Groq?')) return;
+  Object.keys(localStorage).filter(k => k.startsWith('groq')).forEach(k => localStorage.removeItem(k));
+  updateGroqCounter();
+  toast('Počítadlo smazáno');
+}
+
+/* ═══════════════════════════════════════════════════════
    SAVE TO SUPABASE
 ═══════════════════════════════════════════════════════ */
 async function saveSelected() {
@@ -1368,6 +1816,113 @@ async function saveSelected() {
 
   renderAll();
 }
+</script>
+<script>
+/* ── Chat Dropdown + Notifikace ── */
+(function(){
+  'use strict';
+  var POLL=8000;
+  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  var tk=localStorage.getItem('sb_token');
+  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  if(!tk||!su||!su.id)return;
+  var uid=su.id,convs=[],prevUn=0,dropO=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
+  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
+  function renderDrop(){
+    var list=document.getElementById('chatDropList');if(!list)return;
+    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
+    list.innerHTML=convs.slice(0,8).map(function(c){
+      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
+      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
+      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
+      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
+        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
+        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+    }).join('');
+    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
+      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
+      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
+      document.getElementById('chatDrop').appendChild(pr)
+    }
+  }
+  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
+  async function poll(){
+    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
+    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
+    var bg=document.getElementById('chatBadge');
+    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
+    if(tot>prevUn&&prevUn>=0&&document.hidden){
+      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
+      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
+    }
+    prevUn=tot;
+    if(dropO)renderDrop();
+    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
+  }
+  poll();setInterval(poll,POLL);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+})();
+</script>
+<script>
+/* ── Unified Header Auth Init ── */
+(function initHeaderAuth(){
+  var u = (typeof getUser === 'function') ? getUser() : null;
+  if (!u) {
+    try {
+      var raw = localStorage.getItem('sb_user');
+      var tk = localStorage.getItem('sb_token');
+      if (raw && tk) u = JSON.parse(raw);
+    } catch(e){}
+  }
+  var chip = document.getElementById('userChip');
+  var name = document.getElementById('userName');
+  var avatar = document.getElementById('userAvatar');
+  var loginLink = document.getElementById('loginLink');
+  var logoutBtn = document.getElementById('logoutBtn');
+  var profileBtn = document.getElementById('profileBtn');
+  if (u && u.id) {
+    var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
+    if (chip) chip.style.display = '';
+    if (name) name.textContent = uname;
+    if (avatar) avatar.textContent = (uname[0]||'?').toUpperCase();
+    if (loginLink) loginLink.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = '';
+    if (profileBtn) profileBtn.style.display = '';
+    // Load profile avatar
+    (async function(){
+      try {
+        var SBU = typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+        var SBA = typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'';
+        var tk2 = localStorage.getItem('sb_token');
+        if (!tk2||!SBA) return;
+        var r = await fetch(SBU+'/rest/v1/profiles?id=eq.'+u.id+'&select=avatar_url',{headers:{'apikey':SBA,'Authorization':'Bearer '+tk2}});
+        var d = await r.json();
+        if (d&&d[0]&&d[0].avatar_url&&avatar) {
+          avatar.textContent='';
+          avatar.style.backgroundImage='url('+d[0].avatar_url+')';
+          avatar.style.backgroundSize='cover';
+          avatar.style.backgroundPosition='center';
+        }
+      } catch(e){}
+    })();
+  } else {
+    if (chip) chip.style.display = 'none';
+    if (loginLink) loginLink.style.display = '';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (profileBtn) profileBtn.style.display = 'none';
+  }
+})();
 </script>
 </body>
 </html>

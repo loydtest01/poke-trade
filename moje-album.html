@@ -13,7 +13,7 @@
 body { background: #06040c !important; overflow-x: hidden; }
 body::before {
   content: "";
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-image: url("wallpaper.png");
   background-size: cover;
   background-position: center 30%;
@@ -22,7 +22,7 @@ body::before {
 }
 body::after {
   content: "";
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
@@ -32,11 +32,12 @@ body::after {
 body { background: #0a0a0f; overflow-x: hidden; }
 
 .app-wallpaper {
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(ellipse 70% 50% at 50% 20%, rgba(74,158,255,0.12) 0%, transparent 70%),
     radial-gradient(ellipse 50% 50% at 10% 80%, rgba(155,111,255,0.1) 0%, transparent 60%),
-    radial-gradient(ellipse 60% 40% at 90% 50%, rgba(245,200,66,0.06) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 90% 50%, rgba(245,200,66,0.06) 0%, transparent 60%),
+    #0a0a0f;
 }
 
 /* ── Top bar ──────────────────────────────────────────────── */
@@ -77,7 +78,9 @@ body { background: #0a0a0f; overflow-x: hidden; }
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
   border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  text-decoration: none; color: var(--text, #f0ece4); transition: all .15s;
 }
+.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
 .user-avatar {
   width: 26px; height: 26px; border-radius: 50%;
   background: var(--yellow); color: #000;
@@ -735,12 +738,16 @@ body { background: #0a0a0f; overflow-x: hidden; }
 
 <!-- Top bar -->
 <header class="app-topbar">
-  <a href="index.html" class="app-logo"><img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong></a>
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
     <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html" class="active">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
+    <a href="scanner.html">📷 Skener</a>
+    <a href="dashboard.html">Moje karty</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -765,11 +772,12 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLabel">Sync</span>
     </button>
-    <div class="user-chip" id="userChip" style="display:none">
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
-    </div>
-    <a href="login.html" id="loginLink" class="btn-nav-outline" style="font-size:13px">Přihlásit se</a>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
     <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
   </div>
 </header>
@@ -1038,6 +1046,7 @@ let editingAlbumId = null;
     document.getElementById('userChip').style.display  = '';
     document.getElementById('loginLink').style.display  = 'none';
     document.getElementById('logoutBtn').style.display  = '';
+    if(document.getElementById('profileBtn')) document.getElementById('profileBtn').style.display = '';
     document.getElementById('userName').textContent     = uname;
     document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
     // Načti profilový avatar z Supabase profiles

@@ -239,6 +239,37 @@ body.auth-page::after {
   }
 })();
 
+// ── Zjistí IP adresu klienta přes veřejné API ───────────────
+async function getClientIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    return d.ip || 'unknown';
+  } catch { return 'unknown'; }
+}
+
+// ── Zkontroluje zda je IP blokovaná v Supabase ──────────────
+async function checkIPBlocked(ip) {
+  if (ip === 'unknown') return false;
+  try {
+    const r = await supabaseRequest(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(ip)}&select=id`);
+    return Array.isArray(r) && r.length > 0;
+  } catch { return false; }
+}
+
+// ── Zaloguje přihlášení do user_ip_logs ─────────────────────
+async function logLogin(userId, ip, action = 'login', success = true) {
+  try {
+    await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
+      user_id:    userId,
+      ip_address: ip,
+      user_agent: navigator.userAgent.slice(0, 250),
+      action,
+      success
+    });
+  } catch { /* logování nesmí blokovat přihlášení */ }
+}
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const email    = document.getElementById('loginEmail').value.trim();
@@ -247,6 +278,18 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   setLoading(true);
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
+
+  // Zjisti IP před přihlášením
+  const clientIP = await getClientIP();
+
+  // Zkontroluj blokaci IP
+  const ipBlocked = await checkIPBlocked(clientIP);
+  if (ipBlocked) {
+    errEl.textContent = '⛔ Přístup z této IP adresy byl zablokován. Kontaktuj správce.';
+    errEl.style.display = 'block';
+    setLoading(false);
+    return;
+  }
 
   // Vymaž staré tokeny před novým přihlášením
   ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
@@ -277,11 +320,23 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (!user?.id) throw new Error('Přihlášení proběhlo, ale nepodařilo se načíst profil – zkus znovu');
     localStorage.setItem('sb_user', JSON.stringify(user));
 
+    // Zaloguj úspěšné přihlášení
+    await logLogin(user.id, clientIP, 'login', true);
+
     // Okamžité přesměrování
     window.location.replace('dashboard.html');
 
   } catch(err) {
-    errEl.textContent = '\u26a0\ufe0f ' + err.message;
+    // Zaloguj neúspěšný pokus
+    try {
+      await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
+        ip_address: clientIP,
+        user_agent: navigator.userAgent.slice(0, 250),
+        action: 'failed',
+        success: false
+      });
+    } catch { /* ignoruj */ }
+    errEl.textContent = '⚠️ ' + err.message;
     errEl.style.display = 'block';
     setLoading(false);
   }

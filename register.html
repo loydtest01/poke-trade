@@ -62,6 +62,22 @@
 
 <script src="app.js"></script>
 <script>
+// ── IP helper funkce ─────────────────────────────────────────
+async function getClientIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    return d.ip || 'unknown';
+  } catch { return 'unknown'; }
+}
+async function checkIPBlocked(ip) {
+  if (ip === 'unknown') return false;
+  try {
+    const r = await supabaseRequest(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(ip)}&select=id`);
+    return Array.isArray(r) && r.length > 0;
+  } catch { return false; }
+}
+
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -70,7 +86,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   const password = document.getElementById('regPassword').value;
   const confirm  = document.getElementById('regPasswordConfirm').value;
 
-  // Validace
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
 
@@ -78,16 +93,19 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     showError('Uživatelské jméno smí obsahovat jen písmena, čísla, _ . - (3–30 znaků)');
     return;
   }
-  if (password !== confirm) {
-    showError('Hesla se neshodují');
-    return;
-  }
-  if (password.length < 6) {
-    showError('Heslo musí mít alespoň 6 znaků');
-    return;
-  }
+  if (password !== confirm) { showError('Hesla se neshodují'); return; }
+  if (password.length < 6)  { showError('Heslo musí mít alespoň 6 znaků'); return; }
 
   setLoading(true);
+
+  // Zkontroluj IP před registrací
+  const clientIP = await getClientIP();
+  const ipBlocked = await checkIPBlocked(clientIP);
+  if (ipBlocked) {
+    showError('Registrace z této IP adresy je zablokována. Kontaktuj správce.');
+    setLoading(false);
+    return;
+  }
 
   try {
     // 1. Zkontroluj jestli přezdívka již existuje v tabulce profiles
@@ -125,7 +143,18 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
 
     if (!res.user) throw new Error('Registrace se nezdařila – zkus to znovu');
 
-    // 3. Úspěch
+    // Zaloguj registraci (IP)
+    try {
+      await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
+        user_id:    res.user.id,
+        ip_address: clientIP,
+        user_agent: navigator.userAgent.slice(0, 250),
+        action:     'register',
+        success:    true
+      });
+    } catch { /* ignoruj */ }
+
+    // Úspěch – zobraz zprávu
     document.getElementById('registerForm').style.display = 'none';
     const succEl = document.getElementById('authSuccess');
     succEl.innerHTML = `
@@ -172,25 +201,6 @@ function setLoading(on) {
 </script>
 
 <style>
-/* ═══ WALLPAPER BACKGROUND ═══ */
-body { background: #06040c !important; overflow-x: hidden; }
-body::before {
-  content: "";
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background-image: url("wallpaper.png");
-  background-size: cover;
-  background-position: center 30%;
-  background-repeat: no-repeat;
-  filter: brightness(0.22) saturate(0.6);
-}
-body::after {
-  content: "";
-  position: fixed; inset: 0; z-index: -1; pointer-events: none;
-  background:
-    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
-    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
-    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%);
-}
 .auth-success {
   background: rgba(34, 197, 94, 0.12);
   border: 1px solid rgba(34, 197, 94, 0.3);
