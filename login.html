@@ -214,7 +214,7 @@ body.auth-page::after {
 (function checkAlreadyLoggedIn() {
   const token = localStorage.getItem('sb_token');
   const user  = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
-  if (token && user?.id) window.location.replace('dashboard.html');
+  if (token && user?.id) window.location.replace('profile.html');
 })();
 
 // ── Brute force: max pokusů z jedné IP za hodinu ─────────────
@@ -355,7 +355,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     // Zaloguj úspěšné přihlášení
     await logSuccessfulLogin(user.id, clientIP);
 
-    window.location.replace('dashboard.html');
+    window.location.replace('profile.html');
 
   } catch(err) {
     // Zaloguj neúspěšný pokus přes RPC (obchází RLS)

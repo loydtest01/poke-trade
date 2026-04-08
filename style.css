@@ -336,7 +336,7 @@ a { color: inherit; text-decoration: none; }
 .auth-note strong { color: var(--yellow); }
 
 /* ═══ DASHBOARD ═══ */
-.dashboard { padding: 40px 0 80px; }
+.dashboard { padding: 40px 0 80px; position: relative; z-index: 1; }
 .dash-header {
   display: flex; align-items: center; justify-content: space-between;
   margin-bottom: 32px; flex-wrap: wrap; gap: 16px;
@@ -634,7 +634,7 @@ a { color: inherit; text-decoration: none; }
 .empty-footer { color: var(--text3); font-size: 13px; }
 
 /* ═══ COMPARE ═══ */
-.compare-page { padding: 40px 0 80px; }
+.compare-page { padding: 40px 0 80px; position: relative; z-index: 1; }
 .compare-header { text-align: center; margin-bottom: 40px; }
 .compare-header h1 {
   font-family: 'Unbounded', sans-serif; font-size: 28px; font-weight: 800; margin-bottom: 8px;

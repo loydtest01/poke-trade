@@ -724,7 +724,7 @@ body::after {
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html" class="active">📷 Skener</a>
-    <a href="dashboard.html">Moje karty</a>
+    <a href="profile.html">Můj profil</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -1057,6 +1057,30 @@ let nextId       = 1;
   document.getElementById('loginPassword').addEventListener('keydown', e => {
     if (e.key === 'Enter') doLogin();
   });
+})();
+
+/* ── Auto-refresh tokenu (scanner) ── */
+(function(){
+  async function _refreshSession(){
+    var rt=localStorage.getItem('sb_refresh_token');
+    if(!rt)return;
+    try{
+      var r=await fetch(SUPABASE_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON},
+        body:JSON.stringify({refresh_token:rt})
+      });
+      var d=await r.json();
+      if(d&&d.access_token&&d.user&&d.user.id){
+        localStorage.setItem('sb_token',d.access_token);
+        if(d.refresh_token)localStorage.setItem('sb_refresh_token',d.refresh_token);
+        localStorage.setItem('sb_user',JSON.stringify(d.user));
+        currentToken=d.access_token; currentUser=d.user;
+      }
+    }catch(e){}
+  }
+  if(localStorage.getItem('sb_token'))setTimeout(_refreshSession,2000);
+  setInterval(_refreshSession,10*60*1000);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden&&localStorage.getItem('sb_token'))_refreshSession()});
 })();
 
 /* ═══════════════════════════════════════════════════════
@@ -1616,10 +1640,10 @@ function getMobileUrl() {
 
 function renderQr(containerId, size) {
   const url = getMobileUrl();
-  if (!url) return;
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
+  if (!url) { el.innerHTML = '<div style="padding:20px;text-align:center;color:#f87171;font-size:13px;">⚠️ Přihlas se pro vygenerování QR kódu</div>'; return; }
   try {
     new QRCode(el, { text: url, width: size, height: size,
       colorDark: '#000', colorLight: '#fff',

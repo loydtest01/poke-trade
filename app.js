@@ -58,6 +58,27 @@ function logout() {
   window.location.href = 'login.html';
 }
 
+// ── Auto-refresh tokenu (každých 10 min) ─────────────
+(function autoRefreshToken() {
+  async function refreshSession() {
+    const rt = localStorage.getItem('sb_refresh_token');
+    if (!rt) return;
+    try {
+      const r = await supabaseRequest('auth/v1/token?grant_type=refresh_token', 'POST', { refresh_token: rt });
+      if (r?.access_token && r?.user?.id) {
+        localStorage.setItem('sb_token', r.access_token);
+        if (r.refresh_token) localStorage.setItem('sb_refresh_token', r.refresh_token);
+        localStorage.setItem('sb_user', JSON.stringify(r.user));
+      }
+    } catch (e) { console.warn('[PokéTrade] Refresh failed:', e); }
+  }
+  if (localStorage.getItem('sb_token')) setTimeout(refreshSession, 2000);
+  setInterval(refreshSession, 10 * 60 * 1000);
+  document.addEventListener('visibilitychange', function() {
+    if (!document.hidden && localStorage.getItem('sb_token')) refreshSession();
+  });
+})();
+
 // ── ZIP čtečka (kompatibilní s .pktr / .pkte) ───────
 async function readZip(buffer) {
   const view  = new DataView(buffer);
@@ -142,7 +163,7 @@ function getTypeEmoji(type) {
   const user = getUser();
   if (!el || !user) return;
   el.innerHTML = `
-    <a href="dashboard.html" class="btn-nav-outline">Můj profil</a>
+    <a href="profile.html" class="btn-nav-outline">Můj profil</a>
     <span class="nav-username">${user.user_metadata?.username || user.email || ''}</span>
   `;
 })();

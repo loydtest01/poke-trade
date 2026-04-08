@@ -728,7 +728,7 @@ body::after {
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
-    <a href="dashboard.html">Moje karty</a>
+    <a href="profile.html">Můj profil</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -749,7 +749,7 @@ body::after {
         </div>
       </div>
     </div>
-    <button class="btn-add" id="addBtn" style="display:none" onclick="openAddListing()">+ Přidat nabídku</button>
+    <button class="btn-add" id="addBtn" onclick="openAddListing()">+ Vystavit nabídku</button>
     <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
@@ -1096,7 +1096,6 @@ let token=null, userId=null, username=null, myCards=[];
     document.getElementById('loginLink').style.display='none';
     document.getElementById('logoutBtn').style.display='';
     if(document.getElementById('profileBtn')) document.getElementById('profileBtn').style.display='';
-    document.getElementById('addBtn').style.display='';
     document.getElementById('userName').textContent=username;
     document.getElementById('userAvatar').textContent=(username[0]||'?').toUpperCase();
     loadMyCards();
