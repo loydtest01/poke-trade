@@ -15,7 +15,6 @@
     <a href="index.html" class="logo"><span class="logo-icon"><img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"></span><span>Poké<strong>Trade</strong></span></a>
   </div>
 </nav>
-
 <div class="auth-container">
   <div class="auth-card">
     <div class="auth-header">
@@ -23,10 +22,8 @@
       <h1>Registrace</h1>
       <p>Vytvoř si účet trenéra!</p>
     </div>
-
     <div id="authError"  class="auth-error"   style="display:none"></div>
     <div id="authSuccess" class="auth-success" style="display:none"></div>
-
     <form id="registerForm" class="auth-form">
       <div class="form-group">
         <label>Uživatelské jméno</label>
@@ -50,16 +47,13 @@
         <span id="regBtnLoad" style="display:none">⏳ Registruji...</span>
       </button>
     </form>
-
     <div class="auth-divider"><span>nebo</span></div>
     <div class="auth-alt">Už máš účet? <a href="login.html">Přihlásit se →</a></div>
-
     <div class="auth-note">
       💡 Stejné přihlašovací údaje fungují v nastavení aplikace PokémonCards.
     </div>
   </div>
 </div>
-
 <script src="app.js"></script>
 <script>
 // ── IP helper funkce ─────────────────────────────────────────
@@ -77,27 +71,21 @@ async function checkIPBlocked(ip) {
     return Array.isArray(r) && r.length > 0;
   } catch { return false; }
 }
-
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-
   const username = document.getElementById('regUsername').value.trim();
   const email    = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
   const confirm  = document.getElementById('regPasswordConfirm').value;
-
   const errEl = document.getElementById('authError');
   errEl.style.display = 'none';
-
   if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
     showError('Uživatelské jméno smí obsahovat jen písmena, čísla, _ . - (3–30 znaků)');
     return;
   }
   if (password !== confirm) { showError('Hesla se neshodují'); return; }
   if (password.length < 6)  { showError('Heslo musí mít alespoň 6 znaků'); return; }
-
   setLoading(true);
-
   // Zkontroluj IP před registrací
   const clientIP = await getClientIP();
   const ipBlocked = await checkIPBlocked(clientIP);
@@ -106,7 +94,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     setLoading(false);
     return;
   }
-
   try {
     // 1. Zkontroluj jestli přezdívka již existuje v tabulce profiles
     const usernameCheck = await supabaseRequest(
@@ -115,17 +102,12 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     if (Array.isArray(usernameCheck) && usernameCheck.length > 0) {
       throw new Error('Toto uživatelské jméno je již obsazeno');
     }
-
     // 2. Registrace přes Supabase Auth
-    // Duplicitní email se detekuje spolehlivě přímo ze signup odpovědi:
-    // - email confirm zapnutý → prázdné identities[]
-    // - email confirm vypnutý → chyba "User already registered"
     const res = await supabaseRequest('auth/v1/signup', 'POST', {
       email,
       password,
       data: { username }
     });
-
     // Zachyť všechny formáty chyb ze Supabase
     const errMsg = res.error?.message || res.error_description || res.msg
       || (typeof res.error === 'string' ? res.error : '') || '';
@@ -135,14 +117,10 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       }
       throw new Error(errMsg);
     }
-
-    // Prázdné identities[] = email existuje (při zapnutém email confirm)
-    if (res.user && res.user.identities && res.user.identities.length === 0) {
-      throw new Error('Tento e-mail je již zaregistrován');
-    }
-
+    // OPRAVA: identities[] check byl odstraněn – Supabase vrací prázdné identities
+    // pro VŠECHNY nové uživatele když je email confirm zapnutý, takže špatně
+    // zobrazoval chybu i při úspěšné registraci. Duplicitní email zachytí errMsg výše.
     if (!res.user) throw new Error('Registrace se nezdařila – zkus to znovu');
-
     // Zaloguj registraci (IP)
     try {
       await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
@@ -153,7 +131,6 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
         success:    true
       });
     } catch { /* ignoruj */ }
-
     // Úspěch – zobraz zprávu
     document.getElementById('registerForm').style.display = 'none';
     const succEl = document.getElementById('authSuccess');
@@ -163,14 +140,11 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       Po ověření se můžeš <a href="login.html">přihlásit →</a>
     `;
     succEl.style.display = 'block';
-
   } catch(err) {
     showError(translateError(err.message));
   }
-
   setLoading(false);
 });
-
 function toggleEye(id, btn) {
   const inp = document.getElementById(id);
   const show = inp.type === "password";
@@ -178,13 +152,11 @@ function toggleEye(id, btn) {
   btn.textContent = show ? "🙈" : "👁️";
   btn.classList.toggle("active", show);
 }
-
 function showError(msg) {
   const el = document.getElementById('authError');
   el.textContent = '⚠️ ' + msg;
   el.style.display = 'block';
 }
-
 function translateError(msg) {
   if (msg.includes('already registered') || msg.includes('already exists')) return 'Tento e-mail je již registrován';
   if (msg.includes('invalid email'))    return 'Neplatná e-mailová adresa';
@@ -192,14 +164,12 @@ function translateError(msg) {
   if (msg.includes('rate limit'))       return 'Příliš mnoho pokusů, zkus to za chvíli';
   return msg;
 }
-
 function setLoading(on) {
   document.getElementById('regBtnText').style.display = on ? 'none' : '';
   document.getElementById('regBtnLoad').style.display = on ? '' : 'none';
   document.getElementById('regBtn').disabled = on;
 }
 </script>
-
 <style>
 .auth-success {
   background: rgba(34, 197, 94, 0.12);
