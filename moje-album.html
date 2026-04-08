@@ -4,7 +4,7 @@
   <link rel="icon" type="image/png" href="pokemon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Moje album – PokéTrade</title>
+<title>Moje alba – PokéTrade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -744,7 +744,7 @@ body { background: #0a0a0f; overflow-x: hidden; }
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
     <a href="album.html">🔄 Album výměny</a>
-    <a href="moje-album.html" class="active">🎴 Moje album</a>
+    <a href="moje-album.html" class="active">🎴 Moje alba</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
     <a href="dashboard.html">Moje karty</a>
@@ -805,6 +805,13 @@ body { background: #0a0a0f; overflow-x: hidden; }
     <div class="sb-divider"></div>
 
     <div class="sb-section">
+      <span class="sb-label">Speciální alba</span>
+      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
       <span class="sb-label">Moje alba</span>
       <div class="album-list" id="albumList">
         <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
@@ -835,6 +842,8 @@ body { background: #0a0a0f; overflow-x: hidden; }
       <button class="sel-action-btn sel-remove"  onclick="removeSelectedFromAlbum()" id="removeFromAlbumBtn" style="display:none">➖ Odebrat z alba</button>
       <button class="sel-action-btn" onclick="bulkSetTrade(true)"  style="background:rgba(74,158,255,0.15);color:#4a9eff;border:1px solid rgba(74,158,255,0.3)">🔄 K výměně</button>
       <button class="sel-action-btn" onclick="bulkSetTrade(false)" style="background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.1)">✕ Zrušit výměnu</button>
+      <button class="sel-action-btn" onclick="bulkSetSell(true)"   style="background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">💰 K prodeji</button>
+      <button class="sel-action-btn" onclick="bulkSetSell(false)"  style="background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.1)">✕ Zrušit prodej</button>
       <button class="sel-action-btn sel-remove"  onclick="bulkDelete()" style="margin-left:auto">🗑 Smazat</button>
       <button class="sel-action-btn sel-cancel"  onclick="cancelSelect()">✕ Zrušit výběr</button>
     </div>
@@ -1002,6 +1011,29 @@ body { background: #0a0a0f; overflow-x: hidden; }
   </div>
 </div>
 
+<!-- ── First-run modal: vytvoření prvního alba ───────────────────── -->
+<div class="modal-bg hidden" id="firstRunModal">
+  <div class="modal-box" style="max-width:460px">
+    <div class="modal-head">
+      <h3>🎴 Vítej v Moje alba!</h3>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.6">
+        Vytvoř si první album pro ukládání pokémonů.<br>
+        Pokud propojíš aplikaci na PC, alba a karty se přenesou automaticky.
+      </p>
+      <div class="modal-row">
+        <label>Název alba</label>
+        <input class="modal-input" id="firstRunAlbumName" placeholder="Např. Moje hlavní kolekce…" maxlength="40">
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-ghost btn-sm" onclick="closeFirstRun()">Přeskočit</button>
+      <button class="btn-primary btn-sm" onclick="saveFirstRunAlbum()">Vytvořit album →</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
@@ -1068,8 +1100,13 @@ let editingAlbumId = null;
   if (savedMode === 'book') setViewMode('book');
   // Keyboard shortcut: Escape closes card detail
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardDetail(); });
-  // Po načtení dat synchronizuj album "Výměna" (tiše, bez čekání)
+  // Po načtení dat synchronizuj album "Výměna" a "Obchod" (tiše, bez čekání)
   syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
+  syncObchodAlbum().catch(e => console.warn('[obchod init]', e));
+  // First-run: pokud uživatel nemá žádná alba, zobraz uvítací modal
+  if (!localStorage.getItem('pkc_first_run_done') && allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name)).length === 0) {
+    document.getElementById('firstRunModal').classList.remove('hidden');
+  }
   autoSync();
 })();
 
@@ -1353,6 +1390,7 @@ async function toggleCdSell() {
   openCardDetail(_detailCard);
   render();
   await syncCardToServer(_detailCard);
+  syncObchodAlbum().catch(e => console.warn('[obchod toggleCdSell]', e));
 }
 
 async function saveCdPrice() {
@@ -1544,12 +1582,24 @@ Tato akce je nevratná.`)) return;
 //  ALBUM SIDEBAR RENDER
 // ══════════════════════════════════════════════════════════════════
 function renderAlbumList() {
+  // Aktualizuj počty speciálních alb v sidebaru
+  const vymena = allAlbums.find(a => a.name === 'Výměna');
+  const obchod = allAlbums.find(a => a.name === 'Obchod');
+  document.getElementById('cnt-vymena').textContent = (vymena?.cardIds||[]).length;
+  document.getElementById('cnt-obchod').textContent = (obchod?.cardIds||[]).length;
+
+  // Zvýrazni aktivní speciální album v sidebaru
+  document.getElementById('sbVymena').classList.toggle('active', activeAlbumId === vymena?.id);
+  document.getElementById('sbObchod').classList.toggle('active', activeAlbumId === obchod?.id);
+
   const el = document.getElementById('albumList');
-  if (!allAlbums.length) {
+  // Skryj speciální alba ze seznamu
+  const regular = allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name));
+  if (!regular.length) {
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
     return;
   }
-  el.innerHTML = allAlbums.map(a => `
+  el.innerHTML = regular.map(a => `
     <button class="album-item ${activeAlbumId === a.id ? 'active' : ''}"
       onclick="setAlbum('${esc(a.id)}')">
       <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
@@ -1566,6 +1616,38 @@ function renderAlbumList() {
 function setAlbum(id) {
   activeAlbumId = (activeAlbumId === id) ? null : id;
   cancelSelect();
+  renderAlbumList();
+  render();
+}
+
+/** Přepne na album podle jména (pro speciální tlačítka Výměna/Obchod) */
+function setAlbumByName(name) {
+  const alb = allAlbums.find(a => a.name === name);
+  if (!alb) return;
+  activeAlbumId = (activeAlbumId === alb.id) ? null : alb.id;
+  cancelSelect();
+  renderAlbumList();
+  render();
+}
+
+/** First-run helpers */
+function closeFirstRun() {
+  localStorage.setItem('pkc_first_run_done', '1');
+  document.getElementById('firstRunModal').classList.add('hidden');
+}
+
+async function saveFirstRunAlbum() {
+  const name = document.getElementById('firstRunAlbumName').value.trim();
+  if (!name) { document.getElementById('firstRunAlbumName').focus(); return; }
+  const album = {
+    id: 'alb_' + Date.now(), name, color: ALBUM_COLORS[0],
+    icon: ALBUM_ICONS[0], ownerId: null, cardIds: [],
+  };
+  allAlbums.push(album);
+  saveAlbumsLocal();
+  await saveAlbumsToServer();
+  closeFirstRun();
+  activeAlbumId = album.id;
   renderAlbumList();
   render();
 }
@@ -1692,6 +1774,43 @@ async function bulkSetTrade(forTrade) {
   }
 }
 
+/** Označí / odznačí vybrané karty jako k prodeji a synchronizuje album "Obchod" */
+async function bulkSetSell(forSell) {
+  if (!selectedIds.size) return;
+  const ids = [...selectedIds];
+  setSyncState('syncing', forSell ? 'Označuji k prodeji…' : 'Odebírám z prodeje…');
+  try {
+    const payload = ids.map(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      return {
+        local_id: id,
+        for_trade: c?.for_trade || false,
+        for_sell: forSell,
+        price_czk: c?.price_czk || null,
+        updated_at: new Date().toISOString(),
+        card_data: buildCardData(c),
+      };
+    });
+    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
+      { p_user_id: userId, p_cards: payload });
+
+    ids.forEach(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      if (c) c.for_sell = forSell;
+    });
+
+    await syncObchodAlbum();
+    updateStats();
+    cancelSelect();
+    render();
+    setSyncState('ok', forSell ? `${ids.length} karet → obchod ✓` : `Prodej odebrán ✓`);
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+  } catch(e) {
+    console.error('[bulkSetSell]', e);
+    setSyncState('', 'Chyba: ' + e.message);
+  }
+}
+
 /** Smaže vybrané karty z Supabase a lokálního pole */
 async function bulkDelete() {
   const ids = [...selectedIds];
@@ -1739,6 +1858,28 @@ async function syncVymenaAlbum() {
     allAlbums.push(vymena);
   } else {
     vymena.cardIds = tradeCardIds;
+  }
+
+  saveAlbumsLocal();
+  await saveAlbumsToServer();
+  renderAlbumList();
+}
+
+/**
+ * Synchronizuje speciální album "Obchod" v user_albums.
+ * Vytvoří ho pokud neexistuje, aktualizuje cardIds na základě for_sell karet.
+ */
+async function syncObchodAlbum() {
+  const OBCHOD_ID   = 'alb_obchod_web_' + userId;
+  const sellCardIds = allCards.filter(c => c.for_sell).map(c => String(c.id));
+
+  let obchod = allAlbums.find(a => a.name === 'Obchod');
+  if (!obchod) {
+    obchod = { id: OBCHOD_ID, name: 'Obchod', color: '#22c55e', icon: '🛒',
+               ownerId: null, cardIds: sellCardIds, isSpecial: true };
+    allAlbums.push(obchod);
+  } else {
+    obchod.cardIds = sellCardIds;
   }
 
   saveAlbumsLocal();
@@ -2209,9 +2350,12 @@ function doLogout() {
   location.href = 'login.html';
 }
 
-// Zavřít modal klikem mimo
+// Zavřít modaly klikem mimo
 document.getElementById('newAlbumModal').addEventListener('click', e => {
   if (e.target === document.getElementById('newAlbumModal')) closeNewAlbumModal();
+});
+document.getElementById('firstRunModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('firstRunModal')) closeFirstRun();
 });
 </script>
 
