@@ -2066,17 +2066,65 @@ async function loadAvatar(uid) {
   } catch(e) { /* tiché selhání – zůstane iniciála */ }
 }
 
+// ── Token refresh ─────────────────────────────────────────────
+let _refreshing = null; // dedup concurrent refresh attempts
+async function tryRefreshToken() {
+  if (_refreshing) return _refreshing;
+  _refreshing = (async () => {
+    const refreshTk = localStorage.getItem('sb_refresh_token') || localStorage.getItem('sb_refresh');
+    if (!refreshTk) return false;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+        body: JSON.stringify({ refresh_token: refreshTk })
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        token = data.access_token;
+        localStorage.setItem('sb_token', token);
+        if (data.refresh_token) {
+          localStorage.setItem('sb_refresh_token', data.refresh_token);
+          localStorage.setItem('sb_refresh', data.refresh_token);
+        }
+        console.log('[auth] Token úspěšně obnoven');
+        return true;
+      }
+      console.warn('[auth] Obnovení tokenu selhalo:', data);
+      return false;
+    } catch(e) {
+      console.warn('[auth] Chyba při obnovení tokenu:', e);
+      return false;
+    } finally { _refreshing = null; }
+  })();
+  return _refreshing;
+}
+
 async function sbReq(path, method = 'GET', body = null) {
-  const headers = {
+  const makeHeaders = () => ({
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON,
     'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
-  };
-  if (['POST','PATCH'].includes(method)) headers['Prefer'] = 'return=representation';
+    ...(['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
+  });
   try {
-    const res  = await fetch(`${SUPABASE_URL}/${path}`, {
-      method, headers, body: body ? JSON.stringify(body) : undefined
+    let res = await fetch(`${SUPABASE_URL}/${path}`, {
+      method, headers: makeHeaders(), body: body ? JSON.stringify(body) : undefined
     });
+    // Automaticky obnov token při 401
+    if (res.status === 401) {
+      const refreshed = await tryRefreshToken();
+      if (refreshed) {
+        res = await fetch(`${SUPABASE_URL}/${path}`, {
+          method, headers: makeHeaders(), body: body ? JSON.stringify(body) : undefined
+        });
+      } else {
+        // Token nelze obnovit – odhlásit
+        console.warn('[auth] Nelze obnovit token, odhlašuji…');
+        doLogout();
+        return { _err: 'Unauthorized' };
+      }
+    }
     const text = await res.text();
     const data = text ? JSON.parse(text) : {};
     if (!res.ok) return { _err: data.message || 'HTTP ' + res.status };
@@ -2372,7 +2420,29 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   var uid=su.id,convs=[],prevUn=0,dropO=false;
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
   function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
-  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  var authFailed = false;
+  async function sbF(p){
+    if(authFailed)return[];
+    // Vždy čti aktuální token (mohl být obnoven v hlavním sbReq)
+    var curTk = localStorage.getItem('sb_token') || tk;
+    try{
+      var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+curTk}});
+      if(r.status===401){
+        // Zkus obnovit přes globální tryRefreshToken pokud existuje
+        if(typeof tryRefreshToken==='function'){
+          var ok=await tryRefreshToken();
+          if(ok){
+            curTk=localStorage.getItem('sb_token')||curTk;
+            var r2=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+curTk}});
+            if(r2.status===401){authFailed=true;return[];}
+            var d2=await r2.json();return Array.isArray(d2)?d2:[];
+          }
+        }
+        authFailed=true;return[];
+      }
+      var d=await r.json();return Array.isArray(d)?d:[]
+    }catch(e){return[]}
+  }
   window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
   document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
   function renderDrop(){
