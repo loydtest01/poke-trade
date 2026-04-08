@@ -683,6 +683,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
   </div>
 </header>
 
+<div class="page-wrap">
   <!-- Hlavní obsah -->
   <div id="profileContent" style="display:none">
 
@@ -1506,7 +1507,8 @@ document.querySelectorAll('.modal-overlay').forEach(m => {
 //  SHOW CONTENT
 // ═══════════════════════════════════════════════════════════
 function showContent() {
-  document.getElementById('profileSkeleton').style.display = 'none';
+  const sk = document.getElementById('profileSkeleton');
+  if (sk) sk.style.display = 'none';
   document.getElementById('profileContent').style.display  = 'block';
 }
 

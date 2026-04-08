@@ -998,6 +998,14 @@ body::after {
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
+// ── Forward declarations (used by init → showMain → QR bridge) ──
+var MOBILE_BASE = (() => {
+  const p = window.location.pathname;
+  const dir = p.substring(0, p.lastIndexOf('/') + 1);
+  return window.location.origin + dir + 'mobile.html';
+})();
+var pollInterval = null;
+
 // URL Vercel proxy (same origin – /api/groq)
 // Pokud pouštíš lokálně, uprav na http://localhost:3000/api/groq
 const GROQ_PROXY    = '/api/groq';
@@ -1625,13 +1633,6 @@ function updateResult(id, field, value) {
 /* ═══════════════════════════════════════════════════════
    QR BRIDGE – generování QR + polling fotek ze Supabase
 ═══════════════════════════════════════════════════════ */
-const MOBILE_BASE = (() => {
-  const p = window.location.pathname;
-  const dir = p.substring(0, p.lastIndexOf('/') + 1);
-  return window.location.origin + dir + 'mobile.html';
-})();
-
-let pollInterval  = null;
 
 function getMobileUrl() {
   if (!currentUser?.id) return '';
