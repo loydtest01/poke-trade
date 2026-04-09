@@ -783,7 +783,7 @@ body::after {
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html" class="active">📷 Skener</a>
-    <a href="queue.html">📥 Čeká na zařazení</a>
+    <a href="queue.html">📥 Čeká na zařazení <span id="navQueueBadge" style="display:none;background:var(--gold);color:#000;border-radius:9px;padding:1px 7px;font-size:11px;font-weight:700;margin-left:4px"></span></a>
     <a href="profile.html">Můj profil</a>
   </nav>
   <div class="topbar-right">
@@ -1157,6 +1157,7 @@ let pendingQueue = [];   // fotky z mobilu čekající na zařazení do alba
     currentToken = token;
     currentUser  = user;
     showMain();
+    loadNavQueueCount();
   }
   // Drag-n-drop
   const zone = document.getElementById('uploadZone');
@@ -1171,6 +1172,23 @@ let pendingQueue = [];   // fotky z mobilu čekající na zařazení do alba
     if (e.key === 'Enter') doLogin();
   });
 })();
+
+/* ── Badge: počet karet čekajících na zařazení ── */
+async function loadNavQueueCount() {
+  try {
+    const token  = localStorage.getItem('sb_token');
+    const userId = localStorage.getItem('sb_user_id');
+    if (!token || !userId) return;
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/photo_queue?user_id=eq.${userId}&processed=eq.false&select=id`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Prefer': 'count=exact' } }
+    );
+    const count = parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
+    const badge = document.getElementById('navQueueBadge');
+    if (badge && count > 0) { badge.textContent = count; badge.style.display = ''; }
+    else if (badge) { badge.style.display = 'none'; }
+  } catch {}
+}
 
 /* ── Auto-refresh tokenu (scanner) ── */
 (function(){

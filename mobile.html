@@ -957,16 +957,21 @@ async function sendGallery() {
     const isLast = i === galCards.length - 1;
     const reqs = [];
 
+    // Komprese před odesláním
+    const frontComp = await compressImage(c.frontPhoto);
+    const backComp  = await compressImage(c.backPhoto);
+    const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
+
     // Přední strana
     reqs.push(postPhoto({
-      photo: c.frontPhoto, photoDataUrl: c.frontPhoto,
+      photo: frontComp, photoDataUrl: frontComp,
       side: 'front', cardIndex: i + 1, totalCards: total,
       batchId: bId, isFakeTraining: fakeMode,
       batchComplete: isLast && !c.backPhoto && !c.detailPhotos.length,
     }).catch(() => {}));
 
     // Detaily
-    c.detailPhotos.forEach((dp, d) => {
+    detailComps.forEach((dp, d) => {
       reqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
         cardIndex: i + 1, totalCards: total, batchId: bId, batchComplete: false,
@@ -976,7 +981,7 @@ async function sendGallery() {
     // Zadní strana
     if (c.backPhoto) {
       reqs.push(postPhoto({
-        photo: c.backPhoto, side: 'back',
+        photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId: bId,
         batchComplete: isLast,
       }).catch(() => {}));
@@ -1494,6 +1499,11 @@ async function sendAll() {
     // Build all requests for this card
     const cardReqs = [];
 
+    // Komprese před odesláním (15–30× menší soubor, pod Vercel limit 4.5 MB)
+    const frontComp  = await compressImage(c.frontPhoto);
+    const backComp   = await compressImage(c.backPhoto);
+    const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
+
     if (c.frontPhoto) {
       cardReqs.push(postPhoto({
         name: ai.name || null, set: ai.set || null, number: ai.number || null,
@@ -1505,8 +1515,8 @@ async function sendAll() {
         notes: ai.notes || c.note || '',
         lang: ai.lang || 'EN',
         jpNamePhotoDataUrl: c.jpNamePhoto || null,
-        photoDataUrl: c.frontPhoto,
-        photo: c.frontPhoto, side: 'front',
+        photoDataUrl: frontComp,
+        photo: frontComp, side: 'front',
         cardIndex: i + 1, totalCards: total, batchId,
         isFakeTraining: c.isFakeTraining || false,
         batchComplete: isLast && !c.backPhoto && !(c.detailPhotos?.length),
@@ -1514,7 +1524,7 @@ async function sendAll() {
     }
 
     // Detail photos – parallel with front
-    (c.detailPhotos || []).forEach((dp, d) => {
+    detailComps.forEach((dp, d) => {
       cardReqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
         cardIndex: i + 1, totalCards: total, batchId, batchComplete: false,
@@ -1524,7 +1534,7 @@ async function sendAll() {
     // Back photo – parallel with front+details
     if (c.backPhoto) {
       cardReqs.push(postPhoto({
-        photo: c.backPhoto, side: 'back',
+        photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId,
         batchComplete: isLast,
         isFakeTraining: c.isFakeTraining || false,
@@ -1550,6 +1560,25 @@ async function sendAll() {
      <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Vyfoceno</div></div>
      <div class="stat-item"><div class="stat-num" style="color:var(--green)">${withAI}</div><div class="stat-lbl">AI rozpoznáno</div></div>`;
   showScreen('scDone');
+}
+
+// ─── Komprese fotky před odesláním ───────────────────────────
+async function compressImage(dataUrl, maxPx = 1400, quality = 0.85) {
+  if (!dataUrl) return dataUrl;
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl); // fallback na originál
+    img.src = dataUrl;
+  });
 }
 
 async function postPhoto(payload) {

@@ -583,10 +583,11 @@ async function loadQueue() {
             `storage/v1/object/sign/card-photo/${row.storage_path}`,
             'POST', { expiresIn: 7200 }
           );
-          if (signed?.signedURL) {
-            const url = signed.signedURL.startsWith('http')
-              ? signed.signedURL
-              : SUPABASE_URL + signed.signedURL;
+          const rawUrl = signed?.signedURL || signed?.signedUrl;
+          if (rawUrl) {
+            const url = rawUrl.startsWith('http')
+              ? rawUrl
+              : SUPABASE_URL + rawUrl;
             const meta = row.metadata || {};
             g.photos.push({
               url,
