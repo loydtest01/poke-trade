@@ -807,7 +807,7 @@ body::after {
     <span id="realtimeBadge" class="realtime-badge off" title="Příjem fotek z telefonu" style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:var(--text2);">
       <span class="realtime-dot" style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#888;margin-right:4px;"></span> Čeká
     </span>
-    <span id="groqStatus" class="badge badge-red" title="Groq API klíč" style="font-size:11px;padding:3px 8px;border-radius:6px;background:rgba(248,113,113,0.15);color:#f87171;">AI ✗</span>
+    <span id="groqStatus" class="badge badge-red" title="Groq API klíč">AI ✗</span>
     <button class="btn-nav-outline" onclick="openQrModal()" title="QR most – propoj telefon" style="font-size:13px">📱</button>
     <button class="btn-nav-outline" onclick="openSettings()" title="Nastavení Groq AI" style="font-size:13px">⚙️</button>
     <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
@@ -1717,11 +1717,10 @@ function updateResult(id, field, value) {
 function getMobileUrl() {
   if (!currentUser?.id) return '';
   let url = `${MOBILE_BASE}?u=${encodeURIComponent(currentUser.id)}`;
-  // Pass auth token so mobile can upload to API
-  if (currentToken) url += `&t=${encodeURIComponent(currentToken)}`;
   // Pass Groq key so mobile can do AI recognition
   const gk = getGroqKey();
   if (gk) url += `&gk=${encodeURIComponent(gk)}`;
+  // NOTE: token NOT included - mobile authenticates via its own login (localStorage)
   return url;
 }
 

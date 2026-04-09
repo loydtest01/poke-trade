@@ -250,8 +250,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
   <div class="content">
 
+    <!-- ══ LOGIN ══ -->
+    <div class="screen active" id="scLogin" style="display:none">
+      <div style="text-align:center;padding:28px 0 16px">
+        <div style="font-size:52px">🎴</div>
+        <div style="font-size:20px;font-weight:800;margin-top:10px">PhotoBridge</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:6px">Přihlas se svým PokéTrade účtem</div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Přihlášení</div>
+        <div id="loginError" style="display:none;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);border-radius:8px;padding:10px 12px;font-size:13px;color:#f87171;margin-bottom:8px"></div>
+        <input id="loginEmail" type="email" autocomplete="email" placeholder="E-mail"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box"
+          onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
+        <input id="loginPass" type="password" autocomplete="current-password" placeholder="Heslo"
+          style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box;margin-top:10px"
+          onkeydown="if(event.key==='Enter')doMobileLogin()">
+        <button id="loginBtn" class="btn btn-primary" onclick="doMobileLogin()" style="margin-top:14px">
+          → Přihlásit se
+        </button>
+      </div>
+
+      <div style="text-align:center;font-size:12px;color:var(--muted);padding:8px 0">
+        Přihlášení se uloží — příště ho nebudeš potřebovat.
+      </div>
+    </div>
+
     <!-- ══ SETUP ══ -->
-    <div class="screen active" id="scSetup">
+    <div class="screen" id="scSetup">
       <div class="setup-headline">PhotoBridge</div>
       <div class="setup-sub">Vyfotíš přední strany, pak zadní.<br>PC zpracuje vše najednou.</div>
 
@@ -500,12 +527,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 // ─── URL params ──────────────────────────────────────────────
 const params  = new URLSearchParams(location.search);
 const USER_ID = params.get('u') || '';
-const TOKEN   = params.get('t') || '';
 const SERVER  = location.origin;
 
-// ─── Supabase config (for photo upload fallback) ─────────────
+// ─── Supabase config ─────────────────────────────────────────
 const SB_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+// ─── Auth token – načteme z localStorage, NE z URL ──────────
+let mobileToken = localStorage.getItem('sb_token') || '';
 
 // ─── Batch state ─────────────────────────────────────────────
 let totalCards   = 9;
@@ -523,45 +552,137 @@ let groqKey = params.get('gk') || null;
 window.onload = async () => {
   selectCount(1, true);
 
-  // 1. Groq key already from URL param (?gk=...)
-  // 2. Fallback: try PC server
-  if (!groqKey && TOKEN) {
+  // Ověř uložený token, pokud existuje
+  if (mobileToken) {
+    const valid = await verifyToken(mobileToken);
+    if (!valid) {
+      mobileToken = '';
+      localStorage.removeItem('sb_token');
+    }
+  }
+
+  // Pokud nemáme token → zobraz login
+  if (!mobileToken) {
+    showLoginScreen();
+    return;
+  }
+
+  await afterAuth();
+};
+
+async function verifyToken(token) {
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/user`, {
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(4000)
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+async function doMobileLogin() {
+  const email = document.getElementById('loginEmail')?.value?.trim();
+  const pass  = document.getElementById('loginPass')?.value;
+  if (!email || !pass) { toast('Vyplň e-mail a heslo'); return; }
+
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Přihlašuji…';
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = ''; errEl.style.display = 'none';
+
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: pass })
+    });
+    const data = await r.json();
+    if (!r.ok || !data.access_token) {
+      errEl.textContent = data.error_description || 'Nesprávné přihlašovací údaje'; errEl.style.display = '';
+      btn.disabled = false; btn.textContent = '→ Přihlásit se';
+      return;
+    }
+    mobileToken = data.access_token;
+    localStorage.setItem('sb_token', mobileToken);
+    // Ulož i refresh token
+    if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
+    await afterAuth();
+  } catch(e) {
+    errEl.textContent = 'Chyba připojení: ' + e.message; errEl.style.display = '';
+    btn.disabled = false; btn.textContent = '→ Přihlásit se';
+  }
+}
+
+async function afterAuth() {
+  // Načti Groq klíč ze serveru nebo localStorage
+  if (!groqKey && mobileToken) {
     try {
-      const r = await fetch(`${SERVER}/api/groq-key?t=${TOKEN}`, { signal: AbortSignal.timeout(3000) });
+      const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(3000) });
       if (r.ok) { const d = await r.json(); groqKey = d.key; }
     } catch {}
   }
-  // 3. Fallback: try Supabase user_api_keys (if user has session on this device)
-  if (!groqKey && USER_ID) {
+  if (!groqKey && USER_ID && mobileToken) {
     try {
-      const tk = localStorage.getItem('sb_token');
-      if (tk) {
-        const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
-          headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + tk }
-        });
-        const rows = await r.json();
-        if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
-          groqKey = rows[0].groq_key;
-        }
+      const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
+      });
+      const rows = await r.json();
+      if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
+        groqKey = rows[0].groq_key;
       }
     } catch {}
   }
 
-  // Update AI badge
+  // Update chips
+  updateStatusChips();
+  initSwipe();
+
+  // Skryjeme login, zobrazíme app
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  showScreen('scSetup');
+}
+
+function showLoginScreen() {
+  showScreen('scLogin');
+  setTimeout(() => {
+    const emailInput = document.getElementById('loginEmail');
+    if (emailInput && !emailInput.value) emailInput.focus();
+  }, 100);
+}
+
+function doMobileLogout() {
+  localStorage.removeItem('sb_token');
+  localStorage.removeItem('sb_refresh');
+  mobileToken = '';
+  showLoginScreen();
+  toast('Odhlášeno');
+}
+
+function updateStatusChips() {
   const aiBadge = document.getElementById('chipAI');
+  const pcBadge = document.getElementById('chipPC');
   if (aiBadge) {
     if (groqKey) {
-      aiBadge.style.background = 'rgba(74,222,128,.15)';
+      aiBadge.style.background  = 'rgba(74,222,128,.15)';
       aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
-      aiBadge.style.color = '#4ade80';
-      aiBadge.textContent = '🤖 AI ✓';
+      aiBadge.style.color       = '#4ade80';
+      aiBadge.textContent       = '🤖 AI ✓';
     } else {
-      aiBadge.textContent = '🤖 AI ✗';
+      aiBadge.style.background  = 'rgba(248,113,113,.1)';
+      aiBadge.style.borderColor = 'rgba(248,113,113,.3)';
+      aiBadge.style.color       = '#f87171';
+      aiBadge.textContent       = '🤖 AI ✗';
     }
   }
-
-  initSwipe();
-};
+  if (pcBadge) {
+    const ok = !!mobileToken;
+    pcBadge.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
+    pcBadge.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
+    pcBadge.style.color       = ok ? '#4ade80'              : '#f87171';
+    pcBadge.textContent       = ok ? '💻 PC ✓'             : '💻 PC ✗';
+  }
+}
 
 // ══════════════════════════════════════════════
 // SETUP – quick count buttons
@@ -1435,7 +1556,7 @@ async function sendAll() {
 
 async function postPhoto(payload) {
   // Odeslat JSON data na PC (server přepošle do qr-bridge._handleBatchPhoto)
-  return fetch(`${SERVER}/api/scan-result?t=${TOKEN}`, {
+  return fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -1658,45 +1779,8 @@ If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez po�
   } catch { return null; }
 }
 
-// ── Stav připojení – AI a PC čipy v headeru ──────────────────
-(function initStatusChips() {
-  const params = new URLSearchParams(location.search);
-  const token  = params.get('t') || '';
-  const base   = location.origin;
-
-  function setChip(id, ok, labelOk, labelFail) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent       = ok ? labelOk : labelFail;
-    el.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
-    el.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
-    el.style.color       = ok ? '#4ade80'              : '#f87171';
-  }
-
-  async function checkPC() {
-    try {
-      const r = await fetch(`${base}/api/ping?t=${token}`, { signal: AbortSignal.timeout(3000) });
-      setChip('chipPC', r.ok, '💻 PC ✓', '💻 PC ✗');
-    } catch { setChip('chipPC', false, '💻 PC ✓', '💻 PC ✗'); }
-  }
-
-  async function checkAI() {
-    // Check from URL param first
-    if (groqKey) { setChip('chipAI', true, '🤖 AI ✓', '🤖 AI ✗'); return; }
-    // Fallback: check PC server
-    try {
-      const r  = await fetch(`${base}/api/groq-key?t=${token}`, { signal: AbortSignal.timeout(3000) });
-      if (!r.ok) { setChip('chipAI', false, '🤖 AI ✓', '🤖 AI ✗'); return; }
-      const d  = await r.json();
-      if (d.key && d.key.trim()) { groqKey = d.key; }
-      setChip('chipAI', !!(d.key && d.key.trim()), '🤖 AI ✓', '🤖 AI ✗');
-    } catch { setChip('chipAI', false, '🤖 AI ✓', '🤖 AI ✗'); }
-  }
-
-  // Spustit ihned a pak každých 15 s
-  checkPC(); checkAI();
-  setInterval(() => { checkPC(); checkAI(); }, 15000);
-})();
+// ── Periodická aktualizace stavových čipů ──────────────────
+setInterval(updateStatusChips, 15000);
 
 </script>
 </body>
