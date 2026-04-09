@@ -65,17 +65,6 @@ body {
 .hero-content { z-index: 2; }
 .hero-cards-visual { z-index: 2; }
 
-/* Hlavní obrázek karet – bílé pozadí průhledné */
-.hero-cards-main-img {
-  position: relative;
-  z-index: 3;
-  width: 100%;
-  max-width: 480px;
-  display: block;
-  mix-blend-mode: multiply;
-  pointer-events: none;
-}
-
 /* Hero badge fire styl */
 .hero-badge {
   background: rgba(245,200,66,0.12) !important;
@@ -285,11 +274,12 @@ body {
     <div class="grid-lines"></div>
   </div>
   <div class="hero-content">
+    <div class="hero-badge">🃏 Komunita sběratelů</div>
     <h1 class="hero-title">
-      Ovládni svou sbírku.<br><em>Obchoduj s legendami.</em>
+      Sdílej,&nbsp;vyměň,<br><em>získej</em> co chybí
     </h1>
     <p class="hero-sub">
-      Převeď své fyzické album do digitální podoby. Sleduj hodnotu svých karet, nahrávej fotky a najdi chybějící kusy skrze bezpečné výměny.
+      Nahraj kartičky z tvé Pokémon Cards aplikace a najdi výměnu se sběrateli ve svém okolí.
     </p>
     <div class="hero-btns">
       <a href="register.html" class="btn-primary">Začít zdarma</a>
@@ -302,7 +292,6 @@ body {
     </div>
   </div>
   <div class="hero-cards-visual">
-    <img src="hero-cards.png" alt="Pokémon karty" class="hero-cards-main-img">
     <div class="card-float c1">
       <img class="card-img" src="ohen.png" alt="Oheň" style="object-fit:cover;padding:0;">
     </div>
