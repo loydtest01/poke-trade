@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Čeká na zařazení – PokéTrade</title>
+<link rel="icon" type="image/png" href="pokemon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+
+/* ═══ WALLPAPER ═══ */
+body { background: #06040c; overflow-x: hidden; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("wallpaper.png");
+  background-size: cover; background-position: center 30%;
+  filter: brightness(0.22) saturate(0.6);
+}
+body::after {
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 40%, rgba(30,80,255,0.08) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, transparent 50%, rgba(0,0,0,0.6) 100%);
+}
+
+/* ═══ TOP BAR ═══ */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow, #f5c842); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2, rgba(240,232,208,0.6)); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: #f5c842; }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  text-decoration: none; color: #f0ece4; transition: all .15s;
+}
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #f5c842; color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+.btn-nav-outline {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,232,208,0.7); border-radius: 8px; padding: 5px 12px; font-size: 13px;
+  cursor: pointer; font-family: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 5px; transition: all .15s;
+}
+.btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+
+/* ═══ PAGE LAYOUT ═══ */
+.page-wrap { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 28px 20px 60px; }
+
+/* ═══ PAGE HEADER ═══ */
+.page-head {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 28px; flex-wrap: wrap;
+}
+.page-title {
+  font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 800; flex: 1;
+  display: flex; align-items: center; gap: 10px;
+}
+.page-badge {
+  background: rgba(245,200,66,0.18); color: #f5c842;
+  border: 1px solid rgba(245,200,66,0.3);
+  border-radius: 20px; padding: 3px 12px; font-size: 13px;
+  font-family: 'DM Sans', sans-serif; font-weight: 700;
+}
+.head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.album-sel {
+  padding: 7px 12px; background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
+  color: #f0ece4; font-size: 13px; font-family: inherit; min-width: 180px;
+}
+.btn-gold {
+  background: linear-gradient(135deg,#f5c842,#ff8c00); color: #000;
+  border: none; border-radius: 8px; padding: 8px 18px;
+  font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-gold:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.btn-gold:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.btn-outline {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(240,232,208,0.7); border-radius: 8px; padding: 8px 14px;
+  font-size: 13px; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.btn-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+
+/* ═══ EMPTY / LOADING ═══ */
+.state-box {
+  text-align: center; padding: 64px 20px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+}
+.state-box .emoji { font-size: 52px; display: block; margin-bottom: 14px; }
+.state-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.state-box p { font-size: 13px; color: rgba(240,232,208,0.5); line-height: 1.6; }
+
+/* ═══ CARD GROUP ═══ */
+.card-group {
+  background: rgba(18,12,22,0.82);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px; margin-bottom: 16px;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.card-group:hover { border-color: rgba(255,255,255,0.14); }
+.card-group.expanded { border-color: rgba(245,200,66,0.3); }
+
+/* Group header */
+.cg-header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; cursor: pointer; user-select: none;
+}
+.cg-header:hover { background: rgba(255,255,255,0.02); }
+.cg-thumb {
+  width: 48px; height: 67px; border-radius: 7px; object-fit: cover;
+  flex-shrink: 0; background: rgba(255,255,255,0.05);
+}
+.cg-thumb-placeholder {
+  width: 48px; height: 67px; border-radius: 7px; flex-shrink: 0;
+  background: rgba(255,255,255,0.05); border: 1px dashed rgba(255,255,255,0.1);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.cg-meta { flex: 1; min-width: 0; }
+.cg-name {
+  font-size: 15px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cg-sub { font-size: 12px; color: rgba(240,232,208,0.5); margin-top: 3px; }
+.cg-tags { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700;
+}
+.tag-cond-NM  { background: rgba(74,222,128,.15);  color: #4ade80; }
+.tag-cond-LP  { background: rgba(134,239,172,.12); color: #86efac; }
+.tag-cond-MP  { background: rgba(250,204,21,.12);  color: #facc15; }
+.tag-cond-HP  { background: rgba(251,146,60,.12);  color: #fb923c; }
+.tag-cond-D   { background: rgba(248,113,113,.12); color: #f87171; }
+.tag-photo    { background: rgba(79,142,247,.12);  color: #7ab8ff; }
+.tag-lang-JP  { background: rgba(239,68,68,.12);   color: #fca5a5; }
+.tag-lang-EN  { background: rgba(148,163,184,.1);  color: #94a3b8; }
+.cg-time { font-size: 11px; color: rgba(240,232,208,0.35); white-space: nowrap; flex-shrink: 0; text-align: right; }
+.cg-chevron { color: rgba(240,232,208,0.3); font-size: 16px; flex-shrink: 0; transition: transform .25s; }
+.card-group.expanded .cg-chevron { transform: rotate(90deg); }
+
+/* Group body */
+.cg-body { display: none; border-top: 1px solid rgba(255,255,255,0.06); padding: 0; }
+.card-group.expanded .cg-body { display: block; }
+
+/* Photos strip */
+.cg-photos {
+  display: flex; gap: 10px; padding: 16px 18px 12px;
+  overflow-x: auto; scrollbar-width: thin;
+}
+.cg-photos::-webkit-scrollbar { height: 4px; }
+.cg-photos::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+.cg-photos::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+.photo-tile {
+  flex-shrink: 0; width: 110px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.photo-tile img {
+  width: 110px; height: 154px; object-fit: cover;
+  border-radius: 9px; border: 1.5px solid rgba(255,255,255,0.08);
+  cursor: zoom-in; transition: all .2s;
+}
+.photo-tile img:hover { border-color: rgba(245,200,66,0.5); transform: scale(1.03); }
+.photo-tile .pt-label {
+  font-size: 10px; font-weight: 700; color: rgba(240,232,208,0.45);
+  text-align: center;
+}
+
+/* AI info */
+.cg-ai {
+  margin: 0 18px 14px;
+  background: rgba(79,142,247,0.07); border: 1px solid rgba(79,142,247,0.15);
+  border-radius: 10px; padding: 14px;
+}
+.cg-ai-title {
+  font-size: 10px; font-weight: 700; color: rgba(240,232,208,0.4);
+  text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px;
+}
+.ai-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 5px 16px;
+}
+.ai-row {
+  display: flex; gap: 6px; align-items: baseline; font-size: 12px;
+}
+.ai-row .lbl { color: rgba(240,232,208,0.4); min-width: 60px; flex-shrink: 0; }
+.ai-row .val { color: #f5c842; font-weight: 600; }
+.ai-conf {
+  margin-top: 8px; font-size: 11px; text-align: right;
+  color: rgba(240,232,208,0.35);
+}
+
+/* Back AI info */
+.cg-back-ai {
+  margin: 0 18px 14px;
+  background: rgba(248,113,113,0.06); border: 1px solid rgba(248,113,113,0.15);
+  border-radius: 10px; padding: 12px;
+}
+.cg-back-ai .back-cond { font-size: 13px; font-weight: 800; }
+.cg-back-ai .back-issues { margin-top: 6px; font-size: 11px; color: #f87171; }
+
+/* Comment */
+.cg-comment { padding: 0 18px 14px; }
+.cg-comment label { font-size: 11px; font-weight: 700; color: rgba(240,232,208,0.4); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
+.cg-comment textarea {
+  width: 100%; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: #f0ece4; font-size: 13px; padding: 10px 12px;
+  font-family: 'DM Sans', sans-serif; resize: none; box-sizing: border-box;
+  transition: border-color .2s;
+}
+.cg-comment textarea:focus { outline: none; border-color: rgba(245,200,66,0.4); }
+
+/* Group footer */
+.cg-footer {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.15); flex-wrap: wrap;
+}
+.cg-footer .album-sel-inline {
+  flex: 1; min-width: 160px;
+  padding: 7px 10px; background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
+  color: #f0ece4; font-size: 12px; font-family: inherit;
+}
+.btn-assign {
+  background: linear-gradient(135deg,#4ade80,#16a34a); color: #000;
+  border: none; border-radius: 8px; padding: 8px 16px;
+  font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-assign:hover { filter: brightness(1.1); }
+.btn-assign:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+.btn-discard {
+  background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2);
+  color: #f87171; border-radius: 8px; padding: 8px 12px;
+  font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.btn-discard:hover { background: rgba(248,113,113,0.2); }
+
+/* Lightbox */
+#lightbox {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.9); align-items: center; justify-content: center;
+  cursor: zoom-out;
+}
+#lightbox.open { display: flex; }
+#lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 8px; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: rgba(30,25,40,0.96); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 12px; padding: 10px 20px; font-size: 13px; font-weight: 600;
+  z-index: 9999; opacity: 0; white-space: nowrap; max-width: 90vw; text-align: center;
+  transition: transform .3s ease, opacity .3s ease;
+}
+#toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+#toast.ok   { border-color: rgba(74,222,128,.35); color: #4ade80; }
+#toast.err  { border-color: rgba(248,113,113,.35); color: #f87171; }
+
+/* Login prompt */
+#loginPrompt {
+  display: none; position: fixed; inset: 0; z-index: 999;
+  background: rgba(0,0,0,0.8); align-items: center; justify-content: center;
+}
+#loginPrompt.open { display: flex; }
+.login-box {
+  background: rgba(18,12,22,.95); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; padding: 36px 32px; text-align: center; max-width: 360px; width: 90%;
+}
+.login-box h2 { font-size: 18px; margin-bottom: 8px; }
+.login-box p  { font-size: 13px; color: rgba(240,232,208,0.5); margin-bottom: 20px; }
+
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="" style="width:28px;height:28px;object-fit:contain;border-radius:6px;vertical-align:middle">
+    Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html">Nabídky</a>
+    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="compare.html">Porovnat alba</a>
+    <a href="scanner.html">📷 Skener</a>
+    <a href="queue.html" class="active">📥 Čeká na zařazení</a>
+    <a href="profile.html">Můj profil</a>
+  </nav>
+  <div class="topbar-right">
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none">Odhlásit</button>
+  </div>
+</header>
+
+<!-- MAIN -->
+<div class="page-wrap">
+
+  <!-- Page header -->
+  <div class="page-head">
+    <div class="page-title">
+      📥 Čeká na zařazení
+      <span class="page-badge" id="totalBadge" style="display:none">0</span>
+    </div>
+    <div class="head-actions">
+      <select id="globalAlbumSel" class="album-sel">
+        <option value="">— Zařadit bez alba —</option>
+      </select>
+      <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled>
+        💾 Zařadit vše
+      </button>
+      <button class="btn-outline" onclick="loadQueue()">🔄 Obnovit</button>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div id="contentArea">
+    <div class="state-box">
+      <span class="emoji">⏳</span>
+      <h3>Načítám frontu…</h3>
+      <p>Připojuji se k databázi</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" onclick="closeLightbox()">
+  <img id="lightboxImg" src="" alt="">
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Login prompt -->
+<div id="loginPrompt">
+  <div class="login-box">
+    <h2>🔒 Přihlášení vyžadováno</h2>
+    <p>Pro zobrazení fronty se musíš přihlásit do svého PokéTrade účtu.</p>
+    <a href="login.html" class="btn-gold" style="display:inline-flex;text-decoration:none">→ Přihlásit se</a>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────
+let userId = null;
+let token  = null;
+let albums = [];
+// cardGroups[key] = { key, batchId, cardIndex, rows[], photos:[], aiResult, backAi, timestamp, comment }
+let cardGroups = [];
+
+(async () => {
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; } })();
+  token  = localStorage.getItem('sb_token');
+  userId = sbUser?.id || localStorage.getItem('sb_user_id');
+  const uname = sbUser?.user_metadata?.username || sbUser?.email?.split('@')[0] || '';
+
+  if (!token || !userId) {
+    document.getElementById('loginPrompt').classList.add('open');
+    document.getElementById('loginLink').style.display = '';
+    return;
+  }
+
+  document.getElementById('userChip').style.display  = '';
+  document.getElementById('loginLink').style.display  = 'none';
+  document.getElementById('logoutBtn').style.display  = '';
+  document.getElementById('userName').textContent    = uname;
+  document.getElementById('userAvatar').textContent  = (uname[0]||'?').toUpperCase();
+
+  await loadAlbums();
+  await loadQueue();
+})();
+
+// ── Supabase helper ───────────────────────────────────────────
+async function sbReq(path, method = 'GET', body = null) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey':        SUPABASE_ANON,
+    'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
+    ...(['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
+  };
+  const res = await fetch(`${SUPABASE_URL}/${path}`, {
+    method, headers, body: body ? JSON.stringify(body) : undefined
+  });
+  if (!res.ok && res.status === 401) { doLogout(); return null; }
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('json')) return res.json();
+  return null;
+}
+
+// ── Load albums ───────────────────────────────────────────────
+async function loadAlbums() {
+  try {
+    const rows = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&order=name.asc&select=id,name,icon`);
+    if (!Array.isArray(rows)) return;
+    albums = rows;
+    const globalSel = document.getElementById('globalAlbumSel');
+    rows.forEach(a => {
+      const o = new Option(`${a.icon||'📁'} ${a.name}`, a.id);
+      globalSel.appendChild(o);
+    });
+  } catch {}
+}
+
+// ── Load queue ────────────────────────────────────────────────
+async function loadQueue() {
+  document.getElementById('contentArea').innerHTML = `
+    <div class="state-box">
+      <span class="emoji">⏳</span>
+      <h3>Načítám…</h3>
+      <p>Připojuji se k databázi</p>
+    </div>`;
+
+  try {
+    const rows = await sbReq(
+      `rest/v1/photo_queue?user_id=eq.${userId}&processed=eq.false&order=created_at.asc&limit=200`
+    );
+    if (!Array.isArray(rows) || rows.length === 0) {
+      document.getElementById('contentArea').innerHTML = `
+        <div class="state-box">
+          <span class="emoji">✅</span>
+          <h3>Fronta je prázdná</h3>
+          <p>Všechny fotky jsou zařazeny, nebo ještě žádné nepřišly z mobilu.<br>Vyfoť karty v aplikaci PhotoBridge a pošli je na PC.</p>
+        </div>`;
+      document.getElementById('totalBadge').style.display = 'none';
+      document.getElementById('assignAllBtn').disabled = true;
+      return;
+    }
+
+    // Seskup podle batchId + cardIndex
+    const groups = {};
+    for (const row of rows) {
+      const meta = row.metadata || {};
+      const batchId   = meta.batchId   || row.id;
+      const cardIndex = meta.cardIndex || 1;
+      const key = `${batchId}__${cardIndex}`;
+      if (!groups[key]) {
+        groups[key] = {
+          key, batchId, cardIndex,
+          rows: [], photos: [],
+          aiResult: null, backAi: null,
+          timestamp: row.created_at,
+          comment: '',
+        };
+      }
+      groups[key].rows.push(row);
+      // Nejstarší timestamp jako čas skupiny
+      if (row.created_at < groups[key].timestamp) groups[key].timestamp = row.created_at;
+      // Ulož AI z přední strany
+      const side = meta.side || 'front';
+      if (side === 'front' && meta.name) {
+        groups[key].aiResult = meta;
+      }
+      if (side === 'back' && (meta.condition || meta.issues)) {
+        groups[key].backAi = meta;
+      }
+    }
+
+    cardGroups = Object.values(groups);
+
+    // Načti signed URLs pro fotky
+    for (const g of cardGroups) {
+      for (const row of g.rows) {
+        try {
+          const signed = await sbReq(
+            `storage/v1/object/sign/card-photo/${row.storage_path}`,
+            'POST', { expiresIn: 7200 }
+          );
+          if (signed?.signedURL) {
+            const url = signed.signedURL.startsWith('http')
+              ? signed.signedURL
+              : SUPABASE_URL + signed.signedURL;
+            const meta = row.metadata || {};
+            g.photos.push({
+              url,
+              side: meta.side || 'front',
+              detailIndex: meta.detailIndex || null,
+              queueId: row.id,
+            });
+          }
+        } catch {}
+      }
+      // Seřaď: front → detail(y) → back
+      g.photos.sort((a,b) => {
+        const order = { front: 0, detail: 1, back: 2 };
+        return (order[a.side] ?? 1) - (order[b.side] ?? 1);
+      });
+    }
+
+    // Badge + tlačítko
+    const total = cardGroups.length;
+    document.getElementById('totalBadge').textContent = total;
+    document.getElementById('totalBadge').style.display = '';
+    document.getElementById('assignAllBtn').disabled = false;
+
+    renderGroups();
+  } catch(e) {
+    document.getElementById('contentArea').innerHTML = `
+      <div class="state-box">
+        <span class="emoji">⚠️</span>
+        <h3>Chyba načítání</h3>
+        <p>${e.message}</p>
+      </div>`;
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderGroups() {
+  const area = document.getElementById('contentArea');
+  if (!cardGroups.length) {
+    area.innerHTML = `
+      <div class="state-box">
+        <span class="emoji">✅</span>
+        <h3>Fronta je prázdná</h3>
+        <p>Všechny fotky jsou zařazeny.</p>
+      </div>`;
+    return;
+  }
+  area.innerHTML = '';
+  cardGroups.forEach((g, gi) => {
+    area.appendChild(buildGroupEl(g, gi));
+  });
+}
+
+function buildGroupEl(g, gi) {
+  const ai = g.aiResult || {};
+  const frontPhoto = g.photos.find(p => p.side === 'front');
+  const condColors = { NM:'tag-cond-NM', LP:'tag-cond-LP', MP:'tag-cond-MP', HP:'tag-cond-HP', D:'tag-cond-D' };
+  const cond = ai.condition || 'NM';
+  const condTag = condColors[cond] || 'tag-cond-NM';
+  const lang = ai.lang || 'EN';
+  const timeStr = formatTime(g.timestamp);
+  const photoCount = g.photos.length;
+  const name = ai.name || `Karta ${g.cardIndex}`;
+
+  const el = document.createElement('div');
+  el.className = 'card-group';
+  el.id = `group-${gi}`;
+
+  // Build photos HTML
+  const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', back: '🔄 Zadní' };
+  const photosHtml = g.photos.map(p =>
+    `<div class="photo-tile">
+      <img src="${p.url}" alt="${p.side}" loading="lazy" onclick="openLightbox('${p.url}')">
+      <div class="pt-label">${sideLabels[p.side] || p.side}${p.detailIndex ? ' '+p.detailIndex : ''}</div>
+    </div>`
+  ).join('');
+
+  // AI info rows
+  const aiRows = [
+    ['Název',    ai.name],
+    ['Série',    ai.set],
+    ['Číslo',    ai.number],
+    ['Typ',      ai.type],
+    ['Kategorie',ai.subtype || ai.category],
+    ['HP',       ai.hp],
+    ['Varianta', ai.variant],
+    ['Jazyk',    ai.lang],
+  ].filter(([,v]) => v).map(([l,v]) =>
+    `<div class="ai-row"><span class="lbl">${l}</span><span class="val">${esc(String(v))}</span></div>`
+  ).join('');
+
+  const confPct = ai.confidence
+    ? (typeof ai.confidence === 'number'
+        ? Math.round(ai.confidence * 100)
+        : ai.confidence === 'high' ? 92 : ai.confidence === 'medium' ? 65 : 40)
+    : null;
+
+  // Back AI
+  let backAiHtml = '';
+  if (g.backAi) {
+    const bai = g.backAi;
+    const bCond = bai.condition || '';
+    const bCondCol = { NM:'#4ade80',LP:'#86efac',MP:'#facc15',HP:'#fb923c',D:'#f87171' }[bCond] || '#94a3b8';
+    const issuesList = Array.isArray(bai.issues) && bai.issues.length
+      ? bai.issues.map(i => `<div>• ${esc(i)}</div>`).join('')
+      : '';
+    backAiHtml = `
+      <div class="cg-back-ai">
+        <div style="font-size:10px;font-weight:700;color:rgba(240,232,208,.4);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🔍 Zadní strana – AI analýza</div>
+        <span class="back-cond" style="color:${bCond ? bCondCol : '#94a3b8'}">${bCond || 'N/A'}</span>
+        ${bai.notes ? `<span style="font-size:12px;color:rgba(240,232,208,.5);margin-left:10px">${esc(bai.notes)}</span>` : ''}
+        ${issuesList ? `<div class="back-issues">${issuesList}</div>` : ''}
+      </div>`;
+  }
+
+  // Build album options for this group
+  const albumOpts = `<option value="">— Bez alba —</option>` +
+    albums.map(a => `<option value="${a.id}">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
+
+  el.innerHTML = `
+    <!-- Header -->
+    <div class="cg-header" onclick="toggleGroup(${gi})">
+      ${frontPhoto
+        ? `<img class="cg-thumb" src="${frontPhoto.url}" alt="" loading="lazy">`
+        : `<div class="cg-thumb-placeholder">🃏</div>`}
+      <div class="cg-meta">
+        <div class="cg-name">${esc(name)}</div>
+        <div class="cg-sub">
+          ${ai.set ? esc(ai.set) : ''}${ai.number ? ' · #'+esc(ai.number) : ''}
+          · ${photoCount} foto${photoCount !== 1 ? 'k' : 'ka'}
+        </div>
+        <div class="cg-tags">
+          <span class="tag ${condTag}">${cond}</span>
+          ${lang ? `<span class="tag tag-lang-${lang === 'JP' ? 'JP' : 'EN'}">${lang}</span>` : ''}
+          ${g.photos.some(p => p.side === 'detail') ? `<span class="tag tag-photo">🔍 Detail</span>` : ''}
+          ${g.photos.some(p => p.side === 'back')   ? `<span class="tag tag-photo">🔄 Zadní</span>`   : ''}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div class="cg-time">${timeStr}</div>
+        <div style="font-size:10px;color:rgba(240,232,208,.25);margin-top:4px">dávka ${g.batchId.slice(-6)}</div>
+      </div>
+      <div class="cg-chevron">›</div>
+    </div>
+
+    <!-- Body -->
+    <div class="cg-body">
+
+      <!-- Fotky -->
+      <div class="cg-photos">${photosHtml || '<div style="color:rgba(240,232,208,.3);font-size:13px;padding:8px">Žádné fotky</div>'}</div>
+
+      <!-- AI info -->
+      ${aiRows ? `
+        <div class="cg-ai">
+          <div class="cg-ai-title">🤖 AI rozpoznávání</div>
+          <div class="ai-grid">${aiRows}</div>
+          ${ai.conditionNotes ? `<div style="margin-top:8px;font-size:12px;color:rgba(240,232,208,.5)">📝 ${esc(ai.conditionNotes)}</div>` : ''}
+          ${ai.notes ? `<div style="margin-top:4px;font-size:12px;color:rgba(240,232,208,.4)">💬 ${esc(ai.notes)}</div>` : ''}
+          ${confPct !== null ? `<div class="ai-conf">Konfidence: ${confPct}%</div>` : ''}
+        </div>` : ''}
+
+      <!-- Zadní strana AI -->
+      ${backAiHtml}
+
+      <!-- Komentář -->
+      <div class="cg-comment">
+        <label>💬 Komentář</label>
+        <textarea rows="2" placeholder="Přidej poznámku k této kartičce…"
+          oninput="cardGroups[${gi}].comment = this.value"
+          >${esc(g.comment)}</textarea>
+      </div>
+
+      <!-- Footer -->
+      <div class="cg-footer">
+        <select class="album-sel-inline" id="albumSel-${gi}">${albumOpts}</select>
+        <button class="btn-assign" onclick="assignGroup(${gi})">✅ Zařadit</button>
+        <button class="btn-discard" onclick="discardGroup(${gi})">🗑 Zahodit</button>
+      </div>
+
+    </div>`;
+
+  return el;
+}
+
+// ── Toggle expand ─────────────────────────────────────────────
+function toggleGroup(gi) {
+  const el = document.getElementById(`group-${gi}`);
+  if (!el) return;
+  el.classList.toggle('expanded');
+}
+
+// ── Assign single group ───────────────────────────────────────
+async function assignGroup(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const albumId = document.getElementById(`albumSel-${gi}`)?.value || null;
+  await doAssign([g], albumId);
+}
+
+// ── Assign all ────────────────────────────────────────────────
+async function assignAll() {
+  if (!cardGroups.length) return;
+  const albumId = document.getElementById('globalAlbumSel')?.value || null;
+  const btn = document.getElementById('assignAllBtn');
+  btn.disabled = true; btn.textContent = '⏳ Zařazuji…';
+  await doAssign([...cardGroups], albumId);
+  btn.disabled = false; btn.textContent = '💾 Zařadit vše';
+}
+
+async function doAssign(groups, albumId) {
+  let ok = 0, fail = 0;
+  for (const g of groups) {
+    try {
+      const ai = g.aiResult || {};
+      // Ulož do user_cards
+      await sbReq('rest/v1/user_cards', 'POST', {
+        user_id:   userId,
+        album_id:  albumId || null,
+        card_data: {
+          name:      ai.name      || 'Neznámá karta',
+          set:       ai.set       || '',
+          number:    ai.number    || '',
+          condition: ai.condition || 'NM',
+          category:  (ai.category || 'Pokemon').toLowerCase(),
+          type:      ai.type      || '',
+          hp:        ai.hp        || '',
+          lang:      ai.lang      || 'EN',
+          variant:   ai.variant   || 'Normal',
+          subtype:   ai.subtype   || '',
+          note:      g.comment    || ai.notes || '',
+          photoUrl:  g.photos.find(p=>p.side==='front')?.url || '',
+          count: 1, tags: [], for_trade: false, for_sell: false,
+          backCondition: g.backAi?.condition || null,
+          backIssues:    g.backAi?.issues    || [],
+        },
+        updated_at: new Date().toISOString(),
+        for_trade:  false, for_sell: false,
+      });
+      // Označit všechny photo_queue záznamy jako processed
+      for (const p of g.photos) {
+        sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
+      }
+      // Odstraň ze seznamu
+      cardGroups = cardGroups.filter(x => x.key !== g.key);
+      const el = document.getElementById(`group-${cardGroups.indexOf(g)}`);
+      if (el) el.remove();
+      ok++;
+    } catch { fail++; }
+  }
+
+  // Re-render
+  renderGroups();
+  updateBadge();
+  if (ok)   toast(`✅ ${ok} karet zařazeno${albumId ? ' do alba' : ''}`, 'ok');
+  if (fail) toast(`⚠️ ${fail} karet se nepodařilo zařadit`, 'err');
+}
+
+// ── Discard group ─────────────────────────────────────────────
+async function discardGroup(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  if (!confirm(`Zahodit kartičku "${g.aiResult?.name || 'Karta '+g.cardIndex}"? Fotky budou označeny jako zpracované.`)) return;
+
+  for (const p of g.photos) {
+    sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
+  }
+  cardGroups.splice(gi, 1);
+  renderGroups();
+  updateBadge();
+  toast('🗑 Zahozeno');
+}
+
+function updateBadge() {
+  const badge = document.getElementById('totalBadge');
+  const btn   = document.getElementById('assignAllBtn');
+  if (!cardGroups.length) {
+    badge.style.display = 'none';
+    btn.disabled = true;
+  } else {
+    badge.textContent = cardGroups.length;
+    badge.style.display = '';
+    btn.disabled = false;
+  }
+}
+
+// ── Lightbox ──────────────────────────────────────────────────
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// ── Logout ────────────────────────────────────────────────────
+function doLogout() {
+  localStorage.removeItem('sb_token');
+  localStorage.removeItem('sb_user');
+  localStorage.removeItem('sb_user_id');
+  location.href = 'login.html';
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = Math.floor((now - d) / 1000);
+  if (diff < 60)    return 'Právě teď';
+  if (diff < 3600)  return `Před ${Math.floor(diff/60)} min`;
+  if (diff < 86400) return `Dnes ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+  const day = d.getDate(), mon = d.getMonth()+1;
+  const yr = d.getFullYear() !== now.getFullYear() ? ` ${d.getFullYear()}` : '';
+  return `${day}. ${mon}.${yr} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+let _toastTimer = null;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show${type ? ' '+type : ''}`;
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.className = '', 3000);
+}
+</script>
+</body>
+</html>
