@@ -281,7 +281,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <script>
     (function() {
       var hasToken = !!localStorage.getItem('sb_token');
-      document.getElementById(hasToken ? 'scSetup' : 'scLogin').classList.add('active');
+      // scLogin je před tímto scriptem → vždy existuje
+      // scSetup je AŽ za tímto scriptem → při hasToken=true ještě neexistuje!
+      // Proto: vždy ukážeme scLogin a pokud má token, onload přepne na scSetup
+      if (!hasToken) {
+        document.getElementById('scLogin').classList.add('active');
+      }
+      // hasToken případ vyřeší window.onload níže
     })();
     </script>
 
@@ -562,8 +568,9 @@ window.onload = () => {
   updateStatusChips();
   initSwipe();
 
-  // Groq klíč + ověření tokenu na pozadí (neblokuje UI)
+  // Pokud má uživatel token, ukáž scSetup (inline script to nestihl – scSetup ještě nebyl v DOMu)
   if (mobileToken) {
+    showScreen('scSetup');
     loadGroqInBackground();
     verifyToken(mobileToken).then(valid => {
       if (!valid) {
