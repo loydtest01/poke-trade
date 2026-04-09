@@ -155,6 +155,11 @@ a { color: inherit; text-decoration: none; }
   background-size: 40px 40px;
 }
 
+.hero-content {
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto; padding: 0 24px;
+  flex: 1;
+}
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.3);
@@ -179,39 +184,30 @@ a { color: inherit; text-decoration: none; }
 .stat small { color: var(--text3); font-size: 12px; }
 
 /* floating cards visual */
-.hero-content {
-  position: relative; z-index: 1;
-  max-width: 1200px; margin: 0 auto; padding: 0 40px;
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 40px;
-  width: 100%;
-}
-.hero-text {
-  flex: 1;
-  min-width: 0;
-}
 .hero-cards-visual {
-  flex-shrink: 0;
-  width: 420px;
+  position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
   pointer-events: none;
 }
-@media (max-width: 960px) { .hero-cards-visual { width: 300px; } }
-@media (max-width: 720px) { .hero-cards-visual { display: none; } }
+@media (max-width: 800px) { .hero-cards-visual { display: none; } }
 
-.hero-cards-img-wrap {
-  animation: float 5s ease-in-out infinite;
-  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6));
+.card-float {
+  animation: float 4s ease-in-out infinite;
 }
-.hero-cards-img {
-  width: 100%; height: auto; display: block;
-  /* PNG má průhledné pozadí – žádný background */
-}
+.card-float.c1 { animation-delay: 0s; }
+.card-float.c2 { animation-delay: 1s; }
+.card-float.c3 { animation-delay: 2s; }
+.card-float.c4 { animation-delay: 0.5s; }
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-14px); }
+  50% { transform: translateY(-12px); }
+}
+
+.card-img {
+  width: 90px; height: 126px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36px; box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 /* ═══ SECTIONS ═══ */
