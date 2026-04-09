@@ -175,16 +175,50 @@ function getTypeEmoji(type) {
   const sTrades = document.getElementById('statTrades');
   if (!sCards) return;
 
-  const [listings, profiles, offers] = await Promise.all([
-    supabaseRequest('rest/v1/listings?select=cards_data&status=eq.active'),
-    supabaseRequest('rest/v1/profiles?select=id'),
-    supabaseRequest('rest/v1/offers?select=id&status=eq.accepted'),
-  ]);
+  try {
+    // Počet karet: celkový součet ze všech kolekcí (user_cards)
+    // Supabase vrací počet řádků v hlavičce Content-Range při Prefer: count=exact
+    const [cardsRes, profilesRes, offersRes] = await Promise.all([
+      fetch(`${SUPABASE_URL}/rest/v1/user_cards?select=id`, {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': `Bearer ${SUPABASE_ANON}`,
+          'Prefer': 'count=exact',
+          'Range-Unit': 'items',
+          'Range': '0-0',
+        }
+      }),
+      supabaseRequest('rest/v1/profiles?select=id'),
+      supabaseRequest('rest/v1/offers?select=id&status=eq.accepted'),
+    ]);
 
-  const totalCards = Array.isArray(listings)
-    ? listings.reduce((s, l) => s + (l.cards_data?.length || 0), 0) : 0;
+    // Počet karet z Content-Range hlavičky: "0-0/1234" → 1234
+    let totalCards = 0;
+    const contentRange = cardsRes.headers.get('Content-Range');
+    if (contentRange) {
+      const parts = contentRange.split('/');
+      totalCards = parseInt(parts[1] || '0', 10) || 0;
+    }
+    // Fallback: zkus spočítat přímo z JSON (pokud Prefer nefunguje)
+    if (!totalCards) {
+      try {
+        const rows = await cardsRes.json();
+        if (Array.isArray(rows)) totalCards = rows.length;
+      } catch {}
+    }
 
-  sCards.textContent  = totalCards > 0 ? totalCards.toLocaleString('cs') : '–';
-  sUsers.textContent  = Array.isArray(profiles) ? profiles.length : '–';
-  sTrades.textContent = Array.isArray(offers)   ? offers.length   : '–';
+    sCards.textContent  = totalCards > 0 ? totalCards.toLocaleString('cs') : '0';
+    sUsers.textContent  = Array.isArray(profilesRes) ? profilesRes.length : '–';
+    sTrades.textContent = Array.isArray(offersRes)   ? offersRes.length   : '0';
+  } catch(e) {
+    console.warn('Stats load error:', e);
+    // Fallback: původní metoda přes listings
+    try {
+      const listings = await supabaseRequest('rest/v1/listings?select=cards_data&status=eq.active');
+      const totalCards = Array.isArray(listings)
+        ? listings.reduce((s, l) => s + (l.cards_data?.length || 0), 0) : 0;
+      sCards.textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : '0';
+    } catch {}
+  }
 })();
+
