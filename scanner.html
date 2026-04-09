@@ -788,6 +788,98 @@ body::after {
       📲 <span id="incomingText">Přijímám fotky z telefonu...</span>
     </div>
 
+    <!-- ═══ MODAL: Přiřadit / Vytvořit kartičku z fotky ═══ -->
+    <div id="photoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;overflow-y:auto;padding:20px 16px">
+      <div style="max-width:560px;margin:0 auto;background:#1a1625;border:1px solid rgba(255,255,255,.12);border-radius:16px;overflow:hidden">
+
+        <!-- Header -->
+        <div style="padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:12px">
+          <div id="pmThumb" style="width:60px;height:84px;border-radius:8px;overflow:hidden;flex-shrink:0;background:#111">
+            <img id="pmThumbImg" src="" alt="" style="width:100%;height:100%;object-fit:cover">
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:16px;margin-bottom:4px">📲 Fotka z telefonu</div>
+            <div id="pmAiInfo" style="font-size:12px;color:#a0a0b8;line-height:1.5"></div>
+          </div>
+          <button onclick="closePhotoModal()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;padding:4px">✕</button>
+        </div>
+
+        <!-- Tabs -->
+        <div style="display:flex;border-bottom:1px solid rgba(255,255,255,.08)">
+          <button id="pmTabAssign" onclick="pmSwitchTab('assign')"
+            style="flex:1;padding:12px;background:#f5c842;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer;border-radius:0">
+            🔗 Přiřadit k existující
+          </button>
+          <button id="pmTabCreate" onclick="pmSwitchTab('create')"
+            style="flex:1;padding:12px;background:rgba(255,255,255,.05);color:#ccc;border:none;font-size:13px;cursor:pointer;border-radius:0">
+            ✨ Vytvořit novou
+          </button>
+        </div>
+
+        <!-- Tab: Přiřadit k existující kartičce -->
+        <div id="pmPanelAssign" style="padding:16px">
+          <input id="pmSearch" type="text" placeholder="🔍 Hledat kartičku (název, set, číslo)..."
+            oninput="pmSearchCards(this.value)"
+            style="width:100%;padding:10px 12px;background:#111;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:14px;box-sizing:border-box;margin-bottom:12px">
+          <div id="pmSearchResults" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">
+            <div style="color:#666;font-size:13px;text-align:center;padding:20px">Začni psát pro vyhledání…</div>
+          </div>
+          <div style="margin-top:14px;text-align:right">
+            <button id="pmAssignBtn" onclick="pmDoAssign()" disabled
+              style="background:#f5c842;color:#000;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;opacity:.5">
+              🔗 Přiřadit fotku
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab: Vytvořit novou kartičku -->
+        <div id="pmPanelCreate" style="display:none;padding:16px">
+          <div id="pmAiResult" style="background:#111;border-radius:10px;padding:14px;margin-bottom:14px;font-size:13px;line-height:1.7;color:#ddd">
+            <div style="color:#888">⏳ Čekám na AI rozpoznání…</div>
+          </div>
+
+          <!-- Album selector -->
+          <div style="margin-bottom:14px">
+            <label style="font-size:12px;color:#888;display:block;margin-bottom:6px">📁 Uložit do alba:</label>
+            <select id="pmAlbumSelect"
+              style="width:100%;padding:10px 12px;background:#111;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:14px">
+              <option value="">— Bez alba (obecná kolekce) —</option>
+            </select>
+          </div>
+
+          <!-- Condition override -->
+          <div style="margin-bottom:14px">
+            <label style="font-size:12px;color:#888;display:block;margin-bottom:6px">📊 Stav kartičky:</label>
+            <select id="pmCondSelect"
+              style="width:100%;padding:10px 12px;background:#111;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:14px">
+              <option value="M">M – Mint (dokonalá)</option>
+              <option value="NM" selected>NM – Near Mint</option>
+              <option value="LP">LP – Lightly Played</option>
+              <option value="MP">MP – Moderately Played</option>
+              <option value="HP">HP – Heavily Played</option>
+              <option value="DMG">DMG – Damaged</option>
+            </select>
+          </div>
+
+          <div style="text-align:right">
+            <button id="pmCreateBtn" onclick="pmDoCreate()" disabled
+              style="background:#4ade80;color:#000;border:none;border-radius:8px;padding:10px 20px;font-weight:700;cursor:pointer;opacity:.5">
+              ✨ Vytvořit kartičku
+            </button>
+          </div>
+        </div>
+
+        <!-- Výsledek akce -->
+        <div id="pmResult" style="display:none;padding:16px;text-align:center">
+          <div id="pmResultText" style="font-size:15px;font-weight:600;margin-bottom:12px"></div>
+          <button onclick="closePhotoModal()" style="background:#f5c842;color:#000;border:none;border-radius:8px;padding:10px 24px;font-weight:700;cursor:pointer">
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- ═══ END MODAL ═══ -->
+
     <!-- Upload zone -->
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="fileInput" accept="image/*" multiple
@@ -1615,6 +1707,8 @@ async function pollNewPhotos() {
     setTimeout(() => banner.classList.remove('show'), 5000);
 
     let added = 0;
+    const newPhotos = [];
+
     for (const row of rows) {
       // Získej signed URL na 2 hodiny
       const signed = await sbReq(
@@ -1625,12 +1719,37 @@ async function pollNewPhotos() {
       if (!su) continue;
       const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
 
+      // Načti metadata z photo_queue (AI výsledek z mobilu)
+      const meta = row.metadata || {};
+      const aiResult = (meta.name) ? {
+        name:          meta.name,
+        set:           meta.set,
+        number:        meta.number,
+        type:          meta.type,
+        hp:            meta.hp,
+        category:      meta.category,
+        subtype:       meta.subtype,
+        variant:       meta.variant,
+        condition:     meta.condition || 'NM',
+        conditionNotes:meta.conditionNotes || '',
+        confidence:    meta.confidence,
+        notes:         meta.notes || '',
+        lang:          meta.lang || 'EN',
+      } : null;
+
       const id = nextId++;
-      photos.push({
+      const photoObj = {
         id, dataUrl: photoUrl, isUrl: true,
-        name: row.filename || `foto-${id}.jpg`,
-        status: 'pending', result: null, tcgCard: null, queueId: row.id
-      });
+        name:     row.filename || `foto-${id}.jpg`,
+        status:   aiResult ? 'identified' : 'pending',
+        result:   aiResult,
+        tcgCard:  null,
+        queueId:  row.id,
+        fromPhone: true,
+        side:     meta.side || 'front',
+      };
+      photos.push(photoObj);
+      newPhotos.push(photoObj);
       added++;
 
       // Označ jako zpracované
@@ -1641,9 +1760,17 @@ async function pollNewPhotos() {
       renderPhotos();
       updateActionBar();
       toast(`📲 ${added} foto přijato z telefonu`, 'success');
+
+      // Otevři modal pro první přijatou fotku (přední strana)
+      const firstFront = newPhotos.find(p => p.side === 'front' || p.side !== 'back') || newPhotos[0];
+      if (firstFront) {
+        setTimeout(() => openPhotoModal(firstFront), 600);
+      }
     }
   } catch(e) { /* silent */ }
 }
+
+
 
 /* ── GROQ USAGE TRACKER ── */
 function trackGroqCall() {
@@ -1741,6 +1868,239 @@ async function saveSelected() {
   if (failed) toast(`⚠️ ${failed} karet se nepodařilo uložit`, 'error');
 
   renderAll();
+}
+
+/* ═══════════════════════════════════════════════════════
+   PHOTO MODAL – Přiřadit fotku / Vytvořit novou kartičku
+   Otevírá se pro každou fotku přijatou z mobilu přes QR.
+═══════════════════════════════════════════════════════ */
+
+let _pmPhoto    = null;
+let _pmSelected = null;
+let _pmAiData   = null;
+
+function openPhotoModal(photo) {
+  _pmPhoto    = photo;
+  _pmSelected = null;
+  _pmAiData   = photo.result || null;
+
+  document.getElementById('pmThumbImg').src = photo.dataUrl || '';
+  const ai = _pmAiData;
+  if (ai && ai.name) {
+    document.getElementById('pmAiInfo').innerHTML =
+      `<strong style="color:#f5c842">${_esc(ai.name)}</strong>` +
+      (ai.set ? ` · ${_esc(ai.set)}` : '') +
+      (ai.number ? ` #${_esc(ai.number)}` : '') +
+      (ai.confidence ? `<br>Shoda: <strong>${Math.round(ai.confidence * 100)}%</strong>` : '');
+  } else {
+    document.getElementById('pmAiInfo').textContent = 'Fotka přijata – AI rozpoznání čeká.';
+  }
+
+  _pmLoadAlbums();
+  _pmSwitchTab('assign');
+  _pmSearchCards('');
+  if (ai && ai.condition) {
+    const s = document.getElementById('pmCondSelect');
+    if (s) s.value = ai.condition;
+  }
+  _pmRenderAiResult();
+  document.getElementById('pmResult').style.display = 'none';
+  document.getElementById('photoModal').style.display = 'block';
+}
+
+function closePhotoModal() {
+  document.getElementById('photoModal').style.display = 'none';
+  _pmPhoto = null; _pmSelected = null; _pmAiData = null;
+}
+
+function pmSwitchTab(t) { _pmSwitchTab(t); }
+function _pmSwitchTab(tab) {
+  const isA = tab === 'assign';
+  document.getElementById('pmPanelAssign').style.display = isA ? 'block' : 'none';
+  document.getElementById('pmPanelCreate').style.display = isA ? 'none'  : 'block';
+  document.getElementById('pmTabAssign').style.cssText =
+    isA ? 'flex:1;padding:12px;background:#f5c842;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer'
+        : 'flex:1;padding:12px;background:rgba(255,255,255,.05);color:#ccc;border:none;font-size:13px;cursor:pointer';
+  document.getElementById('pmTabCreate').style.cssText =
+    isA ? 'flex:1;padding:12px;background:rgba(255,255,255,.05);color:#ccc;border:none;font-size:13px;cursor:pointer'
+        : 'flex:1;padding:12px;background:#4ade80;color:#000;border:none;font-weight:700;font-size:13px;cursor:pointer';
+}
+
+function _pmRenderAiResult() {
+  const ai = _pmAiData;
+  const el = document.getElementById('pmAiResult');
+  const btn = document.getElementById('pmCreateBtn');
+  if (!el) return;
+  const r = (l, v) => `<tr><td style="color:#888;padding:2px 8px 2px 0;font-size:12px;white-space:nowrap">${l}</td><td style="font-size:13px">${v}</td></tr>`;
+  if (!ai || !ai.name) {
+    el.innerHTML = '<div style="color:#888">⏳ AI výsledek nedostupný – karta bude uložena s prázdnými údaji.</div>';
+  } else {
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+      ${r('Název', `<strong style="color:#f5c842">${_esc(ai.name)}</strong>`)}
+      ${r('Set', _esc(ai.set||'–'))}
+      ${r('Číslo', _esc(ai.number||'–'))}
+      ${r('Typ', _esc(ai.type||'–'))}
+      ${r('HP', _esc(ai.hp||'–'))}
+      ${r('Stav', _esc(ai.condition||'NM'))}
+      ${r('Jazyk', _esc(ai.lang||'EN'))}
+      ${ai.confidence ? r('Shoda', Math.round(ai.confidence*100)+'%') : ''}
+    </table>`;
+  }
+  if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+}
+
+async function _pmLoadAlbums() {
+  if (!currentUser?.id || !currentToken) return;
+  try {
+    const rows = await sbReq(
+      `rest/v1/user_albums?user_id=eq.${currentUser.id}&order=name.asc&select=id,name,icon`,
+      'GET', null, currentToken
+    );
+    const sel = document.getElementById('pmAlbumSelect');
+    if (!sel || !Array.isArray(rows)) return;
+    sel.innerHTML = '<option value="">— Bez alba (obecná kolekce) —</option>';
+    rows.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.id;
+      o.textContent = `${a.icon || '📁'} ${a.name}`;
+      sel.appendChild(o);
+    });
+  } catch {}
+}
+
+let _pmST = null;
+function pmSearchCards(q) {
+  clearTimeout(_pmST);
+  _pmST = setTimeout(() => _pmDoSearch(q), 300);
+}
+
+async function _pmDoSearch(query) {
+  const el = document.getElementById('pmSearchResults');
+  if (!el || !currentUser?.id) return;
+  el.innerHTML = '<div style="color:#666;font-size:13px;text-align:center;padding:10px">🔍 Hledám…</div>';
+  try {
+    const rows = await sbReq(
+      `rest/v1/user_cards?user_id=eq.${currentUser.id}&select=id,card_data&limit=60&order=updated_at.desc`,
+      'GET', null, currentToken
+    );
+    if (!Array.isArray(rows) || !rows.length) {
+      el.innerHTML = '<div style="color:#666;font-size:13px;text-align:center;padding:20px">Žádné kartičky v kolekci</div>';
+      return;
+    }
+    const q = (query || '').toLowerCase();
+    const list = q
+      ? rows.filter(r => {
+          const c = r.card_data || {};
+          return (c.name||'').toLowerCase().includes(q) ||
+                 (c.set||'').toLowerCase().includes(q) ||
+                 (c.number||'').toLowerCase().includes(q);
+        })
+      : rows;
+    el.innerHTML = '';
+    if (!list.length) {
+      el.innerHTML = '<div style="color:#666;font-size:13px;text-align:center;padding:20px">Nenalezeno</div>';
+      return;
+    }
+    list.slice(0, 30).forEach(r => {
+      const c = r.card_data || {};
+      const d = document.createElement('div');
+      d.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;border:1.5px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);margin-bottom:6px';
+      d.innerHTML = (c.apiSmall || c.imageUrl)
+        ? `<img src="${c.apiSmall||c.imageUrl}" style="width:34px;height:47px;object-fit:contain;border-radius:4px;flex-shrink:0">`
+        : `<div style="width:34px;height:47px;background:#222;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🃏</div>`;
+      d.innerHTML += `<div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${_esc(c.name||'?')}</div>
+        <div style="font-size:11px;color:#888">${_esc(c.set||'')}${c.number?' #'+c.number:''} · ${_esc(c.condition||'NM')}</div>
+      </div>`;
+      d.onclick = () => {
+        el.querySelectorAll('div').forEach(x => { x.style.borderColor='rgba(255,255,255,.07)'; x.style.background='rgba(255,255,255,.03)'; });
+        d.style.borderColor = '#f5c842'; d.style.background = 'rgba(245,200,66,.08)';
+        _pmSelected = r;
+        const b = document.getElementById('pmAssignBtn');
+        if (b) { b.disabled = false; b.style.opacity = '1'; }
+      };
+      el.appendChild(d);
+    });
+  } catch(e) {
+    el.innerHTML = `<div style="color:#f87171;font-size:13px;padding:10px">Chyba: ${_esc(String(e))}</div>`;
+  }
+}
+
+async function pmDoAssign() {
+  if (!_pmSelected || !_pmPhoto) return;
+  const btn = document.getElementById('pmAssignBtn');
+  btn.disabled = true; btn.textContent = '⏳ Ukládám…';
+  try {
+    const photoUrl = _pmPhoto.dataUrl || '';
+    const updated  = { ...(_pmSelected.card_data || {}), photoUrl, apiSmall: photoUrl, imageUrl: photoUrl };
+    await sbReq(
+      `rest/v1/user_cards?id=eq.${_pmSelected.id}&user_id=eq.${currentUser.id}`,
+      'PATCH',
+      { card_data: updated, updated_at: new Date().toISOString() },
+      currentToken
+    );
+    _pmShowResult('✅ Fotka přiřazena ke kartičce!');
+    toast('📸 Fotka přiřazena', 'success');
+    renderAll();
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '🔗 Přiřadit fotku'; btn.style.opacity = '1';
+    toast('Chyba: ' + e.message, 'error');
+  }
+}
+
+async function pmDoCreate() {
+  if (!_pmPhoto) return;
+  const btn = document.getElementById('pmCreateBtn');
+  btn.disabled = true; btn.textContent = '⏳ Vytvářím…';
+  try {
+    const ai       = _pmAiData || {};
+    const condition= document.getElementById('pmCondSelect')?.value || ai.condition || 'NM';
+    const albumId  = document.getElementById('pmAlbumSelect')?.value || null;
+    const photoUrl = _pmPhoto.dataUrl || '';
+
+    const newCard = {
+      local_id:   uid(),
+      updated_at: new Date().toISOString(),
+      for_trade: false, for_sell: false, price_czk: null,
+      album_id: albumId || null,
+      card_data: {
+        name:     ai.name      || 'Neznámá karta',
+        set:      ai.set       || '',
+        number:   ai.number    || '',
+        condition,
+        category: (ai.category || 'Pokemon').toLowerCase(),
+        type:     ai.type      || '',
+        hp:       ai.hp        || '',
+        lang:     ai.lang      || 'EN',
+        variant:  ai.variant   || 'Normal',
+        subtype:  ai.subtype   || '',
+        photoUrl, apiSmall: photoUrl, imageUrl: photoUrl,
+        count: 1, note: ai.notes || '', tags: [],
+      },
+    };
+
+    const res = await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
+      { p_user_id: currentUser.id, p_cards: [newCard] }, currentToken);
+    if (res?._err) throw new Error(res._err);
+
+    _pmShowResult('✅ Nová kartička uložena do kolekce!');
+    toast('🎴 Kartička vytvořena', 'success');
+    renderAll();
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '✨ Vytvořit kartičku'; btn.style.opacity = '1';
+    toast('Chyba: ' + e.message, 'error');
+  }
+}
+
+function _pmShowResult(msg) {
+  document.getElementById('pmPanelAssign').style.display = 'none';
+  document.getElementById('pmPanelCreate').style.display = 'none';
+  document.getElementById('pmResult').style.display = 'block';
+  document.getElementById('pmResultText').textContent = msg;
+}
+
+function _esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 <script>
