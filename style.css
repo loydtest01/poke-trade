@@ -185,11 +185,25 @@ a { color: inherit; text-decoration: none; }
 
 /* floating cards visual */
 .hero-cards-visual {
-  position: absolute; right: 60px; top: 50%; transform: translateY(-50%);
-  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: row; align-items: center; gap: 16px;
   pointer-events: none;
 }
 @media (max-width: 800px) { .hero-cards-visual { display: none; } }
+
+.hero-cards-main-img {
+  height: 268px;
+  width: auto;
+  flex-shrink: 0;
+  
+}
+
+.hero-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  flex-shrink: 0;
+}
 
 .card-float {
   animation: float 4s ease-in-out infinite;
