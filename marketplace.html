@@ -723,12 +723,11 @@ body::after {
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
   <nav class="nav-lnks">
-    <a href="marketplace.html" class="active">Nabídky</a>
+    <a href="marketplace.html" class="active">🛒 Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html">🎴 Moje album</a>
-    <a href="compare.html">Porovnat alba</a>
+    <a href="compare.html">⚖️ Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
-    <a href="queue.html">📥 Čeká na zařazení</a>
-    <a href="profile.html">Můj profil</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -754,9 +753,8 @@ body::after {
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
     </a>
-    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
-    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+    <a href="login.html" id="loginLink" class="user-chip" style="display:none" title="Přihlásit se">🔑 Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="user-chip" style="display:none;cursor:pointer;background:rgba(255,80,80,0.08);border-color:rgba(255,80,80,0.2)" title="Odhlásit">🚪 Odhlásit</button>
   </div>
 </header>
 
