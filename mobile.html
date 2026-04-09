@@ -251,7 +251,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
   <div class="content">
 
     <!-- ══ LOGIN ══ -->
-    <div class="screen active" id="scLogin">
+    <div class="screen" id="scLogin">
       <div style="text-align:center;padding:28px 0 16px">
         <div style="font-size:52px">🎴</div>
         <div style="font-size:20px;font-weight:800;margin-top:10px">PhotoBridge</div>
@@ -276,6 +276,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         Přihlášení se uloží — příště ho nebudeš potřebovat.
       </div>
     </div>
+
+    <!-- ── Okamžité zobrazení správné obrazovky (sync, bez čekání na onload) ── -->
+    <script>
+    (function() {
+      var hasToken = !!localStorage.getItem('sb_token');
+      document.getElementById(hasToken ? 'scSetup' : 'scLogin').classList.add('active');
+    })();
+    </script>
 
     <!-- ══ SETUP ══ -->
     <div class="screen" id="scSetup">
@@ -549,27 +557,43 @@ let fakeMode     = false;
 let groqKey = params.get('gk') || null;
 
 // ─── Init ────────────────────────────────────────────────────
-window.onload = async () => {
+window.onload = () => {
   selectCount(1, true);
+  updateStatusChips();
+  initSwipe();
 
-  // Pokud máme token → optimisticky zobraz app hned, ověř na pozadí
+  // Groq klíč + ověření tokenu na pozadí (neblokuje UI)
   if (mobileToken) {
-    await afterAuth(); // zobraz setup okamžitě
-    // Ověř token na pozadí – pokud je neplatný, přesměruj na login
+    loadGroqInBackground();
     verifyToken(mobileToken).then(valid => {
       if (!valid) {
         mobileToken = '';
         localStorage.removeItem('sb_token');
-        showLoginScreen();
+        showScreen('scLogin');
         toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
       }
     });
-    return;
   }
-
-  // Žádný token → zobraz login
-  showLoginScreen();
 };
+
+async function loadGroqInBackground() {
+  if (groqKey) { updateStatusChips(); return; }
+  try {
+    const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) { const d = await r.json(); if (d.key) { groqKey = d.key; updateStatusChips(); return; } }
+  } catch {}
+  try {
+    if (!USER_ID) return;
+    const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
+    });
+    const rows = await r.json();
+    if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
+      groqKey = rows[0].groq_key; updateStatusChips();
+    }
+  } catch {}
+}
+
 
 async function verifyToken(token) {
   try {
@@ -606,42 +630,15 @@ async function doMobileLogin() {
     }
     mobileToken = data.access_token;
     localStorage.setItem('sb_token', mobileToken);
-    // Ulož i refresh token
     if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
-    await afterAuth();
+    // Přepni na setup okamžitě, Groq načti na pozadí
+    showScreen('scSetup');
+    updateStatusChips();
+    loadGroqInBackground();
   } catch(e) {
     errEl.textContent = 'Chyba připojení: ' + e.message; errEl.style.display = '';
     btn.disabled = false; btn.textContent = '→ Přihlásit se';
   }
-}
-
-async function afterAuth() {
-  // Načti Groq klíč ze serveru nebo localStorage
-  if (!groqKey && mobileToken) {
-    try {
-      const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(3000) });
-      if (r.ok) { const d = await r.json(); groqKey = d.key; }
-    } catch {}
-  }
-  if (!groqKey && USER_ID && mobileToken) {
-    try {
-      const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
-        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
-      });
-      const rows = await r.json();
-      if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
-        groqKey = rows[0].groq_key;
-      }
-    } catch {}
-  }
-
-  // Update chips
-  updateStatusChips();
-  initSwipe();
-
-  // Skryjeme login, zobrazíme app
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  showScreen('scSetup');
 }
 
 function showLoginScreen() {
