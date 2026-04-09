@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <link rel="icon" type="image/png" href="pokemon.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Přihlášení – PokéTrade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ═══ WALLPAPER LOGIN ═══ */
+body.auth-page {
+  background: #0a0608;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body.auth-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url('wallpaper.png');
+  background-size: cover;
+  background-position: center 30%;
+  background-repeat: no-repeat;
+  filter: brightness(0.28) saturate(0.7);
+  z-index: 0;
+}
+
+body.auth-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.10) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.20) 50%, rgba(0,0,0,0.70) 100%);
+  z-index: 0;
+}
+
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(8,4,6,0.75) !important;
+  border-bottom: 1px solid rgba(245,200,66,0.15) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+.auth-container {
+  position: relative;
+  z-index: 1;
+}
+
+.auth-card {
+  background: rgba(12,8,10,0.72) !important;
+  border: 1px solid rgba(245,200,66,0.20) !important;
+  backdrop-filter: blur(24px) saturate(1.4) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.04),
+    0 8px 40px rgba(0,0,0,0.7),
+    0 0 60px rgba(245,200,66,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  border-radius: 20px !important;
+}
+
+.auth-icon {
+  font-size: 44px !important;
+  filter: drop-shadow(0 0 12px rgba(255,140,0,0.8)) drop-shadow(0 0 24px rgba(255,80,0,0.4));
+  animation: flicker 3s ease-in-out infinite;
+}
+
+@keyframes flicker {
+  0%,100% { filter: drop-shadow(0 0 12px rgba(255,140,0,0.8)) drop-shadow(0 0 24px rgba(255,80,0,0.4)); }
+  50%      { filter: drop-shadow(0 0 18px rgba(255,160,0,1.0)) drop-shadow(0 0 36px rgba(255,80,0,0.7)); }
+}
+
+.auth-header h1 {
+  color: #fff !important;
+  text-shadow: 0 0 20px rgba(245,200,66,0.4);
+  letter-spacing: 0.01em;
+}
+
+.auth-header p { color: rgba(255,255,255,0.5) !important; }
+
+.form-group label {
+  color: rgba(255,255,255,0.55) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.form-group input {
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #fff !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus {
+  border-color: rgba(245,200,66,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(245,200,66,0.10) !important;
+  outline: none;
+}
+
+.form-group input::placeholder { color: rgba(255,255,255,0.25) !important; }
+
+.input-password-wrap { position: relative; }
+.input-password-wrap input { width: 100%; box-sizing: border-box; }
+
+.eye-btn {
+  position: absolute; right: 11px; top: 50%; transform: translateY(-50%);
+  background: none !important; border: none !important;
+  color: rgba(255,255,255,0.35) !important;
+  cursor: pointer; padding: 4px; font-size: 16px;
+  transition: color 0.2s;
+}
+.eye-btn:hover { color: rgba(245,200,66,0.8) !important; }
+
+.btn-primary {
+  background: linear-gradient(135deg, #f5c842 0%, #ff8c00 100%) !important;
+  color: #0a0608 !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  letter-spacing: 0.04em;
+  box-shadow:
+    0 4px 20px rgba(255,140,0,0.4),
+    0 1px 0 rgba(255,255,255,0.15) inset !important;
+  border: none !important;
+  transition: all 0.2s !important;
+}
+.btn-primary:hover {
+  background: linear-gradient(135deg, #ffd83a 0%, #ff6a00 100%) !important;
+  box-shadow: 0 6px 28px rgba(255,120,0,0.55), 0 1px 0 rgba(255,255,255,0.2) inset !important;
+  transform: translateY(-2px) !important;
+}
+.btn-primary:active { transform: translateY(0) !important; }
+
+.auth-divider { color: rgba(255,255,255,0.2) !important; }
+.auth-divider::before, .auth-divider::after { background: rgba(255,255,255,0.10) !important; }
+
+.auth-alt { color: rgba(255,255,255,0.4) !important; }
+.auth-alt a {
+  color: #f5c842 !important;
+  text-decoration: none;
+  transition: color 0.2s, text-shadow 0.2s;
+}
+.auth-alt a:hover {
+  color: #ffd83a !important;
+  text-shadow: 0 0 8px rgba(245,200,66,0.5);
+}
+
+.auth-error {
+  background: rgba(255,80,0,0.12) !important;
+  border: 1px solid rgba(255,80,0,0.35) !important;
+  color: #ff9966 !important;
+}
+
+.auth-note {
+  background: rgba(245,200,66,0.05) !important;
+  border: 1px solid rgba(245,200,66,0.12) !important;
+  color: rgba(255,255,255,0.35) !important;
+}
+</style>
+</head>
+<body class="auth-page">
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo"><span class="logo-icon"><img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"></span><span>Poké<strong>Trade</strong></span></a>
+  </div>
+</nav>
+
+<div class="auth-container">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-icon"><img src="pokemon.png" alt="Pokémon" style="width:64px;height:64px;object-fit:contain;border-radius:14px"></div>
+      <h1>Přihlásit se</h1>
+      <p>Vítej zpět, trenére!</p>
+    </div>
+
+    <div id="authError" class="auth-error" style="display:none"></div>
+
+    <form id="loginForm" class="auth-form">
+      <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="tvuj@email.cz" required>
+      </div>
+      <div class="form-group">
+        <label>Heslo</label>
+        <div class="input-password-wrap">
+          <input type="password" id="loginPassword" placeholder="Tvoje heslo" required>
+          <button type="button" class="eye-btn" onclick="toggleEye('loginPassword',this)">👁️</button>
+        </div>
+      </div>
+      <button type="submit" class="btn-primary btn-full" id="loginBtn">
+        <span id="loginBtnText">Přihlásit se</span>
+        <span id="loginBtnLoad" style="display:none">⏳ Přihlašuji...</span>
+      </button>
+    </form>
+
+    <div class="auth-divider"><span>nebo</span></div>
+    <div class="auth-alt">Nemáš účet? <a href="register.html">Registrovat se →</a></div>
+    <div class="auth-alt" style="margin-top:.5rem"><a href="reset-password.html">🔑 Zapomenuté heslo?</a></div>
+
+    <div class="auth-note">
+      💡 Stejné přihlašovací údaje fungují v nastavení aplikace PokémonCards.
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ── Pokud je uživatel JIŽ přihlášen → přesměrování ──────────
+(function checkAlreadyLoggedIn() {
+  const token = localStorage.getItem('sb_token');
+  const user  = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+  if (token && user?.id) window.location.replace('profile.html');
+})();
+
+// ── Brute force: max pokusů z jedné IP za hodinu ─────────────
+const BRUTE_FORCE_LIMIT = 5;
+
+async function getClientIP() {
+  try {
+    const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+    const d = await r.json();
+    return d.ip || 'unknown';
+  } catch { return 'unknown'; }
+}
+
+async function checkIPBlocked(ip) {
+  if (ip === 'unknown') return false;
+  try {
+    const r = await supabaseRequest(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(ip)}&select=id`);
+    return Array.isArray(r) && r.length > 0;
+  } catch { return false; }
+}
+
+// ── OPRAVA: failed log jde přes SECURITY DEFINER RPC ─────────
+// Přímý INSERT by selhal kvůli RLS (uživatel není přihlášen).
+// Funkce log_user_login() má SECURITY DEFINER → obejde RLS.
+async function logFailedAttempt(ip) {
+  try {
+    await supabaseRequest('rest/v1/rpc/log_user_login', 'POST', {
+      p_user_id: null,
+      p_ip:      ip,
+      p_agent:   navigator.userAgent.slice(0, 250),
+      p_action:  'failed',
+      p_success: false
+    });
+  } catch { /* logování nesmí blokovat UI */ }
+}
+
+async function logSuccessfulLogin(userId, ip) {
+  try {
+    // Přihlášený uživatel → přímý INSERT projde RLS (auth.uid() = user_id)
+    await supabaseRequest('rest/v1/user_ip_logs', 'POST', {
+      user_id:    userId,
+      ip_address: ip,
+      user_agent: navigator.userAgent.slice(0, 250),
+      action:     'login',
+      success:    true
+    });
+  } catch { /* ignoruj */ }
+}
+
+// ── BRUTE FORCE: spočítej failed pokusy za posledních 60 min ─
+async function getRecentFailedCount(ip) {
+  if (ip === 'unknown') return 0;
+  try {
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const r = await supabaseRequest(
+      `rest/v1/user_ip_logs?ip_address=eq.${encodeURIComponent(ip)}&action=eq.failed&success=eq.false&logged_at=gte.${since}&select=id`
+    );
+    return Array.isArray(r) ? r.length : 0;
+  } catch { return 0; }
+}
+
+// ── BRUTE FORCE: automaticky zablokuj IP ─────────────────────
+async function autoBlockIP(ip) {
+  try {
+    await supabaseRequest('rest/v1/blocked_ips', 'POST', {
+      ip_address: ip,
+      reason:     `Automaticky zablokováno – ${BRUTE_FORCE_LIMIT}+ neúspěšných pokusů`
+    });
+  } catch { /* IP může být již blokována */ }
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl    = document.getElementById('authError');
+
+  setLoading(true);
+  errEl.style.display = 'none';
+
+  const clientIP = await getClientIP();
+
+  // 1. Zkontroluj blokaci IP
+  const ipBlocked = await checkIPBlocked(clientIP);
+  if (ipBlocked) {
+    showError('⛔ Přístup z této IP adresy byl zablokován. Kontaktuj správce.');
+    setLoading(false);
+    return;
+  }
+
+  // 2. Brute force ochrana – zkontroluj počet failed pokusů za hodinu
+  const failedCount = await getRecentFailedCount(clientIP);
+  if (failedCount >= BRUTE_FORCE_LIMIT) {
+    await autoBlockIP(clientIP);
+    showError(`⛔ Příliš mnoho neúspěšných pokusů. Vaše IP byla zablokována. Kontaktuj správce.`);
+    setLoading(false);
+    return;
+  }
+
+  // Vymaž staré tokeny
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
+
+  try {
+    const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST', { email, password });
+
+    if (res.error || res.error_description || res.msg) {
+      const raw = res.error_description || res.msg || res.error?.message || res.error || '';
+      let msg = 'Špatný e-mail nebo heslo';
+      if (typeof raw === 'string') {
+        if (raw.includes('Email not confirmed')) msg = 'E-mail ještě není potvrzený – zkontroluj svou schránku';
+        else if (raw.includes('Invalid login credentials')) msg = 'Špatný e-mail nebo heslo';
+        else if (raw.includes('Too many requests')) msg = 'Příliš mnoho pokusů – počkej chvíli';
+        else if (raw.length > 0) msg = raw;
+      }
+      throw new Error(msg);
+    }
+    if (!res.access_token) throw new Error('Nepodařilo se přihlásit – zkus to znovu');
+
+    const user = res.user;
+    if (!user?.id) throw new Error('Přihlášení proběhlo, ale nepodařilo se načíst profil – zkus znovu');
+
+    // 3. OPRAVA: zkontroluj is_banned na profilu
+    try {
+      const profile = await supabaseRequest(`rest/v1/profiles?id=eq.${user.id}&select=is_banned`);
+      if (Array.isArray(profile) && profile[0]?.is_banned === true) {
+        throw new Error('Tento účet byl zablokován. Kontaktuj správce.');
+      }
+    } catch(banErr) {
+      if (banErr.message.includes('zablokován')) throw banErr;
+      // Pokud se nepodaří načíst profil z jiného důvodu, pokračuj
+    }
+
+    // Uložit tokeny a uživatele
+    localStorage.setItem('sb_token', res.access_token);
+    if (res.refresh_token) localStorage.setItem('sb_refresh_token', res.refresh_token);
+    localStorage.setItem('sb_user', JSON.stringify(user));
+
+    // Zaloguj úspěšné přihlášení
+    await logSuccessfulLogin(user.id, clientIP);
+
+    window.location.replace('profile.html');
+
+  } catch(err) {
+    // Zaloguj neúspěšný pokus přes RPC (obchází RLS)
+    await logFailedAttempt(clientIP);
+
+    // Varuj kolik pokusů zbývá
+    const remaining = BRUTE_FORCE_LIMIT - failedCount - 1;
+    let msg = err.message;
+    if (remaining > 0 && remaining <= 2) {
+      msg += ` (ještě ${remaining} pokus${remaining === 1 ? '' : 'y'} před zablokováním IP)`;
+    }
+
+    showError('⚠️ ' + msg);
+    setLoading(false);
+  }
+});
+
+function toggleEye(id, btn) {
+  const inp = document.getElementById(id);
+  const show = inp.type === "password";
+  inp.type = show ? "text" : "password";
+  btn.textContent = show ? "🙈" : "👁️";
+  btn.classList.toggle("active", show);
+}
+
+function showError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function setLoading(on) {
+  document.getElementById('loginBtnText').style.display = on ? 'none' : '';
+  document.getElementById('loginBtnLoad').style.display = on ? '' : 'none';
+  document.getElementById('loginBtn').disabled = on;
+}
+</script>
+</body>
+</html>

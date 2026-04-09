@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <link rel="icon" type="image/png" href="pokemon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Správa IP – PokéTrade Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: #0e0b12; color: #e2e0f0; font-family: 'DM Sans', sans-serif; margin: 0; }
+
+    .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+    h1 { font-family: 'Unbounded', sans-serif; font-size: 1.4rem; color: #f5c842; margin-bottom: .25rem; }
+    .subtitle { color: #6b7280; font-size: .85rem; margin-bottom: 2rem; }
+
+    .tab-bar { display: flex; gap: .5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .tab-btn {
+      padding: .45rem 1.1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.04); color: #9ca3af; cursor: pointer; font-size: .85rem;
+      transition: all .2s;
+    }
+    .tab-btn.active, .tab-btn:hover { background: rgba(245,200,66,.12); border-color: rgba(245,200,66,.35); color: #f5c842; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* Tabulky */
+    .data-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    .data-table th {
+      text-align: left; padding: .55rem .75rem; background: rgba(255,255,255,.05);
+      color: #9ca3af; font-weight: 500; border-bottom: 1px solid rgba(255,255,255,.08);
+      white-space: nowrap;
+    }
+    .data-table td { padding: .5rem .75rem; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
+    .data-table tr:hover td { background: rgba(255,255,255,.03); }
+
+    .badge {
+      display: inline-block; padding: .18rem .55rem; border-radius: 5px;
+      font-size: .75rem; font-weight: 500;
+    }
+    .badge-red   { background: rgba(239,68,68,.15);  color: #f87171; }
+    .badge-green { background: rgba(34,197,94,.15);  color: #4ade80; }
+    .badge-amber { background: rgba(245,200,66,.15); color: #f5c842; }
+    .badge-gray  { background: rgba(107,114,128,.15);color: #9ca3af; }
+
+    /* Formulář blokace */
+    .block-form {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+      display: flex; gap: .75rem; align-items: flex-end; flex-wrap: wrap;
+    }
+    .block-form label { font-size: .78rem; color: #9ca3af; display: block; margin-bottom: .3rem; }
+    .block-form input, .block-form select {
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+      color: #e2e0f0; border-radius: 7px; padding: .45rem .75rem; font-size: .85rem;
+    }
+    .block-form input:focus { outline: none; border-color: rgba(245,200,66,.5); }
+
+    .btn-danger {
+      background: rgba(239,68,68,.8); color: #fff; border: none; border-radius: 8px;
+      padding: .48rem 1.1rem; cursor: pointer; font-size: .85rem; font-weight: 600;
+      transition: background .2s;
+    }
+    .btn-danger:hover { background: #ef4444; }
+    .btn-sm {
+      padding: .28rem .75rem; border-radius: 6px; border: none; cursor: pointer;
+      font-size: .78rem; font-weight: 500; transition: all .2s;
+    }
+    .btn-unblock {
+      background: rgba(34,197,94,.15); color: #4ade80; border: 1px solid rgba(34,197,94,.25);
+    }
+    .btn-unblock:hover { background: rgba(34,197,94,.3); }
+    .btn-block-quick {
+      background: rgba(239,68,68,.12); color: #f87171; border: 1px solid rgba(239,68,68,.25);
+    }
+    .btn-block-quick:hover { background: rgba(239,68,68,.25); }
+
+    .stat-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .stat-card {
+      flex: 1; min-width: 140px; background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+      padding: .9rem 1.1rem;
+    }
+    .stat-num { font-size: 1.6rem; font-weight: 700; color: #f5c842; }
+    .stat-label { font-size: .78rem; color: #6b7280; margin-top: .1rem; }
+
+    .card-box {
+      background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; overflow-x: auto;
+    }
+    .card-box h3 { margin: 0 0 1rem; font-size: .95rem; color: #d1d5db; }
+
+    .loading { text-align: center; color: #6b7280; padding: 2rem; }
+    .empty   { text-align: center; color: #4b5563; padding: 2rem; font-size: .9rem; }
+
+    .ip-text { font-family: monospace; font-size: .9rem; color: #a5b4fc; }
+
+    .search-bar {
+      display: flex; gap: .5rem; margin-bottom: 1rem; align-items: center;
+    }
+    .search-bar input {
+      flex: 1; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+      color: #e2e0f0; border-radius: 8px; padding: .45rem .9rem; font-size: .85rem;
+    }
+    .search-bar input:focus { outline: none; border-color: rgba(245,200,66,.4); }
+
+    .notice {
+      background: rgba(245,200,66,.08); border: 1px solid rgba(245,200,66,.2);
+      border-radius: 8px; padding: .75rem 1rem; font-size: .82rem; color: #d1d5db;
+      margin-bottom: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="logo">
+      <span class="logo-icon"><img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"></span>
+      <span>Poké<strong>Trade</strong> <span style="color:#f5c842;font-size:.75rem;">ADMIN</span></span>
+    </a>
+    <div id="navAuth"></div>
+  </div>
+</nav>
+
+<div class="admin-wrap">
+  <h1>🛡️ Správa IP adres</h1>
+  <p class="subtitle">Přihlašovací logy, blokace podvodníků a přehled podezřelých IP</p>
+
+  <!-- Statistiky -->
+  <div class="stat-row" id="statsRow">
+    <div class="stat-card"><div class="stat-num" id="sTotal">–</div><div class="stat-label">Celkem přihlášení</div></div>
+    <div class="stat-card"><div class="stat-num" id="sBlocked">–</div><div class="stat-label">Blokované IP</div></div>
+    <div class="stat-card"><div class="stat-num" id="sSuspect">–</div><div class="stat-label">Podezřelé IP</div></div>
+    <div class="stat-card"><div class="stat-num" id="sFailed">–</div><div class="stat-label">Neúspěšné pokusy</div></div>
+  </div>
+
+  <!-- Záložky -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="showTab('suspicious')">⚠️ Podezřelé IP</button>
+    <button class="tab-btn" onclick="showTab('history')">📋 Historie přihlášení</button>
+    <button class="tab-btn" onclick="showTab('blocked')">🚫 Blokované IP</button>
+    <button class="tab-btn" onclick="showTab('block')">➕ Blokovat IP</button>
+  </div>
+
+  <!-- Panel: Podezřelé IP -->
+  <div class="panel active" id="panel-suspicious">
+    <div class="notice">
+      ⚠️ Zobrazeny jsou IP adresy, ze kterých se přihlásilo <strong>více různých účtů</strong>. Typický znak podvodu nebo sdílené sítě.
+    </div>
+    <div class="card-box">
+      <h3>IP s více účty</h3>
+      <div id="suspiciousTable" class="loading">Načítám…</div>
+    </div>
+  </div>
+
+  <!-- Panel: Historie přihlášení -->
+  <div class="panel" id="panel-history">
+    <div class="search-bar">
+      <input type="text" id="histSearch" placeholder="Filtrovat podle IP nebo uživatele…" oninput="filterHistory()">
+      <select id="histFilter" onchange="filterHistory()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#e2e0f0;border-radius:8px;padding:.45rem .75rem;font-size:.85rem;">
+        <option value="">Vše</option>
+        <option value="login">Přihlášení</option>
+        <option value="register">Registrace</option>
+        <option value="failed">Neúspěšné</option>
+      </select>
+    </div>
+    <div class="card-box">
+      <div id="historyTable" class="loading">Načítám…</div>
+    </div>
+  </div>
+
+  <!-- Panel: Blokované IP -->
+  <div class="panel" id="panel-blocked">
+    <div class="card-box">
+      <h3>Aktuálně blokované IP adresy</h3>
+      <div id="blockedTable" class="loading">Načítám…</div>
+    </div>
+  </div>
+
+  <!-- Panel: Přidat blokaci -->
+  <div class="panel" id="panel-block">
+    <div class="card-box">
+      <h3>Blokovat IP adresu</h3>
+      <div class="block-form">
+        <div>
+          <label>IP adresa (IPv4 nebo IPv6)</label>
+          <input type="text" id="blockIP" placeholder="např. 123.45.67.89" style="width:220px;">
+        </div>
+        <div>
+          <label>Důvod (volitelné)</label>
+          <input type="text" id="blockReason" placeholder="Podvod, spam…" style="width:250px;">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn-danger" onclick="blockIP()">🚫 Blokovat IP</button>
+        </div>
+      </div>
+      <div id="blockMsg" style="font-size:.85rem;margin-top:.5rem;display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let historyData = [];
+
+// ── Inicializace ─────────────────────────────────────────────
+(async function init() {
+  const user = getUser();
+  if (!user) { window.location.replace('login.html'); return; }
+  await Promise.all([loadStats(), loadSuspicious(), loadHistory(), loadBlocked()]);
+})();
+
+function showTab(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// ── Statistiky ───────────────────────────────────────────────
+async function loadStats() {
+  const token = localStorage.getItem('sb_token');
+  const [logs, blocked, suspect] = await Promise.all([
+    supabaseRequest('rest/v1/user_ip_logs?select=id,success', 'GET', null, token),
+    supabaseRequest('rest/v1/blocked_ips?select=id', 'GET', null, token),
+    supabaseRequest('rest/v1/suspicious_ips?select=ip_address', 'GET', null, token),
+  ]);
+  document.getElementById('sTotal').textContent   = Array.isArray(logs)    ? logs.length                                    : '–';
+  document.getElementById('sBlocked').textContent = Array.isArray(blocked) ? blocked.length                                 : '–';
+  document.getElementById('sSuspect').textContent = Array.isArray(suspect) ? suspect.length                                 : '–';
+  document.getElementById('sFailed').textContent  = Array.isArray(logs)    ? logs.filter(l => !l.success).length           : '–';
+}
+
+// ── Podezřelé IP ─────────────────────────────────────────────
+async function loadSuspicious() {
+  const token = localStorage.getItem('sb_token');
+  const data  = await supabaseRequest(
+    'rest/v1/suspicious_ips?select=*&order=pocet_uctu.desc',
+    'GET', null, token
+  );
+  const el = document.getElementById('suspiciousTable');
+  if (!Array.isArray(data) || data.length === 0) {
+    el.innerHTML = '<div class="empty">🎉 Žádné podezřelé IP adresy nenalezeny</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>IP adresa</th><th>Počet účtů</th><th>Počet pokusů</th>
+        <th>Neúspěšné</th><th>Poslední přihlášení</th><th>Akce</th>
+      </tr></thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td><span class="ip-text">${r.ip_address}</span></td>
+            <td><span class="badge badge-red">${r.pocet_uctu} účtů</span></td>
+            <td>${r.pocet_pokusu}</td>
+            <td>${r.neuspesne_pokusy > 0 ? `<span class="badge badge-amber">${r.neuspesne_pokusy}</span>` : '0'}</td>
+            <td style="font-size:.78rem;color:#6b7280">${new Date(r.posledni_prihlaseni).toLocaleString('cs')}</td>
+            <td>
+              <button class="btn-sm btn-block-quick" onclick="quickBlock('${r.ip_address}')">🚫 Blokovat</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ── Historie přihlášení ──────────────────────────────────────
+async function loadHistory() {
+  const token = localStorage.getItem('sb_token');
+  const data  = await supabaseRequest(
+    'rest/v1/login_history?select=*&order=logged_at.desc&limit=200',
+    'GET', null, token
+  );
+  historyData = Array.isArray(data) ? data : [];
+  renderHistory(historyData);
+}
+
+function renderHistory(data) {
+  const el = document.getElementById('historyTable');
+  if (!data.length) {
+    el.innerHTML = '<div class="empty">Žádné záznamy</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Čas</th><th>IP adresa</th><th>Uživatel</th><th>Akce</th><th>Status</th><th>IP stav</th>
+      </tr></thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td style="font-size:.78rem;color:#6b7280;white-space:nowrap">${new Date(r.logged_at).toLocaleString('cs')}</td>
+            <td><span class="ip-text">${r.ip_address || '–'}</span></td>
+            <td>
+              <strong>${r.username || '?'}</strong>
+              ${r.is_banned ? '<span class="badge badge-red" style="margin-left:.4rem">banned</span>' : ''}
+            </td>
+            <td>
+              <span class="badge ${r.action === 'register' ? 'badge-amber' : r.action === 'failed' ? 'badge-red' : 'badge-gray'}">
+                ${r.action === 'login' ? '🔑 login' : r.action === 'register' ? '📝 registrace' : '❌ selhání'}
+              </span>
+            </td>
+            <td>${r.success ? '<span class="badge badge-green">OK</span>' : '<span class="badge badge-red">FAIL</span>'}</td>
+            <td>
+              ${r.ip_blocked
+                ? '<span class="badge badge-red">🚫 blokována</span>'
+                : r.ip_address
+                  ? `<button class="btn-sm btn-block-quick" onclick="quickBlock('${r.ip_address}')">Blokovat</button>`
+                  : '–'
+              }
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function filterHistory() {
+  const q      = document.getElementById('histSearch').value.toLowerCase();
+  const filter = document.getElementById('histFilter').value;
+  const rows   = historyData.filter(r => {
+    const matchText   = !q || (r.ip_address || '').includes(q) || (r.username || '').toLowerCase().includes(q);
+    const matchAction = !filter || r.action === filter;
+    return matchText && matchAction;
+  });
+  renderHistory(rows);
+}
+
+// ── Blokované IP ─────────────────────────────────────────────
+async function loadBlocked() {
+  const token = localStorage.getItem('sb_token');
+  const data  = await supabaseRequest(
+    'rest/v1/blocked_ips?select=*&order=blocked_at.desc',
+    'GET', null, token
+  );
+  const el = document.getElementById('blockedTable');
+  if (!Array.isArray(data) || data.length === 0) {
+    el.innerHTML = '<div class="empty">Žádné blokované IP adresy</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>IP adresa</th><th>Důvod</th><th>Zablokováno</th><th>Akce</th>
+      </tr></thead>
+      <tbody>
+        ${data.map(r => `
+          <tr>
+            <td><span class="ip-text">${r.ip_address}</span></td>
+            <td>${r.reason || '<span style="color:#4b5563">–</span>'}</td>
+            <td style="font-size:.78rem;color:#6b7280">${new Date(r.blocked_at).toLocaleString('cs')}</td>
+            <td>
+              <button class="btn-sm btn-unblock" onclick="unblockIP('${r.ip_address}')">✅ Odblokovat</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+// ── Akce ─────────────────────────────────────────────────────
+async function quickBlock(ip) {
+  const reason = prompt(`Důvod blokace IP ${ip}:`, 'Podvodné chování');
+  if (reason === null) return;
+  await doBlock(ip, reason);
+}
+
+async function blockIP() {
+  const ip     = document.getElementById('blockIP').value.trim();
+  const reason = document.getElementById('blockReason').value.trim();
+  const msg    = document.getElementById('blockMsg');
+  if (!ip) { showMsg(msg, '⚠️ Zadej IP adresu', 'red'); return; }
+  await doBlock(ip, reason);
+  document.getElementById('blockIP').value     = '';
+  document.getElementById('blockReason').value = '';
+}
+
+async function doBlock(ip, reason) {
+  const token = localStorage.getItem('sb_token');
+  const r = await supabaseRequest('rest/v1/blocked_ips', 'POST', {
+    ip_address: ip,
+    reason:     reason || null,
+    blocked_by: getUser()?.id || null
+  }, token);
+  const msg = document.getElementById('blockMsg');
+  msg.style.display = 'block';
+  if (r?.error || r?.code) {
+    showMsg(msg, '❌ Chyba: ' + (r.message || r.error?.message || 'Nepodařilo se blokovat'), 'red');
+  } else {
+    showMsg(msg, `✅ IP ${ip} byla zablokována`, 'green');
+    await Promise.all([loadBlocked(), loadSuspicious(), loadStats()]);
+  }
+}
+
+async function unblockIP(ip) {
+  if (!confirm(`Odblokovat IP ${ip}?`)) return;
+  const token = localStorage.getItem('sb_token');
+  await supabaseRequest(
+    `rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(ip)}`,
+    'DELETE', null, token
+  );
+  await Promise.all([loadBlocked(), loadSuspicious(), loadStats()]);
+}
+
+function showMsg(el, text, color) {
+  el.textContent = text;
+  el.style.color = color === 'green' ? '#4ade80' : '#f87171';
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 4000);
+}
+</script>
+</body>
+</html>

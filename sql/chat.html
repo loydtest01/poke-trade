@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <link rel="icon" type="image/png" href="pokemon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zprávy – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+<style>
+:root {
+  --yellow: #f5c842; --yellow2: #ffd83a;
+  --text: #f0ece4; --text2: rgba(240,236,228,0.65); --text3: rgba(240,236,228,0.35);
+  --bg1: rgba(12,10,18,0.88); --bg2: rgba(18,14,26,0.92); --bg3: rgba(255,255,255,0.05);
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --red: #f87171; --green: #4ade80; --blue: #74b4ff;
+  --orange: #fb923c;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #06040c; font-family: 'DM Sans', sans-serif;
+  color: var(--text); overflow: hidden; height: 100vh;
+}
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url('wallpaper.png'); background-size: cover; background-position: center 30%;
+  filter: brightness(0.18) saturate(0.5);
+}
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
+    linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%);
+}
+
+/* ═══ TOPBAR ═══ */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,4,6,0.82); border-bottom: 1px solid rgba(245,200,66,0.12);
+  backdrop-filter: blur(18px); display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2); text-decoration: none; transition: all .15s; position: relative;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  cursor: pointer; text-decoration: none; color: var(--text);
+}
+.user-avatar-sm {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+.btn-nav-outline {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.18); background: transparent;
+  color: var(--text2); text-decoration: none; cursor: pointer; transition: all .15s;
+}
+.btn-nav-outline:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
+.user-avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+}
+/* ── Chat dropdown ── */
+.chat-dropdown-wrap { position: relative; }
+.chat-icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2, rgba(240,236,228,0.65));
+  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 5px; line-height: 1;
+  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+}
+.chat-drop {
+  display: none; position: absolute; top: calc(100% + 8px); right: 0;
+  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  z-index: 300; overflow: hidden; flex-direction: column;
+}
+.chat-drop.open { display: flex; }
+.chat-drop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
+.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
+.chat-drop-all:hover { opacity: 0.8; }
+.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
+.chat-drop-list::-webkit-scrollbar { width: 4px; }
+.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
+.cdrop-item {
+  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
+  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread { border-left-color: var(--yellow, #f5c842); background: rgba(245,200,66,0.04); }
+.cdrop-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.08); display: flex; align-items: center;
+  justify-content: center; font-weight: 700; font-size: 14px; color: var(--text, #f0ece4);
+}
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
+.cdrop-name { font-weight: 600; font-size: 13px; color: var(--text, #f0ece4); }
+.cdrop-time { font-size: 11px; color: rgba(240,236,228,0.35); flex-shrink: 0; margin-left: 8px; }
+.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
+@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+.unread-badge-nav {
+  position: absolute; top: 0; right: 2px; min-width: 16px; height: 16px;
+  border-radius: 8px; background: var(--red); color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 4px; line-height: 1;
+}
+
+/* ═══ CHAT LAYOUT ═══ */
+.chat-wrap {
+  position: relative; z-index: 1;
+  display: flex; height: calc(100vh - 56px);
+}
+
+/* ── LEFT: Konverzace ── */
+.conv-sidebar {
+  width: 340px; flex-shrink: 0;
+  background: rgba(8,4,10,0.82); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; backdrop-filter: blur(12px);
+}
+.conv-header {
+  padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+}
+.conv-header h2 {
+  font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 800;
+  color: #fff; margin-bottom: 10px;
+}
+.conv-search {
+  width: 100%; padding: 8px 12px 8px 34px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+}
+.conv-search:focus { border-color: rgba(245,200,66,0.4); }
+.conv-search-wrap { position: relative; }
+.conv-search-wrap::before {
+  content: '🔍'; position: absolute; left: 10px; top: 50%;
+  transform: translateY(-50%); font-size: 13px; pointer-events: none;
+}
+
+.conv-list {
+  flex: 1; overflow-y: auto; padding: 6px 0;
+}
+.conv-list::-webkit-scrollbar { width: 4px; }
+.conv-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.conv-item {
+  display: flex; gap: 10px; padding: 12px 16px; cursor: pointer;
+  transition: background .12s; position: relative;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.conv-item:hover { background: rgba(255,255,255,0.04); }
+.conv-item.active { background: rgba(245,200,66,0.08); }
+.conv-item.unread .conv-last-msg { color: var(--text); font-weight: 500; }
+
+.conv-avatar {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: var(--yellow);
+}
+.conv-info { flex: 1; min-width: 0; }
+.conv-name {
+  font-size: 13.5px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.conv-last-msg {
+  font-size: 12px; color: var(--text3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.conv-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
+.conv-time { font-size: 11px; color: var(--text3); white-space: nowrap; }
+.conv-unread {
+  min-width: 18px; height: 18px; border-radius: 9px;
+  background: var(--yellow); color: #000;
+  font-size: 10px; font-weight: 800;
+  display: none; align-items: center; justify-content: center; padding: 0 5px;
+}
+.conv-item.unread .conv-unread { display: flex; }
+
+.conv-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 40px 20px; color: var(--text3); text-align: center; flex: 1;
+}
+.conv-empty-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.5; }
+.conv-empty h3 { font-size: 14px; color: var(--text2); margin-bottom: 4px; }
+
+/* ── RIGHT: Chat thread ── */
+.chat-main {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+  background: rgba(6,4,12,0.5);
+}
+
+/* No conversation selected */
+.chat-empty {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; color: var(--text3);
+}
+.chat-empty-icon { font-size: 56px; margin-bottom: 14px; opacity: 0.4; }
+.chat-empty h3 { font-size: 16px; color: var(--text2); margin-bottom: 6px; }
+.chat-empty p { font-size: 13px; }
+
+/* Chat header */
+.chat-header {
+  padding: 12px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(8,4,10,0.6); backdrop-filter: blur(8px);
+}
+.chat-header-avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; color: var(--yellow);
+  cursor: pointer; transition: border-color .15s;
+}
+.chat-header-avatar:hover { border-color: var(--yellow); }
+.chat-header-info { flex: 1; min-width: 0; }
+.chat-header-name {
+  font-size: 14px; font-weight: 700; color: var(--text);
+  cursor: pointer; transition: color .15s;
+}
+.chat-header-name:hover { color: var(--yellow); }
+.chat-header-sub { font-size: 11px; color: var(--text3); }
+.btn-profile {
+  padding: 6px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: transparent; color: var(--text2);
+  cursor: pointer; transition: all .15s; text-decoration: none;
+}
+.btn-profile:hover { border-color: var(--border2); color: var(--text); }
+
+/* Messages */
+.chat-messages {
+  flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 3px;
+}
+.chat-messages::-webkit-scrollbar { width: 5px; }
+.chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+.msg-date-sep {
+  text-align: center; font-size: 11px; color: var(--text3);
+  padding: 12px 0 6px; position: relative;
+}
+.msg-date-sep::before, .msg-date-sep::after {
+  content: ''; position: absolute; top: 50%; height: 1px;
+  background: rgba(255,255,255,0.05); width: calc(50% - 60px);
+}
+.msg-date-sep::before { left: 0; }
+.msg-date-sep::after { right: 0; }
+
+.msg-row { display: flex; margin-bottom: 2px; }
+.msg-row.me { justify-content: flex-end; }
+.msg-row.them { justify-content: flex-start; }
+
+.msg-bubble {
+  max-width: 70%; padding: 9px 13px; border-radius: 14px;
+  font-size: 13.5px; line-height: 1.55; word-break: break-word;
+  position: relative;
+}
+.msg-row.them .msg-bubble {
+  background: rgba(255,255,255,0.07); color: var(--text2);
+  border-bottom-left-radius: 4px;
+}
+.msg-row.me .msg-bubble {
+  background: rgba(74,158,255,0.16); color: #b8d4f8;
+  border-bottom-right-radius: 4px;
+}
+.msg-time {
+  font-size: 10px; color: rgba(255,255,255,0.25); margin-top: 3px;
+  text-align: right;
+}
+.msg-row.them .msg-time { text-align: left; }
+
+/* Listing attachment in message */
+.msg-listing-attach {
+  display: flex; gap: 8px; margin-top: 7px; padding: 8px 10px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  border-radius: 10px; cursor: pointer; transition: border-color .15s;
+  text-decoration: none; color: inherit;
+  max-width: 320px;
+}
+.msg-listing-attach:hover { border-color: rgba(245,200,66,0.3); }
+.msg-listing-thumb {
+  width: 40px; height: 55px; border-radius: 5px; flex-shrink: 0;
+  background: rgba(255,255,255,0.04); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.msg-listing-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.msg-listing-info { flex: 1; min-width: 0; }
+.msg-listing-name {
+  font-size: 12px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.msg-listing-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.msg-listing-price { font-size: 13px; font-weight: 700; color: var(--green); margin-top: 2px; }
+
+/* Multiple listing attachments */
+.msg-listings-group {
+  display: flex; flex-direction: column; gap: 4px; margin-top: 7px;
+}
+
+/* ── Input area ── */
+.chat-input-area {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  background: rgba(8,4,10,0.7); backdrop-filter: blur(8px);
+}
+
+/* Attached listings bar (before sending) */
+.attach-bar {
+  display: none; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.attach-bar.show { display: flex; }
+.attach-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 8px 4px 4px; border-radius: 8px;
+  background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2);
+  font-size: 12px; color: var(--yellow);
+}
+.attach-chip-img {
+  width: 22px; height: 30px; border-radius: 3px; overflow: hidden;
+  background: rgba(255,255,255,0.05); flex-shrink: 0;
+}
+.attach-chip-img img { width: 100%; height: 100%; object-fit: cover; }
+.attach-chip-remove {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(255,255,255,0.1); border: none; color: var(--text3);
+  font-size: 10px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; margin-left: 2px; transition: background .12s;
+}
+.attach-chip-remove:hover { background: rgba(255,255,255,0.2); color: var(--text); }
+
+.chat-input-row {
+  display: flex; gap: 8px; align-items: flex-end;
+}
+.btn-attach-listing {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text3); font-size: 16px; cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-attach-listing:hover { border-color: var(--border2); color: var(--text2); background: rgba(255,255,255,0.07); }
+.chat-textarea {
+  flex: 1; padding: 9px 13px; border-radius: 10px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13.5px;
+  outline: none; resize: none; min-height: 38px; max-height: 120px;
+  line-height: 1.45;
+}
+.chat-textarea:focus { border-color: rgba(74,158,255,0.4); }
+.chat-textarea::placeholder { color: var(--text3); }
+.btn-send {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  border: none; background: rgba(74,158,255,0.2); color: var(--blue);
+  font-size: 16px; cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-send:hover { background: rgba(74,158,255,0.35); }
+.btn-send:disabled { opacity: 0.3; cursor: default; }
+
+/* ═══ LISTING PICKER MODAL ═══ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #0e0c14; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px; width: 100%; max-width: 480px; max-height: 80vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--border);
+}
+.modal-head h3 {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800; color: #fff;
+}
+.modal-close {
+  background: none; border: none; color: var(--text3); font-size: 18px;
+  cursor: pointer; padding: 4px 8px;
+}
+.modal-close:hover { color: var(--text); }
+.modal-search-wrap { padding: 12px 16px 8px; }
+.modal-search {
+  width: 100%; padding: 8px 12px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+}
+.modal-search:focus { border-color: rgba(245,200,66,0.4); }
+.modal-search::placeholder { color: var(--text3); }
+.modal-list {
+  flex: 1; overflow-y: auto; padding: 4px 8px 12px;
+}
+.modal-list::-webkit-scrollbar { width: 4px; }
+.modal-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.picker-item {
+  display: flex; gap: 10px; padding: 10px; border-radius: 10px;
+  cursor: pointer; transition: background .12s; align-items: center;
+}
+.picker-item:hover { background: rgba(255,255,255,0.05); }
+.picker-item.selected { background: rgba(245,200,66,0.08); }
+.picker-thumb {
+  width: 40px; height: 55px; border-radius: 6px; flex-shrink: 0;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.picker-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.picker-info { flex: 1; min-width: 0; }
+.picker-name {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.picker-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.picker-price { font-size: 13px; font-weight: 700; color: var(--green); }
+.picker-check {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  border: 2px solid var(--border); background: transparent; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: transparent;
+}
+.picker-item.selected .picker-check {
+  border-color: var(--yellow); background: rgba(245,200,66,0.2); color: var(--yellow);
+}
+.modal-footer {
+  padding: 12px 16px; border-top: 1px solid var(--border);
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.btn-modal-confirm {
+  padding: 9px 20px; border-radius: 9px; font-size: 13px; font-weight: 700;
+  border: none; background: rgba(245,200,66,0.2); color: var(--yellow);
+  cursor: pointer; transition: all .12s;
+}
+.btn-modal-confirm:hover { background: rgba(245,200,66,0.3); }
+.btn-modal-cancel {
+  padding: 9px 16px; border-radius: 9px; font-size: 13px;
+  border: 1px solid var(--border); background: transparent; color: var(--text3);
+  cursor: pointer; transition: all .12s;
+}
+.btn-modal-cancel:hover { color: var(--text2); border-color: var(--border2); }
+.picker-empty {
+  text-align: center; padding: 30px 20px; color: var(--text3); font-size: 13px;
+}
+
+/* ═══ TOAST ═══ */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px);
+  padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+  background: rgba(20,18,28,0.95); border: 1px solid var(--border);
+  color: var(--text); backdrop-filter: blur(10px);
+  opacity: 0; transition: all .25s; z-index: 600; pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.error { border-color: rgba(248,113,113,0.3); color: var(--red); }
+.toast.success { border-color: rgba(74,222,128,0.3); color: var(--green); }
+
+/* ═══ MOBILE ═══ */
+@media (max-width: 740px) {
+  .conv-sidebar { width: 100%; }
+  .chat-main { display: none; }
+  .chat-wrap.conv-open .conv-sidebar { display: none; }
+  .chat-wrap.conv-open .chat-main { display: flex; }
+  .btn-back-mobile { display: flex !important; }
+}
+@media (min-width: 741px) {
+  .btn-back-mobile { display: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html">Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
+    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="compare.html">Porovnat alba</a>
+    <a href="scanner.html">📷 Skener</a>
+    <a href="profile.html">Můj profil</a>
+  </nav>
+  <div class="topbar-right">
+    <div class="chat-dropdown-wrap" id="chatDropWrap">
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
+      </button>
+      <div class="chat-drop" id="chatDrop">
+        <div class="chat-drop-head">
+          <span class="chat-drop-title">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+        </div>
+        <div class="chat-drop-list" id="chatDropList">
+          <div class="chat-drop-empty">
+            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+            <div>Žádné zprávy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+  </div>
+</header>
+
+<!-- ═══ MAIN CHAT LAYOUT ═══ -->
+<div class="chat-wrap" id="chatWrap">
+
+  <!-- LEFT: Conversations -->
+  <aside class="conv-sidebar">
+    <div class="conv-header">
+      <h2>💬 Zprávy</h2>
+      <div class="conv-search-wrap">
+        <input class="conv-search" id="convSearch" type="text" placeholder="Hledat konverzaci..." oninput="filterConversations()">
+      </div>
+    </div>
+    <div class="conv-list" id="convList">
+      <div class="conv-empty" id="convEmpty">
+        <div class="conv-empty-icon">💬</div>
+        <h3>Žádné konverzace</h3>
+        <p style="font-size:12px">Napiš prodejci z marketplace<br>a zahaj konverzaci!</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- RIGHT: Active conversation -->
+  <div class="chat-main" id="chatMain">
+    <!-- Empty state -->
+    <div class="chat-empty" id="chatEmpty">
+      <div class="chat-empty-icon">✉️</div>
+      <h3>Vyber konverzaci</h3>
+      <p>Klikni na konverzaci vlevo nebo napiš prodejci z nabídek.</p>
+    </div>
+
+    <!-- Chat header (hidden until conv selected) -->
+    <div class="chat-header" id="chatHeader" style="display:none">
+      <button class="btn-attach-listing btn-back-mobile" onclick="goBackToList()" style="display:none;font-size:18px" title="Zpět">←</button>
+      <div class="chat-header-avatar" id="chatAvatar" onclick="openPartnerProfile()" title="Zobrazit profil">?</div>
+      <div class="chat-header-info">
+        <div class="chat-header-name" id="chatPartnerName" onclick="openPartnerProfile()" title="Zobrazit profil">—</div>
+        <div class="chat-header-sub" id="chatHeaderSub">Klikni na jméno pro zobrazení profilu</div>
+      </div>
+      <a class="btn-profile" id="btnViewProfile" href="#" title="Zobrazit profil a hodnocení">
+        ⭐ Profil & hodnocení
+      </a>
+    </div>
+
+    <!-- Messages area -->
+    <div class="chat-messages" id="chatMessages" style="display:none"></div>
+
+    <!-- Input area -->
+    <div class="chat-input-area" id="chatInputArea" style="display:none">
+      <div class="attach-bar" id="attachBar"></div>
+      <div class="chat-input-row">
+        <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace">
+          🃏
+        </button>
+        <textarea class="chat-textarea" id="chatInput" placeholder="Napište zprávu..." rows="1"
+          oninput="autoGrow(this)" onkeydown="handleInputKey(event)"></textarea>
+        <button class="btn-send" id="btnSend" onclick="sendMessage()" title="Odeslat">
+          ➤
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ LISTING PICKER MODAL ═══ -->
+<div class="modal-overlay" id="listingPickerModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>🃏 Připojit nabídky</h3>
+      <button class="modal-close" onclick="closeListingPicker()">✕</button>
+    </div>
+    <div class="modal-search-wrap">
+      <input class="modal-search" id="pickerSearch" type="text" placeholder="Hledat nabídku..." oninput="filterPickerListings()">
+    </div>
+    <div class="modal-list" id="pickerList"></div>
+    <div class="modal-footer">
+      <button class="btn-modal-cancel" onclick="closeListingPicker()">Zrušit</button>
+      <button class="btn-modal-confirm" onclick="confirmListingPicker()">
+        Připojit (<span id="pickerCount">0</span>)
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ═══ SCRIPTS ═══ -->
+<script src="app.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CHAT – PokéTrade
+// ═══════════════════════════════════════════════════════════════
+
+const SB_URL  = typeof window.SUPABASE_URL  !== 'undefined' ? window.SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SB_ANON = typeof window.SUPABASE_ANON !== 'undefined' ? window.SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+// ── Supabase helper ──
+async function sb(path, method='GET', body=null, tkn=null) {
+  const headers = {
+    'Content-Type':'application/json',
+    'apikey': SB_ANON,
+    'Authorization':'Bearer '+(tkn||SB_ANON),
+  };
+  if (['POST','PATCH'].includes(method) && !path.startsWith('auth/'))
+    headers['Prefer']='return=representation';
+  const res = await fetch(`${SB_URL}/${path}`, {
+    method, headers, body: body ? JSON.stringify(body) : undefined
+  });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) return { _err: data.message || data.error || data.msg || 'HTTP '+res.status };
+  return data;
+}
+
+// ── RPC helper ──
+async function sbRpc(fn, params={}) {
+  return sb(`rest/v1/rpc/${fn}`, 'POST', params, token);
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ═══ AUTH ═══
+let token=null, userId=null, username='';
+
+(function initAuth(){
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; }})();
+  token  = localStorage.getItem('sb_token');
+  userId = sbUser?.id;
+  username = sbUser?.user_metadata?.username || sbUser?.email?.split('@')[0] || '';
+  if (token && userId) {
+    document.getElementById('userChip').style.display='';
+    document.getElementById('loginLink').style.display='none';
+    document.getElementById('logoutBtn').style.display='';
+    if(document.getElementById('profileBtn')) document.getElementById('profileBtn').style.display='';
+    document.getElementById('userName').textContent=username;
+    document.getElementById('userAvatar').textContent=(username[0]||'?').toUpperCase();
+    init();
+  } else {
+    document.getElementById('convEmpty').innerHTML =
+      '<div class="conv-empty-icon">🔒</div><h3>Přihlas se</h3><p style="font-size:12px">Pro přístup ke zprávám se <a href="login.html" style="color:var(--yellow)">přihlas</a>.</p>';
+  }
+})();
+
+function doLogout(){
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k=>localStorage.removeItem(k));
+  location.href='login.html';
+}
+
+// ═══ STATE ═══
+let conversations = [];
+let activeConvId  = null;
+let activePartner = null; // {id, username}
+let messages      = [];
+let attachedListings = []; // listings to attach to next message
+let allMarketListings = []; // for the picker
+let pickerSelected = new Set();
+let pollTimer = null;
+
+// ═══ INIT ═══
+async function init() {
+  await loadConversations();
+
+  // Check URL params: ?with=USER_ID&listing=LISTING_ID
+  const params = new URLSearchParams(location.search);
+  const withUser = params.get('with');
+  const listingId = params.get('listing');
+  const convId = params.get('conv');
+
+  if (withUser && withUser !== userId) {
+    await openOrCreateConversation(withUser, params.get('username') || '', listingId);
+  } else if (convId) {
+    const conv = conversations.find(c => c.id === convId);
+    if (conv) openConversation(conv);
+  }
+
+  // Start polling
+  startPolling();
+}
+
+// ═══ CONVERSATIONS ═══
+async function loadConversations() {
+  const res = await sb(
+    `rest/v1/conversations?or=(user1_id.eq.${userId},user2_id.eq.${userId})&order=last_message_at.desc&limit=50`,
+    'GET', null, token
+  );
+  if (Array.isArray(res)) {
+    conversations = res;
+    renderConversations();
+  }
+}
+
+function renderConversations() {
+  const list = document.getElementById('convList');
+  const q = (document.getElementById('convSearch').value||'').toLowerCase();
+
+  const filtered = conversations.filter(c => {
+    const partner = c.user1_id === userId ? c.user2_username : c.user1_username;
+    return !q || (partner||'').toLowerCase().includes(q);
+  });
+
+  if (!filtered.length) {
+    list.innerHTML = conversations.length && q
+      ? '<div class="conv-empty"><p style="font-size:13px;color:var(--text3)">Žádné výsledky pro "'+esc(q)+'"</p></div>'
+      : '<div class="conv-empty"><div class="conv-empty-icon">💬</div><h3>Žádné konverzace</h3><p style="font-size:12px">Napiš prodejci z marketplace<br>a zahaj konverzaci!</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const isUser1 = c.user1_id === userId;
+    const partner = isUser1 ? c.user2_username : c.user1_username;
+    const unread  = isUser1 ? c.unread_user1 : c.unread_user2;
+    const initial = (partner||'?')[0].toUpperCase();
+    const lastMsg = c.last_message_text || 'Nová konverzace';
+    const time    = formatConvTime(c.last_message_at);
+    const active  = c.id === activeConvId;
+
+    return `
+      <div class="conv-item${active?' active':''}${unread > 0 ? ' unread' : ''}" onclick="selectConversation('${c.id}')">
+        <div class="conv-avatar">${esc(initial)}</div>
+        <div class="conv-info">
+          <div class="conv-name">${esc(partner)}</div>
+          <div class="conv-last-msg">${esc(lastMsg)}</div>
+        </div>
+        <div class="conv-right">
+          <div class="conv-time">${esc(time)}</div>
+          <div class="conv-unread">${unread}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Update nav badge
+  const totalUnread = conversations.reduce((s,c) => {
+    return s + (c.user1_id === userId ? (c.unread_user1||0) : (c.unread_user2||0));
+  }, 0);
+  const badge = document.getElementById('navUnread');
+  if (totalUnread > 0) {
+    badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function filterConversations() { renderConversations(); }
+
+function formatConvTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'teď';
+  if (diff < 3600000) return Math.floor(diff/60000) + ' min';
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});
+  const yest = new Date(now); yest.setDate(yest.getDate()-1);
+  if (d.toDateString() === yest.toDateString()) return 'včera';
+  return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'});
+}
+
+// ═══ OPEN CONVERSATION ═══
+function selectConversation(convId) {
+  const conv = conversations.find(c => c.id === convId);
+  if (conv) openConversation(conv);
+}
+
+async function openConversation(conv) {
+  activeConvId = conv.id;
+  const isUser1 = conv.user1_id === userId;
+  activePartner = {
+    id: isUser1 ? conv.user2_id : conv.user1_id,
+    username: isUser1 ? conv.user2_username : conv.user1_username,
+  };
+
+  // Show chat UI
+  document.getElementById('chatEmpty').style.display = 'none';
+  document.getElementById('chatHeader').style.display = '';
+  document.getElementById('chatMessages').style.display = '';
+  document.getElementById('chatInputArea').style.display = '';
+
+  // Header
+  const initial = (activePartner.username||'?')[0].toUpperCase();
+  document.getElementById('chatAvatar').textContent = initial;
+  document.getElementById('chatPartnerName').textContent = activePartner.username;
+  document.getElementById('chatHeaderSub').textContent = 'Klikni na jméno pro zobrazení profilu a hodnocení';
+  document.getElementById('btnViewProfile').href = `profile.html?user=${activePartner.id}`;
+
+  // Mobile
+  document.getElementById('chatWrap').classList.add('conv-open');
+
+  // Mark as read
+  await sbRpc('mark_conversation_read', {
+    p_conversation_id: conv.id,
+    p_user_id: userId
+  });
+
+  // Update local unread
+  if (isUser1) conv.unread_user1 = 0;
+  else conv.unread_user2 = 0;
+
+  // Highlight active
+  renderConversations();
+
+  // Load messages
+  await loadMessages();
+
+  // Clear attachments
+  attachedListings = [];
+  renderAttachBar();
+}
+
+async function loadMessages() {
+  if (!activeConvId) return;
+  const res = await sb(
+    `rest/v1/chat_messages?conversation_id=eq.${activeConvId}&order=created_at.asc&limit=200`,
+    'GET', null, token
+  );
+  if (Array.isArray(res)) {
+    messages = res;
+    renderMessages();
+  }
+}
+
+function renderMessages() {
+  const container = document.getElementById('chatMessages');
+  if (!messages.length) {
+    container.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--text3);text-align:center">
+        <div style="font-size:36px;margin-bottom:8px;opacity:0.4">👋</div>
+        <div style="font-size:13px">Začněte konverzaci! Napište zprávu<br>nebo připojte nabídku z marketplace.</div>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  let lastDate = '';
+
+  messages.forEach(m => {
+    const d = new Date(m.created_at);
+    const dateStr = d.toLocaleDateString('cs', {day:'numeric', month:'long', year:'numeric'});
+    if (dateStr !== lastDate) {
+      html += `<div class="msg-date-sep">${esc(dateStr)}</div>`;
+      lastDate = dateStr;
+    }
+
+    const isMe = m.sender_id === userId;
+    const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
+    const refs = m.listing_refs || [];
+
+    let listingsHtml = '';
+    if (refs.length) {
+      listingsHtml = '<div class="msg-listings-group">';
+      refs.forEach(ref => {
+        const price = ref.price_czk ? ref.price_czk.toLocaleString('cs')+' Kč' : 'Výměna';
+        listingsHtml += `
+          <a class="msg-listing-attach" href="marketplace.html?open=${ref.listing_id}" target="_blank" title="Otevřít nabídku">
+            <div class="msg-listing-thumb">
+              ${ref.api_image_url ? `<img src="${esc(ref.api_image_url)}" alt="">` : '<span style="font-size:16px">🃏</span>'}
+            </div>
+            <div class="msg-listing-info">
+              <div class="msg-listing-name">${esc(ref.title || ref.card_name || 'Nabídka')}</div>
+              <div class="msg-listing-meta">${esc(ref.card_name||'')}${ref.username?' · '+esc(ref.username):''}</div>
+              <div class="msg-listing-price">${esc(price)}</div>
+            </div>
+          </a>`;
+      });
+      listingsHtml += '</div>';
+    }
+
+    html += `
+      <div class="msg-row ${isMe?'me':'them'}">
+        <div class="msg-bubble">
+          ${m.text ? esc(m.text) : ''}
+          ${listingsHtml}
+          <div class="msg-time">${esc(time)}${isMe && m.is_read ? ' ✓✓' : ''}</div>
+        </div>
+      </div>`;
+  });
+
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+// ═══ SEND MESSAGE ═══
+async function sendMessage() {
+  const inp = document.getElementById('chatInput');
+  const text = inp.value.trim();
+  if (!text && !attachedListings.length) return;
+  if (!activeConvId || !token) return;
+
+  const listingRefs = attachedListings.map(l => ({
+    listing_id:    l.id,
+    title:         l.title || l.card_name || 'Nabídka',
+    card_name:     l.card_name || '',
+    price_czk:     l.price_czk || null,
+    api_image_url: l.api_image_url || '',
+    username:      l.username || '',
+  }));
+
+  const msgText = text || (listingRefs.length === 1
+    ? `📎 Nabídka: ${listingRefs[0].title}`
+    : `📎 ${listingRefs.length} nabídek připojeno`);
+
+  // Optimistic UI
+  const tempMsg = {
+    id: 'temp-'+Date.now(),
+    conversation_id: activeConvId,
+    sender_id: userId,
+    sender_username: username,
+    text: msgText,
+    listing_refs: listingRefs,
+    is_read: false,
+    created_at: new Date().toISOString(),
+  };
+  messages.push(tempMsg);
+  renderMessages();
+  inp.value = '';
+  autoGrow(inp);
+  attachedListings = [];
+  renderAttachBar();
+
+  // Send to server
+  const res = await sb('rest/v1/chat_messages', 'POST', {
+    conversation_id: activeConvId,
+    sender_id: userId,
+    sender_username: username,
+    text: msgText,
+    listing_refs: listingRefs,
+  }, token);
+
+  if (res._err) {
+    showToast('❌ Chyba při odesílání: '+res._err, 'error');
+    messages = messages.filter(m => m.id !== tempMsg.id);
+    renderMessages();
+    return;
+  }
+
+  // Replace temp message
+  const idx = messages.findIndex(m => m.id === tempMsg.id);
+  if (idx >= 0 && Array.isArray(res)) messages[idx] = res[0];
+  renderMessages();
+
+  // Refresh conversation list
+  loadConversations();
+}
+
+function handleInputKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoGrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// ═══ OPEN OR CREATE CONVERSATION ═══
+// Called when arriving from marketplace with ?with=USER_ID&listing=LISTING_ID
+async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
+  // If we don't have partner username, fetch it
+  if (!partnerUsername) {
+    const pRes = await sb(`rest/v1/profiles?id=eq.${partnerId}&select=username`, 'GET', null, token);
+    if (Array.isArray(pRes) && pRes[0]) partnerUsername = pRes[0].username;
+    else partnerUsername = 'Uživatel';
+  }
+
+  // Get or create conversation via RPC
+  const convId = await sbRpc('get_or_create_conversation', {
+    p_user_a: userId,
+    p_user_b: partnerId,
+    p_username_a: username,
+    p_username_b: partnerUsername,
+  });
+
+  if (!convId || convId._err) {
+    showToast('❌ Nepodařilo se vytvořit konverzaci', 'error');
+    return;
+  }
+
+  // Reload conversations
+  await loadConversations();
+
+  // Find the conversation
+  let conv = conversations.find(c => c.id === convId);
+  if (!conv) {
+    // Might be newly created, reload
+    await loadConversations();
+    conv = conversations.find(c => c.id === convId);
+  }
+
+  if (conv) {
+    await openConversation(conv);
+
+    // If listing specified, attach it
+    if (listingId) {
+      const lRes = await sb(
+        `rest/v1/listings?id=eq.${listingId}&select=id,title,card_name,price_czk,api_image_url,username&limit=1`,
+        'GET', null, token
+      );
+      if (Array.isArray(lRes) && lRes[0]) {
+        attachedListings = [lRes[0]];
+        renderAttachBar();
+      }
+    }
+  }
+}
+
+// ═══ LISTING PICKER ═══
+async function openListingPicker() {
+  pickerSelected = new Set(attachedListings.map(l => l.id));
+  document.getElementById('listingPickerModal').classList.add('open');
+  document.getElementById('pickerSearch').value = '';
+
+  // Load marketplace listings
+  if (!allMarketListings.length) {
+    const res = await sb('rest/v1/listings?status=eq.active&select=id,title,card_name,price_czk,api_image_url,username,card_set&order=created_at.desc&limit=100');
+    if (Array.isArray(res)) allMarketListings = res;
+  }
+
+  renderPickerListings();
+}
+
+function closeListingPicker() {
+  document.getElementById('listingPickerModal').classList.remove('open');
+}
+
+function renderPickerListings() {
+  const q = (document.getElementById('pickerSearch').value||'').toLowerCase();
+  const filtered = allMarketListings.filter(l => {
+    const text = ((l.title||'')+(l.card_name||'')+(l.username||'')+(l.card_set||'')).toLowerCase();
+    return !q || text.includes(q);
+  });
+
+  const list = document.getElementById('pickerList');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="picker-empty">🃏 Žádné nabídky nenalezeny</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(l => {
+    const sel = pickerSelected.has(l.id);
+    const price = l.price_czk ? l.price_czk.toLocaleString('cs')+' Kč' : 'Výměna';
+    return `
+      <div class="picker-item${sel?' selected':''}" onclick="togglePickerItem('${l.id}')">
+        <div class="picker-thumb">
+          ${l.api_image_url ? `<img src="${esc(l.api_image_url)}" alt="">` : '<span style="font-size:16px">🃏</span>'}
+        </div>
+        <div class="picker-info">
+          <div class="picker-name">${esc(l.title || l.card_name || 'Nabídka')}</div>
+          <div class="picker-meta">${esc(l.username||'')}${l.card_set?' · '+esc(l.card_set):''}</div>
+          <div class="picker-price">${esc(price)}</div>
+        </div>
+        <div class="picker-check">${sel?'✓':''}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('pickerCount').textContent = pickerSelected.size;
+}
+
+function filterPickerListings() { renderPickerListings(); }
+
+function togglePickerItem(id) {
+  if (pickerSelected.has(id)) pickerSelected.delete(id);
+  else pickerSelected.add(id);
+  renderPickerListings();
+}
+
+function confirmListingPicker() {
+  attachedListings = allMarketListings.filter(l => pickerSelected.has(l.id));
+  renderAttachBar();
+  closeListingPicker();
+}
+
+// ═══ ATTACH BAR ═══
+function renderAttachBar() {
+  const bar = document.getElementById('attachBar');
+  if (!attachedListings.length) {
+    bar.classList.remove('show');
+    bar.innerHTML = '';
+    return;
+  }
+  bar.classList.add('show');
+  bar.innerHTML = attachedListings.map((l, i) => `
+    <div class="attach-chip">
+      <div class="attach-chip-img">
+        ${l.api_image_url ? `<img src="${esc(l.api_image_url)}" alt="">` : '🃏'}
+      </div>
+      <span>${esc((l.title||l.card_name||'Nabídka').slice(0,25))}</span>
+      <button class="attach-chip-remove" onclick="removeAttach(${i})" title="Odebrat">✕</button>
+    </div>
+  `).join('');
+}
+
+function removeAttach(idx) {
+  attachedListings.splice(idx, 1);
+  renderAttachBar();
+}
+
+// ═══ PROFILE ═══
+function openPartnerProfile() {
+  if (activePartner?.id) {
+    window.open(`profile.html?user=${activePartner.id}`, '_blank');
+  }
+}
+
+// ═══ MOBILE BACK ═══
+function goBackToList() {
+  document.getElementById('chatWrap').classList.remove('conv-open');
+  activeConvId = null;
+}
+
+// ═══ POLLING ═══
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    await loadConversations();
+    if (activeConvId) {
+      await loadMessages();
+      // Mark read
+      const conv = conversations.find(c => c.id === activeConvId);
+      if (conv) {
+        const isUser1 = conv.user1_id === userId;
+        const unread = isUser1 ? conv.unread_user1 : conv.unread_user2;
+        if (unread > 0) {
+          await sbRpc('mark_conversation_read', {
+            p_conversation_id: activeConvId,
+            p_user_id: userId
+          });
+          if (isUser1) conv.unread_user1 = 0;
+          else conv.unread_user2 = 0;
+          renderConversations();
+        }
+      }
+    }
+  }, 5000);
+}
+
+// ═══ TOAST ═══
+function showToast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast${type?' '+type:''} show`;
+  setTimeout(() => el.classList.remove('show'), 3500);
+}
+</script>
+<script>
+/* ── Chat Dropdown + Notifikace ── */
+(function(){
+  'use strict';
+  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  var tk=localStorage.getItem('sb_token');
+  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  if(!tk||!su||!su.id)return;
+  var uid=su.id,convs=[],dropO=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
+  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
+  function renderDrop(){
+    var list=document.getElementById('chatDropList');if(!list)return;
+    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
+    list.innerHTML=convs.slice(0,8).map(function(c){
+      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
+      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
+      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'\" href="chat.html?conv='+c.id+'">'
+        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+    }).join('');
+  }
+  async function loadConvs(){convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15')}
+  loadConvs();
+})();
+</script>
+</body>
+</html>

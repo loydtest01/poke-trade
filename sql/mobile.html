@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>PhotoBridge</title>
+<style>
+:root {
+  --bg:      #0f1117;
+  --surface: #1a1d27;
+  --card:    #22263a;
+  --border:  #2e3348;
+  --accent:  #4f8ef7;
+  --green:   #4ade80;
+  --red:     #f87171;
+  --yellow:  #facc15;
+  --purple:  #a78bfa;
+  --text:    #e2e8f0;
+  --muted:   #64748b;
+  --radius:  14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column}
+
+/* Header */
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 18px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.hdr-logo{
+  font-family:'Bebas Neue',sans-serif;
+  font-size:20px;
+  letter-spacing:2px;
+  color:#fff;
+  text-shadow:0 0 18px rgba(250,204,21,.4);
+  display:flex;align-items:center;gap:6px;
+  flex:1;
+}
+.hdr-logo img{height:26px;width:auto}
+.hdr-logo span{color:#facc15}
+.hdr-progress{font-size:12px;color:var(--muted);background:var(--card);border-radius:20px;padding:4px 10px}
+
+/* Progress bar */
+.prog-bar{height:3px;background:var(--border);flex-shrink:0}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);transition:width .4s ease}
+
+/* Scrollable content */
+.content{flex:1;overflow-y:auto;padding:20px 16px;display:flex;flex-direction:column;gap:16px}
+
+/* Screen visibility */
+.screen{display:none;flex-direction:column;gap:16px}
+.screen.active{display:flex}
+
+/* Cards / panels */
+.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:12px}
+.panel-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+/* Photo preview */
+.photo-box{width:100%;aspect-ratio:2/3;max-height:260px;background:var(--surface);border-radius:10px;border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative;cursor:pointer;transition:border-color .2s}
+.photo-box.has-photo{border-style:solid;border-color:var(--accent)}
+.photo-box img{width:100%;height:100%;object-fit:contain}
+.photo-box .ph-hint{display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted)}
+.photo-box .ph-hint .icon{font-size:40px}
+.photo-box .ph-hint .txt{font-size:13px;text-align:center;line-height:1.4}
+.photo-box .ph-badge{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.7);border-radius:6px;font-size:10px;padding:3px 7px;backdrop-filter:blur(4px)}
+
+/* AI result strip */
+.ai-result{background:var(--surface);border:1px solid rgba(79,142,247,.3);border-radius:10px;padding:12px;font-size:12px;min-height:44px}
+.ai-result .ai-name{font-size:15px;font-weight:700;color:var(--accent)}
+.ai-result .ai-sub{color:var(--muted);margin-top:2px}
+.ai-result .ai-conf{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;margin-top:4px;font-weight:700}
+.ai-result .ai-conf.hi{background:rgba(74,222,128,.15);color:var(--green)}
+.ai-result .ai-conf.lo{background:rgba(248,113,113,.15);color:var(--red)}
+.ai-spinner{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+.spinner{width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Condition selector */
+.cond-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cond-btn{padding:9px 4px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:2px}
+.cond-btn .cond-icon{font-size:16px}
+.cond-btn.selected{border-color:var(--accent);background:rgba(79,142,247,.15);color:var(--text)}
+.cond-btn.c-nm.selected{border-color:var(--green);background:rgba(74,222,128,.12);color:var(--green)}
+.cond-btn.c-lp.selected{border-color:#86efac;background:rgba(134,239,172,.1);color:#86efac}
+.cond-btn.c-mp.selected{border-color:var(--yellow);background:rgba(250,204,21,.1);color:var(--yellow)}
+.cond-btn.c-hp.selected{border-color:#fb923c;background:rgba(251,146,60,.1);color:#fb923c}
+.cond-btn.c-d.selected{border-color:var(--red);background:rgba(248,113,113,.1);color:var(--red)}
+
+/* Note input */
+.note-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;padding:10px 12px;resize:none;font-family:inherit}
+.note-input:focus{outline:none;border-color:var(--accent)}
+
+/* Buttons */
+.btn{width:100%;padding:14px;border-radius:10px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#6d28d9);color:#fff}
+.btn-primary:active{opacity:.85}
+.btn-secondary{background:var(--surface);border:1.5px solid var(--border);color:var(--text)}
+.btn-secondary:active{background:var(--card)}
+.btn-danger{background:transparent;border:1.5px solid rgba(248,113,113,.4);color:var(--red)}
+.btn-green{background:linear-gradient(135deg,#16a34a,#059669);color:#fff}
+.btn-purple{background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff}
+.btn-row{display:flex;gap:10px}
+.btn-row .btn{flex:1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* Review list */
+.review-item{display:flex;gap:12px;align-items:center;padding:10px;background:var(--surface);border-radius:10px;border:1px solid var(--border)}
+.review-thumb{width:44px;height:62px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--card)}
+.review-thumb-empty{width:44px;height:62px;border-radius:6px;flex-shrink:0;background:var(--card);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--border)}
+.review-info{flex:1;min-width:0}
+.review-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.review-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.review-cond{font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--card);margin-top:4px;display:inline-block}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:600;z-index:9999;transition:transform .3s ease,opacity .3s ease;opacity:0;white-space:nowrap;max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* Setup screen */
+.setup-logo{text-align:center;padding:20px 0 10px;font-size:56px}
+.setup-headline{text-align:center;font-size:22px;font-weight:800;line-height:1.2}
+.setup-sub{text-align:center;font-size:13px;color:var(--muted)}
+
+/* ── QUICK COUNT GRID 1-9 ── */
+.quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.quick-btn{padding:14px 8px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--muted);font-size:20px;font-weight:800;cursor:pointer;text-align:center;transition:all .15s;line-height:1}
+.quick-btn:active{transform:scale(.94)}
+.quick-btn.selected{border-color:var(--accent);background:rgba(79,142,247,.18);color:var(--text)}
+.quick-label{font-size:9px;font-weight:600;margin-top:3px;color:var(--muted);letter-spacing:.04em}
+.quick-btn.selected .quick-label{color:var(--accent)}
+.mode-sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px}
+.mode-sep::before,.mode-sep::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ── GALLERY SCREEN ── */
+.gal-drop{width:100%;min-height:140px;background:var(--surface);border-radius:12px;border:2px dashed var(--border);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:pointer;transition:border-color .2s;padding:20px;text-align:center}
+.gal-drop:active,.gal-drop.over{border-color:var(--purple);background:rgba(167,139,250,.07)}
+.gal-drop .icon{font-size:38px}
+.gal-drop .txt{font-size:13px;color:var(--muted);line-height:1.5}
+.gal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.gal-item{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:2/3;background:var(--surface);border:2px solid var(--border);cursor:pointer}
+.gal-item img{width:100%;height:100%;object-fit:cover;display:block}
+.gal-item .gal-overlay{position:absolute;inset:0;background:rgba(0,0,0,.55);display:flex;flex-direction:column;justify-content:flex-end;padding:6px}
+.gal-item .gal-num{position:absolute;top:5px;left:6px;font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000}
+.gal-item .gal-del{position:absolute;top:5px;right:6px;font-size:13px;color:var(--red);font-weight:800;text-shadow:0 1px 3px #000;cursor:pointer;padding:2px 4px}
+.gal-item .gal-name{font-size:9px;font-weight:700;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gal-item .gal-cond{font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;margin-top:2px;display:inline-block}
+.gal-item .gal-spin{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5)}
+.gal-item .gal-spin .spinner{width:22px;height:22px;border-width:3px}
+.gal-item.done-ok{border-color:var(--green)}
+.gal-item.done-fail{border-color:var(--red)}
+.gal-item.processing{border-color:var(--accent)}
+.gal-stats{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.gal-stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;text-align:center}
+.gal-stat .n{font-size:20px;font-weight:800}
+.gal-stat .l{font-size:10px;color:var(--muted)}
+
+/* Side indicator */
+.side-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:4px}
+.side-front{background:rgba(79,142,247,.15);color:var(--accent);border:1px solid rgba(79,142,247,.3)}
+.side-back{background:rgba(100,116,139,.15);color:#94a3b8;border:1px solid rgba(100,116,139,.3)}
+
+/* Alignment guide overlay */
+.align-guide{position:absolute;pointer-events:none;inset:0;display:flex;align-items:center;justify-content:center}
+.align-guide-inner{
+  width:76%;height:88%;
+  position:relative;
+  border-radius:6px;
+}
+.align-guide-inner::before,.align-guide-inner::after,
+.align-corner-br,.align-corner-bl{
+  content:'';position:absolute;width:22px;height:22px;
+  border-color:rgba(255,255,255,.55);border-style:solid;
+}
+.align-guide-inner::before{top:0;left:0;border-width:2.5px 0 0 2.5px;border-radius:4px 0 0 0}
+.align-guide-inner::after {top:0;right:0;border-width:2.5px 2.5px 0 0;border-radius:0 4px 0 0}
+.align-corner-br{bottom:0;right:0;border-width:0 2.5px 2.5px 0;border-radius:0 0 4px 0}
+.align-corner-bl{bottom:0;left:0;border-width:0 0 2.5px 2.5px;border-radius:0 0 0 4px}
+
+/* Undo button – small top-left */
+.btn-undo{background:transparent;border:1.5px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;border-radius:8px;padding:7px 12px;cursor:pointer;font-family:inherit;white-space:nowrap;flex-shrink:0}
+.btn-undo:active{background:var(--card)}
+
+/* Detail photos */
+.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.detail-item{position:relative;aspect-ratio:2/3;border-radius:8px;overflow:hidden;background:var(--surface);border:1.5px solid var(--border)}
+.detail-item img{width:100%;height:100%;object-fit:cover;display:block}
+.detail-item .det-num{position:absolute;top:3px;left:4px;font-size:9px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000}
+.detail-item .det-del{position:absolute;top:3px;right:4px;font-size:11px;color:var(--red);font-weight:800;text-shadow:0 1px 3px #000;cursor:pointer;padding:2px 3px}
+.btn-detail{background:rgba(167,139,250,.12);border:1.5px dashed rgba(167,139,250,.5);color:var(--purple);font-size:13px;font-weight:700;border-radius:10px;padding:11px;cursor:pointer;width:100%;transition:all .15s;font-family:inherit}
+.btn-detail:active{opacity:.8}
+.btn-detail:disabled{opacity:.35;cursor:not-allowed}
+
+/* Done screen */
+.done-icon{font-size:72px;text-align:center;padding:20px 0}
+.done-title{font-size:24px;font-weight:800;text-align:center}
+.done-sub{text-align:center;color:var(--muted);font-size:14px}
+.stat-row{display:flex;justify-content:space-around;background:var(--card);border-radius:12px;padding:16px}
+.stat-item{text-align:center}
+.stat-num{font-size:28px;font-weight:800}
+.stat-lbl{font-size:11px;color:var(--muted)}
+
+/* ── JP NAME PHOTO PANEL ── */
+.jp-name-panel{background:rgba(250,204,21,.07);border:1.5px solid rgba(250,204,21,.35);border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:10px}
+.jp-name-banner{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#facc15}
+.jp-name-hint{font-size:11px;color:var(--muted);line-height:1.4}
+.jp-name-box{width:100%;aspect-ratio:5/1;background:var(--surface);border-radius:8px;border:2px dashed rgba(250,204,21,.4);display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;transition:border-color .2s;position:relative;min-height:54px}
+.jp-name-box.has-photo{border-style:solid;border-color:#facc15}
+.jp-name-box img{width:100%;height:100%;object-fit:contain}
+.jp-name-box .ph-hint{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px}
+
+/* ── FAKE CHIP BUTTON ── */
+#chipFake {
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 9px;
+  font-weight: 700;
+  background: rgba(100,116,139,.1);
+  border: 1px solid rgba(100,116,139,.3);
+  color: #64748b;
+  white-space: nowrap;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: inherit;
+}
+#chipFake.fake-on {
+  background: rgba(239,68,68,.18);
+  border-color: #ef4444;
+  color: #f87171;
+  box-shadow: 0 0 8px rgba(239,68,68,.4);
+}
+#chipFake:active { opacity: .75; transform: scale(.93); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-logo">
+      PhotoBridge
+    </div>
+    <div class="hdr-progress" id="hdrProg" style="display:none"></div>
+    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button id="chipFake" onclick="toggleFakeMode()">🃏 FAKE</button>
+      <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
+      <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
+    </div>
+  </div>
+  <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+
+  <div class="content">
+
+    <!-- ══ SETUP ══ -->
+    <div class="screen active" id="scSetup">
+      <div class="setup-headline">PhotoBridge</div>
+      <div class="setup-sub">Vyfotíš přední strany, pak zadní.<br>PC zpracuje vše najednou.</div>
+
+      <div class="panel">
+        <div class="panel-title">Počet kartiček</div>
+        <div class="quick-grid">
+          <button class="quick-btn selected" onclick="selectCount(1)">1<div class="quick-label">karta</div></button>
+          <button class="quick-btn" onclick="selectCount(2)">2<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="selectCount(3)">3<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="selectCount(4)">4<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="selectCount(5)">5<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="selectCount(6)">6<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="selectCount(7)">7<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="selectCount(8)">8<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="selectCount(9)">9<div class="quick-label">karet</div></button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="startBatch()">📷 Začít focení →</button>
+
+      <div class="mode-sep">nebo</div>
+
+      <div class="panel" style="gap:10px">
+        <div class="panel-title">Galerie mód – nahrát hotové fotky</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.5">Vyber neomezený počet fotek z galerie. AI každou automaticky rozezná a odhadne stav. Pak odešli vše na PC najednou.</div>
+        <button class="btn btn-purple" onclick="openGalleryMode()">📁 Nahrát z galerie →</button>
+      </div>
+    </div>
+
+    <!-- ══ FRONT PHOTO ══ -->
+    <div class="screen" id="scFront">
+      <!-- top bar: undo + badge -->
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-undo" id="undoFrontBtn" onclick="undoFront()" style="display:none">← Zpět</button>
+        <span class="side-badge side-front" style="margin:0">📷 Přední strana</span>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title" id="frontTitle">Karta 1 / 9 – přední strana</div>
+        <div class="photo-box" id="frontPhotoBox" onclick="triggerCapture('front')">
+          <div class="ph-hint">
+            <div class="icon">📷</div>
+            <div class="txt">Klepni pro vyfocení<br>přední strany karty</div>
+          </div>
+          <!-- alignment guide – always visible when no photo -->
+          <div class="align-guide" id="alignGuide">
+            <div class="align-guide-inner">
+              <div class="align-corner-br"></div>
+              <div class="align-corner-bl"></div>
+            </div>
+          </div>
+        </div>
+        <div id="aiResultBox" class="ai-result" style="display:none"></div>
+      </div>
+
+      <div class="panel" id="condPanel" style="display:none">
+        <div class="panel-title">Stav karty</div>
+        <div class="cond-grid">
+          <button class="cond-btn c-nm selected" data-cond="NM" onclick="selectCond(this)"><span class="cond-icon">✨</span>NM</button>
+          <button class="cond-btn c-lp" data-cond="LP" onclick="selectCond(this)"><span class="cond-icon">👍</span>LP</button>
+          <button class="cond-btn c-mp" data-cond="MP" onclick="selectCond(this)"><span class="cond-icon">👌</span>MP</button>
+          <button class="cond-btn c-hp" data-cond="HP" onclick="selectCond(this)"><span class="cond-icon">⚠️</span>HP</button>
+          <button class="cond-btn c-d" data-cond="D" onclick="selectCond(this)"><span class="cond-icon">💀</span>D</button>
+        </div>
+        <textarea class="note-input" id="noteInput" rows="2" placeholder="Poznámka (volitelné)…"></textarea>
+      </div>
+
+      <!-- Detail thumbnails strip (shown after ≥1 detail) -->
+      <div id="detailPanel" style="display:none;padding:0 2px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">🔍 Fotodetaily</span>
+          <span id="detailCount" style="font-size:10px;color:var(--purple);font-weight:700;background:rgba(167,139,250,.15);border-radius:6px;padding:1px 6px">0/10</span>
+        </div>
+        <div class="detail-grid" id="detailGrid"></div>
+      </div>
+
+      <!-- JP Name Photo Panel – zobrazí se jen pro japonské karty -->
+      <div id="jpNamePanel" style="display:none">
+        <div class="jp-name-panel">
+          <div class="jp-name-banner">🇯🇵 Japonská karta – nafotit záběr názvu</div>
+          <div class="jp-name-hint">Pro přesné rozpoznání přiblíž a nafotit jen textový řádek s názvem kartičky (horní část přední strany). <strong style="color:#facc15">📱 Ideálně otoč telefon na šířku</strong> – záběr bude kvalitnější a AI název lépe přečte.</div>
+          <div class="jp-name-box" id="jpNameBox" onclick="triggerCapture('jpname')">
+            <div class="ph-hint"><span style="font-size:22px">🔍</span> Klepni pro záběr názvu</div>
+          </div>
+          <div id="jpRetakeRow" style="display:none;margin-top:8px;text-align:center">
+            <button class="btn btn-secondary" style="font-size:12px;padding:6px 16px" onclick="retakeJpNamePhoto()">🔄 Vyfotit znovu</button>
+            <div id="jpExtractedName" style="font-size:12px;color:#facc15;margin-top:4px;font-weight:700"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Button state A: no photo yet -->
+      <div class="btn-row" id="btnEmpty">
+        <button class="btn btn-secondary" onclick="skipFront()">Přeskočit ↷</button>
+      </div>
+
+      <!-- Button state B: photo taken → detail or continue -->
+      <div class="btn-row" id="btnPhoto" style="display:none">
+        <button class="btn btn-purple" id="addDetailBtn" onclick="triggerCapture('detail')">🔍 Fotodetail</button>
+        <button class="btn btn-primary" id="frontNextBtn" onclick="confirmFront()">Pokračovat →</button>
+      </div>
+    </div>
+
+    <!-- ══ BACK PHOTO ══ -->
+    <div class="screen" id="scBack">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn-undo" onclick="undoBack()">← Zpět</button>
+        <span class="side-badge side-back" style="margin:0">🔄 Zadní strana</span>
+      </div>
+      <div class="panel">
+        <div class="panel-title" id="backTitle">Karta 1 / 9 – zadní strana</div>
+        <div class="photo-box" id="backPhotoBox" onclick="triggerCapture('back')">
+          <div class="ph-hint">
+            <div class="icon">🔄</div>
+            <div class="txt">Klepni pro vyfocení<br>zadní strany karty</div>
+          </div>
+        </div>
+        <div id="backAiBox" class="ai-result" style="display:none"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-danger" onclick="skipBack()">Přeskočit tuto</button>
+        <button class="btn btn-secondary" onclick="skipAllBacks()">Přeskočit vše</button>
+      </div>
+      <button class="btn btn-primary" id="backNextBtn" onclick="confirmBack()" style="display:none">Uložit a další →</button>
+    </div>
+
+    <!-- ══ REVIEW (batch) ══ -->
+    <div class="screen" id="scReview">
+      <div class="panel">
+        <div class="panel-title">Přehled karet k odeslání</div>
+        <div id="reviewList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <button class="btn btn-green" onclick="sendAll()">📤 Odeslat vše na PC</button>
+      <button class="btn btn-secondary" onclick="goBack()">← Zpět</button>
+    </div>
+
+    <!-- ══ GALLERY WIZARD – STEP 1: počet karet ══ -->
+    <div class="screen" id="scGalSetup">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <button class="btn btn-secondary" onclick="showScreen('scSetup')" style="width:auto;padding:8px 14px;font-size:13px">← Zpět</button>
+        <div style="font-weight:700;font-size:15px">📁 Galerie</div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Kolik karet budeš vkládat?</div>
+        <div class="quick-grid">
+          <button class="quick-btn selected" onclick="galSelectCount(1)">1<div class="quick-label">karta</div></button>
+          <button class="quick-btn" onclick="galSelectCount(2)">2<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="galSelectCount(3)">3<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="galSelectCount(4)">4<div class="quick-label">karty</div></button>
+          <button class="quick-btn" onclick="galSelectCount(5)">5<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="galSelectCount(6)">6<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="galSelectCount(7)">7<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="galSelectCount(8)">8<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="galSelectCount(9)">9<div class="quick-label">karet</div></button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;padding:4px 0">Pro každou kartu zvlášť vybereš přední stranu, detaily a zadní stranu.</div>
+      <button class="btn btn-primary" onclick="galStartWizard()">Pokračovat →</button>
+    </div>
+
+    <!-- ══ GALLERY WIZARD – STEP 2: karta po kartě ══ -->
+    <div class="screen" id="scGalCard">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <button class="btn-undo" onclick="galWizardBack()">← Zpět</button>
+        <span class="side-badge side-front" style="margin:0" id="galCardBadge">📷 Přední strana</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)" id="galCardProgress">Karta 1 / 1</span>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">Přední strana</div>
+        <div class="photo-box" id="galFrontBox" onclick="galPickPhoto('front')">
+          <div class="ph-hint"><div class="icon">🖼️</div><div class="txt">Klepni pro výběr<br>přední strany</div></div>
+        </div>
+      </div>
+
+      <div id="galDetailPanel" style="display:none;padding:0 2px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">🔍 Detaily</span>
+          <span id="galDetailCount" style="font-size:10px;color:var(--purple);font-weight:700;background:rgba(167,139,250,.15);border-radius:6px;padding:1px 6px">0/10</span>
+        </div>
+        <div class="detail-grid" id="galDetailGrid"></div>
+      </div>
+
+      <div class="panel" id="galBackPanel" style="display:none">
+        <div class="panel-title">Zadní strana</div>
+        <div class="photo-box" id="galBackBox" onclick="galPickPhoto('back')">
+          <div class="ph-hint"><div class="icon">🔄</div><div class="txt">Klepni pro výběr<br>zadní strany</div></div>
+        </div>
+      </div>
+
+      <div class="btn-row" id="galBtnsEmpty">
+        <div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Vyber přední stranu karty</div>
+      </div>
+      <div class="btn-row" id="galBtnsPhoto" style="display:none">
+        <button class="btn btn-purple" id="galAddDetailBtn" onclick="galPickPhoto('detail')">🔍 Detail</button>
+        <button class="btn btn-secondary" id="galAddBackBtn" onclick="galToggleBack()">🔄 Zadní</button>
+        <button class="btn btn-primary" id="galCardNextBtn" onclick="galCardNext()">Pokračovat →</button>
+      </div>
+    </div>
+
+    <!-- ══ GALLERY WIZARD – STEP 3: přehled ══ -->
+    <div class="screen" id="scGalReview">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <button class="btn-undo" onclick="galGoBack()">← Zpět</button>
+        <div style="font-weight:700;font-size:15px">📋 Přehled</div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Karty k odeslání</div>
+        <div id="galReviewList" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <button class="btn btn-green" onclick="sendGallery()">📤 Odeslat vše na PC</button>
+    </div>
+
+    <!-- ══ SENDING ══ -->
+    <div class="screen" id="scSending">
+      <div style="text-align:center;padding:40px 0">
+        <div style="font-size:48px;margin-bottom:16px">📤</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Odesílám na PC…</div>
+        <div id="sendProgress" style="color:var(--muted);font-size:13px">0 / 0</div>
+        <div style="margin-top:20px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+          <div id="sendBar" style="height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%;transition:width .3s"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ DONE ══ -->
+    <div class="screen" id="scDone">
+      <div class="done-icon">✅</div>
+      <div class="done-title">Odesláno!</div>
+      <div class="done-sub">PC zpracovává karty.<br>Potvrd je v aplikaci na počítači.</div>
+      <div class="stat-row" id="doneStats"></div>
+      <button class="btn btn-secondary" onclick="restartBatch()" style="margin-top:8px">📷 Nová dávka</button>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /app -->
+
+<div id="toast"></div>
+
+<!-- Camera capture -->
+<input type="file" id="captureInput" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(this)">
+<!-- Gallery wizard file picker (single or multi depending on mode) -->
+<input type="file" id="galFileInput" accept="image/*" style="display:none" onchange="handleGalFilePick(this)">
+
+<script>
+// ─── URL params ──────────────────────────────────────────────
+const params  = new URLSearchParams(location.search);
+const USER_ID = params.get('u') || '';
+const TOKEN   = params.get('t') || '';
+const SERVER  = location.origin;
+
+// ─── Supabase config (for photo upload fallback) ─────────────
+const SB_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+// ─── Batch state ─────────────────────────────────────────────
+let totalCards   = 9;
+let currentCard  = 0;
+let captureMode  = 'front';
+let currentCond  = 'NM';
+let batchId      = Date.now().toString(36);
+let cards        = [];
+let fakeMode     = false;
+
+// ─── Groq key ────────────────────────────────────────────────
+let groqKey = params.get('gk') || null;
+
+// ─── Init ────────────────────────────────────────────────────
+window.onload = async () => {
+  selectCount(1, true);
+
+  // 1. Groq key already from URL param (?gk=...)
+  // 2. Fallback: try PC server
+  if (!groqKey && TOKEN) {
+    try {
+      const r = await fetch(`${SERVER}/api/groq-key?t=${TOKEN}`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) { const d = await r.json(); groqKey = d.key; }
+    } catch {}
+  }
+  // 3. Fallback: try Supabase user_api_keys (if user has session on this device)
+  if (!groqKey && USER_ID) {
+    try {
+      const tk = localStorage.getItem('sb_token');
+      if (tk) {
+        const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
+          headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + tk }
+        });
+        const rows = await r.json();
+        if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
+          groqKey = rows[0].groq_key;
+        }
+      }
+    } catch {}
+  }
+
+  // Update AI badge
+  const aiBadge = document.getElementById('chipAI');
+  if (aiBadge) {
+    if (groqKey) {
+      aiBadge.style.background = 'rgba(74,222,128,.15)';
+      aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
+      aiBadge.style.color = '#4ade80';
+      aiBadge.textContent = '🤖 AI ✓';
+    } else {
+      aiBadge.textContent = '🤖 AI ✗';
+    }
+  }
+
+  initSwipe();
+};
+
+// ══════════════════════════════════════════════
+// SETUP – quick count buttons
+// ══════════════════════════════════════════════
+
+// ── FAKE MODE ──────────────────────────────────────────
+function toggleFakeMode() {
+  fakeMode = !fakeMode;
+  const btn = document.getElementById('chipFake');
+  if (fakeMode) {
+    btn.classList.add('fake-on');
+    btn.textContent = '🔴 FAKE';
+    toast('🎭 FAKE trénink zapnut — fotky půjdou jako vzory pro AI');
+  } else {
+    btn.classList.remove('fake-on');
+    btn.textContent = '🃏 FAKE';
+    toast('FAKE trénink vypnut');
+  }
+}
+
+function selectCount(n, silent) {
+  totalCards = n;
+  document.querySelectorAll('.quick-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i + 1 === n);
+  });
+  if (!silent) toast(`Vybráno ${n} ${n===1?'karta':n<5?'karty':'karet'}`);
+}
+
+function startBatch() {
+  cards = Array.from({ length: totalCards }, () => ({
+    frontPhoto: null, frontAI: null, condition: 'NM', note: '', backPhoto: null, backAI: null, detailPhotos: [], jpNamePhoto: null, isFakeTraining: fakeMode
+  }));
+  currentCard = 0;
+  batchId = Date.now().toString(36);
+  showFrontScreen();
+}
+
+// ══════════════════════════════════════════════
+// GALLERY WIZARD
+// ══════════════════════════════════════════════
+
+// galCards[i] = { frontPhoto, backPhoto, detailPhotos[], status }
+let galCards = [];
+let galWizardTotal = 1;
+let galWizardCurrent = 0;  // index aktuální karty v průvodci
+let galWizardBackShown = false;  // zda je zadní strana zobrazena
+let galPickMode = null;  // 'front' | 'back' | 'detail'
+
+function openGalleryMode() {
+  galWizardTotal = 1;
+  showScreen('scGalSetup');
+  // Reset počet tlačítek
+  document.querySelectorAll('#scGalSetup .quick-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i === 0);
+  });
+}
+
+function galSelectCount(n) {
+  galWizardTotal = n;
+  document.querySelectorAll('#scGalSetup .quick-btn').forEach((b, i) => {
+    b.classList.toggle('selected', i + 1 === n);
+  });
+}
+
+function galStartWizard() {
+  galCards = Array.from({ length: galWizardTotal }, () => ({
+    frontPhoto: null, backPhoto: null, detailPhotos: [], status: 'pending'
+  }));
+  galWizardCurrent = 0;
+  galShowCard(0);
+}
+
+function galShowCard(idx) {
+  const c = galCards[idx];
+  galWizardBackShown = !!c.backPhoto;
+
+  // Aktualizovat progress a badge
+  document.getElementById('galCardProgress').textContent = `Karta ${idx + 1} / ${galWizardTotal}`;
+  document.getElementById('galCardBadge').textContent = '🖼️ Přední strana';
+
+  // Přední foto
+  const frontBox = document.getElementById('galFrontBox');
+  if (c.frontPhoto) {
+    frontBox.innerHTML = `<img src="${c.frontPhoto}" style="width:100%;height:100%;object-fit:contain">`;
+    frontBox.classList.add('has-photo');
+  } else {
+    frontBox.innerHTML = `<div class="ph-hint"><div class="icon">🖼️</div><div class="txt">Klepni pro výběr<br>přední strany</div></div>`;
+    frontBox.classList.remove('has-photo');
+  }
+
+  // Detaily
+  galRenderDetailStrip();
+
+  // Zadní foto panel
+  const backPanel = document.getElementById('galBackPanel');
+  backPanel.style.display = galWizardBackShown ? '' : 'none';
+  if (galWizardBackShown) {
+    const backBox = document.getElementById('galBackBox');
+    if (c.backPhoto) {
+      backBox.innerHTML = `<img src="${c.backPhoto}" style="width:100%;height:100%;object-fit:contain">`;
+      backBox.classList.add('has-photo');
+    } else {
+      backBox.innerHTML = `<div class="ph-hint"><div class="icon">🔄</div><div class="txt">Klepni pro výběr<br>zadní strany</div></div>`;
+      backBox.classList.remove('has-photo');
+    }
+  }
+
+  // Tlačítka
+  const hasPhoto = !!c.frontPhoto;
+  document.getElementById('galBtnsEmpty').style.display = hasPhoto ? 'none' : '';
+  document.getElementById('galBtnsPhoto').style.display = hasPhoto ? '' : 'none';
+
+  if (hasPhoto) {
+    const nextBtn = document.getElementById('galCardNextBtn');
+    const isLast = idx === galWizardTotal - 1;
+    nextBtn.textContent = isLast ? '📋 Přehled →' : `Karta ${idx + 2} →`;
+
+    // Zadní tlačítko – vizuálně indikuj stav
+    const backBtn = document.getElementById('galAddBackBtn');
+    backBtn.textContent = galWizardBackShown ? '🔄 Skrýt zadní' : '🔄 Zadní';
+    backBtn.style.background = galWizardBackShown ? 'rgba(79,142,247,.15)' : '';
+  }
+
+  showScreen('scGalCard');
+}
+
+function galPickPhoto(mode) {
+  galPickMode = mode;
+  const input = document.getElementById('galFileInput');
+  input.value = '';
+  input.multiple = (mode === 'detail');
+  input.click();
+}
+
+function handleGalFilePick(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  const c = galCards[galWizardCurrent];
+
+  if (galPickMode === 'front') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      c.frontPhoto = e.target.result;
+      galShowCard(galWizardCurrent);
+    };
+    reader.readAsDataURL(files[0]);
+  } else if (galPickMode === 'back') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      c.backPhoto = e.target.result;
+      galShowCard(galWizardCurrent);
+    };
+    reader.readAsDataURL(files[0]);
+  } else if (galPickMode === 'detail') {
+    // Více fotek – přidat do pole detailPhotos
+    let loaded = 0;
+    files.forEach(file => {
+      if (c.detailPhotos.length >= 10) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        c.detailPhotos.push(e.target.result);
+        loaded++;
+        if (loaded === Math.min(files.length, 10 - (c.detailPhotos.length - loaded + loaded))) {
+          galRenderDetailStrip();
+          const countEl = document.getElementById('galDetailCount');
+          if (countEl) countEl.textContent = `${c.detailPhotos.length}/10`;
+        }
+        galRenderDetailStrip();
+      };
+      reader.readAsDataURL(file);
+    });
+    toast(`🔍 ${Math.min(files.length, 10)} detail${files.length > 1 ? 'ů' : ''} přidáno`);
+  }
+}
+
+function galRenderDetailStrip() {
+  const c = galCards[galWizardCurrent];
+  const panel = document.getElementById('galDetailPanel');
+  const grid  = document.getElementById('galDetailGrid');
+  const countEl = document.getElementById('galDetailCount');
+  const n = c.detailPhotos.length;
+  panel.style.display = n > 0 ? '' : 'none';
+  if (countEl) countEl.textContent = `${n}/10`;
+  grid.innerHTML = '';
+  c.detailPhotos.forEach((url, i) => {
+    const el = document.createElement('div');
+    el.className = 'detail-item';
+    el.innerHTML = `<img src="${url}" alt=""><div class="det-num">${i + 1}</div><div class="det-del" onclick="galRemoveDetail(${i})">✕</div>`;
+    grid.appendChild(el);
+  });
+}
+
+function galRemoveDetail(idx) {
+  galCards[galWizardCurrent].detailPhotos.splice(idx, 1);
+  galRenderDetailStrip();
+}
+
+function galToggleBack() {
+  galWizardBackShown = !galWizardBackShown;
+  const c = galCards[galWizardCurrent];
+  const backPanel = document.getElementById('galBackPanel');
+  backPanel.style.display = galWizardBackShown ? '' : 'none';
+  const backBtn = document.getElementById('galAddBackBtn');
+  backBtn.textContent = galWizardBackShown ? '🔄 Skrýt zadní' : '🔄 Zadní';
+  backBtn.style.background = galWizardBackShown ? 'rgba(79,142,247,.15)' : '';
+  if (!galWizardBackShown) c.backPhoto = null;
+  // Pokud se otevřela zadní a zatím nemá foto, rovnou otevřít výběr
+  if (galWizardBackShown && !c.backPhoto) galPickPhoto('back');
+}
+
+function galCardNext() {
+  const c = galCards[galWizardCurrent];
+  if (!c.frontPhoto) { toast('⚠️ Vyber přední stranu karty'); return; }
+  const isLast = galWizardCurrent === galWizardTotal - 1;
+  if (isLast) {
+    galShowReview();
+  } else {
+    galWizardCurrent++;
+    galShowCard(galWizardCurrent);
+  }
+}
+
+function galWizardBack() {
+  if (galWizardCurrent === 0) {
+    showScreen('scGalSetup');
+  } else {
+    galWizardCurrent--;
+    galShowCard(galWizardCurrent);
+  }
+}
+
+function galGoBack() {
+  galShowCard(galWizardCurrent);
+}
+
+function galShowReview() {
+  const list = document.getElementById('galReviewList');
+  list.innerHTML = '';
+  galCards.forEach((c, i) => {
+    const detStr = c.detailPhotos.length ? ` · 🔍 ${c.detailPhotos.length} detail${c.detailPhotos.length > 1 ? 'y' : ''}` : '';
+    const backStr = c.backPhoto ? ' · 🔄 Zadní' : '';
+    const el = document.createElement('div');
+    el.className = 'review-item';
+    el.innerHTML = `
+      ${c.frontPhoto ? `<img class="review-thumb" src="${c.frontPhoto}" alt="">` : `<div class="review-thumb-empty">?</div>`}
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">Karta ${i + 1}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">
+          ${c.frontPhoto ? '📷 Přední' : '⏭ Bez přední'}${backStr}${detStr}
+        </div>
+      </div>
+      <button onclick="galEditCard(${i})" style="background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:11px;cursor:pointer">✏️</button>
+    `;
+    list.appendChild(el);
+  });
+  showScreen('scGalReview');
+}
+
+function galEditCard(idx) {
+  galWizardCurrent = idx;
+  galShowCard(idx);
+}
+
+async function sendGallery() {
+  const withPhoto = galCards.filter(c => c.frontPhoto).length;
+  if (!withPhoto) { toast('⚠️ Žádná karta nemá přední fotku'); return; }
+  showScreen('scSending');
+  const total = galCards.length;
+  const bId = Date.now().toString(36) + '_gal';
+
+  for (let i = 0; i < galCards.length; i++) {
+    const c = galCards[i];
+    if (!c.frontPhoto) continue;
+    const isLast = i === galCards.length - 1;
+    const reqs = [];
+
+    // Přední strana
+    reqs.push(postPhoto({
+      photo: c.frontPhoto, photoDataUrl: c.frontPhoto,
+      side: 'front', cardIndex: i + 1, totalCards: total,
+      batchId: bId, isFakeTraining: fakeMode,
+      batchComplete: isLast && !c.backPhoto && !c.detailPhotos.length,
+    }).catch(() => {}));
+
+    // Detaily
+    c.detailPhotos.forEach((dp, d) => {
+      reqs.push(postPhoto({
+        photo: dp, side: 'detail', detailIndex: d + 1,
+        cardIndex: i + 1, totalCards: total, batchId: bId, batchComplete: false,
+      }).catch(() => {}));
+    });
+
+    // Zadní strana
+    if (c.backPhoto) {
+      reqs.push(postPhoto({
+        photo: c.backPhoto, side: 'back',
+        cardIndex: i + 1, totalCards: total, batchId: bId,
+        batchComplete: isLast,
+      }).catch(() => {}));
+    }
+
+    await Promise.all(reqs);
+
+    const pct = Math.round(((i + 1) / total) * 100);
+    document.getElementById('sendProgress').textContent = `${i + 1} / ${total} karet`;
+    document.getElementById('sendBar').style.width = pct + '%';
+    await delay(40);
+  }
+
+  document.getElementById('doneStats').innerHTML =
+    `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${galCards.filter(c => c.backPhoto).length}</div><div class="stat-lbl">Se zadní</div></div>`;
+  showScreen('scDone');
+}
+
+// ══════════════════════════════════════════════
+// BATCH FRONT/BACK SCREENS (unchanged)
+// ══════════════════════════════════════════════
+function showFrontScreen() {
+  showScreen('scFront');
+  updateProgress();
+  const c = currentCard;
+  document.getElementById('frontTitle').textContent = `Karta ${c + 1} / ${totalCards} – přední strana`;
+  const box  = document.getElementById('frontPhotoBox');
+  const data = cards[c];
+  if (!data.detailPhotos) data.detailPhotos = [];
+
+  // Undo button — show only if not first card
+  document.getElementById('undoFrontBtn').style.display = c > 0 ? '' : 'none';
+
+  // Next button label
+  const nextBtn = document.getElementById('frontNextBtn');
+  if (totalCards === 1) {
+    nextBtn.textContent = 'Pokračovat → zadní';
+  } else if (c < totalCards - 1) {
+    nextBtn.textContent = `Karta ${c + 2} →`;
+  } else {
+    nextBtn.textContent = 'Nafotit zadní strany →';
+  }
+
+  if (data.frontPhoto) {
+    setPhotoBox(box, data.frontPhoto);
+    document.getElementById('alignGuide').style.display = 'none';
+    showAiResult(data.frontAI);
+    document.getElementById('condPanel').style.display = '';
+    document.getElementById('btnEmpty').style.display = 'none';
+    document.getElementById('btnPhoto').style.display = '';
+    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('selected', b.dataset.cond === data.condition));
+    currentCond = data.condition;
+    document.getElementById('noteInput').value = data.note || '';
+    renderDetailPanel(c);
+    updateAddDetailBtn();
+    // Obnovit JP name panel pokud byla japonská karta
+    const aiLang = data.frontAI?.lang;
+    const aiName = data.frontAI?.name || '';
+    const wasJP = aiLang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(aiName);
+    if (wasJP) showJpNamePanel(c);
+    else document.getElementById('jpNamePanel').style.display = 'none';
+  } else {
+    box.innerHTML = `<div class="ph-hint"><div class="icon">📷</div><div class="txt">Klepni pro vyfocení<br>přední strany karty</div></div><div class="align-guide" id="alignGuide"><div class="align-guide-inner"><div class="align-corner-br"></div><div class="align-corner-bl"></div></div></div>`;
+    box.classList.remove('has-photo');
+    document.getElementById('aiResultBox').style.display = 'none';
+    document.getElementById('condPanel').style.display = 'none';
+    document.getElementById('detailPanel').style.display = 'none';
+    document.getElementById('jpNamePanel').style.display = 'none';
+    document.getElementById('btnEmpty').style.display = '';
+    document.getElementById('btnPhoto').style.display = 'none';
+    document.querySelectorAll('.cond-btn').forEach(b => b.classList.toggle('selected', b.dataset.cond === 'NM'));
+    currentCond = 'NM';
+    document.getElementById('noteInput').value = '';
+  }
+}
+
+function triggerCapture(mode) {
+  captureMode = mode;
+  document.getElementById('captureInput').value = '';
+  document.getElementById('captureInput').click();
+}
+
+function handleCapture(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (captureMode === 'front') processFrontPhoto(e.target.result);
+    else if (captureMode === 'detail') processDetailPhoto(e.target.result);
+    else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
+    else processBackPhoto(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+async function processFrontPhoto(dataUrl) {
+  haptic(50);
+  const box = document.getElementById('frontPhotoBox');
+  setPhotoBox(box, dataUrl);
+  // Hide alignment guide after photo taken
+  const guide = box.querySelector('.align-guide');
+  if (guide) guide.style.display = 'none';
+
+  cards[currentCard].frontPhoto = dataUrl;
+  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
+
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.style.display = '';
+  if (groqKey) {
+    aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
+    const result = await identifyCard(dataUrl);
+    cards[currentCard].frontAI = result;
+    showAiResult(result);
+    // Japonská karta → zobrazit panel pro záběr názvu
+    // Detekce: lang=JP nebo jméno obsahuje japonské znaky
+    const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
+    if (isJP) {
+      if (result) result.lang = 'JP'; // zajistit flag pro sendAll
+      showJpNamePanel(currentCard);
+    } else {
+      document.getElementById('jpNamePanel').style.display = 'none';
+    }
+  } else {
+    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
+  }
+  document.getElementById('condPanel').style.display = '';
+
+  // Switch button state
+  document.getElementById('btnEmpty').style.display = 'none';
+  document.getElementById('btnPhoto').style.display = '';
+
+  const nextBtn = document.getElementById('frontNextBtn');
+  if (totalCards === 1) {
+    nextBtn.textContent = 'Pokračovat → zadní';
+  } else if (currentCard < totalCards - 1) {
+    nextBtn.textContent = `Karta ${currentCard + 2} →`;
+  } else {
+    nextBtn.textContent = 'Nafotit zadní strany →';
+  }
+
+  renderDetailPanel(currentCard);
+  updateAddDetailBtn();
+}
+
+function renderDetailPanel(cardIdx) {
+  const data = cards[cardIdx];
+  if (!data.detailPhotos) data.detailPhotos = [];
+  const panel = document.getElementById('detailPanel');
+  const count = data.detailPhotos.length;
+  panel.style.display = count > 0 ? '' : 'none';
+  document.getElementById('detailCount').textContent = `${count}/10`;
+  const grid = document.getElementById('detailGrid');
+  grid.innerHTML = '';
+  data.detailPhotos.forEach((url, i) => {
+    const el = document.createElement('div');
+    el.className = 'detail-item';
+    el.innerHTML = `<img src="${url}" alt=""><div class="det-num">${i + 1}</div><div class="det-del" onclick="removeDetailPhoto(${i})">✕</div>`;
+    grid.appendChild(el);
+  });
+}
+
+function updateAddDetailBtn() {
+  const btn = document.getElementById('addDetailBtn');
+  if (!btn) return;
+  const count = (cards[currentCard]?.detailPhotos || []).length;
+  const full = count >= 10;
+  btn.disabled = full;
+  btn.textContent = full ? '🔍 Max 10' : '🔍 Fotodetail';
+}
+
+function processDetailPhoto(dataUrl) {
+  haptic(40);
+  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
+  if (cards[currentCard].detailPhotos.length >= 10) return;
+  cards[currentCard].detailPhotos.push(dataUrl);
+  renderDetailPanel(currentCard);
+  updateAddDetailBtn();
+  const n = cards[currentCard].detailPhotos.length;
+  toast(`📷 Fotodetail ${n}/10 přidán`);
+}
+
+function removeDetailPhoto(idx) {
+  cards[currentCard].detailPhotos.splice(idx, 1);
+  renderDetailPanel(currentCard);
+  updateAddDetailBtn();
+}
+
+// ── JP name photo ─────────────────────────────────────────────
+function showJpNamePanel(cardIdx) {
+  const panel = document.getElementById('jpNamePanel');
+  const box   = document.getElementById('jpNameBox');
+  const photo = cards[cardIdx]?.jpNamePhoto;
+  panel.style.display = '';
+  if (photo) {
+    box.innerHTML = `<img src="${photo}" alt="jp-name">`;
+    box.classList.add('has-photo');
+  } else {
+    box.innerHTML = `<div class="ph-hint"><span style="font-size:22px">🔍</span> Klepni pro záběr názvu</div>`;
+    box.classList.remove('has-photo');
+  }
+}
+
+function processJpNamePhoto(dataUrl) {
+  haptic(40);
+  const cardIdx = currentCard;
+  cards[cardIdx].jpNamePhoto = dataUrl;
+  const box = document.getElementById('jpNameBox');
+  box.innerHTML = `<img src="${dataUrl}" alt="jp-name"><div style="position:absolute;bottom:4px;left:0;right:0;text-align:center;font-size:10px;color:#facc15;background:rgba(0,0,0,.6);padding:2px">🔍 Čtu název…</div>`;
+  box.classList.add('has-photo');
+  box.style.position = 'relative';
+  toast('🇯🇵 Záběr uložen – čtu název…');
+
+  // Spustit extrakci na pozadí
+  if (groqKey) {
+    extractJPNameFromDetail(dataUrl).then(name => {
+      if (!name) {
+        toast('⚠️ Název se nepodařilo přečíst', '');
+        // Odstranit loading overlay
+        const overlay = box.querySelector('div');
+        if (overlay) overlay.remove();
+        return;
+      }
+      // Aktualizovat frontAI.name přečteným jménem
+      if (!cards[cardIdx].frontAI) cards[cardIdx].frontAI = {};
+      cards[cardIdx].frontAI.name = name;
+      cards[cardIdx].frontAI.lang = 'JP';
+      // Obnovit AI result box
+      if (cardIdx === currentCard) showAiResult(cards[cardIdx].frontAI);
+      // Aktualizovat JP box – nahradit loading textem s přečteným jménem
+      box.innerHTML = `<img src="${dataUrl}" alt="jp-name"><div style="position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:13px;font-weight:800;color:#facc15;background:rgba(0,0,0,.75);padding:4px 6px;border-radius:0 0 8px 8px">${escHtml(name)}</div>`;
+      document.getElementById('jpExtractedName').textContent = name;
+      toast('🇯🇵 Název: ' + name + ' ✓');
+    }).catch(() => {
+      toast('⚠️ Chyba při čtení názvu', '');
+    });
+  }
+  // Zobrazit tlačítko "Vyfotit znovu"
+  document.getElementById('jpRetakeRow').style.display = '';
+}
+
+function retakeJpNamePhoto() {
+  // Smazat starý záběr a název, vrátit box do výchozího stavu
+  const cardIdx = currentCard;
+  cards[cardIdx].jpNamePhoto = null;
+  if (cards[cardIdx].frontAI) {
+    // Obnovit původní název z před-extrakce pokud ho máme uloženého
+    // (frontAI.name byl přepsán extrakcí – necháme ho, uživatel vyfotí znovu)
+  }
+  const box = document.getElementById('jpNameBox');
+  box.innerHTML = '<div class="ph-hint"><span style="font-size:22px">🔍</span> Klepni pro záběr názvu</div>';
+  box.classList.remove('has-photo');
+  box.style.position = '';
+  document.getElementById('jpRetakeRow').style.display = 'none';
+  document.getElementById('jpExtractedName').textContent = '';
+  triggerCapture('jpname');
+}
+
+// ── Extrakce JP názvu z detailní fotky (na mobilu) ────────────
+async function extractJPNameFromDetail(dataUrl) {
+  if (!groqKey) return null;
+  const { mt, b64 } = splitDataUrl(dataUrl);
+  const body = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    max_tokens: 60, temperature: 0.0,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+        { type: 'text', text: 'This is a close-up photo of the name area of a Japanese Pokemon TCG card. Read the Pokemon name EXACTLY as printed in Japanese (katakana/hiragana/kanji). Include any suffix like V, VMAX, VSTAR, ex, GX. Return ONLY the name — no explanation, no translation, no punctuation.' }
+      ]
+    }]
+  };
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const raw = (data.choices?.[0]?.message?.content || '').trim().replace(/^["\'「]|["\'」]$/g, '');
+    return raw || null;
+  } catch { return null; }
+}
+
+// ── Haptic feedback ───────────────────────────────────────────
+function haptic(pattern) {
+  try { if (navigator.vibrate) navigator.vibrate(pattern); } catch {}
+}
+
+// ── Undo ─────────────────────────────────────────────────────
+function undoFront() {
+  if (currentCard > 0) { currentCard--; showFrontScreen(); }
+}
+function undoBack() {
+  if (currentCard > 0) { currentCard--; showBackScreen(); }
+  else { currentCard = totalCards - 1; showFrontScreen(); }
+}
+
+function showAiResult(r) {
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.style.display = '';
+  if (!r || !r.name) {
+    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>';
+    return;
+  }
+  // Confidence
+  const confRaw = r.confidence || 0;
+  const confPct = typeof confRaw === 'number' ? Math.round(confRaw * 100) : (confRaw === 'high' ? 92 : confRaw === 'medium' ? 65 : 40);
+  const confLabel = confRaw === 'high' || confPct >= 75 ? '🟢 Vysoká' : confRaw === 'medium' || confPct >= 50 ? '🟡 Střední' : '🔴 Nízká';
+  // Condition color
+  const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+  const condCol = condColors[r.condition] || '#94a3b8';
+
+  function row(label, val) {
+    if (!val) return '';
+    return `<div style="display:flex;gap:6px;align-items:baseline">` +
+           `<span style="color:#4ade80;font-size:11px">✓</span>` +
+           `<span style="color:var(--muted);font-size:11px;min-width:58px">${label}</span>` +
+           `<span style="color:var(--yellow);font-size:12px;font-weight:700">${escHtml(String(val))}</span>` +
+           `</div>`;
+  }
+  const condText = r.condition ? r.condition + (r.conditionNotes ? ' – ' + r.conditionNotes : '') : '';
+  aiBox.innerHTML =
+    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🤖 AI rozpoznávání:</div>` +
+    `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px">` +
+      row('Název', r.name) +
+      row('Série', r.set) +
+      row('Číslo', r.number) +
+      row('Typ', r.type) +
+      (r.subtype || r.category ? row('Kategorie', r.subtype || r.category) : '') +
+      row('HP', r.hp) +
+      row('Varianta', r.variant) +
+      (condText ? `<div style="display:flex;gap:6px;align-items:baseline;grid-column:1/-1">` +
+        `<span style="color:#4ade80;font-size:11px">✓</span>` +
+        `<span style="color:var(--muted);font-size:11px;min-width:58px">Stav</span>` +
+        `<span style="color:${condCol};font-size:12px;font-weight:700">${escHtml(condText)}</span>` +
+        `</div>` : '') +
+    `</div>` +
+    `<div style="background:rgba(15,17,23,.5);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:10px">` +
+      `<div style="font-size:15px;font-weight:800;color:var(--accent)">${escHtml(r.name)}</div>` +
+      `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.set||'')}${r.number?' · #'+r.number:''}</div>` +
+      `<div style="font-size:11px;color:${condCol};margin-top:4px">📋 ${escHtml(condText || 'Stav neznámý')}</div>` +
+    `</div>` +
+    `<div style="text-align:right;margin-top:6px;font-size:10px;color:var(--muted)">${confLabel} · ${confPct}%</div>`;
+
+  // Auto-select stav tlačítko z AI výsledku
+  if (r.condition) {
+    document.querySelectorAll('.cond-btn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.cond === r.condition);
+    });
+    currentCond = r.condition;
+    haptic([40, 30, 80]); // double pulse = AI success
+  }
+}
+
+function selectCond(btn) {
+  document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  currentCond = btn.dataset.cond;
+}
+
+function skipFront() {
+  haptic(20);
+  cards[currentCard].frontPhoto = null;
+  cards[currentCard].frontAI   = null;
+  cards[currentCard].condition = currentCond;
+  cards[currentCard].note      = '';
+  advanceFront();
+}
+
+function confirmFront() {
+  cards[currentCard].condition = currentCond;
+  cards[currentCard].note = document.getElementById('noteInput').value.trim();
+  advanceFront();
+}
+
+function advanceFront() {
+  currentCard++;
+  if (currentCard < totalCards) showFrontScreen();
+  else { currentCard = 0; showBackScreen(); }
+}
+
+function showBackScreen() {
+  showScreen('scBack');
+  updateProgress();
+  document.getElementById('backTitle').textContent = `Karta ${currentCard + 1} / ${totalCards} – zadní strana`;
+  const box  = document.getElementById('backPhotoBox');
+  const data = cards[currentCard];
+  if (data.backPhoto) {
+    setPhotoBox(box, data.backPhoto);
+    document.getElementById('backNextBtn').style.display = '';
+    if (data.backAI) showBackAiResult(data.backAI, data);
+  } else {
+    box.innerHTML = `<div class="ph-hint"><div class="icon">🔄</div><div class="txt">Klepni pro vyfocení<br>zadní strany karty</div></div>`;
+    box.classList.remove('has-photo');
+    document.getElementById('backNextBtn').style.display = 'none';
+    document.getElementById('backAiBox').style.display = 'none';
+  }
+}
+
+async function processBackPhoto(dataUrl) {
+  haptic(50);
+  cards[currentCard].backPhoto = dataUrl;
+  setPhotoBox(document.getElementById('backPhotoBox'), dataUrl);
+  document.getElementById('backNextBtn').style.display = '';
+
+  if (groqKey) {
+    const backAiBox = document.getElementById('backAiBox');
+    backAiBox.style.display = '';
+    backAiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI kontroluje poškození zadní strany…</div>';
+    const result = await analyzeBackPhoto(dataUrl);
+    cards[currentCard].backAI = result;
+    showBackAiResult(result, cards[currentCard]);
+    if (result) haptic([30, 20, 60]);
+  }
+}
+
+function showBackAiResult(r, cardData) {
+  const box = document.getElementById('backAiBox');
+  box.style.display = '';
+  if (!r) {
+    box.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI analýza nedostupná</div>';
+    return;
+  }
+
+  const condOrder = ['NM','LP','MP','HP','D'];
+  const condColors = { NM:'#4ade80', LP:'#86efac', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+  const backCond  = r.condition || 'NM';
+  const frontCond = cardData?.condition || cardData?.frontAI?.condition || 'NM';
+  const backIdx   = condOrder.indexOf(backCond);
+  const frontIdx  = condOrder.indexOf(frontCond);
+  const isWorse   = backIdx > frontIdx;
+
+  const col = condColors[backCond] || '#94a3b8';
+  const issues = r.issues?.length ? r.issues.map(i => `<li style="margin-top:2px">${escHtml(i)}</li>`).join('') : '';
+
+  box.innerHTML =
+    `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">🔍 AI analýza zadní strany:</div>` +
+    `<div style="display:flex;align-items:center;gap:10px;margin-bottom:${issues?'8px':'0'}">` +
+      `<span style="font-size:18px;font-weight:800;color:${col}">${backCond}</span>` +
+      `<span style="font-size:12px;color:var(--muted)">${escHtml(r.notes || '')}</span>` +
+    `</div>` +
+    (issues ? `<ul style="list-style:none;padding:0;font-size:11px;color:var(--red)">${issues}</ul>` : '') +
+    (isWorse
+      ? `<div style="margin-top:8px;padding:8px 10px;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);border-radius:8px;font-size:12px;color:var(--red)">
+           ⚠️ Zadní strana je horší než přední (${frontCond} → <strong>${backCond}</strong>)
+           <br><button onclick="applyBackCondition('${backCond}')" style="margin-top:6px;background:rgba(248,113,113,.2);border:1px solid rgba(248,113,113,.4);color:var(--red);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit">Použít ${backCond} pro tuto kartu</button>
+         </div>`
+      : `<div style="margin-top:6px;font-size:11px;color:var(--green)">✅ Zadní strana odpovídá stavu přední (${frontCond})</div>`
+    );
+}
+
+function applyBackCondition(cond) {
+  cards[currentCard].condition = cond;
+  toast(`✅ Stav karty aktualizován na ${cond} (podle zadní strany)`);
+  haptic([40, 20, 40]);
+  // re-render to remove the button
+  showBackAiResult(cards[currentCard].backAI, cards[currentCard]);
+}
+
+function skipBack()    { cards[currentCard].backPhoto = null; advanceBack(); }
+function skipAllBacks() { for (let i = currentCard; i < totalCards; i++) cards[i].backPhoto = null; showReviewScreen(); }
+function confirmBack() { advanceBack(); }
+
+function advanceBack() {
+  currentCard++;
+  if (currentCard < totalCards) showBackScreen();
+  else showReviewScreen();
+}
+
+function showReviewScreen() {
+  showScreen('scReview');
+  updateProgress();
+  const list = document.getElementById('reviewList');
+  list.innerHTML = '';
+  cards.forEach((c, i) => {
+    const div = document.createElement('div');
+    div.className = 'review-item';
+    const condColors = { NM:'#4ade80', LP:'#86efac', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+    const col = condColors[c.condition] || '#94a3b8';
+    div.innerHTML = c.frontPhoto
+      ? `<img class="review-thumb" src="${c.frontPhoto}">`
+      : `<div class="review-thumb-empty">?</div>`;
+    const name = c.frontAI?.name || `Karta ${i+1}`;
+    const detCount = (c.detailPhotos || []).length;
+    const sub  = c.frontPhoto ? (c.backPhoto ? '📷 Přední + zadní' : '📷 Jen přední') : '⏭ Přeskočeno';
+    const detStr = detCount ? ` · 🔍 ${detCount} detail${detCount>1?'y':''}` : '';
+    div.innerHTML += `<div class="review-info">
+      <div class="review-name">${escHtml(name)}</div>
+      <div class="review-sub">${sub}${detStr}${c.note ? ' · '+escHtml(c.note) : ''}</div>
+      <span class="review-cond" style="color:${col}">${c.condition}</span>
+    </div>`;
+    list.appendChild(div);
+  });
+}
+
+function goBack() {
+  currentCard = totalCards - 1;
+  showBackScreen();
+}
+
+// ─── Send all (batch) ────────────────────────────────────────
+async function sendAll() {
+  showScreen('scSending');
+  const total = cards.length;
+
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+    const isLast = (i === cards.length - 1);
+    const ai = c.frontAI || {};
+
+    // Build all requests for this card
+    const cardReqs = [];
+
+    if (c.frontPhoto) {
+      cardReqs.push(postPhoto({
+        name: ai.name || null, set: ai.set || null, number: ai.number || null,
+        type: ai.type || null, hp: ai.hp || null, category: ai.category || null,
+        subtype: ai.subtype || null, variant: ai.variant || null,
+        condition: ai.condition || c.condition || 'NM',
+        conditionNotes: ai.conditionNotes || '',
+        confidence: ai.confidence || null,
+        notes: ai.notes || c.note || '',
+        lang: ai.lang || 'EN',
+        jpNamePhotoDataUrl: c.jpNamePhoto || null,
+        photoDataUrl: c.frontPhoto,
+        photo: c.frontPhoto, side: 'front',
+        cardIndex: i + 1, totalCards: total, batchId,
+        isFakeTraining: c.isFakeTraining || false,
+        batchComplete: isLast && !c.backPhoto && !(c.detailPhotos?.length),
+      }).catch(() => {}));
+    }
+
+    // Detail photos – parallel with front
+    (c.detailPhotos || []).forEach((dp, d) => {
+      cardReqs.push(postPhoto({
+        photo: dp, side: 'detail', detailIndex: d + 1,
+        cardIndex: i + 1, totalCards: total, batchId, batchComplete: false,
+      }).catch(() => {}));
+    });
+
+    // Back photo – parallel with front+details
+    if (c.backPhoto) {
+      cardReqs.push(postPhoto({
+        photo: c.backPhoto, side: 'back',
+        cardIndex: i + 1, totalCards: total, batchId,
+        batchComplete: isLast,
+        isFakeTraining: c.isFakeTraining || false,
+        condition: c.condition,
+        backCondition: c.backAI?.condition || null,
+        backIssues: c.backAI?.issues || [],
+        backNotes: c.backAI?.notes || '',
+      }).catch(() => {}));
+    }
+
+    await Promise.all(cardReqs);
+
+    const pct = Math.round(((i + 1) / total) * 100);
+    document.getElementById('sendProgress').textContent = `${i + 1} / ${total} karet`;
+    document.getElementById('sendBar').style.width = pct + '%';
+    await delay(40);
+  }
+
+  const withPhoto = cards.filter(c => c.frontPhoto).length;
+  const withAI    = cards.filter(c => c.frontAI?.name).length;
+  document.getElementById('doneStats').innerHTML =
+    `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Vyfoceno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${withAI}</div><div class="stat-lbl">AI rozpoznáno</div></div>`;
+  showScreen('scDone');
+}
+
+async function postPhoto(payload) {
+  // Odeslat JSON data na PC (server přepošle do qr-bridge._handleBatchPhoto)
+  return fetch(`${SERVER}/api/scan-result?t=${TOKEN}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+}
+
+function restartBatch() {
+  totalCards = 9; currentCard = 0; cards = []; galCards = []; galWizardCurrent = 0;
+  selectCount(1, true);
+  showScreen('scSetup');
+  document.getElementById('detailPanel').style.display = 'none';
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('hdrProg').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// SWIPE GESTURES (left=skip, right=confirm)
+// ══════════════════════════════════════════════
+function initSwipe() {
+  let tx = 0, ty = 0;
+  const THRESHOLD = 60;
+
+  ['scFront', 'scBack'].forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e => {
+      tx = e.touches[0].clientX;
+      ty = e.touches[0].clientY;
+    }, { passive: true });
+
+    el.addEventListener('touchend', e => {
+      const dx = e.changedTouches[0].clientX - tx;
+      const dy = e.changedTouches[0].clientY - ty;
+      if (Math.abs(dx) < THRESHOLD || Math.abs(dy) > Math.abs(dx) * 0.8) return;
+
+      if (id === 'scFront') {
+        if (dx < 0) { // swipe left = skip
+          skipFront();
+        } else { // swipe right = confirm (only if photo taken)
+          if (cards[currentCard]?.frontPhoto) confirmFront();
+        }
+      } else {
+        if (dx < 0) {
+          skipBack();
+        } else {
+          if (cards[currentCard]?.backPhoto) confirmBack();
+        }
+      }
+    }, { passive: true });
+  });
+}
+
+// ══════════════════════════════════════════════
+// AI – identifikace karty (batch, bez stavu)
+// ══════════════════════════════════════════════
+async function identifyCard(dataUrl) {
+  if (!groqKey) return null;
+  const { mt, b64 } = splitDataUrl(dataUrl);
+  const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
+CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
+If the card text is in English, write the name in English, set lang="EN".
+Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
+Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
+Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}` ;
+  const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
+  async function call(model) {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
+      body: JSON.stringify({
+        model, max_tokens: 500, temperature: 0.05,
+        messages: [
+          { role:'user', content:[
+            { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
+            { type:'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
+          ]}
+        ]
+      })
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
+  }
+  try {
+    let data;
+    try { data = await call(MODEL_PRIMARY); }
+    catch(e1) { data = await call(MODEL_FALLBACK); }
+    const raw = data.choices?.[0]?.message?.content || '';
+    const p   = parseJson(raw);
+    return p?.name ? p : null;
+  } catch { return null; }
+}
+
+// ══════════════════════════════════════════════
+// AI – identifikace + stav karty (galerie)
+// ══════════════════════════════════════════════
+async function identifyCardWithCondition(dataUrl) {
+  if (!groqKey) return null;
+  const { mt, b64 } = splitDataUrl(dataUrl);
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        max_tokens: 280, temperature: 0.05,
+        messages: [
+          { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
+If card text is Japanese, write name in Japanese (katakana/kanji) exactly as printed and set lang="JP".
+If card text is English, write name in English exactly as printed and set lang="EN".
+Also assess physical condition carefully.
+Return ONLY raw JSON (no markdown, no fences):
+{"name":"Pikachu","set":"Base Set","number":"58/102","type":"Lightning","hp":"60","rarity":"Common","condition":"NM","condition_reason":"Clean edges, no scratches","lang":"EN","confidence":0.92}
+Condition: NM (Near Mint), LP (Lightly Played), MP (Moderately Played), HP (Heavily Played), D (Damaged).
+Look at: edge wear, scratches, whitening, creases, surface damage.
+If card is unreadable return: {"name":null}` },
+          { role:'user', content:[
+            { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
+            { type:'text', text:'Identify this Pokemon card and assess its condition. Return ONLY JSON.' }
+          ]}
+        ]
+      })
+    });
+    const data = await resp.json();
+    const raw  = data.choices?.[0]?.message?.content || '';
+    const p    = parseJson(raw);
+    return p?.name ? p : null;
+  } catch { return null; }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────
+function splitDataUrl(dataUrl) {
+  const m = dataUrl.match(/^data:(image\/[a-z]+);base64,/);
+  return { mt: m ? m[1] : 'image/jpeg', b64: m ? dataUrl.substring(m[0].length) : dataUrl };
+}
+
+function parseJson(raw) {
+  if (!raw) return null;
+  const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+  if (s < 0 || e < 0) return null;
+  try { return JSON.parse(raw.slice(s, e + 1)); } catch { return null; }
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function setPhotoBox(box, dataUrl) {
+  box.innerHTML = `<img src="${dataUrl}" alt="">`;
+  box.classList.add('has-photo');
+}
+
+function updateProgress() {
+  const active = document.querySelector('.screen.active')?.id;
+  const progEl = document.getElementById('hdrProg');
+  const fillEl = document.getElementById('progFill');
+  if (active === 'scSetup' || active === 'scDone' || active === 'scGalSetup' || active === 'scGalReview') {
+    progEl.style.display = 'none';
+    fillEl.style.width = active === 'scDone' ? '100%' : '0%';
+    return;
+  }
+  let pct = 0;
+  if (active === 'scFront') {
+    pct = (currentCard / (totalCards * 2)) * 100;
+    progEl.textContent = `${currentCard+1}/${totalCards} přední`;
+  } else if (active === 'scBack') {
+    pct = ((totalCards + currentCard) / (totalCards * 2)) * 100;
+    progEl.textContent = `${currentCard+1}/${totalCards} zadní`;
+  } else if (active === 'scReview') {
+    pct = 95;
+    progEl.textContent = 'Přehled';
+  }
+  progEl.style.display = '';
+  fillEl.style.width = pct + '%';
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function escHtml(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ══════════════════════════════════════════════
+// AI – analýza poškození zadní strany
+// ══════════════════════════════════════════════
+async function analyzeBackPhoto(dataUrl) {
+  if (!groqKey) return null;
+  const { mt, b64 } = splitDataUrl(dataUrl);
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + groqKey },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        max_tokens: 200, temperature: 0.05,
+        messages: [
+          { role: 'system', content: `Analyze ONLY the physical condition of this Pokemon card BACK side.
+Look for: corner whitening/bending, edge wear, scratches, creases, print lines, surface damage.
+Return ONLY raw JSON (no markdown):
+{"condition":"NM","issues":["bent top-right corner","light edge wear"],"notes":"brief note in czech"}
+Condition scale: NM=perfect, LP=minor wear, MP=visible wear, HP=major damage, D=severe.
+If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez poškození"}` },
+          { role: 'user', content: [
+            { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+            { type: 'text', text: 'Analyze the back side condition. Return ONLY JSON.' }
+          ]}
+        ]
+      })
+    });
+    const data = await resp.json();
+    const raw  = data.choices?.[0]?.message?.content || '';
+    return parseJson(raw);
+  } catch { return null; }
+}
+
+// ── Stav připojení – AI a PC čipy v headeru ──────────────────
+(function initStatusChips() {
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('t') || '';
+  const base   = location.origin;
+
+  function setChip(id, ok, labelOk, labelFail) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent       = ok ? labelOk : labelFail;
+    el.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
+    el.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
+    el.style.color       = ok ? '#4ade80'              : '#f87171';
+  }
+
+  async function checkPC() {
+    try {
+      const r = await fetch(`${base}/api/ping?t=${token}`, { signal: AbortSignal.timeout(3000) });
+      setChip('chipPC', r.ok, '💻 PC ✓', '💻 PC ✗');
+    } catch { setChip('chipPC', false, '💻 PC ✓', '💻 PC ✗'); }
+  }
+
+  async function checkAI() {
+    // Check from URL param first
+    if (groqKey) { setChip('chipAI', true, '🤖 AI ✓', '🤖 AI ✗'); return; }
+    // Fallback: check PC server
+    try {
+      const r  = await fetch(`${base}/api/groq-key?t=${token}`, { signal: AbortSignal.timeout(3000) });
+      if (!r.ok) { setChip('chipAI', false, '🤖 AI ✓', '🤖 AI ✗'); return; }
+      const d  = await r.json();
+      if (d.key && d.key.trim()) { groqKey = d.key; }
+      setChip('chipAI', !!(d.key && d.key.trim()), '🤖 AI ✓', '🤖 AI ✗');
+    } catch { setChip('chipAI', false, '🤖 AI ✓', '🤖 AI ✗'); }
+  }
+
+  // Spustit ihned a pak každých 15 s
+  checkPC(); checkAI();
+  setInterval(() => { checkPC(); checkAI(); }, 15000);
+})();
+
+</script>
+</body>
+</html>
