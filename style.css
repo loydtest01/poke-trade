@@ -155,11 +155,6 @@ a { color: inherit; text-decoration: none; }
   background-size: 40px 40px;
 }
 
-.hero-content {
-  position: relative; z-index: 1;
-  max-width: 1100px; margin: 0 auto; padding: 0 24px;
-  flex: 1;
-}
 .hero-badge {
   display: inline-flex; align-items: center; gap: 8px;
   background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.3);
@@ -184,18 +179,34 @@ a { color: inherit; text-decoration: none; }
 .stat small { color: var(--text3); font-size: 12px; }
 
 /* floating cards visual */
-.hero-cards-visual {
-  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
-  pointer-events: none; width: 480px;
+.hero-content {
+  position: relative; z-index: 1;
+  max-width: 1200px; margin: 0 auto; padding: 0 40px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  width: 100%;
 }
-@media (max-width: 900px) { .hero-cards-visual { display: none; } }
+.hero-text {
+  flex: 1;
+  min-width: 0;
+}
+.hero-cards-visual {
+  flex-shrink: 0;
+  width: 420px;
+  pointer-events: none;
+}
+@media (max-width: 960px) { .hero-cards-visual { width: 300px; } }
+@media (max-width: 720px) { .hero-cards-visual { display: none; } }
 
 .hero-cards-img-wrap {
   animation: float 5s ease-in-out infinite;
-  filter: drop-shadow(0 16px 48px rgba(0,0,0,0.7));
+  filter: drop-shadow(0 20px 40px rgba(0,0,0,0.6));
 }
 .hero-cards-img {
   width: 100%; height: auto; display: block;
+  /* PNG má průhledné pozadí – žádný background */
 }
 
 @keyframes float {
