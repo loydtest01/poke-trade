@@ -251,7 +251,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
   <div class="content">
 
     <!-- ══ LOGIN ══ -->
-    <div class="screen active" id="scLogin" style="display:none">
+    <div class="screen active" id="scLogin">
       <div style="text-align:center;padding:28px 0 16px">
         <div style="font-size:52px">🎴</div>
         <div style="font-size:20px;font-weight:800;margin-top:10px">PhotoBridge</div>
@@ -552,22 +552,23 @@ let groqKey = params.get('gk') || null;
 window.onload = async () => {
   selectCount(1, true);
 
-  // Ověř uložený token, pokud existuje
+  // Pokud máme token → optimisticky zobraz app hned, ověř na pozadí
   if (mobileToken) {
-    const valid = await verifyToken(mobileToken);
-    if (!valid) {
-      mobileToken = '';
-      localStorage.removeItem('sb_token');
-    }
-  }
-
-  // Pokud nemáme token → zobraz login
-  if (!mobileToken) {
-    showLoginScreen();
+    await afterAuth(); // zobraz setup okamžitě
+    // Ověř token na pozadí – pokud je neplatný, přesměruj na login
+    verifyToken(mobileToken).then(valid => {
+      if (!valid) {
+        mobileToken = '';
+        localStorage.removeItem('sb_token');
+        showLoginScreen();
+        toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
+      }
+    });
     return;
   }
 
-  await afterAuth();
+  // Žádný token → zobraz login
+  showLoginScreen();
 };
 
 async function verifyToken(token) {
