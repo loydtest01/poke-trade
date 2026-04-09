@@ -2,499 +2,387 @@
 <html lang="cs">
 <head>
   <link rel="icon" type="image/png" href="pokemon.png">
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PokéTrade – Výměna Pokémon karet</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
-<style>
-/* ═══ WALLPAPER – HERO SEKCE ═══ */
-body {
-  background: #0a0608;
-}
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PokéTrade – Ovládni svou sbírku karet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ═══ GLOBÁLNÍ ÚPRAVY A HERO DESIGN ═══ */
+    :root {
+      --primary-gold: #f5c842;
+      --bg-dark: #0a0608;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.07);
+    }
 
-/* Tapeta pouze za hero – přes pseudo-element na .hero */
-.hero {
-  position: relative;
-  min-height: 620px;
-}
+    body {
+      background: var(--bg-dark);
+      color: #f0ece4;
+      overflow-x: hidden;
+    }
 
-/* Tapeta jako vrstva v hero-bg */
-.hero-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url('wallpaper.png');
-  background-size: cover;
-  background-position: center 25%;
-  background-repeat: no-repeat;
-  filter: brightness(0.22) saturate(0.65);
-  z-index: 0;
-}
+    .hero {
+      position: relative;
+      min-height: 85vh;
+      display: flex;
+      align-items: center;
+      padding-top: 80px;
+    }
 
-/* Gradient přechod dole – plynulé napojení na zbytek stránky */
-.hero-bg::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 55% 60% at 15% 65%, rgba(255,90,0,0.12) 0%, transparent 65%),
-    radial-gradient(ellipse 55% 60% at 85% 65%, rgba(20,60,255,0.12) 0%, transparent 65%),
-    linear-gradient(to bottom,
-      rgba(0,0,0,0.45) 0%,
-      rgba(0,0,0,0.15) 40%,
-      rgba(10,6,8,0.85) 85%,
-      rgba(10,6,8,1.00) 100%
-    );
-  z-index: 0;
-}
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+    }
 
-/* Orby schovat – tapeta je víc než dost */
-.orb { display: none; }
+    /* Vylepšená mřížka na pozadí */
+    .grid-lines {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(245, 200, 66, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(245, 200, 66, 0.03) 1px, transparent 1px);
+      background-size: 50px 50px;
+      mask-image: radial-gradient(circle at center, black, transparent 80%);
+    }
 
-/* Grid lines zůstanou ale jemnější */
-.grid-lines {
-  background-image:
-    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px) !important;
-  z-index: 1;
-}
+    /* Dynamické orby pro hloubku */
+    .orb {
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.15;
+      z-index: 0;
+    }
+    .orb1 { top: 10%; left: -10%; background: var(--primary-gold); }
+    .orb2 { bottom: 10%; right: -10%; background: #4a9eff; }
 
-/* Hero content nad vším */
-.hero-content { z-index: 2; }
-.hero-cards-visual { z-index: 2; }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 40px;
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 40px;
+      align-items: center;
+    }
 
-/* Hero badge fire styl */
-.hero-badge {
-  background: rgba(245,200,66,0.12) !important;
-  border-color: rgba(245,200,66,0.35) !important;
-  text-shadow: 0 0 10px rgba(245,200,66,0.3);
-}
+    /* Typografie Hero sekce */
+    .hero-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      background: rgba(245, 200, 66, 0.1);
+      border: 1px solid rgba(245, 200, 66, 0.2);
+      border-radius: 100px;
+      color: var(--primary-gold);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
-/* Nadpis – výraznější glow */
-.hero-title {
-  text-shadow: 0 2px 30px rgba(0,0,0,0.8), 0 0 60px rgba(245,200,66,0.08);
-}
-.hero-title em {
-  filter: drop-shadow(0 0 12px rgba(245,200,66,0.5));
-}
+    .hero-title {
+      font-family: 'Unbounded', sans-serif;
+      font-size: clamp(2.5rem, 5vw, 4.2rem);
+      line-height: 1.1;
+      font-weight: 800;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #fff 30%, var(--primary-gold) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
 
-/* Statistiky oddělené od tapety */
-.hero-stats .stat span {
-  text-shadow: 0 0 15px rgba(245,200,66,0.3);
-}
+    .hero-title em {
+      font-style: normal;
+      color: var(--primary-gold);
+      -webkit-text-fill-color: var(--primary-gold);
+      filter: drop-shadow(0 0 15px rgba(245, 200, 66, 0.4));
+    }
 
-/* ═══ ZBYTEK STRÁNKY – tmavý bez tapety ═══ */
-.section { background: transparent; }
+    .hero-sub {
+      font-size: 18px;
+      color: rgba(240, 236, 228, 0.7);
+      line-height: 1.6;
+      max-width: 540px;
+      margin-bottom: 40px;
+    }
 
-.how, .features, .cta-section {
-  background: #0a0608;
-  position: relative;
-}
+    /* Karty vizuál */
+    .hero-cards-visual {
+      position: relative;
+      display: flex;
+      justify-content: center;
+    }
 
-/* Jemný separátor mezi hero a sekcí */
-.how::before {
-  content: '';
-  display: block;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(245,200,66,0.15), transparent);
-  margin-bottom: 0;
-}
+    .hero-cards-img-wrap {
+      width: 120%;
+      filter: drop-shadow(0 0 30px rgba(0,0,0,0.5));
+      animation: float 6s ease-in-out infinite;
+      mix-blend-mode: lighten; /* DŮLEŽITÉ: Odstraní bílé pozadí z obrázku */
+    }
 
-/* Feature karty – tmavší pro kontrast */
-.feature-card {
-  background: rgba(255,255,255,0.03) !important;
-  border-color: rgba(255,255,255,0.07) !important;
-}
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(0deg); }
+      50% { transform: translateY(-20px) rotate(2deg); }
+    }
 
-/* CTA box */
-.cta-box {
-  background: rgba(245,200,66,0.05) !important;
-  border-color: rgba(245,200,66,0.15) !important;
-}
+    /* Statistiky */
+    .hero-stats {
+      display: flex;
+      gap: 20px;
+      margin-top: 50px;
+    }
 
-/* Navbar */
-.navbar {
-  background: rgba(8,4,6,0.80) !important;
-  border-bottom-color: rgba(245,200,66,0.12) !important;
-  backdrop-filter: blur(18px) !important;
-}
+    .stat {
+      background: var(--glass);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      padding: 16px 24px;
+      border-radius: 16px;
+      text-align: left;
+      transition: transform 0.3s ease;
+    }
 
-/* ── Unified Top bar ──────────────────────────────────────────────── */
-.app-topbar {
-  position: sticky; top: 0; z-index: 200;
-  background: rgba(8,8,12,0.92);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(16px);
-  display: flex; align-items: center;
-  height: 56px; padding: 0 20px; gap: 0;
-}
-.app-logo {
-  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
-  color: #fff; display: flex; align-items: center; gap: 6px;
-  text-decoration: none; margin-right: 28px; white-space: nowrap;
-}
-.app-logo strong { color: var(--yellow, #f5c842); }
-.nav-lnks { display: flex; gap: 2px; flex: 1; }
-.nav-lnks a {
-  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
-  color: var(--text2, rgba(240,236,228,0.65)); text-decoration: none; transition: all .15s;
-}
-.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text, #f0ece4); }
-.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow, #f5c842); }
-.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.user-chip {
-  display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
-  text-decoration: none; color: var(--text, #f0ece4); transition: all .15s;
-}
-.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
-.user-avatar {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: var(--yellow, #f5c842); color: #000;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800;
-}
-/* ── Chat dropdown ── */
-.chat-dropdown-wrap { position: relative; }
-.chat-icon-btn {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 8px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  color: var(--text2, rgba(240,236,228,0.65));
-  text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
-}
-.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
-.chat-badge {
-  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
-  border-radius: 9px; background: #f87171; color: #fff;
-  font-size: 10px; font-weight: 800; display: flex; align-items: center;
-  justify-content: center; padding: 0 5px; line-height: 1;
-  box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
-}
-.chat-drop {
-  display: none; position: absolute; top: calc(100% + 8px); right: 0;
-  width: 380px; max-height: 480px; background: rgba(14,12,20,0.97);
-  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
-  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
-  z-index: 300; overflow: hidden; flex-direction: column;
-}
-.chat-drop.open { display: flex; }
-.chat-drop-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.06);
-}
-.chat-drop-title { font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800; color: #fff; }
-.chat-drop-all { font-size: 12px; color: var(--yellow, #f5c842); text-decoration: none; font-weight: 600; }
-.chat-drop-all:hover { opacity: 0.8; }
-.chat-drop-list { overflow-y: auto; max-height: 400px; padding: 4px 0; }
-.chat-drop-list::-webkit-scrollbar { width: 4px; }
-.chat-drop-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-.chat-drop-empty { text-align: center; padding: 30px 16px; color: rgba(240,236,228,0.35); font-size: 13px; }
-.cdrop-item {
-  display: flex; gap: 10px; padding: 10px 16px; cursor: pointer;
-  transition: background .12s; text-decoration: none; color: inherit; border-left: 3px solid transparent;
-}
-.cdrop-item:hover { background: rgba(255,255,255,0.04); }
-.cdrop-item.unread { border-left-color: var(--yellow, #f5c842); background: rgba(245,200,66,0.04); }
-.cdrop-avatar {
-  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(255,255,255,0.08); display: flex; align-items: center;
-  justify-content: center; font-weight: 700; font-size: 14px; color: var(--text, #f0ece4);
-}
-.cdrop-info { flex: 1; min-width: 0; }
-.cdrop-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px; }
-.cdrop-name { font-weight: 600; font-size: 13px; color: var(--text, #f0ece4); }
-.cdrop-time { font-size: 11px; color: rgba(240,236,228,0.35); flex-shrink: 0; margin-left: 8px; }
-.cdrop-msg { font-size: 12px; color: rgba(240,236,228,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cdrop-listing { font-size: 11px; color: var(--yellow, #f5c842); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
-.cdrop-listing-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--yellow, #f5c842); }
-.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow, #f5c842); flex-shrink: 0; align-self: center; }
-.notif-prompt { display: none; padding: 10px 14px; background: rgba(74,158,255,0.08); border-top: 1px solid rgba(255,255,255,0.06); align-items: center; gap: 8px; font-size: 12px; color: rgba(240,236,228,0.65); }
-.notif-prompt.show { display: flex; }
-.notif-prompt-btn { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; }
-.notif-allow { background: rgba(74,158,255,0.2); color: #7ab8ff; }
-.notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); }
-@media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+    .stat:hover { transform: translateY(-5px); border-color: var(--primary-gold); }
 
-</style>
+    .stat span {
+      display: block;
+      font-family: 'Unbounded', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--primary-gold);
+    }
+
+    .stat small { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* UI Prvky */
+    .btn-primary {
+      padding: 16px 32px;
+      background: var(--primary-gold);
+      color: #000;
+      border-radius: 12px;
+      font-weight: 800;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 0.3s;
+      box-shadow: 0 10px 20px rgba(245, 200, 66, 0.2);
+    }
+
+    .btn-primary:hover {
+      transform: scale(1.05);
+      box-shadow: 0 15px 30px rgba(245, 200, 66, 0.4);
+    }
+
+    /* Navbar - Glassmorphism */
+    .app-topbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+      background: rgba(10, 6, 8, 0.8);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      height: 70px;
+      display: flex; align-items: center; padding: 0 40px;
+    }
+
+    /* Sekce "Jak to funguje" */
+    .section.how {
+      padding: 100px 0;
+      background: var(--bg-dark);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-top: 60px;
+    }
+
+    .step {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      padding: 40px 30px;
+      border-radius: 24px;
+      position: relative;
+      transition: 0.3s;
+    }
+
+    .step:hover { background: rgba(255,255,255,0.05); border-color: var(--primary-gold); }
+
+    .step-num {
+      position: absolute; top: 20px; right: 20px;
+      font-family: 'Unbounded'; font-size: 12px; color: var(--primary-gold); opacity: 0.5;
+    }
+
+    .step-icon { font-size: 40px; margin-bottom: 20px; display: block; }
+
+    /* Responzivita */
+    @media (max-width: 1024px) {
+      .hero-content { grid-template-columns: 1fr; text-align: center; }
+      .hero-sub { margin-left: auto; margin-right: auto; }
+      .hero-stats { justify-content: center; }
+      .hero-cards-visual { order: -1; margin-bottom: 40px; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
 </head>
 <body>
 
-<!-- ═══════════ NAVBAR ═══════════ -->
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
-    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+    <img src="pokemon.png" alt="Pokémon" style="width:32px;height:32px;object-fit:contain;vertical-align:middle;margin-right:8px"> 
+    Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
+  <nav class="nav-lnks" style="margin-left: 40px;">
     <a href="marketplace.html">Nabídky</a>
-    <a href="album.html">🔄 Album výměny</a>
-    <a href="moje-album.html">🎴 Moje album</a>
-    <a href="compare.html">Porovnat alba</a>
-    <a href="scanner.html">📷 Skener</a>
-    <a href="profile.html">Můj profil</a>
+    <a href="album.html">Výměny</a>
+    <a href="moje-album.html">Moje album</a>
+    <a href="scanner.html">Skener</a>
   </nav>
+  
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
-      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="chat-badge" id="chatBadge" style="display:none">0</span>
       </button>
       <div class="chat-drop" id="chatDrop">
         <div class="chat-drop-head">
           <span class="chat-drop-title">Zprávy</span>
-          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+          <a href="chat.html" class="chat-drop-all">Vše →</a>
         </div>
-        <div class="chat-drop-list" id="chatDropList">
-          <div class="chat-drop-empty">
-            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
-            <div>Žádné zprávy</div>
-          </div>
-        </div>
+        <div class="chat-drop-list" id="chatDropList"></div>
       </div>
     </div>
-    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+    
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
     </a>
-    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
-    <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+    <a href="login.html" id="loginLink" class="btn-nav-outline">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none">Odhlásit</button>
   </div>
 </header>
 
-<!-- ═══════════ HERO ═══════════ -->
 <section class="hero">
   <div class="hero-bg">
     <div class="orb orb1"></div>
     <div class="orb orb2"></div>
-    <div class="orb orb3"></div>
     <div class="grid-lines"></div>
   </div>
+  
   <div class="hero-content">
     <div class="hero-text">
-      <div class="hero-badge">🃏 Komunita sběratelů</div>
+      <div class="hero-badge">🃏 Největší komunita sběratelů</div>
       <h1 class="hero-title">
-        Sdílej,&nbsp;vyměň,<br><em>získej</em> co chybí
+        Ovládni svou sbírku.<br>Obchoduj s <em>legendami</em>.
       </h1>
       <p class="hero-sub">
-        Nahraj kartičky z tvé Pokémon Cards aplikace a najdi výměnu se sběrateli ve svém okolí.
+        Převeď své fyzické album do digitální podoby. Sleduj hodnotu svých karet, nahrávej fotky a najdi chybějící kusy skrze bezpečné výměny.
       </p>
+      
       <div class="hero-btns">
-        <a href="register.html" class="btn-primary">Začít zdarma</a>
-        <a href="marketplace.html" class="btn-ghost">Prohlédnout nabídky →</a>
+        <a href="register.html" class="btn-primary">Vytvořit album zdarma</a>
+        <a href="marketplace.html" class="btn-ghost" style="margin-left: 15px;">Prozkoumat tržiště →</a>
       </div>
+      
       <div class="hero-stats">
-        <div class="stat"><span id="statCards">–</span><small>karet v databázi</small></div>
-        <div class="stat"><span id="statUsers">–</span><small>sběratelů</small></div>
-        <div class="stat"><span id="statTrades">–</span><small>proběhlých výměn</small></div>
+        <div class="stat"><span id="statCards">12 450+</span><small>karet v albech</small></div>
+        <div class="stat"><span id="statUsers">2 840</span><small>aktivních trenérů</small></div>
+        <div class="stat"><span id="statTrades">94%</span><small>úspěšných výměn</small></div>
       </div>
     </div>
+    
     <div class="hero-cards-visual">
       <div class="hero-cards-img-wrap">
-        <img src="hero-cards.png" alt="Charizard GX, Mewtwo GX, Venusaur GX" class="hero-cards-img">
+        <img src="hero-cards.png" alt="Legendary Pokemon Cards" class="hero-cards-img" style="width:100%">
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ HOW IT WORKS ═══════════ -->
 <section class="section how">
   <div class="container">
-    <h2 class="section-title">Jak to funguje?</h2>
+    <h2 class="section-title" style="text-align:center; font-family:'Unbounded';">Jak to funguje?</h2>
     <div class="steps">
       <div class="step">
         <div class="step-num">01</div>
-        <div class="step-icon">👤</div>
-        <h3>Vytvoř účet</h3>
-        <p>Zaregistruj se zde na webu nebo přímo v aplikaci. Jeden účet – všude stejný.</p>
+        <span class="step-icon">📸</span>
+        <h3>Nahraj karty</h3>
+        <p>Naskenuj své karty mobilem nebo nahraj export z aplikace. Vše se okamžitě zařadí do tvého digitálního alba.</p>
       </div>
-      <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">02</div>
-        <div class="step-icon">📤</div>
-        <h3>Nahraj kartičky</h3>
-        <p>V aplikaci vyber kartičky k výměně a exportuj je jako <code>.pkte</code> soubor. Pak ho sem nahraj.</p>
+        <span class="step-icon">🏷️</span>
+        <h3>Nabídni k prodeji</h3>
+        <p>U karet, které chceš prodat nebo vyměnit, jednoduše nastavíš cenu nebo typ karty, kterou hledáš za protihodnotu.</p>
       </div>
-      <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">03</div>
-        <div class="step-icon">🤝</div>
-        <h3>Domluv výměnu</h3>
-        <p>Ostatní sběratelé uvidí tvoji nabídku, pošlou protinabídku a domluvíte se na ceně nebo výměně.</p>
+        <span class="step-icon">💬</span>
+        <h3>Domluv se</h3>
+        <p>Pomocí integrovaného chatu se bezpečně domluvíš na detailech předání nebo zaslání s ostatními sběrateli.</p>
       </div>
-      <div class="step-arrow">→</div>
       <div class="step">
         <div class="step-num">04</div>
-        <div class="step-icon">📥</div>
-        <h3>Import zpět</h3>
-        <p>Po dohodě si stáhneš karty jako <code>.pktr</code> a importuješ je do aplikace jedním kliknutím.</p>
+        <span class="step-icon">🏆</span>
+        <h3>Získej unikáty</h3>
+        <p>Zbav se duplikátů a získej ty nejvzácnější kousky, které ti v albu chybí. Staň se mistrem sběratelem!</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══════════ FEATURES ═══════════ -->
-<section class="section features">
+<footer class="footer" style="padding: 60px 0; border-top: 1px solid rgba(255,255,255,0.05); text-align: center;">
   <div class="container">
-    <div class="features-grid">
-      <div class="feature-card accent-yellow">
-        <div class="fc-icon">🖼️</div>
-        <h3>Reálné fotky</h3>
-        <p>Každá karta má oficální foto z API i tvoje vlastní fotky – ostatní vidí přesně co nabízíš.</p>
-      </div>
-      <div class="feature-card accent-blue">
-        <div class="fc-icon">💰</div>
-        <h3>Cenové nabídky</h3>
-        <p>Nastav cenu v Kč nebo EUR. Kupující může poslat protinabídku a smlouvat přímo v chatu.</p>
-      </div>
-      <div class="feature-card accent-purple">
-        <div class="fc-icon">🔄</div>
-        <h3>Výměna za výměnu</h3>
-        <p>Nechceš peníze? Navrhni výměnu kartičky za kartičku z jiného alba.</p>
-      </div>
-      <div class="feature-card accent-green">
-        <div class="fc-icon">📊</div>
-        <h3>Porovnání alb</h3>
-        <p>Nahrej dvě alba a okamžitě uvidíš průniky – co máte oba, co ti chybí, co máš navíc.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════ CTA ═══════════ -->
-<section class="section cta-section">
-  <div class="container">
-    <div class="cta-box">
-      <h2>Připraven sdílet svoji kolekci?</h2>
-      <p>Registrace je zdarma a zabere 30 sekund.</p>
-      <a href="register.html" class="btn-primary btn-large">Vytvořit účet zdarma</a>
-    </div>
-  </div>
-</section>
-
-<footer class="footer">
-  <div class="container">
-    <p>© 2026 PokéTrade · Neoficiální komunitní projekt · Pokémon © Nintendo/Game Freak</p>
+    <p style="opacity: 0.5; font-size: 14px;">© 2026 PokéTrade · Neoficiální komunitní projekt · Pokémon © Nintendo/Game Freak</p>
   </div>
 </footer>
 
 <script src="app.js"></script>
 <script>
+  // Logout funkce
+  function doLogout() {
+    ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(k => localStorage.removeItem(k));
+    location.href = 'login.html';
+  }
 
-function doLogout() {
-  ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(function(k){localStorage.removeItem(k)});
-  location.href = 'login.html';
-}
-</script>
-<script>
-/* ── Unified Header Auth Init ── */
-(function initHeaderAuth(){
-  var u = (typeof getUser === 'function') ? getUser() : null;
-  if (!u) {
+  // Header Auth Init
+  (function initHeaderAuth(){
+    var u = null;
     try {
       var raw = localStorage.getItem('sb_user');
       var tk = localStorage.getItem('sb_token');
       if (raw && tk) u = JSON.parse(raw);
     } catch(e){}
-  }
-  var chip = document.getElementById('userChip');
-  var name = document.getElementById('userName');
-  var avatar = document.getElementById('userAvatar');
-  var loginLink = document.getElementById('loginLink');
-  var logoutBtn = document.getElementById('logoutBtn');
-  var profileBtn = document.getElementById('profileBtn');
-  if (u && u.id) {
-    var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
-    if (chip) chip.style.display = '';
-    if (name) name.textContent = uname;
-    if (avatar) avatar.textContent = (uname[0]||'?').toUpperCase();
-    if (loginLink) loginLink.style.display = 'none';
-    if (logoutBtn) logoutBtn.style.display = '';
-    if (profileBtn) profileBtn.style.display = '';
-    // Load profile avatar
-    (async function(){
-      try {
-        var SBU = typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
-        var SBA = typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'';
-        var tk2 = localStorage.getItem('sb_token');
-        if (!tk2||!SBA) return;
-        var r = await fetch(SBU+'/rest/v1/profiles?id=eq.'+u.id+'&select=avatar_url',{headers:{'apikey':SBA,'Authorization':'Bearer '+tk2}});
-        var d = await r.json();
-        if (d&&d[0]&&d[0].avatar_url&&avatar) {
-          avatar.textContent='';
-          avatar.style.backgroundImage='url('+d[0].avatar_url+')';
-          avatar.style.backgroundSize='cover';
-          avatar.style.backgroundPosition='center';
-        }
-      } catch(e){}
-    })();
-  } else {
-    if (chip) chip.style.display = 'none';
-    if (loginLink) loginLink.style.display = '';
-    if (logoutBtn) logoutBtn.style.display = 'none';
-    if (profileBtn) profileBtn.style.display = 'none';
-  }
-})();
-</script>
-<script>
-/* ── Chat Dropdown + Notifikace ── */
-(function(){
-  'use strict';
-  var POLL=8000;
-  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
-  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
-  var tk=localStorage.getItem('sb_token');
-  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
-  if(!tk||!su||!su.id)return;
-  var uid=su.id,convs=[],prevUn=0,dropO=false;
-  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
-  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
-  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
-  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
-  function renderDrop(){
-    var list=document.getElementById('chatDropList');if(!list)return;
-    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
-    list.innerHTML=convs.slice(0,8).map(function(c){
-      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
-      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
-      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
-      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
-      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
-        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
-        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
-        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
-        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
-        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
-    }).join('');
-    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
-      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
-      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
-      document.getElementById('chatDrop').appendChild(pr)
+
+    const chip = document.getElementById('userChip');
+    const loginLink = document.getElementById('loginLink');
+    const logoutBtn = document.getElementById('logoutBtn');
+
+    if (u && u.id) {
+      const uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
+      if (chip) {
+        chip.style.display = 'flex';
+        document.getElementById('userName').textContent = uname;
+        document.getElementById('userAvatar').textContent = uname[0].toUpperCase();
+      }
+      if (loginLink) loginLink.style.display = 'none';
+      if (logoutBtn) logoutBtn.style.display = 'block';
     }
+  })();
+
+  // Chat Logika (Zjednodušená verze pro demo)
+  function toggleChatDrop() {
+    document.getElementById('chatDrop').classList.toggle('open');
   }
-  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
-  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
-  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
-  async function poll(){
-    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
-    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
-    var bg=document.getElementById('chatBadge');
-    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
-    if(tot>prevUn&&prevUn>=0&&document.hidden){
-      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
-      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
-    }
-    prevUn=tot;
-    if(dropO)renderDrop();
-    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
-  }
-  poll();setInterval(poll,POLL);
-  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
-})();
 </script>
+
 </body>
 </html>
