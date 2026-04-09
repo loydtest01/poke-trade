@@ -690,8 +690,10 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
     <!-- HERO -->
     <div class="profile-hero">
       <div class="profile-avatar-wrap">
-        <div class="profile-avatar" id="heroAvatar">?</div>
+        <div class="profile-avatar" id="heroAvatar" style="cursor:default">?</div>
         <div class="profile-online-dot" id="onlineDot" style="display:none"></div>
+        <input type="file" id="avatarFileInput" accept="image/*" style="display:none">
+        <div id="avatarEditBtn" style="display:none;position:absolute;bottom:4px;right:4px;background:#f5c842;border-radius:50%;width:28px;height:28px;cursor:pointer;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.5)" title="Zmenit fotku">✏️</div>
       </div>
       <div class="profile-info">
         <div class="profile-username" id="heroUsername">Načítám…</div>
@@ -1128,6 +1130,58 @@ function renderProfile(p) {
 
   const initials = uname.slice(0,2).toUpperCase();
   document.getElementById('heroAvatar').textContent  = initials;
+  if (isOwnProfile) {
+    var editBtn2 = document.getElementById('avatarEditBtn');
+    var avatarEl2 = document.getElementById('heroAvatar');
+    var fileInput2 = document.getElementById('avatarFileInput');
+    if (editBtn2) editBtn2.style.display = 'flex';
+    if (avatarEl2) { avatarEl2.style.cursor = 'pointer'; avatarEl2.title = 'Klikni pro zmenu avataru'; }
+    function openAvatarPicker2() { if (fileInput2) fileInput2.click(); }
+    if (avatarEl2) avatarEl2.addEventListener('click', openAvatarPicker2);
+    if (editBtn2) editBtn2.addEventListener('click', openAvatarPicker2);
+    if (fileInput2) {
+      fileInput2.addEventListener('change', function() {
+        var file = fileInput2.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var img = new Image();
+          img.onload = function() {
+            var size = 200;
+            var canvas = document.createElement('canvas');
+            canvas.width = canvas.height = size;
+            var ctx = canvas.getContext('2d');
+            var minDim = Math.min(img.width, img.height);
+            var sx = (img.width - minDim) / 2;
+            var sy = (img.height - minDim) / 2;
+            ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
+            var dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+            avatarEl2.textContent = '';
+            avatarEl2.style.backgroundImage = 'url(' + dataUrl + ')';
+            avatarEl2.style.backgroundSize = 'cover';
+            avatarEl2.style.backgroundPosition = 'center';
+            var tk = localStorage.getItem('sb_token');
+            var u = JSON.parse(localStorage.getItem('sb_user') || 'null');
+            if (!tk || !u || !u.id) { alert('Nejsi prihlasen'); return; }
+            var SBU2 = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+            var SBA2 = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+            fetch(SBU2 + '/rest/v1/profiles?id=eq.' + u.id, {
+              method: 'PATCH',
+              headers: { 'apikey': SBA2, 'Authorization': 'Bearer ' + tk,
+                'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+              body: JSON.stringify({ avatar_url: dataUrl })
+            }).then(function(r) {
+              if (r.ok) { alert('✅ Avatar ulozen! Projevi se v PC aplikaci pri pristim syncu.'); }
+              else { alert('❌ Nepodarilo se ulozit avatar: ' + r.status); }
+            }).catch(function(err) { alert('Chyba: ' + err.message); });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+        fileInput2.value = '';
+      });
+    }
+  }
   document.getElementById('heroUsername').textContent = uname;
 
   // Datum
