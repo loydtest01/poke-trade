@@ -519,6 +519,66 @@ body::after {
 .cond-D  { color: var(--red); }
 
 /* ═══════════════════════════════════════════════
+   FRONTA – ČEKÁ NA ZAŘAZENÍ
+═══════════════════════════════════════════════ */
+.queue-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 24px;
+  overflow: hidden;
+}
+.queue-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.queue-header-title {
+  font-weight: 800;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.queue-badge {
+  background: rgba(245,200,66,0.2);
+  color: var(--gold);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  padding: 16px;
+}
+.queue-card {
+  background: rgba(255,255,255,0.04);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.queue-card:hover { border-color: var(--gold); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.4); }
+.queue-card img { width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block; }
+.queue-card .qc-info { padding: 8px; font-size: 11px; }
+.queue-card .qc-name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); font-size: 12px; }
+.queue-card .qc-sub { color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-card .qc-cond { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-top: 4px; }
+.queue-card .qc-del { position: absolute; top: 5px; right: 5px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,0.65); border: none; color: #f87171; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; }
+.queue-card .qc-side { position: absolute; top: 5px; left: 5px; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: rgba(0,0,0,0.65); color: #fff; }
+.queue-empty { grid-column: 1 / -1; text-align: center; padding: 36px 20px; color: var(--text-muted); font-size: 13px; }
+.queue-batch-label { grid-column: 1 / -1; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px 0 2px; border-top: 1px solid var(--border); margin-top: 4px; }
+.queue-batch-label:first-child { border-top: none; margin-top: 0; }
+
+/* ═══════════════════════════════════════════════
    QR BRIDGE PANEL
 ═══════════════════════════════════════════════ */
 .qr-panel {
@@ -720,7 +780,6 @@ body::after {
   </a>
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
-    <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html" class="active">📷 Skener</a>
@@ -879,6 +938,37 @@ body::after {
       </div>
     </div>
     <!-- ═══ END MODAL ═══ -->
+
+    <!-- ═══ FRONTA: Čeká na zařazení ═══ -->
+    <div id="queueSection" style="display:none;">
+      <div class="queue-panel">
+        <div class="queue-header">
+          <div class="queue-header-title">
+            📥 Čeká na zařazení
+            <span class="queue-badge" id="queueCount">0</span>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span id="queueAlbumWrap" style="display:flex;align-items:center;gap:6px">
+              <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Do alba:</label>
+              <select id="queueAlbumSelect" style="padding:5px 10px;background:rgba(255,255,255,0.07);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:12px;max-width:160px">
+                <option value="">— Bez alba —</option>
+              </select>
+            </span>
+            <button onclick="queueAssignAll()" id="queueAssignAllBtn"
+              style="background:linear-gradient(135deg,var(--gold),var(--gold2));color:#000;border:none;border-radius:7px;padding:6px 14px;font-size:12px;font-weight:800;cursor:pointer">
+              💾 Zařadit vše
+            </button>
+            <button onclick="refreshQueue()"
+              style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text-muted);border-radius:7px;padding:6px 12px;font-size:12px;cursor:pointer">
+              🔄
+            </button>
+          </div>
+        </div>
+        <div class="queue-grid" id="queueGrid">
+          <div class="queue-empty">Žádné fotky nečekají na zařazení</div>
+        </div>
+      </div>
+    </div>
 
     <!-- Upload zone -->
     <div class="upload-zone" id="uploadZone">
@@ -1052,6 +1142,7 @@ let currentUser  = null;
 let currentToken = null;
 let photos       = [];   // { id, dataUrl, name, status, result, tcgCard }
 let nextId       = 1;
+let pendingQueue = [];   // fotky z mobilu čekající na zařazení do alba
 
 /* ═══════════════════════════════════════════════════════
    INIT
@@ -1626,6 +1717,8 @@ function updateResult(id, field, value) {
 function getMobileUrl() {
   if (!currentUser?.id) return '';
   let url = `${MOBILE_BASE}?u=${encodeURIComponent(currentUser.id)}`;
+  // Pass auth token so mobile can upload to API
+  if (currentToken) url += `&t=${encodeURIComponent(currentToken)}`;
   // Pass Groq key so mobile can do AI recognition
   const gk = getGroqKey();
   if (gk) url += `&gk=${encodeURIComponent(gk)}`;
@@ -1695,7 +1788,7 @@ async function pollNewPhotos() {
   if (!currentUser?.id || !currentToken) return;
   try {
     const rows = await sbReq(
-      `rest/v1/photo_queue?user_id=eq.${currentUser.id}&processed=eq.false&order=created_at.asc&limit=30`,
+      `rest/v1/photo_queue?user_id=eq.${currentUser.id}&processed=eq.false&order=created_at.asc&limit=50`,
       'GET', null, currentToken
     );
     if (!Array.isArray(rows) || rows.length === 0) return;
@@ -1707,9 +1800,11 @@ async function pollNewPhotos() {
     setTimeout(() => banner.classList.remove('show'), 5000);
 
     let added = 0;
-    const newPhotos = [];
 
     for (const row of rows) {
+      // Skip if already in queue
+      if (pendingQueue.some(p => p.queueId === row.id)) continue;
+
       // Získej signed URL na 2 hodiny
       const signed = await sbReq(
         `storage/v1/object/sign/card-photo/${row.storage_path}`,
@@ -1747,30 +1842,209 @@ async function pollNewPhotos() {
         queueId:  row.id,
         fromPhone: true,
         side:     meta.side || 'front',
+        batchId:  meta.batchId || '',
+        cardIndex: meta.cardIndex || 1,
+        totalCards: meta.totalCards || 1,
       };
-      photos.push(photoObj);
-      newPhotos.push(photoObj);
-      added++;
 
-      // Označ jako zpracované
-      sbReq(`rest/v1/photo_queue?id=eq.${row.id}`, 'PATCH', { processed: true }, currentToken);
+      // Přidat do fronty (ne do photos gridu)
+      pendingQueue.push(photoObj);
+      added++;
     }
 
     if (added) {
-      renderPhotos();
-      updateActionBar();
-      toast(`📲 ${added} foto přijato z telefonu`, 'success');
-
-      // Otevři modal pro první přijatou fotku (přední strana)
-      const firstFront = newPhotos.find(p => p.side === 'front' || p.side !== 'back') || newPhotos[0];
-      if (firstFront) {
-        setTimeout(() => openPhotoModal(firstFront), 600);
-      }
+      renderQueue();
+      loadQueueAlbums();
+      toast(`📲 ${added} foto${added > 1 ? 'ky' : 'ka'} čeká na zařazení`, 'success');
     }
   } catch(e) { /* silent */ }
 }
 
 
+
+/* ═══════════════════════════════════════════════════════
+   FRONTA – ČEKÁ NA ZAŘAZENÍ
+═══════════════════════════════════════════════════════ */
+
+function renderQueue() {
+  const section  = document.getElementById('queueSection');
+  const grid     = document.getElementById('queueGrid');
+  const countEl  = document.getElementById('queueCount');
+  if (!section) return;
+
+  // Zobraz jen přední strany + detaily (ne zadní samostatně — ty jsou info navíc)
+  const visible = pendingQueue.filter(p => p.side !== 'back');
+
+  if (!visible.length) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  countEl.textContent = visible.length;
+
+  const condColors = { NM:'#4ade80', LP:'#86efac', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+  const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', back: '🔄 Zadní' };
+
+  // Seskup podle batchId
+  const batches = {};
+  visible.forEach(p => {
+    const key = p.batchId || 'unknown';
+    if (!batches[key]) batches[key] = [];
+    batches[key].push(p);
+  });
+
+  grid.innerHTML = '';
+  Object.entries(batches).forEach(([batchId, items], bi) => {
+    // Batch label
+    if (Object.keys(batches).length > 1) {
+      const lbl = document.createElement('div');
+      lbl.className = 'queue-batch-label';
+      lbl.textContent = `Dávka ${bi + 1}  ·  ${items.length} foto`;
+      grid.appendChild(lbl);
+    }
+
+    items.forEach(p => {
+      const cond = p.result?.condition || 'NM';
+      const col  = condColors[cond] || '#94a3b8';
+      const name = p.result?.name || '❓ Neznámá';
+      const sub  = [p.result?.set, p.result?.number ? '#' + p.result.number : ''].filter(Boolean).join(' ');
+
+      const card = document.createElement('div');
+      card.className = 'queue-card';
+      card.onclick = () => openQueueCardDetail(p);
+      card.innerHTML = `
+        <img src="${p.dataUrl}" alt="" loading="lazy">
+        <button class="qc-del" onclick="event.stopPropagation();removeFromQueue('${p.queueId}')" title="Odebrat z fronty">✕</button>
+        <div class="qc-side">${sideLabels[p.side] || p.side}</div>
+        <div class="qc-info">
+          <div class="qc-name" title="${name}">${name}</div>
+          <div class="qc-sub">${sub || '—'}</div>
+          <span class="qc-cond" style="color:${col};background:${col}22">${cond}</span>
+          ${p.result?.confidence ? `<span style="font-size:9px;color:var(--text-muted);margin-left:4px">${Math.round((typeof p.result.confidence==='number'?p.result.confidence:p.result.confidence==='high'?.92:p.result.confidence==='medium'?.65:.40)*100)}%</span>` : ''}
+        </div>`;
+      grid.appendChild(card);
+    });
+  });
+}
+
+function removeFromQueue(queueId) {
+  const idx = pendingQueue.findIndex(p => p.queueId === queueId);
+  if (idx < 0) return;
+  const p = pendingQueue[idx];
+  // Označ jako zpracované v Supabase
+  if (p.queueId) sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }, currentToken).catch(()=>{});
+  pendingQueue.splice(idx, 1);
+  // Odstraň také případnou zadní stranu se stejným batchId a cardIndex
+  const related = pendingQueue.filter(x => x.batchId === p.batchId && x.cardIndex === p.cardIndex && x.side === 'back');
+  related.forEach(x => {
+    sbReq(`rest/v1/photo_queue?id=eq.${x.queueId}`, 'PATCH', { processed: true }, currentToken).catch(()=>{});
+  });
+  pendingQueue = pendingQueue.filter(x => !(x.batchId === p.batchId && x.cardIndex === p.cardIndex && x.side === 'back'));
+  renderQueue();
+  toast('Fotka odebrána z fronty');
+}
+
+async function refreshQueue() {
+  toast('🔄 Obnuji frontu…');
+  await pollNewPhotos();
+}
+
+async function loadQueueAlbums() {
+  if (!currentUser?.id || !currentToken) return;
+  const sel = document.getElementById('queueAlbumSelect');
+  if (!sel || sel.dataset.loaded === '1') return;
+  try {
+    const rows = await sbReq(
+      `rest/v1/user_albums?user_id=eq.${currentUser.id}&order=name.asc&select=id,name,icon`,
+      'GET', null, currentToken
+    );
+    if (!Array.isArray(rows)) return;
+    rows.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = `${a.icon || '📁'} ${a.name}`;
+      sel.appendChild(opt);
+    });
+    sel.dataset.loaded = '1';
+  } catch {}
+}
+
+async function queueAssignAll() {
+  const albumId = document.getElementById('queueAlbumSelect')?.value || null;
+  const toAssign = pendingQueue.filter(p => p.side === 'front' || p.side === 'detail');
+  if (!toAssign.length) { toast('Fronta je prázdná', 'error'); return; }
+
+  const btn = document.getElementById('queueAssignAllBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Zařazuji…';
+
+  let ok = 0, fail = 0;
+
+  for (const p of toAssign) {
+    try {
+      // Najdi zadní stranu k téhle kartě (stejný batchId + cardIndex)
+      const backPhoto = pendingQueue.find(x => x.batchId === p.batchId && x.cardIndex === p.cardIndex && x.side === 'back');
+      const ai = p.result || {};
+
+      // Vlož do user_cards
+      const cardRes = await sbReq('rest/v1/user_cards', 'POST', {
+        user_id:    currentUser.id,
+        album_id:   albumId || null,
+        name:       ai.name       || 'Neznámá karta',
+        set_name:   ai.set        || null,
+        number:     ai.number     || null,
+        type:       ai.type       || null,
+        hp:         ai.hp         || null,
+        category:   ai.category   || null,
+        subtype:    ai.subtype    || null,
+        variant:    ai.variant    || null,
+        condition:  ai.condition  || 'NM',
+        lang:       ai.lang       || 'EN',
+        notes:      ai.notes      || '',
+        front_photo_path: p.isUrl ? null : null, // storage_path je uložen v photo_queue
+        storage_path: null,
+        metadata: {
+          ai,
+          backCondition: backPhoto?.result?.condition || null,
+          backIssues:    backPhoto?.result?.issues || [],
+          side:          p.side,
+          batchId:       p.batchId,
+          fromPhone:     true,
+        }
+      }, currentToken);
+
+      // Označ photo_queue záznamy jako processed
+      const ids = [p.queueId, backPhoto?.queueId].filter(Boolean);
+      for (const id of ids) {
+        sbReq(`rest/v1/photo_queue?id=eq.${id}`, 'PATCH', { processed: true }, currentToken).catch(()=>{});
+      }
+      ok++;
+    } catch { fail++; }
+  }
+
+  // Vyčisti frontu
+  pendingQueue = [];
+  renderQueue();
+
+  btn.disabled = false;
+  btn.textContent = '💾 Zařadit vše';
+
+  if (ok)   toast(`✅ Zařazeno ${ok} karet${albumId ? ' do alba' : ' (bez alba)'}`, 'success');
+  if (fail) toast(`⚠️ ${fail} karet se nepodařilo zařadit`, 'error');
+}
+
+function openQueueCardDetail(p) {
+  // Otevři photo modal s daty z fronty (pro případ editace před zařazením)
+  // Najdi nebo vlož do photos pole
+  let existing = photos.find(x => x.queueId === p.queueId);
+  if (!existing) {
+    photos.push(p);
+    existing = p;
+  }
+  // Načti alba do modal selectu
+  _pmLoadAlbums();
+  openPhotoModal(existing);
+}
 
 /* ── GROQ USAGE TRACKER ── */
 function trackGroqCall() {
@@ -2039,6 +2313,8 @@ async function pmDoAssign() {
       { card_data: updated, updated_at: new Date().toISOString() },
       currentToken
     );
+    // Odstraň z fronty
+    if (_pmPhoto.queueId) removeFromQueue(_pmPhoto.queueId);
     _pmShowResult('✅ Fotka přiřazena ke kartičce!');
     toast('📸 Fotka přiřazena', 'success');
     renderAll();
@@ -2083,6 +2359,8 @@ async function pmDoCreate() {
       { p_user_id: currentUser.id, p_cards: [newCard] }, currentToken);
     if (res?._err) throw new Error(res._err);
 
+    // Odstraň z fronty
+    if (_pmPhoto.queueId) removeFromQueue(_pmPhoto.queueId);
     _pmShowResult('✅ Nová kartička uložena do kolekce!');
     toast('🎴 Kartička vytvořena', 'success');
     renderAll();
