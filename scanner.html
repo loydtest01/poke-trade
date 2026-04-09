@@ -1309,6 +1309,18 @@ function showMain() {
   startPolling();
   // Update Groq counter in settings if already open
   setTimeout(updateGroqCounter, 100);
+  // Pokud přišel odkaz s #queue → scrollnout na frontu po načtení
+  if (location.hash === '#queue') {
+    setTimeout(() => {
+      const el = document.getElementById('queueSection');
+      if (el && el.style.display !== 'none') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else {
+        // Fronta je prázdná – highlight scanneru
+        toast('📥 Fronta je zatím prázdná – pošli fotky z mobilu', 'success');
+      }
+    }, 800);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
