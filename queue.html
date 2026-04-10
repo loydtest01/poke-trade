@@ -444,8 +444,18 @@ body::after {
 <div id="cropModal">
   <div class="crop-top-bar">
     <div class="title">✂️ Perspektivní ořez</div>
-    <div style="font-size:11px;color:rgba(255,255,255,0.45);text-align:right">
-      Přetáhni každý roh (TL/TR/BR/BL) na roh karty → karta se vyrovná
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden">
+        <button id="modeLoupeBtn" onclick="setCropMode('loupe')"
+          style="padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:all .15s;background:rgba(245,200,66,0.25);color:#f5c842;border-right:1px solid rgba(255,255,255,0.1)">
+          🔍 Lupa
+        </button>
+        <button id="modePreciseBtn" onclick="setCropMode('precise')"
+          style="padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:all .15s;background:transparent;color:rgba(255,255,255,0.45)">
+          ┘ Přesný
+        </button>
+      </div>
+      <div id="cropModeHint" style="font-size:11px;color:rgba(255,255,255,0.4)">Přetáhni roh – lupa ukáže přesnou pozici</div>
     </div>
   </div>
   <div class="crop-canvas-wrap">
@@ -906,10 +916,29 @@ const CROP = {
   photoIdx:  null,
   corners: [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
   scale:   1,
-  drag:    null
+  drag:    null,
+  mode:    'loupe',   // 'loupe' | 'precise'
+  dragPos: null,      // for loupe – current drag canvas pos
 };
 const HANDLE_R = 22;
 const CORNER_LABELS = ['TL','TR','BR','BL'];
+
+function setCropMode(mode) {
+  CROP.mode = mode;
+  const lb = document.getElementById('modeLoupeBtn');
+  const pb = document.getElementById('modePreciseBtn');
+  const hint = document.getElementById('cropModeHint');
+  if (mode === 'loupe') {
+    lb.style.background = 'rgba(245,200,66,0.25)'; lb.style.color = '#f5c842';
+    pb.style.background = 'transparent'; pb.style.color = 'rgba(255,255,255,0.45)';
+    hint.textContent = 'Přetáhni roh – lupa ukáže přesnou pozici';
+  } else {
+    pb.style.background = 'rgba(245,200,66,0.25)'; pb.style.color = '#f5c842';
+    lb.style.background = 'transparent'; lb.style.color = 'rgba(255,255,255,0.45)';
+    hint.textContent = 'Rohové zarážky – přesné přichycení bez zbytečných prvků';
+  }
+  _drawCrop();
+}
 
 function openCrop(gi, pi) {
   const g = cardGroups[gi];
@@ -961,7 +990,7 @@ function _drawCrop() {
   if (!canvas || !CROP.img) return;
   const ctx = canvas.getContext('2d');
   const s = CROP.scale;
-  const { img, corners } = CROP;
+  const { img, corners, mode } = CROP;
   const pts = corners.map(c => ({x: c.x*s, y: c.y*s}));
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -990,8 +1019,8 @@ function _drawCrop() {
   // Obrys quadu
   ctx.save();
   ctx.strokeStyle = '#f5c842';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([6,4]);
+  ctx.lineWidth = mode === 'precise' ? 1.5 : 2;
+  ctx.setLineDash(mode === 'precise' ? [4,3] : [6,4]);
   ctx.beginPath();
   pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
   ctx.closePath();
@@ -999,8 +1028,22 @@ function _drawCrop() {
   ctx.setLineDash([]);
   ctx.restore();
 
-  // Rohove handles
+  if (mode === 'loupe') {
+    _drawLoupeHandles(ctx, pts);
+  } else {
+    _drawPreciseHandles(ctx, pts);
+  }
+
+  // Lupa overlay při tažení
+  if (mode === 'loupe' && CROP.drag !== null && CROP.dragPos) {
+    _drawLoupe(ctx, canvas, CROP.dragPos, pts[CROP.drag]);
+  }
+}
+
+// ── Režim 1: Kruhové handles s lupou ──────────────────────────
+function _drawLoupeHandles(ctx, pts) {
   pts.forEach((p, i) => {
+    // Stín + kruh
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.8)';
     ctx.shadowBlur = 8;
@@ -1012,23 +1055,150 @@ function _drawCrop() {
     ctx.lineWidth = 2.5;
     ctx.stroke();
     ctx.restore();
+    // Lupa ikona uvnitř kruhu (kruh + rukojeť)
     ctx.save();
     ctx.strokeStyle = '#f5c842';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(p.x-8, p.y); ctx.lineTo(p.x+8, p.y);
-    ctx.moveTo(p.x, p.y-8); ctx.lineTo(p.x, p.y+8);
+    ctx.arc(p.x - 3, p.y - 3, 7, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(p.x + 2, p.y + 2);
+    ctx.lineTo(p.x + 9, p.y + 9);
     ctx.stroke();
     ctx.restore();
-    // Popisek mimo handle
-    const ox = (i===0||i===3) ? -HANDLE_R-14 : HANDLE_R+14;
-    const oy = (i===0||i===1) ? -HANDLE_R-10 : HANDLE_R+10;
+  });
+}
+
+// ── Lupa overlay při tažení ────────────────────────────────────
+function _drawLoupe(ctx, canvas, dragPos, cornerPt) {
+  const img = CROP.img;
+  const s = CROP.scale;
+  const LOUPE_R = 70;       // poloměr lupy na canvasu
+  const LOUPE_ZOOM = 3.5;   // zvětšení
+
+  // Střed lupy: nad/pod taženým rohem, aby nepřekrýval prst
+  let lx = cornerPt.x;
+  let ly = cornerPt.y - LOUPE_R - 20;
+  if (ly < LOUPE_R + 10) ly = cornerPt.y + LOUPE_R + 20;
+  lx = Math.max(LOUPE_R + 5, Math.min(canvas.width - LOUPE_R - 5, lx));
+
+  // Zdrojová oblast v obraze (kolem rohu)
+  const srcW = (LOUPE_R * 2) / (s * LOUPE_ZOOM);
+  const srcH = (LOUPE_R * 2) / (s * LOUPE_ZOOM);
+  const srcX = (cornerPt.x / s) - srcW / 2;
+  const srcY = (cornerPt.y / s) - srcH / 2;
+
+  ctx.save();
+  // Kruhový clip pro lupu
+  ctx.beginPath();
+  ctx.arc(lx, ly, LOUPE_R, 0, Math.PI*2);
+  ctx.clip();
+
+  // Tmavé pozadí
+  ctx.fillStyle = '#111';
+  ctx.fillRect(lx - LOUPE_R, ly - LOUPE_R, LOUPE_R*2, LOUPE_R*2);
+
+  // Zvětšený výřez obrazu
+  ctx.drawImage(
+    img,
+    srcX, srcY, srcW, srcH,
+    lx - LOUPE_R, ly - LOUPE_R, LOUPE_R*2, LOUPE_R*2
+  );
+
+  ctx.restore();
+
+  // Kříž uprostřed lupy (přesný střed = pozice rohu)
+  ctx.save();
+  ctx.strokeStyle = 'rgba(245,200,66,0.9)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(lx - 12, ly); ctx.lineTo(lx + 12, ly);
+  ctx.moveTo(lx, ly - 12); ctx.lineTo(lx, ly + 12);
+  ctx.stroke();
+  // Středový bod
+  ctx.fillStyle = '#f5c842';
+  ctx.beginPath();
+  ctx.arc(lx, ly, 2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+
+  // Okraj lupy + odrazek
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(lx, ly, LOUPE_R, 0, Math.PI*2);
+  ctx.strokeStyle = '#f5c842';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  // Lesk
+  ctx.beginPath();
+  ctx.arc(lx - LOUPE_R*0.3, ly - LOUPE_R*0.3, LOUPE_R*0.18, 0, Math.PI*2);
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.fill();
+  ctx.restore();
+
+  // Čára spojující lupu s rohem
+  ctx.save();
+  ctx.strokeStyle = 'rgba(245,200,66,0.4)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(lx, ly + (ly < cornerPt.y ? LOUPE_R : -LOUPE_R));
+  ctx.lineTo(cornerPt.x, cornerPt.y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ── Režim 2: Rohové zarážky (pravý úhel) ──────────────────────
+function _drawPreciseHandles(ctx, pts) {
+  const ARM = 20;   // délka ramene zarážky
+  const T = 3;      // tloušťka čáry
+
+  // Směrové vektory rohů: pro každý roh víme které strany quad vedou dál
+  // pořadí: [TL, TR, BR, BL]
+  const dirs = [
+    { ax:  1, ay:  0, bx:  0, by:  1 },   // TL → doprava, dolů
+    { ax: -1, ay:  0, bx:  0, by:  1 },   // TR → doleva, dolů
+    { ax: -1, ay:  0, bx:  0, by: -1 },   // BR → doleva, nahoru
+    { ax:  1, ay:  0, bx:  0, by: -1 },   // BL → doprava, nahoru
+  ];
+
+  pts.forEach((p, i) => {
+    const d = dirs[i];
+
+    // Bílý stín pro kontrast na tmavém i světlém pozadí
     ctx.save();
-    ctx.font = 'bold 10px sans-serif';
-    ctx.fillStyle = '#f5c842';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(CORNER_LABELS[i], p.x+ox, p.y+oy);
+    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    ctx.lineWidth = T + 3;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    ctx.moveTo(p.x + d.ax * ARM, p.y + d.ay * ARM);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineTo(p.x + d.bx * ARM, p.y + d.by * ARM);
+    ctx.stroke();
+    ctx.restore();
+
+    // Zlatá zarážka
+    ctx.save();
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = T;
+    ctx.lineCap = 'square';
+    ctx.beginPath();
+    ctx.moveTo(p.x + d.ax * ARM, p.y + d.ay * ARM);
+    ctx.lineTo(p.x, p.y);
+    ctx.lineTo(p.x + d.bx * ARM, p.y + d.by * ARM);
+    ctx.stroke();
+    ctx.restore();
+
+    // Středový bod (přesná pozice rohu)
+    ctx.save();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
     ctx.restore();
   });
 }
@@ -1047,7 +1217,8 @@ function _onCropDown(e) {
   const canvas = document.getElementById('cropCanvas');
   const pos = _canvasXY(canvas, e);
   const s = CROP.scale;
-  let best = -1, bestD = HANDLE_R * 2.5;
+  const hitR = CROP.mode === 'precise' ? 28 : HANDLE_R * 2.5;
+  let best = -1, bestD = hitR;
   CROP.corners.forEach((c, i) => {
     const dx = c.x*s - pos.x, dy = c.y*s - pos.y;
     const d = Math.sqrt(dx*dx + dy*dy);
@@ -1055,6 +1226,7 @@ function _onCropDown(e) {
   });
   if (best < 0) return;
   CROP.drag = best;
+  CROP.dragPos = pos;
   canvas.setPointerCapture(e.pointerId);
   canvas.addEventListener('pointermove', _onCropMove);
   canvas.addEventListener('pointerup',   _onCropUp);
@@ -1071,14 +1243,17 @@ function _onCropMove(e) {
     x: Math.max(0, Math.min(iw, pos.x / s)),
     y: Math.max(0, Math.min(ih, pos.y / s)),
   };
+  CROP.dragPos = pos;  // pro lupu
   _drawCrop();
 }
 
 function _onCropUp(e) {
   CROP.drag = null;
+  CROP.dragPos = null;
   const canvas = document.getElementById('cropCanvas');
   canvas.removeEventListener('pointermove', _onCropMove);
   canvas.removeEventListener('pointerup',   _onCropUp);
+  _drawCrop();
 }
 
 function resetCrop() {
