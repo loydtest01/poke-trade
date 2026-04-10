@@ -91,63 +91,29 @@ body { background: #06040c; overflow-x: hidden; }
 /* ── Layout ────────────────────────────────────────────────── */
 .page-wrap { position: relative; z-index: 1; display: flex; min-height: calc(100vh - 56px); }
 
-/* ── Side tab strip + sliding panel ───────────────────────── */
-.side-tabs {
-  width: 36px; flex-shrink: 0;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 2px; padding: 8px 0;
-  background: rgba(8,8,12,0.9);
-  border-right: 1px solid rgba(255,255,255,0.06);
-  position: sticky; top: 56px;
-  height: calc(100vh - 56px);
-  z-index: 100; overflow: visible;
-}
-.side-tab {
-  writing-mode: vertical-lr;
-  transform: rotate(180deg);
-  font-size: 10px; font-weight: 700; letter-spacing: .12em;
-  text-transform: uppercase; color: rgba(240,232,208,0.35);
-  padding: 14px 8px; border-radius: 7px; cursor: pointer;
-  background: none; border: none; font-family: inherit;
-  white-space: nowrap; transition: all .18s;
-  position: relative; line-height: 1;
-  display: flex; align-items: center; gap: 5px;
-}
-.side-tab:hover { color: rgba(240,232,208,0.75); background: rgba(255,255,255,0.05); }
-.side-tab.active { color: var(--yellow); background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2); }
-.side-tab-dot {
-  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
-  background: var(--yellow); display: none;
-}
-.side-tab.has-active .side-tab-dot { display: block; }
+/* ── Side tab strip (hidden — replaced by fixed panel) ──── */
+.side-tabs { display: none; }
+.side-tab, .side-tab-dot { display: none; }
 
-/* Sidebar jako sliding panel */
+/* Sidebar overlay (no longer needed) */
+.sidebar-overlay { display: none; }
+
+/* ── Fixed left filter panel ──────────────────────────────── */
 .sidebar {
-  position: fixed; top: 56px; left: 36px; bottom: 0;
-  width: 220px; z-index: 300;
+  position: sticky; top: 56px;
+  width: 230px; flex-shrink: 0;
+  height: calc(100vh - 56px);
   background: rgba(10,10,16,0.97);
   border-right: 1px solid rgba(255,255,255,0.07);
   padding: 0; overflow-y: auto;
-  transform: translateX(-100%);
-  transition: transform .26s cubic-bezier(.32,.72,0,1);
-  box-shadow: 4px 0 32px rgba(0,0,0,0.5);
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.08) transparent;
+  z-index: 100;
 }
 .sidebar::-webkit-scrollbar { width: 3px; }
 .sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-.sidebar.open { transform: translateX(0); }
 
-/* Overlay pro zavření sidebaru */
-.sidebar-overlay {
-  position: fixed; inset: 0; z-index: 299;
-  background: rgba(0,0,0,0.4);
-  opacity: 0; pointer-events: none;
-  transition: opacity .22s;
-}
-.sidebar-overlay.open { opacity: 1; pointer-events: all; }
-
-/* Sidebar header s close btn */
+/* Sidebar header */
 .sb-panel-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 10px 12px 6px;
@@ -155,17 +121,51 @@ body { background: #06040c; overflow-x: hidden; }
   position: sticky; top: 0; z-index: 1;
   background: rgba(10,10,16,0.97);
 }
+.sb-panel-close { display: none; }
 .sb-panel-title {
   font-size: 11px; font-weight: 700; letter-spacing: .1em;
   text-transform: uppercase; color: var(--text3);
+
+/* ── Accordion groups ─────────────────────────────────────── */
 }
-.sb-panel-close {
-  width: 24px; height: 24px; border-radius: 6px;
-  background: rgba(255,255,255,0.06); border: none; color: var(--text3);
-  font-size: 12px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; transition: all .15s; font-family: inherit;
+.filter-group { border-bottom: 1px solid rgba(255,255,255,0.05); }
+.filter-group-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  transition: background .15s;
 }
-.sb-panel-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+.filter-group-header:hover { background: rgba(255,255,255,0.03); }
+.filter-group-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text2);
+  display: flex; align-items: center; gap: 6px;
+}
+.filter-group-arrow {
+  font-size: 10px; color: var(--text3);
+  transition: transform .2s;
+}
+.filter-group.open .filter-group-arrow { transform: rotate(180deg); }
+.filter-group-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height .28s cubic-bezier(.32,.72,0,1);
+}
+.filter-group.open .filter-group-body {
+  max-height: 600px;
+}
+.filter-group-content {
+  padding: 0 10px 12px;
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.filter-group-content .type-chip {
+  font-size: 11px; padding: 4px 9px;
+}
+.fg-active-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--yellow); display: none; flex-shrink: 0;
+}
+.filter-group.has-active .fg-active-dot { display: block; }
+}
+/* sb-panel-close handled in sidebar block above */
 
 .sb-section { padding: 10px 10px 8px; }
 .sb-label {
@@ -640,6 +640,7 @@ body { background: #06040c; overflow-x: hidden; }
   .book-pages { grid-template-columns: 1fr; }
   .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
   .book-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+  .sidebar { display: none; }
 }
 
 /* ── Card detail modal ─────────────────────────────────────── */
@@ -1210,87 +1211,77 @@ body { background: #06040c; overflow-x: hidden; }
 
 <div class="page-wrap">
 
-  <!-- Sidebar overlay -->
-  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidePanel()"></div>
+  <!-- Sidebar overlay (legacy, hidden) -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-  <!-- Side tab strip -->
-  <div class="side-tabs" id="sideTabs">
-    <button class="side-tab" id="stab-zobrazit" onclick="toggleSidePanel('zobrazit')" title="Zobrazit">
-      <span class="side-tab-dot"></span>Zobrazit
-    </button>
-    <button class="side-tab" id="stab-stav" onclick="toggleSidePanel('stav')" title="Stav karty">
-      <span class="side-tab-dot"></span>Stav
-    </button>
-    <button class="side-tab" id="stab-alba" onclick="toggleSidePanel('alba')" title="Moje alba">
-      <span class="side-tab-dot"></span>Alba
-    </button>
-    <button class="side-tab" id="stab-nastaveni" onclick="toggleSidePanel('nastaveni')" title="Nastavení">
-      <span class="side-tab-dot"></span>Sync
-    </button>
-  </div>
-
-  <!-- Sidebar sliding panel -->
+  <!-- Fixed left filter panel -->
   <aside class="sidebar" id="sidebar">
     <div class="sb-panel-header">
-      <span class="sb-panel-title" id="sbPanelTitle">—</span>
-      <button class="sb-panel-close" onclick="closeSidePanel()">✕</button>
+      <span class="sb-panel-title">⚙ Filtry</span>
+      <button class="fd-reset-btn" onclick="resetAllFilters()" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;padding:3px 6px;border-radius:5px;transition:all .15s" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--text3)'">Reset</button>
     </div>
 
-    <div id="sb-section-zobrazit">
-      <div class="sb-section">
-        <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
-        <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
-        <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
+    <!-- ── Skupina: Vzácnost ── -->
+    <div class="filter-group open" id="fg-rarity">
+      <div class="filter-group-header" onclick="toggleFilterGroup('fg-rarity')">
+        <span class="filter-group-title"><span class="fg-active-dot"></span>🌟 Vzácnost</span>
+        <span class="filter-group-arrow">▼</span>
       </div>
-    </div>
-
-    <div id="sb-section-stav" style="display:none">
-      <div class="sb-section">
-        <button class="sb-btn active" onclick="setCond('')">Vše</button>
-        <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
-        <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
-        <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
-        <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
-      </div>
-    </div>
-
-    <div id="sb-section-alba" style="display:none">
-      <div class="sb-section">
-        <span class="sb-label">Speciální</span>
-        <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
-        <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
-      </div>
-      <div class="sb-divider"></div>
-      <div class="sb-section">
-        <span class="sb-label">Moje alba</span>
-        <div class="album-list" id="albumList">
-          <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+      <div class="filter-group-body">
+        <div class="filter-group-content" id="fgRarityChips">
+          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
+          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+          <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
+          <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
+          <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
+          <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
         </div>
-        <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
       </div>
     </div>
 
-    <div id="sb-section-nastaveni" style="display:none">
-      <div class="sb-section">
-        <span class="sb-label">Sync mód</span>
-        <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
-          style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
-          <option value="hourly">Každou hodinu</option>
-          <option value="realtime">Real-time (30s)</option>
-          <option value="manual">Manuálně</option>
-        </select>
-        <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    <!-- ── Skupina: Pokémon (supertype) ── -->
+    <div class="filter-group open" id="fg-pokemon">
+      <div class="filter-group-header" onclick="toggleFilterGroup('fg-pokemon')">
+        <span class="filter-group-title"><span class="fg-active-dot"></span>🎴 Pokémon</span>
+        <span class="filter-group-arrow">▼</span>
       </div>
-      <div class="sb-divider"></div>
-      <div class="sb-section">
-        <span class="sb-label">Měna</span>
-        <div style="display:flex;gap:6px;">
-          <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
-          <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
+      <div class="filter-group-body">
+        <div class="filter-group-content" id="fgPokemonChips">
+          <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all2">0</span></button>
+          <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon2">0</span></button>
+          <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer2">0</span></button>
+          <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy2">0</span></button>
         </div>
-        <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
       </div>
     </div>
+
+    <!-- ── Skupina: Element ── -->
+    <div class="filter-group open" id="fg-element">
+      <div class="filter-group-header" onclick="toggleFilterGroup('fg-element')">
+        <span class="filter-group-title"><span class="fg-active-dot"></span>🔥 Element</span>
+        <span class="filter-group-arrow">▼</span>
+      </div>
+      <div class="filter-group-body">
+        <div class="filter-group-content" id="fgElementChips">
+          <button class="type-chip active" onclick="setType('')">Vše</button>
+          <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
+          <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
+          <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
+          <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
+          <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
+          <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
+          <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
+          <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
+          <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
+          <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
+          <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normál</button>
+          <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Led</button>
+        </div>
+      </div>
+    </div>
+
   </aside>
 
   <!-- Main -->
@@ -1711,7 +1702,8 @@ let editingAlbumId = null;
     setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
   }
 
-  document.getElementById('syncModeSelect').value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
+  const _syncSel = document.getElementById('syncModeSelect');
+  if (_syncSel) _syncSel.value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
   updateLastSyncInfo();
   renderColorPicker();
   renderIconPicker();
@@ -2893,14 +2885,19 @@ function renderAlbumList() {
   // Aktualizuj počty speciálních alb v sidebaru
   const vymena = allAlbums.find(a => a.name === 'Výměna');
   const obchod = allAlbums.find(a => a.name === 'Obchod');
-  document.getElementById('cnt-vymena').textContent = (vymena?.cardIds||[]).length;
-  document.getElementById('cnt-obchod').textContent = (obchod?.cardIds||[]).length;
+  const cntVymena = document.getElementById('cnt-vymena');
+  const cntObchod = document.getElementById('cnt-obchod');
+  if (cntVymena) cntVymena.textContent = (vymena?.cardIds||[]).length;
+  if (cntObchod) cntObchod.textContent = (obchod?.cardIds||[]).length;
 
   // Zvýrazni aktivní speciální album v sidebaru
-  document.getElementById('sbVymena').classList.toggle('active', activeAlbumId === vymena?.id);
-  document.getElementById('sbObchod').classList.toggle('active', activeAlbumId === obchod?.id);
+  const sbVymena = document.getElementById('sbVymena');
+  const sbObchod = document.getElementById('sbObchod');
+  if (sbVymena) sbVymena.classList.toggle('active', activeAlbumId === vymena?.id);
+  if (sbObchod) sbObchod.classList.toggle('active', activeAlbumId === obchod?.id);
 
   const el = document.getElementById('albumList');
+  if (!el) return;
   // Skryj speciální alba ze seznamu
   const regular = allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name));
   if (!regular.length) {
@@ -3284,9 +3281,13 @@ function setView(v) {
 
 function setType(t) {
   activeType = t;
-  document.querySelectorAll('.type-chip').forEach(b =>
-    b.classList.toggle('active', (t === '' && b.textContent === 'Vše') || (t && b.textContent.toLowerCase().includes(t)))
-  );
+  // Update all type-chip elements (drawer + sidebar panel)
+  document.querySelectorAll('.type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    if (fn.includes('setType'))
+      b.classList.toggle('active', (t === '' && fn.includes("''")) || (t && fn.includes(`'${t}'`)));
+  });
+  updateFilterGroupDots();
   renderFilterBadges();
   render();
 }
@@ -3325,21 +3326,34 @@ function changeSyncMode(mode) {
 }
 
 function updateStats() {
-  document.getElementById('cnt-all').textContent   = allCards.length;
+  const cntAll = document.getElementById('cnt-all');
+  if (cntAll) cntAll.textContent = allCards.length;
   document.getElementById('statAll').textContent   = allCards.length;
-  document.getElementById('cnt-trade').textContent = allCards.filter(c => c.for_trade).length;
+  const cntTrade = document.getElementById('cnt-trade');
+  if (cntTrade) cntTrade.textContent = allCards.filter(c => c.for_trade).length;
   document.getElementById('statTrade').textContent = allCards.filter(c => c.for_trade).length;
-  document.getElementById('cnt-sell').textContent  = allCards.filter(c => c.for_sell).length;
+  const cntSell = document.getElementById('cnt-sell');
+  if (cntSell) cntSell.textContent = allCards.filter(c => c.for_sell).length;
   document.getElementById('statSell').textContent  = allCards.filter(c => c.for_sell).length;
-  // Supertype počty
+  // Supertype počty – drawer
   document.getElementById('st-cnt-all').textContent     = allCards.length;
   document.getElementById('st-cnt-pokemon').textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
   document.getElementById('st-cnt-trainer').textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
   document.getElementById('st-cnt-energy').textContent  = allCards.filter(c => matchSupertype(c,'Energy')).length;
+  // Supertype počty – sidebar panel
+  const sa2 = document.getElementById('st-cnt-all2');
+  if (sa2) sa2.textContent = allCards.length;
+  const sp2 = document.getElementById('st-cnt-pokemon2');
+  if (sp2) sp2.textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
+  const st2 = document.getElementById('st-cnt-trainer2');
+  if (st2) st2.textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
+  const se2 = document.getElementById('st-cnt-energy2');
+  if (se2) se2.textContent = allCards.filter(c => matchSupertype(c,'Energy')).length;
 }
 
 function setSupertype(st) {
   activeSupertype = st;
+  // Update all st-btn elements (drawer + sidebar panel)
   document.querySelectorAll('.st-btn').forEach(b => {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
@@ -3351,10 +3365,14 @@ function setSupertype(st) {
   if (typeSection)  typeSection.style.display  = (st === '' || st === 'Pokémon') ? '' : 'none';
   if (trainerBar)   trainerBar.style.display   = (st === 'Trainer') ? '' : 'none';
   if (energyBar)    energyBar.style.display    = (st === 'Energy')  ? '' : 'none';
+  // Sidebar panel: zobrazit/skrýt Element skupinu podle supertypeu
+  const fgElement = document.getElementById('fg-element');
+  if (fgElement) fgElement.style.display = (st === '' || st === 'Pokémon') ? '' : 'none';
   // Reset sub-filtrů při přepnutí supertypeu
   if (st !== 'Trainer') setTrainerSubtype('', false);
   if (st !== 'Energy')  setEnergyColor('', false);
   if (st === '' || st === 'Pokémon') {} else setType('');
+  updateFilterGroupDots();
   renderFilterBadges();
   render();
 }
@@ -3378,7 +3396,7 @@ function setSyncState(state, label) {
 function updateLastSyncInfo() {
   const t  = localStorage.getItem(LAST_SYNC_KEY);
   const el = document.getElementById('lastSyncInfo');
-  el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
+  if (el) el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3565,10 +3583,17 @@ function setEnergyColor(c, doRender = true) {
 
 function setRarity(r) {
   activeRarity = r;
+  // Update drawer chips
   document.querySelectorAll('#rarityBar .type-chip').forEach(b => {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
   });
+  // Update sidebar panel chips
+  document.querySelectorAll('#fgRarityChips .type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
+  });
+  updateFilterGroupDots();
   renderFilterBadges();
   render();
 }
@@ -3647,8 +3672,28 @@ document.addEventListener('keydown', e => {
 });
 
 // ══════════════════════════════════════════════════════════════════
-//  SIDE TAB PANEL
+//  FILTER PANEL (accordion groups)
 // ══════════════════════════════════════════════════════════════════
+function toggleFilterGroup(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('open');
+}
+
+function updateFilterGroupDots() {
+  const fgRarity  = document.getElementById('fg-rarity');
+  const fgPokemon = document.getElementById('fg-pokemon');
+  const fgElement = document.getElementById('fg-element');
+  if (fgRarity)  fgRarity.classList.toggle('has-active',  !!activeRarity);
+  if (fgPokemon) fgPokemon.classList.toggle('has-active', !!activeSupertype);
+  if (fgElement) fgElement.classList.toggle('has-active',  !!activeType);
+}
+
+// Legacy stubs so old code doesn't break
+function toggleSidePanel() {}
+function openSidePanel() {}
+function closeSidePanel() {}
+function updateSideTabDots() { updateFilterGroupDots(); }
+
 const SIDE_SECTIONS = {
   zobrazit: { title: 'Zobrazit', label: 'Zobrazit' },
   stav:     { title: 'Stav karty', label: 'Stav' },
@@ -3656,50 +3701,6 @@ const SIDE_SECTIONS = {
   nastaveni:{ title: 'Nastavení', label: 'Sync' },
 };
 let _activeSideSection = null;
-
-function toggleSidePanel(section) {
-  if (_activeSideSection === section) {
-    closeSidePanel();
-  } else {
-    openSidePanel(section);
-  }
-}
-
-function openSidePanel(section) {
-  _activeSideSection = section;
-  const sidebar  = document.getElementById('sidebar');
-  const overlay  = document.getElementById('sidebarOverlay');
-  const title    = document.getElementById('sbPanelTitle');
-
-  // Zobraz správnou sekci, ostatní skryj
-  Object.keys(SIDE_SECTIONS).forEach(key => {
-    const el = document.getElementById('sb-section-' + key);
-    if (el) el.style.display = key === section ? '' : 'none';
-  });
-
-  // Titulek
-  if (title) title.textContent = SIDE_SECTIONS[section]?.title || section;
-
-  // Aktivní tab
-  document.querySelectorAll('.side-tab').forEach(t =>
-    t.classList.toggle('active', t.id === 'stab-' + section));
-
-  sidebar.classList.add('open');
-  overlay.classList.add('open');
-}
-
-function closeSidePanel() {
-  _activeSideSection = null;
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
-  document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
-}
-
-// Dot na Alba tab pokud je aktivní album
-function updateSideTabDots() {
-  const albaTab = document.getElementById('stab-alba');
-  if (albaTab) albaTab.classList.toggle('has-active', !!activeAlbumId);
-}
 
 function matchTrainerSubtype(c, t) {
   const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
