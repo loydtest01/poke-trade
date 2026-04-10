@@ -147,6 +147,19 @@ body { background: #06040c; overflow-x: hidden; }
   font-family: inherit; cursor: pointer; margin-top: 6px; transition: all .15s;
 }
 .new-album-btn:hover { border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+.curr-btn {
+  flex: 1; padding: 6px 0; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--text2); font-family: inherit;
+  font-size: 12px; cursor: pointer; transition: all .15s;
+}
+.curr-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.curr-btn.curr-active {
+  background: rgba(245,200,66,0.18);
+  border-color: rgba(245,200,66,0.45);
+  color: #f5c842; font-weight: 700;
+}
 
 /* ── Main content ──────────────────────────────────────────── */
 .main { flex: 1; padding: 20px; min-width: 0; }
@@ -946,6 +959,15 @@ body { background: #06040c; overflow-x: hidden; }
       </select>
       <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
     </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Měna</span>
+      <div style="display:flex;gap:6px;">
+        <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
+        <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
+      </div>
+      <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    </div>
   </aside>
 
   <!-- Main -->
@@ -979,9 +1001,8 @@ body { background: #06040c; overflow-x: hidden; }
 
     <!-- Celková hodnota sbírky -->
     <div id="totalValueBar" style="display:none;align-items:center;gap:10px;padding:6px 16px;background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.18);border-radius:10px;margin:0 0 8px;flex-wrap:wrap;">
-      <span style="font-size:12px;color:rgba(240,232,208,0.5);font-weight:600;letter-spacing:.06em;text-transform:uppercase">📊 Celková hodnota sbírky</span>
-      <span id="totalValueAmt" style="font-size:17px;font-weight:800;color:#f5c842;font-family:'Unbounded',sans-serif">—</span>
-      <span style="font-size:11px;color:rgba(240,232,208,0.35)">(Průměr 30d · <span id="totalValueCnt">0</span> karet s cenou)</span>
+      <span id="eurRateBadge" style="font-size:10px;color:rgba(240,232,208,0.4);font-weight:600;letter-spacing:.04em;background:rgba(255,255,255,0.05);border-radius:6px;padding:2px 7px"></span>
+      <span id="totalValueAmt" style="font-size:15px;font-weight:800;color:#f5c842;font-family:'Unbounded',sans-serif">—</span>
       <span id="totalExpCnt" style="font-size:11px;color:#f5c842;display:none">· <span id="totalExpNum">0</span> drahých ⭐</span>
     </div>
 
@@ -1281,6 +1302,8 @@ let editingAlbumId = null;
   updateLastSyncInfo();
   renderColorPicker();
   renderIconPicker();
+  fetchEurRate();
+  updateCurrencyUI();
 
   await Promise.all([loadCards(), loadAlbums()]);
   renderAlbumList();
@@ -1405,15 +1428,18 @@ function render() {
   // Celková hodnota sbírky (Průměr 30d ze všech zobrazených karet)
   const tvBar  = document.getElementById('totalValueBar');
   const tvAmt  = document.getElementById('totalValueAmt');
-  const tvCnt  = document.getElementById('totalValueCnt');
   const tvExp  = document.getElementById('totalExpCnt');
   const tvExpN = document.getElementById('totalExpNum');
   const cardsWithPrice = filtered.filter(c => c.p30d > 0);
   const totalVal = cardsWithPrice.reduce((s, c) => s + (c.p30d * (c.count || c.qty || 1)), 0);
   const expCount = filtered.filter(c => c.p30d >= getExpThreshold() && c.p30d > 0).length;
-  if (tvBar) tvBar.style.display = cardsWithPrice.length ? 'flex' : 'none';
-  if (tvAmt) tvAmt.textContent = totalVal > 0 ? totalVal.toFixed(2) + ' €' : '—';
-  if (tvCnt) tvCnt.textContent = cardsWithPrice.length;
+  if (tvBar) tvBar.style.display = 'flex';
+  if (tvAmt) {
+    const cnt = cardsWithPrice.length;
+    const eurStr = totalVal > 0 ? totalVal.toFixed(2) + ' €' : '0 €';
+    const czkStr = eurToCzk(totalVal) + ' Kč';
+    tvAmt.textContent = cnt + ' karet · ' + eurStr + (window._eurRate ? ' / ' + czkStr : '');
+  }
   if (tvExp)  tvExp.style.display  = expCount > 0 ? '' : 'none';
   if (tvExpN) tvExpN.textContent   = expCount;
 
@@ -1439,6 +1465,53 @@ function getExpThreshold() {
   return isNaN(v) ? 20 : v;
 }
 
+// ══════════════════════════════════════════════
+//  CURRENCY / EUR→CZK
+// ══════════════════════════════════════════════
+window._eurRate = null;  // e.g. 25.30
+window._currency = localStorage.getItem('pkc_currency') || 'EUR';
+
+async function fetchEurRate() {
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=CZK');
+    const d = await r.json();
+    window._eurRate = d?.rates?.CZK || null;
+  } catch {}
+  updateCurrencyUI();
+}
+
+function eurToCzk(eur) {
+  if (!window._eurRate) return '?';
+  return Math.round(eur * window._eurRate).toLocaleString('cs-CZ');
+}
+
+function fmtCardPrice(eurVal) {
+  if (window._currency === 'CZK' && window._eurRate) {
+    return Math.round(eurVal * window._eurRate) + ' Kč';
+  }
+  return Number(eurVal).toFixed(2) + ' €';
+}
+
+function setCurrency(cur) {
+  window._currency = cur;
+  localStorage.setItem('pkc_currency', cur);
+  updateCurrencyUI();
+  render();
+}
+
+function updateCurrencyUI() {
+  const btnEUR = document.getElementById('currBtnEUR');
+  const btnCZK = document.getElementById('currBtnCZK');
+  const rateInfo = document.getElementById('eurRateInfo');
+  const rateBadge = document.getElementById('eurRateBadge');
+  if (btnEUR) btnEUR.classList.toggle('curr-active', window._currency === 'EUR');
+  if (btnCZK) btnCZK.classList.toggle('curr-active', window._currency === 'CZK');
+  const rateStr = window._eurRate ? '1 € = ' + window._eurRate.toFixed(2) + ' Kč' : 'Načítám kurz…';
+  if (rateInfo) rateInfo.textContent = rateStr;
+  if (rateBadge) rateBadge.textContent = window._eurRate ? '1 € = ' + window._eurRate.toFixed(2) + ' Kč' : '';
+}
+
+
 function renderCard(c, albumCardIds) {
   const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
   const emoji = typeEmoji(c.types?.[0] || c.type || '');
@@ -1459,7 +1532,7 @@ function renderCard(c, albumCardIds) {
       <div class="card-badges">
         ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
-        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">⭐ ${c.p30d.toFixed(0)} €</span>` : ''}
+        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">⭐ ${fmtCardPrice(c.p30d)}</span>` : ''}
         ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')" title="Smazat kartu">🗑</button>` : ''}
       </div>
       <div class="card-footer">
@@ -1789,7 +1862,7 @@ function _cdTcgRenderGrid(cards, statusEl, gridEl) {
   gridEl.innerHTML = cards.map((card, idx) => {
     const img   = card.images?.small || '';
     const price = card.cardmarket?.prices?.trendPrice;
-    const prStr = price ? price.toFixed(2) + ' €' : '';
+    const prStr = price ? fmtCardPrice(price) : '';
     return `<div class="cd-tcg-card" id="cdTcgCard-${idx}" onclick="_cdTcgPickCard(${idx})"
                title="${card.name} · ${card.set?.name} #${card.number}">
       ${img ? `<img src="${img}" loading="lazy" alt="${card.name}">` : `<div class="no-img">?</div>`}
@@ -2004,7 +2077,7 @@ async function syncCardToServer(c) {
 // ── Cardmarket ceny ──────────────────────────────────────────────
 function renderPrices(c, el) {
   if (!el) return;
-  const fmt = v => (v != null && v > 0) ? Number(v).toFixed(2) + ' €' : null;
+  const fmt = v => (v != null && v > 0) ? fmtCardPrice(Number(v)) : null;
   const pMin   = fmt(c.pMin);
   const pTrend = fmt(c.pTrend);
   const p30d   = fmt(c.p30d);
