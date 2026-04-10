@@ -643,6 +643,23 @@ async function loadQueue() {
     document.getElementById('assignAllBtn').disabled = false;
 
     renderGroups();
+
+    // Scroll to highlighted card if navigated from scanner
+    const highlightId = new URLSearchParams(location.search).get('highlight');
+    if (highlightId) {
+      const gi = cardGroups.findIndex(g => g.batchId === highlightId || g.rows?.some(r => r.id === highlightId));
+      if (gi !== -1) {
+        setTimeout(() => {
+          const el = document.getElementById(`group-${gi}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.outline = '2px solid var(--gold)';
+            el.style.transition = 'outline 0.5s';
+            setTimeout(() => { el.style.outline = ''; }, 2500);
+          }
+        }, 300);
+      }
+    }
   } catch(e) {
     document.getElementById('contentArea').innerHTML = `
       <div class="state-box">

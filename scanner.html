@@ -803,8 +803,6 @@ body::after {
         <button class="btn btn-primary" id="recognizeBtn" onclick="recognizeAll()">
           🤖 Rozpoznat kartičky
         </button>
-        <button class="btn btn-outline" onclick="selectAll()">☑ Vybrat vše</button>
-        <button class="btn btn-outline" onclick="clearPhotos()">🗑 Vymazat vše</button>
       </div>
       <div class="action-bar-right">
         <button class="btn btn-primary" id="saveBtn" onclick="saveSelected()" disabled>
@@ -1291,6 +1289,14 @@ function renderPhotoGrid() {
 
     const card = document.createElement('div');
     card.className = 'photo-card ' + statusClass;
+    card.style.cursor = 'pointer';
+    if (p.queueId) {
+      card.onclick = (e) => {
+        // Don't trigger when clicking the remove button
+        if (e.target.closest('.photo-remove')) return;
+        window.location.href = `queue.html?highlight=${p.queueId}`;
+      };
+    }
     card.innerHTML = `
       <img src="${p.dataUrl}" alt="${p.name}" loading="lazy" onload="this.style.opacity='1'" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22140%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%23333%22/><text x=%2250%25%22 y=%2250%25%22 dominant-baseline=%22middle%22 text-anchor=%22middle%22 fill=%22%23888%22 font-size=%2212%22>?</text></svg>'" style="opacity:0;transition:opacity .3s">
       <div class="photo-overlay">
