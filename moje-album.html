@@ -224,6 +224,115 @@ body { background: #06040c; overflow-x: hidden; }
 .type-chip:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
 .type-chip.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
 
+/* ── Filter Drawer ─────────────────────────────────────────── */
+.filter-overlay {
+  position: fixed; inset: 0; z-index: 490;
+  background: rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+  backdrop-filter: blur(2px);
+}
+.filter-overlay.open { opacity: 1; pointer-events: all; }
+
+.filter-drawer {
+  position: fixed; top: 0; left: 0; bottom: 0; z-index: 500;
+  width: 300px;
+  background: rgba(10,10,16,0.97);
+  border-right: 1px solid rgba(255,255,255,0.08);
+  display: flex; flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .28s cubic-bezier(.32,.72,0,1);
+  box-shadow: 4px 0 40px rgba(0,0,0,0.6);
+}
+.filter-drawer.open { transform: translateX(0); }
+
+.fd-header {
+  display: flex; align-items: center;
+  padding: 0 16px;
+  height: 56px; flex-shrink: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 8px;
+}
+.fd-title {
+  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700;
+  color: var(--text); flex: 1;
+}
+.fd-reset-btn {
+  font-size: 11px; color: var(--text3); background: none; border: none;
+  cursor: pointer; font-family: inherit; padding: 4px 8px;
+  border-radius: 6px; transition: all .15s;
+}
+.fd-reset-btn:hover { color: var(--yellow); background: rgba(245,200,66,0.1); }
+.fd-close-btn {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: none; color: var(--text2);
+  font-size: 14px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all .15s; font-family: inherit;
+}
+.fd-close-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+.fd-body {
+  flex: 1; overflow-y: auto; padding: 12px 16px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+.fd-body::-webkit-scrollbar { width: 4px; }
+.fd-body::-webkit-scrollbar-track { background: transparent; }
+.fd-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.fd-section { margin-bottom: 20px; }
+.fd-section-title {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text3);
+  margin-bottom: 8px; padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.fd-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.fd-chips .type-chip, .fd-chips .st-btn {
+  font-size: 11px; padding: 4px 10px;
+}
+
+/* Active filter badge bar */
+.filter-badge-bar {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
+  padding: 0 0 10px;
+}
+.filter-badge-bar:empty { display: none; }
+.flt-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px 3px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; cursor: default;
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.28);
+  color: var(--yellow); white-space: nowrap;
+}
+.flt-badge-x {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: rgba(245,200,66,0.2); border: none;
+  color: var(--yellow); font-size: 9px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s; font-family: inherit; padding: 0;
+  flex-shrink: 0;
+}
+.flt-badge-x:hover { background: rgba(245,200,66,0.4); }
+
+/* Filtry btn s dot */
+.filtry-btn {
+  position: relative;
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.filtry-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.filtry-btn.has-active { border-color: rgba(245,200,66,0.35); color: var(--yellow); background: rgba(245,200,66,0.08); }
+.filtry-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--yellow); display: none; flex-shrink: 0;
+}
+.filtry-btn.has-active .filtry-dot { display: block; }
+
 /* ── Karty grid ────────────────────────────────────────────── */
 .cards-grid {
   display: grid;
@@ -1088,79 +1197,118 @@ body { background: #06040c; overflow-x: hidden; }
       <span id="totalExpCnt" style="font-size:11px;color:#f5c842;display:none">· <span id="totalExpNum">0</span> drahých ⭐</span>
     </div>
 
-    <!-- Supertype lišta -->
-    <div class="supertype-bar">
-      <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
-    </div>
+    <!-- ═══ FILTER DRAWER ═══════════════════════════════════════ -->
+    <div class="filter-overlay" id="filterOverlay" onclick="closeFilterDrawer()"></div>
+    <div class="filter-drawer" id="filterDrawer">
+      <div class="fd-header">
+        <span class="fd-title">⚙ Filtry</span>
+        <button class="fd-reset-btn" onclick="resetAllFilters()">Reset</button>
+        <button class="fd-close-btn" onclick="closeFilterDrawer()">✕</button>
+      </div>
+      <div class="fd-body">
 
-    <!-- Typ bary -->
-    <div class="type-bar">
-      <button class="type-chip active" onclick="setType('')">Vše</button>
-      <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
-      <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
-      <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
-      <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
-      <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
-      <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
-      <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
-      <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
-      <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
-      <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Vílu</button>
-      <button class="type-chip" onclick="setType('bug')"><img src="elements/bug.png" class="type-icon"> Hmyzí</button>
-      <button class="type-chip" onclick="setType('poison')"><img src="elements/poison.png" class="type-icon"> Jedovatý</button>
-      <button class="type-chip" onclick="setType('ground')"><img src="elements/ground.png" class="type-icon"> Zemní</button>
-      <button class="type-chip" onclick="setType('ghost')"><img src="elements/ghost.png" class="type-icon"> Přízračný</button>
-      <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Ledový</button>
-      <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
-      <button class="type-chip" onclick="setType('flying')"><img src="elements/flying.png" class="type-icon"> Létající</button>
-      <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
-    </div>
+        <!-- Typ karty -->
+        <div class="fd-section">
+          <div class="fd-section-title">Typ karty</div>
+          <div class="fd-chips supertype-bar" style="gap:6px;margin-bottom:0">
+            <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
+            <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
+            <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
+            <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
+          </div>
+        </div>
 
-    <!-- Trenéři subtyp bar -->
-    <div class="type-bar" id="trainerBar" style="display:none">
-      <button class="type-chip active" onclick="setTrainerSubtype('')">Vše</button>
-      <button class="type-chip" onclick="setTrainerSubtype('Item')">🎒 Item</button>
-      <button class="type-chip" onclick="setTrainerSubtype('Supporter')">🧑 Supporter</button>
-      <button class="type-chip" onclick="setTrainerSubtype('Stadium')">🏟️ Stadium</button>
-      <button class="type-chip" onclick="setTrainerSubtype('Tool')">🔧 Pokémon Tool</button>
-    </div>
+        <!-- Vzácnost -->
+        <div class="fd-section">
+          <div class="fd-section-title">Vzácnost</div>
+          <div class="fd-chips" id="rarityBar">
+            <button class="type-chip active" onclick="setRarity('')">Vše</button>
+            <button class="type-chip" onclick="setRarity('common')" style="--rarity-c:#aaa">⚪ Common</button>
+            <button class="type-chip" onclick="setRarity('uncommon')" style="--rarity-c:#4a9eff">🔵 Uncommon</button>
+            <button class="type-chip" onclick="setRarity('rare')" style="--rarity-c:#f5c842">🌟 Rare</button>
+            <button class="type-chip" onclick="setRarity('holo')" style="--rarity-c:#b97cff">✨ Holo</button>
+            <button class="type-chip" onclick="setRarity('ultra')" style="--rarity-c:#4ecdc4">💎 Ultra Rare</button>
+            <button class="type-chip" onclick="setRarity('secret')" style="--rarity-c:#ff5c5c">🔴 Secret Rare</button>
+            <button class="type-chip" onclick="setRarity('promo')" style="--rarity-c:#ff9f43">🎁 Promo</button>
+          </div>
+        </div>
 
-    <!-- Energie barva bar -->
-    <div class="type-bar" id="energyBar" style="display:none">
-      <button class="type-chip active" onclick="setEnergyColor('')">Vše</button>
-      <button class="type-chip" onclick="setEnergyColor('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivá</button>
-      <button class="type-chip" onclick="setEnergyColor('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
-      <button class="type-chip" onclick="setEnergyColor('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
-      <button class="type-chip" onclick="setEnergyColor('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrická</button>
-      <button class="type-chip" onclick="setEnergyColor('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychická</button>
-      <button class="type-chip" onclick="setEnergyColor('darkness')"><img src="elements/dark.png" class="type-icon"> Temná</button>
-      <button class="type-chip" onclick="setEnergyColor('metal')"><img src="elements/steel.png" class="type-icon"> Kovová</button>
-      <button class="type-chip" onclick="setEnergyColor('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojová</button>
-      <button class="type-chip" onclick="setEnergyColor('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
-      <button class="type-chip" onclick="setEnergyColor('colorless')">⚪ Bezbarvá</button>
-    </div>
+        <!-- Element (Pokémon) -->
+        <div class="fd-section" id="fd-element-section">
+          <div class="fd-section-title">Element</div>
+          <div class="fd-chips type-bar" style="background:none;border:none;padding:0;margin-bottom:0">
+            <button class="type-chip active" onclick="setType('')">Vše</button>
+            <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
+            <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
+            <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
+            <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
+            <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
+            <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
+            <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
+            <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
+            <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
+            <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
+            <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normál</button>
+            <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Led</button>
+          </div>
+        </div>
 
-    <!-- Vzácnost bar -->
-    <div class="type-bar" id="rarityBar">
-      <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px;white-space:nowrap">Vzácnost:</span>
-      <button class="type-chip active" onclick="setRarity('')">Vše</button>
-      <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
-      <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-      <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-      <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
-      <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
-      <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
-      <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+        <!-- Trenéři subtyp -->
+        <div class="fd-section" id="trainerBar" style="display:none">
+          <div class="fd-section-title">Subtyp trenéra</div>
+          <div class="fd-chips">
+            <button class="type-chip active" onclick="setTrainerSubtype('')">Vše</button>
+            <button class="type-chip" onclick="setTrainerSubtype('Item')">🎒 Item</button>
+            <button class="type-chip" onclick="setTrainerSubtype('Supporter')">🧑 Supporter</button>
+            <button class="type-chip" onclick="setTrainerSubtype('Stadium')">🏟️ Stadium</button>
+            <button class="type-chip" onclick="setTrainerSubtype('Tool')">🔧 Tool</button>
+          </div>
+        </div>
+
+        <!-- Energie barva -->
+        <div class="fd-section" id="energyBar" style="display:none">
+          <div class="fd-section-title">Barva energie</div>
+          <div class="fd-chips">
+            <button class="type-chip active" onclick="setEnergyColor('')">Vše</button>
+            <button class="type-chip" onclick="setEnergyColor('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
+            <button class="type-chip" onclick="setEnergyColor('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
+            <button class="type-chip" onclick="setEnergyColor('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
+            <button class="type-chip" onclick="setEnergyColor('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
+            <button class="type-chip" onclick="setEnergyColor('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
+            <button class="type-chip" onclick="setEnergyColor('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
+            <button class="type-chip" onclick="setEnergyColor('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
+            <button class="type-chip" onclick="setEnergyColor('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
+            <button class="type-chip" onclick="setEnergyColor('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
+            <button class="type-chip" onclick="setEnergyColor('colorless')">⚪ Bezbarvá</button>
+          </div>
+        </div>
+
+        <!-- Stav karty -->
+        <div class="fd-section">
+          <div class="fd-section-title">Stav karty</div>
+          <div class="fd-chips">
+            <button class="type-chip active" onclick="setCond('')">Vše</button>
+            <button class="type-chip" onclick="setCond('NM')">💚 NM</button>
+            <button class="type-chip" onclick="setCond('LP')">💛 LP</button>
+            <button class="type-chip" onclick="setCond('MP')">🟠 MP</button>
+            <button class="type-chip" onclick="setCond('HP')">🔴 HP</button>
+            <button class="type-chip" onclick="setCond('DMG')">⬛ DMG</button>
+          </div>
+        </div>
+
+      </div>
     </div>
+    <!-- ═══ END FILTER DRAWER ═══════════════════════════════════ -->
+
+    <!-- Active filter badges -->
+    <div class="filter-badge-bar" id="filterBadgeBar"></div>
 
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
+      <button class="filtry-btn" id="filtryBtn" onclick="toggleFilterDrawer()">⚙ Filtry <span class="filtry-dot"></span></button>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
       <button onclick="openSetCompleteness()" title="Completeness setu" style="padding:7px 12px;border-radius:8px;font-size:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);cursor:pointer;font-family:inherit">📦 Sety</button>
       <select id="sortSelect" onchange="setSort(this.value)"
@@ -2806,15 +2954,18 @@ function setType(t) {
   document.querySelectorAll('.type-chip').forEach(b =>
     b.classList.toggle('active', (t === '' && b.textContent === 'Vše') || (t && b.textContent.toLowerCase().includes(t)))
   );
+  renderFilterBadges();
   render();
 }
 
 function setCond(c) {
   activeCond = c;
-  document.querySelectorAll('.sb-btn').forEach(b => {
-    if (b.getAttribute('onclick')?.includes('setCond'))
-      b.classList.toggle('active', b.getAttribute('onclick').includes(`'${c}'`));
+  document.querySelectorAll('.type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    if (fn.includes('setCond'))
+      b.classList.toggle('active', fn.includes(`'${c}'`) || (c === '' && fn.includes("''")));
   });
+  renderFilterBadges();
   render();
 }
 
@@ -2860,17 +3011,18 @@ function setSupertype(st) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
   });
-  // ── Zobrazit/skrýt správné filtrovací lišty ──
-  const typeBar    = document.querySelector('.type-bar');
-  const trainerBar = document.getElementById('trainerBar');
-  const energyBar  = document.getElementById('energyBar');
-  if (typeBar)    typeBar.style.display    = (st === '' || st === 'Pokémon') ? '' : 'none';
-  if (trainerBar) trainerBar.style.display = (st === 'Trainer') ? '' : 'none';
-  if (energyBar)  energyBar.style.display  = (st === 'Energy')  ? '' : 'none';
+  // ── Zobrazit/skrýt správné filtrovací sekce v draweru ──
+  const typeSection   = document.getElementById('fd-element-section');
+  const trainerBar    = document.getElementById('trainerBar');
+  const energyBar     = document.getElementById('energyBar');
+  if (typeSection)  typeSection.style.display  = (st === '' || st === 'Pokémon') ? '' : 'none';
+  if (trainerBar)   trainerBar.style.display   = (st === 'Trainer') ? '' : 'none';
+  if (energyBar)    energyBar.style.display    = (st === 'Energy')  ? '' : 'none';
   // Reset sub-filtrů při přepnutí supertypeu
   if (st !== 'Trainer') setTrainerSubtype('', false);
   if (st !== 'Energy')  setEnergyColor('', false);
   if (st === '' || st === 'Pokémon') {} else setType('');
+  renderFilterBadges();
   render();
 }
 
@@ -3064,6 +3216,7 @@ function setTrainerSubtype(t, doRender = true) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${t}'`) || (t === '' && fn.includes("''")));
   });
+  renderFilterBadges();
   if (doRender) render();
 }
 
@@ -3073,6 +3226,7 @@ function setEnergyColor(c, doRender = true) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${c}'`) || (c === '' && fn.includes("''")));
   });
+  renderFilterBadges();
   if (doRender) render();
 }
 
@@ -3082,8 +3236,77 @@ function setRarity(r) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
   });
+  renderFilterBadges();
   render();
 }
+
+// ══════════════════════════════════════════════════════════════════
+//  FILTER DRAWER
+// ══════════════════════════════════════════════════════════════════
+function toggleFilterDrawer() {
+  const drawer  = document.getElementById('filterDrawer');
+  const overlay = document.getElementById('filterOverlay');
+  const isOpen  = drawer.classList.contains('open');
+  if (isOpen) closeFilterDrawer();
+  else {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeFilterDrawer() {
+  document.getElementById('filterDrawer').classList.remove('open');
+  document.getElementById('filterOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function renderFilterBadges() {
+  const bar = document.getElementById('filterBadgeBar');
+  const btn = document.getElementById('filtryBtn');
+  if (!bar) return;
+
+  const badges = [];
+
+  const SUPERTYPE_LABELS = { 'Pokémon':'🎴 Pokémoni', Trainer:'🧑 Trenéři', Energy:'⚡ Energie' };
+  const RARITY_LABELS    = { common:'⚪ Common', uncommon:'🔵 Uncommon', rare:'🌟 Rare',
+    holo:'✨ Holo', ultra:'💎 Ultra Rare', secret:'🔴 Secret Rare', promo:'🎁 Promo' };
+  const TYPE_LABELS      = { fire:'🔥 Oheň', water:'💧 Voda', grass:'🌿 Tráva',
+    lightning:'⚡ Elektro', psychic:'🔮 Psycho', darkness:'🌑 Tma', dragon:'🐉 Drak',
+    metal:'⚙️ Kov', fighting:'👊 Boj', fairy:'🌸 Víla', normal:'⭕ Normál',
+    ice:'❄️ Led', bug:'🐛 Hmyz', poison:'☠️ Jed', ground:'🏔️ Zem',
+    ghost:'👻 Duch', flying:'🦅 Let', rock:'🪨 Kámen', colorless:'⚪ Bezbarvá' };
+  const COND_LABELS      = { NM:'💚 NM', LP:'💛 LP', MP:'🟠 MP', HP:'🔴 HP', DMG:'⬛ DMG' };
+  const TRAINER_LABELS   = { Item:'🎒 Item', Supporter:'🧑 Supporter', Stadium:'🏟️ Stadium', Tool:'🔧 Tool' };
+  const ENERGY_LABELS    = { ...TYPE_LABELS, colorless:'⚪ Bezbarvá' };
+
+  if (activeSupertype)      badges.push({ label: SUPERTYPE_LABELS[activeSupertype] || activeSupertype, clear: () => setSupertype('') });
+  if (activeRarity)         badges.push({ label: RARITY_LABELS[activeRarity] || activeRarity, clear: () => setRarity('') });
+  if (activeType)           badges.push({ label: TYPE_LABELS[activeType] || activeType, clear: () => setType('') });
+  if (activeTrainerSubtype) badges.push({ label: TRAINER_LABELS[activeTrainerSubtype] || activeTrainerSubtype, clear: () => setTrainerSubtype('') });
+  if (activeEnergyColor)    badges.push({ label: ENERGY_LABELS[activeEnergyColor] || activeEnergyColor, clear: () => setEnergyColor('') });
+  if (activeCond)           badges.push({ label: COND_LABELS[activeCond] || activeCond, clear: () => setCond('') });
+
+  bar.innerHTML = badges.map((b, i) =>
+    `<span class="flt-badge">${b.label}<button class="flt-badge-x" onclick="(${b.clear.toString()})()" title="Odebrat">✕</button></span>`
+  ).join('');
+
+  // Update Filtry button state
+  if (btn) btn.classList.toggle('has-active', badges.length > 0);
+}
+
+function resetAllFilters() {
+  setSupertype('');
+  setRarity('');
+  setType('');
+  setTrainerSubtype('');
+  setEnergyColor('');
+  setCond('');
+  renderFilterBadges();
+}
+
+// Keyboard ESC closes drawer
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFilterDrawer(); });
 
 function matchTrainerSubtype(c, t) {
   const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
