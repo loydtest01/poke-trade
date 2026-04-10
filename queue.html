@@ -1108,18 +1108,21 @@ function _drawLoupe(ctx, canvas, dragPos, cornerPt) {
 
   ctx.restore();
 
-  // Kříž uprostřed lupy (přesný střed = pozice rohu)
+  // Kříž přes celou lupu (clip na kruh)
   ctx.save();
-  ctx.strokeStyle = 'rgba(245,200,66,0.9)';
+  ctx.beginPath();
+  ctx.arc(lx, ly, LOUPE_R, 0, Math.PI*2);
+  ctx.clip();
+  ctx.strokeStyle = 'rgba(245,200,66,0.75)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(lx - 12, ly); ctx.lineTo(lx + 12, ly);
-  ctx.moveTo(lx, ly - 12); ctx.lineTo(lx, ly + 12);
+  ctx.moveTo(lx - LOUPE_R, ly); ctx.lineTo(lx + LOUPE_R, ly);
+  ctx.moveTo(lx, ly - LOUPE_R); ctx.lineTo(lx, ly + LOUPE_R);
   ctx.stroke();
   // Středový bod
   ctx.fillStyle = '#f5c842';
   ctx.beginPath();
-  ctx.arc(lx, ly, 2, 0, Math.PI*2);
+  ctx.arc(lx, ly, 2.5, 0, Math.PI*2);
   ctx.fill();
   ctx.restore();
 
