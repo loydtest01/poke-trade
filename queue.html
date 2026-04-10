@@ -279,6 +279,12 @@ body::after {
   font-size: 12px; cursor: pointer; font-family: inherit; transition: all .15s;
 }
 .btn-discard:hover { background: rgba(248,113,113,0.2); }
+.new-album-wrap { display:none; flex:1; min-width:160px; }
+.new-album-wrap.show { display:flex; gap:6px; align-items:center; }
+.new-album-inp { flex:1; padding:7px 10px; background:rgba(255,255,255,0.08); border:1px solid rgba(245,200,66,0.4); border-radius:8px; color:#f0ece4; font-size:12px; font-family:inherit; outline:none; }
+.new-album-inp::placeholder { color:rgba(240,232,208,.35); }
+.qty-wrap { display:flex; align-items:center; gap:6px; font-size:12px; color:rgba(240,232,208,.6); white-space:nowrap; }
+.qty-inp { width:56px; padding:6px 8px; text-align:center; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); border-radius:8px; color:#f0ece4; font-size:13px; font-family:inherit; }
 
 /* ═══ CROP MODAL ═══ */
 #cropModal {
@@ -386,7 +392,7 @@ body::after {
   </a>
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
-    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="moje-album.html">🎴 Moje alba</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
     <a href="queue.html" class="active">📥 Čeká na zařazení</a>
@@ -414,9 +420,13 @@ body::after {
       <span class="page-badge" id="totalBadge" style="display:none">0</span>
     </div>
     <div class="head-actions">
-      <select id="globalAlbumSel" class="album-sel">
+      <select id="globalAlbumSel" class="album-sel" onchange="onGlobalAlbumChange(this)">
         <option value="">— Zařadit bez alba —</option>
+        <option value="__new__">＋ Nové album…</option>
       </select>
+      <div class="new-album-wrap" id="globalNewAlbumWrap">
+        <input class="new-album-inp" id="globalNewAlbumInp" placeholder="Název nového alba…">
+      </div>
       <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled>
         💾 Zařadit vše
       </button>
@@ -535,12 +545,14 @@ async function sbReq(path, method = 'GET', body = null) {
 // ── Load albums ───────────────────────────────────────────────
 async function loadAlbums() {
   try {
-    const rows = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&order=name.asc&select=id,name,icon`);
+    const rows = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&order=name.asc&select=id,name,icon,card_ids`);
     if (!Array.isArray(rows)) return;
-    albums = rows;
+    albums = rows.map(a => ({ ...a, cardIds: a.card_ids || [] }));
     const globalSel = document.getElementById('globalAlbumSel');
     rows.forEach(a => {
-      const o = new Option(`${a.icon||'📁'} ${a.name}`, a.id);
+      const cnt = (a.card_ids || []).length;
+      const label = `${a.icon||'📁'} ${a.name}${cnt ? ' ('+cnt+')' : ''}`;
+      const o = new Option(label, a.id);
       globalSel.appendChild(o);
     });
   } catch {}
@@ -737,7 +749,7 @@ function buildGroupEl(g, gi) {
   }
 
   // Build album options for this group
-  const albumOpts = `<option value="">— Bez alba —</option>` +
+  const albumOpts = `<option value="">— Bez alba —</option><option value="__new__">＋ Nové album…</option>` +
     albums.map(a => `<option value="${a.id}">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
 
   el.innerHTML = `
@@ -795,7 +807,15 @@ function buildGroupEl(g, gi) {
 
       <!-- Footer -->
       <div class="cg-footer">
-        <select class="album-sel-inline" id="albumSel-${gi}">${albumOpts}</select>
+        <select class="album-sel-inline" id="albumSel-${gi}" onchange="onGroupAlbumChange(${gi},this)">${albumOpts}</select>
+        <div class="new-album-wrap" id="newAlbumWrap-${gi}">
+          <input class="new-album-inp" id="newAlbumInp-${gi}" placeholder="Název nového alba…">
+        </div>
+        <div class="qty-wrap">
+          🔢 <input class="qty-inp" type="number" min="1" value="${g.quantity||1}"
+            oninput="cardGroups[${gi}].quantity=Math.max(1,parseInt(this.value)||1);this.value=cardGroups[${gi}].quantity"
+            title="Počet kusů">
+        </div>
         <button class="btn-assign" onclick="assignGroup(${gi})">✅ Zařadit</button>
         <button class="btn-discard" onclick="discardGroup(${gi})">🗑 Zahodit</button>
       </div>
@@ -813,17 +833,60 @@ function toggleGroup(gi) {
 }
 
 // ── Assign single group ───────────────────────────────────────
+// ── Album select change handlers ──────────────────────────────
+function onGlobalAlbumChange(sel) {
+  const wrap = document.getElementById('globalNewAlbumWrap');
+  if (wrap) wrap.classList.toggle('show', sel.value === '__new__');
+}
+function onGroupAlbumChange(gi, sel) {
+  const wrap = document.getElementById(`newAlbumWrap-${gi}`);
+  if (wrap) wrap.classList.toggle('show', sel.value === '__new__');
+}
+
+// ── Ensure album exists (find or create) ─────────────────────
+async function ensureAlbum(albumId, newAlbumName) {
+  if (albumId && albumId !== '__new__') return albumId;
+  const name = (newAlbumName || '').trim();
+  if (!name) return null;
+  // Hledej existující album se stejným jménem
+  const existing = albums.find(a => a.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing.id;
+  // Vytvoř nové
+  const res = await sbReq('rest/v1/user_albums', 'POST', {
+    user_id: userId,
+    name,
+    icon: '📁',
+    color: '#4f8ef7',
+    card_ids: [],
+    updated_at: new Date().toISOString(),
+  });
+  const newId = Array.isArray(res) ? res[0]?.id : res?.id;
+  if (newId) {
+    albums.push({ id: newId, name, icon: '📁', card_ids: [], cardIds: [] });
+    // Přidej do všech selectů
+    document.querySelectorAll('.album-sel-inline, #globalAlbumSel').forEach(sel => {
+      const o = new Option(`📁 ${name}`, newId);
+      sel.appendChild(o);
+    });
+  }
+  return newId || null;
+}
+
 async function assignGroup(gi) {
   const g = cardGroups[gi];
   if (!g) return;
-  const albumId = document.getElementById(`albumSel-${gi}`)?.value || null;
+  const rawAlbumId = document.getElementById(`albumSel-${gi}`)?.value || null;
+  const newName    = document.getElementById(`newAlbumInp-${gi}`)?.value || '';
+  const albumId    = await ensureAlbum(rawAlbumId, newName);
   await doAssign([g], albumId);
 }
 
 // ── Assign all ────────────────────────────────────────────────
 async function assignAll() {
   if (!cardGroups.length) return;
-  const albumId = document.getElementById('globalAlbumSel')?.value || null;
+  const rawAlbumId = document.getElementById('globalAlbumSel')?.value || null;
+  const newName    = document.getElementById('globalNewAlbumInp')?.value || '';
+  const albumId    = await ensureAlbum(rawAlbumId, newName);
   const btn = document.getElementById('assignAllBtn');
   btn.disabled = true; btn.textContent = '⏳ Zařazuji…';
   await doAssign([...cardGroups], albumId);
@@ -832,11 +895,13 @@ async function assignAll() {
 
 async function doAssign(groups, albumId) {
   let ok = 0, fail = 0;
+  const newCardIds = [];
   for (const g of groups) {
     try {
       const ai = g.aiResult || {};
+      const qty = g.quantity || 1;
       // Ulož do user_cards
-      await sbReq('rest/v1/user_cards', 'POST', {
+      const res = await sbReq('rest/v1/user_cards', 'POST', {
         user_id:   userId,
         album_id:  albumId || null,
         card_data: {
@@ -852,23 +917,37 @@ async function doAssign(groups, albumId) {
           subtype:   ai.subtype   || '',
           note:      g.comment    || ai.notes || '',
           photoUrl:  g.photos.find(p=>p.side==='front')?.url || '',
-          count: 1, tags: [], for_trade: false, for_sell: false,
+          count: qty, qty, tags: [], for_trade: false, for_sell: false,
           backCondition: g.backAi?.condition || null,
           backIssues:    g.backAi?.issues    || [],
         },
         updated_at: new Date().toISOString(),
         for_trade:  false, for_sell: false,
       });
+      const newId = Array.isArray(res) ? res[0]?.local_id : res?.local_id;
+      if (newId) newCardIds.push(String(newId));
       // Označit všechny photo_queue záznamy jako processed
       for (const p of g.photos) {
         sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
       }
       // Odstraň ze seznamu
       cardGroups = cardGroups.filter(x => x.key !== g.key);
-      const el = document.getElementById(`group-${cardGroups.indexOf(g)}`);
-      if (el) el.remove();
       ok++;
     } catch { fail++; }
+  }
+
+  // Aktualizuj card_ids v albu
+  if (albumId && newCardIds.length) {
+    try {
+      const alb = albums.find(a => a.id === albumId);
+      const existing = alb?.cardIds || alb?.card_ids || [];
+      const merged = [...new Set([...existing, ...newCardIds])];
+      await sbReq(`rest/v1/user_albums?id=eq.${albumId}`, 'PATCH', {
+        card_ids: merged,
+        updated_at: new Date().toISOString(),
+      });
+      if (alb) { alb.cardIds = merged; alb.card_ids = merged; }
+    } catch {}
   }
 
   // Re-render
