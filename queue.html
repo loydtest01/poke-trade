@@ -443,11 +443,9 @@ body::after {
 <!-- Crop Modal -->
 <div id="cropModal">
   <div class="crop-top-bar">
-    <div class="title">✂️ Ořez fotky</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <span style="font-size:12px;color:rgba(255,255,255,0.4)">Poměr stran:</span>
-      <button class="ratio-btn" id="ratioFree"  onclick="setCropRatio(null)">Volný</button>
-      <button class="ratio-btn active" id="ratio23" onclick="setCropRatio(2/3)">2:3 karta</button>
+    <div class="title">✂️ Perspektivní ořez</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.45);text-align:right">
+      Přetáhni každý roh (TL/TR/BR/BL) na roh karty → karta se vyrovná
     </div>
   </div>
   <div class="crop-canvas-wrap">
@@ -903,165 +901,160 @@ function updateBadge() {
 // ══════════════════════════════════════════════════════════════
 
 const CROP = {
-  img:        null,
-  groupIdx:   null,
-  photoIdx:   null,
-  // Crop rect in IMAGE pixels
-  x: 0, y: 0, w: 0, h: 0,
-  // Original (for reset)
-  origX: 0, origY: 0, origW: 0, origH: 0,
-  // Canvas display scale (canvas px = img px * scale)
-  scale: 1,
-  // Locked aspect ratio (null = free)
-  ratio: 2/3,
-  // Drag
-  drag: null,   // 'tl'|'tr'|'bl'|'br'|'body'|null
-  dragStartClient: {x:0,y:0},
-  dragStartCrop:   {x:0,y:0,w:0,h:0},
+  img:       null,
+  groupIdx:  null,
+  photoIdx:  null,
+  corners: [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
+  scale:   1,
+  drag:    null
 };
-const HANDLE_SIZE = 32;   // hit-test radius px on canvas
-const CORNER_LINE = 28;   // visual corner line length px on canvas
+const HANDLE_R = 22;
+const CORNER_LABELS = ['TL','TR','BR','BL'];
 
 function openCrop(gi, pi) {
   const g = cardGroups[gi];
   const p = g.photos[pi];
   const src = p.url;
-
-  const img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = () => {
-    CROP.img       = img;
-    CROP.groupIdx  = gi;
-    CROP.photoIdx  = pi;
-    _initCropRect(img.naturalWidth, img.naturalHeight);
-    _setupCanvas();
-    document.getElementById('cropModal').classList.add('open');
-    document.getElementById('cropCanvas').addEventListener('pointerdown', _onCropDown);
-  };
-  img.onerror = () => {
-    // CORS fallback: try without crossOrigin
-    const img2 = new Image();
-    img2.onload = () => {
-      CROP.img = img2; CROP.groupIdx = gi; CROP.photoIdx = pi;
-      _initCropRect(img2.naturalWidth, img2.naturalHeight);
+  const load = (cors) => {
+    const img = new Image();
+    if (cors) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      CROP.img = img; CROP.groupIdx = gi; CROP.photoIdx = pi;
+      _initCorners(img.naturalWidth, img.naturalHeight);
       _setupCanvas();
       document.getElementById('cropModal').classList.add('open');
-      document.getElementById('cropCanvas').addEventListener('pointerdown', _onCropDown);
     };
-    img2.onerror = () => toast('Nepodařilo se načíst obrázek pro ořez', 'err');
-    img2.src = src;
+    img.onerror = () => cors ? load(false) : toast('Nelze nacist obrazek', 'err');
+    img.src = src;
   };
-  img.src = src;
+  load(true);
 }
 
-function _initCropRect(iw, ih) {
-  // Default: full image, with locked 2:3 ratio centered
-  let x=0, y=0, w=iw, h=ih;
-  if (CROP.ratio) {
-    const targetH = iw / CROP.ratio;
-    if (targetH <= ih) { h = targetH; y = (ih - h) / 2; }
-    else               { w = ih * CROP.ratio; x = (iw - w) / 2; }
-  }
-  CROP.x = x; CROP.y = y; CROP.w = w; CROP.h = h;
-  CROP.origX = x; CROP.origY = y; CROP.origW = w; CROP.origH = h;
+function _initCorners(iw, ih) {
+  const m = Math.min(iw, ih) * 0.06;
+  CROP.corners = [
+    {x: m,    y: m},
+    {x: iw-m, y: m},
+    {x: iw-m, y: ih-m},
+    {x: m,    y: ih-m},
+  ];
 }
 
 function _setupCanvas() {
   const canvas = document.getElementById('cropCanvas');
-  const img    = CROP.img;
-  // Use window dimensions minus top/bot bars (~110px) for reliable height
-  const maxW   = Math.min(window.innerWidth  - 24, 900);
-  const maxH   = window.innerHeight - 140;
-  const scale  = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
-  CROP.scale   = scale;
+  const img = CROP.img;
+  const maxW = Math.min(window.innerWidth - 24, 920);
+  const maxH = window.innerHeight - 150;
+  const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+  CROP.scale = scale;
   const pw = Math.round(img.naturalWidth  * scale);
   const ph = Math.round(img.naturalHeight * scale);
-  canvas.width  = pw;
-  canvas.height = ph;
-  // CRITICAL: set CSS size = pixel size to prevent browser stretching/deformation
-  canvas.style.width  = pw + 'px';
-  canvas.style.height = ph + 'px';
+  canvas.width = pw; canvas.height = ph;
+  canvas.style.width = pw + 'px'; canvas.style.height = ph + 'px';
+  canvas.removeEventListener('pointerdown', _onCropDown);
+  canvas.addEventListener('pointerdown', _onCropDown);
   _drawCrop();
 }
 
 function _drawCrop() {
   const canvas = document.getElementById('cropCanvas');
-  if (!canvas) return;
-  const ctx  = canvas.getContext('2d');
-  const s    = CROP.scale;
-  const { img, x, y, w, h } = CROP;
-  const cw   = canvas.width, ch = canvas.height;
+  if (!canvas || !CROP.img) return;
+  const ctx = canvas.getContext('2d');
+  const s = CROP.scale;
+  const { img, corners } = CROP;
+  const pts = corners.map(c => ({x: c.x*s, y: c.y*s}));
 
-  // 1. Image
-  ctx.clearRect(0, 0, cw, ch);
-  ctx.drawImage(img, 0, 0, cw, ch);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  // 2. Dim overlay outside crop
-  const cx = x*s, cy = y*s, cW = w*s, cH = h*s;
-  ctx.fillStyle = 'rgba(0,0,0,0.62)';
-  ctx.fillRect(0,  0,  cw, cy);
-  ctx.fillRect(0,  cy+cH, cw, ch-cy-cH);
-  ctx.fillRect(0,  cy, cx, cH);
-  ctx.fillRect(cx+cW, cy, cw-cx-cW, cH);
-
-  // 3. Corner L-handles (only lines, no fill)
-  const L = CORNER_LINE;
+  // Dim overlay mimo quad
   ctx.save();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 3;
-  ctx.lineCap     = 'square';
-  ctx.shadowColor = 'rgba(0,0,0,0.9)';
-  ctx.shadowBlur  = 6;
-
-  // top-left
-  ctx.beginPath(); ctx.moveTo(cx, cy+L); ctx.lineTo(cx, cy); ctx.lineTo(cx+L, cy); ctx.stroke();
-  // top-right
-  ctx.beginPath(); ctx.moveTo(cx+cW-L, cy); ctx.lineTo(cx+cW, cy); ctx.lineTo(cx+cW, cy+L); ctx.stroke();
-  // bottom-left
-  ctx.beginPath(); ctx.moveTo(cx, cy+cH-L); ctx.lineTo(cx, cy+cH); ctx.lineTo(cx+L, cy+cH); ctx.stroke();
-  // bottom-right
-  ctx.beginPath(); ctx.moveTo(cx+cW-L, cy+cH); ctx.lineTo(cx+cW, cy+cH); ctx.lineTo(cx+cW, cy+cH-L); ctx.stroke();
-
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath();
+  ctx.fill();
   ctx.restore();
 
-  // 4. Subtle rule-of-thirds grid inside crop
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 1;
-  ctx.shadowBlur = 0;
-  [1/3, 2/3].forEach(f => {
-    ctx.beginPath(); ctx.moveTo(cx + cW*f, cy); ctx.lineTo(cx + cW*f, cy+cH); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(cx, cy + cH*f); ctx.lineTo(cx+cW, cy + cH*f); ctx.stroke();
+  // Obrázek uvnitř quadu bez dimmu
+  ctx.save();
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  // Obrys quadu
+  ctx.save();
+  ctx.strokeStyle = '#f5c842';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath();
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Rohove handles
+  pts.forEach((p, i) => {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.8)';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, HANDLE_R, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(10,8,6,0.65)';
+    ctx.fill();
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = '#f5c842';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(p.x-8, p.y); ctx.lineTo(p.x+8, p.y);
+    ctx.moveTo(p.x, p.y-8); ctx.lineTo(p.x, p.y+8);
+    ctx.stroke();
+    ctx.restore();
+    // Popisek mimo handle
+    const ox = (i===0||i===3) ? -HANDLE_R-14 : HANDLE_R+14;
+    const oy = (i===0||i===1) ? -HANDLE_R-10 : HANDLE_R+10;
+    ctx.save();
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillStyle = '#f5c842';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(CORNER_LABELS[i], p.x+ox, p.y+oy);
+    ctx.restore();
   });
 }
 
-// ── Pointer events ────────────────────────────────────────────
-function _canvasPos(canvas, e) {
+function _canvasXY(canvas, e) {
   const r = canvas.getBoundingClientRect();
   const cl = e.touches ? e.touches[0] : e;
-  return { x: cl.clientX - r.left, y: cl.clientY - r.top };
-}
-
-function _hitCorner(cx, cy, cW, cH, px, py) {
-  const H = HANDLE_SIZE;
-  if (px < cx+H && py < cy+H) return 'tl';
-  if (px > cx+cW-H && py < cy+H) return 'tr';
-  if (px < cx+H && py > cy+cH-H) return 'bl';
-  if (px > cx+cW-H && py > cy+cH-H) return 'br';
-  if (px > cx && px < cx+cW && py > cy && py < cy+cH) return 'body';
-  return null;
+  return {
+    x: (cl.clientX - r.left) * (canvas.width  / r.width),
+    y: (cl.clientY - r.top)  * (canvas.height / r.height),
+  };
 }
 
 function _onCropDown(e) {
   e.preventDefault();
   const canvas = document.getElementById('cropCanvas');
+  const pos = _canvasXY(canvas, e);
   const s = CROP.scale;
-  const { x, y, w, h } = CROP;
-  const pos  = _canvasPos(canvas, e);
-  const hit  = _hitCorner(x*s, y*s, w*s, h*s, pos.x, pos.y);
-  if (!hit) return;
-  CROP.drag           = hit;
-  CROP.dragStartClient = { x: pos.x, y: pos.y };
-  CROP.dragStartCrop  = { x, y, w, h };
+  let best = -1, bestD = HANDLE_R * 2.5;
+  CROP.corners.forEach((c, i) => {
+    const dx = c.x*s - pos.x, dy = c.y*s - pos.y;
+    const d = Math.sqrt(dx*dx + dy*dy);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  if (best < 0) return;
+  CROP.drag = best;
   canvas.setPointerCapture(e.pointerId);
   canvas.addEventListener('pointermove', _onCropMove);
   canvas.addEventListener('pointerup',   _onCropUp);
@@ -1069,60 +1062,15 @@ function _onCropDown(e) {
 
 function _onCropMove(e) {
   e.preventDefault();
-  if (!CROP.drag) return;
+  if (CROP.drag === null) return;
   const canvas = document.getElementById('cropCanvas');
-  const s      = CROP.scale;
-  const iw     = CROP.img.naturalWidth, ih = CROP.img.naturalHeight;
-  const pos    = _canvasPos(canvas, e);
-  const dx     = (pos.x - CROP.dragStartClient.x) / s;
-  const dy     = (pos.y - CROP.dragStartClient.y) / s;
-  const { x:ox, y:oy, w:ow, h:oh } = CROP.dragStartCrop;
-  const MIN    = 40;
-
-  let nx = CROP.x, ny = CROP.y, nw = CROP.w, nh = CROP.h;
-
-  if (CROP.drag === 'body') {
-    nx = Math.max(0, Math.min(iw - ow, ox + dx));
-    ny = Math.max(0, Math.min(ih - oh, oy + dy));
-    nw = ow; nh = oh;
-  } else {
-    // Resize corner
-    let x1 = ox, y1 = oy, x2 = ox+ow, y2 = oy+oh;
-    if (CROP.drag === 'tl') { x1 = ox+dx; y1 = oy+dy; }
-    if (CROP.drag === 'tr') { x2 = ox+ow+dx; y1 = oy+dy; }
-    if (CROP.drag === 'bl') { x1 = ox+dx; y2 = oy+oh+dy; }
-    if (CROP.drag === 'br') { x2 = ox+ow+dx; y2 = oy+oh+dy; }
-
-    // Clamp to image
-    x1 = Math.max(0, x1); y1 = Math.max(0, y1);
-    x2 = Math.min(iw, x2); y2 = Math.min(ih, y2);
-
-    // Min size
-    if (x2 - x1 < MIN) { if (CROP.drag.includes('l')) x1 = x2-MIN; else x2 = x1+MIN; }
-    if (y2 - y1 < MIN) { if (CROP.drag.includes('t')) y1 = y2-MIN; else y2 = y1+MIN; }
-
-    nx = x1; ny = y1; nw = x2-x1; nh = y2-y1;
-
-    // Lock aspect ratio
-    if (CROP.ratio) {
-      const anchor = CROP.drag;
-      if (anchor === 'tl' || anchor === 'br') {
-        // Adjust h to match ratio
-        nh = nw / CROP.ratio;
-        if (anchor === 'tl') ny = y2 - nh;
-      } else {
-        nw = nh * CROP.ratio;
-        if (anchor === 'tr') nx = x2 - nw;
-      }
-      // Re-clamp
-      if (ny < 0) { nh += ny; nw = nh*CROP.ratio; ny = 0; }
-      if (nx < 0) { nw += nx; nh = nw/CROP.ratio; nx = 0; }
-      if (ny+nh > ih) { nh = ih-ny; nw = nh*CROP.ratio; }
-      if (nx+nw > iw) { nw = iw-nx; nh = nw/CROP.ratio; }
-    }
-  }
-
-  CROP.x = nx; CROP.y = ny; CROP.w = nw; CROP.h = nh;
+  const pos = _canvasXY(canvas, e);
+  const s = CROP.scale;
+  const iw = CROP.img.naturalWidth, ih = CROP.img.naturalHeight;
+  CROP.corners[CROP.drag] = {
+    x: Math.max(0, Math.min(iw, pos.x / s)),
+    y: Math.max(0, Math.min(ih, pos.y / s)),
+  };
   _drawCrop();
 }
 
@@ -1133,81 +1081,122 @@ function _onCropUp(e) {
   canvas.removeEventListener('pointerup',   _onCropUp);
 }
 
-function setCropRatio(r) {
-  CROP.ratio = r;
-  document.getElementById('ratioFree').classList.toggle('active', r === null);
-  document.getElementById('ratio23').classList.toggle('active',  r !== null);
-  if (r && CROP.img) {
-    // Re-center crop with new ratio
-    const { x, y, w, h } = CROP;
-    const cx = x + w/2, cy = y + h/2;
-    let nw = w, nh = w / r;
-    if (nh > CROP.img.naturalHeight) { nh = CROP.img.naturalHeight; nw = nh * r; }
-    CROP.x = Math.max(0, cx - nw/2);
-    CROP.y = Math.max(0, cy - nh/2);
-    CROP.w = nw; CROP.h = nh;
-  }
-  _drawCrop();
-}
-
 function resetCrop() {
-  CROP.x = CROP.origX; CROP.y = CROP.origY;
-  CROP.w = CROP.origW; CROP.h = CROP.origH;
+  _initCorners(CROP.img.naturalWidth, CROP.img.naturalHeight);
   _drawCrop();
 }
 
 function cancelCrop() {
   document.getElementById('cropModal').classList.remove('open');
-  document.getElementById('cropCanvas').removeEventListener('pointerdown', _onCropDown);
   CROP.img = null;
 }
 
 function confirmCrop() {
   const img = CROP.img;
   if (!img) return;
+  const c = CROP.corners;
 
-  // Draw cropped region to offscreen canvas
-  const out  = document.createElement('canvas');
-  out.width  = Math.round(CROP.w);
-  out.height = Math.round(CROP.h);
-  out.getContext('2d').drawImage(
-    img,
-    CROP.x, CROP.y, CROP.w, CROP.h,
-    0, 0, out.width, out.height
-  );
+  const outW = Math.round((Math.hypot(c[1].x-c[0].x, c[1].y-c[0].y) +
+                           Math.hypot(c[2].x-c[3].x, c[2].y-c[3].y)) / 2);
+  const outH = Math.round((Math.hypot(c[3].x-c[0].x, c[3].y-c[0].y) +
+                           Math.hypot(c[2].x-c[1].x, c[2].y-c[1].y)) / 2);
+
+  const dst = [{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
 
   let dataUrl;
-  try { dataUrl = out.toDataURL('image/jpeg', 0.92); }
-  catch {
-    toast('Ořez nelze uložit (CORS omezení prohlížeče)', 'err');
+  try {
+    const out = _perspectiveWarp(img, c, dst, outW, outH);
+    dataUrl = out.toDataURL('image/jpeg', 0.93);
+  } catch(err) {
+    toast('Ořez nelze uložit – CORS omezení', 'err');
     cancelCrop();
     return;
   }
 
-  // Save to photo object
   const g = cardGroups[CROP.groupIdx];
   const p = g.photos[CROP.photoIdx];
   p.croppedUrl = dataUrl;
 
-  // Update thumbnail in DOM
   const tile = document.getElementById(`tile-${CROP.groupIdx}-${CROP.photoIdx}`);
   if (tile) {
     const tileImg = tile.querySelector('img');
-    if (tileImg) tileImg.src = dataUrl;
-    // Rebuild crop button to include reset
+    if (tileImg) { tileImg.src = dataUrl; }
+    tile.classList.add('has-crop');
     const btns = tile.querySelector('div:last-child');
-    if (btns) btns.innerHTML = `
-      <button onclick="openCrop(${CROP.groupIdx},${CROP.photoIdx})"
+    if (btns) btns.innerHTML =
+      `<button onclick="openCrop(${CROP.groupIdx},${CROP.photoIdx})"
         style="background:rgba(245,200,66,.18);border:1px solid rgba(245,200,66,.4);color:#f5c842;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">
         ✂️ Upravit
       </button>
-      <button onclick="resetPhotoTile(${CROP.groupIdx},${CROP.photoIdx})" title="Obnovit originál"
-        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">↺</button>`;
+      <button onclick="resetPhotoTile(${CROP.groupIdx},${CROP.photoIdx})" title="Obnovit original"
+        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">&#x21BA;</button>`;
   }
 
   cancelCrop();
-  toast('✅ Ořez uložen', 'ok');
+  toast('✅ Perspektivní ořez uložen', 'success');
 }
+
+// Perspektivní warp pomocí mrize trojuhelniku
+
+function _perspectiveWarp(img, src, dst, outW, outH) {
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const ctx = out.getContext('2d');
+  const G = 28;
+  for (let gy = 0; gy < G; gy++) {
+    for (let gx = 0; gx < G; gx++) {
+      const u0=gx/G, v0=gy/G, u1=(gx+1)/G, v1=(gy+1)/G;
+      const s00=_bilerp(src,u0,v0), s10=_bilerp(src,u1,v0);
+      const s11=_bilerp(src,u1,v1), s01=_bilerp(src,u0,v1);
+      const d00=_bilerp(dst,u0,v0), d10=_bilerp(dst,u1,v0);
+      const d11=_bilerp(dst,u1,v1), d01=_bilerp(dst,u0,v1);
+      _drawTri(ctx, img, s00,s10,s01, d00,d10,d01, img.naturalWidth, img.naturalHeight);
+      _drawTri(ctx, img, s10,s11,s01, d10,d11,d01, img.naturalWidth, img.naturalHeight);
+    }
+  }
+  return out;
+}
+
+function _bilerp(pts, u, v) {
+  return {
+    x: pts[0].x*(1-u)*(1-v) + pts[1].x*u*(1-v) + pts[2].x*u*v + pts[3].x*(1-u)*v,
+    y: pts[0].y*(1-u)*(1-v) + pts[1].y*u*(1-v) + pts[2].y*u*v + pts[3].y*(1-u)*v,
+  };
+}
+
+function _mat3inv(m) {
+  const [[a,b,c],[d,e,f],[g,h,k]] = m;
+  const det = a*(e*k-f*h) - b*(d*k-f*g) + c*(d*h-e*g);
+  if (Math.abs(det) < 1e-9) return null;
+  return [
+    [(e*k-f*h)/det, (c*h-b*k)/det, (b*f-c*e)/det],
+    [(f*g-d*k)/det, (a*k-c*g)/det, (c*d-a*f)/det],
+    [(d*h-e*g)/det, (b*g-a*h)/det, (a*e-b*d)/det],
+  ];
+}
+
+function _drawTri(ctx, img, s0,s1,s2, d0,d1,d2, iw, ih) {
+  const S = [[s0.x,s0.y,1],[s1.x,s1.y,1],[s2.x,s2.y,1]];
+  const inv = _mat3inv(S);
+  if (!inv) return;
+  const mv = (col) => [
+    inv[0][0]*col[0]+inv[0][1]*col[1]+inv[0][2]*col[2],
+    inv[1][0]*col[0]+inv[1][1]*col[1]+inv[1][2]*col[2],
+    inv[2][0]*col[0]+inv[2][1]*col[1]+inv[2][2]*col[2],
+  ];
+  const [a,c,e]  = mv([d0.x,d1.x,d2.x]);
+  const [b,df,f] = mv([d0.y,d1.y,d2.y]);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(d0.x,d0.y); ctx.lineTo(d1.x,d1.y); ctx.lineTo(d2.x,d2.y);
+  ctx.closePath();
+  ctx.clip();
+  ctx.transform(a, b, c, df, e, f);
+  ctx.drawImage(img, 0, 0, iw, ih);
+  ctx.restore();
+}
+
+
 
 function resetPhotoTile(gi, pi) {
   const g = cardGroups[gi];
