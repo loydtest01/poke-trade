@@ -186,8 +186,8 @@ body::after {
 }
 
 .auth-icon {
-  font-size: 48px; text-align: center; margin-bottom: 8px;
-  filter: drop-shadow(0 0 14px rgba(255,140,0,0.8)) drop-shadow(0 0 28px rgba(255,80,0,0.4));
+  text-align: center; margin-bottom: 8px;
+  filter: drop-shadow(0 0 18px rgba(255,140,0,0.7)) drop-shadow(0 0 36px rgba(255,80,0,0.35));
   animation: flicker 3s ease-in-out infinite;
 }
 @keyframes flicker {
@@ -681,7 +681,7 @@ body::after {
 <!-- ═══════════════════ LOGIN ═══════════════════ -->
 <div id="screen-login">
   <div class="auth-card glass">
-    <div class="auth-icon">🎴</div>
+    <div class="auth-icon"><img src="pokemon.png" alt="PokéScanner" style="width:90px;height:90px;object-fit:contain;border-radius:22px;"></div>
     <div class="auth-title">PokéScanner</div>
     <p class="auth-sub">Přihlas se do svého PokéTrade účtu</p>
 
@@ -1219,6 +1219,7 @@ function handleFiles(fileList) {
   const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
   if (!files.length) return;
 
+  let loaded = 0;
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
@@ -1227,7 +1228,12 @@ function handleFiles(fileList) {
         name: file.name, status: 'pending',
         result: null, tcgCard: null, saveSelected: true,
       });
+      loaded++;
       renderAll();
+      // Po načtení všech souborů automaticky spustit rozpoznávání
+      if (loaded === files.length && hasGroqKey()) {
+        setTimeout(() => recognizeAll(), 100);
+      }
     };
     reader.readAsDataURL(file);
   });
@@ -1705,6 +1711,8 @@ async function saveSelected() {
 
   let saved = 0, failed = 0;
 
+  try {
+
   const payload = toSave.map(p => {
     const r   = p.result;
     const tcg = p.tcgCard;
@@ -1766,13 +1774,18 @@ async function saveSelected() {
     }
   }
 
-  btn.disabled = false;
-  btn.innerHTML = '💾 Uložit do alba';
-
   if (saved)  toast(`✅ Uloženo ${saved} karet do alba`, 'success');
   if (failed) toast(`⚠️ ${failed} karet se nepodařilo uložit`, 'error');
 
   renderAll();
+
+  } catch(e) {
+    console.error('saveSelected error:', e);
+    toast('❌ Chyba při ukládání: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '💾 Uložit do alba';
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1789,13 +1802,30 @@ function queueTcgToggle(photoId) {
   body.style.display = open ? '' : 'none';
   if (btn) btn.textContent = open ? '▲ Sbalit' : '▼ Rozbalit';
 
-  // Při prvním rozbalení: reset stavu pro TUTO kartu
+  // Při každém rozbalení: plný reset stavu pro TUTO kartu
   if (open) {
-    if (!_qtcgState[photoId]) _qtcgState[photoId] = { results: [], selectedIdx: -1 };
+    _qtcgState[photoId] = { results: [], selectedIdx: -1 };
+
     // Reset confirm baru
     const conf = document.getElementById(`qtcgConfirm_${photoId}`);
     if (conf) conf.style.display = 'none';
-    _qtcgState[photoId].selectedIdx = -1;
+
+    // Reset výsledků a statusu
+    const grid   = document.getElementById(`qtcgGrid_${photoId}`);
+    const status = document.getElementById(`qtcgStatus_${photoId}`);
+    if (grid)   grid.innerHTML = '';
+    if (status) status.textContent = '';
+
+    // Reset vyhledávacích políček na aktuální data karty
+    const p = photos.find(ph => ph.id === photoId);
+    if (p?.result) {
+      const nameEl = document.getElementById(`qtcgName_${photoId}`);
+      const setEl  = document.getElementById(`qtcgSet_${photoId}`);
+      const numEl  = document.getElementById(`qtcgNum_${photoId}`);
+      if (nameEl) nameEl.value = p.result.name   || '';
+      if (setEl)  setEl.value  = p.result.set    || '';
+      if (numEl)  numEl.value  = p.result.number || '';
+    }
   }
 }
 
@@ -1898,23 +1928,21 @@ async function queueTcgConfirm(photoId) {
   };
   p.tcgCard = null; // vynutit přepis
 
-  // Ulož identifikovanou kartu do Supabase s novou fotkou
-  if (p.isUrl && p.dataUrl && currentUser?.id && currentToken) {
-    await _savePhotoToCard(p);
+  try {
+    // Ulož identifikovanou kartu do Supabase s novou fotkou
+    if (p.isUrl && p.dataUrl && currentUser?.id && currentToken) {
+      await _savePhotoToCard(p);
+    }
+  } catch(e) {
+    console.warn('[queueTcgConfirm photo save]', e);
+  } finally {
+    // Re-enable button BEFORE DOM replacement (btn ref becomes stale after replaceWith)
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
   }
 
-  // Refresh render dané kartičky
-  const rcard = document.getElementById(`rcard_${photoId}`);
-  if (rcard) {
-    const tmp = document.createElement('div');
-    renderSingleResult(p, tmp);
-    rcard.replaceWith(tmp.firstChild);
-  }
-
-  if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
-  const conf = document.getElementById(`qtcgConfirm_${photoId}`);
-  if (conf) conf.style.display = 'none';
   state.selectedIdx = -1;
+  // Full re-render keeps all cards in sync (also resets search state in DOM)
+  renderAll();
   toast(`✅ Karta uložena: ${card.name}`, 'success');
 }
 

@@ -1545,6 +1545,20 @@ function openCardDetail(c) {
   modal.classList.add('open');
   modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
 
+  // Vždy sbal a resetuj TCG picker pro novou kartu
+  const tcgBody   = document.getElementById('cdTcgBody');
+  const tcgToggle = document.getElementById('cdTcgToggle');
+  const tcgGrid   = document.getElementById('cdTcgGrid');
+  const tcgStatus = document.getElementById('cdTcgStatus');
+  const tcgBar    = document.getElementById('cdTcgConfirmBar');
+  if (tcgBody)   tcgBody.classList.remove('open');
+  if (tcgToggle) { tcgToggle.textContent = '▼ Rozbalit'; tcgToggle.classList.remove('open'); }
+  if (tcgGrid)   tcgGrid.innerHTML = '';
+  if (tcgStatus) tcgStatus.textContent = '';
+  if (tcgBar)    tcgBar.style.display = 'none';
+  _cdTcgResults = [];
+  _cdTcgSelectedIdx = -1;
+
   // Načti reálné fotky z user_card_photos
   loadCardRealPhotos(c.id || c.local_id);
 }
@@ -1612,14 +1626,20 @@ function toggleCdTcg() {
   const open   = body.classList.toggle('open');
   toggle.textContent = open ? '▲ Sbalit' : '▼ Rozbalit';
   toggle.classList.toggle('open', open);
-  // Při prvním rozbalení prefill jménem karty
+  // Při každém rozbalení plný reset – přeplní aktuální kartou, smaže staré výsledky
   if (open && _detailCard) {
-    const inp = document.getElementById('cdTcgNameInput');
-    if (inp && !inp.value) inp.value = _detailCard.name || '';
+    const inp    = document.getElementById('cdTcgNameInput');
     const setInp = document.getElementById('cdTcgSetInput');
-    if (setInp && !setInp.value) setInp.value = _detailCard.set || '';
     const numInp = document.getElementById('cdTcgNumInput');
-    if (numInp && !numInp.value) numInp.value = _detailCard.number || _detailCard.num || '';
+    if (inp)    inp.value    = _detailCard.name || '';
+    if (setInp) setInp.value = _detailCard.set  || '';
+    if (numInp) numInp.value = _detailCard.number || _detailCard.num || '';
+    // Smaž staré výsledky hledání
+    const grid   = document.getElementById('cdTcgGrid');
+    const status = document.getElementById('cdTcgStatus');
+    if (grid)   grid.innerHTML = '';
+    if (status) status.textContent = '';
+    _cdTcgResults = [];
     // Reset confirm bar
     const bar = document.getElementById('cdTcgConfirmBar');
     if (bar) bar.style.display = 'none';
@@ -1762,11 +1782,17 @@ async function cdTcgConfirm() {
   if (_cdTcgSelectedIdx < 0) return;
   const btn = document.querySelector('#cdTcgConfirmBar button');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Ukládám…'; }
-  await cdTcgSelect(_cdTcgSelectedIdx);
-  if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
-  document.getElementById('cdTcgConfirmBar').style.display = 'none';
-  _cdTcgSelectedIdx = -1;
-  toast('✅ Karta uložena do alba', 'ok');
+  try {
+    await cdTcgSelect(_cdTcgSelectedIdx);
+    document.getElementById('cdTcgConfirmBar').style.display = 'none';
+    _cdTcgSelectedIdx = -1;
+    toast('✅ Karta uložena do alba', 'ok');
+  } catch(e) {
+    console.error('cdTcgConfirm error:', e);
+    toast('❌ Chyba při ukládání: ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
+  }
 }
 
 async function cdTcgSelect(idx) {
