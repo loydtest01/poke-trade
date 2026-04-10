@@ -361,8 +361,126 @@ body::after {
 #toast.ok   { border-color: rgba(74,222,128,.35); color: #4ade80; }
 #toast.err  { border-color: rgba(248,113,113,.35); color: #f87171; }
 
-/* Login prompt */
-#loginPrompt {
+/* ═══ PROGRESS BAR ═══ */
+.progress-wrap {
+  margin-bottom: 20px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 12px; padding: 12px 16px;
+  display: flex; align-items: center; gap: 14px;
+}
+.progress-bar-track {
+  flex: 1; height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden;
+}
+.progress-bar-fill {
+  height: 100%; background: linear-gradient(90deg,#f5c842,#ff8c00);
+  border-radius: 3px; transition: width .4s ease;
+}
+.progress-label { font-size: 12px; color: rgba(240,232,208,0.45); white-space: nowrap; }
+.progress-label strong { color: #f5c842; }
+
+/* ═══ FILTER BAR ═══ */
+.filter-bar {
+  display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; align-items: center;
+}
+.filter-chip {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+  color: rgba(240,232,208,0.5); cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.filter-chip:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+.filter-chip.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.4); color: #f5c842; }
+.filter-sep { width: 1px; height: 20px; background: rgba(255,255,255,0.08); margin: 0 2px; }
+
+/* ═══ CONFIDENCE WARNING ═══ */
+.conf-warn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(251,146,60,0.12); border: 1px solid rgba(251,146,60,0.3);
+  color: #fb923c; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 700;
+}
+
+/* ═══ CARD REMOVE ANIMATION ═══ */
+.card-group.removing {
+  animation: slideOut .35s ease forwards;
+  pointer-events: none; overflow: hidden;
+}
+@keyframes slideOut {
+  0%   { opacity:1; transform: translateX(0);    max-height: 400px; margin-bottom: 16px; }
+  60%  { opacity:0; transform: translateX(60px); max-height: 400px; margin-bottom: 16px; }
+  100% { opacity:0; transform: translateX(60px); max-height: 0;     margin-bottom: 0;    padding: 0; }
+}
+
+/* ═══ EDITABLE AI FIELDS ═══ */
+.ai-row .val-edit {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(245,200,66,0.3);
+  border-radius: 5px; color: #f5c842; font-size: 12px; font-weight: 600;
+  padding: 2px 6px; font-family: inherit; outline: none; width: 100%;
+}
+.ai-row .val-edit:focus { border-color: rgba(245,200,66,0.7); background: rgba(255,255,255,0.1); }
+.btn-edit-ai {
+  background: none; border: 1px solid rgba(255,255,255,0.12); color: rgba(240,232,208,0.4);
+  border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.btn-edit-ai:hover { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.btn-edit-ai.active { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.3); color: #f5c842; }
+.cardmarket-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(30,100,220,0.12); border: 1px solid rgba(30,100,220,0.25);
+  color: #7ab8ff; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700;
+  text-decoration: none; transition: all .15s; margin-top: 4px;
+}
+.cardmarket-link:hover { background: rgba(30,100,220,0.22); color: #afd4ff; }
+
+/* ═══ SHORTCUTS HINT ═══ */
+.shortcuts-hint {
+  position: fixed; bottom: 72px; right: 20px; z-index: 500;
+  background: rgba(18,12,28,0.95); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 12px; padding: 14px 18px; font-size: 12px;
+  color: rgba(240,232,208,0.6); display: none;
+  backdrop-filter: blur(12px);
+}
+.shortcuts-hint.show { display: block; }
+.shortcuts-hint table { border-collapse: collapse; }
+.shortcuts-hint td { padding: 3px 8px 3px 0; }
+.shortcuts-hint kbd {
+  background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 4px; padding: 1px 6px; font-size: 11px; color: #f5c842; font-family: monospace;
+}
+.btn-shortcuts {
+  position: fixed; bottom: 24px; right: 20px; z-index: 500;
+  background: rgba(18,12,28,0.9); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,232,208,0.5); border-radius: 10px; padding: 8px 12px;
+  font-size: 12px; cursor: pointer; font-family: inherit; backdrop-filter: blur(8px);
+  transition: all .15s;
+}
+.btn-shortcuts:hover { color: #f0ece4; background: rgba(255,255,255,0.08); }
+
+/* ═══ NOTIF BADGE ═══ */
+.notif-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #f5c842;
+  display: inline-block; animation: pulse 1.5s ease infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.3)} }
+
+/* ═══ DUPLICATE WARNING ═══ */
+.dup-warn {
+  margin: 0 18px 12px;
+  background: rgba(251,146,60,0.08); border: 1px solid rgba(251,146,60,0.2);
+  border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #fb923c;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* ═══ MOBILE TOUCH ═══ */
+@media (max-width: 600px) {
+  .crop-bot-bar { flex-wrap: wrap; gap: 8px; }
+  .btn-crop-cancel, .btn-crop-confirm, .btn-crop-reset { flex: 1; min-width: 80px; }
+  .photo-tile { width: 130px; }
+  .photo-tile-img-wrap { width: 130px; height: 182px; }
+  .photo-tile img { width: 130px; height: 182px; }
+  .cg-photos { gap: 12px; padding: 16px 14px 12px; }
+}
+
+
   display: none; position: fixed; inset: 0; z-index: 999;
   background: rgba(0,0,0,0.8); align-items: center; justify-content: center;
 }
@@ -420,8 +538,33 @@ body::after {
       <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled>
         💾 Zařadit vše
       </button>
+      <button class="btn-outline" onclick="exportCSV()" title="Exportovat seznam do CSV">📄 CSV</button>
+      <button class="btn-outline" id="notifBtn" onclick="requestNotifPermission()" title="Notifikace o nových fotkách">🔔</button>
       <button class="btn-outline" onclick="loadQueue()">🔄 Obnovit</button>
     </div>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="progress-wrap" id="progressWrap" style="display:none">
+    <div class="progress-bar-track">
+      <div class="progress-bar-fill" id="progressFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progressLabel">0 / 0</div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar" id="filterBar" style="display:none">
+    <button class="filter-chip active" onclick="setFilter('all',this)">Vše</button>
+    <div class="filter-sep"></div>
+    <button class="filter-chip" onclick="setFilter('NM',this)">NM</button>
+    <button class="filter-chip" onclick="setFilter('LP',this)">LP</button>
+    <button class="filter-chip" onclick="setFilter('MP',this)">MP</button>
+    <button class="filter-chip" onclick="setFilter('HP',this)">HP</button>
+    <div class="filter-sep"></div>
+    <button class="filter-chip" onclick="setFilter('nocrop',this)">✂️ Bez ořezu</button>
+    <button class="filter-chip" onclick="setFilter('lowconf',this)">⚠️ Nízká konfidence</button>
+    <button class="filter-chip" onclick="setFilter('JP',this)">🇯🇵 JP</button>
+    <button class="filter-chip" onclick="setFilter('EN',this)">🇬🇧 EN</button>
   </div>
 
   <!-- Content -->
@@ -455,6 +598,16 @@ body::after {
           ┘ Přesný
         </button>
       </div>
+      <div style="display:flex;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden">
+        <button onclick="rotateCrop(-90)" title="Otočit doleva"
+          style="padding:6px 12px;font-size:13px;border:none;cursor:pointer;background:transparent;color:rgba(255,255,255,0.6);border-right:1px solid rgba(255,255,255,0.1)">↺</button>
+        <button onclick="rotateCrop(90)" title="Otočit doprava"
+          style="padding:6px 12px;font-size:13px;border:none;cursor:pointer;background:transparent;color:rgba(255,255,255,0.6)">↻</button>
+      </div>
+      <button id="beforeAfterBtn" onclick="toggleBeforeAfter()"
+        style="padding:6px 12px;font-size:12px;font-weight:700;font-family:inherit;border:1px solid rgba(255,255,255,0.12);border-radius:8px;background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.5);cursor:pointer">
+        👁 Před/Po
+      </button>
       <div id="cropModeHint" style="font-size:11px;color:rgba(255,255,255,0.4)">Přetáhni roh – lupa ukáže přesnou pozici</div>
     </div>
   </div>
@@ -479,6 +632,21 @@ body::after {
     <a href="login.html" class="btn-gold" style="display:inline-flex;text-decoration:none">→ Přihlásit se</a>
   </div>
 </div>
+
+<!-- Shortcuts hint -->
+<div class="shortcuts-hint" id="shortcutsHint">
+  <div style="font-size:11px;font-weight:700;color:rgba(240,232,208,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em">Klávesové zkratky</div>
+  <table>
+    <tr><td><kbd>Enter</kbd></td><td>Zařadit aktuální kartu</td></tr>
+    <tr><td><kbd>Del</kbd></td><td>Zahodit aktuální kartu</td></tr>
+    <tr><td><kbd>↑</kbd> <kbd>↓</kbd></td><td>Přepínat mezi kartami</td></tr>
+    <tr><td><kbd>Space</kbd></td><td>Rozbalit / sbalit</td></tr>
+    <tr><td><kbd>C</kbd></td><td>Oříznout přední fotku</td></tr>
+    <tr><td><kbd>Esc</kbd></td><td>Zavřít modal</td></tr>
+    <tr><td><kbd>?</kbd></td><td>Tato nápověda</td></tr>
+  </table>
+</div>
+<button class="btn-shortcuts" onclick="toggleShortcuts()">⌨️ Zkratky</button>
 
 <script src="app.js"></script>
 <script>
@@ -601,6 +769,8 @@ async function loadQueue() {
     }
 
     cardGroups = Object.values(groups);
+    _totalLoaded = cardGroups.length;
+    await loadExistingCards();
 
     // Načti public URLs pro fotky (bucket card-photo je public)
     for (const g of cardGroups) {
@@ -631,6 +801,8 @@ async function loadQueue() {
     document.getElementById('assignAllBtn').disabled = false;
 
     renderGroups();
+    document.getElementById('filterBar').style.display = '';
+    updateProgress();
   } catch(e) {
     document.getElementById('contentArea').innerHTML = `
       <div class="state-box">
@@ -684,7 +856,7 @@ function buildGroupEl(g, gi) {
           style="opacity:0;transition:opacity .3s"
           onload="this.style.opacity=1;var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';"
           onerror="var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';this.style.opacity=1;"
-          onclick="openLightbox('${p.croppedUrl || p.url}')">
+          onclick="openLightboxTile(${gi},${pi})">
       </div>
       <div class="pt-label">${sideLabels[p.side] || p.side}${p.detailIndex ? ' '+p.detailIndex : ''}</div>
       <div style="display:flex;gap:4px;margin-top:4px;justify-content:center">
@@ -698,18 +870,23 @@ function buildGroupEl(g, gi) {
     </div>`
   ).join('');
 
-  // AI info rows
-  const aiRows = [
-    ['Název',    ai.name],
-    ['Série',    ai.set],
-    ['Číslo',    ai.number],
-    ['Typ',      ai.type],
-    ['Kategorie',ai.subtype || ai.category],
-    ['HP',       ai.hp],
-    ['Varianta', ai.variant],
-    ['Jazyk',    ai.lang],
-  ].filter(([,v]) => v).map(([l,v]) =>
-    `<div class="ai-row"><span class="lbl">${l}</span><span class="val">${esc(String(v))}</span></div>`
+  // AI info rows – editable
+  const aiFields = [
+    ['Název',    'name',     ai.name],
+    ['Série',    'set',      ai.set],
+    ['Číslo',    'number',   ai.number],
+    ['Typ',      'type',     ai.type],
+    ['Kategorie','category', ai.subtype || ai.category],
+    ['HP',       'hp',       ai.hp],
+    ['Varianta', 'variant',  ai.variant],
+    ['Jazyk',    'lang',     ai.lang],
+  ].filter(([,, v]) => v);
+
+  const aiRows = aiFields.map(([l, f, v]) =>
+    `<div class="ai-row">
+       <span class="lbl">${l}</span>
+       <span id="aival-${gi}-${f}" class="val" style="color:#f5c842;font-weight:600">${esc(String(v))}</span>
+     </div>`
   ).join('');
 
   const confPct = ai.confidence
@@ -717,6 +894,8 @@ function buildGroupEl(g, gi) {
         ? Math.round(ai.confidence * 100)
         : ai.confidence === 'high' ? 92 : ai.confidence === 'medium' ? 65 : 40)
     : null;
+  const confLow = confPct !== null && confPct < 70;
+  const isDup = checkDuplicate(ai.name, ai.number);
 
   // Back AI
   let backAiHtml = '';
@@ -744,7 +923,7 @@ function buildGroupEl(g, gi) {
     <!-- Header -->
     <div class="cg-header" onclick="toggleGroup(${gi})">
       ${frontPhoto
-        ? `<img class="cg-thumb" src="${frontPhoto.url}" alt="" loading="lazy">`
+        ? `<img class="cg-thumb" src="${frontPhoto.croppedUrl || frontPhoto.url}" alt="" loading="lazy">`
         : `<div class="cg-thumb-placeholder">🃏</div>`}
       <div class="cg-meta">
         <div class="cg-name">${esc(name)}</div>
@@ -755,8 +934,10 @@ function buildGroupEl(g, gi) {
         <div class="cg-tags">
           <span class="tag ${condTag}">${cond}</span>
           ${lang ? `<span class="tag tag-lang-${lang === 'JP' ? 'JP' : 'EN'}">${lang}</span>` : ''}
-          ${g.photos.some(p => p.side === 'detail') ? `<span class="tag tag-photo">🔍 Detail</span>` : ''}
+          ${g.photos.some(p => p.side === 'front')  ? `<span class="tag tag-photo">📷 Přední</span>`  : ''}
+          ${g.photos.some(p => p.side === 'detail') ? `<span class="tag tag-photo">🔍 Detail</span>`  : ''}
           ${g.photos.some(p => p.side === 'back')   ? `<span class="tag tag-photo">🔄 Zadní</span>`   : ''}
+          ${g.photos.some(p => p.side === 'name')   ? `<span class="tag tag-photo">🈯 JP název</span>` : ''}
         </div>
       </div>
       <div style="text-align:right;flex-shrink:0">
@@ -775,12 +956,21 @@ function buildGroupEl(g, gi) {
       <!-- AI info -->
       ${aiRows ? `
         <div class="cg-ai">
-          <div class="cg-ai-title">🤖 AI rozpoznávání</div>
+          <div class="cg-ai-title" style="display:flex;align-items:center;justify-content:space-between">
+            <span>🤖 AI rozpoznávání</span>
+            <button id="editAiBtn-${gi}" class="btn-edit-ai" onclick="toggleEditAi(${gi})">✏️ Upravit</button>
+          </div>
           <div class="ai-grid">${aiRows}</div>
           ${ai.conditionNotes ? `<div style="margin-top:8px;font-size:12px;color:rgba(240,232,208,.5)">📝 ${esc(ai.conditionNotes)}</div>` : ''}
           ${ai.notes ? `<div style="margin-top:4px;font-size:12px;color:rgba(240,232,208,.4)">💬 ${esc(ai.notes)}</div>` : ''}
-          ${confPct !== null ? `<div class="ai-conf">Konfidence: ${confPct}%</div>` : ''}
+          <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+            ${confPct !== null ? `<span class="${confLow ? 'conf-warn' : 'ai-conf'}">${confLow ? '⚠️ ' : ''}Konfidence: ${confPct}%</span>` : '<span></span>'}
+            ${ai.name ? `<a href="${cardmarketUrl(ai.name, ai.set, ai.lang)}" target="_blank" class="cardmarket-link">🛒 Cardmarket</a>` : ''}
+          </div>
         </div>` : ''}
+
+      <!-- Duplicate warning -->
+      ${isDup ? `<div class="dup-warn">⚠️ Tato karta je pravděpodobně již ve tvém albu — zkontroluj duplikát před zařazením.</div>` : ''}
 
       <!-- Zadní strana AI -->
       ${backAiHtml}
@@ -904,6 +1094,238 @@ function updateBadge() {
     badge.style.display = '';
     btn.disabled = false;
   }
+  updateProgress();
+}
+
+// ── Progress bar ──────────────────────────────────────────────
+let _totalLoaded = 0;
+function updateProgress() {
+  const wrap  = document.getElementById('progressWrap');
+  const fill  = document.getElementById('progressFill');
+  const label = document.getElementById('progressLabel');
+  if (!wrap) return;
+  if (!_totalLoaded || _totalLoaded === cardGroups.length) {
+    wrap.style.display = 'none'; return;
+  }
+  wrap.style.display = '';
+  const done = _totalLoaded - cardGroups.length;
+  const pct  = Math.round((done / _totalLoaded) * 100);
+  fill.style.width  = pct + '%';
+  label.innerHTML   = `<strong>${done}</strong> / ${_totalLoaded} zařazeno`;
+}
+
+// ── Filters ────────────────────────────────────────────────────
+let activeFilter = 'all';
+function setFilter(f, btn) {
+  activeFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+function applyFilters() {
+  cardGroups.forEach((g, gi) => {
+    const el = document.getElementById(`group-${gi}`);
+    if (!el) return;
+    let show = true;
+    const ai = g.aiResult || {};
+    const conf = ai.confidence
+      ? (typeof ai.confidence === 'number' ? ai.confidence
+         : ai.confidence === 'high' ? 0.92 : ai.confidence === 'medium' ? 0.65 : 0.4)
+      : 1;
+    if (activeFilter === 'nocrop')   show = g.photos.some(p => !p.croppedUrl);
+    else if (activeFilter === 'lowconf') show = conf < 0.7;
+    else if (activeFilter === 'JP') show = (ai.lang||'EN') === 'JP';
+    else if (activeFilter === 'EN') show = (ai.lang||'EN') === 'EN';
+    else if (['NM','LP','MP','HP','D'].includes(activeFilter)) show = (ai.condition||'NM') === activeFilter;
+    el.style.display = show ? '' : 'none';
+  });
+}
+
+// ── Export CSV ─────────────────────────────────────────────────
+function exportCSV() {
+  const rows = [['Název','Série','Číslo','Typ','HP','Kondice','Jazyk','Varianta','Fotky','Konfidence']];
+  cardGroups.forEach(g => {
+    const ai = g.aiResult || {};
+    const conf = ai.confidence
+      ? (typeof ai.confidence === 'number' ? Math.round(ai.confidence*100)+'%'
+         : ai.confidence === 'high' ? '92%' : ai.confidence === 'medium' ? '65%' : '40%')
+      : '';
+    rows.push([
+      ai.name||'', ai.set||'', ai.number||'', ai.type||'', ai.hp||'',
+      ai.condition||'NM', ai.lang||'EN', ai.variant||'normal',
+      g.photos.length, conf
+    ]);
+  });
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = `poketrade-fronta-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('📄 CSV staženo');
+}
+
+// ── Browser notifications ─────────────────────────────────────
+let _notifInterval = null;
+let _lastCount = 0;
+function requestNotifPermission() {
+  if (!('Notification' in window)) { toast('Prohlížeč nepodporuje notifikace', 'err'); return; }
+  Notification.requestPermission().then(p => {
+    if (p === 'granted') {
+      toast('🔔 Notifikace povoleny');
+      document.getElementById('notifBtn').innerHTML = '🔔 <span class="notif-dot"></span>';
+      _lastCount = cardGroups.length;
+      if (_notifInterval) clearInterval(_notifInterval);
+      _notifInterval = setInterval(_checkNewPhotos, 30000);
+    } else {
+      toast('Notifikace blokovány prohlížečem', 'err');
+    }
+  });
+}
+async function _checkNewPhotos() {
+  try {
+    const rows = await sbReq(`rest/v1/photo_queue?user_id=eq.${userId}&processed=eq.false&select=id`);
+    if (!Array.isArray(rows)) return;
+    const newCount = rows.length;
+    if (newCount > _lastCount && Notification.permission === 'granted') {
+      new Notification('PokéTrade – nové fotky!', {
+        body: `Přibylo ${newCount - _lastCount} nových fotek ke zpracování.`,
+        icon: 'pokemon.png'
+      });
+      _lastCount = newCount;
+      loadQueue();
+    }
+  } catch {}
+}
+
+// ── Keyboard shortcuts ────────────────────────────────────────
+let _focusedGroup = 0;
+function toggleShortcuts() {
+  const h = document.getElementById('shortcutsHint');
+  h.classList.toggle('show');
+}
+document.addEventListener('keydown', e => {
+  // Nezasahuj do inputů
+  if (['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName)) return;
+  // Nezasahuj do crop modalu
+  if (document.getElementById('cropModal').classList.contains('open')) {
+    if (e.key === 'Escape') cancelCrop();
+    return;
+  }
+  if (document.getElementById('lightbox').classList.contains('open')) {
+    if (e.key === 'Escape') closeLightbox();
+    return;
+  }
+  const visible = cardGroups.map((_,i) => i).filter(i => {
+    const el = document.getElementById(`group-${i}`);
+    return el && el.style.display !== 'none';
+  });
+  if (!visible.length) return;
+  _focusedGroup = Math.max(0, Math.min(_focusedGroup, visible.length - 1));
+  const gi = visible[_focusedGroup];
+
+  switch(e.key) {
+    case 'ArrowDown':
+      e.preventDefault();
+      _focusedGroup = Math.min(_focusedGroup + 1, visible.length - 1);
+      document.getElementById(`group-${visible[_focusedGroup]}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+      _highlightGroup(visible[_focusedGroup]);
+      break;
+    case 'ArrowUp':
+      e.preventDefault();
+      _focusedGroup = Math.max(_focusedGroup - 1, 0);
+      document.getElementById(`group-${visible[_focusedGroup]}`)?.scrollIntoView({behavior:'smooth',block:'center'});
+      _highlightGroup(visible[_focusedGroup]);
+      break;
+    case ' ':
+      e.preventDefault();
+      toggleGroup(gi);
+      break;
+    case 'Enter':
+      e.preventDefault();
+      assignGroup(gi);
+      break;
+    case 'Delete':
+    case 'Backspace':
+      if (e.key === 'Backspace') break;
+      e.preventDefault();
+      discardGroup(gi);
+      break;
+    case 'c': case 'C':
+      e.preventDefault();
+      const fp = cardGroups[gi]?.photos.findIndex(p => p.side === 'front');
+      if (fp >= 0) openCrop(gi, fp);
+      break;
+    case '?':
+      toggleShortcuts();
+      break;
+  }
+});
+function _highlightGroup(gi) {
+  document.querySelectorAll('.card-group').forEach(el => el.style.outline = '');
+  const el = document.getElementById(`group-${gi}`);
+  if (el) { el.style.outline = '2px solid rgba(245,200,66,0.5)'; el.style.borderRadius = '16px'; }
+}
+
+// ── Cardmarket link ───────────────────────────────────────────
+function cardmarketUrl(name, set, lang) {
+  const q = encodeURIComponent(`${name||''} ${set||''}`.trim());
+  const loc = (lang === 'JP') ? 'jp' : 'en';
+  return `https://www.cardmarket.com/${loc}/Pokemon/Products/Search?searchString=${q}`;
+}
+
+// ── Editable AI fields ────────────────────────────────────────
+function toggleEditAi(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  g._editing = !g._editing;
+  const btn = document.getElementById(`editAiBtn-${gi}`);
+  if (btn) { btn.textContent = g._editing ? '💾 Uložit' : '✏️ Upravit'; btn.classList.toggle('active', g._editing); }
+  const fields = ['name','set','number','type','hp','condition','lang','variant'];
+  fields.forEach(f => {
+    const valEl = document.getElementById(`aival-${gi}-${f}`);
+    if (!valEl) return;
+    if (g._editing) {
+      const cur = valEl.textContent;
+      valEl.outerHTML = `<input id="aival-${gi}-${f}" class="val-edit" value="${cur}" data-field="${f}">`;
+    } else {
+      const inp = document.getElementById(`aival-${gi}-${f}`);
+      if (inp) {
+        const newVal = inp.value;
+        if (!g.aiResult) g.aiResult = {};
+        g.aiResult[f] = newVal;
+        inp.outerHTML = `<span id="aival-${gi}-${f}" class="val" style="color:#f5c842;font-weight:600">${newVal}</span>`;
+      }
+    }
+  });
+}
+
+// ── Assign with animation ─────────────────────────────────────
+async function assignGroup(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const albumId = document.getElementById(`albumSel-${gi}`)?.value || null;
+  const el = document.getElementById(`group-${gi}`);
+  if (el) {
+    el.classList.add('removing');
+    await new Promise(r => setTimeout(r, 360));
+  }
+  await doAssign([g], albumId);
+}
+
+// ── Duplicate check ───────────────────────────────────────────
+let _existingCards = [];
+async function loadExistingCards() {
+  try {
+    const rows = await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&select=card_data`);
+    if (Array.isArray(rows)) _existingCards = rows.map(r => r.card_data);
+  } catch {}
+}
+function checkDuplicate(name, number) {
+  if (!name) return false;
+  return _existingCards.some(c =>
+    c.name?.toLowerCase() === name.toLowerCase() &&
+    (!number || c.number === number)
+  );
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -917,8 +1339,10 @@ const CROP = {
   corners: [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
   scale:   1,
   drag:    null,
-  mode:    'loupe',   // 'loupe' | 'precise'
-  dragPos: null,      // for loupe – current drag canvas pos
+  mode:    'loupe',
+  dragPos: null,
+  rotation: 0,      // 0, 90, 180, 270
+  showBefore: false, // before/after toggle
 };
 const HANDLE_R = 22;
 const CORNER_LABELS = ['TL','TR','BR','BL'];
@@ -940,6 +1364,35 @@ function setCropMode(mode) {
   _drawCrop();
 }
 
+function rotateCrop(deg) {
+  CROP.rotation = ((CROP.rotation + deg) + 360) % 360;
+  // Přegeneruj rotovaný canvas
+  const img = CROP.img;
+  const offscreen = document.createElement('canvas');
+  const ctx = offscreen.getContext('2d');
+  const rad = CROP.rotation * Math.PI / 180;
+  const sin = Math.abs(Math.sin(rad)), cos = Math.abs(Math.cos(rad));
+  offscreen.width  = Math.round(img.naturalWidth * cos + img.naturalHeight * sin);
+  offscreen.height = Math.round(img.naturalWidth * sin + img.naturalHeight * cos);
+  ctx.translate(offscreen.width / 2, offscreen.height / 2);
+  ctx.rotate(rad);
+  ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
+  const rotImg = new Image();
+  rotImg.onload = () => {
+    CROP.img = rotImg;
+    _initCorners(rotImg.naturalWidth, rotImg.naturalHeight);
+    _setupCanvas();
+  };
+  rotImg.src = offscreen.toDataURL();
+}
+
+function toggleBeforeAfter() {
+  CROP.showBefore = !CROP.showBefore;
+  const btn = document.getElementById('beforeAfterBtn');
+  if (btn) btn.style.color = CROP.showBefore ? '#f5c842' : 'rgba(255,255,255,0.5)';
+  _drawCrop();
+}
+
 function openCrop(gi, pi) {
   const g = cardGroups[gi];
   const p = g.photos[pi];
@@ -949,6 +1402,9 @@ function openCrop(gi, pi) {
     if (cors) img.crossOrigin = 'anonymous';
     img.onload = () => {
       CROP.img = img; CROP.groupIdx = gi; CROP.photoIdx = pi;
+      CROP.rotation = 0; CROP.showBefore = false;
+      const bb = document.getElementById('beforeAfterBtn');
+      if (bb) bb.style.color = 'rgba(255,255,255,0.5)';
       _initCorners(img.naturalWidth, img.naturalHeight);
       _setupCanvas();
       document.getElementById('cropModal').classList.add('open');
@@ -991,6 +1447,21 @@ function _drawCrop() {
   const ctx = canvas.getContext('2d');
   const s = CROP.scale;
   const { img, corners, mode } = CROP;
+
+  // Before/after mode — ukáže původní foto
+  if (CROP.showBefore) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, canvas.width, 28);
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('PŘED — klikni „Před/Po" pro zobrazení ořezu', canvas.width/2, 14);
+    ctx.restore();
+    return;
+  }
+
   const pts = corners.map(c => ({x: c.x*s, y: c.y*s}));
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1310,6 +1781,12 @@ function confirmCrop() {
         style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">&#x21BA;</button>`;
   }
 
+  // Aktualizuj náhled v hlavičce skupiny pokud je to přední fotka
+  if (p.side === 'front') {
+    const thumb = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
+    if (thumb) thumb.src = dataUrl;
+  }
+
   cancelCrop();
   toast('✅ Perspektivní ořez uložen', 'success');
 }
@@ -1396,6 +1873,12 @@ function resetPhotoTile(gi, pi) {
 }
 
 // ── Lightbox ──────────────────────────────────────────────────
+function openLightboxTile(gi, pi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const p = g.photos[pi];
+  openLightbox(p.croppedUrl || p.url);
+}
 function openLightbox(url) {
   document.getElementById('lightboxImg').src = url;
   document.getElementById('lightbox').classList.add('open');
