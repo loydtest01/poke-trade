@@ -720,10 +720,10 @@ body::after {
   </a>
   <nav class="nav-lnks">
     <a href="marketplace.html">Nabídky</a>
-    <a href="album.html">🔄 Album výměny</a>
-    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="moje-album.html">🎴 Moje alba</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html" class="active">📷 Skener</a>
+    <a href="queue.html">📥 Čeká na zařazení</a>
     <a href="profile.html">Můj profil</a>
   </nav>
   <div class="topbar-right">
@@ -1642,7 +1642,11 @@ async function pollNewPhotos() {
     setTimeout(() => banner.classList.remove('show'), 5000);
 
     let added = 0;
+    // Filtruj duplikáty – neopakuj fotky, které už máme v paměti
+    const existingQueueIds = new Set(photos.filter(p => p.queueId).map(p => p.queueId));
+
     for (const row of rows) {
+      if (existingQueueIds.has(row.id)) continue;
       // Získej signed URL na 2 hodiny
       const signed = await sbReq(
         `storage/v1/object/sign/card-photo/${row.storage_path}`,
@@ -1660,8 +1664,7 @@ async function pollNewPhotos() {
       });
       added++;
 
-      // Označ jako zpracované
-      sbReq(`rest/v1/photo_queue?id=eq.${row.id}`, 'PATCH', { processed: true }, currentToken);
+      // ⛔ Neoznačujeme jako processed – to udělá queue.html při zařazení
     }
 
     if (added) {
