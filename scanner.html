@@ -1647,32 +1647,13 @@ async function pollNewPhotos() {
 
     for (const row of rows) {
       if (existingQueueIds.has(row.id)) continue;
-      // Získej signed URL na 2 hodiny
-      const signed = await sbReq(
-        `storage/v1/object/sign/card-photo/${row.storage_path}`,
-        'POST', { expiresIn: 7200 }, currentToken
-      );
-      const su = signed?.signedURL;
-      if (!su) continue;
-      const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
-
-      // Fetch as blob – signed URL is self-authenticated, no extra headers needed.
-      // NOTE: Supabase Storage bucket "card-photo" must have CORS configured for
-      // origin https://pokemon-trade-ruddy.vercel.app (see README fix instructions)
-      let displayUrl = photoUrl;
-      try {
-        const resp = await fetch(photoUrl);
-        if (resp.ok) {
-          const blob = await resp.blob();
-          displayUrl = URL.createObjectURL(blob);
-        } else {
-          console.warn('[pollNewPhotos] signed URL returned', resp.status);
-        }
-      } catch(e) { console.warn('[pollNewPhotos] blob fetch failed – CORS?', e); }
+      // Bucket card-photo is public – use direct public URL (no signing, no CORS issues)
+      // Same approach as queue.html
+      const photoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
 
       const id = nextId++;
       photos.push({
-        id, dataUrl: displayUrl, isUrl: true, signedUrl: photoUrl,
+        id, dataUrl: photoUrl, isUrl: true, signedUrl: photoUrl,
         name: row.filename || `foto-${id}.jpg`,
         status: 'pending', result: null, tcgCard: null, queueId: row.id
       });
