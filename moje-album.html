@@ -1045,15 +1045,15 @@ body { background: #06040c; overflow-x: hidden; }
   <aside class="sidebar" id="sidebar">
     <div class="sb-section">
       <span class="sb-label" data-i18n="show">Zobrazit</span>
-      <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
-      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
-      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
+      <button class="sb-btn active" onclick="setView('all')"  id="vb-all" data-i18n="all_cards">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
+      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade" data-i18n="for_trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
+      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell" data-i18n="for_sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
     </div>
     <div class="sb-divider"></div>
 
     <div class="sb-section">
       <span class="sb-label" data-i18n="cond">Stav karty</span>
-      <button class="sb-btn active" onclick="setCond('')">Vše</button>
+      <button class="sb-btn active" onclick="setCond('')" data-i18n="c_all">Vše</button>
       <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
       <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
       <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
@@ -1063,17 +1063,17 @@ body { background: #06040c; overflow-x: hidden; }
 
     <div class="sb-section">
       <span class="sb-label" data-i18n="spec_alb">Speciální alba</span>
-      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
     </div>
     <div class="sb-divider"></div>
 
     <div class="sb-section">
       <span class="sb-label" data-i18n="my_albums">Moje alba</span>
       <div class="album-list" id="albumList">
-        <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+        <div style="font-size:11px;color:var(--text3);padding:4px 6px" data-i18n="loading">Načítám…</div>
       </div>
-      <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
+      <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1081,9 +1081,9 @@ body { background: #06040c; overflow-x: hidden; }
       <span class="sb-label" data-i18n="sync_mode">Sync mód</span>
       <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
         style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
-        <option value="hourly">Každou hodinu</option>
+        <option value="hourly" data-i18n="sync_hourly">Každou hodinu</option>
         <option value="realtime">Real-time (30s)</option>
-        <option value="manual">Manuálně</option>
+        <option value="manual" data-i18n="sync_manual">Manuálně</option>
       </select>
       <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
     </div>
@@ -1156,7 +1156,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Vzácnost (Pokémon / Vše) ── -->
       <div class="f-accordion" id="fa-rarity-pokemon" data-group="pokemon">
         <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-pokemon')">
-          <span class="f-acc-label">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -1176,7 +1176,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Element (Pokémon / Vše) ── -->
       <div class="f-accordion" id="fa-element" data-group="pokemon">
         <div class="f-acc-header" onclick="toggleAccordion('fa-element')">
-          <span class="f-acc-label">🔥 Element <span class="f-acc-value" id="fa-element-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="element">🔥 Element <span class="f-acc-value" id="fa-element-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -1200,7 +1200,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Vzácnost (Trenéři) ── -->
       <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer" style="display:none">
         <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-trainer')">
-          <span class="f-acc-label">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-trainer-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-trainer-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -1217,7 +1217,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Typ trenéra ── -->
       <div class="f-accordion" id="fa-trainer-type" data-group="trainer" style="display:none">
         <div class="f-acc-header" onclick="toggleAccordion('fa-trainer-type')">
-          <span class="f-acc-label">📋 Typ <span class="f-acc-value" id="fa-trainer-type-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="tr_type">📋 Typ <span class="f-acc-value" id="fa-trainer-type-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -1234,7 +1234,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Vzácnost (Energie) ── -->
       <div class="f-accordion" id="fa-rarity-energy" data-group="energy" style="display:none">
         <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-energy')">
-          <span class="f-acc-label">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-energy-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-energy-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -1251,7 +1251,7 @@ body { background: #06040c; overflow-x: hidden; }
       <!-- ── Panel: Typ energie ── -->
       <div class="f-accordion" id="fa-energy-type" data-group="energy" style="display:none">
         <div class="f-acc-header" onclick="toggleAccordion('fa-energy-type')">
-          <span class="f-acc-label">⚡ Typ energie <span class="f-acc-value" id="fa-energy-type-val"></span></span>
+          <span class="f-acc-label" data-i18n-label="en_type">⚡ Typ energie <span class="f-acc-value" id="fa-energy-type-val"></span></span>
           <span class="f-acc-arrow">▼</span>
         </div>
         <div class="f-acc-body">
@@ -2986,38 +2986,62 @@ function showAccordionGroup(group) {
   });
 }
 
-const RARITY_LABELS = {
-  common:'⚪ Common', uncommon:'🔵 Uncommon', rare:'🌟 Rare',
-  holo:'✨ Holo', ultra:'💎 Ultra Rare', secret:'🔴 Secret',
-  fullart:'🖼️ Full-Art', gold:'🥇 Gold', promo:'🎁 Promo',
-  basic_energy:'⚡ Základní', special_energy:'💠 Speciální',
-  collector_energy:'✨ Sběratel.'
+const RARITY_LABELS_I18N = {
+  common:          { cz: '⚪ Common', en: '⚪ Common' },
+  uncommon:        { cz: '🔵 Uncommon', en: '🔵 Uncommon' },
+  rare:            { cz: '🌟 Rare', en: '🌟 Rare' },
+  holo:            { cz: '✨ Holo', en: '✨ Holo' },
+  ultra:           { cz: '💎 Ultra', en: '💎 Ultra' },
+  secret:          { cz: '🔴 Secret', en: '🔴 Secret' },
+  fullart:         { cz: '🖼️ Full-Art', en: '🖼️ Full-Art' },
+  gold:            { cz: '🥇 Gold', en: '🥇 Gold' },
+  promo:           { cz: '🎁 Promo', en: '🎁 Promo' },
+  basic_energy:    { cz: '⚡ Základní', en: '⚡ Basic' },
+  special_energy:  { cz: '💠 Speciální', en: '💠 Special' },
+  collector_energy:{ cz: '✨ Sběratel.', en: '✨ Collector' },
 };
-const TYPE_LABELS = {
-  fire:'Ohnivý', water:'Vodní', grass:'Travní', lightning:'Elektro',
-  psychic:'Psycho', darkness:'Temný', dragon:'Dračí', metal:'Kovový',
-  fighting:'Bojový', fairy:'Víla', normal:'Normální', colorless:'Bezbarvý'
+const TYPE_LABELS_I18N = {
+  fire:      { cz: 'Ohnivý', en: 'Fire' },
+  water:     { cz: 'Vodní', en: 'Water' },
+  grass:     { cz: 'Travní', en: 'Grass' },
+  lightning: { cz: 'Elektro', en: 'Electric' },
+  psychic:   { cz: 'Psycho', en: 'Psychic' },
+  darkness:  { cz: 'Temný', en: 'Dark' },
+  dragon:    { cz: 'Dračí', en: 'Dragon' },
+  metal:     { cz: 'Kovový', en: 'Metal' },
+  fighting:  { cz: 'Bojový', en: 'Fighting' },
+  fairy:     { cz: 'Víla', en: 'Fairy' },
+  normal:    { cz: 'Normální', en: 'Normal' },
+  colorless: { cz: 'Bezbarvý', en: 'Colorless' },
 };
-const TRAINER_SUB_LABELS = {
-  Stadium:'Stadion', Supporter:'Podpora', Item:'Předmět', Tool:'Nástroj'
+const TRAINER_SUB_LABELS_I18N = {
+  Stadium:   { cz: 'Stadion', en: 'Stadium' },
+  Supporter: { cz: 'Podpora', en: 'Supporter' },
+  Item:      { cz: 'Předmět', en: 'Item' },
+  Tool:      { cz: 'Nástroj', en: 'Tool' },
 };
 
+function tLabel(dict, key) {
+  const e = dict[key];
+  return e ? (e[currentLang] || e.cz || key) : key;
+}
+
 function updateAccordionLabels() {
-  // Vzácnost label
+  // Vzácnost labels
   const rv = document.getElementById('fa-rarity-val');
-  if (rv) rv.textContent = activeRarity ? (RARITY_LABELS[activeRarity] || activeRarity) : '';
+  if (rv) rv.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
   const rtv = document.getElementById('fa-rarity-trainer-val');
-  if (rtv) rtv.textContent = activeRarity ? (RARITY_LABELS[activeRarity] || activeRarity) : '';
+  if (rtv) rtv.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
   const rev = document.getElementById('fa-rarity-energy-val');
-  if (rev) rev.textContent = activeRarity ? (RARITY_LABELS[activeRarity] || activeRarity) : '';
-  // Element label
+  if (rev) rev.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
+  // Element labels
   const ev = document.getElementById('fa-element-val');
-  if (ev) ev.textContent = activeType ? (TYPE_LABELS[activeType] || activeType) : '';
+  if (ev) ev.textContent = activeType ? tLabel(TYPE_LABELS_I18N, activeType) : '';
   const etv = document.getElementById('fa-energy-type-val');
-  if (etv) etv.textContent = activeType ? (TYPE_LABELS[activeType] || activeType) : '';
+  if (etv) etv.textContent = activeType ? tLabel(TYPE_LABELS_I18N, activeType) : '';
   // Trainer type label
   const ttv = document.getElementById('fa-trainer-type-val');
-  if (ttv) ttv.textContent = activeTrainerSub ? (TRAINER_SUB_LABELS[activeTrainerSub] || activeTrainerSub) : '';
+  if (ttv) ttv.textContent = activeTrainerSub ? tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) : '';
   // Has-filter highlight
   document.querySelectorAll('.f-accordion').forEach(a => {
     const chips = a.querySelectorAll('.type-chip.active');
@@ -3116,9 +3140,14 @@ const I18N = {
   for_sell:  { cz: '💰 K prodeji', en: '💰 For sale' },
   cond:      { cz: 'Stav karty', en: 'Card condition' },
   spec_alb:  { cz: 'Speciální alba', en: 'Special albums' },
+  trade_album:{ cz: '🔄 Výměna', en: '🔄 Trade' },
+  shop_album: { cz: '🛒 Obchod', en: '🛒 Shop' },
   my_albums: { cz: 'Moje alba', en: 'My albums' },
   new_album: { cz: '＋ Nové album', en: '＋ New album' },
+  loading:   { cz: 'Načítám…', en: 'Loading…' },
   sync_mode: { cz: 'Sync mód', en: 'Sync mode' },
+  sync_hourly:{ cz: 'Každou hodinu', en: 'Every hour' },
+  sync_manual:{ cz: 'Manuálně', en: 'Manual' },
   currency:  { cz: 'Měna', en: 'Currency' },
   lang:      { cz: 'Jazyk', en: 'Language' },
   search:    { cz: 'Hledat kartu, sérii, číslo…', en: 'Search card, set, number…' },
@@ -3126,49 +3155,67 @@ const I18N = {
   grid:      { cz: '⊞ Mřížka', en: '⊞ Grid' },
   album_v:   { cz: '📖 Album', en: '📖 Album' },
   total:     { cz: 'Celkem', en: 'Total' },
-  // Accordion labels
+  c_all:     { cz: 'Vše', en: 'All' },
+  // Accordion headers
   rarity:    { cz: '🌟 Vzácnost', en: '🌟 Rarity' },
   element:   { cz: '🔥 Element', en: '🔥 Type' },
   tr_type:   { cz: '📋 Typ', en: '📋 Subtype' },
   en_type:   { cz: '⚡ Typ energie', en: '⚡ Energy type' },
-  // Accordion chips
-  'c_all':     { cz: 'Vše', en: 'All' },
-  'c_common':  { cz: '⚪ Common', en: '⚪ Common' },
-  'c_uncommon':{ cz: '🔵 Uncommon', en: '🔵 Uncommon' },
-  'c_rare':    { cz: '🌟 Rare', en: '🌟 Rare' },
-  'c_holo':    { cz: '✨ Holo Rare', en: '✨ Holo Rare' },
-  'c_ultra':   { cz: '💎 Ultra Rare', en: '💎 Ultra Rare' },
-  'c_secret':  { cz: '🔴 Secret Rare', en: '🔴 Secret Rare' },
-  'c_promo':   { cz: '🎁 Promo', en: '🎁 Promo' },
-  'c_fullart': { cz: '🖼️ Full-Art', en: '🖼️ Full-Art' },
-  'c_gold':    { cz: '🥇 Gold', en: '🥇 Gold' },
-  'c_basic_e': { cz: '⚡ Základní', en: '⚡ Basic' },
-  'c_spec_e':  { cz: '💠 Speciální', en: '💠 Special' },
-  'c_coll_e':  { cz: '✨ Sběratelské', en: '✨ Collector' },
-  'c_stadium': { cz: '🏟️ Stadion', en: '🏟️ Stadium' },
-  'c_support': { cz: '🧑 Podpora', en: '🧑 Supporter' },
-  'c_item':    { cz: '🎒 Předmět', en: '🎒 Item' },
-  'c_tool':    { cz: '🔧 Nástroj', en: '🔧 Tool' },
-  // Element names
-  'e_fire':    { cz: 'Ohnivý', en: 'Fire' },
-  'e_water':   { cz: 'Vodní', en: 'Water' },
-  'e_grass':   { cz: 'Travní', en: 'Grass' },
-  'e_lightning':{ cz: 'Elektrický', en: 'Electric' },
-  'e_psychic': { cz: 'Psychický', en: 'Psychic' },
-  'e_darkness':{ cz: 'Temný', en: 'Dark' },
-  'e_dragon':  { cz: 'Dračí', en: 'Dragon' },
-  'e_metal':   { cz: 'Kovový', en: 'Metal' },
-  'e_fighting':{ cz: 'Bojový', en: 'Fighting' },
-  'e_fairy':   { cz: 'Víla', en: 'Fairy' },
-  'e_normal':  { cz: 'Normální', en: 'Normal' },
-  'e_colorless':{ cz: 'Bezbarvý', en: 'Colorless' },
   // Sort
-  'sort_added':{ cz: 'Pořadí přidání', en: 'Date added' },
-  'sort_az':   { cz: 'Název A–Z', en: 'Name A–Z' },
-  'sort_za':   { cz: 'Název Z–A', en: 'Name Z–A' },
-  'sort_num':  { cz: 'Číslo pokémona', en: 'Pokédex #' },
-  'sort_set':  { cz: 'Série', en: 'Set' },
-  'sort_elem': { cz: 'Element', en: 'Type' },
+  sort_added:{ cz: 'Pořadí přidání', en: 'Date added' },
+  sort_az:   { cz: 'Název A–Z', en: 'Name A–Z' },
+  sort_za:   { cz: 'Název Z–A', en: 'Name Z–A' },
+  sort_num:  { cz: 'Číslo pokémona', en: 'Pokédex #' },
+  sort_set:  { cz: 'Série', en: 'Set' },
+  sort_elem: { cz: 'Element', en: 'Type' },
+  // Empty states
+  no_albums: { cz: 'Zatím žádná alba', en: 'No albums yet' },
+  loading_album: { cz: 'Načítám album…', en: 'Loading album…' },
+};
+
+// Chip translations: keyed by onclick argument
+const CHIP_I18N = {
+  // Rarity chips
+  "setRarity('')":               { cz: 'Vše', en: 'All' },
+  "setRarity('common')":         { cz: '⚪ Common', en: '⚪ Common' },
+  "setRarity('uncommon')":       { cz: '🔵 Uncommon', en: '🔵 Uncommon' },
+  "setRarity('rare')":           { cz: '🌟 Rare', en: '🌟 Rare' },
+  "setRarity('holo')":           { cz: '✨ Holo Rare', en: '✨ Holo Rare' },
+  "setRarity('ultra')":          { cz: '💎 Ultra Rare', en: '💎 Ultra Rare' },
+  "setRarity('secret')":         { cz: '🔴 Secret Rare', en: '🔴 Secret Rare' },
+  "setRarity('promo')":          { cz: '🎁 Promo', en: '🎁 Promo' },
+  "setRarity('fullart')":        { cz: '🖼️ Full-Art', en: '🖼️ Full-Art' },
+  "setRarity('gold')":           { cz: '🥇 Gold', en: '🥇 Gold' },
+  "setRarity('basic_energy')":   { cz: '⚡ Základní', en: '⚡ Basic' },
+  "setRarity('special_energy')": { cz: '💠 Speciální', en: '💠 Special' },
+  "setRarity('collector_energy')":{ cz: '✨ Sběratelské', en: '✨ Collector' },
+  // Trainer sub chips
+  "setTrainerSub('')":           { cz: 'Vše', en: 'All' },
+  "setTrainerSub('Stadium')":    { cz: '🏟️ Stadion', en: '🏟️ Stadium' },
+  "setTrainerSub('Supporter')":  { cz: '🧑 Podpora', en: '🧑 Supporter' },
+  "setTrainerSub('Item')":       { cz: '🎒 Předmět', en: '🎒 Item' },
+  "setTrainerSub('Tool')":       { cz: '🔧 Nástroj', en: '🔧 Tool' },
+  // Element chips
+  "setType('')":                 { cz: 'Vše', en: 'All' },
+  "setType('fire')":             { cz: 'Ohnivý', en: 'Fire' },
+  "setType('water')":            { cz: 'Vodní', en: 'Water' },
+  "setType('grass')":            { cz: 'Travní', en: 'Grass' },
+  "setType('lightning')":        { cz: 'Elektrický', en: 'Electric' },
+  "setType('psychic')":          { cz: 'Psychický', en: 'Psychic' },
+  "setType('darkness')":         { cz: 'Temný', en: 'Dark' },
+  "setType('dragon')":           { cz: 'Dračí', en: 'Dragon' },
+  "setType('metal')":            { cz: 'Kovový', en: 'Metal' },
+  "setType('fighting')":         { cz: 'Bojový', en: 'Fighting' },
+  "setType('fairy')":            { cz: 'Víla', en: 'Fairy' },
+  "setType('normal')":           { cz: 'Normální', en: 'Normal' },
+  "setType('colorless')":        { cz: 'Bezbarvý', en: 'Colorless' },
+  // Supertype chips
+  "setSupertype('')":            { cz: 'Vše', en: 'All' },
+  "setSupertype('Pokémon')":     { cz: '🎴 Pokémoni', en: '🎴 Pokémon' },
+  "setSupertype('Trainer')":     { cz: '🧑 Trenéři', en: '🧑 Trainers' },
+  "setSupertype('Energy')":      { cz: '⚡ Energie', en: '⚡ Energy' },
+  // Condition
+  "setCond('')":                 { cz: 'Vše', en: 'All' },
 };
 
 function t(key) {
@@ -3186,11 +3233,10 @@ function setLang(lang) {
 }
 
 function applyI18N() {
-  // Update all elements with data-i18n
+  // 1) data-i18n elements (simple text, preserve child spans)
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.dataset.i18n;
     const translated = t(key);
-    // Keep child spans (like counters) intact
     const cnt = el.querySelector('.st-cnt, .cnt');
     if (cnt) {
       const cntHTML = cnt.outerHTML;
@@ -3199,17 +3245,66 @@ function applyI18N() {
       el.textContent = translated;
     }
   });
-  // Search placeholder
+
+  // 2) Accordion header labels (data-i18n-label)
+  document.querySelectorAll('[data-i18n-label]').forEach(el => {
+    const key = el.dataset.i18nLabel;
+    const translated = t(key);
+    const valSpan = el.querySelector('.f-acc-value');
+    const valHTML = valSpan ? ' ' + valSpan.outerHTML : '';
+    el.innerHTML = translated + valHTML;
+  });
+
+  // 3) All chips: translate by onclick attribute
+  document.querySelectorAll('.type-chip, .st-btn, .sb-btn').forEach(btn => {
+    const fn = btn.getAttribute('onclick');
+    if (!fn) return;
+    const entry = CHIP_I18N[fn];
+    if (!entry) return;
+    const text = entry[currentLang] || entry.cz;
+    // Preserve img icons and child spans
+    const img = btn.querySelector('img');
+    const cnt = btn.querySelector('.st-cnt, .cnt');
+    if (img) {
+      const imgHTML = img.outerHTML;
+      btn.innerHTML = imgHTML + ' ' + text;
+    } else if (cnt) {
+      const cntHTML = cnt.outerHTML;
+      btn.innerHTML = text + ' ' + cntHTML;
+    } else {
+      btn.textContent = text;
+    }
+  });
+
+  // 4) Search placeholder
   const si = document.getElementById('searchInput');
   if (si) si.placeholder = t('search');
-  // Sort options
+
+  // 5) Sort options
   const sortSel = document.getElementById('sortSelect');
   if (sortSel) {
-    const opts = sortSel.querySelectorAll('option');
     const keys = ['sort_added','sort_az','sort_za','sort_num','sort_set','sort_elem'];
-    opts.forEach((o, i) => { if (keys[i]) o.textContent = t(keys[i]); });
+    sortSel.querySelectorAll('option').forEach((o, i) => { if (keys[i]) o.textContent = t(keys[i]); });
   }
-  // Update accordion labels
+
+  // 6) View toggle
+  const vtGrid = document.getElementById('vt-grid');
+  const vtBook = document.getElementById('vt-book');
+  if (vtGrid) vtGrid.textContent = t('grid');
+  if (vtBook) vtBook.textContent = t('album_v');
+
+  // 7) Stat total label
+  const statChips = document.querySelectorAll('.stat-chip');
+  if (statChips[0]) {
+    const strong = statChips[0].querySelector('strong');
+    if (strong) statChips[0].innerHTML = t('total') + ' ' + strong.outerHTML;
+  }
+
+  // 8) Select button
+  const bulkBtn = document.getElementById('bulkSelectBtn');
+  if (bulkBtn) bulkBtn.textContent = t('select_btn');
+
+  // 9) Update accordion value labels
   updateAccordionLabels();
 }
 
