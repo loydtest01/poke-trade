@@ -263,6 +263,9 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .badge-trade { background: rgba(74,158,255,0.88); color: #fff; }
 .badge-sell  { background: rgba(34,197,94,0.88);  color: #fff; }
+.badge-exp   { background: rgba(245,200,66,0.92); color: #1a1326; font-size: 9px; }
+
+#totalValueBar { display: flex; }
 
 /* Check badge pro výběr */
 .card-check {
@@ -974,6 +977,14 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
     </div>
 
+    <!-- Celková hodnota sbírky -->
+    <div id="totalValueBar" style="display:none;align-items:center;gap:10px;padding:6px 16px;background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.18);border-radius:10px;margin:0 0 8px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:rgba(240,232,208,0.5);font-weight:600;letter-spacing:.06em;text-transform:uppercase">📊 Celková hodnota sbírky</span>
+      <span id="totalValueAmt" style="font-size:17px;font-weight:800;color:#f5c842;font-family:'Unbounded',sans-serif">—</span>
+      <span style="font-size:11px;color:rgba(240,232,208,0.35)">(Průměr 30d · <span id="totalValueCnt">0</span> karet s cenou)</span>
+      <span id="totalExpCnt" style="font-size:11px;color:#f5c842;display:none">· <span id="totalExpNum">0</span> drahých ⭐</span>
+    </div>
+
     <!-- Supertype lišta -->
     <div class="supertype-bar">
       <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
@@ -1391,6 +1402,21 @@ function render() {
     ah.style.display = 'none';
   }
 
+  // Celková hodnota sbírky (Průměr 30d ze všech zobrazených karet)
+  const tvBar  = document.getElementById('totalValueBar');
+  const tvAmt  = document.getElementById('totalValueAmt');
+  const tvCnt  = document.getElementById('totalValueCnt');
+  const tvExp  = document.getElementById('totalExpCnt');
+  const tvExpN = document.getElementById('totalExpNum');
+  const cardsWithPrice = filtered.filter(c => c.p30d > 0);
+  const totalVal = cardsWithPrice.reduce((s, c) => s + (c.p30d * (c.count || c.qty || 1)), 0);
+  const expCount = filtered.filter(c => c.p30d >= getExpThreshold() && c.p30d > 0).length;
+  if (tvBar) tvBar.style.display = cardsWithPrice.length ? 'flex' : 'none';
+  if (tvAmt) tvAmt.textContent = totalVal > 0 ? totalVal.toFixed(2) + ' €' : '—';
+  if (tvCnt) tvCnt.textContent = cardsWithPrice.length;
+  if (tvExp)  tvExp.style.display  = expCount > 0 ? '' : 'none';
+  if (tvExpN) tvExpN.textContent   = expCount;
+
   if (!filtered.length) {
     document.getElementById('cardsGrid').innerHTML = `
       <div class="empty-state">
@@ -1406,6 +1432,11 @@ function render() {
 
   document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
   if (bookViewMode === 'book') renderBookView();
+}
+
+function getExpThreshold() {
+  const v = parseFloat(localStorage.getItem('pkc_exp_threshold'));
+  return isNaN(v) ? 20 : v;
 }
 
 function renderCard(c, albumCardIds) {
@@ -1428,6 +1459,7 @@ function renderCard(c, albumCardIds) {
       <div class="card-badges">
         ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
+        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">⭐ ${c.p30d.toFixed(0)} €</span>` : ''}
         ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')" title="Smazat kartu">🗑</button>` : ''}
       </div>
       <div class="card-footer">

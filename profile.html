@@ -883,6 +883,24 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
       </div>
     </div>
 
+    <!-- ═══ NASTAVENÍ ALBA ═══ -->
+    <div class=\"groq-section\" id=\"albumSettingsSection\">
+      <div class=\"section-title\">⭐ Nastavení alba</div>
+      <div class=\"groq-card\">
+        <div class=\"groq-label\">Upozornění na drahou kartičku</div>
+        <p style=\"font-size:12px;color:var(--text3);margin:4px 0 12px\">
+          Karty s cenou (Průměr 30d) vyšší než tato hranice budou v albu označeny hvězdičkou ⭐.
+        </p>
+        <div class=\"groq-key-row\">
+          <input id=\"expThresholdInp\" type=\"number\" min=\"0\" step=\"1\" value=\"20\"
+            class=\"groq-input\" style=\"max-width:120px\" placeholder=\"20\">
+          <span style=\"font-size:13px;color:var(--text3)\">EUR</span>
+          <button class=\"btn-groq-save\" onclick=\"saveExpThreshold()\">Uložit</button>
+        </div>
+        <div id=\"expThresholdFeedback\" style=\"font-size:12px;margin-top:8px;color:var(--green);min-height:18px\"></div>
+      </div>
+    </div>
+
   </div><!-- /profileContent -->
 
   <!-- ═══ DASHBOARD SEKCE (jen vlastní profil) ═══ -->
@@ -1534,6 +1552,20 @@ function showToast(msg, type='') {
 
   // Zobraz sekci pouze vlastníkovi profilu
   if (!currentUser || !profileUserId || currentUser.id !== profileUserId) return;
+
+  // Načti uloženou hranici pro upozornění na drahou kartičku
+  const savedThreshold = localStorage.getItem('pkc_exp_threshold');
+  const threshInp = document.getElementById('expThresholdInp');
+  if (threshInp && savedThreshold !== null) threshInp.value = savedThreshold;
+
+  window.saveExpThreshold = function() {
+    const val = parseFloat(document.getElementById('expThresholdInp').value);
+    if (isNaN(val) || val < 0) { document.getElementById('expThresholdFeedback').textContent = '❌ Zadej platné číslo'; return; }
+    localStorage.setItem('pkc_exp_threshold', val);
+    const fb = document.getElementById('expThresholdFeedback');
+    fb.textContent = '✅ Uloženo – ' + val + ' EUR';
+    setTimeout(() => { fb.textContent = ''; }, 3000);
+  };
 
   const section    = document.getElementById('groqSection');
   const dot        = document.getElementById('groqDot');
