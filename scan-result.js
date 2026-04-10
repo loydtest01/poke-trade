@@ -23,36 +23,42 @@
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
-const CORS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+// ── CORS helper ───────────────────────────────────────
+// res.set() je Express metoda – Vercel ji NEMÁ.
+// Používáme res.setHeader() pro každý header zvlášť.
+function setCors(res) {
+  res.setHeader('Access-Control-Allow-Origin',  '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+}
 
 export default async function handler(req, res) {
+  // CORS hlavičky nastavíme hned na začátku – platí pro VŠECHNY odpovědi
+  setCors(res);
+
   // ── Preflight ────────────────────────────────────────
   if (req.method === 'OPTIONS') {
-    return res.status(200).set(CORS).end();
+    return res.status(200).end();
   }
   if (req.method !== 'POST') {
-    return res.status(405).set(CORS).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
   // ── 1. Ověř token ────────────────────────────────────
   const token = req.query.t || req.headers.authorization?.replace('Bearer ', '');
   if (!token) {
-    return res.status(401).set(CORS).json({ error: 'Chybí token' });
+    return res.status(401).json({ error: 'Chybí token' });
   }
 
   let userId;
   try {
     const userRes = await sbFetch('auth/v1/user', 'GET', null, token);
     if (!userRes?.id) {
-      return res.status(401).set(CORS).json({ error: 'Neplatný token' });
+      return res.status(401).json({ error: 'Neplatný token' });
     }
     userId = userRes.id;
   } catch (e) {
-    return res.status(401).set(CORS).json({ error: 'Chyba ověření tokenu' });
+    return res.status(401).json({ error: 'Chyba ověření tokenu' });
   }
 
   // ── 2. Zpracuj tělo požadavku ────────────────────────
@@ -71,7 +77,7 @@ export default async function handler(req, res) {
 
   const rawPhoto = photo || photoDataUrl;
   if (!rawPhoto) {
-    return res.status(400).set(CORS).json({ error: 'Chybí pole photo' });
+    return res.status(400).json({ error: 'Chybí pole photo' });
   }
 
   // Dekóduj base64
@@ -111,14 +117,14 @@ export default async function handler(req, res) {
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
       console.error('[scan-result] Storage upload failed:', errText);
-      return res.status(500).set(CORS).json({
+      return res.status(500).json({
         error:  'Nepodařilo se nahrát fotku do Storage',
         detail: errText,
       });
     }
   } catch (e) {
     console.error('[scan-result] Storage error:', e);
-    return res.status(500).set(CORS).json({ error: 'Chyba při nahrávání do Storage' });
+    return res.status(500).json({ error: 'Chyba při nahrávání do Storage' });
   }
 
   // ── 4. Vlož řádek do photo_queue ─────────────────────
@@ -148,18 +154,18 @@ export default async function handler(req, res) {
 
     if (queueRes?.error) {
       console.error('[scan-result] photo_queue insert error:', queueRes.error);
-      return res.status(500).set(CORS).json({
+      return res.status(500).json({
         error:  'Nepodařilo se zapsat do photo_queue',
         detail: queueRes.error.message,
       });
     }
   } catch (e) {
     console.error('[scan-result] photo_queue error:', e);
-    return res.status(500).set(CORS).json({ error: 'Chyba při zápisu do photo_queue' });
+    return res.status(500).json({ error: 'Chyba při zápisu do photo_queue' });
   }
 
   // ── 5. Hotovo ─────────────────────────────────────────
-  return res.status(200).set(CORS).json({
+  return res.status(200).json({
     ok:      true,
     storagePath,
     filename,
