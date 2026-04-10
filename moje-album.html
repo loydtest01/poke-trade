@@ -524,7 +524,8 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .cd-right {
   flex: 1; padding: 24px 24px 20px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 14px;\n}
+  display: flex; flex-direction: column; gap: 14px;
+}
 
 /* ── TCG hledání v detailu karty ── */
 .cd-tcg-section {
@@ -1803,6 +1804,8 @@ async function saveCardUpdates(c) {
   if (idx >= 0) Object.assign(allCards[idx], c);
   saveLocal();
 }
+
+async function toggleCdTrade() {
   if (!_detailCard) return;
   _detailCard.for_trade = !_detailCard.for_trade;
   _detailCard.updated_at = new Date().toISOString();
@@ -1810,6 +1813,7 @@ async function saveCardUpdates(c) {
   openCardDetail(_detailCard);
   render();
   await syncCardToServer(_detailCard);
+  syncVymenaAlbum().catch(e => console.warn('[vymena toggleCdTrade]', e));
 }
 
 async function toggleCdSell() {
