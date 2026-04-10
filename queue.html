@@ -1020,48 +1020,93 @@ async function assignAll() {
   btn.disabled = false; btn.textContent = '💾 Zařadit vše';
 }
 
+// ── Uloží reálné fotky ke kartě do user_card_photos ──────────
+async function saveCardPhotos(localId, photos) {
+  for (const p of photos) {
+    if (!p.storage_path && !p.url) continue;
+    // Odvoď storage_path z URL pokud chybí
+    const sp = p.storage_path || p.url.split('/card-photo/')[1] || '';
+    await sbReq('rest/v1/user_card_photos', 'POST', {
+      user_id:             userId,
+      user_card_local_id:  localId,
+      storage_path:        sp,
+      url:                 p.url || '',
+      side:                p.side || 'front',
+    }).catch(() => {});
+  }
+}
+
 async function doAssign(groups, albumId) {
   let ok = 0, fail = 0;
   for (const g of groups) {
     try {
       const ai = g.aiResult || {};
-      // Ulož do user_cards
-      await sbReq('rest/v1/user_cards', 'POST', {
-        user_id:   userId,
-        album_id:  albumId || null,
-        card_data: {
-          name:      ai.name      || 'Neznámá karta',
-          set:       ai.set       || '',
-          number:    ai.number    || '',
-          condition: ai.condition || 'NM',
-          category:  (ai.category || 'Pokemon').toLowerCase(),
-          type:      ai.type      || '',
-          hp:        ai.hp        || '',
-          lang:      ai.lang      || 'EN',
-          variant:   ai.variant   || 'Normal',
-          subtype:   ai.subtype   || '',
-          note:      g.comment    || ai.notes || '',
-          photoUrl:  g.photos.find(p=>p.side==='front')?.url || '',
-          count: 1, tags: [], for_trade: false, for_sell: false,
-          backCondition: g.backAi?.condition || null,
-          backIssues:    g.backAi?.issues    || [],
-        },
-        updated_at: new Date().toISOString(),
-        for_trade:  false, for_sell: false,
-      });
-      // Označit všechny photo_queue záznamy jako processed
+      const name   = ai.name   || 'Neznámá karta';
+      const set    = ai.set    || '';
+      const number = ai.number || '';
+
+      // ── 1. Zjisti, jestli karta už v albu existuje ──────────
+      let existingLocalId = null;
+      if (name && name !== 'Neznámá karta') {
+        const existing = await sbReq(
+          `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data` +
+          (albumId ? `&album_id=eq.${albumId}` : '')
+        );
+        if (existing?.length) {
+          const match = existing.find(r => {
+            const d = r.card_data || {};
+            return (d.name || '').toLowerCase() === name.toLowerCase()
+              && (d.set  || '').toLowerCase() === set.toLowerCase()
+              && (d.number || d.num || '') === number;
+          });
+          if (match) existingLocalId = match.local_id;
+        }
+      }
+
+      // ── 2a. Karta UŽ existuje → přidej jen fotky ────────────
+      if (existingLocalId) {
+        await saveCardPhotos(existingLocalId, g.photos);
+        toast(`📷 Fotky přidány ke kartě „${name}"`, 'ok');
+
+      // ── 2b. Nová karta → vytvoř záznam + ulož fotky ─────────
+      } else {
+        const localId = String(Date.now()) + '_' + Math.random().toString(36).slice(2, 7);
+        await sbReq('rest/v1/user_cards', 'POST', {
+          user_id:   userId,
+          local_id:  localId,
+          album_id:  albumId || null,
+          card_data: {
+            name, set, number,
+            condition: ai.condition || 'NM',
+            category:  (ai.category || 'Pokemon').toLowerCase(),
+            type:      ai.type      || '',
+            hp:        ai.hp        || '',
+            lang:      ai.lang      || 'EN',
+            variant:   ai.variant   || 'Normal',
+            subtype:   ai.subtype   || '',
+            note:      g.comment    || ai.notes || '',
+            photoUrl:  g.photos.find(p=>p.side==='front')?.url || '',
+            count: 1, tags: [], for_trade: false, for_sell: false,
+            backCondition: g.backAi?.condition || null,
+            backIssues:    g.backAi?.issues    || [],
+          },
+          updated_at: new Date().toISOString(),
+          for_trade:  false, for_sell: false,
+        });
+        await saveCardPhotos(localId, g.photos);
+      }
+
+      // ── 3. Označ foto_queue záznamy jako zpracované ──────────
       for (const p of g.photos) {
         sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
       }
+
       // Odstraň ze seznamu
       cardGroups = cardGroups.filter(x => x.key !== g.key);
-      const el = document.getElementById(`group-${cardGroups.indexOf(g)}`);
-      if (el) el.remove();
       ok++;
-    } catch { fail++; }
+    } catch(e) { console.error('doAssign err', e); fail++; }
   }
 
-  // Re-render
   renderGroups();
   updateBadge();
   if (ok)   toast(`✅ ${ok} karet zařazeno${albumId ? ' do alba' : ''}`, 'ok');

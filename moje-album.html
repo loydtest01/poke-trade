@@ -478,6 +478,50 @@ body { background: #06040c; overflow-x: hidden; }
   gap: 8px; color: var(--text3); font-size: 13px;
 }
 .cd-no-img .big-emoji { font-size: 48px; }
+
+/* ── Reálné fotky v detailu karty ─── */
+.cd-real-photos {
+  width: 100%; margin-top: 10px;
+}
+.cd-real-photos-label {
+  font-size: 10px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 6px; text-align: center;
+}
+.cd-photos-strip {
+  display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+}
+.cd-photo-thumb {
+  position: relative; width: 68px; height: 95px; border-radius: 7px;
+  overflow: hidden; cursor: pointer; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: transform .15s, border-color .15s;
+}
+.cd-photo-thumb:hover { transform: scale(1.06); border-color: rgba(245,200,66,0.5); }
+.cd-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cd-photo-thumb .cd-pt-side {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.65); font-size: 9px; color: rgba(255,255,255,.7);
+  text-align: center; padding: 2px 0; letter-spacing: .04em;
+}
+.cd-photo-thumb .cd-pt-del {
+  position: absolute; top: 2px; right: 2px;
+  background: rgba(248,113,113,0.85); border: none; border-radius: 4px;
+  color: #fff; font-size: 10px; padding: 1px 4px; cursor: pointer;
+  display: none;
+}
+.cd-photo-thumb:hover .cd-pt-del { display: block; }
+/* Lightbox pro reálné fotky */
+#cdPhotoLightbox {
+  display: none; position: fixed; inset: 0; z-index: 900;
+  background: rgba(0,0,0,0.92); align-items: center; justify-content: center;
+}
+#cdPhotoLightbox.open { display: flex; }
+#cdPhotoLightbox img { max-width: 90vw; max-height: 90vh; border-radius: 10px; }
+#cdPhotoLightbox button {
+  position: absolute; top: 20px; right: 24px;
+  background: rgba(255,255,255,0.12); border: none; border-radius: 8px;
+  color: #fff; font-size: 18px; padding: 6px 14px; cursor: pointer;
+}
 .cd-right {
   flex: 1; padding: 24px 24px 20px; overflow-y: auto;
   display: flex; flex-direction: column; gap: 14px;
@@ -956,6 +1000,10 @@ body { background: #06040c; overflow-x: hidden; }
         <button class="cd-close" onclick="closeCardDetail()">✕</button>
         <div class="cd-left">
           <div id="cdImgWrap"></div>
+          <div class="cd-real-photos" id="cdRealPhotos" style="display:none">
+            <div class="cd-real-photos-label">📷 Moje fotky</div>
+            <div class="cd-photos-strip" id="cdPhotosStrip"></div>
+          </div>
         </div>
         <div class="cd-right">
           <div>
@@ -981,6 +1029,12 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
 
   </main>
+</div>
+
+<!-- ── Lightbox pro reálné fotky karty ─────────────────────── -->
+<div id="cdPhotoLightbox">
+  <img id="cdLightboxImg" src="" alt="">
+  <button onclick="document.getElementById('cdPhotoLightbox').classList.remove('open')">✕</button>
 </div>
 
 <!-- ── Nové album modal ─────────────────────────────────────── -->
@@ -1365,11 +1419,65 @@ function openCardDetail(c) {
 
   modal.classList.add('open');
   modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
+
+  // Načti reálné fotky z user_card_photos
+  loadCardRealPhotos(c.id || c.local_id);
 }
 
 function closeCardDetail() {
   document.getElementById('cardDetailModal').classList.remove('open');
+  document.getElementById('cdRealPhotos').style.display = 'none';
+  document.getElementById('cdPhotosStrip').innerHTML = '';
   _detailCard = null;
+}
+
+// ── Reálné fotky ke kartě ───────────────────────────────────────
+async function loadCardRealPhotos(localId) {
+  const wrap  = document.getElementById('cdRealPhotos');
+  const strip = document.getElementById('cdPhotosStrip');
+  wrap.style.display = 'none';
+  strip.innerHTML = '<span style="font-size:11px;color:var(--text3)">Načítám…</span>';
+
+  if (!localId || !token) return;
+
+  const rows = await sbReq(
+    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(localId)}&order=created_at.asc`
+  ).catch(() => null);
+
+  if (!rows?.length) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  const sideLabel = { front: 'Přední', back: 'Zadní', detail: 'Detail', name: 'JP název' };
+  strip.innerHTML = rows.map(r => `
+    <div class="cd-photo-thumb" title="${sideLabel[r.side]||r.side}">
+      <img src="${esc(r.url)}" alt="${r.side}" loading="lazy"
+           onclick="openCdPhotoLightbox('${esc(r.url)}')">
+      <div class="cd-pt-side">${sideLabel[r.side]||r.side}</div>
+      <button class="cd-pt-del" title="Smazat" onclick="deleteCardPhoto('${r.id}',this)">✕</button>
+    </div>`).join('');
+
+  wrap.style.display = '';
+}
+
+function openCdPhotoLightbox(url) {
+  document.getElementById('cdLightboxImg').src = url;
+  document.getElementById('cdPhotoLightbox').classList.add('open');
+}
+
+async function deleteCardPhoto(id, btn) {
+  if (!confirm('Smazat tuto fotku?')) return;
+  btn.closest('.cd-photo-thumb').style.opacity = '.4';
+  const ok = await sbReq(`rest/v1/user_card_photos?id=eq.${id}`, 'DELETE').catch(() => null);
+  const thumb = btn.closest('.cd-photo-thumb');
+  thumb.style.transition = 'opacity .3s';
+  thumb.style.opacity = '0';
+  setTimeout(() => {
+    thumb.remove();
+    const strip = document.getElementById('cdPhotosStrip');
+    if (!strip.children.length) document.getElementById('cdRealPhotos').style.display = 'none';
+  }, 300);
 }
 
 async function toggleCdTrade() {
