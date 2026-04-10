@@ -1372,8 +1372,8 @@ async function callGroq(dataUrl) {
   const key = getGroqKey();
   let base64 = dataUrl, mediaType = 'image/jpeg';
 
-  if (dataUrl.startsWith('http')) {
-    // Foto z telefonu přes Supabase Storage – stáhni a převeď na base64
+  if (dataUrl.startsWith('http') || dataUrl.startsWith('blob:')) {
+    // Foto z telefonu – blob URL nebo signed URL – převeď na base64
     try {
       const resp = await fetch(dataUrl);
       const blob = await resp.blob();
@@ -1659,9 +1659,21 @@ async function pollNewPhotos() {
       if (!su) continue;
       const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
 
+      // Fetchni jako blob – signed URL nefunguje přímo v <img> kvůli CORS/auth
+      let displayUrl = photoUrl;
+      try {
+        const resp = await fetch(photoUrl, {
+          headers: { 'Authorization': `Bearer ${currentToken}` }
+        });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          displayUrl = URL.createObjectURL(blob);
+        }
+      } catch(e) { /* fallback na signed URL */ }
+
       const id = nextId++;
       photos.push({
-        id, dataUrl: photoUrl, isUrl: true,
+        id, dataUrl: displayUrl, isUrl: true, signedUrl: photoUrl,
         name: row.filename || `foto-${id}.jpg`,
         status: 'pending', result: null, tcgCard: null, queueId: row.id
       });
@@ -1962,7 +1974,7 @@ async function _savePhotoToCard(p, localId) {
     await sbReq('rest/v1/user_card_photos', 'POST', {
       user_id:              currentUser.id,
       user_card_local_id:   lid,
-      url:                  p.dataUrl,
+      url:                  p.signedUrl || p.dataUrl,
       side:                 'front',
       created_at:           new Date().toISOString(),
     }, currentToken);
