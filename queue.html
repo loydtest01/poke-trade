@@ -2112,7 +2112,7 @@ function _perspectiveWarp(img, src, dst, outW, outH) {
   // Bug #3 fix – part 1: vysoká kvalita interpolace
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  const G = 28;
+  const G = 64; // hustší mřížka → buňky ~7px → chyba pod 1px → žádné viditelné čáry
   for (let gy = 0; gy < G; gy++) {
     for (let gx = 0; gx < G; gx++) {
       const u0=gx/G, v0=gy/G, u1=(gx+1)/G, v1=(gy+1)/G;
