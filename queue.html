@@ -182,14 +182,27 @@ body::after {
 .cg-photos::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
 .cg-photos::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 
-.photo-tile {
-  flex-shrink: 0; width: 110px;
+.photo-tile {  flex-shrink: 0; width: 110px;
   display: flex; flex-direction: column; align-items: center; gap: 6px;
 }
+.photo-tile-img-wrap {
+  position: relative; width: 110px; height: 154px;
+}
+.photo-tile-img-wrap .img-spinner {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.04); border-radius: 9px;
+  border: 1.5px solid rgba(255,255,255,0.08);
+}
+.photo-tile-img-wrap .img-spinner::after {
+  content: ''; width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid rgba(245,200,66,0.25); border-top-color: #f5c842;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
 .photo-tile img {
   width: 110px; height: 154px; object-fit: cover;
   border-radius: 9px; border: 1.5px solid rgba(255,255,255,0.08);
-  cursor: zoom-in; transition: all .2s;
+  cursor: zoom-in; transition: all .2s; display: block;
 }
 .photo-tile img:hover { border-color: rgba(245,200,66,0.5); transform: scale(1.03); }
 .photo-tile .pt-label {
@@ -657,7 +670,14 @@ function buildGroupEl(g, gi) {
   const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', back: '🔄 Zadní' };
   const photosHtml = g.photos.map((p, pi) =>
     `<div class="photo-tile" id="tile-${gi}-${pi}">
-      <img src="${p.croppedUrl || p.url}" alt="${p.side}" loading="lazy" onclick="openLightbox('${p.croppedUrl || p.url}')">
+      <div class="photo-tile-img-wrap">
+        <div class="img-spinner" id="spinner-${gi}-${pi}"></div>
+        <img src="${p.croppedUrl || p.url}" alt="${p.side}" loading="lazy"
+          style="opacity:0;transition:opacity .3s"
+          onload="this.style.opacity=1;var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';"
+          onerror="var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';this.style.opacity=1;"
+          onclick="openLightbox('${p.croppedUrl || p.url}')">
+      </div>
       <div class="pt-label">${sideLabels[p.side] || p.side}${p.detailIndex ? ' '+p.detailIndex : ''}</div>
       <div style="display:flex;gap:4px;margin-top:4px;justify-content:center">
         <button onclick="openCrop(${gi},${pi})"
@@ -948,14 +968,19 @@ function _initCropRect(iw, ih) {
 
 function _setupCanvas() {
   const canvas = document.getElementById('cropCanvas');
-  const wrap   = canvas.parentElement;
   const img    = CROP.img;
-  const maxW   = wrap.clientWidth  - 24;
-  const maxH   = wrap.clientHeight - 24;
+  // Use window dimensions minus top/bot bars (~110px) for reliable height
+  const maxW   = Math.min(window.innerWidth  - 24, 900);
+  const maxH   = window.innerHeight - 140;
   const scale  = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
   CROP.scale   = scale;
-  canvas.width  = Math.round(img.naturalWidth  * scale);
-  canvas.height = Math.round(img.naturalHeight * scale);
+  const pw = Math.round(img.naturalWidth  * scale);
+  const ph = Math.round(img.naturalHeight * scale);
+  canvas.width  = pw;
+  canvas.height = ph;
+  // CRITICAL: set CSS size = pixel size to prevent browser stretching/deformation
+  canvas.style.width  = pw + 'px';
+  canvas.style.height = ph + 'px';
   _drawCrop();
 }
 
