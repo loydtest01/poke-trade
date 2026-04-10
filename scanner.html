@@ -1665,8 +1665,7 @@ async function pollNewPhotos() {
     }
 
     if (added) {
-      renderPhotos();
-      updateActionBar();
+      renderAll();
       toast(`📲 ${added} foto přijato z telefonu`, 'success');
     }
   } catch(e) { /* silent */ }
