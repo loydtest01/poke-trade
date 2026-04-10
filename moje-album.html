@@ -91,15 +91,84 @@ body { background: #06040c; overflow-x: hidden; }
 /* ── Layout ────────────────────────────────────────────────── */
 .page-wrap { position: relative; z-index: 1; display: flex; min-height: calc(100vh - 56px); }
 
-/* ── Sidebar ───────────────────────────────────────────────── */
-.sidebar {
-  width: 220px; flex-shrink: 0;
-  background: rgba(8,8,12,0.7);
+/* ── Side tab strip + sliding panel ───────────────────────── */
+.side-tabs {
+  width: 32px; flex-shrink: 0;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; padding: 10px 0;
+  background: rgba(8,8,12,0.85);
   border-right: 1px solid rgba(255,255,255,0.05);
-  padding: 12px 0; position: sticky; top: 56px;
-  height: calc(100vh - 56px); overflow-y: auto;
+  position: sticky; top: 56px;
+  height: calc(100vh - 56px);
+  z-index: 100; overflow: hidden;
 }
-.sb-section { padding: 0 10px 12px; }
+.side-tab {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 10px 6px; border-radius: 6px; cursor: pointer;
+  background: none; border: none; font-family: inherit;
+  white-space: nowrap; transition: all .18s;
+  position: relative;
+}
+.side-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.side-tab.active { color: var(--yellow); background: rgba(245,200,66,0.1); }
+.side-tab-dot {
+  position: absolute; top: 5px; right: 5px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--yellow); display: none;
+}
+.side-tab.has-active .side-tab-dot { display: block; }
+
+/* Sidebar jako sliding panel */
+.sidebar {
+  position: fixed; top: 56px; left: 32px; bottom: 0;
+  width: 220px; z-index: 300;
+  background: rgba(10,10,16,0.97);
+  border-right: 1px solid rgba(255,255,255,0.07);
+  padding: 0; overflow-y: auto;
+  transform: translateX(-100%);
+  transition: transform .26s cubic-bezier(.32,.72,0,1);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
+}
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+.sidebar.open { transform: translateX(0); }
+
+/* Overlay pro zavření sidebaru */
+.sidebar-overlay {
+  position: fixed; inset: 0; z-index: 299;
+  background: rgba(0,0,0,0.4);
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s;
+}
+.sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+/* Sidebar header s close btn */
+.sb-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px 6px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  position: sticky; top: 0; z-index: 1;
+  background: rgba(10,10,16,0.97);
+}
+.sb-panel-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--text3);
+}
+.sb-panel-close {
+  width: 24px; height: 24px; border-radius: 6px;
+  background: rgba(255,255,255,0.06); border: none; color: var(--text3);
+  font-size: 12px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all .15s; font-family: inherit;
+}
+.sb-panel-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
+
+.sb-section { padding: 10px 10px 8px; }
 .sb-label {
   font-size: 10px; font-weight: 700; letter-spacing: .12em;
   color: var(--text3); text-transform: uppercase;
@@ -752,6 +821,43 @@ body { background: #06040c; overflow-x: hidden; }
 .cd-row-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
 .cd-row-val   { font-size: 13px; color: var(--text); font-weight: 500; }
 .cd-row.wide  { grid-column: 1 / -1; }
+
+/* Edit mode */
+.cd-edit-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 600; padding: 3px 10px;
+  border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: var(--text3);
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.cd-edit-btn:hover, .cd-edit-btn.active { background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+.cd-grid-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cd-grid-label-top {
+  font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em;
+}
+.cd-row-input {
+  width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px; padding: 4px 7px; color: var(--text); font-family: inherit;
+  font-size: 12px; outline: none; margin-top: 2px; transition: border-color .15s;
+  box-sizing: border-box;
+}
+.cd-row-input:focus { border-color: rgba(245,200,66,0.45); }
+.cd-row-select {
+  width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 6px; padding: 4px 7px; color: var(--text); font-family: inherit;
+  font-size: 12px; outline: none; margin-top: 2px; cursor: pointer;
+}
+.cd-save-edits-btn {
+  width: 100%; margin-top: 8px; padding: 9px 0; border-radius: 8px; border: none;
+  background: linear-gradient(135deg, #f5c842, #e0a800); color: #1a1326;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: opacity .15s; letter-spacing: .02em;
+}
+.cd-save-edits-btn:hover { opacity: .88; }
+.cd-price-cached { font-size: 10px; color: var(--text3); margin-top: 3px; }
 .cd-price-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
@@ -980,7 +1086,8 @@ body { background: #06040c; overflow-x: hidden; }
 .card-del-btn:hover { background: rgba(248,113,113,0.25); }
 
 @media (max-width: 768px) {
-  .sidebar { display: none; }
+  .sidebar { display: none !important; }
+  .side-tabs { display: none; }
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 7px; }
 }
 
@@ -1104,60 +1211,86 @@ body { background: #06040c; overflow-x: hidden; }
 
 <div class="page-wrap">
 
-  <!-- Sidebar -->
+  <!-- Sidebar overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidePanel()"></div>
+
+  <!-- Side tab strip -->
+  <div class="side-tabs" id="sideTabs">
+    <button class="side-tab" id="stab-zobrazit" onclick="toggleSidePanel('zobrazit')" title="Zobrazit">
+      <span class="side-tab-dot"></span>Zobrazit
+    </button>
+    <button class="side-tab" id="stab-stav" onclick="toggleSidePanel('stav')" title="Stav karty">
+      <span class="side-tab-dot"></span>Stav
+    </button>
+    <button class="side-tab" id="stab-alba" onclick="toggleSidePanel('alba')" title="Moje alba">
+      <span class="side-tab-dot"></span>Alba
+    </button>
+    <button class="side-tab" id="stab-nastaveni" onclick="toggleSidePanel('nastaveni')" title="Nastavení">
+      <span class="side-tab-dot"></span>Sync
+    </button>
+  </div>
+
+  <!-- Sidebar sliding panel -->
   <aside class="sidebar" id="sidebar">
-    <div class="sb-section">
-      <span class="sb-label">Zobrazit</span>
-      <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
-      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
-      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
+    <div class="sb-panel-header">
+      <span class="sb-panel-title" id="sbPanelTitle">—</span>
+      <button class="sb-panel-close" onclick="closeSidePanel()">✕</button>
     </div>
-    <div class="sb-divider"></div>
 
-    <div class="sb-section">
-      <span class="sb-label">Stav karty</span>
-      <button class="sb-btn active" onclick="setCond('')">Vše</button>
-      <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
-      <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
-      <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
-      <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
-    </div>
-    <div class="sb-divider"></div>
-
-    <div class="sb-section">
-      <span class="sb-label">Speciální alba</span>
-      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
-    </div>
-    <div class="sb-divider"></div>
-
-    <div class="sb-section">
-      <span class="sb-label">Moje alba</span>
-      <div class="album-list" id="albumList">
-        <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+    <div id="sb-section-zobrazit">
+      <div class="sb-section">
+        <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
+        <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
+        <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
       </div>
-      <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
     </div>
-    <div class="sb-divider"></div>
 
-    <div class="sb-section">
-      <span class="sb-label">Sync mód</span>
-      <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
-        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
-        <option value="hourly">Každou hodinu</option>
-        <option value="realtime">Real-time (30s)</option>
-        <option value="manual">Manuálně</option>
-      </select>
-      <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
-    </div>
-    <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label">Měna</span>
-      <div style="display:flex;gap:6px;">
-        <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
-        <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
+    <div id="sb-section-stav" style="display:none">
+      <div class="sb-section">
+        <button class="sb-btn active" onclick="setCond('')">Vše</button>
+        <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
+        <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
+        <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
+        <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
       </div>
-      <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    </div>
+
+    <div id="sb-section-alba" style="display:none">
+      <div class="sb-section">
+        <span class="sb-label">Speciální</span>
+        <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
+        <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">
+        <span class="sb-label">Moje alba</span>
+        <div class="album-list" id="albumList">
+          <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+        </div>
+        <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
+      </div>
+    </div>
+
+    <div id="sb-section-nastaveni" style="display:none">
+      <div class="sb-section">
+        <span class="sb-label">Sync mód</span>
+        <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
+          style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
+          <option value="hourly">Každou hodinu</option>
+          <option value="realtime">Real-time (30s)</option>
+          <option value="manual">Manuálně</option>
+        </select>
+        <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+      </div>
+      <div class="sb-divider"></div>
+      <div class="sb-section">
+        <span class="sb-label">Měna</span>
+        <div style="display:flex;gap:6px;">
+          <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
+          <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
+        </div>
+        <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+      </div>
     </div>
   </aside>
 
@@ -1386,6 +1519,10 @@ body { background: #06040c; overflow-x: hidden; }
             <div class="cd-set"  id="cdSet">—</div>
           </div>
           <div class="cd-badges" id="cdBadges"></div>
+          <div class="cd-grid-header">
+            <span class="cd-grid-label-top">Informace</span>
+            <button class="cd-edit-btn" id="cdEditBtn" onclick="toggleCdEditMode()">✏️ Upravit</button>
+          </div>
           <div class="cd-grid" id="cdGrid"></div>
           <div>
             <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">📈 Ceny z Cardmarket</div>
@@ -1947,24 +2084,10 @@ function openCardDetail(c) {
   document.getElementById('cdBadges').innerHTML = badges.join('');
 
   // Info grid — app používá 'num' místo 'number', 'cond' místo 'condition', 'qty' místo 'count'
-  const cardNum = c.number || c.num || '—';
-  const cardHp  = c.hp || '—';
-  const rows = [
-    ['HP',        cardHp],
-    ['Číslo',     cardNum],
-    ['Typ',       c.types?.join(', ') || c.type || '—'],
-    ['Supertyp',  c.supertype || c.subtypesStr || c.category || '—'],
-    ['Série',     c.set || '—'],
-    ['Stav',      cond],
-    ['Vzácnost',  c.rarity || c.rarityCz || '—'],
-    ['Počet ks',  c.count || c.qty || 1],
-    ['Poznámka',  c.note || '—', true],
-  ];
-  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
-    `<div class="cd-row${wide?' wide':''}">
-      <div class="cd-row-label">${label}</div>
-      <div class="cd-row-val">${esc(String(val))}</div>
-    </div>`).join('');
+  _cdEditMode = false;
+  const editBtn = document.getElementById('cdEditBtn');
+  if (editBtn) { editBtn.textContent = '✏️ Upravit'; editBtn.classList.remove('active'); }
+  renderCdGrid(false);
 
   // Ceny z Cardmarket (uložené z pokemontcg.io při přidání karty v aplikaci)
   renderPrices(c, document.getElementById('cdPrices'));
@@ -2445,6 +2568,30 @@ function renderPrices(c, el) {
 
 async function fetchLivePrices(c, el) {
   if (!el) return;
+
+  // ── Zkontroluj cache nejdřív ──────────────────────────────────
+  const cached = getCachedPrices(c);
+  if (cached) {
+    c.pMin          = cached.pMin          || 0;
+    c.pTrend        = cached.pTrend        || 0;
+    c.p30d          = cached.p30d          || 0;
+    c.cardmarketUrl = cached.cardmarketUrl || c.cardmarketUrl || '';
+    c.hp            = cached.hp            || c.hp || '';
+    if (c.number === '' || c.number == null) { c.number = cached.number || ''; c.num = c.number; }
+    if (c.pTrend > 0 || c.pMin > 0) {
+      renderPrices(c, el);
+      const ageH = Math.round((Date.now() - cached.cachedAt) / 3600000);
+      const ageLabel = ageH < 1 ? 'právě teď' : ageH < 24 ? `před ${ageH}h` : `před ${Math.round(ageH/24)}d`;
+      const note = document.createElement('div');
+      note.className = 'cd-price-cached';
+      note.textContent = `📦 Načteno z cache (${ageLabel})`;
+      el.appendChild(note);
+      // Aktualizuj HP v gridu pokud bylo prázdné
+      if (c.hp) renderCdGrid(false);
+      return;
+    }
+  }
+
   try {
     // Zkus přes apiId (přesné) nebo hledáním podle jména+čísla
     let apiUrl;
@@ -2479,13 +2626,20 @@ async function fetchLivePrices(c, el) {
     c.p30d          = cm.avg30 || cm.avg7 || 0;
     c.cardmarketUrl = card.cardmarket?.url || '';
     c.hp            = card.hp || c.hp || '';
+    // Uložit číslo karty pokud bylo prázdné
+    if ((!c.number && !c.num) && card.number) { c.number = card.number; c.num = card.number; }
     if (c.pTrend > 0 || c.pMin > 0) {
+      // Zapsat do cache
+      cachePrices(c, {
+        pMin: c.pMin, pTrend: c.pTrend, p30d: c.p30d,
+        cardmarketUrl: c.cardmarketUrl, hp: c.hp,
+        number: c.number || '',
+      });
+      // Uložit aktualizovanou kartu lokálně
+      saveLocal();
       renderPrices(c, el);
-      // Aktualizuj HP v detailu pokud bylo prázdné
-      if (c.hp) {
-        const hpEl = document.querySelector('#cdGrid .cd-row:first-child .cd-row-val');
-        if (hpEl && hpEl.textContent === '—') hpEl.textContent = c.hp;
-      }
+      // Aktualizuj grid pokud bylo HP nebo číslo prázdné
+      if (c.hp || c.number) renderCdGrid(false);
       // Aktualizuj cardmarket odkaz
       if (c.cardmarketUrl) {
         const link = document.querySelector('#cdName a');
@@ -2501,7 +2655,185 @@ async function fetchLivePrices(c, el) {
   }
 }
 
-// ── Book size slider ──────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════
+//  CACHE CEN (localStorage)
+// ══════════════════════════════════════════════════════════════════
+const PRICE_CACHE_KEY = 'pkc_price_cache';
+const PRICE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 dní
+
+function getPriceCacheKey(c) {
+  // Prioritně přesný apiId, jinak name+number
+  if (c.apiId) return c.apiId;
+  const num = (c.number || c.num || '').trim();
+  return ((c.name || '') + '|' + num).toLowerCase();
+}
+
+function loadPriceCache() {
+  try { return JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}'); } catch { return {}; }
+}
+
+function savePriceCache(cache) {
+  try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(cache)); } catch {}
+}
+
+function getCachedPrices(c) {
+  const cache = loadPriceCache();
+  const key   = getPriceCacheKey(c);
+  const entry = cache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > PRICE_CACHE_TTL) return null; // expirováno
+  return entry;
+}
+
+function cachePrices(c, data) {
+  const cache = loadPriceCache();
+  cache[getPriceCacheKey(c)] = { ...data, cachedAt: Date.now() };
+  savePriceCache(cache);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  EDIT MÓD DETAILU KARTY
+// ══════════════════════════════════════════════════════════════════
+let _cdEditMode = false;
+
+function toggleCdEditMode() {
+  _cdEditMode = !_cdEditMode;
+  const btn = document.getElementById('cdEditBtn');
+  if (btn) {
+    btn.textContent = _cdEditMode ? '✓ Uložit' : '✏️ Upravit';
+    btn.classList.toggle('active', _cdEditMode);
+  }
+  if (_cdEditMode) {
+    renderCdGrid(true);
+  } else {
+    // Uložit a přepnout zpět
+    saveCardEdits();
+  }
+}
+
+function renderCdGrid(editMode) {
+  if (!_detailCard) return;
+  const c = _detailCard;
+  const cond = c.condition || c.cond || 'NM';
+
+  if (!editMode) {
+    // Read-only view (původní)
+    const cardNum = c.number || c.num || '—';
+    const rows = [
+      ['HP',       c.hp || '—'],
+      ['Číslo',    cardNum],
+      ['Typ',      c.types?.join(', ') || c.type || '—'],
+      ['Supertyp', c.supertype || c.subtypesStr || c.category || '—'],
+      ['Série',    c.set || '—'],
+      ['Stav',     cond],
+      ['Vzácnost', c.rarity || c.rarityCz || '—'],
+      ['Počet ks', c.count || c.qty || 1],
+      ['Poznámka', c.note || '—', true],
+    ];
+    document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
+      `<div class="cd-row${wide?' wide':''}">
+        <div class="cd-row-label">${label}</div>
+        <div class="cd-row-val">${esc(String(val))}</div>
+      </div>`).join('');
+  } else {
+    // Edit mode
+    const condOptions = ['NM','LP','MP','HP','DMG'].map(o =>
+      `<option value="${o}"${(cond===o)?' selected':''}>${o}</option>`).join('');
+
+    document.getElementById('cdGrid').innerHTML = `
+      <div class="cd-row">
+        <div class="cd-row-label">HP</div>
+        <input class="cd-row-input" id="edit_hp" value="${esc(c.hp||'')}" placeholder="330">
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Číslo</div>
+        <input class="cd-row-input" id="edit_number" value="${esc(c.number||c.num||'')}" placeholder="84/191">
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Typ</div>
+        <input class="cd-row-input" id="edit_type" value="${esc(c.types?.join(', ')||c.type||'')}" placeholder="fighting">
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Vzácnost</div>
+        <input class="cd-row-input" id="edit_rarity" value="${esc(c.rarity||'')}" placeholder="Rare Holo VMAX">
+      </div>
+      <div class="cd-row wide">
+        <div class="cd-row-label">Série</div>
+        <input class="cd-row-input" id="edit_set" value="${esc(c.set||'')}" placeholder="Brilliant Stars">
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Stav</div>
+        <select class="cd-row-select" id="edit_cond">${condOptions}</select>
+      </div>
+      <div class="cd-row">
+        <div class="cd-row-label">Počet ks</div>
+        <input class="cd-row-input" id="edit_count" type="number" min="1" value="${esc(String(c.count||c.qty||1))}">
+      </div>
+      <div class="cd-row wide">
+        <div class="cd-row-label">Poznámka</div>
+        <input class="cd-row-input" id="edit_note" value="${esc(c.note||'')}" placeholder="Vlastní poznámka…">
+      </div>
+      <div class="cd-row wide" style="background:none;padding:0">
+        <button class="cd-save-edits-btn" onclick="saveCardEdits()">✓ Uložit změny</button>
+      </div>`;
+  }
+}
+
+async function saveCardEdits() {
+  if (!_detailCard) return;
+  const c = _detailCard;
+
+  // Přečti hodnoty z editovatelných polí
+  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
+
+  const hp     = get('edit_hp');
+  const number = get('edit_number');
+  const type   = get('edit_type');
+  const rarity = get('edit_rarity');
+  const set    = get('edit_set');
+  const cond   = get('edit_cond');
+  const count  = get('edit_count');
+  const note   = get('edit_note');
+
+  // Aplikuj na kartu jen pokud byly pole přítomna (edit mód byl otevřen)
+  if (hp     !== null) c.hp        = hp;
+  if (number !== null) { c.number  = number; c.num = number; }
+  if (type   !== null) { c.type    = type; if (type) c.types = type.split(',').map(t=>t.trim()).filter(Boolean); }
+  if (rarity !== null) c.rarity    = rarity;
+  if (set    !== null) c.set       = set;
+  if (cond   !== null) { c.condition = cond; c.cond = cond; }
+  if (count  !== null) { c.count   = parseInt(count) || 1; c.qty = c.count; }
+  if (note   !== null) c.note      = note;
+
+  c.updated_at = new Date().toISOString();
+
+  // Zavřít edit mód vizuálně
+  _cdEditMode = false;
+  const btn = document.getElementById('cdEditBtn');
+  if (btn) { btn.textContent = '✏️ Upravit'; btn.classList.remove('active'); }
+
+  // Překreslit grid v read-only
+  renderCdGrid(false);
+
+  // Aktualizuj nadpis (set mohl být změněn)
+  document.getElementById('cdSet').textContent =
+    [c.set, c.number ? '#' + c.number : ''].filter(Boolean).join(' · ');
+
+  // Aktualizuj badges (stav)
+  const badges = [];
+  if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
+  if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
+  badges.push(`<span class="cd-badge cond">${c.condition||'NM'}</span>`);
+  document.getElementById('cdBadges').innerHTML = badges.join('');
+
+  // Uložit lokálně + sync
+  saveLocal();
+  await syncCardToServer(c);
+  setSyncState('ok', 'Uloženo');
+  setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
+}
+
+// ── Book size slider — modern minimalist ──────────────────────────
 let bookSize = Math.min(100, parseInt(localStorage.getItem('pkc_book_size') || '100'));
 
 function setBookSize(val) {
@@ -2605,6 +2937,7 @@ function setAlbum(id) {
   activeAlbumId = (activeAlbumId === id) ? null : id;
   cancelSelect();
   renderAlbumList();
+  updateSideTabDots();
   render();
 }
 
@@ -2615,6 +2948,7 @@ function setAlbumByName(name) {
   activeAlbumId = (activeAlbumId === alb.id) ? null : alb.id;
   cancelSelect();
   renderAlbumList();
+  updateSideTabDots();
   render();
 }
 
@@ -3305,8 +3639,68 @@ function resetAllFilters() {
   renderFilterBadges();
 }
 
-// Keyboard ESC closes drawer
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFilterDrawer(); });
+// Keyboard ESC closes drawer and side panel
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeFilterDrawer();
+    closeSidePanel();
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  SIDE TAB PANEL
+// ══════════════════════════════════════════════════════════════════
+const SIDE_SECTIONS = {
+  zobrazit: { title: 'Zobrazit', label: 'Zobrazit' },
+  stav:     { title: 'Stav karty', label: 'Stav' },
+  alba:     { title: 'Moje alba', label: 'Alba' },
+  nastaveni:{ title: 'Nastavení', label: 'Sync' },
+};
+let _activeSideSection = null;
+
+function toggleSidePanel(section) {
+  if (_activeSideSection === section) {
+    closeSidePanel();
+  } else {
+    openSidePanel(section);
+  }
+}
+
+function openSidePanel(section) {
+  _activeSideSection = section;
+  const sidebar  = document.getElementById('sidebar');
+  const overlay  = document.getElementById('sidebarOverlay');
+  const title    = document.getElementById('sbPanelTitle');
+
+  // Zobraz správnou sekci, ostatní skryj
+  Object.keys(SIDE_SECTIONS).forEach(key => {
+    const el = document.getElementById('sb-section-' + key);
+    if (el) el.style.display = key === section ? '' : 'none';
+  });
+
+  // Titulek
+  if (title) title.textContent = SIDE_SECTIONS[section]?.title || section;
+
+  // Aktivní tab
+  document.querySelectorAll('.side-tab').forEach(t =>
+    t.classList.toggle('active', t.id === 'stab-' + section));
+
+  sidebar.classList.add('open');
+  overlay.classList.add('open');
+}
+
+function closeSidePanel() {
+  _activeSideSection = null;
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+  document.querySelectorAll('.side-tab').forEach(t => t.classList.remove('active'));
+}
+
+// Dot na Alba tab pokud je aktivní album
+function updateSideTabDots() {
+  const albaTab = document.getElementById('stab-alba');
+  if (albaTab) albaTab.classList.toggle('has-active', !!activeAlbumId);
+}
 
 function matchTrainerSubtype(c, t) {
   const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
@@ -3615,6 +4009,8 @@ setTimeout(applyTiltToAll, 300);
 
 function showLoginPrompt() {
   document.getElementById('sidebar').style.display = 'none';
+  const st = document.getElementById('sideTabs');
+  if (st) st.style.display = 'none';
   document.getElementById('cardsGrid').innerHTML = `
     <div class="login-prompt">
       <div class="icon">🔐</div>
