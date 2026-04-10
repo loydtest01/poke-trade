@@ -1657,11 +1657,17 @@ window._eurRate = null;  // e.g. 25.30
 window._currency = localStorage.getItem('pkc_currency') || 'EUR';
 
 async function fetchEurRate() {
-  try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=CZK');
-    const d = await r.json();
-    window._eurRate = d?.rates?.CZK || null;
-  } catch {}
+  // frankfurter.app blokuje CORS — fallback na open.er-api.com (CORS OK, bezplatné)
+  const APIS = [
+    () => fetch('https://open.er-api.com/v6/latest/EUR').then(r => r.json()).then(d => d?.rates?.CZK),
+    () => fetch('https://api.exchangerate-api.com/v4/latest/EUR').then(r => r.json()).then(d => d?.rates?.CZK),
+  ];
+  for (const api of APIS) {
+    try {
+      const czk = await api();
+      if (czk && czk > 1) { window._eurRate = czk; break; }
+    } catch {}
+  }
   updateCurrencyUI();
 }
 
