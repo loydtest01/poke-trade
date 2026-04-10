@@ -1419,12 +1419,25 @@ async function loadCards() {
       `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk,updated_at&order=updated_at.desc`
     );
     if (res._err || res.message) throw new Error(res.message || res._err);
-    allCards = (Array.isArray(res) ? res : []).map(r => ({
-      ...r.card_data, id: r.local_id,
-      for_trade: r.for_trade, for_sell: r.for_sell,
-      price_czk: r.price_czk, updated_at: r.updated_at,
-    }));
+    allCards = (Array.isArray(res) ? res : []).map(r => {
+      const d = r.card_data || {};
+      return {
+        ...d,
+        id:         r.local_id,
+        // ── Bug #5 fix: normalizace starých polí ──
+        number:     d.number    || d.num  || '',
+        count:      d.count     || d.qty  || 1,
+        condition:  d.condition || d.cond || 'NM',
+        // ─────────────────────────────────────────
+        for_trade:  r.for_trade,
+        for_sell:   r.for_sell,
+        price_czk:  r.price_czk,
+        updated_at: r.updated_at,
+      };
+    });
     updateStats();
+    setSyncState('syncing', 'Načítám obrázky…');
+    await fetchMissingImages();
     setSyncState('ok', 'Synchronizováno');
   } catch(e) {
     setSyncState('', 'Chyba karet'); console.error(e);
@@ -1434,6 +1447,46 @@ async function loadCards() {
 // ══════════════════════════════════════════════════════════════════
 //  DATA – ALBA
 // ══════════════════════════════════════════════════════════════════
+// ── Bug #5 fix: Doplnění chybějících obrázků z Pokemon TCG API ──
+async function fetchMissingImages() {
+  const missing = allCards.filter(c => !c.images?.small && !c.apiSmall && !c.imageUrl);
+  if (!missing.length) return;
+  const BATCH = 10;
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const batch = missing.slice(i, i + BATCH);
+    await Promise.all(batch.map(async c => {
+      const name = encodeURIComponent(c.name || '');
+      const set  = encodeURIComponent(c.set  || '');
+      const num  = encodeURIComponent(c.number || c.num || '');
+      if (!name) return;
+      try {
+        // Zkus přesný dotaz (jméno + set + číslo)
+        let q = `name:"${c.name}"`;
+        if (set)  q += ` set.name:"${c.set}"`;
+        if (num)  q += ` number:${c.number || c.num}`;
+        const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+        const res  = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const card = data.data?.[0];
+        if (!card) return;
+        c.imageUrl = card.images.small;
+        c.apiSmall = card.images.small;
+        c.apiLarge = card.images.large;
+        c.apiId    = card.id;
+        // Ulož zpět do Supabase
+        if (userId) {
+          await sbReq(`rest/v1/user_cards?local_id=eq.${c.id}&user_id=eq.${userId}`, 'PATCH', {
+            card_data: buildCardData(c)
+          });
+        }
+      } catch(e) { console.warn('[fetchMissingImages]', c.name, e); }
+    }));
+    if (i + BATCH < missing.length) await new Promise(r => setTimeout(r, 150));
+  }
+  render(); // překreslit po doplnění obrázků
+}
+
 async function loadAlbums() {
   try {
     const res = await sbReq(
@@ -2755,6 +2808,13 @@ function setSupertype(st) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
   });
+  // ── Bug fix: skrýt element filtry pro Trenéry a Energie ──
+  const typeBar = document.querySelector('.type-bar');
+  if (typeBar) {
+    const showTypes = (st === '' || st === 'Pokémon');
+    typeBar.style.display = showTypes ? '' : 'none';
+    if (!showTypes) setType(''); // reset element filtru
+  }
   render();
 }
 
