@@ -724,13 +724,11 @@ body::after {
   </a>
   <nav class="nav-lnks">
     <a href="marketplace.html" class="active">Nabídky</a>
+    <a href="album.html">🔄 Album výměny</a>
     <a href="moje-album.html">🎴 Moje album</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
-    <a href="queue.html">📥 Čeká na zařazení</a>
     <a href="profile.html">Můj profil</a>
-  
-    <a href="download.html">⬇ Ke stažení</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -846,6 +844,12 @@ body::after {
           </div>
           <div class="gallery-thumbs" id="galleryThumbs"></div>
           <div class="gallery-hint">1. foto = ofic. obrázek z API · ostatní = fotky prodejce</div>
+          <div style="margin-top:8px">
+            <button id="mktFakeBtn" onclick="mktRunFakeCheck()" style="width:100%;padding:7px 0;border-radius:8px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#f59e0b;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.18)'" onmouseout="this.style.background='rgba(245,158,11,.08)'">
+              🤖 Zkontrolovat falzum (AI)
+            </button>
+            <div id="mktFakeResult"></div>
+          </div>
         </div>
         <div class="detail-info-box">
           <div class="detail-title" id="dTitle">—</div>
@@ -1060,6 +1064,7 @@ body::after {
 </div>
 
 <script src="app.js"></script>
+<script src="fake-detector.js"></script>
 <script>
 // SUPABASE_URL a SUPABASE_ANON jsou načteny z app.js
 
@@ -2197,6 +2202,47 @@ function openCardSearchForListing(){
   poll();setInterval(poll,POLL);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
+
+// ── Marketplace fake detektor ─────────────────────────────────
+async function mktRunFakeCheck() {
+  const btn      = document.getElementById('mktFakeBtn');
+  const resultEl = document.getElementById('mktFakeResult');
+  if (!btn || !resultEl) return;
+
+  // Najdi aktuálně zobrazený obrázek v galerii
+  const mainImg = document.getElementById('mainGalleryImg');
+  const imgSrc  = mainImg?.src || '';
+
+  if (!imgSrc) {
+    resultEl.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:6px 0">Karta nemá fotku pro analýzu.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = '\u23f3 Analyzuji\u2026';
+  resultEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">\u23f3 AI analyzuje kartu\u2026</div>';
+
+  const l = currentListing;
+  const first = (l?.cards_data||[])[0]||{};
+  const cardInfo = {
+    name:   l?.card_name   || first.name   || '',
+    set:    l?.card_set    || first.set    || '',
+    number: l?.card_number || first.number || first.num || '',
+    hp:     first.hp       || l?.card_hp   || '',
+    rarity: first.rarity   || l?.card_rarity || '',
+  };
+
+  try {
+    if (typeof FakeDetector === 'undefined') throw new Error('fake-detector.js není načten');
+    const result = await FakeDetector.analyze(imgSrc, cardInfo);
+    FakeDetector.renderResult(result, resultEl);
+  } catch(e) {
+    resultEl.innerHTML = `<div style="font-size:12px;color:#f87171;padding:8px 0">\u274c ${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '\ud83e\udd16 Zkontrolovat falzum (AI)';
+  }
+}
 </script>
 </body>
 </html>

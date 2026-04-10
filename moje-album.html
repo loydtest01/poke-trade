@@ -1094,7 +1094,25 @@ body { background: #06040c; overflow-x: hidden; }
           </div>
           <div class="cd-actions" id="cdActions"></div>
 
-          <!-- TCG hledání + URL -->
+<!-- Falzum detektor -->
+          <div id="cdFakeSection" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">
+              🔍 Detekce falzum
+              <button id="cdFakeBtn" onclick="cdRunFakeCheck()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;color:#f59e0b;font-size:11px;padding:3px 10px;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(245,158,11,.1)'">
+                🤖 Zkontrolovat AI
+              </button>
+            </div>
+            <div id="cdFakeUpload" style="display:none;margin-bottom:10px">
+              <label style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px;border:1px dashed rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(245,158,11,.4)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">
+                <span style="font-size:22px">📷</span>
+                <span style="font-size:12px;color:var(--text3)">Nahraj fotku karty pro AI analýzu</span>
+                <input type="file" accept="image/*" style="display:none" onchange="cdFakeFileSelected(this)">
+              </label>
+            </div>
+            <div id="cdFakeResult"></div>
+          </div>
+
+                    <!-- TCG hledání + URL -->
           <div class="cd-tcg-section">
             <div class="cd-tcg-title">
               🔍 Najít / opravit kartu
@@ -1195,6 +1213,7 @@ body { background: #06040c; overflow-x: hidden; }
 </div>
 
 <script src="app.js"></script>
+<script src="fake-detector.js"></script>
 <script>
 // ══════════════════════════════════════════════════════════════════
 //  STAV
@@ -1741,7 +1760,13 @@ function _cdTcgPickCard(idx) {
 
 async function cdTcgConfirm() {
   if (_cdTcgSelectedIdx < 0) return;
+  const btn = document.querySelector('#cdTcgConfirmBar button');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Ukládám…'; }
   await cdTcgSelect(_cdTcgSelectedIdx);
+  if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
+  document.getElementById('cdTcgConfirmBar').style.display = 'none';
+  _cdTcgSelectedIdx = -1;
+  toast('✅ Karta uložena do alba', 'ok');
 }
 
 async function cdTcgSelect(idx) {
