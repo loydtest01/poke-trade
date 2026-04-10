@@ -581,36 +581,19 @@ async function loadQueue() {
 
     cardGroups = Object.values(groups);
 
-    // Načti signed URLs pro fotky
+    // Načti public URLs pro fotky (bucket card-photo je public)
     for (const g of cardGroups) {
       for (const row of g.rows) {
         try {
-          let url = null;
-
-          // Pokus o signed URL
-          const signed = await sbReq(
-            `storage/v1/object/sign/card-photo/${row.storage_path}`,
-            'POST', { expiresIn: 7200 }
-          );
-          // Supabase vrátí objekt nebo pole - ošetři obě varianty
-          const signedData = Array.isArray(signed) ? signed[0] : signed;
-          const rawUrl = signedData?.signedURL || signedData?.signedUrl;
-          if (rawUrl) {
-            url = rawUrl.startsWith('http') ? rawUrl : SUPABASE_URL + rawUrl;
-          } else {
-            // Fallback: public URL (funguje pokud je bucket veřejný)
-            url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
-          }
-
-          if (url) {
-            const meta = row.metadata || {};
-            g.photos.push({
-              url,
-              side: meta.side || 'front',
-              detailIndex: meta.detailIndex || null,
-              queueId: row.id,
-            });
-          }
+          // Přímá public URL – funguje pro public bucket bez nutnosti signed URL
+          const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+          const meta = row.metadata || {};
+          g.photos.push({
+            url,
+            side: meta.side || 'front',
+            detailIndex: meta.detailIndex || null,
+            queueId: row.id,
+          });
         } catch {}
       }
       // Seřaď: front → detail(y) → back
