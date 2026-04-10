@@ -1101,9 +1101,15 @@ body { background: #06040c; overflow-x: hidden; }
               <button class="cd-tcg-toggle" id="cdTcgToggle" onclick="toggleCdTcg()">▼ Rozbalit</button>
             </div>
             <div class="cd-tcg-body" id="cdTcgBody">
-              <!-- Hledání podle jména -->
-              <div class="cd-tcg-inputs">
+              <!-- Hledání podle jména + série + čísla -->
+              <div class="cd-tcg-inputs" style="flex-wrap:wrap;gap:6px">
                 <input id="cdTcgNameInput" placeholder="Název karty…"
+                  style="flex:2;min-width:120px" onkeydown="if(event.key==='Enter') cdTcgSearch()">
+                <input id="cdTcgSetInput" placeholder="Série (např. Stellar Crown)…"
+                  style="flex:2;min-width:120px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#f0ece4;font-size:12px;padding:6px 10px;font-family:inherit;outline:none"
+                  onkeydown="if(event.key==='Enter') cdTcgSearch()">
+                <input id="cdTcgNumInput" placeholder="#číslo"
+                  style="flex:0 0 70px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:7px;color:#f0ece4;font-size:12px;padding:6px 10px;font-family:inherit;outline:none"
                   onkeydown="if(event.key==='Enter') cdTcgSearch()">
                 <button class="btn-search" onclick="cdTcgSearch()">Hledat</button>
               </div>
@@ -1115,6 +1121,12 @@ body { background: #06040c; overflow-x: hidden; }
                 <button class="btn-url" onclick="cdTcgLoadUrl()">Načíst</button>
               </div>
               <div class="cd-tcg-status" id="cdTcgStatus"></div>
+              <!-- Potvrdit vybranou kartu -->
+              <div id="cdTcgConfirmBar" style="display:none;margin-bottom:8px">
+                <button onclick="cdTcgConfirm()" style="width:100%;padding:9px 0;border-radius:8px;border:none;cursor:pointer;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:13px;font-weight:700;font-family:inherit;letter-spacing:.02em;box-shadow:0 2px 10px rgba(34,197,94,.35);transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
+                  ✓ Potvrdit vybranou kartu
+                </button>
+              </div>
               <div class="cd-tcg-grid" id="cdTcgGrid"></div>
             </div>
           </div>
@@ -1585,24 +1597,45 @@ function toggleCdTcg() {
   if (open && _detailCard) {
     const inp = document.getElementById('cdTcgNameInput');
     if (inp && !inp.value) inp.value = _detailCard.name || '';
+    const setInp = document.getElementById('cdTcgSetInput');
+    if (setInp && !setInp.value) setInp.value = _detailCard.set || '';
+    const numInp = document.getElementById('cdTcgNumInput');
+    if (numInp && !numInp.value) numInp.value = _detailCard.number || _detailCard.num || '';
+    // Reset confirm bar
+    const bar = document.getElementById('cdTcgConfirmBar');
+    if (bar) bar.style.display = 'none';
+    _cdTcgSelectedIdx = -1;
   }
 }
 
 async function cdTcgSearch() {
-  const inp    = document.getElementById('cdTcgNameInput');
   const status = document.getElementById('cdTcgStatus');
   const grid   = document.getElementById('cdTcgGrid');
-  const name   = inp?.value.trim();
-  if (!name) { status.textContent = 'Zadej název karty'; return; }
+  const name   = document.getElementById('cdTcgNameInput')?.value.trim() || '';
+  const set    = document.getElementById('cdTcgSetInput')?.value.trim()  || '';
+  const num    = document.getElementById('cdTcgNumInput')?.value.trim()  || '';
+
+  if (!name && !set && !num) { status.textContent = 'Zadej alespoň název karty'; return; }
 
   status.textContent = '⏳ Hledám…';
   grid.innerHTML = '';
+  document.getElementById('cdTcgConfirmBar').style.display = 'none';
 
   try {
-    const q   = `name:"${name.replace(/"/g,'')}"`;
+    const parts = [];
+    if (name) parts.push(`name:"${name.replace(/"/g,'')}"`)
+    if (set)  parts.push(`set.name:"${set.replace(/"/g,'')}"`)
+    if (num)  parts.push(`number:${num.replace(/\D/g,'')}`)
+    const q = parts.join(' ');
     const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=30&orderBy=-set.releaseDate`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const cards = (await res.json()).data || [];
+    let cards = (await res.json()).data || [];
+    // Fallback: bez přesného názvu pokud nic nenajde
+    if (!cards.length && name) {
+      const q2 = `name:${name.replace(/"/g,'').split(' ')[0]}*` + (set ? ` set.name:"${set.replace(/"/g,'')}"` : '');
+      const r2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20&orderBy=-set.releaseDate`);
+      cards = r2.ok ? (await r2.json()).data || [] : [];
+    }
     _cdTcgRenderGrid(cards, status, grid);
   } catch(e) {
     status.textContent = '❌ Chyba: ' + e.message;
@@ -1686,7 +1719,7 @@ function _cdTcgRenderGrid(cards, statusEl, gridEl) {
     const img   = card.images?.small || '';
     const price = card.cardmarket?.prices?.trendPrice;
     const prStr = price ? price.toFixed(2) + ' €' : '';
-    return `<div class="cd-tcg-card" id="cdTcgCard-${idx}" onclick="cdTcgSelect(${idx})"
+    return `<div class="cd-tcg-card" id="cdTcgCard-${idx}" onclick="_cdTcgPickCard(${idx})"
                title="${card.name} · ${card.set?.name} #${card.number}">
       ${img ? `<img src="${img}" loading="lazy" alt="${card.name}">` : `<div class="no-img">?</div>`}
       <div class="tc-set">${card.set?.name||'—'}</div>
@@ -1694,6 +1727,21 @@ function _cdTcgRenderGrid(cards, statusEl, gridEl) {
       ${prStr ? `<div class="tc-price">${prStr}</div>` : ''}
     </div>`;
   }).join('');
+}
+
+let _cdTcgSelectedIdx = -1;
+function _cdTcgPickCard(idx) {
+  _cdTcgSelectedIdx = idx;
+  document.querySelectorAll('.cd-tcg-card').forEach((el, i) =>
+    el.classList.toggle('sel', i === idx));
+  const bar = document.getElementById('cdTcgConfirmBar');
+  if (bar) bar.style.display = '';
+  bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+async function cdTcgConfirm() {
+  if (_cdTcgSelectedIdx < 0) return;
+  await cdTcgSelect(_cdTcgSelectedIdx);
 }
 
 async function cdTcgSelect(idx) {
