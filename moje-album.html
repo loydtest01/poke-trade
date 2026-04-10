@@ -1119,12 +1119,50 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
     </div>
 
+    <!-- Trenéři subtyp bar -->
+    <div class="type-bar" id="trainerBar" style="display:none">
+      <button class="type-chip active" onclick="setTrainerSubtype('')">Vše</button>
+      <button class="type-chip" onclick="setTrainerSubtype('Item')">🎒 Item</button>
+      <button class="type-chip" onclick="setTrainerSubtype('Supporter')">🧑 Supporter</button>
+      <button class="type-chip" onclick="setTrainerSubtype('Stadium')">🏟️ Stadium</button>
+      <button class="type-chip" onclick="setTrainerSubtype('Tool')">🔧 Pokémon Tool</button>
+    </div>
+
+    <!-- Energie barva bar -->
+    <div class="type-bar" id="energyBar" style="display:none">
+      <button class="type-chip active" onclick="setEnergyColor('')">Vše</button>
+      <button class="type-chip" onclick="setEnergyColor('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivá</button>
+      <button class="type-chip" onclick="setEnergyColor('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
+      <button class="type-chip" onclick="setEnergyColor('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
+      <button class="type-chip" onclick="setEnergyColor('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrická</button>
+      <button class="type-chip" onclick="setEnergyColor('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychická</button>
+      <button class="type-chip" onclick="setEnergyColor('darkness')"><img src="elements/dark.png" class="type-icon"> Temná</button>
+      <button class="type-chip" onclick="setEnergyColor('metal')"><img src="elements/steel.png" class="type-icon"> Kovová</button>
+      <button class="type-chip" onclick="setEnergyColor('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojová</button>
+      <button class="type-chip" onclick="setEnergyColor('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
+      <button class="type-chip" onclick="setEnergyColor('colorless')">⚪ Bezbarvá</button>
+    </div>
+
+    <!-- Vzácnost bar -->
+    <div class="type-bar" id="rarityBar">
+      <span style="font-size:11px;color:var(--text2);align-self:center;margin-right:4px;white-space:nowrap">Vzácnost:</span>
+      <button class="type-chip active" onclick="setRarity('')">Vše</button>
+      <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
+      <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+      <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+      <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
+      <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
+      <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
+      <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+    </div>
+
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
+      <button onclick="openSetCompleteness()" title="Completeness setu" style="padding:7px 12px;border-radius:8px;font-size:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);cursor:pointer;font-family:inherit">📦 Sety</button>
       <select id="sortSelect" onchange="setSort(this.value)"
         style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;outline:none;">
         <option value="added">Pořadí přidání</option>
@@ -1133,6 +1171,8 @@ body { background: #06040c; overflow-x: hidden; }
         <option value="number">Číslo pokémona</option>
         <option value="series">Série</option>
         <option value="element">Element</option>
+        <option value="price_desc">💰 Cena (nejvyšší)</option>
+        <option value="price_asc">💰 Cena (nejnižší)</option>
       </select>
       <div class="view-toggle">
         <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')" title="Mřížka">
@@ -1346,6 +1386,9 @@ let activeView    = 'all';   // all | trade | sell
 let activeType    = '';
 let activeCond    = '';
 let activeSupertype = '';    // '' | 'Pokémon' | 'Trainer' | 'Energy'
+let activeTrainerSubtype = ''; // '' | 'Item' | 'Supporter' | 'Stadium' | 'Tool'
+let activeEnergyColor = '';    // '' | 'fire' | 'water' | ...
+let activeRarity = '';         // '' | 'common' | 'uncommon' | 'rare' | 'holo' | 'ultra' | 'secret' | 'promo'
 let activeAlbumId = null;    // null = všechny karty
 let selectMode    = false;
 let selectedIds   = new Set();
@@ -1537,6 +1580,9 @@ function render() {
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
     if (activeType && !matchType(c, activeType)) return false;
     if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
+    if (activeTrainerSubtype && !matchTrainerSubtype(c, activeTrainerSubtype)) return false;
+    if (activeEnergyColor && !matchEnergyColor(c, activeEnergyColor)) return false;
+    if (activeRarity && !matchRarity(c, activeRarity)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
                (c.set||'').toLowerCase().includes(q)  ||
@@ -2808,13 +2854,17 @@ function setSupertype(st) {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
   });
-  // ── Bug fix: skrýt element filtry pro Trenéry a Energie ──
-  const typeBar = document.querySelector('.type-bar');
-  if (typeBar) {
-    const showTypes = (st === '' || st === 'Pokémon');
-    typeBar.style.display = showTypes ? '' : 'none';
-    if (!showTypes) setType(''); // reset element filtru
-  }
+  // ── Zobrazit/skrýt správné filtrovací lišty ──
+  const typeBar    = document.querySelector('.type-bar');
+  const trainerBar = document.getElementById('trainerBar');
+  const energyBar  = document.getElementById('energyBar');
+  if (typeBar)    typeBar.style.display    = (st === '' || st === 'Pokémon') ? '' : 'none';
+  if (trainerBar) trainerBar.style.display = (st === 'Trainer') ? '' : 'none';
+  if (energyBar)  energyBar.style.display  = (st === 'Energy')  ? '' : 'none';
+  // Reset sub-filtrů při přepnutí supertypeu
+  if (st !== 'Trainer') setTrainerSubtype('', false);
+  if (st !== 'Energy')  setEnergyColor('', false);
+  if (st === '' || st === 'Pokémon') {} else setType('');
   render();
 }
 
@@ -2993,7 +3043,146 @@ function sortCards(cards) {
     const eb = ELEMENT_ORDER.indexOf(getCardElement(b));
     return (ea < 0 ? 99 : ea) - (eb < 0 ? 99 : eb) || (a.name||'').localeCompare(b.name||'', 'cs');
   });
+  if (activeSort === 'price_desc') return c.sort((a,b) => (b.p30d||0) - (a.p30d||0));
+  if (activeSort === 'price_asc')  return c.sort((a,b) => (a.p30d||0) - (b.p30d||0));
   return c;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  NOVÉ FILTRY — Trenéři / Energie / Vzácnost
+// ══════════════════════════════════════════════════════════════════
+
+function setTrainerSubtype(t, doRender = true) {
+  activeTrainerSubtype = t;
+  document.querySelectorAll('#trainerBar .type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${t}'`) || (t === '' && fn.includes("''")));
+  });
+  if (doRender) render();
+}
+
+function setEnergyColor(c, doRender = true) {
+  activeEnergyColor = c;
+  document.querySelectorAll('#energyBar .type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${c}'`) || (c === '' && fn.includes("''")));
+  });
+  if (doRender) render();
+}
+
+function setRarity(r) {
+  activeRarity = r;
+  document.querySelectorAll('#rarityBar .type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
+  });
+  render();
+}
+
+function matchTrainerSubtype(c, t) {
+  const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
+  const cat  = (c.category || c.subtype || '').toLowerCase();
+  if (t === 'Tool') return subs.some(s => s.includes('tool')) || cat.includes('tool');
+  return subs.some(s => s.includes(t.toLowerCase())) || cat.includes(t.toLowerCase());
+}
+
+function matchEnergyColor(c, color) {
+  // Energy karty mají typ v types[] nebo type
+  return matchType(c, color);
+}
+
+const RARITY_MAP = {
+  common:   r => /^common$/i.test(r),
+  uncommon: r => /^uncommon$/i.test(r),
+  rare:     r => /^rare$/i.test(r) && !/holo|ultra|secret|promo/i.test(r),
+  holo:     r => /holo/i.test(r) && !/ultra|secret/i.test(r),
+  ultra:    r => /ultra|ex|gx|v|vmax|vstar|full art/i.test(r),
+  secret:   r => /secret/i.test(r),
+  promo:    r => /promo/i.test(r),
+};
+
+function matchRarity(c, bucket) {
+  const r = (c.rarity || '').trim();
+  if (!r) return bucket === '';
+  const fn = RARITY_MAP[bucket];
+  return fn ? fn(r) : false;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SET COMPLETENESS MODAL
+// ══════════════════════════════════════════════════════════════════
+
+let _setTotals = {}; // cache { setName: totalCards }
+
+async function openSetCompleteness() {
+  const modal = document.getElementById('setCompletenessModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  renderSetCompleteness();
+  await fetchSetTotals();
+  renderSetCompleteness();
+}
+
+function closeSetCompleteness() {
+  const modal = document.getElementById('setCompletenessModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function renderSetCompleteness() {
+  const el = document.getElementById('setCompletenessBody');
+  if (!el) return;
+
+  // Seskup karty podle setu
+  const groups = {};
+  for (const c of allCards) {
+    const s = c.set || '(neznámý set)';
+    if (!groups[s]) groups[s] = new Set();
+    groups[s].add(c.number || c.name); // unikátní čísla/jména
+  }
+
+  const rows = Object.entries(groups)
+    .sort(([a],[b]) => a.localeCompare(b, 'cs'))
+    .map(([setName, uniq]) => {
+      const owned = uniq.size;
+      const total = _setTotals[setName] || null;
+      const pct   = total ? Math.round((owned / total) * 100) : null;
+      const bar   = total
+        ? `<div style="background:rgba(255,255,255,0.08);border-radius:6px;height:6px;flex:1;min-width:60px">
+             <div style="background:var(--yellow);border-radius:6px;height:6px;width:${pct}%;transition:width .4s"></div>
+           </div>`
+        : `<div style="flex:1;color:var(--text2);font-size:10px">načítám…</div>`;
+      const pctLabel = total ? `<span style="font-size:11px;color:var(--yellow);font-weight:700;min-width:36px;text-align:right">${pct}%</span>` : '';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(setName)}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${owned}${total ? ' / ' + total + ' karet' : ' karet'}</div>
+        </div>
+        ${bar}
+        ${pctLabel}
+      </div>`;
+    });
+
+  el.innerHTML = rows.join('') || '<p style="color:var(--text2)">Žádné karty v albu.</p>';
+}
+
+async function fetchSetTotals() {
+  // Zjisti unikátní sety, pro které ještě nemáme total
+  const unknownSets = [...new Set(allCards.map(c => c.set).filter(Boolean))]
+    .filter(s => !_setTotals[s]);
+  if (!unknownSets.length) return;
+
+  // Pokémontcg API: /v2/sets?q=name:"..."
+  for (const setName of unknownSets) {
+    try {
+      const url = `https://api.pokemontcg.io/v2/sets?q=name:"${encodeURIComponent(setName)}"&pageSize=1`;
+      const res  = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const set  = data.data?.[0];
+      if (set) _setTotals[setName] = set.printedTotal || set.total;
+    } catch(e) { /* ignore */ }
+    await new Promise(r => setTimeout(r, 80));
+  }
 }
 
 // Build flat page array with null-padding for element grouping in book view
@@ -3062,6 +3251,9 @@ function renderBookView() {
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
     if (activeType && !matchType(c, activeType)) return false;
     if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
+    if (activeTrainerSubtype && !matchTrainerSubtype(c, activeTrainerSubtype)) return false;
+    if (activeEnergyColor && !matchEnergyColor(c, activeEnergyColor)) return false;
+    if (activeRarity && !matchRarity(c, activeRarity)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
                (c.set||'').toLowerCase().includes(q)  ||
@@ -3276,6 +3468,7 @@ document.addEventListener('keydown', e => {
 //  END EMPTY SLOT MENU
 // ══════════════════════════════════════════════════════════════════
 
+document.getElementById('newAlbumModal').addEventListener('click', e => {
   if (e.target === document.getElementById('newAlbumModal')) closeNewAlbumModal();
 });
 document.getElementById('firstRunModal').addEventListener('click', e => {
@@ -3362,5 +3555,19 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
 </script>
+
+  <!-- Set Completeness Modal -->
+  <div id="setCompletenessModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:center;justify-content:center;padding:20px">
+    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08)">
+        <h3 style="margin:0;font-size:16px;font-weight:700">📦 Completeness setů</h3>
+        <button onclick="closeSetCompleteness()" style="background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px">✕</button>
+      </div>
+      <div id="setCompletenessBody" style="overflow-y:auto;padding:10px 20px;flex:1">
+        <p style="color:var(--text2)">Načítám…</p>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
