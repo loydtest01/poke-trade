@@ -91,83 +91,104 @@ body { background: #06040c; overflow-x: hidden; }
 /* ── Layout ────────────────────────────────────────────────── */
 .page-wrap { position: relative; z-index: 1; display: flex; min-height: calc(100vh - 56px); }
 
-/* ── Side tab strip (hidden — replaced by fixed panel) ──── */
-.side-tabs { display: none; }
-.side-tab, .side-tab-dot { display: none; }
-
-/* Sidebar overlay (no longer needed) */
-.sidebar-overlay { display: none; }
-
-/* ── Fixed left filter panel ──────────────────────────────── */
+/* ── Sidebar ───────────────────────────────────────────────── */
 .sidebar {
-  position: sticky; top: 56px;
-  width: 230px; flex-shrink: 0;
-  height: calc(100vh - 56px);
+  width: 220px; flex-shrink: 0;
+  background: rgba(8,8,12,0.7);
+  border-right: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 0; position: sticky; top: 56px;
+  height: calc(100vh - 56px); overflow-y: auto;
+}
+
+/* ── Slide-out filter tabs on sidebar ─────────────────────── */
+.sb-filter-tabs {
+  display: flex; gap: 4px; padding: 0 10px 8px;
+}
+.sb-ftab {
+  flex: 1; padding: 6px 0; border-radius: 8px; border: none;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: var(--text3); font-size: 10px; font-weight: 700;
+  font-family: inherit; cursor: pointer; transition: all .15s;
+  text-transform: uppercase; letter-spacing: .04em;
+  position: relative;
+}
+.sb-ftab:hover { background: rgba(255,255,255,0.08); color: var(--text2); }
+.sb-ftab.active {
+  background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3);
+  color: var(--yellow);
+}
+.sb-ftab-dot {
+  position: absolute; top: 4px; right: 4px;
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--yellow); display: none;
+}
+.sb-ftab.has-filter .sb-ftab-dot { display: block; }
+
+/* ── Sliding panel (vyjíždí z pravé strany sidebaru) ──── */
+.slide-panel-overlay {
+  position: fixed; inset: 0; z-index: 299;
+  background: rgba(0,0,0,0.35);
+  opacity: 0; pointer-events: none;
+  transition: opacity .22s;
+}
+.slide-panel-overlay.open { opacity: 1; pointer-events: all; }
+
+.slide-panel {
+  position: fixed; top: 56px; left: 220px; bottom: 0;
+  width: 240px; z-index: 300;
   background: rgba(10,10,16,0.97);
   border-right: 1px solid rgba(255,255,255,0.07);
   padding: 0; overflow-y: auto;
+  transform: translateX(-110%);
+  transition: transform .26s cubic-bezier(.32,.72,0,1);
+  box-shadow: 4px 0 32px rgba(0,0,0,0.5);
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.08) transparent;
-  z-index: 100;
 }
-.sidebar::-webkit-scrollbar { width: 3px; }
-.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+.slide-panel::-webkit-scrollbar { width: 3px; }
+.slide-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+.slide-panel.open { transform: translateX(0); }
 
-/* Sidebar header */
-.sb-panel-header {
+.sp-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 12px 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
   position: sticky; top: 0; z-index: 1;
   background: rgba(10,10,16,0.97);
 }
-.sb-panel-close { display: none; }
-.sb-panel-title {
-  font-size: 11px; font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--text3);
-
-/* ── Accordion groups ─────────────────────────────────────── */
-}
-.filter-group { border-bottom: 1px solid rgba(255,255,255,0.05); }
-.filter-group-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 14px; cursor: pointer; user-select: none;
-  transition: background .15s;
-}
-.filter-group-header:hover { background: rgba(255,255,255,0.03); }
-.filter-group-title {
-  font-size: 11px; font-weight: 700; letter-spacing: .08em;
+.sp-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .06em;
   text-transform: uppercase; color: var(--text2);
-  display: flex; align-items: center; gap: 6px;
 }
-.filter-group-arrow {
-  font-size: 10px; color: var(--text3);
-  transition: transform .2s;
+.sp-close {
+  width: 24px; height: 24px; border-radius: 6px;
+  background: rgba(255,255,255,0.06); border: none; color: var(--text3);
+  font-size: 12px; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; transition: all .15s; font-family: inherit;
 }
-.filter-group.open .filter-group-arrow { transform: rotate(180deg); }
-.filter-group-body {
-  max-height: 0; overflow: hidden;
-  transition: max-height .28s cubic-bezier(.32,.72,0,1);
-}
-.filter-group.open .filter-group-body {
-  max-height: 600px;
-}
-.filter-group-content {
-  padding: 0 10px 12px;
-  display: flex; flex-wrap: wrap; gap: 5px;
-}
-.filter-group-content .type-chip {
-  font-size: 11px; padding: 4px 9px;
-}
-.fg-active-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--yellow); display: none; flex-shrink: 0;
-}
-.filter-group.has-active .fg-active-dot { display: block; }
-}
-/* sb-panel-close handled in sidebar block above */
+.sp-close:hover { background: rgba(255,255,255,0.12); color: var(--text); }
 
-.sb-section { padding: 10px 10px 8px; }
+.sp-body {
+  padding: 12px 12px 20px;
+}
+.sp-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.sp-chips .type-chip, .sp-chips .st-btn {
+  font-size: 11px; padding: 5px 10px;
+}
+.sp-reset {
+  font-size: 10px; color: var(--text3); background: none; border: none;
+  cursor: pointer; font-family: inherit; padding: 2px 6px;
+  border-radius: 4px; transition: all .15s;
+}
+.sp-reset:hover { color: var(--yellow); background: rgba(245,200,66,0.1); }
+
+@media (max-width: 768px) {
+  .slide-panel { left: 0; }
+}
+.sb-section { padding: 0 10px 12px; }
 .sb-label {
   font-size: 10px; font-weight: 700; letter-spacing: .12em;
   color: var(--text3); text-transform: uppercase;
@@ -291,115 +312,6 @@ body { background: #06040c; overflow-x: hidden; }
 .type-icon { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
 .type-chip:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
 .type-chip.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
-
-/* ── Filter Drawer ─────────────────────────────────────────── */
-.filter-overlay {
-  position: fixed; inset: 0; z-index: 490;
-  background: rgba(0,0,0,0.5);
-  opacity: 0; pointer-events: none;
-  transition: opacity .25s ease;
-  backdrop-filter: blur(2px);
-}
-.filter-overlay.open { opacity: 1; pointer-events: all; }
-
-.filter-drawer {
-  position: fixed; top: 0; left: 0; bottom: 0; z-index: 500;
-  width: 300px;
-  background: rgba(10,10,16,0.97);
-  border-right: 1px solid rgba(255,255,255,0.08);
-  display: flex; flex-direction: column;
-  transform: translateX(-100%);
-  transition: transform .28s cubic-bezier(.32,.72,0,1);
-  box-shadow: 4px 0 40px rgba(0,0,0,0.6);
-}
-.filter-drawer.open { transform: translateX(0); }
-
-.fd-header {
-  display: flex; align-items: center;
-  padding: 0 16px;
-  height: 56px; flex-shrink: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  gap: 8px;
-}
-.fd-title {
-  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700;
-  color: var(--text); flex: 1;
-}
-.fd-reset-btn {
-  font-size: 11px; color: var(--text3); background: none; border: none;
-  cursor: pointer; font-family: inherit; padding: 4px 8px;
-  border-radius: 6px; transition: all .15s;
-}
-.fd-reset-btn:hover { color: var(--yellow); background: rgba(245,200,66,0.1); }
-.fd-close-btn {
-  width: 28px; height: 28px; border-radius: 8px;
-  background: rgba(255,255,255,0.06); border: none; color: var(--text2);
-  font-size: 14px; cursor: pointer; display: flex; align-items: center;
-  justify-content: center; transition: all .15s; font-family: inherit;
-}
-.fd-close-btn:hover { background: rgba(255,255,255,0.12); color: var(--text); }
-
-.fd-body {
-  flex: 1; overflow-y: auto; padding: 12px 16px 24px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
-}
-.fd-body::-webkit-scrollbar { width: 4px; }
-.fd-body::-webkit-scrollbar-track { background: transparent; }
-.fd-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-.fd-section { margin-bottom: 20px; }
-.fd-section-title {
-  font-size: 10px; font-weight: 700; letter-spacing: .08em;
-  text-transform: uppercase; color: var(--text3);
-  margin-bottom: 8px; padding-bottom: 6px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
-}
-.fd-chips {
-  display: flex; flex-wrap: wrap; gap: 6px;
-}
-.fd-chips .type-chip, .fd-chips .st-btn {
-  font-size: 11px; padding: 4px 10px;
-}
-
-/* Active filter badge bar */
-.filter-badge-bar {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 6px;
-  padding: 0 0 10px;
-}
-.filter-badge-bar:empty { display: none; }
-.flt-badge {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 8px 3px 10px; border-radius: 20px;
-  font-size: 11px; font-weight: 600; cursor: default;
-  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.28);
-  color: var(--yellow); white-space: nowrap;
-}
-.flt-badge-x {
-  width: 14px; height: 14px; border-radius: 50%;
-  background: rgba(245,200,66,0.2); border: none;
-  color: var(--yellow); font-size: 9px; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: background .15s; font-family: inherit; padding: 0;
-  flex-shrink: 0;
-}
-.flt-badge-x:hover { background: rgba(245,200,66,0.4); }
-
-/* Filtry btn s dot */
-.filtry-btn {
-  position: relative;
-  display: flex; align-items: center; gap: 6px;
-  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
-}
-.filtry-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
-.filtry-btn.has-active { border-color: rgba(245,200,66,0.35); color: var(--yellow); background: rgba(245,200,66,0.08); }
-.filtry-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--yellow); display: none; flex-shrink: 0;
-}
-.filtry-btn.has-active .filtry-dot { display: block; }
 
 /* ── Karty grid ────────────────────────────────────────────── */
 .cards-grid {
@@ -640,7 +552,6 @@ body { background: #06040c; overflow-x: hidden; }
   .book-pages { grid-template-columns: 1fr; }
   .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
   .book-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
-  .sidebar { display: none; }
 }
 
 /* ── Card detail modal ─────────────────────────────────────── */
@@ -821,43 +732,6 @@ body { background: #06040c; overflow-x: hidden; }
 .cd-row-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; }
 .cd-row-val   { font-size: 13px; color: var(--text); font-weight: 500; }
 .cd-row.wide  { grid-column: 1 / -1; }
-
-/* Edit mode */
-.cd-edit-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  font-size: 11px; font-weight: 600; padding: 3px 10px;
-  border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.05); color: var(--text3);
-  cursor: pointer; font-family: inherit; transition: all .15s;
-}
-.cd-edit-btn:hover, .cd-edit-btn.active { background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
-.cd-grid-header {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 8px;
-}
-.cd-grid-label-top {
-  font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em;
-}
-.cd-row-input {
-  width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 6px; padding: 4px 7px; color: var(--text); font-family: inherit;
-  font-size: 12px; outline: none; margin-top: 2px; transition: border-color .15s;
-  box-sizing: border-box;
-}
-.cd-row-input:focus { border-color: rgba(245,200,66,0.45); }
-.cd-row-select {
-  width: 100%; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
-  border-radius: 6px; padding: 4px 7px; color: var(--text); font-family: inherit;
-  font-size: 12px; outline: none; margin-top: 2px; cursor: pointer;
-}
-.cd-save-edits-btn {
-  width: 100%; margin-top: 8px; padding: 9px 0; border-radius: 8px; border: none;
-  background: linear-gradient(135deg, #f5c842, #e0a800); color: #1a1326;
-  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
-  transition: opacity .15s; letter-spacing: .02em;
-}
-.cd-save-edits-btn:hover { opacity: .88; }
-.cd-price-cached { font-size: 10px; color: var(--text3); margin-top: 3px; }
 .cd-price-row {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
@@ -1086,8 +960,7 @@ body { background: #06040c; overflow-x: hidden; }
 .card-del-btn:hover { background: rgba(248,113,113,0.25); }
 
 @media (max-width: 768px) {
-  .sidebar { display: none !important; }
-  .side-tabs { width: 0; overflow: hidden; }
+  .sidebar { display: none; }
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 7px; }
 }
 
@@ -1211,80 +1084,154 @@ body { background: #06040c; overflow-x: hidden; }
 
 <div class="page-wrap">
 
-  <!-- Sidebar overlay (legacy, hidden) -->
-  <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-  <!-- Fixed left filter panel -->
+  <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div class="sb-panel-header">
-      <span class="sb-panel-title">⚙ Filtry</span>
-      <button class="fd-reset-btn" onclick="resetAllFilters()" style="font-size:10px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:inherit;padding:3px 6px;border-radius:5px;transition:all .15s" onmouseover="this.style.color='var(--yellow)'" onmouseout="this.style.color='var(--text3)'">Reset</button>
+    <!-- 3 filter slide-out tabs -->
+    <div class="sb-filter-tabs">
+      <button class="sb-ftab" id="ftab-rarity" onclick="toggleSlidePanel('rarity')" title="Vzácnost">
+        🌟 Vzácnost<span class="sb-ftab-dot"></span>
+      </button>
+      <button class="sb-ftab" id="ftab-pokemon" onclick="toggleSlidePanel('pokemon')" title="Pokémon">
+        🎴 Pokémon<span class="sb-ftab-dot"></span>
+      </button>
+      <button class="sb-ftab" id="ftab-element" onclick="toggleSlidePanel('element')" title="Element">
+        🔥 Element<span class="sb-ftab-dot"></span>
+      </button>
     </div>
-
-    <!-- ── Skupina: Vzácnost ── -->
-    <div class="filter-group open" id="fg-rarity">
-      <div class="filter-group-header" onclick="toggleFilterGroup('fg-rarity')">
-        <span class="filter-group-title"><span class="fg-active-dot"></span>🌟 Vzácnost</span>
-        <span class="filter-group-arrow">▼</span>
-      </div>
-      <div class="filter-group-body">
-        <div class="filter-group-content" id="fgRarityChips">
-          <button class="type-chip active" onclick="setRarity('')">Vše</button>
-          <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
-          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-          <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
-          <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
-          <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
-          <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
-        </div>
-      </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Zobrazit</span>
+      <button class="sb-btn active" onclick="setView('all')"  id="vb-all">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
+      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
+      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
     </div>
+    <div class="sb-divider"></div>
 
-    <!-- ── Skupina: Pokémon (supertype) ── -->
-    <div class="filter-group open" id="fg-pokemon">
-      <div class="filter-group-header" onclick="toggleFilterGroup('fg-pokemon')">
-        <span class="filter-group-title"><span class="fg-active-dot"></span>🎴 Pokémon</span>
-        <span class="filter-group-arrow">▼</span>
-      </div>
-      <div class="filter-group-body">
-        <div class="filter-group-content" id="fgPokemonChips">
-          <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all2">0</span></button>
-          <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon2">0</span></button>
-          <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer2">0</span></button>
-          <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy2">0</span></button>
-        </div>
-      </div>
+    <div class="sb-section">
+      <span class="sb-label">Stav karty</span>
+      <button class="sb-btn active" onclick="setCond('')">Vše</button>
+      <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
+      <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
+      <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
+      <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
     </div>
+    <div class="sb-divider"></div>
 
-    <!-- ── Skupina: Element ── -->
-    <div class="filter-group open" id="fg-element">
-      <div class="filter-group-header" onclick="toggleFilterGroup('fg-element')">
-        <span class="filter-group-title"><span class="fg-active-dot"></span>🔥 Element</span>
-        <span class="filter-group-arrow">▼</span>
-      </div>
-      <div class="filter-group-body">
-        <div class="filter-group-content" id="fgElementChips">
-          <button class="type-chip active" onclick="setType('')">Vše</button>
-          <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
-          <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
-          <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
-          <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
-          <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
-          <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
-          <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
-          <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
-          <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
-          <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
-          <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normál</button>
-          <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Led</button>
-        </div>
-      </div>
+    <div class="sb-section">
+      <span class="sb-label">Speciální alba</span>
+      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
     </div>
+    <div class="sb-divider"></div>
 
+    <div class="sb-section">
+      <span class="sb-label">Moje alba</span>
+      <div class="album-list" id="albumList">
+        <div style="font-size:11px;color:var(--text3);padding:4px 6px">Načítám…</div>
+      </div>
+      <button class="new-album-btn" onclick="openNewAlbumModal()">＋ Nové album</button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <span class="sb-label">Sync mód</span>
+      <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
+        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
+        <option value="hourly">Každou hodinu</option>
+        <option value="realtime">Real-time (30s)</option>
+        <option value="manual">Manuálně</option>
+      </select>
+      <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Měna</span>
+      <div style="display:flex;gap:6px;">
+        <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
+        <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
+      </div>
+      <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
+    </div>
   </aside>
 
-  <!-- Main -->
+  <!-- Slide panel overlay -->
+  <div class="slide-panel-overlay" id="slidePanelOverlay" onclick="closeSlidePanel()"></div>
+
+  <!-- Slide panel: Vzácnost -->
+  <div class="slide-panel" id="sp-rarity">
+    <div class="sp-header">
+      <span class="sp-title">🌟 Vzácnost</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="sp-reset" onclick="setRarity('')">Reset</button>
+        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+      </div>
+    </div>
+    <div class="sp-body">
+      <div class="sp-chips" id="spRarityChips">
+        <button class="type-chip active" onclick="setRarity('')">Vše</button>
+        <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
+        <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+        <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+        <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
+        <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
+        <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
+        <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide panel: Pokémon (supertype) -->
+  <div class="slide-panel" id="sp-pokemon">
+    <div class="sp-header">
+      <span class="sp-title">🎴 Pokémon / Typ</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="sp-reset" onclick="setSupertype('')">Reset</button>
+        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+      </div>
+    </div>
+    <div class="sp-body">
+      <div class="sp-chips">
+        <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="sp-cnt-all">0</span></button>
+        <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="sp-cnt-pokemon">0</span></button>
+        <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="sp-cnt-trainer">0</span></button>
+        <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="sp-cnt-energy">0</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide panel: Element -->
+  <div class="slide-panel" id="sp-element">
+    <div class="sp-header">
+      <span class="sp-title">🔥 Element</span>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="sp-reset" onclick="setType('')">Reset</button>
+        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+      </div>
+    </div>
+    <div class="sp-body">
+      <div class="sp-chips" id="spElementChips">
+        <button class="type-chip active" onclick="setType('')">Vše</button>
+        <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
+        <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
+        <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
+        <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
+        <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
+        <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
+        <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
+        <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
+        <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
+        <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
+        <button class="type-chip" onclick="setType('bug')"><img src="elements/bug.png" class="type-icon"> Hmyzí</button>
+        <button class="type-chip" onclick="setType('poison')"><img src="elements/poison.png" class="type-icon"> Jedovatý</button>
+        <button class="type-chip" onclick="setType('ground')"><img src="elements/ground.png" class="type-icon"> Zemní</button>
+        <button class="type-chip" onclick="setType('ghost')"><img src="elements/ghost.png" class="type-icon"> Přízračný</button>
+        <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Ledový</button>
+        <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
+        <button class="type-chip" onclick="setType('flying')"><img src="elements/flying.png" class="type-icon"> Létající</button>
+        <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
+      </div>
+    </div>
+  </div>
   <main class="main">
 
     <!-- Select mode banner -->
@@ -1320,120 +1267,43 @@ body { background: #06040c; overflow-x: hidden; }
       <span id="totalExpCnt" style="font-size:11px;color:#f5c842;display:none">· <span id="totalExpNum">0</span> drahých ⭐</span>
     </div>
 
-    <!-- ═══ FILTER DRAWER ═══════════════════════════════════════ -->
-    <div class="filter-overlay" id="filterOverlay" onclick="closeFilterDrawer()"></div>
-    <div class="filter-drawer" id="filterDrawer">
-      <div class="fd-header">
-        <span class="fd-title">⚙ Filtry</span>
-        <button class="fd-reset-btn" onclick="resetAllFilters()">Reset</button>
-        <button class="fd-close-btn" onclick="closeFilterDrawer()">✕</button>
-      </div>
-      <div class="fd-body">
-
-        <!-- Typ karty -->
-        <div class="fd-section">
-          <div class="fd-section-title">Typ karty</div>
-          <div class="fd-chips supertype-bar" style="gap:6px;margin-bottom:0">
-            <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
-            <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
-            <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
-            <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
-          </div>
-        </div>
-
-        <!-- Vzácnost -->
-        <div class="fd-section">
-          <div class="fd-section-title">Vzácnost</div>
-          <div class="fd-chips" id="rarityBar">
-            <button class="type-chip active" onclick="setRarity('')">Vše</button>
-            <button class="type-chip" onclick="setRarity('common')" style="--rarity-c:#aaa">⚪ Common</button>
-            <button class="type-chip" onclick="setRarity('uncommon')" style="--rarity-c:#4a9eff">🔵 Uncommon</button>
-            <button class="type-chip" onclick="setRarity('rare')" style="--rarity-c:#f5c842">🌟 Rare</button>
-            <button class="type-chip" onclick="setRarity('holo')" style="--rarity-c:#b97cff">✨ Holo</button>
-            <button class="type-chip" onclick="setRarity('ultra')" style="--rarity-c:#4ecdc4">💎 Ultra Rare</button>
-            <button class="type-chip" onclick="setRarity('secret')" style="--rarity-c:#ff5c5c">🔴 Secret Rare</button>
-            <button class="type-chip" onclick="setRarity('promo')" style="--rarity-c:#ff9f43">🎁 Promo</button>
-          </div>
-        </div>
-
-        <!-- Element (Pokémon) -->
-        <div class="fd-section" id="fd-element-section">
-          <div class="fd-section-title">Element</div>
-          <div class="fd-chips type-bar" style="background:none;border:none;padding:0;margin-bottom:0">
-            <button class="type-chip active" onclick="setType('')">Vše</button>
-            <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
-            <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
-            <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
-            <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
-            <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
-            <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
-            <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
-            <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
-            <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
-            <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
-            <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normál</button>
-            <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Led</button>
-          </div>
-        </div>
-
-        <!-- Trenéři subtyp -->
-        <div class="fd-section" id="trainerBar" style="display:none">
-          <div class="fd-section-title">Subtyp trenéra</div>
-          <div class="fd-chips">
-            <button class="type-chip active" onclick="setTrainerSubtype('')">Vše</button>
-            <button class="type-chip" onclick="setTrainerSubtype('Item')">🎒 Item</button>
-            <button class="type-chip" onclick="setTrainerSubtype('Supporter')">🧑 Supporter</button>
-            <button class="type-chip" onclick="setTrainerSubtype('Stadium')">🏟️ Stadium</button>
-            <button class="type-chip" onclick="setTrainerSubtype('Tool')">🔧 Tool</button>
-          </div>
-        </div>
-
-        <!-- Energie barva -->
-        <div class="fd-section" id="energyBar" style="display:none">
-          <div class="fd-section-title">Barva energie</div>
-          <div class="fd-chips">
-            <button class="type-chip active" onclick="setEnergyColor('')">Vše</button>
-            <button class="type-chip" onclick="setEnergyColor('fire')"><img src="elements/fire.png" class="type-icon"> Oheň</button>
-            <button class="type-chip" onclick="setEnergyColor('water')"><img src="elements/water.png" class="type-icon"> Voda</button>
-            <button class="type-chip" onclick="setEnergyColor('grass')"><img src="elements/grass.png" class="type-icon"> Tráva</button>
-            <button class="type-chip" onclick="setEnergyColor('lightning')"><img src="elements/electric.png" class="type-icon"> Elektro</button>
-            <button class="type-chip" onclick="setEnergyColor('psychic')"><img src="elements/psychic.png" class="type-icon"> Psycho</button>
-            <button class="type-chip" onclick="setEnergyColor('darkness')"><img src="elements/dark.png" class="type-icon"> Tma</button>
-            <button class="type-chip" onclick="setEnergyColor('metal')"><img src="elements/steel.png" class="type-icon"> Kov</button>
-            <button class="type-chip" onclick="setEnergyColor('fighting')"><img src="elements/fighting.png" class="type-icon"> Boj</button>
-            <button class="type-chip" onclick="setEnergyColor('dragon')"><img src="elements/dragon.png" class="type-icon"> Drak</button>
-            <button class="type-chip" onclick="setEnergyColor('colorless')">⚪ Bezbarvá</button>
-          </div>
-        </div>
-
-        <!-- Stav karty -->
-        <div class="fd-section">
-          <div class="fd-section-title">Stav karty</div>
-          <div class="fd-chips">
-            <button class="type-chip active" onclick="setCond('')">Vše</button>
-            <button class="type-chip" onclick="setCond('NM')">💚 NM</button>
-            <button class="type-chip" onclick="setCond('LP')">💛 LP</button>
-            <button class="type-chip" onclick="setCond('MP')">🟠 MP</button>
-            <button class="type-chip" onclick="setCond('HP')">🔴 HP</button>
-            <button class="type-chip" onclick="setCond('DMG')">⬛ DMG</button>
-          </div>
-        </div>
-
-      </div>
+    <!-- Supertype lišta -->
+    <div class="supertype-bar">
+      <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
     </div>
-    <!-- ═══ END FILTER DRAWER ═══════════════════════════════════ -->
 
-    <!-- Active filter badges -->
-    <div class="filter-badge-bar" id="filterBadgeBar"></div>
+    <!-- Typ bary -->
+    <div class="type-bar">
+      <button class="type-chip active" onclick="setType('')">Vše</button>
+      <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
+      <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
+      <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
+      <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
+      <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
+      <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
+      <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
+      <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
+      <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
+      <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Vílu</button>
+      <button class="type-chip" onclick="setType('bug')"><img src="elements/bug.png" class="type-icon"> Hmyzí</button>
+      <button class="type-chip" onclick="setType('poison')"><img src="elements/poison.png" class="type-icon"> Jedovatý</button>
+      <button class="type-chip" onclick="setType('ground')"><img src="elements/ground.png" class="type-icon"> Zemní</button>
+      <button class="type-chip" onclick="setType('ghost')"><img src="elements/ghost.png" class="type-icon"> Přízračný</button>
+      <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Ledový</button>
+      <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
+      <button class="type-chip" onclick="setType('flying')"><img src="elements/flying.png" class="type-icon"> Létající</button>
+      <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
+    </div>
 
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
       </div>
-      <button class="filtry-btn" id="filtryBtn" onclick="toggleFilterDrawer()">⚙ Filtry <span class="filtry-dot"></span></button>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
-      <button onclick="openSetCompleteness()" title="Completeness setu" style="padding:7px 12px;border-radius:8px;font-size:12px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);cursor:pointer;font-family:inherit">📦 Sety</button>
       <select id="sortSelect" onchange="setSort(this.value)"
         style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;outline:none;">
         <option value="added">Pořadí přidání</option>
@@ -1442,8 +1312,6 @@ body { background: #06040c; overflow-x: hidden; }
         <option value="number">Číslo pokémona</option>
         <option value="series">Série</option>
         <option value="element">Element</option>
-        <option value="price_desc">💰 Cena (nejvyšší)</option>
-        <option value="price_asc">💰 Cena (nejnižší)</option>
       </select>
       <div class="view-toggle">
         <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')" title="Mřížka">
@@ -1509,10 +1377,6 @@ body { background: #06040c; overflow-x: hidden; }
             <div class="cd-set"  id="cdSet">—</div>
           </div>
           <div class="cd-badges" id="cdBadges"></div>
-          <div class="cd-grid-header">
-            <span class="cd-grid-label-top">Informace</span>
-            <button class="cd-edit-btn" id="cdEditBtn" onclick="toggleCdEditMode()">✏️ Upravit</button>
-          </div>
           <div class="cd-grid" id="cdGrid"></div>
           <div>
             <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">📈 Ceny z Cardmarket</div>
@@ -1661,9 +1525,7 @@ let activeView    = 'all';   // all | trade | sell
 let activeType    = '';
 let activeCond    = '';
 let activeSupertype = '';    // '' | 'Pokémon' | 'Trainer' | 'Energy'
-let activeTrainerSubtype = ''; // '' | 'Item' | 'Supporter' | 'Stadium' | 'Tool'
-let activeEnergyColor = '';    // '' | 'fire' | 'water' | ...
-let activeRarity = '';         // '' | 'common' | 'uncommon' | 'rare' | 'holo' | 'ultra' | 'secret' | 'promo'
+let activeRarity  = '';      // '' | 'common' | 'uncommon' | 'rare' | 'holo' | 'ultra' | 'secret' | 'promo'
 let activeAlbumId = null;    // null = všechny karty
 let selectMode    = false;
 let selectedIds   = new Set();
@@ -1702,8 +1564,7 @@ let editingAlbumId = null;
     setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
   }
 
-  const _syncSel = document.getElementById('syncModeSelect');
-  if (_syncSel) _syncSel.value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
+  document.getElementById('syncModeSelect').value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
   updateLastSyncInfo();
   renderColorPicker();
   renderIconPicker();
@@ -1856,8 +1717,6 @@ function render() {
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
     if (activeType && !matchType(c, activeType)) return false;
     if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
-    if (activeTrainerSubtype && !matchTrainerSubtype(c, activeTrainerSubtype)) return false;
-    if (activeEnergyColor && !matchEnergyColor(c, activeEnergyColor)) return false;
     if (activeRarity && !matchRarity(c, activeRarity)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
@@ -1870,7 +1729,7 @@ function render() {
   // Stat chips
   const fChip = document.getElementById('filteredChip');
   document.getElementById('statFiltered').textContent = filtered.length;
-  fChip.style.display = (activeAlbumId || activeType || activeView !== 'all' || q) ? '' : 'none';
+  fChip.style.display = (activeAlbumId || activeType || activeRarity || activeSupertype || activeView !== 'all' || q) ? '' : 'none';
 
   // Album header
   const ah = document.getElementById('albumHeader');
@@ -1933,17 +1792,11 @@ window._eurRate = null;  // e.g. 25.30
 window._currency = localStorage.getItem('pkc_currency') || 'EUR';
 
 async function fetchEurRate() {
-  // frankfurter.app blokuje CORS — fallback na open.er-api.com (CORS OK, bezplatné)
-  const APIS = [
-    () => fetch('https://open.er-api.com/v6/latest/EUR').then(r => r.json()).then(d => d?.rates?.CZK),
-    () => fetch('https://api.exchangerate-api.com/v4/latest/EUR').then(r => r.json()).then(d => d?.rates?.CZK),
-  ];
-  for (const api of APIS) {
-    try {
-      const czk = await api();
-      if (czk && czk > 1) { window._eurRate = czk; break; }
-    } catch {}
-  }
+  try {
+    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=CZK');
+    const d = await r.json();
+    window._eurRate = d?.rates?.CZK || null;
+  } catch {}
   updateCurrencyUI();
 }
 
@@ -2075,10 +1928,24 @@ function openCardDetail(c) {
   document.getElementById('cdBadges').innerHTML = badges.join('');
 
   // Info grid — app používá 'num' místo 'number', 'cond' místo 'condition', 'qty' místo 'count'
-  _cdEditMode = false;
-  const editBtn = document.getElementById('cdEditBtn');
-  if (editBtn) { editBtn.textContent = '✏️ Upravit'; editBtn.classList.remove('active'); }
-  renderCdGrid(false);
+  const cardNum = c.number || c.num || '—';
+  const cardHp  = c.hp || '—';
+  const rows = [
+    ['HP',        cardHp],
+    ['Číslo',     cardNum],
+    ['Typ',       c.types?.join(', ') || c.type || '—'],
+    ['Supertyp',  c.supertype || c.subtypesStr || c.category || '—'],
+    ['Série',     c.set || '—'],
+    ['Stav',      cond],
+    ['Vzácnost',  c.rarity || c.rarityCz || '—'],
+    ['Počet ks',  c.count || c.qty || 1],
+    ['Poznámka',  c.note || '—', true],
+  ];
+  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
+    `<div class="cd-row${wide?' wide':''}">
+      <div class="cd-row-label">${label}</div>
+      <div class="cd-row-val">${esc(String(val))}</div>
+    </div>`).join('');
 
   // Ceny z Cardmarket (uložené z pokemontcg.io při přidání karty v aplikaci)
   renderPrices(c, document.getElementById('cdPrices'));
@@ -2559,30 +2426,6 @@ function renderPrices(c, el) {
 
 async function fetchLivePrices(c, el) {
   if (!el) return;
-
-  // ── Zkontroluj cache nejdřív ──────────────────────────────────
-  const cached = getCachedPrices(c);
-  if (cached) {
-    c.pMin          = cached.pMin          || 0;
-    c.pTrend        = cached.pTrend        || 0;
-    c.p30d          = cached.p30d          || 0;
-    c.cardmarketUrl = cached.cardmarketUrl || c.cardmarketUrl || '';
-    c.hp            = cached.hp            || c.hp || '';
-    if (c.number === '' || c.number == null) { c.number = cached.number || ''; c.num = c.number; }
-    if (c.pTrend > 0 || c.pMin > 0) {
-      renderPrices(c, el);
-      const ageH = Math.round((Date.now() - cached.cachedAt) / 3600000);
-      const ageLabel = ageH < 1 ? 'právě teď' : ageH < 24 ? `před ${ageH}h` : `před ${Math.round(ageH/24)}d`;
-      const note = document.createElement('div');
-      note.className = 'cd-price-cached';
-      note.textContent = `📦 Načteno z cache (${ageLabel})`;
-      el.appendChild(note);
-      // Aktualizuj HP v gridu pokud bylo prázdné
-      if (c.hp) renderCdGrid(false);
-      return;
-    }
-  }
-
   try {
     // Zkus přes apiId (přesné) nebo hledáním podle jména+čísla
     let apiUrl;
@@ -2617,20 +2460,13 @@ async function fetchLivePrices(c, el) {
     c.p30d          = cm.avg30 || cm.avg7 || 0;
     c.cardmarketUrl = card.cardmarket?.url || '';
     c.hp            = card.hp || c.hp || '';
-    // Uložit číslo karty pokud bylo prázdné
-    if ((!c.number && !c.num) && card.number) { c.number = card.number; c.num = card.number; }
     if (c.pTrend > 0 || c.pMin > 0) {
-      // Zapsat do cache
-      cachePrices(c, {
-        pMin: c.pMin, pTrend: c.pTrend, p30d: c.p30d,
-        cardmarketUrl: c.cardmarketUrl, hp: c.hp,
-        number: c.number || '',
-      });
-      // Uložit aktualizovanou kartu lokálně
-      saveLocal();
       renderPrices(c, el);
-      // Aktualizuj grid pokud bylo HP nebo číslo prázdné
-      if (c.hp || c.number) renderCdGrid(false);
+      // Aktualizuj HP v detailu pokud bylo prázdné
+      if (c.hp) {
+        const hpEl = document.querySelector('#cdGrid .cd-row:first-child .cd-row-val');
+        if (hpEl && hpEl.textContent === '—') hpEl.textContent = c.hp;
+      }
       // Aktualizuj cardmarket odkaz
       if (c.cardmarketUrl) {
         const link = document.querySelector('#cdName a');
@@ -2646,185 +2482,7 @@ async function fetchLivePrices(c, el) {
   }
 }
 
-// ══════════════════════════════════════════════════════════════════
-//  CACHE CEN (localStorage)
-// ══════════════════════════════════════════════════════════════════
-const PRICE_CACHE_KEY = 'pkc_price_cache';
-const PRICE_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 dní
-
-function getPriceCacheKey(c) {
-  // Prioritně přesný apiId, jinak name+number
-  if (c.apiId) return c.apiId;
-  const num = (c.number || c.num || '').trim();
-  return ((c.name || '') + '|' + num).toLowerCase();
-}
-
-function loadPriceCache() {
-  try { return JSON.parse(localStorage.getItem(PRICE_CACHE_KEY) || '{}'); } catch { return {}; }
-}
-
-function savePriceCache(cache) {
-  try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(cache)); } catch {}
-}
-
-function getCachedPrices(c) {
-  const cache = loadPriceCache();
-  const key   = getPriceCacheKey(c);
-  const entry = cache[key];
-  if (!entry) return null;
-  if (Date.now() - entry.cachedAt > PRICE_CACHE_TTL) return null; // expirováno
-  return entry;
-}
-
-function cachePrices(c, data) {
-  const cache = loadPriceCache();
-  cache[getPriceCacheKey(c)] = { ...data, cachedAt: Date.now() };
-  savePriceCache(cache);
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  EDIT MÓD DETAILU KARTY
-// ══════════════════════════════════════════════════════════════════
-let _cdEditMode = false;
-
-function toggleCdEditMode() {
-  _cdEditMode = !_cdEditMode;
-  const btn = document.getElementById('cdEditBtn');
-  if (btn) {
-    btn.textContent = _cdEditMode ? '✓ Uložit' : '✏️ Upravit';
-    btn.classList.toggle('active', _cdEditMode);
-  }
-  if (_cdEditMode) {
-    renderCdGrid(true);
-  } else {
-    // Uložit a přepnout zpět
-    saveCardEdits();
-  }
-}
-
-function renderCdGrid(editMode) {
-  if (!_detailCard) return;
-  const c = _detailCard;
-  const cond = c.condition || c.cond || 'NM';
-
-  if (!editMode) {
-    // Read-only view (původní)
-    const cardNum = c.number || c.num || '—';
-    const rows = [
-      ['HP',       c.hp || '—'],
-      ['Číslo',    cardNum],
-      ['Typ',      c.types?.join(', ') || c.type || '—'],
-      ['Supertyp', c.supertype || c.subtypesStr || c.category || '—'],
-      ['Série',    c.set || '—'],
-      ['Stav',     cond],
-      ['Vzácnost', c.rarity || c.rarityCz || '—'],
-      ['Počet ks', c.count || c.qty || 1],
-      ['Poznámka', c.note || '—', true],
-    ];
-    document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
-      `<div class="cd-row${wide?' wide':''}">
-        <div class="cd-row-label">${label}</div>
-        <div class="cd-row-val">${esc(String(val))}</div>
-      </div>`).join('');
-  } else {
-    // Edit mode
-    const condOptions = ['NM','LP','MP','HP','DMG'].map(o =>
-      `<option value="${o}"${(cond===o)?' selected':''}>${o}</option>`).join('');
-
-    document.getElementById('cdGrid').innerHTML = `
-      <div class="cd-row">
-        <div class="cd-row-label">HP</div>
-        <input class="cd-row-input" id="edit_hp" value="${esc(c.hp||'')}" placeholder="330">
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Číslo</div>
-        <input class="cd-row-input" id="edit_number" value="${esc(c.number||c.num||'')}" placeholder="84/191">
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Typ</div>
-        <input class="cd-row-input" id="edit_type" value="${esc(c.types?.join(', ')||c.type||'')}" placeholder="fighting">
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Vzácnost</div>
-        <input class="cd-row-input" id="edit_rarity" value="${esc(c.rarity||'')}" placeholder="Rare Holo VMAX">
-      </div>
-      <div class="cd-row wide">
-        <div class="cd-row-label">Série</div>
-        <input class="cd-row-input" id="edit_set" value="${esc(c.set||'')}" placeholder="Brilliant Stars">
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Stav</div>
-        <select class="cd-row-select" id="edit_cond">${condOptions}</select>
-      </div>
-      <div class="cd-row">
-        <div class="cd-row-label">Počet ks</div>
-        <input class="cd-row-input" id="edit_count" type="number" min="1" value="${esc(String(c.count||c.qty||1))}">
-      </div>
-      <div class="cd-row wide">
-        <div class="cd-row-label">Poznámka</div>
-        <input class="cd-row-input" id="edit_note" value="${esc(c.note||'')}" placeholder="Vlastní poznámka…">
-      </div>
-      <div class="cd-row wide" style="background:none;padding:0">
-        <button class="cd-save-edits-btn" onclick="saveCardEdits()">✓ Uložit změny</button>
-      </div>`;
-  }
-}
-
-async function saveCardEdits() {
-  if (!_detailCard) return;
-  const c = _detailCard;
-
-  // Přečti hodnoty z editovatelných polí
-  const get = id => { const el = document.getElementById(id); return el ? el.value.trim() : null; };
-
-  const hp     = get('edit_hp');
-  const number = get('edit_number');
-  const type   = get('edit_type');
-  const rarity = get('edit_rarity');
-  const set    = get('edit_set');
-  const cond   = get('edit_cond');
-  const count  = get('edit_count');
-  const note   = get('edit_note');
-
-  // Aplikuj na kartu jen pokud byly pole přítomna (edit mód byl otevřen)
-  if (hp     !== null) c.hp        = hp;
-  if (number !== null) { c.number  = number; c.num = number; }
-  if (type   !== null) { c.type    = type; if (type) c.types = type.split(',').map(t=>t.trim()).filter(Boolean); }
-  if (rarity !== null) c.rarity    = rarity;
-  if (set    !== null) c.set       = set;
-  if (cond   !== null) { c.condition = cond; c.cond = cond; }
-  if (count  !== null) { c.count   = parseInt(count) || 1; c.qty = c.count; }
-  if (note   !== null) c.note      = note;
-
-  c.updated_at = new Date().toISOString();
-
-  // Zavřít edit mód vizuálně
-  _cdEditMode = false;
-  const btn = document.getElementById('cdEditBtn');
-  if (btn) { btn.textContent = '✏️ Upravit'; btn.classList.remove('active'); }
-
-  // Překreslit grid v read-only
-  renderCdGrid(false);
-
-  // Aktualizuj nadpis (set mohl být změněn)
-  document.getElementById('cdSet').textContent =
-    [c.set, c.number ? '#' + c.number : ''].filter(Boolean).join(' · ');
-
-  // Aktualizuj badges (stav)
-  const badges = [];
-  if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
-  if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
-  badges.push(`<span class="cd-badge cond">${c.condition||'NM'}</span>`);
-  document.getElementById('cdBadges').innerHTML = badges.join('');
-
-  // Uložit lokálně + sync
-  saveLocal();
-  await syncCardToServer(c);
-  setSyncState('ok', 'Uloženo');
-  setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
-}
-
-// ── Book size slider — modern minimalist ──────────────────────────
+// ── Book size slider ──────────────────────────────────────────────
 let bookSize = Math.min(100, parseInt(localStorage.getItem('pkc_book_size') || '100'));
 
 function setBookSize(val) {
@@ -2885,19 +2543,14 @@ function renderAlbumList() {
   // Aktualizuj počty speciálních alb v sidebaru
   const vymena = allAlbums.find(a => a.name === 'Výměna');
   const obchod = allAlbums.find(a => a.name === 'Obchod');
-  const cntVymena = document.getElementById('cnt-vymena');
-  const cntObchod = document.getElementById('cnt-obchod');
-  if (cntVymena) cntVymena.textContent = (vymena?.cardIds||[]).length;
-  if (cntObchod) cntObchod.textContent = (obchod?.cardIds||[]).length;
+  document.getElementById('cnt-vymena').textContent = (vymena?.cardIds||[]).length;
+  document.getElementById('cnt-obchod').textContent = (obchod?.cardIds||[]).length;
 
   // Zvýrazni aktivní speciální album v sidebaru
-  const sbVymena = document.getElementById('sbVymena');
-  const sbObchod = document.getElementById('sbObchod');
-  if (sbVymena) sbVymena.classList.toggle('active', activeAlbumId === vymena?.id);
-  if (sbObchod) sbObchod.classList.toggle('active', activeAlbumId === obchod?.id);
+  document.getElementById('sbVymena').classList.toggle('active', activeAlbumId === vymena?.id);
+  document.getElementById('sbObchod').classList.toggle('active', activeAlbumId === obchod?.id);
 
   const el = document.getElementById('albumList');
-  if (!el) return;
   // Skryj speciální alba ze seznamu
   const regular = allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name));
   if (!regular.length) {
@@ -2933,7 +2586,6 @@ function setAlbum(id) {
   activeAlbumId = (activeAlbumId === id) ? null : id;
   cancelSelect();
   renderAlbumList();
-  updateSideTabDots();
   render();
 }
 
@@ -2944,7 +2596,6 @@ function setAlbumByName(name) {
   activeAlbumId = (activeAlbumId === alb.id) ? null : alb.id;
   cancelSelect();
   renderAlbumList();
-  updateSideTabDots();
   render();
 }
 
@@ -3281,25 +2932,22 @@ function setView(v) {
 
 function setType(t) {
   activeType = t;
-  // Update all type-chip elements (drawer + sidebar panel)
+  // Update all type-chip elements with setType onclick (main bar + slide panel)
   document.querySelectorAll('.type-chip').forEach(b => {
     const fn = b.getAttribute('onclick') || '';
     if (fn.includes('setType'))
       b.classList.toggle('active', (t === '' && fn.includes("''")) || (t && fn.includes(`'${t}'`)));
   });
-  updateFilterGroupDots();
-  renderFilterBadges();
+  updateSlideTabDots();
   render();
 }
 
 function setCond(c) {
   activeCond = c;
-  document.querySelectorAll('.type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    if (fn.includes('setCond'))
-      b.classList.toggle('active', fn.includes(`'${c}'`) || (c === '' && fn.includes("''")));
+  document.querySelectorAll('.sb-btn').forEach(b => {
+    if (b.getAttribute('onclick')?.includes('setCond'))
+      b.classList.toggle('active', b.getAttribute('onclick').includes(`'${c}'`));
   });
-  renderFilterBadges();
   render();
 }
 
@@ -3326,54 +2974,45 @@ function changeSyncMode(mode) {
 }
 
 function updateStats() {
-  const cntAll = document.getElementById('cnt-all');
-  if (cntAll) cntAll.textContent = allCards.length;
+  document.getElementById('cnt-all').textContent   = allCards.length;
   document.getElementById('statAll').textContent   = allCards.length;
-  const cntTrade = document.getElementById('cnt-trade');
-  if (cntTrade) cntTrade.textContent = allCards.filter(c => c.for_trade).length;
+  document.getElementById('cnt-trade').textContent = allCards.filter(c => c.for_trade).length;
   document.getElementById('statTrade').textContent = allCards.filter(c => c.for_trade).length;
-  const cntSell = document.getElementById('cnt-sell');
-  if (cntSell) cntSell.textContent = allCards.filter(c => c.for_sell).length;
+  document.getElementById('cnt-sell').textContent  = allCards.filter(c => c.for_sell).length;
   document.getElementById('statSell').textContent  = allCards.filter(c => c.for_sell).length;
-  // Supertype počty – drawer
+  // Supertype počty - main bar
   document.getElementById('st-cnt-all').textContent     = allCards.length;
   document.getElementById('st-cnt-pokemon').textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
   document.getElementById('st-cnt-trainer').textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
   document.getElementById('st-cnt-energy').textContent  = allCards.filter(c => matchSupertype(c,'Energy')).length;
-  // Supertype počty – sidebar panel
-  const sa2 = document.getElementById('st-cnt-all2');
-  if (sa2) sa2.textContent = allCards.length;
-  const sp2 = document.getElementById('st-cnt-pokemon2');
-  if (sp2) sp2.textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
-  const st2 = document.getElementById('st-cnt-trainer2');
-  if (st2) st2.textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
-  const se2 = document.getElementById('st-cnt-energy2');
-  if (se2) se2.textContent = allCards.filter(c => matchSupertype(c,'Energy')).length;
+  // Supertype počty - slide panel
+  const spAll = document.getElementById('sp-cnt-all');
+  if (spAll) spAll.textContent = allCards.length;
+  const spP = document.getElementById('sp-cnt-pokemon');
+  if (spP) spP.textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
+  const spT = document.getElementById('sp-cnt-trainer');
+  if (spT) spT.textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
+  const spE = document.getElementById('sp-cnt-energy');
+  if (spE) spE.textContent = allCards.filter(c => matchSupertype(c,'Energy')).length;
 }
 
 function setSupertype(st) {
   activeSupertype = st;
-  // Update all st-btn elements (drawer + sidebar panel)
   document.querySelectorAll('.st-btn').forEach(b => {
     const fn = b.getAttribute('onclick') || '';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
   });
-  // ── Zobrazit/skrýt správné filtrovací sekce v draweru ──
-  const typeSection   = document.getElementById('fd-element-section');
-  const trainerBar    = document.getElementById('trainerBar');
-  const energyBar     = document.getElementById('energyBar');
-  if (typeSection)  typeSection.style.display  = (st === '' || st === 'Pokémon') ? '' : 'none';
-  if (trainerBar)   trainerBar.style.display   = (st === 'Trainer') ? '' : 'none';
-  if (energyBar)    energyBar.style.display    = (st === 'Energy')  ? '' : 'none';
-  // Sidebar panel: zobrazit/skrýt Element skupinu podle supertypeu
-  const fgElement = document.getElementById('fg-element');
-  if (fgElement) fgElement.style.display = (st === '' || st === 'Pokémon') ? '' : 'none';
-  // Reset sub-filtrů při přepnutí supertypeu
-  if (st !== 'Trainer') setTrainerSubtype('', false);
-  if (st !== 'Energy')  setEnergyColor('', false);
-  if (st === '' || st === 'Pokémon') {} else setType('');
-  updateFilterGroupDots();
-  renderFilterBadges();
+  // ── Bug fix: skrýt element filtry pro Trenéry a Energie ──
+  const typeBar = document.querySelector('.type-bar');
+  if (typeBar) {
+    const showTypes = (st === '' || st === 'Pokémon');
+    typeBar.style.display = showTypes ? '' : 'none';
+    if (!showTypes) setType(''); // reset element filtru
+  }
+  // Skrýt/zobrazit Element slide panel tab
+  const ftabEl = document.getElementById('ftab-element');
+  if (ftabEl) ftabEl.style.display = (st === '' || st === 'Pokémon') ? '' : 'none';
+  updateSlideTabDots();
   render();
 }
 
@@ -3387,6 +3026,82 @@ function matchSupertype(c, st) {
   return true;
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  RARITY FILTER
+// ══════════════════════════════════════════════════════════════════
+function setRarity(r) {
+  activeRarity = r;
+  document.querySelectorAll('#spRarityChips .type-chip').forEach(b => {
+    const fn = b.getAttribute('onclick') || '';
+    b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
+  });
+  updateSlideTabDots();
+  render();
+}
+
+function matchRarity(c, r) {
+  const cr = (c.rarity || c.rarityCz || '').toLowerCase();
+  if (r === 'common')   return cr.includes('common') || cr === 'běžná';
+  if (r === 'uncommon') return cr.includes('uncommon') || cr === 'neobvyklá';
+  if (r === 'rare')     return cr.includes('rare') && !cr.includes('ultra') && !cr.includes('secret') && !cr.includes('holo');
+  if (r === 'holo')     return cr.includes('holo') || cr.includes('holografická');
+  if (r === 'ultra')    return cr.includes('ultra') || cr.includes('illustration') || cr.includes('v ') || cr.includes('vmax') || cr.includes('vstar') || cr.includes('ex') || cr.includes('gx');
+  if (r === 'secret')   return cr.includes('secret') || cr.includes('hyper') || cr.includes('gold') || cr.includes('special art');
+  if (r === 'promo')    return cr.includes('promo');
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SLIDE-OUT PANELS
+// ══════════════════════════════════════════════════════════════════
+let _activeSlidePanel = null;
+
+function toggleSlidePanel(panel) {
+  if (_activeSlidePanel === panel) {
+    closeSlidePanel();
+  } else {
+    openSlidePanel(panel);
+  }
+}
+
+function openSlidePanel(panel) {
+  _activeSlidePanel = panel;
+  const overlay = document.getElementById('slidePanelOverlay');
+
+  // Skryj všechny panely, zobraz správný
+  document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open'));
+  const sp = document.getElementById('sp-' + panel);
+  if (sp) sp.classList.add('open');
+  if (overlay) overlay.classList.add('open');
+
+  // Aktivní tab
+  document.querySelectorAll('.sb-ftab').forEach(t => t.classList.remove('active'));
+  const tab = document.getElementById('ftab-' + panel);
+  if (tab) tab.classList.add('active');
+}
+
+function closeSlidePanel() {
+  _activeSlidePanel = null;
+  document.querySelectorAll('.slide-panel').forEach(p => p.classList.remove('open'));
+  const overlay = document.getElementById('slidePanelOverlay');
+  if (overlay) overlay.classList.remove('open');
+  document.querySelectorAll('.sb-ftab').forEach(t => t.classList.remove('active'));
+}
+
+function updateSlideTabDots() {
+  const tabR = document.getElementById('ftab-rarity');
+  const tabP = document.getElementById('ftab-pokemon');
+  const tabE = document.getElementById('ftab-element');
+  if (tabR) tabR.classList.toggle('has-filter', !!activeRarity);
+  if (tabP) tabP.classList.toggle('has-filter', !!activeSupertype);
+  if (tabE) tabE.classList.toggle('has-filter', !!activeType);
+}
+
+// ESC zavře slide panel
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSlidePanel();
+});
+
 function setSyncState(state, label) {
   const dot = document.getElementById('syncDot');
   dot.className = 'sync-dot' + (state ? ' ' + state : '');
@@ -3396,7 +3111,7 @@ function setSyncState(state, label) {
 function updateLastSyncInfo() {
   const t  = localStorage.getItem(LAST_SYNC_KEY);
   const el = document.getElementById('lastSyncInfo');
-  if (el) el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
+  el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -3552,260 +3267,7 @@ function sortCards(cards) {
     const eb = ELEMENT_ORDER.indexOf(getCardElement(b));
     return (ea < 0 ? 99 : ea) - (eb < 0 ? 99 : eb) || (a.name||'').localeCompare(b.name||'', 'cs');
   });
-  if (activeSort === 'price_desc') return c.sort((a,b) => (b.p30d||0) - (a.p30d||0));
-  if (activeSort === 'price_asc')  return c.sort((a,b) => (a.p30d||0) - (b.p30d||0));
   return c;
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  NOVÉ FILTRY — Trenéři / Energie / Vzácnost
-// ══════════════════════════════════════════════════════════════════
-
-function setTrainerSubtype(t, doRender = true) {
-  activeTrainerSubtype = t;
-  document.querySelectorAll('#trainerBar .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    b.classList.toggle('active', fn.includes(`'${t}'`) || (t === '' && fn.includes("''")));
-  });
-  renderFilterBadges();
-  if (doRender) render();
-}
-
-function setEnergyColor(c, doRender = true) {
-  activeEnergyColor = c;
-  document.querySelectorAll('#energyBar .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    b.classList.toggle('active', fn.includes(`'${c}'`) || (c === '' && fn.includes("''")));
-  });
-  renderFilterBadges();
-  if (doRender) render();
-}
-
-function setRarity(r) {
-  activeRarity = r;
-  // Update drawer chips
-  document.querySelectorAll('#rarityBar .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
-  });
-  // Update sidebar panel chips
-  document.querySelectorAll('#fgRarityChips .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    b.classList.toggle('active', fn.includes(`'${r}'`) || (r === '' && fn.includes("''")));
-  });
-  updateFilterGroupDots();
-  renderFilterBadges();
-  render();
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  FILTER DRAWER
-// ══════════════════════════════════════════════════════════════════
-function toggleFilterDrawer() {
-  const drawer  = document.getElementById('filterDrawer');
-  const overlay = document.getElementById('filterOverlay');
-  const isOpen  = drawer.classList.contains('open');
-  if (isOpen) closeFilterDrawer();
-  else {
-    drawer.classList.add('open');
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-}
-
-function closeFilterDrawer() {
-  document.getElementById('filterDrawer').classList.remove('open');
-  document.getElementById('filterOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function renderFilterBadges() {
-  const bar = document.getElementById('filterBadgeBar');
-  const btn = document.getElementById('filtryBtn');
-  if (!bar) return;
-
-  const badges = [];
-
-  const SUPERTYPE_LABELS = { 'Pokémon':'🎴 Pokémoni', Trainer:'🧑 Trenéři', Energy:'⚡ Energie' };
-  const RARITY_LABELS    = { common:'⚪ Common', uncommon:'🔵 Uncommon', rare:'🌟 Rare',
-    holo:'✨ Holo', ultra:'💎 Ultra Rare', secret:'🔴 Secret Rare', promo:'🎁 Promo' };
-  const TYPE_LABELS      = { fire:'🔥 Oheň', water:'💧 Voda', grass:'🌿 Tráva',
-    lightning:'⚡ Elektro', psychic:'🔮 Psycho', darkness:'🌑 Tma', dragon:'🐉 Drak',
-    metal:'⚙️ Kov', fighting:'👊 Boj', fairy:'🌸 Víla', normal:'⭕ Normál',
-    ice:'❄️ Led', bug:'🐛 Hmyz', poison:'☠️ Jed', ground:'🏔️ Zem',
-    ghost:'👻 Duch', flying:'🦅 Let', rock:'🪨 Kámen', colorless:'⚪ Bezbarvá' };
-  const COND_LABELS      = { NM:'💚 NM', LP:'💛 LP', MP:'🟠 MP', HP:'🔴 HP', DMG:'⬛ DMG' };
-  const TRAINER_LABELS   = { Item:'🎒 Item', Supporter:'🧑 Supporter', Stadium:'🏟️ Stadium', Tool:'🔧 Tool' };
-  const ENERGY_LABELS    = { ...TYPE_LABELS, colorless:'⚪ Bezbarvá' };
-
-  if (activeSupertype)      badges.push({ label: SUPERTYPE_LABELS[activeSupertype] || activeSupertype, clear: () => setSupertype('') });
-  if (activeRarity)         badges.push({ label: RARITY_LABELS[activeRarity] || activeRarity, clear: () => setRarity('') });
-  if (activeType)           badges.push({ label: TYPE_LABELS[activeType] || activeType, clear: () => setType('') });
-  if (activeTrainerSubtype) badges.push({ label: TRAINER_LABELS[activeTrainerSubtype] || activeTrainerSubtype, clear: () => setTrainerSubtype('') });
-  if (activeEnergyColor)    badges.push({ label: ENERGY_LABELS[activeEnergyColor] || activeEnergyColor, clear: () => setEnergyColor('') });
-  if (activeCond)           badges.push({ label: COND_LABELS[activeCond] || activeCond, clear: () => setCond('') });
-
-  bar.innerHTML = badges.map((b, i) =>
-    `<span class="flt-badge">${b.label}<button class="flt-badge-x" onclick="(${b.clear.toString()})()" title="Odebrat">✕</button></span>`
-  ).join('');
-
-  // Update Filtry button state
-  if (btn) btn.classList.toggle('has-active', badges.length > 0);
-}
-
-function resetAllFilters() {
-  setSupertype('');
-  setRarity('');
-  setType('');
-  setTrainerSubtype('');
-  setEnergyColor('');
-  setCond('');
-  renderFilterBadges();
-}
-
-// Keyboard ESC closes drawer and side panel
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeFilterDrawer();
-    closeSidePanel();
-  }
-});
-
-// ══════════════════════════════════════════════════════════════════
-//  FILTER PANEL (accordion groups)
-// ══════════════════════════════════════════════════════════════════
-function toggleFilterGroup(id) {
-  const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
-}
-
-function updateFilterGroupDots() {
-  const fgRarity  = document.getElementById('fg-rarity');
-  const fgPokemon = document.getElementById('fg-pokemon');
-  const fgElement = document.getElementById('fg-element');
-  if (fgRarity)  fgRarity.classList.toggle('has-active',  !!activeRarity);
-  if (fgPokemon) fgPokemon.classList.toggle('has-active', !!activeSupertype);
-  if (fgElement) fgElement.classList.toggle('has-active',  !!activeType);
-}
-
-// Legacy stubs so old code doesn't break
-function toggleSidePanel() {}
-function openSidePanel() {}
-function closeSidePanel() {}
-function updateSideTabDots() { updateFilterGroupDots(); }
-
-const SIDE_SECTIONS = {
-  zobrazit: { title: 'Zobrazit', label: 'Zobrazit' },
-  stav:     { title: 'Stav karty', label: 'Stav' },
-  alba:     { title: 'Moje alba', label: 'Alba' },
-  nastaveni:{ title: 'Nastavení', label: 'Sync' },
-};
-let _activeSideSection = null;
-
-function matchTrainerSubtype(c, t) {
-  const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
-  const cat  = (c.category || c.subtype || '').toLowerCase();
-  if (t === 'Tool') return subs.some(s => s.includes('tool')) || cat.includes('tool');
-  return subs.some(s => s.includes(t.toLowerCase())) || cat.includes(t.toLowerCase());
-}
-
-function matchEnergyColor(c, color) {
-  // Energy karty mají typ v types[] nebo type
-  return matchType(c, color);
-}
-
-const RARITY_MAP = {
-  common:   r => /^common$/i.test(r),
-  uncommon: r => /^uncommon$/i.test(r),
-  rare:     r => /^rare$/i.test(r) && !/holo|ultra|secret|promo/i.test(r),
-  holo:     r => /holo/i.test(r) && !/ultra|secret/i.test(r),
-  ultra:    r => /ultra|ex|gx|v|vmax|vstar|full art/i.test(r),
-  secret:   r => /secret/i.test(r),
-  promo:    r => /promo/i.test(r),
-};
-
-function matchRarity(c, bucket) {
-  const r = (c.rarity || '').trim();
-  if (!r) return bucket === '';
-  const fn = RARITY_MAP[bucket];
-  return fn ? fn(r) : false;
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  SET COMPLETENESS MODAL
-// ══════════════════════════════════════════════════════════════════
-
-let _setTotals = {}; // cache { setName: totalCards }
-
-async function openSetCompleteness() {
-  const modal = document.getElementById('setCompletenessModal');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  renderSetCompleteness();
-  await fetchSetTotals();
-  renderSetCompleteness();
-}
-
-function closeSetCompleteness() {
-  const modal = document.getElementById('setCompletenessModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function renderSetCompleteness() {
-  const el = document.getElementById('setCompletenessBody');
-  if (!el) return;
-
-  // Seskup karty podle setu
-  const groups = {};
-  for (const c of allCards) {
-    const s = c.set || '(neznámý set)';
-    if (!groups[s]) groups[s] = new Set();
-    groups[s].add(c.number || c.name); // unikátní čísla/jména
-  }
-
-  const rows = Object.entries(groups)
-    .sort(([a],[b]) => a.localeCompare(b, 'cs'))
-    .map(([setName, uniq]) => {
-      const owned = uniq.size;
-      const total = _setTotals[setName] || null;
-      const pct   = total ? Math.round((owned / total) * 100) : null;
-      const bar   = total
-        ? `<div style="background:rgba(255,255,255,0.08);border-radius:6px;height:6px;flex:1;min-width:60px">
-             <div style="background:var(--yellow);border-radius:6px;height:6px;width:${pct}%;transition:width .4s"></div>
-           </div>`
-        : `<div style="flex:1;color:var(--text2);font-size:10px">načítám…</div>`;
-      const pctLabel = total ? `<span style="font-size:11px;color:var(--yellow);font-weight:700;min-width:36px;text-align:right">${pct}%</span>` : '';
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(setName)}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">${owned}${total ? ' / ' + total + ' karet' : ' karet'}</div>
-        </div>
-        ${bar}
-        ${pctLabel}
-      </div>`;
-    });
-
-  el.innerHTML = rows.join('') || '<p style="color:var(--text2)">Žádné karty v albu.</p>';
-}
-
-async function fetchSetTotals() {
-  // Zjisti unikátní sety, pro které ještě nemáme total
-  const unknownSets = [...new Set(allCards.map(c => c.set).filter(Boolean))]
-    .filter(s => !_setTotals[s]);
-  if (!unknownSets.length) return;
-
-  // Pokémontcg API: /v2/sets?q=name:"..."
-  for (const setName of unknownSets) {
-    try {
-      const url = `https://api.pokemontcg.io/v2/sets?q=name:"${encodeURIComponent(setName)}"&pageSize=1`;
-      const res  = await fetch(url);
-      if (!res.ok) continue;
-      const data = await res.json();
-      const set  = data.data?.[0];
-      if (set) _setTotals[setName] = set.printedTotal || set.total;
-    } catch(e) { /* ignore */ }
-    await new Promise(r => setTimeout(r, 80));
-  }
 }
 
 // Build flat page array with null-padding for element grouping in book view
@@ -3874,8 +3336,6 @@ function renderBookView() {
     if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
     if (activeType && !matchType(c, activeType)) return false;
     if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
-    if (activeTrainerSubtype && !matchTrainerSubtype(c, activeTrainerSubtype)) return false;
-    if (activeEnergyColor && !matchEnergyColor(c, activeEnergyColor)) return false;
     if (activeRarity && !matchRarity(c, activeRarity)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
@@ -4009,8 +3469,6 @@ setTimeout(applyTiltToAll, 300);
 
 function showLoginPrompt() {
   document.getElementById('sidebar').style.display = 'none';
-  const st = document.getElementById('sideTabs');
-  if (st) st.style.display = 'none';
   document.getElementById('cardsGrid').innerHTML = `
     <div class="login-prompt">
       <div class="icon">🔐</div>
@@ -4093,7 +3551,6 @@ document.addEventListener('keydown', e => {
 //  END EMPTY SLOT MENU
 // ══════════════════════════════════════════════════════════════════
 
-document.getElementById('newAlbumModal').addEventListener('click', e => {
   if (e.target === document.getElementById('newAlbumModal')) closeNewAlbumModal();
 });
 document.getElementById('firstRunModal').addEventListener('click', e => {
@@ -4180,19 +3637,5 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
 </script>
-
-  <!-- Set Completeness Modal -->
-  <div id="setCompletenessModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9000;align-items:center;justify-content:center;padding:20px">
-    <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:520px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.08)">
-        <h3 style="margin:0;font-size:16px;font-weight:700">📦 Completeness setů</h3>
-        <button onclick="closeSetCompleteness()" style="background:none;border:none;color:var(--text2);font-size:18px;cursor:pointer;padding:4px">✕</button>
-      </div>
-      <div id="setCompletenessBody" style="overflow-y:auto;padding:10px 20px;flex:1">
-        <p style="color:var(--text2)">Načítám…</p>
-      </div>
-    </div>
-  </div>
-
 </body>
 </html>
