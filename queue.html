@@ -2109,6 +2109,9 @@ function _perspectiveWarp(img, src, dst, outW, outH) {
   const out = document.createElement('canvas');
   out.width = outW; out.height = outH;
   const ctx = out.getContext('2d');
+  // Bug #3 fix – part 1: vysoká kvalita interpolace
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
   const G = 28;
   for (let gy = 0; gy < G; gy++) {
     for (let gx = 0; gx < G; gx++) {
@@ -2153,9 +2156,22 @@ function _drawTri(ctx, img, s0,s1,s2, d0,d1,d2, iw, ih) {
   ];
   const [a,c,e]  = mv([d0.x,d1.x,d2.x]);
   const [b,df,f] = mv([d0.y,d1.y,d2.y]);
+
+  // Bug #3 fix – part 2: rozšíř clip polygon o 0.5px od centroidu
+  // → sousední trojúhelníky se překryjí a eliminují submapovací mezery
+  const OVERLAP = 0.5;
+  const cx = (d0.x + d1.x + d2.x) / 3;
+  const cy = (d0.y + d1.y + d2.y) / 3;
+  function expand(p) {
+    const dx = p.x - cx, dy = p.y - cy;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    return { x: p.x + (dx / len) * OVERLAP, y: p.y + (dy / len) * OVERLAP };
+  }
+  const e0 = expand(d0), e1 = expand(d1), e2 = expand(d2);
+
   ctx.save();
   ctx.beginPath();
-  ctx.moveTo(d0.x,d0.y); ctx.lineTo(d1.x,d1.y); ctx.lineTo(d2.x,d2.y);
+  ctx.moveTo(e0.x, e0.y); ctx.lineTo(e1.x, e1.y); ctx.lineTo(e2.x, e2.y);
   ctx.closePath();
   ctx.clip();
   ctx.transform(a, b, c, df, e, f);
