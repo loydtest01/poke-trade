@@ -245,6 +245,37 @@ body::after {
 /* Comment */
 .cg-comment { padding: 0 18px 14px; }
 .cg-card-url { padding: 0 18px 14px; }
+
+/* ── TCG Search picker ─────────────────────── */
+.cg-search { padding: 0 18px 14px; }
+.cg-search-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(245,200,66,.13); border: 1px solid rgba(245,200,66,.35);
+  color: #f5c842; border-radius: 8px; padding: 7px 16px;
+  font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+  transition: background .15s;
+}
+.cg-search-btn:hover { background: rgba(245,200,66,.22); }
+.cg-search-btn:disabled { opacity: .45; cursor: default; }
+.cg-search-status { font-size: 11px; color: rgba(240,232,208,.4); margin-top: 8px; min-height: 16px; }
+.cg-search-status.err { color: #f87171; }
+.cg-search-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px; margin-top: 10px;
+}
+.cg-search-card {
+  cursor: pointer; border-radius: 8px; border: 2px solid transparent;
+  overflow: hidden; transition: border-color .15s, transform .15s;
+  background: rgba(255,255,255,.04);
+}
+.cg-search-card:hover { border-color: rgba(245,200,66,.4); transform: scale(1.04); }
+.cg-search-card.selected { border-color: #f5c842; box-shadow: 0 0 0 2px rgba(245,200,66,.3); }
+.cg-search-card img { width: 100%; display: block; border-radius: 6px; }
+.cg-search-card .sc-name {
+  font-size: 9px; color: rgba(240,232,208,.5); padding: 3px 4px 4px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.cg-search-card.selected .sc-name { color: #f5c842; }
 .cg-card-url label { font-size: 11px; font-weight: 700; color: rgba(240,232,208,0.4); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
 .cg-card-url input[type="url"] {
   width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
@@ -828,6 +859,17 @@ function buildGroupEl(g, gi) {
           ${confPct !== null ? `<div class="ai-conf">Konfidence: ${confPct}%</div>` : ''}
         </div>` : ''}
 
+      <!-- Vyhledávání v TCG API -->
+      <div class="cg-search">
+        <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
+          🔍 Vyhledat v databázi
+        </button>
+        <div class="cg-search-status" id="searchStatus-${gi}">
+          ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
+        </div>
+        <div class="cg-search-grid" id="searchGrid-${gi}"></div>
+      </div>
+
       <!-- Zadní strana AI -->
       ${backAiHtml}
 
@@ -1012,6 +1054,143 @@ async function doAssign(groups, albumId) {
 }
 
 // ── Discard group ─────────────────────────────────────────────
+
+
+// ── TCG databázové vyhledávání ────────────────────────────────
+// Uživatel klikne "Vyhledat" → najdeme karty dle AI parametrů
+// → zobrazíme grid s obrázky → uživatel klikne na správnou → uložíme
+
+async function tcgSearch(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+
+  const btn      = document.getElementById(`searchBtn-${gi}`);
+  const statusEl = document.getElementById(`searchStatus-${gi}`);
+  const gridEl   = document.getElementById(`searchGrid-${gi}`);
+  if (!btn || !statusEl || !gridEl) return;
+
+  const ai = g.aiResult || {};
+  // Sestavíme query z dostupných AI parametrů
+  const parts = [];
+  if (ai.name)   parts.push(`name:"${ai.name}"`);
+  if (ai.set)    parts.push(`set.name:"${ai.set}"`);
+  if (ai.number) parts.push(`number:${ai.number}`);
+
+  // Pokud nemáme vůbec nic, hledáme jen podle jména (i prázdného)
+  const query = parts.length ? parts.join(' ') : (ai.name || '');
+
+  btn.disabled = true;
+  statusEl.className = 'cg-search-status';
+  statusEl.textContent = '⏳ Hledám v databázi…';
+  gridEl.innerHTML = '';
+
+  try {
+    // Zkusíme nejprve přesný dotaz, pak postupně uvolňujeme
+    let cards = [];
+
+    if (parts.length >= 2) {
+      // Přesný dotaz: jméno + set nebo jméno + číslo
+      const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=12&orderBy=-set.releaseDate`;
+      const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
+      cards = r1?.data || [];
+    }
+
+    if (!cards.length && ai.name) {
+      // Fallback: jen jméno
+      const url2 = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
+      const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
+      cards = r2?.data || [];
+    }
+
+    if (!cards.length && ai.name) {
+      // Poslední fallback: volné vyhledávání (bez uvozovek)
+      const namePart = ai.name.split(' ')[0]; // jen první slovo
+      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
+      const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
+      cards = r3?.data || [];
+    }
+
+    if (!cards.length) {
+      statusEl.className = 'cg-search-status err';
+      statusEl.textContent = '❌ Nic nenalezeno – uprav název nebo sérii v AI výsledcích';
+      btn.disabled = false;
+      return;
+    }
+
+    statusEl.textContent = `Nalezeno ${cards.length} karet – vyber správnou:`;
+
+    // Render grid
+    gridEl.innerHTML = cards.map((c, idx) => {
+      const img = c.images?.small || '';
+      const alreadySelected = g.resolvedCard?.apiId === c.id;
+      return `<div class="cg-search-card${alreadySelected ? ' selected' : ''}"
+          id="sc-${gi}-${idx}"
+          onclick="tcgSelectCard(${gi}, ${idx})"
+          data-card='${JSON.stringify({
+            apiId:    c.id,
+            name:     c.name,
+            set:      c.set?.name || '',
+            number:   c.number    || '',
+            imageUrl: c.images?.small  || '',
+            apiSmall: c.images?.small  || '',
+            apiLarge: c.images?.large  || '',
+          }).replace(/'/g, "&#39;")}'>
+        ${img ? `<img src="${img}" alt="${esc(c.name)}" loading="lazy">` : '<div style="height:110px;background:rgba(255,255,255,.05)"></div>'}
+        <div class="sc-name">${esc(c.name)}<br><span style="opacity:.6">#${esc(c.number)} · ${esc(c.set?.name||'')}</span></div>
+      </div>`;
+    }).join('');
+
+  } catch(e) {
+    statusEl.className = 'cg-search-status err';
+    statusEl.textContent = '❌ Chyba vyhledávání: ' + e.message;
+  }
+
+  btn.disabled = false;
+}
+
+function tcgSelectCard(gi, idx) {
+  const g = cardGroups[gi];
+  if (!g) return;
+
+  const gridEl   = document.getElementById(`searchGrid-${gi}`);
+  const statusEl = document.getElementById(`searchStatus-${gi}`);
+  const cardEl   = document.getElementById(`sc-${gi}-${idx}`);
+  if (!cardEl) return;
+
+  // Načti data karty z data atributu
+  let cardData;
+  try { cardData = JSON.parse(cardEl.dataset.card); } catch { return; }
+
+  // Zrušit předchozí výběr
+  gridEl.querySelectorAll('.cg-search-card').forEach(el => el.classList.remove('selected'));
+
+  // Označit vybranou
+  cardEl.classList.add('selected');
+
+  // Uložit do skupiny
+  g.resolvedCard = cardData;
+  g.cardUrl = ''; // URL input není potřeba
+
+  // Aktualizovat status
+  statusEl.className = 'cg-search-status';
+  statusEl.textContent = `✅ Vybrána: ${cardData.name}${cardData.set ? ' · ' + cardData.set : ''} #${cardData.number}`;
+
+  // Aktualizovat hlavičku skupiny (thumbnail + jméno) pokud je k dispozici obrázek
+  const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
+  if (thumb && cardData.apiSmall) {
+    thumb.src = cardData.apiSmall;
+  }
+  const nameEl = document.querySelector(`#group-${gi} .cg-name`);
+  if (nameEl && cardData.name) {
+    nameEl.textContent = cardData.name;
+  }
+  const subEl = document.querySelector(`#group-${gi} .cg-sub`);
+  if (subEl && cardData.set) {
+    subEl.textContent = `${cardData.set} · #${cardData.number} · ${g.photos.length} foto${g.photos.length !== 1 ? 'k' : 'ka'}`;
+  }
+
+  toast(`✅ Vybráno: ${cardData.name}`, 'ok');
+}
 
 // ── Card URL resolution ───────────────────────────────────────
 // Podporované stránky: pokemontcg.io, cardmarket.com, tcgplayer.com
