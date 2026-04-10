@@ -1239,7 +1239,7 @@ async function sbReq(path, method = 'GET', body = null, token = null) {
     'apikey': SUPABASE_ANON,
     'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
   };
-  if (['POST','PATCH'].includes(method)) headers['Prefer'] = 'return=representation';
+  if (['POST','PATCH'].includes(method) && !path.startsWith('storage/')) headers['Prefer'] = 'return=representation';
   try {
     const res  = await fetch(`${SUPABASE_URL}/${path}`, {
       method, headers, body: body ? JSON.stringify(body) : undefined
@@ -1842,9 +1842,16 @@ async function pollNewPhotos() {
         `storage/v1/object/sign/card-photo/${row.storage_path}`,
         'POST', { expiresIn: 7200 }, currentToken
       );
-      const su = signed?.signedURL;
-      if (!su) continue;
-      const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
+      // Supabase vrátí objekt nebo pole - ošetři obě varianty
+      const signedData = Array.isArray(signed) ? signed[0] : signed;
+      const su = signedData?.signedURL || signedData?.signedUrl;
+      let photoUrl;
+      if (su) {
+        photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
+      } else {
+        // Fallback: public URL (funguje pokud je bucket veřejný)
+        photoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+      }
 
       // Načti metadata z photo_queue (AI výsledek z mobilu)
       const meta = row.metadata || {};

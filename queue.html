@@ -492,16 +492,20 @@ let cardGroups = [];
 
 // ── Supabase helper ───────────────────────────────────────────
 async function sbReq(path, method = 'GET', body = null) {
+  const isStorage = path.startsWith('storage/');
   const headers = {
     'Content-Type': 'application/json',
     'apikey':        SUPABASE_ANON,
     'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
-    ...(['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
+    ...(!isStorage && ['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
   };
   const res = await fetch(`${SUPABASE_URL}/${path}`, {
     method, headers, body: body ? JSON.stringify(body) : undefined
   });
-  if (!res.ok && res.status === 401) { doLogout(); return null; }
+  if (!res.ok) {
+    if (res.status === 401) doLogout();
+    return null;
+  }
   const ct = res.headers.get('content-type') || '';
   if (ct.includes('json')) return res.json();
   return null;
@@ -581,15 +585,24 @@ async function loadQueue() {
     for (const g of cardGroups) {
       for (const row of g.rows) {
         try {
+          let url = null;
+
+          // Pokus o signed URL
           const signed = await sbReq(
             `storage/v1/object/sign/card-photo/${row.storage_path}`,
             'POST', { expiresIn: 7200 }
           );
-          const rawUrl = signed?.signedURL || signed?.signedUrl;
+          // Supabase vrátí objekt nebo pole - ošetři obě varianty
+          const signedData = Array.isArray(signed) ? signed[0] : signed;
+          const rawUrl = signedData?.signedURL || signedData?.signedUrl;
           if (rawUrl) {
-            const url = rawUrl.startsWith('http')
-              ? rawUrl
-              : SUPABASE_URL + rawUrl;
+            url = rawUrl.startsWith('http') ? rawUrl : SUPABASE_URL + rawUrl;
+          } else {
+            // Fallback: public URL (funguje pokud je bucket veřejný)
+            url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+          }
+
+          if (url) {
             const meta = row.metadata || {};
             g.photos.push({
               url,
