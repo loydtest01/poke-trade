@@ -93,38 +93,37 @@ body { background: #06040c; overflow-x: hidden; }
 
 /* ── Side tab strip + sliding panel ───────────────────────── */
 .side-tabs {
-  width: 32px; flex-shrink: 0;
+  width: 36px; flex-shrink: 0;
   display: flex; flex-direction: column; align-items: center;
-  gap: 4px; padding: 10px 0;
-  background: rgba(8,8,12,0.85);
-  border-right: 1px solid rgba(255,255,255,0.05);
+  gap: 2px; padding: 8px 0;
+  background: rgba(8,8,12,0.9);
+  border-right: 1px solid rgba(255,255,255,0.06);
   position: sticky; top: 56px;
   height: calc(100vh - 56px);
-  z-index: 100; overflow: hidden;
+  z-index: 100; overflow: visible;
 }
 .side-tab {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  writing-mode: vertical-lr;
   transform: rotate(180deg);
-  font-size: 10px; font-weight: 700; letter-spacing: .1em;
-  text-transform: uppercase; color: var(--text3);
-  padding: 10px 6px; border-radius: 6px; cursor: pointer;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: rgba(240,232,208,0.35);
+  padding: 14px 8px; border-radius: 7px; cursor: pointer;
   background: none; border: none; font-family: inherit;
   white-space: nowrap; transition: all .18s;
-  position: relative;
+  position: relative; line-height: 1;
+  display: flex; align-items: center; gap: 5px;
 }
-.side-tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-.side-tab.active { color: var(--yellow); background: rgba(245,200,66,0.1); }
+.side-tab:hover { color: rgba(240,232,208,0.75); background: rgba(255,255,255,0.05); }
+.side-tab.active { color: var(--yellow); background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.2); }
 .side-tab-dot {
-  position: absolute; top: 5px; right: 5px;
-  width: 5px; height: 5px; border-radius: 50%;
+  width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0;
   background: var(--yellow); display: none;
 }
 .side-tab.has-active .side-tab-dot { display: block; }
 
 /* Sidebar jako sliding panel */
 .sidebar {
-  position: fixed; top: 56px; left: 32px; bottom: 0;
+  position: fixed; top: 56px; left: 36px; bottom: 0;
   width: 220px; z-index: 300;
   background: rgba(10,10,16,0.97);
   border-right: 1px solid rgba(255,255,255,0.07);
@@ -1087,7 +1086,7 @@ body { background: #06040c; overflow-x: hidden; }
 
 @media (max-width: 768px) {
   .sidebar { display: none !important; }
-  .side-tabs { display: none; }
+  .side-tabs { width: 0; overflow: hidden; }
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 7px; }
 }
 
