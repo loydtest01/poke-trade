@@ -4,17 +4,19 @@
  * Přijme fotku z mobilní aplikace (mobile.html) a:
  *   1. Ověří Supabase token z query parametru ?t=
  *   2. Nahraje obrázek do Supabase Storage (bucket "card-photo")
- *   3. Vloží řádek do tabulky photo_queue
+ *   3. Vloží řádek do tabulky photo_queue (včetně sloupce metadata)
  *
  * Mobil volá:  POST /api/scan-result?t=<supabase_access_token>
  * Body (JSON):
  *   {
- *     photo:        "data:image/jpeg;base64,..."   ← zkomprimovaná fotka (dataURL)
- *     side:         "front" | "back" | "detail"
- *     cardIndex:    1
- *     totalCards:   3
- *     batchId:      "abc123"
+ *     photo:         "data:image/jpeg;base64,..."
+ *     photoDataUrl:  "data:image/jpeg;base64,..."  (alias)
+ *     side:          "front" | "back" | "detail"
+ *     cardIndex:     1
+ *     totalCards:    3
+ *     batchId:       "abc123"
  *     batchComplete: false
+ *     isFakeTraining: false
  *   }
  */
 
@@ -32,7 +34,6 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') {
     return res.status(200).set(CORS).end();
   }
-
   if (req.method !== 'POST') {
     return res.status(405).set(CORS).json({ error: 'Method not allowed' });
   }
@@ -56,37 +57,44 @@ export default async function handler(req, res) {
 
   // ── 2. Zpracuj tělo požadavku ────────────────────────
   const body = req.body;
-  const { photo, side = 'front', cardIndex = 1, batchId } = body || {};
+  const {
+    photo,
+    photoDataUrl,
+    side          = 'front',
+    cardIndex     = 1,
+    totalCards    = 1,
+    batchId,
+    batchComplete = false,
+    isFakeTraining = false,
+    detailIndex,
+  } = body || {};
 
-  if (!photo) {
+  const rawPhoto = photo || photoDataUrl;
+  if (!rawPhoto) {
     return res.status(400).set(CORS).json({ error: 'Chybí pole photo' });
   }
 
-  // photo může být:  "data:image/jpeg;base64,/9j/..."  nebo čisté base64
+  // Dekóduj base64
   let base64Data, mimeType;
-  if (photo.startsWith('data:')) {
-    const [header, data] = photo.split(',');
+  if (rawPhoto.startsWith('data:')) {
+    const [header, data] = rawPhoto.split(',');
     base64Data = data;
     mimeType   = header.match(/data:([^;]+)/)?.[1] || 'image/jpeg';
   } else {
-    base64Data = photo;
+    base64Data = rawPhoto;
     mimeType   = 'image/jpeg';
   }
 
-  const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-  const timestamp = Date.now();
-  const filename  = `karta-${cardIndex}-${side}-${timestamp}.${ext}`;
-
-  // Supabase Storage cesta:  <userId>/<batchId>/<filename>
-  // RLS politika vyžaduje, aby první segment = auth.uid()
-  const batchSegment = batchId ? batchId.replace(/[^a-zA-Z0-9_-]/g, '') : timestamp;
-  const storagePath  = `${userId}/${batchSegment}/${filename}`;
+  const ext        = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
+  const timestamp  = Date.now();
+  const filename   = `karta-${cardIndex}-${side}${detailIndex ? `-d${detailIndex}` : ''}-${timestamp}.${ext}`;
+  const batchSeg   = batchId ? batchId.replace(/[^a-zA-Z0-9_-]/g, '') : `batch-${timestamp}`;
+  const storagePath = `${userId}/${batchSeg}/${filename}`;
 
   // ── 3. Nahraj do Supabase Storage ────────────────────
   try {
     const imageBuffer = Buffer.from(base64Data, 'base64');
-
-    const uploadRes = await fetch(
+    const uploadRes   = await fetch(
       `${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`,
       {
         method:  'POST',
@@ -104,17 +112,27 @@ export default async function handler(req, res) {
       const errText = await uploadRes.text();
       console.error('[scan-result] Storage upload failed:', errText);
       return res.status(500).set(CORS).json({
-        error: 'Nepodařilo se nahrát fotku do Storage',
+        error:  'Nepodařilo se nahrát fotku do Storage',
         detail: errText,
       });
     }
   } catch (e) {
-    console.error('[scan-result] Storage fetch error:', e);
+    console.error('[scan-result] Storage error:', e);
     return res.status(500).set(CORS).json({ error: 'Chyba při nahrávání do Storage' });
   }
 
   // ── 4. Vlož řádek do photo_queue ─────────────────────
   try {
+    const metadata = {
+      side,
+      cardIndex,
+      totalCards,
+      batchId:       batchSeg,
+      batchComplete,
+      isFakeTraining,
+      ...(detailIndex !== undefined ? { detailIndex } : {}),
+    };
+
     const queueRes = await sbFetch(
       'rest/v1/photo_queue',
       'POST',
@@ -123,25 +141,26 @@ export default async function handler(req, res) {
         storage_path: storagePath,
         filename:     filename,
         processed:    false,
+        metadata:     metadata,
       },
-      token  // uživatelský token (RLS: auth.uid() = user_id)
+      token
     );
 
     if (queueRes?.error) {
       console.error('[scan-result] photo_queue insert error:', queueRes.error);
       return res.status(500).set(CORS).json({
-        error: 'Nepodařilo se zapsat do photo_queue',
+        error:  'Nepodařilo se zapsat do photo_queue',
         detail: queueRes.error.message,
       });
     }
   } catch (e) {
-    console.error('[scan-result] photo_queue fetch error:', e);
+    console.error('[scan-result] photo_queue error:', e);
     return res.status(500).set(CORS).json({ error: 'Chyba při zápisu do photo_queue' });
   }
 
   // ── 5. Hotovo ─────────────────────────────────────────
   return res.status(200).set(CORS).json({
-    ok:          true,
+    ok:      true,
     storagePath,
     filename,
     message: 'Fotka přijata a zařazena do fronty',
