@@ -140,7 +140,8 @@ body { background: #06040c; overflow-x: hidden; }
   background: rgba(10,10,16,0.97);
   border-right: 1px solid rgba(255,255,255,0.07);
   padding: 0; overflow-y: auto;
-  transform: translateX(-110%);
+  display: none;
+  transform: translateX(-100%);
   transition: transform .26s cubic-bezier(.32,.72,0,1);
   box-shadow: 4px 0 32px rgba(0,0,0,0.5);
   scrollbar-width: thin;
@@ -148,7 +149,7 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .slide-panel::-webkit-scrollbar { width: 3px; }
 .slide-panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
-.slide-panel.open { transform: translateX(0); }
+.slide-panel.open { display: block; transform: translateX(0); }
 
 .sp-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -1154,84 +1155,6 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
   </aside>
 
-  <!-- Slide panel overlay -->
-  <div class="slide-panel-overlay" id="slidePanelOverlay" onclick="closeSlidePanel()"></div>
-
-  <!-- Slide panel: Vzácnost -->
-  <div class="slide-panel" id="sp-rarity">
-    <div class="sp-header">
-      <span class="sp-title">🌟 Vzácnost</span>
-      <div style="display:flex;gap:4px;align-items:center">
-        <button class="sp-reset" onclick="setRarity('')">Reset</button>
-        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
-      </div>
-    </div>
-    <div class="sp-body">
-      <div class="sp-chips" id="spRarityChips">
-        <button class="type-chip active" onclick="setRarity('')">Vše</button>
-        <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
-        <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-        <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-        <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
-        <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
-        <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
-        <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Slide panel: Pokémon (supertype) -->
-  <div class="slide-panel" id="sp-pokemon">
-    <div class="sp-header">
-      <span class="sp-title">🎴 Pokémon / Typ</span>
-      <div style="display:flex;gap:4px;align-items:center">
-        <button class="sp-reset" onclick="setSupertype('')">Reset</button>
-        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
-      </div>
-    </div>
-    <div class="sp-body">
-      <div class="sp-chips">
-        <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="sp-cnt-all">0</span></button>
-        <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="sp-cnt-pokemon">0</span></button>
-        <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="sp-cnt-trainer">0</span></button>
-        <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="sp-cnt-energy">0</span></button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Slide panel: Element -->
-  <div class="slide-panel" id="sp-element">
-    <div class="sp-header">
-      <span class="sp-title">🔥 Element</span>
-      <div style="display:flex;gap:4px;align-items:center">
-        <button class="sp-reset" onclick="setType('')">Reset</button>
-        <button class="sp-close" onclick="closeSlidePanel()">✕</button>
-      </div>
-    </div>
-    <div class="sp-body">
-      <div class="sp-chips" id="spElementChips">
-        <button class="type-chip active" onclick="setType('')">Vše</button>
-        <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
-        <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
-        <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
-        <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
-        <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
-        <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
-        <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
-        <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
-        <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
-        <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
-        <button class="type-chip" onclick="setType('bug')"><img src="elements/bug.png" class="type-icon"> Hmyzí</button>
-        <button class="type-chip" onclick="setType('poison')"><img src="elements/poison.png" class="type-icon"> Jedovatý</button>
-        <button class="type-chip" onclick="setType('ground')"><img src="elements/ground.png" class="type-icon"> Zemní</button>
-        <button class="type-chip" onclick="setType('ghost')"><img src="elements/ghost.png" class="type-icon"> Přízračný</button>
-        <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Ledový</button>
-        <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
-        <button class="type-chip" onclick="setType('flying')"><img src="elements/flying.png" class="type-icon"> Létající</button>
-        <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
-      </div>
-    </div>
-  </div>
   <main class="main">
 
     <!-- Select mode banner -->
@@ -1451,6 +1374,83 @@ body { background: #06040c; overflow-x: hidden; }
 
   </main>
 </div>
+
+<!-- ═══ SLIDE-OUT FILTER PANELS (outside page-wrap) ═══ -->
+<div class="slide-panel-overlay" id="slidePanelOverlay" onclick="closeSlidePanel()"></div>
+
+<div class="slide-panel" id="sp-rarity">
+  <div class="sp-header">
+    <span class="sp-title">🌟 Vzácnost</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button class="sp-reset" onclick="setRarity('')">Reset</button>
+      <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+    </div>
+  </div>
+  <div class="sp-body">
+    <div class="sp-chips" id="spRarityChips">
+      <button class="type-chip active" onclick="setRarity('')">Vše</button>
+      <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
+      <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+      <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+      <button class="type-chip" onclick="setRarity('holo')">✨ Holo</button>
+      <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
+      <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
+      <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+    </div>
+  </div>
+</div>
+
+<div class="slide-panel" id="sp-pokemon">
+  <div class="sp-header">
+    <span class="sp-title">🎴 Pokémon / Typ</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button class="sp-reset" onclick="setSupertype('')">Reset</button>
+      <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+    </div>
+  </div>
+  <div class="sp-body">
+    <div class="sp-chips">
+      <button class="st-btn active" onclick="setSupertype('')">Vše <span class="st-cnt" id="sp-cnt-all">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Pokémon')">🎴 Pokémoni <span class="st-cnt" id="sp-cnt-pokemon">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Trainer')">🧑 Trenéři <span class="st-cnt" id="sp-cnt-trainer">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Energy')">⚡ Energie <span class="st-cnt" id="sp-cnt-energy">0</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="slide-panel" id="sp-element">
+  <div class="sp-header">
+    <span class="sp-title">🔥 Element</span>
+    <div style="display:flex;gap:4px;align-items:center">
+      <button class="sp-reset" onclick="setType('')">Reset</button>
+      <button class="sp-close" onclick="closeSlidePanel()">✕</button>
+    </div>
+  </div>
+  <div class="sp-body">
+    <div class="sp-chips" id="spElementChips">
+      <button class="type-chip active" onclick="setType('')">Vše</button>
+      <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
+      <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
+      <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
+      <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
+      <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
+      <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
+      <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
+      <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
+      <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
+      <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
+      <button class="type-chip" onclick="setType('bug')"><img src="elements/bug.png" class="type-icon"> Hmyzí</button>
+      <button class="type-chip" onclick="setType('poison')"><img src="elements/poison.png" class="type-icon"> Jedovatý</button>
+      <button class="type-chip" onclick="setType('ground')"><img src="elements/ground.png" class="type-icon"> Zemní</button>
+      <button class="type-chip" onclick="setType('ghost')"><img src="elements/ghost.png" class="type-icon"> Přízračný</button>
+      <button class="type-chip" onclick="setType('ice')"><img src="elements/ice.png" class="type-icon"> Ledový</button>
+      <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
+      <button class="type-chip" onclick="setType('flying')"><img src="elements/flying.png" class="type-icon"> Létající</button>
+      <button class="type-chip" onclick="setType('rock')"><img src="elements/rock.png" class="type-icon"> Kamenný</button>
+    </div>
+  </div>
+</div>
+<!-- ═══ END SLIDE-OUT PANELS ═══ -->
 
 <!-- ── Lightbox pro reálné fotky karty ─────────────────────── -->
 <div id="cdPhotoLightbox">
@@ -3551,6 +3551,7 @@ document.addEventListener('keydown', e => {
 //  END EMPTY SLOT MENU
 // ══════════════════════════════════════════════════════════════════
 
+document.getElementById('newAlbumModal').addEventListener('click', e => {
   if (e.target === document.getElementById('newAlbumModal')) closeNewAlbumModal();
 });
 document.getElementById('firstRunModal').addEventListener('click', e => {
