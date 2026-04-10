@@ -427,6 +427,83 @@ body::after {
 .login-box h2 { font-size: 18px; margin-bottom: 8px; }
 .login-box p  { font-size: 13px; color: rgba(240,232,208,0.5); margin-bottom: 20px; }
 
+
+/* ── Group checkbox & bulk select ───────────────────────────── */
+.cg-select-cb {
+  appearance: none; -webkit-appearance: none;
+  width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,.2); background: transparent;
+  cursor: pointer; transition: all .15s; margin-right: 4px;
+}
+.cg-select-cb:checked {
+  background: #f5c842; border-color: #f5c842;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3.5 3.5L11 1' stroke='%23000' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 70%; background-repeat: no-repeat; background-position: center;
+}
+.card-group.group-selected { border-color: rgba(245,200,66,.5); }
+.card-group.group-selected .cg-header { background: rgba(245,200,66,.06); }
+
+/* Bulk bar */
+#bulkBar {
+  display: none; position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: rgba(18,12,28,.97); border: 1px solid rgba(245,200,66,.4);
+  border-radius: 14px; padding: 10px 16px; z-index: 900;
+  align-items: center; gap: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  white-space: nowrap; max-width: 94vw;
+}
+#bulkBar.show { display: flex; }
+#bulkBar .bulk-count { font-size: 13px; font-weight: 700; color: #f5c842; }
+#bulkBar select { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: #f0e8d0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
+#bulkBar .btn-bulk-assign { background: #f5c842; color: #1a1025; border: none; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
+#bulkBar .btn-bulk-cancel { background: transparent; border: 1px solid rgba(255,255,255,.2); color: rgba(240,232,208,.5); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
+
+/* ── Condition chips ─────────────────────────────────────────── */
+.cond-chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 18px 14px; }
+.cond-chip {
+  font-size: 11px; font-weight: 800; padding: 4px 12px; border-radius: 20px;
+  cursor: pointer; border: 1.5px solid transparent; transition: all .15s; letter-spacing: .04em;
+  background: rgba(255,255,255,.05); color: rgba(240,232,208,.4); border-color: rgba(255,255,255,.08);
+}
+.cond-chip:hover { border-color: rgba(255,255,255,.25); color: rgba(240,232,208,.8); }
+.cond-chip.active-NM  { background:rgba(74,222,128,.15);  color:#4ade80;  border-color:#4ade80; }
+.cond-chip.active-LP  { background:rgba(134,239,172,.12); color:#86efac;  border-color:#86efac; }
+.cond-chip.active-MP  { background:rgba(250,204,21,.12);  color:#facc15;  border-color:#facc15; }
+.cond-chip.active-HP  { background:rgba(251,146,60,.12);  color:#fb923c;  border-color:#fb923c; }
+.cond-chip.active-D   { background:rgba(248,113,113,.12); color:#f87171;  border-color:#f87171; }
+
+/* ── Side-by-side compare ────────────────────────────────────── */
+.cg-compare-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  color: rgba(240,232,208,.6); border-radius: 7px; padding: 5px 12px;
+  font-size: 11px; font-weight: 700; cursor: pointer; font-family: inherit;
+  margin: 0 18px 10px; transition: all .15s;
+}
+.cg-compare-btn:hover { border-color: rgba(245,200,66,.3); color: #f5c842; }
+.cg-compare-btn.active { border-color: rgba(245,200,66,.5); color: #f5c842; background: rgba(245,200,66,.08); }
+.cg-compare-panel {
+  display: none; margin: 0 18px 14px; gap: 12px;
+  align-items: flex-start;
+}
+.cg-compare-panel.open { display: flex; }
+.cg-compare-panel .compare-side { flex: 1; min-width: 0; }
+.cg-compare-panel .compare-side label { font-size: 10px; font-weight: 700; color: rgba(240,232,208,.35); display: block; text-align: center; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .07em; }
+.cg-compare-panel img { width: 100%; border-radius: 8px; border: 1px solid rgba(255,255,255,.08); display: block; }
+.cg-compare-panel .compare-placeholder { width: 100%; aspect-ratio: 2/3; border-radius: 8px; border: 1px dashed rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: rgba(240,232,208,.25); font-size: 12px; }
+
+/* ── JP hint ─────────────────────────────────────────────────── */
+.jp-hint {
+  margin: 0 18px 12px; padding: 9px 13px; border-radius: 9px;
+  background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.2);
+  font-size: 12px; color: rgba(240,232,208,.7); line-height: 1.5;
+}
+.jp-hint strong { color: #f87171; }
+
+/* ── Auto-search badge on search button ──────────────────────── */
+.cg-search-btn .auto-badge {
+  font-size: 9px; background: rgba(245,200,66,.25); color: #f5c842;
+  border-radius: 4px; padding: 1px 5px; font-weight: 700;
+}
 </style>
 </head>
 <body>
@@ -490,6 +567,17 @@ body::after {
     </div>
   </div>
 
+</div>
+
+
+<!-- Bulk assign bar -->
+<div id="bulkBar">
+  <span class="bulk-count" id="bulkCount">0 vybráno</span>
+  <select id="bulkAlbumSel">
+    <option value="">— Bez alba —</option>
+  </select>
+  <button class="btn-bulk-assign" onclick="bulkAssignSelected()">✅ Zařadit vybrané</button>
+  <button class="btn-bulk-cancel" onclick="clearBulkSelection()">✕ Zrušit</button>
 </div>
 
 <!-- Lightbox -->
@@ -734,6 +822,8 @@ function renderGroups() {
   cardGroups.forEach((g, gi) => {
     area.appendChild(buildGroupEl(g, gi));
   });
+  // Auto-search na pozadí pro karty s AI daty
+  setTimeout(autoSearchAll, 400);
 }
 
 function buildGroupEl(g, gi) {
@@ -820,6 +910,9 @@ function buildGroupEl(g, gi) {
   el.innerHTML = `
     <!-- Header -->
     <div class="cg-header" onclick="toggleGroup(${gi})">
+      <input type="checkbox" class="cg-select-cb" id="cb-${gi}"
+        onclick="event.stopPropagation()"
+        onchange="toggleGroupSelect(${gi}, this)">
       ${frontPhoto
         ? `<img class="cg-thumb" src="${frontPhoto.url}" alt="" loading="lazy">`
         : `<div class="cg-thumb-placeholder">🃏</div>`}
@@ -827,7 +920,7 @@ function buildGroupEl(g, gi) {
         <div class="cg-name">${esc(name)}</div>
         <div class="cg-sub">
           ${ai.set ? esc(ai.set) : ''}${ai.number ? ' · #'+esc(ai.number) : ''}
-          · ${photoCount} foto${photoCount !== 1 ? 'k' : 'ka'}
+          · ${photoCount} ${photoCount === 1 ? 'fotka' : photoCount < 5 ? 'fotky' : 'fotek'}
         </div>
         <div class="cg-tags">
           <span class="tag ${condTag}">${cond}</span>
@@ -848,6 +941,40 @@ function buildGroupEl(g, gi) {
 
       <!-- Fotky -->
       <div class="cg-photos">${photosHtml || '<div style="color:rgba(240,232,208,.3);font-size:13px;padding:8px">Žádné fotky</div>'}</div>
+
+      <!-- Condition chips -->
+      <div class="cond-chips">
+        <span style="font-size:10px;font-weight:700;color:rgba(240,232,208,.3);text-transform:uppercase;letter-spacing:.06em;line-height:2.2;margin-right:4px">Stav:</span>
+        ${['NM','LP','MP','HP','D'].map(c => `<button class="cond-chip ${(g.condition||ai.condition||'NM')===c?'active-'+c:''}" onclick="setCondition(${gi},'${c}')">${c}</button>`).join('')}
+      </div>
+
+      <!-- JP hint -->
+      ${(ai.lang==='JP') ? `
+      <div class="jp-hint">
+        <strong>🇯🇵 Japonská karta</strong> — pro správné rozpoznání doporučujeme:
+        přední foto · detail názvu (boxík s kanou) · volitelně detail přední strany · zadní strana.
+        Hledám dle přeloženého jména — výsledky mohou mít odchylky.
+      </div>` : ''}
+
+      <!-- Side-by-side compare -->
+      <button class="cg-compare-btn" id="compareBtn-${gi}" onclick="toggleCompare(${gi})">
+        📊 Porovnat s databází
+      </button>
+      <div class="cg-compare-panel" id="comparePanel-${gi}">
+        <div class="compare-side">
+          <label>📷 Tvoje fotka</label>
+          <img src="${(frontPhoto?.croppedUrl||frontPhoto?.url)||''}" alt="" id="compareUserImg-${gi}"
+               onerror="this.style.display='none'">
+        </div>
+        <div class="compare-side">
+          <label>🗃 Databáze</label>
+          <div id="compareDbSide-${gi}">
+            ${g.resolvedCard?.apiSmall
+              ? `<img src="${g.resolvedCard.apiSmall}" alt="${esc(g.resolvedCard.name||'')}">`
+              : `<div class="compare-placeholder">Nejdřív vyhledej kartu</div>`}
+          </div>
+        </div>
+      </div>
 
       <!-- AI info -->
       ${aiRows ? `
@@ -999,7 +1126,7 @@ async function doAssign(groups, albumId) {
           name:      rc?.name     || ai.name      || 'Neznámá karta',
           set:       rc?.set      || ai.set       || '',
           number:    rc?.number   || ai.number    || '',
-          condition: ai.condition || 'NM',
+          condition: g.condition || ai.condition || 'NM',
           category:  (ai.category || 'Pokemon').toLowerCase(),
           type:      ai.type      || '',
           hp:        ai.hp        || '',
@@ -1056,11 +1183,129 @@ async function doAssign(groups, albumId) {
 // ── Discard group ─────────────────────────────────────────────
 
 
+
+// ── Bulk select ───────────────────────────────────────────────
+let selectedGroups = new Set();
+
+function toggleGroupSelect(gi, cb) {
+  const el = document.getElementById(`group-${gi}`);
+  if (cb.checked) {
+    selectedGroups.add(gi);
+    el?.classList.add('group-selected');
+  } else {
+    selectedGroups.delete(gi);
+    el?.classList.remove('group-selected');
+  }
+  updateBulkBar();
+}
+
+function clearBulkSelection() {
+  selectedGroups.forEach(gi => {
+    document.getElementById(`cb-${gi}`)?.removeAttribute('checked');
+    const cb = document.getElementById(`cb-${gi}`);
+    if (cb) cb.checked = false;
+    document.getElementById(`group-${gi}`)?.classList.remove('group-selected');
+  });
+  selectedGroups.clear();
+  updateBulkBar();
+}
+
+function updateBulkBar() {
+  const bar  = document.getElementById('bulkBar');
+  const cnt  = document.getElementById('bulkCount');
+  if (!bar) return;
+  if (selectedGroups.size === 0) {
+    bar.classList.remove('show');
+  } else {
+    bar.classList.add('show');
+    cnt.textContent = `${selectedGroups.size} vybráno`;
+    // Sync album options do bulk baru
+    const src = document.getElementById('globalAlbumSel');
+    const dst = document.getElementById('bulkAlbumSel');
+    if (src && dst && dst.options.length < src.options.length) {
+      dst.innerHTML = src.innerHTML;
+    }
+  }
+}
+
+async function bulkAssignSelected() {
+  if (!selectedGroups.size) return;
+  const albumId = document.getElementById('bulkAlbumSel')?.value || null;
+  const groups  = [...selectedGroups].map(gi => cardGroups[gi]).filter(Boolean);
+  clearBulkSelection();
+  await doAssign(groups, albumId || null);
+}
+
+// ── Condition chips ───────────────────────────────────────────
+function setCondition(gi, cond) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  // Uložit do skupiny
+  g.condition = cond;
+  if (!g.aiResult) g.aiResult = {};
+  g.aiResult.condition = cond;
+
+  // Překreslit chipy
+  const condChips = document.querySelectorAll(`#group-${gi} .cond-chip`);
+  const classes = { NM:'active-NM', LP:'active-LP', MP:'active-MP', HP:'active-HP', D:'active-D' };
+  condChips.forEach(chip => {
+    Object.values(classes).forEach(c => chip.classList.remove(c));
+    if (chip.textContent.trim() === cond) chip.classList.add(classes[cond]);
+  });
+
+  // Aktualizovat tag v hlavičce
+  const condColors = { NM:'tag-cond-NM', LP:'tag-cond-LP', MP:'tag-cond-MP', HP:'tag-cond-HP', D:'tag-cond-D' };
+  const tagEl = document.querySelector(`#group-${gi} .cg-tags .tag`);
+  if (tagEl) {
+    Object.values(condColors).forEach(c => tagEl.classList.remove(c));
+    tagEl.classList.add(condColors[cond] || 'tag-cond-NM');
+    tagEl.textContent = cond;
+  }
+}
+
+// ── Side-by-side compare ──────────────────────────────────────
+function toggleCompare(gi) {
+  const panel = document.getElementById(`comparePanel-${gi}`);
+  const btn   = document.getElementById(`compareBtn-${gi}`);
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  btn?.classList.toggle('active', open);
+
+  if (open) {
+    // Aktualizuj user foto (mohla být oříznutá po renderování)
+    const g = cardGroups[gi];
+    const front = g?.photos.find(p => p.side === 'front');
+    const userImg = document.getElementById(`compareUserImg-${gi}`);
+    if (userImg && front) {
+      userImg.src = front.croppedUrl || front.url;
+      userImg.style.display = '';
+    }
+    // Aktualizuj DB stranu pokud máme resolvedCard
+    const dbSide = document.getElementById(`compareDbSide-${gi}`);
+    if (dbSide && g?.resolvedCard?.apiSmall) {
+      dbSide.innerHTML = `<img src="${g.resolvedCard.apiSmall}" alt="${esc(g.resolvedCard.name||'')}">`;
+    }
+  }
+}
+
+// ── Auto-search po načtení queue ─────────────────────────────
+// Spustí se pro každou skupinu s AI daty na pozadí
+async function autoSearchAll() {
+  const groups = cardGroups.filter(g => g.aiResult?.name && !g.resolvedCard);
+  for (let i = 0; i < groups.length; i++) {
+    const gi = cardGroups.indexOf(groups[i]);
+    if (gi === -1) continue;
+    // Rate limiting: 300ms mezi požadavky
+    if (i > 0) await new Promise(r => setTimeout(r, 320));
+    await tcgSearch(gi, true); // true = autoMode
+  }
+}
+
 // ── TCG databázové vyhledávání ────────────────────────────────
 // Uživatel klikne "Vyhledat" → najdeme karty dle AI parametrů
 // → zobrazíme grid s obrázky → uživatel klikne na správnou → uložíme
 
-async function tcgSearch(gi) {
+async function tcgSearch(gi, autoMode = false) {
   const g = cardGroups[gi];
   if (!g) return;
 
@@ -1104,8 +1349,10 @@ async function tcgSearch(gi) {
 
     if (!cards.length && ai.name) {
       // Poslední fallback: volné vyhledávání (bez uvozovek)
+      // Pro JP karty zkusíme i filtr jazyka
       const namePart = ai.name.split(' ')[0]; // jen první slovo
-      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
+      const jpFilter = (g?.aiResult?.lang === 'JP') ? '+regulationMark:*' : '';
+      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*${jpFilter}&pageSize=20&orderBy=-set.releaseDate`;
       const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
       cards = r3?.data || [];
     }
@@ -1117,7 +1364,26 @@ async function tcgSearch(gi) {
       return;
     }
 
-    statusEl.textContent = `Nalezeno ${cards.length} karet – vyber správnou:`;
+    const g2 = cardGroups[gi];
+    const isJP = g2?.aiResult?.lang === 'JP';
+
+    if (autoMode && cards.length) {
+      // V auto módu: předvyber nejlepší shodu (první výsledek) ale zobraz celý grid
+      const best = cards[0];
+      g2.resolvedCard = {
+        apiId: best.id, name: best.name,
+        set: best.set?.name || '', number: best.number || '',
+        imageUrl: best.images?.small || '', apiSmall: best.images?.small || '',
+        apiLarge: best.images?.large || '',
+      };
+      // Aktualizuj header thumb + name pokud je lepší než placeholder
+      const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
+      if (thumb && best.images?.small) thumb.src = best.images.small;
+      const nameEl = document.querySelector(`#group-${gi} .cg-name`);
+      if (nameEl && best.name) nameEl.textContent = best.name;
+    }
+
+    statusEl.textContent = `${isJP ? '🇯🇵 ' : ''}Nalezeno ${cards.length} karet – ${autoMode ? 'automaticky předvybrána nejlepší shoda, uprav pokud nesedí' : 'vyber správnou'}:`;
 
     // Render grid
     gridEl.innerHTML = cards.map((c, idx) => {
@@ -1186,7 +1452,19 @@ function tcgSelectCard(gi, idx) {
   }
   const subEl = document.querySelector(`#group-${gi} .cg-sub`);
   if (subEl && cardData.set) {
-    subEl.textContent = `${cardData.set} · #${cardData.number} · ${g.photos.length} foto${g.photos.length !== 1 ? 'k' : 'ka'}`;
+    subEl.textContent = `${cardData.set} · #${cardData.number} · ${g.photos.length} ${g.photos.length === 1 ? 'fotka' : g.photos.length < 5 ? 'fotky' : 'fotek'}`;
+  }
+
+  // Aktualizuj compare panel pokud je otevřený
+  const dbSide = document.getElementById(`compareDbSide-${gi}`);
+  if (dbSide && cardData.apiSmall) {
+    dbSide.innerHTML = `<img src="${cardData.apiSmall}" alt="${esc(cardData.name||'')}">`;
+  }
+  // Aktualizuj search status
+  const statusEl2 = document.getElementById(`searchStatus-${gi}`);
+  if (statusEl2) {
+    statusEl2.className = 'cg-search-status';
+    statusEl2.textContent = `✅ Vybrána: ${cardData.name}${cardData.set ? ' · ' + cardData.set : ''} #${cardData.number}`;
   }
 
   toast(`✅ Vybráno: ${cardData.name}`, 'ok');
@@ -1383,9 +1661,11 @@ async function discardGroup(gi) {
   for (const p of g.photos) {
     sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
   }
+  selectedGroups.delete(gi);
   cardGroups.splice(gi, 1);
   renderGroups();
   updateBadge();
+  updateBulkBar();
   toast('🗑 Zahozeno');
 }
 
