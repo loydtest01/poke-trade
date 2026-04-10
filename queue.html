@@ -431,6 +431,60 @@ body::after {
 }
 .cardmarket-link:hover { background: rgba(30,100,220,0.22); color: #afd4ff; }
 
+/* ═══ TCG KANDIDÁTI – picker výsledků ═══ */
+.tcg-picker-wrap {
+  padding: 14px 18px 0;
+}
+.tcg-picker-title {
+  font-size: 11px; font-weight: 700; color: rgba(240,232,208,0.4);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.tcg-picker-title .tcg-search-box {
+  flex: 1; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 6px; color: #f0ece4; font-size: 12px; padding: 4px 8px;
+  font-family: inherit; outline: none;
+}
+.tcg-picker-title .tcg-search-box:focus { border-color: rgba(245,200,66,0.4); }
+.tcg-picker-title .tcg-search-btn {
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; border-radius: 6px; padding: 4px 10px; font-size: 11px;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s;
+}
+.tcg-picker-title .tcg-search-btn:hover { background: rgba(245,200,66,0.22); }
+.tcg-picker-grid {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.tcg-card-btn {
+  background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.1);
+  border-radius: 9px; padding: 6px 6px 5px; cursor: pointer;
+  transition: border-color .15s, background .15s; text-align: center;
+  width: 80px; flex-shrink: 0;
+}
+.tcg-card-btn:hover  { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.05); }
+.tcg-card-btn.selected { border-color: #f5c842; background: rgba(245,200,66,0.1); }
+.tcg-card-btn img    { width: 68px; height: 95px; object-fit: cover; border-radius: 5px; display: block; }
+.tcg-card-btn .tcg-card-no-img {
+  width: 68px; height: 95px; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: rgba(240,232,208,0.3); border-radius: 5px;
+  background: rgba(255,255,255,0.04);
+}
+.tcg-card-btn .tcg-card-set  { font-size: 8px; color: rgba(240,232,208,0.4); margin-top: 3px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 68px; }
+.tcg-card-btn .tcg-card-num  { font-size: 9px; color: rgba(240,232,208,0.35); }
+.tcg-card-btn .tcg-card-price { font-size: 9px; color: #4ade80; font-weight: 700; margin-top: 1px; }
+.tcg-picker-status { font-size: 11px; color: rgba(240,232,208,0.35); padding: 6px 0; }
+/* Ceny v detailu skupiny */
+.cg-prices {
+  padding: 10px 18px 0;
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+}
+.cg-price-row { background: rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 10px; }
+.cg-price-label { font-size: 10px; color: rgba(240,232,208,0.35); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 2px; }
+.cg-price-val { font-size: 13px; font-weight: 700; }
+.cg-price-val.green  { color: #4ade80; }
+.cg-price-val.yellow { color: #f5c842; }
+.cg-price-val.blue   { color: #74b4ff; }
+
 /* ═══ SHORTCUTS HINT ═══ */
 .shortcuts-hint {
   position: fixed; bottom: 72px; right: 20px; z-index: 500;
@@ -969,6 +1023,36 @@ function buildGroupEl(g, gi) {
           </div>
         </div>` : ''}
 
+      <!-- TCG Kandidáti -->
+      <div class="tcg-picker-wrap" id="tcgPicker-${gi}">
+        <div class="tcg-picker-title">
+          🔍 Vyber správnou kartu:
+          <input class="tcg-search-box" id="tcgSearchBox-${gi}"
+            value="${esc(ai.name||'')}"
+            placeholder="Název karty…"
+            onkeydown="if(event.key==='Enter') searchTcgCandidates(${gi})">
+          <button class="tcg-search-btn" onclick="searchTcgCandidates(${gi})">Hledat</button>
+        </div>
+        <div class="tcg-picker-grid" id="tcgGrid-${gi}"></div>
+        <div class="tcg-picker-status" id="tcgStatus-${gi}"></div>
+      </div>
+
+      <!-- Ceny z Cardmarket -->
+      <div class="cg-prices" id="cgPrices-${gi}" style="display:none">
+        <div class="cg-price-row">
+          <div class="cg-price-label">Nejnižší</div>
+          <div class="cg-price-val green" id="cgPMin-${gi}">—</div>
+        </div>
+        <div class="cg-price-row">
+          <div class="cg-price-label">Trend</div>
+          <div class="cg-price-val yellow" id="cgPTrend-${gi}">—</div>
+        </div>
+        <div class="cg-price-row">
+          <div class="cg-price-label">Průměr 30d</div>
+          <div class="cg-price-val blue" id="cgP30d-${gi}">—</div>
+        </div>
+      </div>
+
       <!-- Duplicate warning -->
       ${isDup ? `<div class="dup-warn">⚠️ Tato karta je pravděpodobně již ve tvém albu — zkontroluj duplikát před zařazením.</div>` : ''}
 
@@ -995,11 +1079,196 @@ function buildGroupEl(g, gi) {
   return el;
 }
 
+// ── TCG Kandidáti – hledání a výběr ──────────────────────────
+const _tcgCache = {};  // cache výsledků per gi (klíč = název)
+
+async function searchTcgCandidates(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+
+  const nameEl   = document.getElementById(`tcgSearchBox-${gi}`);
+  const gridEl   = document.getElementById(`tcgGrid-${gi}`);
+  const statusEl = document.getElementById(`tcgStatus-${gi}`);
+  if (!gridEl || !statusEl) return;
+
+  const rawName = (nameEl?.value || g.aiResult?.name || '').trim();
+  if (!rawName) { statusEl.textContent = 'Zadej název karty'; return; }
+
+  // Použi cache pokud existuje
+  const cacheKey = rawName.toLowerCase();
+  if (_tcgCache[cacheKey]) {
+    _renderTcgGrid(gi, _tcgCache[cacheKey], g.aiResult);
+    return;
+  }
+
+  statusEl.textContent = '⏳ Hledám…';
+  gridEl.innerHTML = '';
+
+  try {
+    const q   = `name:"${rawName.replace(/"/g, '')}"`;
+    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=30&orderBy=-set.releaseDate`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = (await res.json()).data || [];
+    _tcgCache[cacheKey] = data;
+    _renderTcgGrid(gi, data, g.aiResult);
+  } catch(e) {
+    statusEl.textContent = '❌ Chyba načítání: ' + e.message;
+  }
+}
+
+function _renderTcgGrid(gi, cards, aiHint) {
+  const g        = cardGroups[gi];
+  const gridEl   = document.getElementById(`tcgGrid-${gi}`);
+  const statusEl = document.getElementById(`tcgStatus-${gi}`);
+  if (!gridEl) return;
+
+  if (!cards.length) {
+    statusEl.textContent = 'Žádné výsledky – zkus jiný název';
+    gridEl.innerHTML = '';
+    return;
+  }
+  statusEl.textContent = `${cards.length} výsledků – vyber správnou kartu:`;
+
+  const RARITY_ICON = { 'Common':'○','Uncommon':'◇','Rare':'★','Rare Holo':'★H',
+    'Rare Ultra':'☆','Double Rare':'★★','Illustration Rare':'✦',
+    'Special Illustration Rare':'✦✦','Hyper Rare':'✦✦✦' };
+
+  gridEl.innerHTML = cards.map((card, idx) => {
+    const img      = card.images?.small || '';
+    const price    = card.cardmarket?.prices?.trendPrice;
+    const priceStr = price ? `${price.toFixed(2)} €` : '';
+    const rar      = RARITY_ICON[card.rarity] || '';
+    return `<div class="tcg-card-btn" id="tcgBtn-${gi}-${idx}"
+               onclick="selectTcgCandidate(${gi}, ${idx})"
+               title="${card.name} · ${card.set?.name} #${card.number}">
+      ${img
+        ? `<img src="${img}" loading="lazy" alt="${card.name}">`
+        : `<div class="tcg-card-no-img">?</div>`}
+      <div class="tcg-card-set">${card.set?.name||'—'}</div>
+      <div class="tcg-card-num">#${card.number||'?'} ${rar}</div>
+      ${priceStr ? `<div class="tcg-card-price">${priceStr}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Auto-select nejlepší shoda (stejná logika jako PC app)
+  if (aiHint && cards.length > 1) {
+    const numClean  = (aiHint.number || '').replace(/\//g,'').replace(/^0+/,'');
+    const setLower  = (aiHint.set    || '').toLowerCase();
+    const hpStr     = String(aiHint.hp || '');
+    const typeLower = (aiHint.type   || '').toLowerCase();
+
+    let bestIdx = -1, bestScore = 0;
+    cards.forEach((card, idx) => {
+      let score = 0;
+      const cardNum = (card.number || '').replace(/^0+/, '');
+      if (numClean && cardNum === numClean) score += 12;
+      if (hpStr && card.hp && String(card.hp) === hpStr) score += 8;
+      if (typeLower && card.types?.some(t => t.toLowerCase() === typeLower)) score += 6;
+      const cardSet = (card.set?.name || '').toLowerCase();
+      if (setLower && (cardSet.includes(setLower.split(' ')[0]) || setLower.includes(cardSet.split(' ')[0]))) score += 4;
+      if (card.cardmarket?.prices?.trendPrice) score += 1;
+      if (score > bestScore) { bestScore = score; bestIdx = idx; }
+    });
+
+    if (bestIdx >= 0 && bestScore >= 8) {
+      setTimeout(() => selectTcgCandidate(gi, bestIdx, true), 80);
+    }
+  }
+  // Uloží seznam pro selectTcgCandidate
+  g._tcgResults = cards;
+}
+
+function selectTcgCandidate(gi, idx, auto = false) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const cards = g._tcgResults;
+  if (!cards || !cards[idx]) return;
+
+  const card = cards[idx];
+
+  // Zvýraznění výběru
+  document.querySelectorAll(`#tcgGrid-${gi} .tcg-card-btn`).forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+
+  // Přepiš aiResult daty z TCG API
+  if (!g.aiResult) g.aiResult = {};
+  g.aiResult.name      = card.name;
+  g.aiResult.set       = card.set?.name  || g.aiResult.set;
+  g.aiResult.number    = card.number     || g.aiResult.number;
+  g.aiResult.hp        = card.hp         || g.aiResult.hp;
+  g.aiResult.type      = (card.types || [])[0] || g.aiResult.type;
+  g.aiResult.subtype   = (card.subtypes || []).join(', ') || g.aiResult.subtype;
+  g.aiResult.apiId     = card.id;
+  g.aiResult.imageUrl  = card.images?.large || card.images?.small || '';
+  g.aiResult.apiSmall  = card.images?.small || '';
+
+  // Ulož ceny z Cardmarket
+  const cm = card.cardmarket?.prices || {};
+  g.aiResult.pMin          = cm.lowPrice   || 0;
+  g.aiResult.pTrend        = cm.trendPrice || 0;
+  g.aiResult.p30d          = cm.avg30 || cm.avg7 || 0;
+  g.aiResult.cardmarketUrl = card.cardmarket?.url || '';
+
+  // Zobraz ceny
+  _renderQueuePrices(gi, g.aiResult);
+
+  // Aktualizuj AI řádky v UI bez re-renderu celé skupiny
+  const aiGrid = document.querySelector(`#group-${gi} .ai-grid`);
+  if (aiGrid) {
+    const aiFields = [
+      ['Název',   g.aiResult.name],
+      ['Série',   g.aiResult.set],
+      ['Číslo',   g.aiResult.number],
+      ['Typ',     g.aiResult.type],
+      ['HP',      g.aiResult.hp],
+    ];
+    aiGrid.innerHTML = aiFields.filter(([,v])=>v).map(([l,v]) =>
+      `<div class="ai-row"><span class="lbl">${l}</span><span class="val">${v}</span></div>`
+    ).join('');
+  }
+
+  if (!auto) toast(`✅ Vybráno: ${card.name} · ${card.set?.name} #${card.number}`, 'ok');
+}
+
+function _renderQueuePrices(gi, ai) {
+  const wrap = document.getElementById(`cgPrices-${gi}`);
+  if (!wrap) return;
+  const fmt = v => (v && v > 0) ? Number(v).toFixed(2) + ' €' : '—';
+  if (ai.pTrend > 0 || ai.pMin > 0) {
+    wrap.style.display = 'grid';
+    const pMin   = document.getElementById(`cgPMin-${gi}`);
+    const pTrend = document.getElementById(`cgPTrend-${gi}`);
+    const p30d   = document.getElementById(`cgP30d-${gi}`);
+    if (pMin)   pMin.textContent   = fmt(ai.pMin);
+    if (pTrend) pTrend.textContent = fmt(ai.pTrend);
+    if (p30d)   p30d.textContent   = fmt(ai.p30d);
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
 // ── Toggle expand ─────────────────────────────────────────────
 function toggleGroup(gi) {
   const el = document.getElementById(`group-${gi}`);
   if (!el) return;
   el.classList.toggle('expanded');
+  // Auto-search kandidátů při prvním rozbalení
+  if (el.classList.contains('expanded')) {
+    const g = cardGroups[gi];
+    if (g) {
+      // Zobraz existující ceny pokud jsou
+      if (g.aiResult?.pTrend > 0 || g.aiResult?.pMin > 0) {
+        _renderQueuePrices(gi, g.aiResult);
+      }
+      // Spusť hledání kandidátů pokud ještě neproběhlo
+      const grid = document.getElementById(`tcgGrid-${gi}`);
+      if (grid && !grid.children.length) {
+        searchTcgCandidates(gi);
+      }
+    }
+  }
 }
 
 // ── Assign single group ───────────────────────────────────────
@@ -1086,6 +1355,13 @@ async function doAssign(groups, albumId) {
             subtype:   ai.subtype   || '',
             note:      g.comment    || ai.notes || '',
             photoUrl:  g.photos.find(p=>p.side==='front')?.url || '',
+            imageUrl:  ai.imageUrl  || '',
+            apiSmall:  ai.apiSmall  || '',
+            apiId:     ai.apiId     || '',
+            pMin:      ai.pMin      || 0,
+            pTrend:    ai.pTrend    || 0,
+            p30d:      ai.p30d      || 0,
+            cardmarketUrl: ai.cardmarketUrl || '',
             count: 1, tags: [], for_trade: false, for_sell: false,
             backCondition: g.backAi?.condition || null,
             backIssues:    g.backAi?.issues    || [],
