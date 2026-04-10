@@ -524,8 +524,76 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .cd-right {
   flex: 1; padding: 24px 24px 20px; overflow-y: auto;
-  display: flex; flex-direction: column; gap: 14px;
+  display: flex; flex-direction: column; gap: 14px;\n}
+
+/* ── TCG hledání v detailu karty ── */
+.cd-tcg-section {
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 12px; margin-top: 2px;
 }
+.cd-tcg-title {
+  font-size: 10px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: .08em; margin-bottom: 8px; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.cd-tcg-toggle {
+  background: none; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px; color: rgba(240,232,208,.4); font-size: 10px;
+  padding: 2px 7px; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.cd-tcg-toggle:hover { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.cd-tcg-toggle.open  { background: rgba(245,200,66,0.08); border-color: rgba(245,200,66,.3); color: #f5c842; }
+.cd-tcg-body { display: none; }
+.cd-tcg-body.open { display: block; }
+.cd-tcg-inputs {
+  display: flex; gap: 6px; margin-bottom: 8px;
+}
+.cd-tcg-inputs input {
+  flex: 1; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 7px; color: #f0ece4; font-size: 12px; padding: 6px 10px;
+  font-family: inherit; outline: none; min-width: 0;
+}
+.cd-tcg-inputs input:focus { border-color: rgba(245,200,66,0.4); }
+.cd-tcg-inputs .btn-search {
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; border-radius: 7px; padding: 6px 12px; font-size: 11px;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s;
+}
+.cd-tcg-inputs .btn-search:hover { background: rgba(245,200,66,0.22); }
+.cd-tcg-url-row {
+  display: flex; gap: 6px; margin-bottom: 10px;
+}
+.cd-tcg-url-row input {
+  flex: 1; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 7px; color: rgba(240,232,208,.7); font-size: 11px; padding: 5px 10px;
+  font-family: inherit; outline: none; min-width: 0;
+}
+.cd-tcg-url-row input:focus { border-color: rgba(74,158,255,0.4); color: #f0ece4; }
+.cd-tcg-url-row input::placeholder { color: rgba(240,232,208,.25); font-style: italic; }
+.cd-tcg-url-row .btn-url {
+  background: rgba(74,158,255,0.1); border: 1px solid rgba(74,158,255,0.25);
+  color: #74b4ff; border-radius: 7px; padding: 5px 10px; font-size: 11px;
+  cursor: pointer; font-family: inherit; white-space: nowrap; transition: all .15s;
+}
+.cd-tcg-url-row .btn-url:hover { background: rgba(74,158,255,0.2); }
+.cd-tcg-status { font-size: 11px; color: rgba(240,232,208,.35); margin-bottom: 6px; min-height: 16px; }
+.cd-tcg-grid {
+  display: flex; gap: 7px; flex-wrap: wrap;
+}
+.cd-tcg-card {
+  background: rgba(255,255,255,0.04); border: 2px solid rgba(255,255,255,0.09);
+  border-radius: 8px; padding: 5px 5px 4px; cursor: pointer; text-align: center;
+  width: 72px; flex-shrink: 0; transition: border-color .15s, background .15s;
+}
+.cd-tcg-card:hover   { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.05); }
+.cd-tcg-card.sel     { border-color: #f5c842; background: rgba(245,200,66,0.1); }
+.cd-tcg-card img     { width: 62px; height: 86px; object-fit: cover; border-radius: 4px; display: block; }
+.cd-tcg-card .no-img { width: 62px; height: 86px; display: flex; align-items: center;
+  justify-content: center; font-size: 9px; color: rgba(240,232,208,.25); border-radius: 4px;
+  background: rgba(255,255,255,0.03); }
+.cd-tcg-card .tc-set   { font-size: 8px; color: rgba(240,232,208,.35); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62px; }
+.cd-tcg-card .tc-num   { font-size: 8px; color: rgba(240,232,208,.3); }
+.cd-tcg-card .tc-price { font-size: 9px; color: #4ade80; font-weight: 700; }
 .cd-close {
   position: absolute; top: 16px; right: 18px;
   background: rgba(255,255,255,0.08); border: none; border-radius: 8px;
@@ -1024,6 +1092,31 @@ body { background: #06040c; overflow-x: hidden; }
             </div>
           </div>
           <div class="cd-actions" id="cdActions"></div>
+
+          <!-- TCG hledání + URL -->
+          <div class="cd-tcg-section">
+            <div class="cd-tcg-title">
+              🔍 Najít / opravit kartu
+              <button class="cd-tcg-toggle" id="cdTcgToggle" onclick="toggleCdTcg()">▼ Rozbalit</button>
+            </div>
+            <div class="cd-tcg-body" id="cdTcgBody">
+              <!-- Hledání podle jména -->
+              <div class="cd-tcg-inputs">
+                <input id="cdTcgNameInput" placeholder="Název karty…"
+                  onkeydown="if(event.key==='Enter') cdTcgSearch()">
+                <button class="btn-search" onclick="cdTcgSearch()">Hledat</button>
+              </div>
+              <!-- URL / ID vstup -->
+              <div class="cd-tcg-url-row">
+                <input id="cdTcgUrlInput"
+                  placeholder="pokemontcg.io URL nebo ID (sv4-84) nebo Cardmarket URL…"
+                  onkeydown="if(event.key==='Enter') cdTcgLoadUrl()">
+                <button class="btn-url" onclick="cdTcgLoadUrl()">Načíst</button>
+              </div>
+              <div class="cd-tcg-status" id="cdTcgStatus"></div>
+              <div class="cd-tcg-grid" id="cdTcgGrid"></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1480,7 +1573,236 @@ async function deleteCardPhoto(id, btn) {
   }, 300);
 }
 
-async function toggleCdTrade() {
+// ── TCG picker v detailu karty ──────────────────────────────────
+function toggleCdTcg() {
+  const body   = document.getElementById('cdTcgBody');
+  const toggle = document.getElementById('cdTcgToggle');
+  const open   = body.classList.toggle('open');
+  toggle.textContent = open ? '▲ Sbalit' : '▼ Rozbalit';
+  toggle.classList.toggle('open', open);
+  // Při prvním rozbalení prefill jménem karty
+  if (open && _detailCard) {
+    const inp = document.getElementById('cdTcgNameInput');
+    if (inp && !inp.value) inp.value = _detailCard.name || '';
+  }
+}
+
+async function cdTcgSearch() {
+  const inp    = document.getElementById('cdTcgNameInput');
+  const status = document.getElementById('cdTcgStatus');
+  const grid   = document.getElementById('cdTcgGrid');
+  const name   = inp?.value.trim();
+  if (!name) { status.textContent = 'Zadej název karty'; return; }
+
+  status.textContent = '⏳ Hledám…';
+  grid.innerHTML = '';
+
+  try {
+    const q   = `name:"${name.replace(/"/g,'')}"`;
+    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=30&orderBy=-set.releaseDate`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const cards = (await res.json()).data || [];
+    _cdTcgRenderGrid(cards, status, grid);
+  } catch(e) {
+    status.textContent = '❌ Chyba: ' + e.message;
+  }
+}
+
+async function cdTcgLoadUrl() {
+  const inp    = document.getElementById('cdTcgUrlInput');
+  const status = document.getElementById('cdTcgStatus');
+  const grid   = document.getElementById('cdTcgGrid');
+  const raw    = inp?.value.trim();
+  if (!raw) { status.textContent = 'Zadej URL nebo ID karty'; return; }
+
+  status.textContent = '⏳ Načítám…';
+  grid.innerHTML = '';
+
+  try {
+    // 1. Přímé pokemontcg ID  (sv4-84, swsh1-1, …)
+    const idMatch = raw.match(/\b([a-z]{2,6}\d*[a-z]?-\d+[a-z]?)\b/i)
+                 || raw.match(/cards\/([a-z0-9]+-[a-z0-9]+)/i);
+    if (idMatch) {
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards/${idMatch[1]}`);
+      if (!res.ok) throw new Error('Karta nenalezena');
+      const card = (await res.json()).data;
+      _cdTcgRenderGrid([card], status, grid);
+      return;
+    }
+
+    // 2. Cardmarket URL → extrahuj jméno ze slugu
+    let searchName = '', searchSet = '';
+    const cmMatch = raw.match(/cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/([^\/\?]+)\/([^\/\?]+)/i);
+    if (cmMatch) {
+      searchSet  = cmMatch[1].replace(/-/g, ' ');
+      searchName = cmMatch[2].replace(/-/g, ' ').replace(/\d+$/, '').trim();
+    } else if (!raw.startsWith('http')) {
+      searchName = raw; // prostý název
+    } else {
+      searchName = decodeURIComponent(raw.split('/').pop().split('?')[0]).replace(/-/g, ' ');
+    }
+
+    if (!searchName.trim()) { status.textContent = '❌ Nepodařilo se rozpoznat název z URL'; return; }
+
+    const q   = `name:"${searchName.replace(/"/g,'')}"`;
+    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    let cards = (await res.json()).data || [];
+
+    // Fuzzy fallback
+    if (!cards.length) {
+      const fw  = searchName.split(' ')[0];
+      const r2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + fw + '*')}&pageSize=20&orderBy=-set.releaseDate`);
+      cards = r2.ok ? (await r2.json()).data || [] : [];
+    }
+
+    // Seřaď podle shody setu
+    if (searchSet && cards.length > 1) {
+      const hints = searchSet.toLowerCase().split(' ').filter(w => w.length > 3);
+      cards.sort((a, b) => {
+        const sa = hints.filter(h => a.set?.name?.toLowerCase().includes(h)).length;
+        const sb = hints.filter(h => b.set?.name?.toLowerCase().includes(h)).length;
+        return sb - sa;
+      });
+    }
+
+    _cdTcgRenderGrid(cards, status, grid);
+  } catch(e) {
+    status.textContent = '❌ ' + e.message;
+  }
+}
+
+let _cdTcgResults = [];
+function _cdTcgRenderGrid(cards, statusEl, gridEl) {
+  _cdTcgResults = cards;
+  if (!cards.length) {
+    statusEl.textContent = 'Žádné výsledky';
+    return;
+  }
+  statusEl.textContent = `${cards.length} výsledků — klikni na správnou kartu:`;
+
+  gridEl.innerHTML = cards.map((card, idx) => {
+    const img   = card.images?.small || '';
+    const price = card.cardmarket?.prices?.trendPrice;
+    const prStr = price ? price.toFixed(2) + ' €' : '';
+    return `<div class="cd-tcg-card" id="cdTcgCard-${idx}" onclick="cdTcgSelect(${idx})"
+               title="${card.name} · ${card.set?.name} #${card.number}">
+      ${img ? `<img src="${img}" loading="lazy" alt="${card.name}">` : `<div class="no-img">?</div>`}
+      <div class="tc-set">${card.set?.name||'—'}</div>
+      <div class="tc-num">#${card.number||'?'}</div>
+      ${prStr ? `<div class="tc-price">${prStr}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function cdTcgSelect(idx) {
+  const card = _cdTcgResults[idx];
+  if (!card || !_detailCard) return;
+
+  // Zvýraznění
+  document.querySelectorAll('.cd-tcg-card').forEach((el, i) =>
+    el.classList.toggle('sel', i === idx));
+
+  // Aktualizuj kartu daty z TCG API
+  const cm = card.cardmarket?.prices || {};
+  const updates = {
+    name:          card.name,
+    set:           card.set?.name  || _detailCard.set,
+    number:        card.number     || _detailCard.number,
+    num:           card.number     || _detailCard.num,
+    hp:            card.hp         || _detailCard.hp,
+    type:          (card.types||[])[0] || _detailCard.type,
+    types:         card.types      || _detailCard.types,
+    supertype:     card.supertype  || _detailCard.supertype,
+    rarity:        card.rarity     || _detailCard.rarity,
+    imageUrl:      card.images?.large || card.images?.small || _detailCard.imageUrl,
+    apiSmall:      card.images?.small || _detailCard.apiSmall,
+    apiId:         card.id,
+    pMin:          cm.lowPrice    || 0,
+    pTrend:        cm.trendPrice  || 0,
+    p30d:          cm.avg30 || cm.avg7 || 0,
+    cardmarketUrl: card.cardmarket?.url || '',
+  };
+  Object.assign(_detailCard, updates);
+
+  // Ulož do DB
+  await saveCardUpdates(_detailCard);
+
+  // Překresli modal bez zavření
+  _refreshCdModal(_detailCard);
+
+  toast(`✅ Karta aktualizována: ${card.name} · ${card.set?.name} #${card.number}`, 'ok');
+}
+
+function _refreshCdModal(c) {
+  // Obrázek
+  const img = c.images?.large || c.images?.small || c.imageUrl || c.apiSmall || '';
+  const emoji = typeEmoji(c.types?.[0] || c.type || '');
+  document.getElementById('cdImgWrap').innerHTML = img
+    ? `<img class="cd-img" src="${esc(img)}" alt="${esc(c.name||'')}">`
+    : `<div class="cd-no-img"><div class="big-emoji">${emoji}</div><div>${esc(c.name||'?')}</div></div>`;
+
+  // Jméno + sada
+  const cmUrl = buildCardmarketUrl(c);
+  document.getElementById('cdName').innerHTML =
+    `<a href="${esc(cmUrl)}" target="_blank" rel="noopener"
+       style="color:inherit;text-decoration:none;border-bottom:2px solid rgba(245,200,66,0.4);transition:border-color .15s;cursor:pointer"
+       onmouseover="this.style.borderColor='#f5c842'" onmouseout="this.style.borderColor='rgba(245,200,66,0.4)'"
+       title="Hledat na Cardmarket">${esc(c.name||'?')} <span style="font-size:12px;opacity:.5">↗</span></a>`;
+  document.getElementById('cdSet').textContent =
+    [c.set, (c.number||c.num) ? '#'+(c.number||c.num) : ''].filter(Boolean).join(' · ');
+
+  // Info grid
+  const cond = c.condition || c.cond || 'NM';
+  const rows = [
+    ['HP',       c.hp || '—'],
+    ['Číslo',    c.number || c.num || '—'],
+    ['Typ',      c.types?.join(', ') || c.type || '—'],
+    ['Supertyp', c.supertype || c.category || '—'],
+    ['Série',    c.set || '—'],
+    ['Stav',     cond],
+    ['Vzácnost', c.rarity || '—'],
+    ['Počet ks', c.count || c.qty || 1],
+    ['Poznámka', c.note || '—', true],
+  ];
+  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
+    `<div class="cd-row${wide?' wide':''}">
+      <div class="cd-row-label">${label}</div>
+      <div class="cd-row-val">${esc(String(val))}</div>
+    </div>`).join('');
+
+  // Ceny
+  renderPrices(c, document.getElementById('cdPrices'));
+}
+
+async function saveCardUpdates(c) {
+  if (!token || !userId || !c.id) return;
+  const localId = String(c.id);
+  const payload = {
+    card_data: {
+      name: c.name, set: c.set, number: c.number, num: c.num,
+      condition: c.condition||c.cond||'NM', category: c.category||'pokemon',
+      type: c.type, types: c.types||[], supertype: c.supertype,
+      hp: c.hp, rarity: c.rarity, imageUrl: c.imageUrl,
+      apiSmall: c.apiSmall, apiId: c.apiId,
+      pMin: c.pMin||0, pTrend: c.pTrend||0, p30d: c.p30d||0,
+      cardmarketUrl: c.cardmarketUrl||'',
+      photoUrl: c.photoUrl||'', note: c.note||'',
+      count: c.count||c.qty||1, tags: c.tags||[],
+      for_trade: c.for_trade||false, for_sell: c.for_sell||false,
+      price_czk: c.price_czk||null,
+    },
+    updated_at: new Date().toISOString(),
+  };
+  await sbReq(
+    `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${encodeURIComponent(localId)}`,
+    'PATCH', payload
+  ).catch(() => {});
+  // Aktualizuj lokální pole
+  const idx = allCards.findIndex(x => String(x.id) === localId);
+  if (idx >= 0) Object.assign(allCards[idx], c);
+  saveLocal();
+}
   if (!_detailCard) return;
   _detailCard.for_trade = !_detailCard.for_trade;
   _detailCard.updated_at = new Date().toISOString();
