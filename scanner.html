@@ -1656,17 +1656,19 @@ async function pollNewPhotos() {
       if (!su) continue;
       const photoUrl = su.startsWith('http') ? su : SUPABASE_URL + su;
 
-      // Fetch as blob with auth header to avoid CORS/blocked img src
+      // Fetch as blob – signed URL is self-authenticated, no extra headers needed.
+      // NOTE: Supabase Storage bucket "card-photo" must have CORS configured for
+      // origin https://pokemon-trade-ruddy.vercel.app (see README fix instructions)
       let displayUrl = photoUrl;
       try {
-        const resp = await fetch(photoUrl, {
-          headers: { 'Authorization': `Bearer ${currentToken}` }
-        });
+        const resp = await fetch(photoUrl);
         if (resp.ok) {
           const blob = await resp.blob();
           displayUrl = URL.createObjectURL(blob);
+        } else {
+          console.warn('[pollNewPhotos] signed URL returned', resp.status);
         }
-      } catch(e) { console.warn('[pollNewPhotos] blob fetch failed', e); }
+      } catch(e) { console.warn('[pollNewPhotos] blob fetch failed – CORS?', e); }
 
       const id = nextId++;
       photos.push({
