@@ -1794,7 +1794,12 @@ function confirmCrop() {
   const tile = document.getElementById(`tile-${CROP.groupIdx}-${CROP.photoIdx}`);
   if (tile) {
     const tileImg = tile.querySelector('img');
-    if (tileImg) { tileImg.src = dataUrl; }
+    if (tileImg) {
+      tileImg.src = dataUrl;
+      // Bug #2 fix: aktualizuj i onclick pro lightbox
+      const escaped = dataUrl.replace(/'/g, "\'");
+      tileImg.setAttribute('onclick', `openLightbox('${escaped}')`);
+    }
     tile.classList.add('has-crop');
     const btns = tile.querySelector('div:last-child');
     if (btns) btns.innerHTML =
@@ -1804,6 +1809,14 @@ function confirmCrop() {
       </button>
       <button onclick="resetPhotoTile(${CROP.groupIdx},${CROP.photoIdx})" title="Obnovit original"
         style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">&#x21BA;</button>`;
+  }
+
+  // Aktualizuj thumbnail v hlavičce skupiny (cg-thumb) pokud jde o přední foto
+  const group = cardGroups[CROP.groupIdx];
+  const photo = group?.photos[CROP.photoIdx];
+  if (photo && photo.side === 'front') {
+    const thumb = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
+    if (thumb) thumb.src = dataUrl;
   }
 
   cancelCrop();
@@ -1880,13 +1893,23 @@ function resetPhotoTile(gi, pi) {
   const tile = document.getElementById(`tile-${gi}-${pi}`);
   if (tile) {
     const tileImg = tile.querySelector('img');
-    if (tileImg) tileImg.src = p.url;
+    if (tileImg) {
+      tileImg.src = p.url;
+      // Bug #2 fix: vrať onclick na originální URL
+      const escaped = p.url.replace(/'/g, "\'");
+      tileImg.setAttribute('onclick', `openLightbox('${escaped}')`);
+    }
     const btns = tile.querySelector('div:last-child');
     if (btns) btns.innerHTML = `
       <button onclick="openCrop(${gi},${pi})"
         style="background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">
         ✂️ Oříznout
       </button>`;
+  }
+  // Vrať thumbnail v hlavičce skupiny
+  if (p.side === 'front') {
+    const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
+    if (thumb) thumb.src = p.url;
   }
   toast('Originál obnoven');
 }
