@@ -191,6 +191,52 @@ body::after {
 .notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); }
 @media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
 
+/* ── Flat filter system (compare) ─────────────────────────── */
+.cmp-supertype-bar { display:flex; gap:5px; margin-bottom:8px; flex-wrap:wrap; }
+.st-btn {
+  padding:5px 14px; border-radius:20px; font-size:12px; font-weight:700;
+  border:1px solid rgba(255,255,255,0.1); background:transparent;
+  color:rgba(240,236,228,0.65); cursor:pointer; font-family:inherit; transition:all .15s;
+  display:inline-flex; align-items:center; gap:6px;
+}
+.st-btn:hover { background:rgba(255,255,255,0.07); color:#f0ece4; }
+.st-btn.active { background:rgba(245,200,66,0.15); border-color:rgba(245,200,66,0.3); color:#f5c842; }
+.st-btn .st-cnt { background:rgba(255,255,255,0.1); border-radius:10px; padding:0 6px; font-size:10px; font-weight:800; }
+.st-btn.active .st-cnt { background:rgba(245,200,66,0.25); }
+.flat-filter-wrap {
+  display:flex; flex-direction:column; gap:0; margin-bottom:10px;
+  border:1px solid rgba(255,255,255,0.06); border-radius:12px;
+  background:rgba(0,0,0,0.28); overflow:hidden;
+}
+.flat-filter-btns { display:flex; gap:0; flex-wrap:wrap; }
+.flat-filter-btns:empty { display:none; }
+.ff-btn {
+  padding:7px 14px; font-size:11px; font-weight:700;
+  letter-spacing:.06em; text-transform:uppercase;
+  border:none; border-right:1px solid rgba(255,255,255,0.06);
+  background:transparent; color:rgba(240,236,228,0.65);
+  cursor:pointer; font-family:inherit; transition:all .15s;
+  display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+}
+.ff-btn:last-child { border-right:none; }
+.ff-btn:hover { background:rgba(255,255,255,0.04); color:#f0ece4; }
+.ff-btn.open { background:rgba(245,200,66,0.1); color:#f5c842; border-bottom:2px solid #f5c842; }
+.ff-btn.has-val { color:#f5c842; }
+.ff-btn .ff-val { font-size:10px; font-weight:600; color:#f5c842; background:rgba(245,200,66,0.15); border-radius:8px; padding:1px 6px; }
+.ff-arrow { font-size:7px; color:rgba(240,236,228,0.3); transition:transform .2s; }
+.ff-btn.open .ff-arrow { transform:rotate(180deg); }
+.ff-chips-row { display:none; flex-wrap:wrap; gap:5px; padding:8px 12px; border-top:1px solid rgba(255,255,255,0.04); background:rgba(0,0,0,0.15); }
+.ff-chips-row.open { display:flex; }
+.type-chip {
+  padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600;
+  border:1px solid rgba(255,255,255,0.08); background:transparent;
+  color:rgba(240,236,228,0.65); cursor:pointer; font-family:inherit; transition:all .15s;
+  display:inline-flex; align-items:center; gap:5px;
+}
+.type-icon { width:16px; height:16px; object-fit:contain; flex-shrink:0; }
+.type-chip:hover  { background:rgba(255,255,255,0.07); color:#f0ece4; }
+.type-chip.active { background:rgba(245,200,66,0.15); border-color:rgba(245,200,66,0.3); color:#f5c842; }
+
 </style>
 </head>
 <body>
@@ -289,6 +335,21 @@ body::after {
         <button class="ct-tab" onclick="showTab('only2',this)">🟨 Jen Album B</button>
         <button class="ct-tab" onclick="showTab('all',this)">📋 Vše</button>
       </div>
+
+      <!-- FLAT FILTERS -->
+      <div style="padding:10px 0 0">
+        <div class="cmp-supertype-bar">
+          <button class="st-btn active" onclick="cmpSetSupertype('')">Vše <span class="st-cnt" id="cmp-cnt-all">0</span></button>
+          <button class="st-btn" onclick="cmpSetSupertype('Pokémon')">🎴 Pokémon <span class="st-cnt" id="cmp-cnt-pokemon">0</span></button>
+          <button class="st-btn" onclick="cmpSetSupertype('Trainer')">🧑 Trainers <span class="st-cnt" id="cmp-cnt-trainer">0</span></button>
+          <button class="st-btn" onclick="cmpSetSupertype('Energy')">⚡ Energy <span class="st-cnt" id="cmp-cnt-energy">0</span></button>
+        </div>
+        <div class="flat-filter-wrap" id="cmpFlatFilterWrap">
+          <div class="flat-filter-btns" id="cmpFfBtns"></div>
+          <div class="ff-chips-row" id="cmpFfChipsRow"></div>
+        </div>
+      </div>
+
       <div id="compareGrid" class="compare-grid"></div>
 
     </div>
@@ -364,18 +425,262 @@ function runCompare() {
 
   document.getElementById('compareResults').style.display = '';
   showTab('both', document.querySelector('.ct-tab'));
+  initCmpFilters();
 }
 
 function normalizeCardName(c) {
   return (c.name || '').toLowerCase().replace(/\s+/g,'').substring(0,20);
 }
 
+// ── Compare filter state ──────────────────────────────────────
+let _cmpSupertype    = '';
+let _cmpActiveRarity = '';
+let _cmpActiveType   = '';
+let _cmpTrainerSub   = '';
+let _cmpOpenPanel    = '';
+let _cmpTabKey       = 'both';
+
+const CMP_RARITY_LABELS = {
+  common:'⚪ Common', uncommon:'🔵 Uncommon', rare:'🌟 Rare',
+  holo:'✨ Holo Rare', ultra:'💎 Ultra Rare', secret:'🔴 Secret Rare',
+  promo:'🎁 Promo', fullart:'🖼️ Full-Art', gold:'🥇 Gold',
+  basic_energy:'⚡ Basic', special_energy:'💠 Special', collector_energy:'✨ Collector',
+};
+const CMP_TYPE_LABELS = {
+  fire:'Fire', water:'Water', grass:'Grass', lightning:'Electric',
+  psychic:'Psychic', darkness:'Dark', dragon:'Dragon', metal:'Metal',
+  fighting:'Fighting', fairy:'Fairy', colorless:'Colorless', normal:'Normal',
+};
+const CMP_TRAINER_LABELS = {
+  Stadium:'Stadium', Supporter:'Supporter', Item:'Item', Tool:'Tool',
+};
+
+const CMP_FLAT_DEFS = {
+  pokemon: [
+    { key:'rarity', label:'🌟 Rarity',      getVal:()=>_cmpActiveRarity, getLabel:()=>CMP_RARITY_LABELS[_cmpActiveRarity]||_cmpActiveRarity },
+    { key:'type',   label:'🔥 Pokémon TYPE', getVal:()=>_cmpActiveType,   getLabel:()=>CMP_TYPE_LABELS[_cmpActiveType]||_cmpActiveType },
+  ],
+  trainer: [
+    { key:'rarity',  label:'🌟 Rarity',  getVal:()=>_cmpActiveRarity, getLabel:()=>CMP_RARITY_LABELS[_cmpActiveRarity]||_cmpActiveRarity },
+    { key:'subtype', label:'📋 Subtype', getVal:()=>_cmpTrainerSub,   getLabel:()=>CMP_TRAINER_LABELS[_cmpTrainerSub]||_cmpTrainerSub },
+  ],
+  energy: [
+    { key:'rarity',     label:'🌟 Rarity',      getVal:()=>_cmpActiveRarity, getLabel:()=>CMP_RARITY_LABELS[_cmpActiveRarity]||_cmpActiveRarity },
+    { key:'energytype', label:'⚡ Energy TYPE',  getVal:()=>_cmpActiveType,   getLabel:()=>CMP_TYPE_LABELS[_cmpActiveType]||_cmpActiveType },
+  ],
+};
+
+const CMP_FLAT_CHIPS = {
+  rarity_pokemon: [
+    {l:'Vše',fn:()=>cmpSetRarity('')}, {l:'⚪ Common',fn:()=>cmpSetRarity('common')},
+    {l:'🔵 Uncommon',fn:()=>cmpSetRarity('uncommon')}, {l:'🌟 Rare',fn:()=>cmpSetRarity('rare')},
+    {l:'✨ Holo Rare',fn:()=>cmpSetRarity('holo')}, {l:'💎 Ultra Rare',fn:()=>cmpSetRarity('ultra')},
+    {l:'🔴 Secret Rare',fn:()=>cmpSetRarity('secret')}, {l:'🎁 Promo',fn:()=>cmpSetRarity('promo')},
+  ],
+  rarity_trainer: [
+    {l:'Vše',fn:()=>cmpSetRarity('')}, {l:'🔵 Uncommon',fn:()=>cmpSetRarity('uncommon')},
+    {l:'🌟 Rare',fn:()=>cmpSetRarity('rare')}, {l:'🖼️ Full-Art',fn:()=>cmpSetRarity('fullart')},
+    {l:'🥇 Gold',fn:()=>cmpSetRarity('gold')},
+  ],
+  rarity_energy: [
+    {l:'Vše',fn:()=>cmpSetRarity('')}, {l:'⚡ Basic',fn:()=>cmpSetRarity('basic_energy')},
+    {l:'💠 Special',fn:()=>cmpSetRarity('special_energy')}, {l:'✨ Collector',fn:()=>cmpSetRarity('collector_energy')},
+    {l:'🥇 Gold',fn:()=>cmpSetRarity('gold')},
+  ],
+  type_pokemon: [
+    {l:'Vše',fn:()=>cmpSetType('')},
+    {l:'<img src="elements/fire.png" class="type-icon"> Fire',fn:()=>cmpSetType('fire')},
+    {l:'<img src="elements/water.png" class="type-icon"> Water',fn:()=>cmpSetType('water')},
+    {l:'<img src="elements/grass.png" class="type-icon"> Grass',fn:()=>cmpSetType('grass')},
+    {l:'<img src="elements/electric.png" class="type-icon"> Electric',fn:()=>cmpSetType('lightning')},
+    {l:'<img src="elements/psychic.png" class="type-icon"> Psychic',fn:()=>cmpSetType('psychic')},
+    {l:'<img src="elements/dark.png" class="type-icon"> Dark',fn:()=>cmpSetType('darkness')},
+    {l:'<img src="elements/dragon.png" class="type-icon"> Dragon',fn:()=>cmpSetType('dragon')},
+    {l:'<img src="elements/steel.png" class="type-icon"> Metal',fn:()=>cmpSetType('metal')},
+    {l:'<img src="elements/fighting.png" class="type-icon"> Fighting',fn:()=>cmpSetType('fighting')},
+    {l:'<img src="elements/fairy.png" class="type-icon"> Fairy',fn:()=>cmpSetType('fairy')},
+    {l:'<img src="elements/normal.png" class="type-icon"> Colorless',fn:()=>cmpSetType('colorless')},
+    {l:'<img src="elements/normal.png" class="type-icon"> Normal',fn:()=>cmpSetType('normal')},
+  ],
+  type_energy: [
+    {l:'Vše',fn:()=>cmpSetType('')},
+    {l:'<img src="elements/fire.png" class="type-icon"> Fire',fn:()=>cmpSetType('fire')},
+    {l:'<img src="elements/water.png" class="type-icon"> Water',fn:()=>cmpSetType('water')},
+    {l:'<img src="elements/grass.png" class="type-icon"> Grass',fn:()=>cmpSetType('grass')},
+    {l:'<img src="elements/electric.png" class="type-icon"> Electric',fn:()=>cmpSetType('lightning')},
+    {l:'<img src="elements/psychic.png" class="type-icon"> Psychic',fn:()=>cmpSetType('psychic')},
+    {l:'<img src="elements/dark.png" class="type-icon"> Dark',fn:()=>cmpSetType('darkness')},
+    {l:'<img src="elements/steel.png" class="type-icon"> Metal',fn:()=>cmpSetType('metal')},
+    {l:'<img src="elements/fighting.png" class="type-icon"> Fighting',fn:()=>cmpSetType('fighting')},
+    {l:'<img src="elements/normal.png" class="type-icon"> Colorless',fn:()=>cmpSetType('colorless')},
+  ],
+  subtype_trainer: [
+    {l:'Vše',fn:()=>cmpSetSub('')}, {l:'🏟️ Stadium',fn:()=>cmpSetSub('Stadium')},
+    {l:'🧑 Supporter',fn:()=>cmpSetSub('Supporter')}, {l:'🎒 Item',fn:()=>cmpSetSub('Item')},
+    {l:'🔧 Tool',fn:()=>cmpSetSub('Tool')},
+  ],
+};
+
+function cmpGroup() {
+  return _cmpSupertype === 'Trainer' ? 'trainer' : _cmpSupertype === 'Energy' ? 'energy' : 'pokemon';
+}
+
+function cmpRenderFilterBtns() {
+  const defs = CMP_FLAT_DEFS[cmpGroup()] || [];
+  const btns = document.getElementById('cmpFfBtns');
+  const wrap = document.getElementById('cmpFlatFilterWrap');
+  if (!btns) return;
+  if (!defs.length) { btns.innerHTML=''; wrap.style.display='none'; return; }
+  wrap.style.display = '';
+  btns.innerHTML = defs.map(d => {
+    const val  = d.getVal();
+    const lbl  = val ? d.getLabel() : '';
+    const open = _cmpOpenPanel === d.key;
+    return `<button class="ff-btn${open?' open':''}${val?' has-val':''}" onclick="cmpTogglePanel('${d.key}')">
+      ${d.label}
+      ${lbl ? `<span class="ff-val">${lbl}</span>` : ''}
+      <span class="ff-arrow">▼</span>
+    </button>`;
+  }).join('');
+}
+
+function cmpGetChipsKey(panelKey) {
+  const g = cmpGroup();
+  if (panelKey==='rarity')     return `rarity_${g}`;
+  if (panelKey==='type')       return 'type_pokemon';
+  if (panelKey==='energytype') return 'type_energy';
+  if (panelKey==='subtype')    return 'subtype_trainer';
+  return null;
+}
+
+function cmpGetActiveVal(panelKey) {
+  if (panelKey==='rarity')                       return _cmpActiveRarity;
+  if (panelKey==='type'||panelKey==='energytype') return _cmpActiveType;
+  if (panelKey==='subtype')                       return _cmpTrainerSub;
+  return '';
+}
+
+function cmpRenderChips() {
+  const row = document.getElementById('cmpFfChipsRow');
+  if (!row) return;
+  if (!_cmpOpenPanel) { row.classList.remove('open'); row.innerHTML=''; return; }
+  const key    = cmpGetChipsKey(_cmpOpenPanel);
+  const chips  = CMP_FLAT_CHIPS[key] || [];
+  const active = cmpGetActiveVal(_cmpOpenPanel);
+  row.innerHTML = chips.map((ch, i) => {
+    const isActive = i===0 ? !active : ch.fn.toString().includes(`'${active}'`);
+    return `<button class="type-chip${isActive?' active':''}" onclick="cmpChipClick(${i},this)">${ch.l}</button>`;
+  }).join('');
+  // Store chip fns for click handler
+  window._cmpCurrentChips = chips;
+  row.classList.add('open');
+}
+
+function cmpChipClick(idx) {
+  const chips = window._cmpCurrentChips || [];
+  if (chips[idx]) chips[idx].fn();
+}
+
+function cmpTogglePanel(key) {
+  _cmpOpenPanel = _cmpOpenPanel === key ? '' : key;
+  cmpRenderFilterBtns();
+  cmpRenderChips();
+}
+
+function cmpUpdateFilters() {
+  cmpRenderFilterBtns();
+  if (_cmpOpenPanel) cmpRenderChips();
+  cmpRerender();
+}
+
+function cmpSetSupertype(st) {
+  _cmpSupertype = st;
+  _cmpActiveRarity = '';
+  _cmpActiveType   = '';
+  _cmpTrainerSub   = '';
+  _cmpOpenPanel    = '';
+  document.querySelectorAll('.cmp-supertype-bar .st-btn').forEach(b => {
+    const fn = b.getAttribute('onclick')||'';
+    b.classList.toggle('active', fn.includes(`'${st}'`) || (st===''&&fn.includes("''")));
+  });
+  cmpRenderFilterBtns();
+  cmpRenderChips();
+  cmpRerender();
+}
+
+function cmpSetRarity(r)  { _cmpActiveRarity = r; cmpUpdateFilters(); }
+function cmpSetType(t)    { _cmpActiveType   = t; cmpUpdateFilters(); }
+function cmpSetSub(s)     { _cmpTrainerSub   = s; cmpUpdateFilters(); }
+
+function cmpMatchSupertype(c) {
+  if (!_cmpSupertype) return true;
+  const cat = (c.category||'').toLowerCase();
+  const s   = (c.supertype||c.cardType||'').toLowerCase();
+  if (_cmpSupertype==='Pokémon') return cat==='pokemon'||s==='pokémon'||s==='pokemon';
+  if (_cmpSupertype==='Trainer') return cat==='trainer'||s==='trainer';
+  if (_cmpSupertype==='Energy')  return cat==='energy' ||s==='energy';
+  return true;
+}
+
+function cmpMatchRarity(c) {
+  if (!_cmpActiveRarity) return true;
+  const cr = (c.rarity||'').toLowerCase();
+  const r  = _cmpActiveRarity;
+  if (r==='common')    return cr.includes('common');
+  if (r==='uncommon')  return cr.includes('uncommon');
+  if (r==='rare')      return cr.includes('rare')&&!cr.includes('ultra')&&!cr.includes('secret')&&!cr.includes('holo');
+  if (r==='holo')      return cr.includes('holo');
+  if (r==='ultra')     return cr.includes('ultra')||cr.includes('illustration')||cr.includes('vmax')||cr.includes('vstar')||cr.includes(' ex')||cr.includes(' gx')||cr.includes(' v ');
+  if (r==='secret')    return cr.includes('secret')||cr.includes('hyper')||cr.includes('special art');
+  if (r==='fullart')   return cr.includes('full')||cr.includes('illustration');
+  if (r==='gold')      return cr.includes('gold')||cr.includes('hyper');
+  if (r==='promo')     return cr.includes('promo');
+  if (r==='basic_energy')     return cr.includes('common')||cr===''||cr.includes('basic');
+  if (r==='special_energy')   return cr.includes('uncommon')||cr.includes('special');
+  if (r==='collector_energy') return cr.includes('rare')||cr.includes('holo')||cr.includes('ultra');
+  return true;
+}
+
+function cmpMatchType(c) {
+  if (!_cmpActiveType) return true;
+  const types = (c.types||[c.type||'']).map(t=>(t||'').toLowerCase());
+  return types.some(t => t === _cmpActiveType || t.includes(_cmpActiveType));
+}
+
+function cmpMatchSub(c) {
+  if (!_cmpTrainerSub) return true;
+  const subs = ((c.subtypes||[]).concat(c.subtype?[c.subtype]:[])).map(s=>(s||'').toLowerCase());
+  return subs.some(s => s.includes(_cmpTrainerSub.toLowerCase()));
+}
+
+function cmpApplyFilters(cards) {
+  return cards.filter(c =>
+    cmpMatchSupertype(c) && cmpMatchRarity(c) && cmpMatchType(c) && cmpMatchSub(c)
+  );
+}
+
+function cmpUpdateCounts(rawCards) {
+  const el = id => document.getElementById(id);
+  if (!rawCards) rawCards = window._compareData?.[_cmpTabKey] || [];
+  if (el('cmp-cnt-all'))     el('cmp-cnt-all').textContent     = rawCards.length;
+  if (el('cmp-cnt-pokemon')) el('cmp-cnt-pokemon').textContent = rawCards.filter(c=>{ const cat=(c.category||c.supertype||'').toLowerCase(); return cat.includes('pokemon'); }).length;
+  if (el('cmp-cnt-trainer')) el('cmp-cnt-trainer').textContent = rawCards.filter(c=>{ const cat=(c.category||c.supertype||'').toLowerCase(); return cat.includes('trainer'); }).length;
+  if (el('cmp-cnt-energy'))  el('cmp-cnt-energy').textContent  = rawCards.filter(c=>{ const cat=(c.category||c.supertype||'').toLowerCase(); return cat.includes('energy'); }).length;
+}
+
+function cmpRerender() {
+  const rawCards = window._compareData?.[_cmpTabKey] || [];
+  cmpUpdateCounts(rawCards);
+  renderCompareCards(cmpApplyFilters(rawCards), _cmpTabKey);
+}
+
 function showTab(key, btn) {
   document.querySelectorAll('.ct-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-
-  const cards = window._compareData?.[key] || [];
-  renderCompareCards(cards, key);
+  _cmpTabKey = key;
+  const rawCards = window._compareData?.[key] || [];
+  cmpUpdateCounts(rawCards);
+  renderCompareCards(cmpApplyFilters(rawCards), key);
 }
 
 function renderCompareCards(cards, key) {
@@ -388,7 +693,7 @@ function renderCompareCards(cards, key) {
   const colorMap = { both: 'green', only1: 'blue', only2: 'yellow', all: '' };
   const color = colorMap[key] || '';
 
-  grid.innerHTML = cards.slice(0, 200).map((card, _ci) => {
+  grid.innerHTML = cards.slice(0, 200).map((card) => {
     const img = card.images?.small || card.apiSmall || '';
     const cardJson = encodeURIComponent(JSON.stringify({name:card.name,set:card.set,number:card.number||card.num,hp:card.hp,rarity:card.rarity}));
     return `
@@ -409,6 +714,11 @@ function renderCompareCards(cards, key) {
   if (cards.length > 200) {
     grid.innerHTML += `<div class="compare-more">Zobrazeno 200 z ${cards.length} karet</div>`;
   }
+}
+
+// Init filters after compare loads
+function initCmpFilters() {
+  cmpRenderFilterBtns();
 }
 </script>
 

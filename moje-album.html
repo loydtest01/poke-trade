@@ -190,12 +190,12 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .stat-chip strong { color: var(--yellow); font-family: 'Unbounded', sans-serif; font-size: 12px; }
 
-/* Supertype lišta (Pokémon / Trenéři / Energie) */
+/* ── Supertype lišta (Vše / Pokémon / Trainers / Energy) ── */
 .supertype-bar {
-  display: flex; gap: 6px; margin-bottom: 10px;
+  display: flex; gap: 5px; margin-bottom: 0; flex-wrap: wrap;
 }
 .st-btn {
-  padding: 5px 16px; border-radius: 20px; font-size: 12px; font-weight: 700;
+  padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 700;
   border: 1px solid rgba(255,255,255,0.1); background: transparent;
   color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
   display: inline-flex; align-items: center; gap: 6px;
@@ -208,14 +208,52 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .st-btn.active .st-cnt { background: rgba(245,200,66,0.25); }
 
-/* Typ bary */
-.type-bar {
-  display: flex; gap: 6px; flex-wrap: wrap;
-  background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 12px; padding: 8px 12px; margin-bottom: 14px;
+/* ── Flat filter system ─────────────────────────────────── */
+.flat-filter-wrap {
+  display: flex; flex-direction: column; gap: 0; margin-bottom: 10px;
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;
+  background: rgba(0,0,0,0.28); overflow: hidden;
 }
+.flat-filter-btns {
+  display: flex; gap: 0; padding: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  flex-wrap: wrap;
+}
+.flat-filter-btns:empty { display: none; }
+.ff-btn {
+  padding: 7px 14px; font-size: 11px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase;
+  border: none; border-right: 1px solid rgba(255,255,255,0.06);
+  background: transparent; color: var(--text2);
+  cursor: pointer; font-family: inherit; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 5px;
+  white-space: nowrap;
+}
+.ff-btn:last-child { border-right: none; }
+.ff-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.ff-btn.open { background: rgba(245,200,66,0.1); color: var(--yellow); border-bottom: 2px solid var(--yellow); }
+.ff-btn.has-val { color: var(--yellow); }
+.ff-btn .ff-val {
+  font-size: 10px; font-weight: 600; color: var(--yellow);
+  background: rgba(245,200,66,0.15); border-radius: 8px;
+  padding: 1px 6px; max-width: 80px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ff-arrow { font-size: 7px; color: var(--text3); transition: transform .2s; }
+.ff-btn.open .ff-arrow { transform: rotate(180deg); }
+
+/* Chips row */
+.ff-chips-row {
+  display: none; flex-wrap: wrap; gap: 5px;
+  padding: 8px 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  background: rgba(0,0,0,0.15);
+}
+.ff-chips-row.open { display: flex; }
+
+/* type-chip — used inside flat filter */
 .type-chip {
-  padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
   border: 1px solid rgba(255,255,255,0.08); background: transparent;
   color: var(--text2); cursor: pointer; font-family: inherit; transition: all .15s;
   display: inline-flex; align-items: center; gap: 5px;
@@ -224,54 +262,70 @@ body { background: #06040c; overflow-x: hidden; }
 .type-chip:hover  { background: rgba(255,255,255,0.07); color: var(--text); }
 .type-chip.active { background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
 
-/* ── Accordion filter panels ─────────────────────────────── */
-.filter-accordions {
-  display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
-  align-items: flex-start;
+/* keep old .type-bar for any legacy usage */
+.type-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+/* keep old accordion classes hidden/unused */
+.filter-accordions { display: none !important; }
+.f-acc-chips .type-chip { font-size: 11px; padding: 4px 10px; }
+
+/* ── Fotky na kartičkách v gridu ──────────────────────────── */
+.card-has-photo .card-img { display: none; }
+.card-real-photo {
+  position: absolute; inset: 0; z-index: 1;
+  display: none;
 }
-.f-accordion {
-  flex: 1 1 auto; min-width: 0;
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 12px; overflow: hidden;
-  background: rgba(0,0,0,0.25);
-  transition: border-color .2s, flex-basis .3s;
+.card-has-photo .card-real-photo { display: block; }
+.card-real-photo img {
+  width: 100%; height: 100%; object-fit: cover; display: block;
 }
-.f-accordion.open {
-  flex: 1 1 100%;
+.card-photo-meta {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 4;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 18px 5px 4px;
 }
-.f-accordion.has-filter { border-color: rgba(245,200,66,0.25); }
-.f-acc-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 14px; cursor: pointer; user-select: none;
-  transition: background .15s;
+.card-photo-date {
+  font-size: 7px; color: rgba(255,255,255,0.5);
+  display: block; margin-bottom: 1px;
 }
-.f-acc-header:hover { background: rgba(255,255,255,0.03); }
-.f-acc-label {
-  font-size: 11px; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; color: var(--text2);
-  display: flex; align-items: center; gap: 6px;
+.card-photo-comment {
+  font-size: 8px; color: rgba(255,255,255,0.75); font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.f-acc-value {
-  font-size: 11px; font-weight: 600; color: var(--yellow);
-  max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.card-photo-count {
+  position: absolute; top: 4px; left: 4px; z-index: 4;
+  background: rgba(0,0,0,0.65); border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 1px 5px;
+  font-size: 8px; font-weight: 800; color: rgba(255,255,255,0.8);
 }
-.f-acc-arrow {
-  font-size: 8px; color: var(--text3); transition: transform .2s; margin-left: 4px;
+/* Lightbox for card photos */
+#cardPhotoLightbox {
+  display: none; position: fixed; inset: 0; z-index: 950;
+  background: rgba(0,0,0,0.94); align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
 }
-.f-accordion.open .f-acc-arrow { transform: rotate(180deg); }
-.f-acc-body {
-  max-height: 0; overflow: hidden;
-  transition: max-height .3s cubic-bezier(.32,.72,0,1), padding .3s;
-  padding: 0 10px;
+#cardPhotoLightbox.open { display: flex; }
+#cardPhotoLightbox .cpl-main {
+  max-width: 90vw; max-height: 72vh; border-radius: 12px;
+  object-fit: contain;
 }
-.f-accordion.open .f-acc-body {
-  max-height: 400px; padding: 6px 10px 10px;
+#cardPhotoLightbox .cpl-strip {
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: center;
 }
-.f-acc-chips {
-  display: flex; flex-wrap: wrap; gap: 5px;
+#cardPhotoLightbox .cpl-thumb {
+  width: 56px; height: 78px; border-radius: 6px; object-fit: cover;
+  cursor: pointer; border: 2px solid transparent; transition: border-color .15s;
+  opacity: 0.7;
 }
-.f-acc-chips .type-chip {
-  font-size: 11px; padding: 4px 10px;
+#cardPhotoLightbox .cpl-thumb.active, #cardPhotoLightbox .cpl-thumb:hover {
+  border-color: var(--yellow); opacity: 1;
+}
+#cardPhotoLightbox .cpl-info {
+  font-size: 11px; color: rgba(240,232,208,0.55); text-align: center;
+}
+#cardPhotoLightbox .cpl-close {
+  position: absolute; top: 18px; right: 22px;
+  background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+  color: #fff; font-size: 18px; padding: 5px 13px; cursor: pointer;
 }
 
 /* ── Karty grid ────────────────────────────────────────────── */
@@ -1147,133 +1201,91 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
 
     <!-- Supertype lišta -->
-    <div class="supertype-bar">
+    <div class="supertype-bar" style="margin-bottom:8px">
       <button class="st-btn active" onclick="setSupertype('')" data-i18n="all">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
       <button class="st-btn" onclick="setSupertype('Pokémon')" data-i18n="pokemon">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
       <button class="st-btn" onclick="setSupertype('Trainer')" data-i18n="trainers">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
       <button class="st-btn" onclick="setSupertype('Energy')" data-i18n="energy">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
     </div>
 
-    <!-- ═══ Accordion filter panely (mění se dle supertypu) ═══ -->
-    <div class="filter-accordions" id="filterAccordions">
+    <!-- ═══ Nový flat filter systém ═══ -->
+    <div class="flat-filter-wrap" id="flatFilterWrap">
+      <div class="flat-filter-btns" id="ffBtns"></div>
+      <div class="ff-chips-row" id="ffChipsRow"></div>
+    </div>
 
-      <!-- ── Panel: Vzácnost (Pokémon / Vše) ── -->
+    <!-- Hidden legacy accordions – data pro JS -->
+    <div id="filterAccordions" style="display:none!important">
       <div class="f-accordion" id="fa-rarity-pokemon" data-group="pokemon">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-pokemon')">
-          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setRarity('')">Vše</button>
-            <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
-            <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-            <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-            <button class="type-chip" onclick="setRarity('holo')">✨ Holo Rare</button>
-            <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
-            <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
-            <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
-          </div>
-        </div>
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
+          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+          <button class="type-chip" onclick="setRarity('holo')">✨ Holo Rare</button>
+          <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
+          <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
+          <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+        </div></div>
       </div>
-
-      <!-- ── Panel: Element (Pokémon / Vše) ── -->
       <div class="f-accordion" id="fa-element" data-group="pokemon">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-element')">
-          <span class="f-acc-label" data-i18n-label="element">🔥 Element <span class="f-acc-value" id="fa-element-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setType('')">Vše</button>
-            <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
-            <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
-            <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
-            <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
-            <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
-            <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
-            <button class="type-chip" onclick="setType('dragon')"><img src="elements/dragon.png" class="type-icon"> Dračí</button>
-            <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
-            <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
-            <button class="type-chip" onclick="setType('fairy')"><img src="elements/fairy.png" class="type-icon"> Víla</button>
-            <button class="type-chip" onclick="setType('normal')"><img src="elements/normal.png" class="type-icon"> Normální</button>
-          </div>
-        </div>
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setType('')">Vše</button>
+          <button class="type-chip" onclick="setType('fire')">Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')">Vodní</button>
+          <button class="type-chip" onclick="setType('grass')">Travní</button>
+          <button class="type-chip" onclick="setType('lightning')">Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')">Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')">Temný</button>
+          <button class="type-chip" onclick="setType('dragon')">Dračí</button>
+          <button class="type-chip" onclick="setType('metal')">Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')">Bojový</button>
+          <button class="type-chip" onclick="setType('fairy')">Víla</button>
+          <button class="type-chip" onclick="setType('colorless')">Bezbarvý</button>
+          <button class="type-chip" onclick="setType('normal')">Normální</button>
+        </div></div>
       </div>
-
-      <!-- ── Panel: Vzácnost (Trenéři) ── -->
-      <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer" style="display:none">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-trainer')">
-          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-trainer-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setRarity('')">Vše</button>
-            <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-            <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-            <button class="type-chip" onclick="setRarity('fullart')">🖼️ Full-Art</button>
-            <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
-          </div>
-        </div>
+      <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer">
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
+          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
+          <button class="type-chip" onclick="setRarity('fullart')">🖼️ Full-Art</button>
+          <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
+        </div></div>
       </div>
-
-      <!-- ── Panel: Typ trenéra ── -->
-      <div class="f-accordion" id="fa-trainer-type" data-group="trainer" style="display:none">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-trainer-type')">
-          <span class="f-acc-label" data-i18n-label="tr_type">📋 Typ <span class="f-acc-value" id="fa-trainer-type-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setTrainerSub('')">Vše</button>
-            <button class="type-chip" onclick="setTrainerSub('Stadium')">🏟️ Stadion</button>
-            <button class="type-chip" onclick="setTrainerSub('Supporter')">🧑 Podpora</button>
-            <button class="type-chip" onclick="setTrainerSub('Item')">🎒 Předmět</button>
-            <button class="type-chip" onclick="setTrainerSub('Tool')">🔧 Nástroj</button>
-          </div>
-        </div>
+      <div class="f-accordion" id="fa-trainer-type" data-group="trainer">
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setTrainerSub('')">Vše</button>
+          <button class="type-chip" onclick="setTrainerSub('Stadium')">🏟️ Stadion</button>
+          <button class="type-chip" onclick="setTrainerSub('Supporter')">🧑 Podpora</button>
+          <button class="type-chip" onclick="setTrainerSub('Item')">🎒 Předmět</button>
+          <button class="type-chip" onclick="setTrainerSub('Tool')">🔧 Nástroj</button>
+        </div></div>
       </div>
-
-      <!-- ── Panel: Vzácnost (Energie) ── -->
-      <div class="f-accordion" id="fa-rarity-energy" data-group="energy" style="display:none">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-rarity-energy')">
-          <span class="f-acc-label" data-i18n-label="rarity">🌟 Vzácnost <span class="f-acc-value" id="fa-rarity-energy-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setRarity('')">Vše</button>
-            <button class="type-chip" onclick="setRarity('basic_energy')">⚡ Základní</button>
-            <button class="type-chip" onclick="setRarity('special_energy')">💠 Speciální</button>
-            <button class="type-chip" onclick="setRarity('collector_energy')">✨ Sběratelské</button>
-            <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
-          </div>
-        </div>
+      <div class="f-accordion" id="fa-rarity-energy" data-group="energy">
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip" onclick="setRarity('basic_energy')">⚡ Základní</button>
+          <button class="type-chip" onclick="setRarity('special_energy')">💠 Speciální</button>
+          <button class="type-chip" onclick="setRarity('collector_energy')">✨ Sběratelské</button>
+          <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
+        </div></div>
       </div>
-
-      <!-- ── Panel: Typ energie ── -->
-      <div class="f-accordion" id="fa-energy-type" data-group="energy" style="display:none">
-        <div class="f-acc-header" onclick="toggleAccordion('fa-energy-type')">
-          <span class="f-acc-label" data-i18n-label="en_type">⚡ Typ energie <span class="f-acc-value" id="fa-energy-type-val"></span></span>
-          <span class="f-acc-arrow">▼</span>
-        </div>
-        <div class="f-acc-body">
-          <div class="f-acc-chips">
-            <button class="type-chip active" onclick="setType('')">Vše</button>
-            <button class="type-chip" onclick="setType('fire')"><img src="elements/fire.png" class="type-icon"> Ohnivý</button>
-            <button class="type-chip" onclick="setType('water')"><img src="elements/water.png" class="type-icon"> Vodní</button>
-            <button class="type-chip" onclick="setType('grass')"><img src="elements/grass.png" class="type-icon"> Travní</button>
-            <button class="type-chip" onclick="setType('lightning')"><img src="elements/electric.png" class="type-icon"> Elektrický</button>
-            <button class="type-chip" onclick="setType('psychic')"><img src="elements/psychic.png" class="type-icon"> Psychický</button>
-            <button class="type-chip" onclick="setType('darkness')"><img src="elements/dark.png" class="type-icon"> Temný</button>
-            <button class="type-chip" onclick="setType('metal')"><img src="elements/steel.png" class="type-icon"> Kovový</button>
-            <button class="type-chip" onclick="setType('fighting')"><img src="elements/fighting.png" class="type-icon"> Bojový</button>
-            <button class="type-chip" onclick="setType('colorless')"><img src="elements/normal.png" class="type-icon"> Bezbarvý</button>
-          </div>
-        </div>
+      <div class="f-accordion" id="fa-energy-type" data-group="energy">
+        <div class="f-acc-body"><div class="f-acc-chips">
+          <button class="type-chip active" onclick="setType('')">Vše</button>
+          <button class="type-chip" onclick="setType('fire')">Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')">Vodní</button>
+          <button class="type-chip" onclick="setType('grass')">Travní</button>
+          <button class="type-chip" onclick="setType('lightning')">Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')">Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')">Temný</button>
+          <button class="type-chip" onclick="setType('metal')">Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')">Bojový</button>
+          <button class="type-chip" onclick="setType('colorless')">Bezbarvý</button>
+        </div></div>
       </div>
-
     </div>
 
     <!-- Toolbar -->
@@ -1436,6 +1448,14 @@ body { background: #06040c; overflow-x: hidden; }
   <button onclick="document.getElementById('cdPhotoLightbox').classList.remove('open')">✕</button>
 </div>
 
+<!-- ── Lightbox pro fotky karet v gridu ─────────────────────── -->
+<div id="cardPhotoLightbox">
+  <button class="cpl-close" onclick="closeCardPhotoLightbox()">✕</button>
+  <img class="cpl-main" id="cplMainImg" src="" alt="">
+  <div class="cpl-strip" id="cplStrip"></div>
+  <div class="cpl-info" id="cplInfo"></div>
+</div>
+
 <!-- ── Nové album modal ─────────────────────────────────────── -->
 <div class="modal-bg hidden" id="newAlbumModal">
   <div class="modal-box">
@@ -1498,6 +1518,8 @@ body { background: #06040c; overflow-x: hidden; }
 let allCards   = [];
 let allAlbums  = [];
 let userId     = null, token = null, uname = '';
+// Map: localId (string) -> [ {id, url, side, created_at, note} ]
+let allCardPhotosMap = {};
 
 let activeView    = 'all';   // all | trade | sell
 let activeType    = '';
@@ -1551,8 +1573,10 @@ let editingAlbumId = null;
   updateCurrencyUI();
 
   await Promise.all([loadCards(), loadAlbums()]);
+  await loadAllCardPhotos();
   renderAlbumList();
   render();
+  renderFlatFilterBtns();
   // Obnov uložený view mode po načtení dat (musí být až po render())
   const savedMode = localStorage.getItem('pkc_view_mode') || 'grid';
   if (savedMode === 'book') setViewMode('book');
@@ -1573,6 +1597,24 @@ let editingAlbumId = null;
 // ══════════════════════════════════════════════════════════════════
 //  DATA – KARTY
 // ══════════════════════════════════════════════════════════════════
+// ── Batch načtení fotek pro všechny karty ─────────────────────
+async function loadAllCardPhotos() {
+  if (!userId || !token) return;
+  try {
+    const rows = await sbReq(
+      `rest/v1/user_card_photos?user_id=eq.${userId}&order=created_at.asc&limit=2000`
+    ).catch(() => null);
+    allCardPhotosMap = {};
+    if (!rows?.length) return;
+    for (const r of rows) {
+      const key = String(r.user_card_local_id || '');
+      if (!key) continue;
+      if (!allCardPhotosMap[key]) allCardPhotosMap[key] = [];
+      allCardPhotosMap[key].push(r);
+    }
+  } catch {}
+}
+
 async function loadCards() {
   setSyncState('syncing', 'Načítám karty…');
   try {
@@ -1821,9 +1863,27 @@ function renderCard(c, albumCardIds) {
   const inAlb = albumCardIds ? albumCardIds.includes(String(c.id)) : false;
   let cls = sel ? 'selected' : (inAlb && activeAlbumId ? 'in-album' : '');
 
+  const localId = String(c.id || c.local_id || '');
+  const photos  = allCardPhotosMap[localId] || [];
+  const frontPhoto = photos.find(p => p.side === 'front') || photos[0];
+  const hasPhotos  = photos.length > 0;
+  if (hasPhotos) cls += ' card-has-photo';
+
+  const photoCountBadge = hasPhotos ? `<div class="card-photo-count">\u{1F4F7} ${photos.length}</div>` : '';
+  const realPhotoEl = hasPhotos ? `
+    <div class="card-real-photo" onclick="event.stopPropagation();openCardPhotoLightbox('${localId.replace(/'/g,"\\'")}')">
+      <img src="${frontPhoto.url}" alt="foto" loading="lazy">
+      <div class="card-photo-meta">
+        <span class="card-photo-date">${fmtPhotoDate(frontPhoto.created_at)}</span>
+        ${frontPhoto.note ? `<span class="card-photo-comment">${frontPhoto.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>` : ''}
+      </div>
+    </div>` : '';
+
   return `
     <div class="card-slot ${cls}" data-id="${esc(c.id)}" onclick="cardClick('${esc(c.id)}')">
-      ${selectMode ? `<div class="card-check">${sel ? '✓' : ''}</div>` : ''}
+      ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
+      ${photoCountBadge}
+      ${realPhotoEl}
       ${img
         ? `<img class="card-img" src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy">`
         : `<div class="card-placeholder">
@@ -1832,16 +1892,58 @@ function renderCard(c, albumCardIds) {
              <div class="set">${esc(c.set||'')}</div>
            </div>`}
       <div class="card-badges">
-        ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
-        ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
-        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">⭐ ${fmtCardPrice(c.p30d)}</span>` : ''}
-        ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')" title="Smazat kartu">🗑</button>` : ''}
+        ${c.for_trade ? '<span class="badge-pill badge-trade">\u{1F504}</span>' : ''}
+        ${c.for_sell  ? '<span class="badge-pill badge-sell">\u{1F4B0}</span>'  : ''}
+        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">\u2B50 ${fmtCardPrice(c.p30d)}</span>` : ''}
+        ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">\u{1F5D1}</button>` : ''}
       </div>
-      <div class="card-footer">
+      ${!hasPhotos ? `<div class="card-footer">
         <div class="card-name">${esc(c.name||'?')}</div>
         <div class="card-sub">${esc(c.set||'')} ${c.number ? '#'+esc(c.number) : ''}</div>
-      </div>
+      </div>` : ''}
     </div>`;
+}
+
+function fmtPhotoDate(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso);
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mi = String(d.getMinutes()).padStart(2,'0');
+    return `${dd}.${mm}.${d.getFullYear()} ${hh}:${mi}`;
+  } catch { return ''; }
+}
+
+function openCardPhotoLightbox(localId) {
+  const photos = allCardPhotosMap[localId] || [];
+  if (!photos.length) return;
+  const lb = document.getElementById('cardPhotoLightbox');
+  const mainImg = document.getElementById('cplMainImg');
+  const strip = document.getElementById('cplStrip');
+  const info  = document.getElementById('cplInfo');
+  const sideLabels = {front:'\u0158edov\u00e1',back:'Zadn\u00ed',detail:'Detail',name:'JP n\u00e1zev'};
+
+  function showPhoto(idx) {
+    const p = photos[idx];
+    mainImg.src = p.url;
+    strip.querySelectorAll('.cpl-thumb').forEach((t,i) => t.classList.toggle('active', i===idx));
+    const sl = {front:'\u0158edov\u00e1',back:'Zadn\u00ed',detail:'Detail',name:'JP n\u00e1zev'};
+    info.textContent = `${sl[p.side]||p.side} \u00b7 ${fmtPhotoDate(p.created_at)}${p.note?' \u00b7 '+p.note:''}`;
+  }
+
+  strip.innerHTML = photos.map((p,i) =>
+    `<img class="cpl-thumb${i===0?' active':''}" src="${p.url}" onclick="event.stopPropagation();cplShowFn(${i})">`
+  ).join('');
+  window.cplShowFn = showPhoto;
+  showPhoto(0);
+  lb.classList.add('open');
+  lb.onclick = e => { if (e.target === lb) closeCardPhotoLightbox(); };
+}
+
+function closeCardPhotoLightbox() {
+  document.getElementById('cardPhotoLightbox').classList.remove('open');
 }
 
 function cardClick(id) {
@@ -2917,36 +3019,19 @@ function setView(v) {
 
 function setType(t) {
   activeType = t;
-  // Update all type-chip with setType onclick
-  document.querySelectorAll('.type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    if (fn.includes('setType'))
-      b.classList.toggle('active', (t === '' && fn.includes("''")) || (t && fn.includes(`'${t}'`)));
-  });
-  updateAccordionLabels();
+  updateFlatFilter();
   render();
 }
 
 function setRarity(r) {
   activeRarity = r;
-  // Update all rarity chips across all accordion panels
-  document.querySelectorAll('.f-acc-chips .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    if (fn.includes('setRarity'))
-      b.classList.toggle('active', (r === '' && fn.includes("''")) || (r && fn.includes(`'${r}'`)));
-  });
-  updateAccordionLabels();
+  updateFlatFilter();
   render();
 }
 
 function setTrainerSub(t) {
   activeTrainerSub = t;
-  document.querySelectorAll('.f-acc-chips .type-chip').forEach(b => {
-    const fn = b.getAttribute('onclick') || '';
-    if (fn.includes('setTrainerSub'))
-      b.classList.toggle('active', (t === '' && fn.includes("''")) || (t && fn.includes(`'${t}'`)));
-  });
-  updateAccordionLabels();
+  updateFlatFilter();
   render();
 }
 
@@ -2977,26 +3062,174 @@ function matchTrainerSub(c, t) {
 // ══════════════════════════════════════════════════════════════════
 //  ACCORDION FILTER PANELS
 // ══════════════════════════════════════════════════════════════════
-function toggleAccordion(id) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  const wasOpen = el.classList.contains('open');
-  // Close all accordions in the same group first
-  document.querySelectorAll('.f-accordion').forEach(a => a.classList.remove('open'));
-  // Toggle the clicked one
-  if (!wasOpen) el.classList.add('open');
+function toggleAccordion(id) { /* legacy — no-op, flat filter used instead */ }
+
+function showAccordionGroup(group) { /* legacy — flat filter rerenders */ }
+
+// ══════════════════════════════════════════════════════════════════
+//  FLAT FILTER SYSTEM
+// ══════════════════════════════════════════════════════════════════
+let _openFilterPanel = ''; // 'rarity' | 'type' | 'subtype' | 'energytype' | ''
+
+const FLAT_FILTER_DEFS = {
+  pokemon: [
+    { key: 'rarity',  label: '🌟 Rarity',       getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',    label: '🔥 Pokémon TYPE',  getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+  ],
+  trainer: [
+    { key: 'rarity',  label: '🌟 Rarity',        getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'subtype', label: '📋 Subtype',        getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+  ],
+  energy: [
+    { key: 'rarity',     label: '🌟 Rarity',      getValue: () => activeRarity, getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'energytype', label: '⚡ Energy TYPE',  getValue: () => activeType,   getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+  ],
+};
+
+const FLAT_CHIPS = {
+  rarity_pokemon: [
+    { label: 'Vše',         fn: "setRarity('')" },
+    { label: '⚪ Common',   fn: "setRarity('common')" },
+    { label: '🔵 Uncommon', fn: "setRarity('uncommon')" },
+    { label: '🌟 Rare',     fn: "setRarity('rare')" },
+    { label: '✨ Holo Rare', fn: "setRarity('holo')" },
+    { label: '💎 Ultra Rare',fn: "setRarity('ultra')" },
+    { label: '🔴 Secret Rare',fn: "setRarity('secret')" },
+    { label: '🎁 Promo',    fn: "setRarity('promo')" },
+  ],
+  rarity_trainer: [
+    { label: 'Vše',          fn: "setRarity('')" },
+    { label: '🔵 Uncommon',  fn: "setRarity('uncommon')" },
+    { label: '🌟 Rare',      fn: "setRarity('rare')" },
+    { label: '🖼️ Full-Art',  fn: "setRarity('fullart')" },
+    { label: '🥇 Gold',      fn: "setRarity('gold')" },
+  ],
+  rarity_energy: [
+    { label: 'Vše',           fn: "setRarity('')" },
+    { label: '⚡ Základní',   fn: "setRarity('basic_energy')" },
+    { label: '💠 Speciální',  fn: "setRarity('special_energy')" },
+    { label: '✨ Sběratelské',fn: "setRarity('collector_energy')" },
+    { label: '🥇 Gold',       fn: "setRarity('gold')" },
+  ],
+  type_pokemon: [
+    { label: 'Vše',                                     fn: "setType('')" },
+    { label: '<img src="elements/fire.png" class="type-icon"> Fire',       fn: "setType('fire')" },
+    { label: '<img src="elements/water.png" class="type-icon"> Water',     fn: "setType('water')" },
+    { label: '<img src="elements/grass.png" class="type-icon"> Grass',     fn: "setType('grass')" },
+    { label: '<img src="elements/electric.png" class="type-icon"> Electric',fn: "setType('lightning')" },
+    { label: '<img src="elements/psychic.png" class="type-icon"> Psychic', fn: "setType('psychic')" },
+    { label: '<img src="elements/dark.png" class="type-icon"> Dark',       fn: "setType('darkness')" },
+    { label: '<img src="elements/dragon.png" class="type-icon"> Dragon',   fn: "setType('dragon')" },
+    { label: '<img src="elements/steel.png" class="type-icon"> Metal',     fn: "setType('metal')" },
+    { label: '<img src="elements/fighting.png" class="type-icon"> Fighting',fn: "setType('fighting')" },
+    { label: '<img src="elements/fairy.png" class="type-icon"> Fairy',     fn: "setType('fairy')" },
+    { label: '<img src="elements/normal.png" class="type-icon"> Colorless',fn: "setType('colorless')" },
+    { label: '<img src="elements/normal.png" class="type-icon"> Normal',   fn: "setType('normal')" },
+  ],
+  type_energy: [
+    { label: 'Vše',                                     fn: "setType('')" },
+    { label: '<img src="elements/fire.png" class="type-icon"> Fire',       fn: "setType('fire')" },
+    { label: '<img src="elements/water.png" class="type-icon"> Water',     fn: "setType('water')" },
+    { label: '<img src="elements/grass.png" class="type-icon"> Grass',     fn: "setType('grass')" },
+    { label: '<img src="elements/electric.png" class="type-icon"> Electric',fn: "setType('lightning')" },
+    { label: '<img src="elements/psychic.png" class="type-icon"> Psychic', fn: "setType('psychic')" },
+    { label: '<img src="elements/dark.png" class="type-icon"> Dark',       fn: "setType('darkness')" },
+    { label: '<img src="elements/steel.png" class="type-icon"> Metal',     fn: "setType('metal')" },
+    { label: '<img src="elements/fighting.png" class="type-icon"> Fighting',fn: "setType('fighting')" },
+    { label: '<img src="elements/normal.png" class="type-icon"> Colorless',fn: "setType('colorless')" },
+  ],
+  subtype_trainer: [
+    { label: 'Vše',             fn: "setTrainerSub('')" },
+    { label: '🏟️ Stadium',     fn: "setTrainerSub('Stadium')" },
+    { label: '🧑 Supporter',   fn: "setTrainerSub('Supporter')" },
+    { label: '🎒 Item',        fn: "setTrainerSub('Item')" },
+    { label: '🔧 Tool',        fn: "setTrainerSub('Tool')" },
+  ],
+};
+
+function getChipsKey(panelKey, group) {
+  if (panelKey === 'rarity')     return `rarity_${group}`;
+  if (panelKey === 'type')       return `type_pokemon`;
+  if (panelKey === 'energytype') return `type_energy`;
+  if (panelKey === 'subtype')    return `subtype_trainer`;
+  return null;
 }
 
-function showAccordionGroup(group) {
-  // group: 'pokemon' | 'trainer' | 'energy'
-  // '' (Vše) shows 'pokemon' group
-  const show = group || 'pokemon';
-  document.querySelectorAll('.f-accordion').forEach(a => {
-    const g = a.dataset.group;
-    a.style.display = (g === show) ? '' : 'none';
-    if (g !== show) a.classList.remove('open');
-  });
+function getActiveValueForPanel(panelKey) {
+  if (panelKey === 'rarity')     return activeRarity;
+  if (panelKey === 'type' || panelKey === 'energytype') return activeType;
+  if (panelKey === 'subtype')    return activeTrainerSub;
+  return '';
 }
+
+function renderFlatFilterBtns() {
+  const group = activeSupertype === 'Trainer' ? 'trainer'
+              : activeSupertype === 'Energy'  ? 'energy'
+              : 'pokemon';
+  const defs  = FLAT_FILTER_DEFS[group] || [];
+  const btns  = document.getElementById('ffBtns');
+  const wrap  = document.getElementById('flatFilterWrap');
+  if (!btns) return;
+
+  if (!defs.length) {
+    btns.innerHTML = '';
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+  btns.innerHTML = defs.map(d => {
+    const val   = d.getValue();
+    const lbl   = val ? d.getLabel() : '';
+    const isOpen = _openFilterPanel === d.key;
+    const hasVal = !!val;
+    return `<button class="ff-btn${isOpen?' open':''}${hasVal?' has-val':''}"
+      onclick="toggleFlatFilter('${d.key}')">
+      ${d.label}
+      ${lbl ? `<span class="ff-val">${lbl}</span>` : ''}
+      <span class="ff-arrow">▼</span>
+    </button>`;
+  }).join('');
+}
+
+function renderFlatFilterChips() {
+  const group = activeSupertype === 'Trainer' ? 'trainer'
+              : activeSupertype === 'Energy'  ? 'energy'
+              : 'pokemon';
+  const row   = document.getElementById('ffChipsRow');
+  if (!row) return;
+  if (!_openFilterPanel) {
+    row.classList.remove('open');
+    row.innerHTML = '';
+    return;
+  }
+  const chipsKey = getChipsKey(_openFilterPanel, group);
+  const chips    = FLAT_CHIPS[chipsKey] || [];
+  const active   = getActiveValueForPanel(_openFilterPanel);
+  row.innerHTML = chips.map(ch => {
+    // Determine if this chip is active
+    const isAll = ch.fn.includes("''") || ch.fn.includes('("")');
+    const isActive = isAll ? !active : ch.fn.includes(`'${active}'`);
+    return `<button class="type-chip${isActive?' active':''}" onclick="${ch.fn}">${ch.label}</button>`;
+  }).join('');
+  row.classList.add('open');
+}
+
+function toggleFlatFilter(key) {
+  if (_openFilterPanel === key) {
+    _openFilterPanel = '';
+  } else {
+    _openFilterPanel = key;
+  }
+  renderFlatFilterBtns();
+  renderFlatFilterChips();
+}
+
+function updateFlatFilter() {
+  renderFlatFilterBtns();
+  if (_openFilterPanel) renderFlatFilterChips();
+}
+
+
 
 const RARITY_LABELS_I18N = {
   common:          { cz: '⚪ Common', en: '⚪ Common' },
@@ -3039,27 +3272,8 @@ function tLabel(dict, key) {
 }
 
 function updateAccordionLabels() {
-  // Vzácnost labels
-  const rv = document.getElementById('fa-rarity-val');
-  if (rv) rv.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
-  const rtv = document.getElementById('fa-rarity-trainer-val');
-  if (rtv) rtv.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
-  const rev = document.getElementById('fa-rarity-energy-val');
-  if (rev) rev.textContent = activeRarity ? tLabel(RARITY_LABELS_I18N, activeRarity) : '';
-  // Element labels
-  const ev = document.getElementById('fa-element-val');
-  if (ev) ev.textContent = activeType ? tLabel(TYPE_LABELS_I18N, activeType) : '';
-  const etv = document.getElementById('fa-energy-type-val');
-  if (etv) etv.textContent = activeType ? tLabel(TYPE_LABELS_I18N, activeType) : '';
-  // Trainer type label
-  const ttv = document.getElementById('fa-trainer-type-val');
-  if (ttv) ttv.textContent = activeTrainerSub ? tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) : '';
-  // Has-filter highlight
-  document.querySelectorAll('.f-accordion').forEach(a => {
-    const chips = a.querySelectorAll('.type-chip.active');
-    const hasAll = chips.length === 1 && (chips[0].getAttribute('onclick')||'').includes("''");
-    a.classList.toggle('has-filter', !hasAll && chips.length > 0);
-  });
+  // Legacy stub – flat filter system handles labels now
+  updateFlatFilter();
 }
 
 function setCond(c) {
@@ -3077,10 +3291,12 @@ function setCond(c) {
 async function doSync() {
   setSyncState('syncing', 'Synchronizuji…');
   await Promise.all([loadCards(), loadAlbums()]);
+  await loadAllCardPhotos();
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   updateLastSyncInfo();
   renderAlbumList();
   render();
+  renderFlatFilterBtns();
 }
 
 function autoSync() {
@@ -3114,14 +3330,12 @@ function setSupertype(st) {
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st === '' && fn.includes("''")));
   });
   // Reset sub-filtry při přepnutí
-  setType('');
-  setRarity('');
-  setTrainerSub('');
-  // Switch accordion group
-  if (st === 'Trainer') showAccordionGroup('trainer');
-  else if (st === 'Energy') showAccordionGroup('energy');
-  else showAccordionGroup('pokemon');
-  updateAccordionLabels();
+  activeType = '';
+  activeRarity = '';
+  activeTrainerSub = '';
+  _openFilterPanel = '';
+  renderFlatFilterBtns();
+  renderFlatFilterChips();
   render();
 }
 
