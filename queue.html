@@ -759,6 +759,7 @@ async function loadQueue() {
           const meta = row.metadata || {};
           g.photos.push({
             url,
+            storagePath: row.storage_path,
             side: meta.side || 'front',
             detailIndex: meta.detailIndex || null,
             queueId: row.id,
@@ -1121,7 +1122,6 @@ async function doAssign(groups, albumId) {
 
       const res = await sbReq('rest/v1/user_cards', 'POST', {
         user_id:   userId,
-        album_id:  albumId || null,
         card_data: {
           name:      rc?.name     || ai.name      || 'Neznámá karta',
           set:       rc?.set      || ai.set       || '',
@@ -1149,6 +1149,19 @@ async function doAssign(groups, albumId) {
       });
       const newId = Array.isArray(res) ? res[0]?.local_id : res?.local_id;
       if (newId) newCardIds.push(String(newId));
+      // Ulož fotky do user_card_photos
+      if (newId) {
+        for (const p of g.photos) {
+          if (!p.storagePath) continue;
+          sbReq('rest/v1/user_card_photos', 'POST', {
+            user_id:             userId,
+            user_card_local_id:  String(newId),
+            storage_path:        p.storagePath,
+            url:                 p.url,
+            side:                p.side || 'front',
+          }).catch(e => console.warn('[user_card_photos insert]', e));
+        }
+      }
       // Označit všechny photo_queue záznamy jako processed
       for (const p of g.photos) {
         sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
@@ -1319,7 +1332,7 @@ async function tcgSearch(gi, autoMode = false) {
   const parts = [];
   if (ai.name)   parts.push(`name:"${ai.name}"`);
   if (ai.set)    parts.push(`set.name:"${ai.set}"`);
-  if (ai.number) parts.push(`number:${ai.number}`);
+  if (ai.number) parts.push(`number:${String(ai.number).split('/')[0]}`);
 
   // Pokud nemáme vůbec nic, hledáme jen podle jména (i prázdného)
   const query = parts.length ? parts.join(' ') : (ai.name || '');
