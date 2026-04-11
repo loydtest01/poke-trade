@@ -2146,6 +2146,7 @@ function openCardDetail(c) {
   const cardNum = c.number || c.num || '—';
   const cardHp  = c.hp || '—';
   const L = currentLang === 'en';
+  const qty = c.count || c.qty || 1;
   const rows = [
     [L?'HP':'HP',          cardHp],
     [L?'Number':'Číslo',   cardNum],
@@ -2154,14 +2155,36 @@ function openCardDetail(c) {
     [L?'Set':'Série',      c.set || '—'],
     [L?'Condition':'Stav', cond],
     [L?'Rarity':'Vzácnost',c.rarity || c.rarityCz || '—'],
-    [L?'Quantity':'Počet ks', c.count || c.qty || 1],
     [L?'Note':'Poznámka',  c.note || '—', true],
   ];
-  document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
-    `<div class="cd-row${wide?' wide':''}">
-      <div class="cd-row-label">${label}</div>
-      <div class="cd-row-val">${esc(String(val))}</div>
-    </div>`).join('');
+  document.getElementById('cdGrid').innerHTML =
+    rows.map(([label, val, wide]) =>
+      `<div class="cd-row${wide?' wide':''}">
+        <div class="cd-row-label">${label}</div>
+        <div class="cd-row-val">${esc(String(val))}</div>
+      </div>`).join('') +
+    `<div class="cd-row" style="display:flex;flex-direction:column;gap:6px;">
+      <div class="cd-row-label">${L?'Quantity':'Počet ks'}</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button onclick="changeCdQty(-1)" style="
+          width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,0.12);
+          background:rgba(255,255,255,0.06);color:#f0ece4;font-size:16px;font-weight:700;
+          cursor:pointer;display:flex;align-items:center;justify-content:center;
+          transition:background .15s;line-height:1;flex-shrink:0;
+        " onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">−</button>
+        <span id="cdQtyVal" style="
+          min-width:32px;text-align:center;font-size:16px;font-weight:700;
+          color:#f5c842;font-family:'Unbounded',sans-serif;
+        ">${qty}</span>
+        <button onclick="changeCdQty(1)" style="
+          width:28px;height:28px;border-radius:7px;border:1px solid rgba(255,255,255,0.12);
+          background:rgba(255,255,255,0.06);color:#f0ece4;font-size:16px;font-weight:700;
+          cursor:pointer;display:flex;align-items:center;justify-content:center;
+          transition:background .15s;line-height:1;flex-shrink:0;
+        " onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">+</button>
+        <span id="cdQtySaved" style="font-size:10px;color:#4ade80;opacity:0;transition:opacity .3s;margin-left:4px;">✓ Uloženo</span>
+      </div>
+    </div>`;
 
   // Ceny z Cardmarket (uložené z pokemontcg.io při přidání karty v aplikaci)
   renderPrices(c, document.getElementById('cdPrices'));
@@ -2302,75 +2325,250 @@ async function deleteCardPhotoPanel(id, btn) {
   setTimeout(() => { if (item) item.remove(); }, 300);
 }
 
-// ── 3D Lerp tilt na API kartě v detailu ────────────────────────
+// ── 3D Lerp tilt + 3D viewer na API kartě v detailu ───────────
 (function() {
+  // ── Přidat CSS pro 3D viewer ─────────────────────────────────
+  const style = document.createElement('style');
+  style.textContent = `
+    #card3dViewer {
+      position:fixed; inset:0; z-index:2000;
+      background:rgba(0,0,0,0.92); backdrop-filter:blur(18px);
+      display:none; align-items:center; justify-content:center;
+      cursor:grab;
+    }
+    #card3dViewer.open { display:flex; }
+    #card3dViewer.grabbing { cursor:grabbing; }
+    .c3d-scene {
+      perspective:900px; perspective-origin:50% 50%;
+      width:240px; height:336px; flex-shrink:0;
+    }
+    .c3d-card {
+      width:100%; height:100%;
+      position:relative; transform-style:preserve-3d;
+      transition:transform 0s;
+      border-radius:14px;
+    }
+    .c3d-face {
+      position:absolute; inset:0; border-radius:14px;
+      backface-visibility:hidden; -webkit-backface-visibility:hidden;
+      overflow:hidden;
+      box-shadow:0 20px 60px rgba(0,0,0,.8);
+    }
+    .c3d-face img { width:100%; height:100%; object-fit:cover; display:block; border-radius:14px; }
+    .c3d-back { transform:rotateY(180deg); }
+    .c3d-hint {
+      position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+      font-size:11px; color:rgba(255,255,255,0.3); white-space:nowrap;
+      pointer-events:none; letter-spacing:.06em;
+    }
+    .c3d-close {
+      position:absolute; top:20px; right:24px;
+      background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.15);
+      border-radius:8px; color:#fff; font-size:16px; padding:5px 13px;
+      cursor:pointer; z-index:10;
+    }
+    .c3d-close:hover { background:rgba(255,255,255,0.2); }
+    .c3d-flip-btn {
+      position:absolute; bottom:60px; left:50%; transform:translateX(-50%);
+      background:rgba(245,200,66,0.15); border:1px solid rgba(245,200,66,0.35);
+      border-radius:10px; color:#f5c842; font-size:12px; font-weight:600;
+      padding:8px 22px; cursor:pointer; z-index:10; letter-spacing:.04em;
+      transition:background .15s;
+    }
+    .c3d-flip-btn:hover { background:rgba(245,200,66,0.28); }
+    .cd-img-wrap-outer { cursor:pointer; }
+    .cd-img-wrap-outer:hover::after {
+      content:'🔍 3D'; position:absolute; bottom:8px; left:50%;
+      transform:translateX(-50%); font-size:10px; font-weight:700;
+      background:rgba(245,200,66,0.85); color:#000; border-radius:6px;
+      padding:2px 8px; pointer-events:none; letter-spacing:.04em;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // ── HTML pro 3D viewer overlay ────────────────────────────────
+  const overlay = document.createElement('div');
+  overlay.id = 'card3dViewer';
+  overlay.innerHTML = `
+    <button class="c3d-close" id="c3dCloseBtn">✕</button>
+    <div class="c3d-scene">
+      <div class="c3d-card" id="c3dCard">
+        <div class="c3d-face c3d-front"><img id="c3dFrontImg" src="" alt=""></div>
+        <div class="c3d-face c3d-back"><img src="all_back.png" alt="zadní strana"></div>
+      </div>
+    </div>
+    <button class="c3d-flip-btn" id="c3dFlipBtn">↻ Otočit kartu</button>
+    <div class="c3d-hint">Táhni myší pro rotaci · klik mimo kartu zavře</div>
+  `;
+  document.body.appendChild(overlay);
+
+  // ── 3D viewer logika ──────────────────────────────────────────
+  const card3d = document.getElementById('c3dCard');
+  let _rotX = 0, _rotY = 0, _flipped = false;
+  let _dragging = false, _startX = 0, _startY = 0, _lastX = 0, _lastY = 0;
+  let _velX = 0, _velY = 0, _raf3d = null;
+  let _moved = false;
+
+  function setCard3dTransform(rx, ry, instant) {
+    const baseY = _flipped ? 180 : 0;
+    card3d.style.transition = instant ? 'none' : 'transform 0.05s linear';
+    card3d.style.transform  = `rotateX(${rx}deg) rotateY(${ry + baseY}deg)`;
+  }
+
+  function open3dViewer(imgSrc) {
+    document.getElementById('c3dFrontImg').src = imgSrc;
+    _rotX = 0; _rotY = 0; _flipped = false; _velX = 0; _velY = 0;
+    setCard3dTransform(0, 0, true);
+    overlay.classList.add('open');
+  }
+
+  function close3dViewer() {
+    overlay.classList.remove('open');
+    if (_raf3d) { cancelAnimationFrame(_raf3d); _raf3d = null; }
+  }
+
+  // Momentum loop
+  function momentumLoop() {
+    if (_dragging) return;
+    _velX *= 0.92; _velY *= 0.92;
+    if (Math.abs(_velX) > 0.05 || Math.abs(_velY) > 0.05) {
+      _rotX = Math.max(-80, Math.min(80, _rotX + _velX));
+      _rotY += _velY;
+      setCard3dTransform(_rotX, _rotY, true);
+      _raf3d = requestAnimationFrame(momentumLoop);
+    } else { _raf3d = null; }
+  }
+
+  overlay.addEventListener('mousedown', (e) => {
+    if (e.target === overlay || e.target.classList.contains('c3d-hint')) {
+      close3dViewer(); return;
+    }
+    if (e.target.closest('.c3d-close, .c3d-flip-btn')) return;
+    _dragging = true; _moved = false;
+    _startX = _lastX = e.clientX;
+    _startY = _lastY = e.clientY;
+    overlay.classList.add('grabbing');
+    if (_raf3d) { cancelAnimationFrame(_raf3d); _raf3d = null; }
+  });
+  document.addEventListener('mousemove', (e) => {
+    if (!_dragging) return;
+    const dx = e.clientX - _lastX;
+    const dy = e.clientY - _lastY;
+    if (Math.abs(e.clientX - _startX) > 4 || Math.abs(e.clientY - _startY) > 4) _moved = true;
+    _velY = dx * 0.45; _velX = -dy * 0.45;
+    _rotY += dx * 0.45; _rotX = Math.max(-80, Math.min(80, _rotX - dy * 0.45));
+    _lastX = e.clientX; _lastY = e.clientY;
+    setCard3dTransform(_rotX, _rotY, true);
+  });
+  document.addEventListener('mouseup', () => {
+    if (!_dragging) return;
+    _dragging = false;
+    overlay.classList.remove('grabbing');
+    if (!_moved) { /* click without drag — handled elsewhere */ }
+    _raf3d = requestAnimationFrame(momentumLoop);
+  });
+
+  // Touch
+  let _tx0 = 0, _ty0 = 0, _txl = 0, _tyl = 0;
+  overlay.addEventListener('touchstart', (e) => {
+    const t = e.touches[0];
+    _dragging = true; _moved = false;
+    _tx0 = _txl = t.clientX; _ty0 = _tyl = t.clientY;
+    if (_raf3d) { cancelAnimationFrame(_raf3d); _raf3d = null; }
+  }, { passive: true });
+  overlay.addEventListener('touchmove', (e) => {
+    if (!_dragging) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    const dx = t.clientX - _txl, dy = t.clientY - _tyl;
+    if (Math.abs(t.clientX - _tx0) > 4 || Math.abs(t.clientY - _ty0) > 4) _moved = true;
+    _velY = dx * 0.45; _velX = -dy * 0.45;
+    _rotY += dx * 0.45; _rotX = Math.max(-80, Math.min(80, _rotX - dy * 0.45));
+    _txl = t.clientX; _tyl = t.clientY;
+    setCard3dTransform(_rotX, _rotY, true);
+  }, { passive: false });
+  overlay.addEventListener('touchend', () => {
+    _dragging = false;
+    _raf3d = requestAnimationFrame(momentumLoop);
+  });
+
+  // Flip button
+  document.getElementById('c3dFlipBtn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    _flipped = !_flipped;
+    card3d.style.transition = 'transform 0.55s cubic-bezier(.4,0,.2,1)';
+    setCard3dTransform(_rotX, _rotY, false);
+  });
+
+  // Close button & ESC
+  document.getElementById('c3dCloseBtn').addEventListener('click', (e) => { e.stopPropagation(); close3dViewer(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close3dViewer(); });
+
+  window.open3dViewer = open3dViewer;
+
+  // ── Hover tilt na kartě v detailu ────────────────────────────
   let _tiltAF = null;
   let _tRx = 0, _tRy = 0, _cRx = 0, _cRy = 0;
-  const LERP = 0.08; // pomalost: nižší = líněji
-
+  const LERP = 0.08;
   function lerp(a, b, t) { return a + (b - a) * t; }
 
   function applyDetailTilt(imgEl) {
     if (imgEl._detailTiltBound) return;
     imgEl._detailTiltBound = true;
 
-    // Glare element
     const wrap = imgEl.parentElement;
+    wrap.style.position = 'relative';
+    wrap.classList.add('cd-img-wrap-outer');
     let glare = wrap.querySelector('.cd-img-glare');
     if (!glare) {
       glare = document.createElement('div');
       glare.className = 'cd-img-glare';
-      glare.style.cssText = `
-        position:absolute; inset:0; border-radius:12px;
-        pointer-events:none; z-index:3; opacity:0;
-        mix-blend-mode:screen; transition:opacity .3s;
-      `;
-      wrap.style.position = 'relative';
+      glare.style.cssText = `position:absolute;inset:0;border-radius:12px;pointer-events:none;z-index:3;opacity:0;mix-blend-mode:screen;transition:opacity .3s;`;
       wrap.appendChild(glare);
     }
 
     function animate() {
       _cRx = lerp(_cRx, _tRx, LERP);
       _cRy = lerp(_cRy, _tRy, LERP);
-      const dx = Math.abs(_cRx - _tRx);
-      const dy = Math.abs(_cRy - _tRy);
       imgEl.style.transform = `perspective(800px) rotateX(${_cRx}deg) rotateY(${_cRy}deg) scale(1.04)`;
-      if (dx > 0.01 || dy > 0.01) {
+      if (Math.abs(_cRx - _tRx) > 0.01 || Math.abs(_cRy - _tRy) > 0.01) {
         _tiltAF = requestAnimationFrame(animate);
-      } else {
-        _tiltAF = null;
-      }
+      } else { _tiltAF = null; }
     }
 
     imgEl.addEventListener('mousemove', (e) => {
       const rect = imgEl.getBoundingClientRect();
       const cx = (e.clientX - rect.left) / rect.width;
-      const cy = (e.clientY - rect.top) / rect.height;
-      _tRx = (cy - 0.5) * 56;   // ±28° vertikálně
-      _tRy = (cx - 0.5) * 44;   // ±22° horizontálně
-      glare.style.opacity = '0.7';
-      glare.style.background = `radial-gradient(circle at ${cx*100}% ${cy*100}%,
-        rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.06) 50%, transparent 75%)`;
+      const cy = (e.clientY - rect.top)  / rect.height;
+      _tRx = (cy - 0.5) * -56;  // stejný směr jako album
+      _tRy = (cx - 0.5) *  44;
+      glare.style.opacity = '0.65';
+      glare.style.background = `radial-gradient(circle at ${cx*100}% ${cy*100}%, rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.06) 50%, transparent 75%)`;
       if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
     });
 
     imgEl.addEventListener('mouseleave', () => {
       _tRx = 0; _tRy = 0;
       glare.style.opacity = '0';
-      imgEl.style.transition = 'transform 0.6s cubic-bezier(.22,1,.36,1), box-shadow .3s';
+      imgEl.style.transition = 'transform 0.6s cubic-bezier(.22,1,.36,1)';
       if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
       setTimeout(() => { imgEl.style.transition = ''; }, 650);
     });
 
-    // Touch support
+    // Klik → otevři 3D viewer
+    imgEl.addEventListener('click', () => {
+      open3dViewer(imgEl.src);
+    });
+
+    // Touch tilt
     imgEl.addEventListener('touchmove', (e) => {
       e.preventDefault();
       const t = e.touches[0];
       const rect = imgEl.getBoundingClientRect();
       const cx = (t.clientX - rect.left) / rect.width;
-      const cy = (t.clientY - rect.top) / rect.height;
-      _tRx = (cy - 0.5) * 56;
-      _tRy = (cx - 0.5) * 44;
+      const cy = (t.clientY - rect.top)  / rect.height;
+      _tRx = (cy - 0.5) * -56;
+      _tRy = (cx - 0.5) *  44;
       if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
     }, { passive: false });
 
@@ -2380,9 +2578,6 @@ async function deleteCardPhotoPanel(id, btn) {
     });
   }
 
-  // Hook into openCardDetail — apply tilt after image is rendered
-  const _origOpenCardDetail = window.openCardDetail || function(){};
-  // We observe changes to cdImgWrap instead
   const _detailImgObserver = new MutationObserver(() => {
     const img = document.querySelector('#cdImgWrap .cd-img');
     if (img) applyDetailTilt(img);
@@ -2758,6 +2953,36 @@ async function saveCdPrice() {
   setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
 }
 
+async function changeCdQty(delta) {
+  if (!_detailCard) return;
+  const current = _detailCard.count || _detailCard.qty || 1;
+  const newQty  = Math.max(1, current + delta);
+  if (newQty === current) return;
+
+  _detailCard.count = newQty;
+  _detailCard.qty   = newQty;
+  _detailCard.updated_at = new Date().toISOString();
+
+  // Aktualizuj zobrazení
+  const qtyEl = document.getElementById('cdQtyVal');
+  if (qtyEl) qtyEl.textContent = newQty;
+
+  // Flash "Uloženo"
+  const saved = document.getElementById('cdQtySaved');
+  if (saved) { saved.style.opacity = '1'; setTimeout(() => { saved.style.opacity = '0'; }, 1500); }
+
+  // Aktualizuj v allCards a ulož
+  const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
+  if (idx >= 0) { allCards[idx].count = newQty; allCards[idx].qty = newQty; }
+  saveLocal();
+  render();
+
+  // Ulož na server
+  await saveCardUpdates(_detailCard);
+  setSyncState('ok', 'Počet upraven');
+  setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2000);
+}
+
 async function deleteCdCard() {
   if (!_detailCard) return;
   if (!confirm(`Smazat kartu „${_detailCard.name || _detailCard.id}"?\n\nTato akce je nevratná.`)) return;
@@ -2970,20 +3195,12 @@ function renderAlbumList() {
   el.innerHTML = regular.map(a => {
     const ids = new Set((a.cardIds||[]).map(String));
     const cnt = ids.size;
-    const albumCards = allCards.filter(c => ids.has(String(c.id)));
-    const totalEur = albumCards.reduce((s, c) => s + ((c.p30d||0) * (c.count||c.qty||1)), 0);
-    let valStr = '';
-    if (totalEur > 0) {
-      valStr = totalEur.toFixed(2) + ' €';
-      if (window._eurRate) valStr += ' / ' + Math.round(totalEur * window._eurRate).toLocaleString('cs-CZ') + ' Kč';
-    }
     return `
     <button class="album-item ${activeAlbumId === a.id ? 'active' : ''}"
       onclick="setAlbum('${esc(a.id)}')">
       <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
       <span class="album-name">${esc(a.name)}</span>
       <span class="album-cnt">${cnt}</span>
-      ${valStr ? `<span class="album-val">· ${esc(valStr)}</span>` : ''}
       <button class="album-del-btn" onclick="event.stopPropagation();deleteAlbum('${esc(a.id)}')" title="Smazat album">✕</button>
     </button>`;
   }).join('');
@@ -3601,10 +3818,11 @@ let _openFilterPanel = ''; // 'rarity' | 'type' | 'subtype' | 'energytype' | ''
 
 const FLAT_FILTER_DEFS = {
   all: [
-    { key: 'rarity',  label: '🌟 Rarity',             getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'type',    label: '🔥 Pokémon TYPE',        getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
-    { key: 'subtype', label: '✨ Speciální edice',      getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
-    { key: 'subtype_trainer', label: '📋 Trainer typ', getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'rarity',          label: '🌟 Rarity',             getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',            label: '🔥 Pokémon TYPE',        getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'subtype',         label: '✨ Speciální edice',      getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'subtype_trainer', label: '📋 Trainer typ',         getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'energytype',      label: '⚡ Energy TYPE',          getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
   ],
   pokemon: [
     { key: 'rarity',  label: '🌟 Rarity',         getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
