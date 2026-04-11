@@ -3600,15 +3600,20 @@ function showAccordionGroup(group) { /* legacy — flat filter rerenders */ }
 let _openFilterPanel = ''; // 'rarity' | 'type' | 'subtype' | 'energytype' | ''
 
 const FLAT_FILTER_DEFS = {
+  all: [
+    { key: 'rarity',  label: '🌟 Rarity',             getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',    label: '🔥 Pokémon TYPE',        getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'subtype', label: '✨ Speciální edice',      getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'subtype_trainer', label: '📋 Trainer typ', getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+  ],
   pokemon: [
-    { key: 'rarity',  label: '🌟 Rarity',       getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'type',    label: '🔥 Pokémon TYPE',  getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
-    { key: 'subtype', label: '📋 Subtype',        getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
-    { key: 'energytype', label: '⚡ Energy TYPE', getValue: () => activeEnergyType, getLabel: () => tLabel(TYPE_LABELS_I18N, activeEnergyType) },
+    { key: 'rarity',  label: '🌟 Rarity',         getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',    label: '🔥 Pokémon TYPE',    getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'subtype', label: '✨ Speciální edice',  getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
   ],
   trainer: [
-    { key: 'rarity',  label: '🌟 Rarity',        getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'subtype', label: '📋 Subtype',        getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'rarity',         label: '🌟 Rarity',        getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'subtype_trainer',label: '📋 Trainer typ',   getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
   ],
   energy: [
     { key: 'rarity',     label: '🌟 Rarity',      getValue: () => activeRarity, getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
@@ -3677,22 +3682,31 @@ const FLAT_CHIPS = {
     { label: '🌟 Tera',          fn: "setTrainerSub('Tera')" },
     { label: '🦎 TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
   ],
-  type_pokemon: [
-    { label: 'Vše',                                                              fn: "setType('')" },
-    { label: '<img src="elements/fire.png" class="type-icon"> Fire',            fn: "setType('fire')" },
-    { label: '<img src="elements/water.png" class="type-icon"> Water',          fn: "setType('water')" },
-    { label: '<img src="elements/grass.png" class="type-icon"> Grass',          fn: "setType('grass')" },
-    { label: '<img src="elements/electric.png" class="type-icon"> Electric',    fn: "setType('lightning')" },
-    { label: '<img src="elements/psychic.png" class="type-icon"> Psychic',      fn: "setType('psychic')" },
-    { label: '<img src="elements/dark.png" class="type-icon"> Dark',            fn: "setType('darkness')" },
-    { label: '<img src="elements/dragon.png" class="type-icon"> Dragon',        fn: "setType('dragon')" },
-    { label: '<img src="elements/steel.png" class="type-icon"> Metal',          fn: "setType('metal')" },
-    { label: '<img src="elements/fighting.png" class="type-icon"> Fighting',    fn: "setType('fighting')" },
-    { label: '<img src="elements/fairy.png" class="type-icon"> Fairy',          fn: "setType('fairy')" },
-    { label: '<img src="elements/normal.png" class="type-icon"> Colorless',     fn: "setType('colorless')" },
-    { label: '<img src="elements/normal.png" class="type-icon"> Normal',        fn: "setType('normal')" },
+  subtype_all: [
+    { label: 'Vše',              fn: "setTrainerSub('')" },
+    { label: '🥚 Basic',         fn: "setTrainerSub('Basic')" },
+    { label: '🔀 Stage 1',       fn: "setTrainerSub('Stage 1')" },
+    { label: '🔀 Stage 2',       fn: "setTrainerSub('Stage 2')" },
+    { label: '⭐ EX',            fn: "setTrainerSub('EX')" },
+    { label: '⭐ GX',            fn: "setTrainerSub('GX')" },
+    { label: '⭐ V',             fn: "setTrainerSub('V')" },
+    { label: '⭐ VMAX',          fn: "setTrainerSub('VMAX')" },
+    { label: '⭐ VSTAR',         fn: "setTrainerSub('VSTAR')" },
+    { label: '⭐ ex',            fn: "setTrainerSub('ex')" },
+    { label: '🌟 Tera',          fn: "setTrainerSub('Tera')" },
+    { label: '🦎 TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
+    { label: '🏟️ Stadium',      fn: "setTrainerSub('Stadium')" },
+    { label: '🧑 Supporter',    fn: "setTrainerSub('Supporter')" },
+    { label: '🎒 Item',          fn: "setTrainerSub('Item')" },
+    { label: '🔧 Tool',          fn: "setTrainerSub('Tool')" },
   ],
-  type_energy: [
+  subtype_trainer: [
+    { label: 'Vše',             fn: "setTrainerSub('')" },
+    { label: '🏟️ Stadium',     fn: "setTrainerSub('Stadium')" },
+    { label: '🧑 Supporter',   fn: "setTrainerSub('Supporter')" },
+    { label: '🎒 Item',        fn: "setTrainerSub('Item')" },
+    { label: '🔧 Tool',        fn: "setTrainerSub('Tool')" },
+  ],
     { label: 'Vše',                                                          fn: "setType('')" },
     { label: '<img src="elements/fire.png" class="type-icon"> Fire',         fn: "setType('fire')" },
     { label: '<img src="elements/water.png" class="type-icon"> Water',       fn: "setType('water')" },
@@ -3716,11 +3730,13 @@ const FLAT_CHIPS = {
 };
 
 function getChipsKey(panelKey, group) {
-  if (panelKey === 'rarity')     return `rarity_${group}`;
-  if (panelKey === 'type')       return `type_pokemon`;
-  if (panelKey === 'energytype') return `type_energy`;
+  if (panelKey === 'rarity')          return `rarity_${group === 'all' ? 'pokemon' : group}`;
+  if (panelKey === 'type')            return `type_pokemon`;
+  if (panelKey === 'energytype')      return `type_energy`;
+  if (panelKey === 'subtype_trainer') return `subtype_trainer`;
+  if (panelKey === 'subtype' && group === 'all')     return `subtype_all`;
   if (panelKey === 'subtype' && group === 'pokemon') return `subtype_pokemon`;
-  if (panelKey === 'subtype')    return `subtype_trainer`;
+  if (panelKey === 'subtype')         return `subtype_trainer`;
   return null;
 }
 
@@ -3734,7 +3750,8 @@ function getActiveValueForPanel(panelKey) {
 function renderFlatFilterBtns() {
   const group = activeSupertype === 'Trainer' ? 'trainer'
               : activeSupertype === 'Energy'  ? 'energy'
-              : 'pokemon';
+              : activeSupertype === 'Pokémon' ? 'pokemon'
+              : 'all';
   const defs  = FLAT_FILTER_DEFS[group] || [];
   const btns  = document.getElementById('ffBtns');
   const wrap  = document.getElementById('flatFilterWrap');
@@ -3763,7 +3780,8 @@ function renderFlatFilterBtns() {
 function renderFlatFilterChips() {
   const group = activeSupertype === 'Trainer' ? 'trainer'
               : activeSupertype === 'Energy'  ? 'energy'
-              : 'pokemon';
+              : activeSupertype === 'Pokémon' ? 'pokemon'
+              : 'all';
   const row   = document.getElementById('ffChipsRow');
   if (!row) return;
   if (!_openFilterPanel) {
