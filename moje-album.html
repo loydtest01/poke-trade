@@ -1167,16 +1167,6 @@ body { background: #06040c; overflow-x: hidden; }
 
 
 /* Odhlásit — červené */
-.btn-logout {
-  color: rgba(248,113,113,0.85) !important;
-  border-color: rgba(248,113,113,0.25) !important;
-}
-.btn-logout:hover {
-  background: rgba(248,113,113,0.1) !important;
-  color: #f87171 !important;
-  border-color: rgba(248,113,113,0.45) !important;
-}
-.btn-logout .nav-icon { filter: brightness(1) saturate(1) !important; mix-blend-mode: normal !important; }
 </style>
 </head>
 <body>
@@ -1192,7 +1182,6 @@ body { background: #06040c; overflow-x: hidden; }
     <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
     <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
     <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-  
     <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
   </nav>
   <div class="topbar-right">
@@ -1214,16 +1203,12 @@ body { background: #06040c; overflow-x: hidden; }
         </div>
       </div>
     </div>
-    <button class="sync-btn" id="syncBtn" onclick="doSync()">
-      <div class="sync-dot" id="syncDot"></div>
-      <span id="syncLabel">Sync</span>
-    </button>
     <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
     </a>
     <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline btn-logout" style="display:none;font-size:13px"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
 
