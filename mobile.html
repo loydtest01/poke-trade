@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>PhotoBridge</title>
+<link rel="manifest" href="mobile-manifest.json">
+<meta name="theme-color" content="#0f1117">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="AI PC">
 <style>
 :root {
   --bg:      #0f1117;
@@ -244,6 +250,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <button id="chipFake" onclick="toggleFakeMode()">🃏 FAKE</button>
       <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
       <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
+      <button id="chipInstall" onclick="installPWA()" title="Přidat na plochu" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;white-space:nowrap;cursor:pointer;text-align:center">📲 Plocha</button>
     </div>
   </div>
   <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -557,7 +564,7 @@ let captureMode  = 'front';
 let currentCond  = 'NM';
 let batchId      = Date.now().toString(36);
 let cards        = [];
-let fakeMode     = false;
+let fakeMode     = params.get('fake') === '1';  // ?fake=1 → auto-zapne FAKE mód
 
 // ─── Groq key ────────────────────────────────────────────────
 let groqKey = params.get('gk') || null;
@@ -567,6 +574,13 @@ window.onload = () => {
   selectCount(1, true);
   updateStatusChips();
   initSwipe();
+
+  // Auto-aktivuj FAKE mód pokud přišel přes ?fake=1
+  if (fakeMode) {
+    const btn = document.getElementById('chipFake');
+    if (btn) { btn.classList.add('fake-on'); btn.textContent = '🔴 FAKE'; }
+    toast('🎭 FAKE trénink zapnut');
+  }
 
   // Pokud má uživatel token, ukáž scSetup (inline script to nestihl – scSetup ještě nebyl v DOMu)
   if (mobileToken) {
@@ -1815,6 +1829,51 @@ If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez po�
 
 // ── Periodická aktualizace stavových čipů ──────────────────
 setInterval(updateStatusChips, 15000);
+
+// ── PWA Install – tlačítko "Přidat na plochu" ──────────────
+let _installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault();
+  _installPrompt = e;
+  const btn = document.getElementById('chipInstall');
+  if (btn) btn.style.display = '';   // zobraz tlačítko
+});
+
+window.addEventListener('appinstalled', function() {
+  _installPrompt = null;
+  const btn = document.getElementById('chipInstall');
+  if (btn) btn.style.display = 'none';
+  toast('✅ Zkratka přidána na plochu!', 'success');
+});
+
+function installPWA() {
+  if (_installPrompt) {
+    // Android Chrome – nativní prompt
+    _installPrompt.prompt();
+    _installPrompt.userChoice.then(function(r) {
+      if (r.outcome === 'accepted') toast('✅ Přidáno na plochu!');
+      _installPrompt = null;
+      var btn = document.getElementById('chipInstall');
+      if (btn) btn.style.display = 'none';
+    });
+  } else {
+    // iOS Safari – nelze automaticky, ukáž instrukce
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    if (isIOS) {
+      toast('Na iPhone: Sdílet (□↑) → Přidat na plochu', 'info');
+    } else {
+      // Už nainstalováno nebo nepodporováno
+      toast('Otevři stránku v Chrome a zkus znovu', 'info');
+    }
+  }
+}
+
+// iOS: vždy ukaž tlačítko (nemají beforeinstallprompt)
+if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
+  var _iosBtn = document.getElementById('chipInstall');
+  if (_iosBtn) _iosBtn.style.display = '';
+}
 
 </script>
 </body>

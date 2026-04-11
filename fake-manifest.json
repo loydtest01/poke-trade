@@ -1,0 +1,25 @@
+{
+  "name": "FAKE trénink",
+  "short_name": "FAKE",
+  "description": "Posílej vzorové fotky pro AI trénink falzifikátů",
+  "start_url": "./mobile.html?fake=1",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#C62828",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "icon-fake-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-fake-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

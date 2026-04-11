@@ -2590,6 +2590,7 @@ function _apply3DTransform() {
 
 function _3dPointerDown(e) {
   _3d.down = true; _3d.lastX = e.clientX; _3d.lastY = e.clientY;
+  _3d.startX = e.clientX; _3d.startY = e.clientY; _3d.dragged = false;
   e.preventDefault();
 }
 function _3dPointerMove(e) {
@@ -2599,18 +2600,17 @@ function _3dPointerMove(e) {
   _3d.rotY += dx * 0.6;
   _3d.rotX -= dy * 0.6;
   _3d.rotX = Math.max(-80, Math.min(80, _3d.rotX));
+  if (Math.abs(e.clientX - _3d.startX) > 5 || Math.abs(e.clientY - _3d.startY) > 5) _3d.dragged = true;
   _apply3DTransform();
 }
 function _3dPointerUp(e) {
   if (!_3d.down) return;
   _3d.down = false;
-  const dx = Math.abs(e.clientX - _3d.lastX), dy = Math.abs(e.clientY - _3d.lastY);
-  // If barely moved → flip card
-  if (dx < 5 && dy < 5) { _3d.flipped = !_3d.flipped; _apply3DTransform(); }
+  if (!_3d.dragged) { _3d.flipped = !_3d.flipped; _apply3DTransform(); }
 }
-function _3dTouchStart(e) { if (e.touches.length===1) { _3d.down=true; _3d.lastX=e.touches[0].clientX; _3d.lastY=e.touches[0].clientY; e.preventDefault(); } }
-function _3dTouchMove(e) { if (!_3d.down||e.touches.length!==1) return; const dx=e.touches[0].clientX-_3d.lastX, dy=e.touches[0].clientY-_3d.lastY; _3d.lastX=e.touches[0].clientX; _3d.lastY=e.touches[0].clientY; _3d.rotY+=dx*0.6; _3d.rotX-=dy*0.6; _3d.rotX=Math.max(-80,Math.min(80,_3d.rotX)); _apply3DTransform(); e.preventDefault(); }
-function _3dTouchEnd() { _3d.down=false; }
+function _3dTouchStart(e) { if (e.touches.length===1) { _3d.down=true; _3d.startX=_3d.lastX=e.touches[0].clientX; _3d.startY=_3d.lastY=e.touches[0].clientY; _3d.dragged=false; e.preventDefault(); } }
+function _3dTouchMove(e) { if (!_3d.down||e.touches.length!==1) return; const dx=e.touches[0].clientX-_3d.lastX, dy=e.touches[0].clientY-_3d.lastY; _3d.lastX=e.touches[0].clientX; _3d.lastY=e.touches[0].clientY; _3d.rotY+=dx*0.6; _3d.rotX-=dy*0.6; _3d.rotX=Math.max(-80,Math.min(80,_3d.rotX)); if(Math.abs(e.touches[0].clientX-_3d.startX)>5||Math.abs(e.touches[0].clientY-_3d.startY)>5)_3d.dragged=true; _apply3DTransform(); e.preventDefault(); }
+function _3dTouchEnd() { if(!_3d.dragged){_3d.flipped=!_3d.flipped;_apply3DTransform();} _3d.down=false; }
 
 function _bind3DEvents() {
   const scene = document.getElementById('cd3DScene');
