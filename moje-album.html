@@ -2969,25 +2969,42 @@ function renderPrices(c, el) {
 async function fetchLivePrices(c, el) {
   if (!el) return;
   try {
-    // Zkus přes apiId (přesné) nebo hledáním podle jména+čísla
-    let apiUrl;
-    const apiId = c.apiId || c.id;
-    const num   = (c.number || c.num || "").toString().split("/")[0];
-    const name  = c.name || '';
-    const set   = c.set  || '';
+    const apiId    = c.apiId || c.id;
+    const numRaw   = (c.number || c.num || "").toString().split("/")[0];
+    const numNoZero = numRaw.replace(/^0+/, '') || numRaw; // "009" -> "9"
+    const name     = c.name || '';
+    const set      = c.set  || '';
 
-    // Hledání: jméno + číslo karty (nejpřesnější bez apiId)
-    if (name) {
-      const q = num
-        ? `name:"${name}" number:${num}`
-        : `name:"${name}" set.name:"${set}"`;
-      apiUrl = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+    // Sestavíme seznam URL ke zkoušení (od nejpřesnějšího)
+    const candidates = [];
+    // 1. Přímý apiId (nejpřesnější)
+    if (apiId && apiId.includes('-')) {
+      candidates.push(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(apiId)}`);
     }
-    if (!apiUrl) return;
+    if (name) {
+      // 2. jméno + číslo (původní formát)
+      if (numRaw) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numRaw}`)}&pageSize=1`);
+      // 3. jméno + číslo bez leading zeros
+      if (numNoZero && numNoZero !== numRaw) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numNoZero}`)}&pageSize=1`);
+      // 4. jméno + série
+      if (set) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" set.name:"${set}"`)}&pageSize=1`);
+      // 5. pouze jméno (nejméně přesné)
+      candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}"`)}&pageSize=1`);
+    }
+    if (!candidates.length) return;
 
-    const res  = await fetch(apiUrl);
-    const json = await res.json();
-    const card = json?.data?.[0];
+    // Zkusíme postupně každý kandidát dokud nenajdeme kartu
+    let card = null;
+    for (const url of candidates) {
+      try {
+        const res  = await fetch(url);
+        if (!res.ok) continue;
+        const json = await res.json();
+        const hit  = json?.data ? json.data[0] : (json?.id ? json : null);
+        if (hit) { card = hit; break; }
+      } catch(e) { continue; }
+    }
+
     if (!card) {
       if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
         Ceny nenalezeny — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
