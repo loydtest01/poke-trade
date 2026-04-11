@@ -959,6 +959,8 @@ body { background: #06040c; overflow-x: hidden; }
   display: flex; align-items: center; justify-content: center; padding: 20px;
 }
 .modal-bg.hidden { display: none; }
+#photoPickerModal.hidden,
+#markCompletedModal.hidden { display: none !important; }
 .modal-box {
   background: var(--bg2); border: 1px solid var(--border2);
   border-radius: 18px; width: 100%; max-width: 420px; overflow: hidden;
@@ -1183,8 +1185,6 @@ body { background: #06040c; overflow-x: hidden; }
     <div class="sb-section">
       <span class="sb-label" data-i18n="show">Zobrazit</span>
       <button class="sb-btn active" onclick="setView('all')"  id="vb-all" data-i18n="all_cards">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
-      <button class="sb-btn"        onclick="setView('trade')" id="vb-trade" data-i18n="for_trade">🔄 K výměně <span class="cnt" id="cnt-trade">0</span></button>
-      <button class="sb-btn"        onclick="setView('sell')"  id="vb-sell" data-i18n="for_sell">💰 K prodeji <span class="cnt" id="cnt-sell">0</span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1202,6 +1202,8 @@ body { background: #06040c; overflow-x: hidden; }
       <span class="sb-label" data-i18n="spec_alb">Speciální alba</span>
       <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75">✅ Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75">💚 Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1255,6 +1257,7 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sel-action-btn" onclick="bulkSetTrade(false)" style="background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.1)">✕ Zrušit výměnu</button>
       <button class="sel-action-btn" onclick="bulkSetSell(true)"   style="background:rgba(34,197,94,0.15);color:#4ade80;border:1px solid rgba(34,197,94,0.3)">💰 K prodeji</button>
       <button class="sel-action-btn" onclick="bulkSetSell(false)"  style="background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.1)">✕ Zrušit prodej</button>
+      <button class="sel-action-btn" id="btnMarkCompleted" onclick="openMarkCompletedModal()" style="display:none;background:rgba(245,200,66,0.15);color:#f5c842;border:1px solid rgba(245,200,66,0.3)">✅ Označit jako dokončeno</button>
       <button class="sel-action-btn sel-remove"  onclick="bulkDelete()" style="margin-left:auto">🗑 Smazat</button>
       <button class="sel-action-btn sel-cancel"  onclick="cancelSelect()">✕ Zrušit výběr</button>
     </div>
@@ -1682,7 +1685,7 @@ let editingAlbumId = null;
   syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
   syncObchodAlbum().catch(e => console.warn('[obchod init]', e));
   // First-run: pokud uživatel nemá žádná alba, zobraz uvítací modal
-  if (!localStorage.getItem('pkc_first_run_done') && allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name)).length === 0) {
+  if (!localStorage.getItem('pkc_first_run_done') && allAlbums.filter(a => !['Výměna','Obchod','Vyměněno','Prodáno'].includes(a.name)).length === 0) {
     document.getElementById('firstRunModal').classList.remove('hidden');
   }
   autoSync();
@@ -2808,19 +2811,31 @@ Tato akce je nevratná.`)) return;
 //  ALBUM SIDEBAR RENDER
 // ══════════════════════════════════════════════════════════════════
 function renderAlbumList() {
+  const SPECIAL_NAMES = ['Výměna','Obchod','Vyměněno','Prodáno'];
   // Aktualizuj počty speciálních alb v sidebaru
-  const vymena = allAlbums.find(a => a.name === 'Výměna');
-  const obchod = allAlbums.find(a => a.name === 'Obchod');
-  document.getElementById('cnt-vymena').textContent = (vymena?.cardIds||[]).length;
-  document.getElementById('cnt-obchod').textContent = (obchod?.cardIds||[]).length;
+  const vymena   = allAlbums.find(a => a.name === 'Výměna');
+  const obchod   = allAlbums.find(a => a.name === 'Obchod');
+  const vymeneno = allAlbums.find(a => a.name === 'Vyměněno');
+  const prodano  = allAlbums.find(a => a.name === 'Prodáno');
+  document.getElementById('cnt-vymena').textContent   = (vymena?.cardIds||[]).length;
+  document.getElementById('cnt-obchod').textContent   = (obchod?.cardIds||[]).length;
+  document.getElementById('cnt-vymeneno').textContent = (vymeneno?.cardIds||[]).length;
+  document.getElementById('cnt-prodano').textContent  = (prodano?.cardIds||[]).length;
 
-  // Zvýrazni aktivní speciální album v sidebaru
-  document.getElementById('sbVymena').classList.toggle('active', activeAlbumId === vymena?.id);
-  document.getElementById('sbObchod').classList.toggle('active', activeAlbumId === obchod?.id);
+  // Zvýrazni aktivní speciální album
+  document.getElementById('sbVymena').classList.toggle('active',   activeAlbumId === vymena?.id);
+  document.getElementById('sbObchod').classList.toggle('active',   activeAlbumId === obchod?.id);
+  document.getElementById('sbVymeneno').classList.toggle('active', activeAlbumId === vymeneno?.id);
+  document.getElementById('sbProdano').classList.toggle('active',  activeAlbumId === prodano?.id);
+
+  // Zobraz/skryj tlačítko "Označit jako dokončeno" ve select banneru
+  const isSpecialTrade = activeAlbumId && (activeAlbumId === vymena?.id || activeAlbumId === obchod?.id);
+  const btnCompleted = document.getElementById('btnMarkCompleted');
+  if (btnCompleted) btnCompleted.style.display = isSpecialTrade ? '' : 'none';
 
   const el = document.getElementById('albumList');
   // Skryj speciální alba ze seznamu
-  const regular = allAlbums.filter(a => !['Výměna','Obchod'].includes(a.name));
+  const regular = allAlbums.filter(a => !SPECIAL_NAMES.includes(a.name));
   if (!regular.length) {
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
     return;
@@ -2916,6 +2931,7 @@ function startSelectMode() {
   selectMode = true; selectedIds.clear();
   document.getElementById('bulkSelectBtn').style.display = 'none';
   document.getElementById('removeFromAlbumBtn').style.display = activeAlbumId ? '' : 'none';
+  renderAlbumList(); // aktualizuje btnMarkCompleted dle aktivního alba
   updateSelectBanner();
   render();
 }
@@ -2924,6 +2940,8 @@ function cancelSelect() {
   selectMode = false; selectedIds.clear();
   document.getElementById('selectBanner').classList.remove('active');
   document.getElementById('bulkSelectBtn').style.display = '';
+  const btnC = document.getElementById('btnMarkCompleted');
+  if (btnC) btnC.style.display = 'none';
   render();
 }
 
@@ -2970,82 +2988,25 @@ async function removeSelectedFromAlbum() {
 //  BULK AKCE – výměna a mazání
 // ══════════════════════════════════════════════════════════════════
 
-/** Označí / odznačí vybrané karty jako k výměně a synchronizuje album "Výměna" */
+/** Označí / odznačí vybrané karty jako k výměně – nejprve vybere fotosady */
 async function bulkSetTrade(forTrade) {
   if (!selectedIds.size) return;
-  const ids = [...selectedIds];
-  setSyncState('syncing', forTrade ? 'Označuji k výměně…' : 'Odebírám z výměny…');
-  try {
-    // 1. Aktualizuj for_trade v user_cards
-    const payload = ids.map(id => {
-      const c = allCards.find(x => String(x.id) === id);
-      return {
-        local_id: id,
-        for_trade: forTrade,
-        for_sell: c?.for_sell || false,
-        price_czk: c?.price_czk || null,
-        updated_at: new Date().toISOString(),
-        card_data: buildCardData(c),
-      };
-    });
-    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
-      { p_user_id: userId, p_cards: payload });
-
-    // 2. Aktualizuj lokální pole
-    ids.forEach(id => {
-      const c = allCards.find(x => String(x.id) === id);
-      if (c) c.for_trade = forTrade;
-    });
-
-    // 3. Synchronizuj album "Výměna" v user_albums
-    await syncVymenaAlbum();
-
-    updateStats();
-    cancelSelect();
-    render();
-    setSyncState('ok', forTrade ? `${ids.length} karet → výměna ✓` : `Výměna odebrána ✓`);
-    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
-  } catch(e) {
-    console.error('[bulkSetTrade]', e);
-    setSyncState('', 'Chyba: ' + e.message);
+  if (!forTrade) {
+    // Zrušit výměnu – přímá akce bez modalu
+    await _bulkSetTradeConfirm([...selectedIds], false);
+    return;
   }
+  await openPhotoPickerModal([...selectedIds], 'trade');
 }
 
-/** Označí / odznačí vybrané karty jako k prodeji a synchronizuje album "Obchod" */
+/** Označí / odznačí vybrané karty jako k prodeji – nejprve vybere fotosady */
 async function bulkSetSell(forSell) {
   if (!selectedIds.size) return;
-  const ids = [...selectedIds];
-  setSyncState('syncing', forSell ? 'Označuji k prodeji…' : 'Odebírám z prodeje…');
-  try {
-    const payload = ids.map(id => {
-      const c = allCards.find(x => String(x.id) === id);
-      return {
-        local_id: id,
-        for_trade: c?.for_trade || false,
-        for_sell: forSell,
-        price_czk: c?.price_czk || null,
-        updated_at: new Date().toISOString(),
-        card_data: buildCardData(c),
-      };
-    });
-    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST',
-      { p_user_id: userId, p_cards: payload });
-
-    ids.forEach(id => {
-      const c = allCards.find(x => String(x.id) === id);
-      if (c) c.for_sell = forSell;
-    });
-
-    await syncObchodAlbum();
-    updateStats();
-    cancelSelect();
-    render();
-    setSyncState('ok', forSell ? `${ids.length} karet → obchod ✓` : `Prodej odebrán ✓`);
-    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
-  } catch(e) {
-    console.error('[bulkSetSell]', e);
-    setSyncState('', 'Chyba: ' + e.message);
+  if (!forSell) {
+    await _bulkSetSellConfirm([...selectedIds], false);
+    return;
   }
+  await openPhotoPickerModal([...selectedIds], 'sell');
 }
 
 /** Smaže vybrané karty z Supabase a lokálního pole */
@@ -3122,6 +3083,265 @@ async function syncObchodAlbum() {
   saveAlbumsLocal();
   await saveAlbumsToServer();
   renderAlbumList();
+}
+
+/**
+ * Zajistí existenci alba "Vyměněno" nebo "Prodáno".
+ */
+function ensureSpecialAlbum(name, id, color, icon) {
+  let alb = allAlbums.find(a => a.name === name);
+  if (!alb) {
+    alb = { id, name, color, icon, ownerId: null, cardIds: [] };
+    allAlbums.push(alb);
+  }
+  return alb;
+}
+
+// ── Interní potvrzení trade/sell ───────────────────────────────────────
+async function _bulkSetTradeConfirm(ids, forTrade) {
+  setSyncState('syncing', forTrade ? 'Označuji k výměně…' : 'Odebírám z výměny…');
+  try {
+    const payload = ids.map(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      return { local_id: id, for_trade: forTrade, for_sell: c?.for_sell||false,
+               price_czk: c?.price_czk||null, updated_at: new Date().toISOString(), card_data: buildCardData(c) };
+    });
+    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST', { p_user_id: userId, p_cards: payload });
+    ids.forEach(id => { const c = allCards.find(x => String(x.id) === id); if (c) c.for_trade = forTrade; });
+    await syncVymenaAlbum();
+    updateStats(); cancelSelect(); render();
+    setSyncState('ok', forTrade ? `${ids.length} karet → výměna ✓` : `Výměna odebrána ✓`);
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+  } catch(e) { console.error('[trade]', e); setSyncState('', 'Chyba: ' + e.message); }
+}
+
+async function _bulkSetSellConfirm(ids, forSell) {
+  setSyncState('syncing', forSell ? 'Označuji k prodeji…' : 'Odebírám z prodeje…');
+  try {
+    const payload = ids.map(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      return { local_id: id, for_trade: c?.for_trade||false, for_sell: forSell,
+               price_czk: c?.price_czk||null, updated_at: new Date().toISOString(), card_data: buildCardData(c) };
+    });
+    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST', { p_user_id: userId, p_cards: payload });
+    ids.forEach(id => { const c = allCards.find(x => String(x.id) === id); if (c) c.for_sell = forSell; });
+    await syncObchodAlbum();
+    updateStats(); cancelSelect(); render();
+    setSyncState('ok', forSell ? `${ids.length} karet → obchod ✓` : `Prodej odebrán ✓`);
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+  } catch(e) { console.error('[sell]', e); setSyncState('', 'Chyba: ' + e.message); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  PHOTO PICKER MODAL – výběr fotosady před přidáním do Výměna/Obchod
+// ══════════════════════════════════════════════════════════════════
+let _photoPickerIds   = [];
+let _photoPickerType  = 'trade'; // 'trade' | 'sell'
+let _photoPickerSelected = new Set(); // vybrané card IDs
+
+async function openPhotoPickerModal(cardIds, type) {
+  _photoPickerIds      = cardIds;
+  _photoPickerType     = type;
+  _photoPickerSelected = new Set();
+
+  const modal = document.getElementById('photoPickerModal');
+  const title = document.getElementById('ppTitle');
+  const grid  = document.getElementById('ppGrid');
+  const note  = document.getElementById('ppNote');
+
+  title.textContent = type === 'trade' ? '🔄 Vyberte kartičky k výměně' : '💰 Vyberte kartičky k prodeji';
+  note.textContent  = 'Klikni na přední fotku pro zobrazení celé fotosady. Vyber kartičky jejichž fotosady se přesunou do speciálního alba.';
+  grid.innerHTML    = '<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">Načítám fotky…</div>';
+  modal.classList.remove('hidden');
+
+  // Načti fotky pro všechny vybrané karty
+  const rows = [];
+  for (const cid of cardIds) {
+    const existing = allCardPhotosMap[String(cid)];
+    if (existing?.length) {
+      rows.push({ cardId: cid, photos: existing });
+    } else {
+      const fetched = await sbReq(
+        `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(cid)}&order=created_at.asc`
+      ).catch(() => null);
+      if (fetched?.length) {
+        allCardPhotosMap[String(cid)] = fetched;
+        rows.push({ cardId: cid, photos: fetched });
+      }
+    }
+  }
+
+  if (!rows.length) {
+    // Žádné reálné fotky – oznámení a pokračování
+    grid.innerHTML = `
+      <div style="text-align:center;padding:30px 20px;color:var(--text3)">
+        <div style="font-size:32px;margin-bottom:10px">📷</div>
+        <div style="font-size:13px;margin-bottom:16px">Vybrané kartičky nemají reálné fotky.<br>Přidej fotky přes skener nebo detail karty.</div>
+        <button onclick="closePhotoPickerModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:var(--text2);padding:8px 18px;font-family:inherit;cursor:pointer;font-size:12px">Zavřít</button>
+      </div>`;
+    return;
+  }
+
+  // Renderuj grid karet s přední fotkou
+  const sideLabel = { front:'Přední', back:'Zadní', detail:'Detail', name:'JP název' };
+  grid.innerHTML = rows.map(({ cardId, photos }) => {
+    const card  = allCards.find(c => String(c.id) === cardId);
+    const front = photos.find(p => p.side === 'front') || photos[0];
+
+    // Seskup fotky dle batch_id pro počet
+    const batches = new Map();
+    for (const p of photos) {
+      const k = p.batch_id || ('solo_' + p.id);
+      if (!batches.has(k)) batches.set(k, []);
+      batches.get(k).push(p);
+    }
+    const batchCount  = batches.size;
+    const photosJson  = photos.map(p => JSON.stringify(p).replace(/"/g,'&quot;')).join(',');
+
+    return `
+      <div class="pp-card-tile" id="pptile_${cardId}" data-cardid="${cardId}" onclick="ppToggleCard('${cardId}')">
+        <div class="pp-front-wrap">
+          <img src="${esc(front.url)}" alt="foto" loading="lazy" onclick="event.stopPropagation();ppOpenGallery('${cardId}',[${photosJson}])" title="Klikni pro zobrazení všech fotek">
+          <div class="pp-photo-cnt">${photos.length}× 📷</div>
+          <div class="pp-batch-cnt">${batchCount > 1 ? batchCount + ' focení' : ''}</div>
+          <div class="pp-check">✓</div>
+        </div>
+        <div class="pp-card-name">${esc(card?.name || cardId)}</div>
+        <div class="pp-card-cond">${esc(card?.condition || card?.cond || 'NM')}</div>
+      </div>`;
+  }).join('');
+}
+
+function ppToggleCard(cardId) {
+  const tile = document.getElementById('pptile_' + cardId);
+  if (!tile) return;
+  if (_photoPickerSelected.has(cardId)) {
+    _photoPickerSelected.delete(cardId);
+    tile.classList.remove('pp-selected');
+  } else {
+    _photoPickerSelected.add(cardId);
+    tile.classList.add('pp-selected');
+  }
+  document.getElementById('ppConfirmBtn').disabled = _photoPickerSelected.size === 0;
+}
+
+function ppSelectAll() {
+  _photoPickerIds.forEach(id => {
+    _photoPickerSelected.add(id);
+    document.getElementById('pptile_' + id)?.classList.add('pp-selected');
+  });
+  document.getElementById('ppConfirmBtn').disabled = false;
+}
+
+function ppOpenGallery(cardId, photos) {
+  const card = allCards.find(c => String(c.id) === cardId);
+  window.openPhotoGallery(photos, 0, card?.name || cardId);
+}
+
+function closePhotoPickerModal() {
+  document.getElementById('photoPickerModal').classList.add('hidden');
+  _photoPickerIds = []; _photoPickerSelected = new Set();
+}
+
+async function confirmPhotoPicker() {
+  if (!_photoPickerSelected.size) return;
+  const ids = [..._photoPickerSelected];
+  closePhotoPickerModal();
+  if (_photoPickerType === 'trade') {
+    await _bulkSetTradeConfirm(ids, true);
+  } else {
+    await _bulkSetSellConfirm(ids, true);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  OZNAČIT JAKO DOKONČENO – přesun do Vyměněno/Prodáno
+// ══════════════════════════════════════════════════════════════════
+function openMarkCompletedModal() {
+  if (!selectedIds.size) return;
+  const vymena = allAlbums.find(a => a.name === 'Výměna');
+  const obchod = allAlbums.find(a => a.name === 'Obchod');
+  const isTradeAlbum = activeAlbumId === vymena?.id;
+  const isSellAlbum  = activeAlbumId === obchod?.id;
+
+  const modal   = document.getElementById('markCompletedModal');
+  const btnVym  = document.getElementById('mcBtnVymeneno');
+  const btnProd = document.getElementById('mcBtnProdano');
+
+  // Zobraz jen relevantní tlačítka dle kontextu
+  btnVym.style.display  = isTradeAlbum ? '' : 'none';
+  btnProd.style.display = isSellAlbum  ? '' : 'none';
+  // Pokud jsme v Výměna i Obchod zároveň (nepravděpodobné), zobraz obě
+  if (!isTradeAlbum && !isSellAlbum) { btnVym.style.display = ''; btnProd.style.display = ''; }
+
+  modal.classList.remove('hidden');
+}
+
+function closeMarkCompletedModal() {
+  document.getElementById('markCompletedModal').classList.add('hidden');
+}
+
+async function markAsCompleted(target) {
+  // target = 'vymeneno' | 'prodano'
+  closeMarkCompletedModal();
+  if (!selectedIds.size) return;
+  const ids = [...selectedIds];
+  const isVymeneno = target === 'vymeneno';
+  const albName  = isVymeneno ? 'Vyměněno' : 'Prodáno';
+  const albId    = (isVymeneno ? 'alb_vymeneno_' : 'alb_prodano_') + userId;
+  const albColor = isVymeneno ? '#a78bfa' : '#4ade80';
+  const albIcon  = isVymeneno ? '✅' : '💚';
+
+  setSyncState('syncing', `Označuji jako ${albName}…`);
+  try {
+    // 1. Odznač for_trade / for_sell
+    const vymena = allAlbums.find(a => a.name === 'Výměna');
+    const obchod = allAlbums.find(a => a.name === 'Obchod');
+    const isFromTrade = activeAlbumId === vymena?.id;
+    const isFromSell  = activeAlbumId === obchod?.id;
+
+    const payload = ids.map(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      return {
+        local_id: id,
+        for_trade: isFromTrade ? false : (c?.for_trade||false),
+        for_sell:  isFromSell  ? false : (c?.for_sell||false),
+        price_czk: c?.price_czk||null,
+        updated_at: new Date().toISOString(),
+        card_data: buildCardData(c),
+      };
+    });
+    await sbReq('rest/v1/rpc/upsert_user_cards', 'POST', { p_user_id: userId, p_cards: payload });
+    ids.forEach(id => {
+      const c = allCards.find(x => String(x.id) === id);
+      if (c) { if (isFromTrade) c.for_trade = false; if (isFromSell) c.for_sell = false; }
+    });
+
+    // 2. Přidej do cílového alba (Vyměněno/Prodáno)
+    const targetAlb = ensureSpecialAlbum(albName, albId, albColor, albIcon);
+    ids.forEach(id => { if (!targetAlb.cardIds.includes(id)) targetAlb.cardIds.push(id); });
+
+    // 3. Odstraň ze zdrojového speciálního alba (Výměna nebo Obchod) i ze všech normálních alb
+    if (isFromTrade && vymena) vymena.cardIds = vymena.cardIds.filter(x => !ids.includes(x));
+    if (isFromSell  && obchod) obchod.cardIds = obchod.cardIds.filter(x => !ids.includes(x));
+    // Odstraň z normálních alb
+    const SPECIAL_NAMES = ['Výměna','Obchod','Vyměněno','Prodáno'];
+    allAlbums.filter(a => !SPECIAL_NAMES.includes(a.name))
+             .forEach(a => { a.cardIds = a.cardIds.filter(x => !ids.includes(x)); });
+
+    // 4. Ulož
+    saveAlbumsLocal();
+    await saveAlbumsToServer();
+    if (isFromTrade) await syncVymenaAlbum();
+    if (isFromSell)  await syncObchodAlbum();
+
+    updateStats(); cancelSelect(); renderAlbumList(); render();
+    setSyncState('ok', `${ids.length} karet → ${albName} ✓`);
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+  } catch(e) {
+    console.error('[markAsCompleted]', e);
+    setSyncState('', 'Chyba: ' + e.message);
+  }
 }
 
 /** Pomocná funkce: sestav card_data objekt pro upsert */
@@ -3329,10 +3549,21 @@ const FLAT_CHIPS = {
     { label: '⭐ ex',            fn: "setTrainerSub('ex')" },
     { label: '🌟 Tera',          fn: "setTrainerSub('Tera')" },
     { label: '🦎 TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
-  ],hting.png" class="type-icon"> Fighting',fn: "setType('fighting')" },
-    { label: '<img src="elements/fairy.png" class="type-icon"> Fairy',     fn: "setType('fairy')" },
-    { label: '<img src="elements/normal.png" class="type-icon"> Colorless',fn: "setType('colorless')" },
-    { label: '<img src="elements/normal.png" class="type-icon"> Normal',   fn: "setType('normal')" },
+  ],
+  type_pokemon: [
+    { label: 'Vše',                                                              fn: "setType('')" },
+    { label: '<img src="elements/fire.png" class="type-icon"> Fire',            fn: "setType('fire')" },
+    { label: '<img src="elements/water.png" class="type-icon"> Water',          fn: "setType('water')" },
+    { label: '<img src="elements/grass.png" class="type-icon"> Grass',          fn: "setType('grass')" },
+    { label: '<img src="elements/electric.png" class="type-icon"> Electric',    fn: "setType('lightning')" },
+    { label: '<img src="elements/psychic.png" class="type-icon"> Psychic',      fn: "setType('psychic')" },
+    { label: '<img src="elements/dark.png" class="type-icon"> Dark',            fn: "setType('darkness')" },
+    { label: '<img src="elements/dragon.png" class="type-icon"> Dragon',        fn: "setType('dragon')" },
+    { label: '<img src="elements/steel.png" class="type-icon"> Metal',          fn: "setType('metal')" },
+    { label: '<img src="elements/fighting.png" class="type-icon"> Fighting',    fn: "setType('fighting')" },
+    { label: '<img src="elements/fairy.png" class="type-icon"> Fairy',          fn: "setType('fairy')" },
+    { label: '<img src="elements/normal.png" class="type-icon"> Colorless',     fn: "setType('colorless')" },
+    { label: '<img src="elements/normal.png" class="type-icon"> Normal',        fn: "setType('normal')" },
   ],
   type_energy: [
     { label: 'Vše',                                                          fn: "setType('')" },
@@ -3530,10 +3761,10 @@ function changeSyncMode(mode) {
 function updateStats() {
   document.getElementById('cnt-all').textContent   = allCards.length;
   document.getElementById('statAll').textContent   = allCards.length;
-  document.getElementById('cnt-trade').textContent = allCards.filter(c => c.for_trade).length;
-  document.getElementById('statTrade').textContent = allCards.filter(c => c.for_trade).length;
-  document.getElementById('cnt-sell').textContent  = allCards.filter(c => c.for_sell).length;
-  document.getElementById('statSell').textContent  = allCards.filter(c => c.for_sell).length;
+  const tradeCount = allCards.filter(c => c.for_trade).length;
+  const sellCount  = allCards.filter(c => c.for_sell).length;
+  if (document.getElementById('statTrade')) document.getElementById('statTrade').textContent = tradeCount;
+  if (document.getElementById('statSell'))  document.getElementById('statSell').textContent  = sellCount;
   // Supertype počty
   document.getElementById('st-cnt-all').textContent     = allCards.length;
   document.getElementById('st-cnt-pokemon').textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
@@ -4632,6 +4863,101 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
   });
 })();
 </script>
+<!-- ═══════════════════════════════════════════════════════════════
+     PHOTO PICKER MODAL
+═══════════════════════════════════════════════════════════════ -->
+<div id="photoPickerModal" class="hidden" style="
+  position:fixed;inset:0;z-index:1200;
+  background:rgba(0,0,0,0.88);backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+">
+  <div style="
+    background:#0e0c14;border:1px solid rgba(255,255,255,0.1);
+    border-radius:20px;width:min(98vw,780px);max-height:92vh;
+    display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 32px 100px rgba(0,0,0,.9);
+  ">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+      <div id="ppTitle" style="font-weight:700;font-size:16px;color:#fff">🔄 Vyberte kartičky k výměně</div>
+      <button onclick="closePhotoPickerModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#fff;font-size:16px;padding:4px 11px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <!-- Note -->
+    <div id="ppNote" style="padding:10px 20px 0;font-size:12px;color:rgba(240,236,228,0.4);flex-shrink:0;line-height:1.5;"></div>
+    <!-- Grid -->
+    <div id="ppGrid" style="
+      display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));
+      gap:12px;padding:16px 20px;overflow-y:auto;flex:1;
+    "></div>
+    <!-- Footer -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;gap:10px;">
+      <button onclick="ppSelectAll()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:var(--text2);font-size:12px;padding:8px 16px;cursor:pointer;font-family:inherit;">☑ Vybrat vše</button>
+      <div style="display:flex;gap:8px;">
+        <button onclick="closePhotoPickerModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:var(--text2);font-size:13px;padding:9px 20px;cursor:pointer;font-family:inherit;">Zrušit</button>
+        <button id="ppConfirmBtn" disabled onclick="confirmPhotoPicker()" style="background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.3);border-radius:8px;color:#f5c842;font-size:13px;font-weight:600;padding:9px 22px;cursor:pointer;font-family:inherit;transition:all .15s;" onmouseover="if(!this.disabled)this.style.background='rgba(245,200,66,0.28)'" onmouseout="this.style.background='rgba(245,200,66,0.15)'">Přesunout vybrané →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MARK COMPLETED MODAL
+═══════════════════════════════════════════════════════════════ -->
+<div id="markCompletedModal" class="hidden" style="
+  position:fixed;inset:0;z-index:1200;
+  background:rgba(0,0,0,0.88);backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;padding:16px;
+">
+  <div style="
+    background:#0e0c14;border:1px solid rgba(255,255,255,0.1);
+    border-radius:20px;width:min(98vw,460px);
+    display:flex;flex-direction:column;overflow:hidden;
+    box-shadow:0 32px 100px rgba(0,0,0,.9);padding:28px 28px 24px;
+  ">
+    <div style="font-weight:700;font-size:17px;color:#fff;margin-bottom:8px;">✅ Označit jako dokončeno</div>
+    <div style="font-size:13px;color:rgba(240,236,228,0.45);margin-bottom:24px;line-height:1.6;">
+      Kartičky se přesunou do archivu a odstraní se z normálního alba a ze Výměna/Obchod. Tuto akci nelze vrátit zpět.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px;">
+      <button id="mcBtnVymeneno" onclick="markAsCompleted('vymeneno')" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);border-radius:12px;color:#a78bfa;font-size:14px;font-weight:600;padding:14px 20px;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;" onmouseover="this.style.background='rgba(167,139,250,0.22)'" onmouseout="this.style.background='rgba(167,139,250,0.12)'">
+        ✅ Vyměněno <span style="font-weight:400;font-size:12px;opacity:.6;display:block;margin-top:2px">Kartičky byly úspěšně vyměněny</span>
+      </button>
+      <button id="mcBtnProdano" onclick="markAsCompleted('prodano')" style="background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.3);border-radius:12px;color:#4ade80;font-size:14px;font-weight:600;padding:14px 20px;cursor:pointer;font-family:inherit;text-align:left;transition:all .15s;" onmouseover="this.style.background='rgba(74,222,128,0.22)'" onmouseout="this.style.background='rgba(74,222,128,0.12)'">
+        💚 Prodáno <span style="font-weight:400;font-size:12px;opacity:.6;display:block;margin-top:2px">Kartičky byly úspěšně prodány</span>
+      </button>
+    </div>
+    <button onclick="closeMarkCompletedModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;color:var(--text2);font-size:13px;padding:10px 20px;cursor:pointer;font-family:inherit;width:100%;">Zrušit</button>
+  </div>
+</div>
+
+<style>
+/* ── Photo Picker Tile ────────────────────────────────── */
+.pp-card-tile {
+  border-radius:12px;border:2px solid rgba(255,255,255,0.1);
+  background:rgba(255,255,255,0.04);cursor:pointer;
+  transition:all .15s;overflow:hidden;position:relative;
+}
+.pp-card-tile:hover { border-color:rgba(245,200,66,0.4);background:rgba(245,200,66,0.06); }
+.pp-card-tile.pp-selected { border-color:#f5c842;background:rgba(245,200,66,0.1); }
+.pp-front-wrap { position:relative;aspect-ratio:3/4;overflow:hidden;background:#111; }
+.pp-front-wrap img { width:100%;height:100%;object-fit:cover;display:block;transition:transform .2s; }
+.pp-front-wrap img:hover { transform:scale(1.04); }
+.pp-photo-cnt {
+  position:absolute;bottom:5px;right:5px;background:rgba(0,0,0,0.75);
+  color:#f5c842;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;
+}
+.pp-batch-cnt {
+  position:absolute;top:5px;left:5px;background:rgba(0,0,0,0.7);
+  color:#aaa;font-size:9px;padding:1px 5px;border-radius:4px;
+}
+.pp-check {
+  display:none;position:absolute;inset:0;background:rgba(245,200,66,0.25);
+  align-items:center;justify-content:center;font-size:32px;color:#f5c842;font-weight:900;
+}
+.pp-selected .pp-check { display:flex; }
+.pp-card-name { padding:6px 8px 2px;font-size:11px;font-weight:600;color:#f0ece4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.pp-card-cond { padding:0 8px 8px;font-size:10px;color:rgba(240,236,228,0.4); }
+</style>
 
 </body>
 </html>
