@@ -1230,9 +1230,9 @@ body { background: #06040c; overflow-x: hidden; }
     <!-- Supertype lišta -->
     <div class="supertype-bar" style="margin-bottom:8px">
       <button class="st-btn active" onclick="setSupertype('')" data-i18n="all">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Pokémon')" data-i18n="pokemon"><img src="energi/typ_pokemona.png" class="fi"> Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Pokémon')" data-i18n="pokemon"><img src="energi/pokemon.png" class="fi"> Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
       <button class="st-btn" onclick="setSupertype('Trainer')" data-i18n="trainers"><img src="energi/typ_trenera.png" class="fi"> Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Energy')" data-i18n="energy"><img src="energi/typ_energie.png" class="fi"> Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Energy')" data-i18n="energy"><img src="energi/energie.png" class="fi"> Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
     </div>
 
     <!-- ═══ Nový flat filter systém ═══ -->
@@ -4101,9 +4101,9 @@ let currentLang = localStorage.getItem('pkc_lang') || 'cz';
 const I18N = {
   // Sidebar labels
   all:       { cz: 'Vše', en: 'All' },
-  pokemon:   { cz: '<img src="energi/typ_pokemona.png" class="fi"> Pokémoni', en: '<img src="energi/typ_pokemona.png" class="fi"> Pokémon' },
-  trainers:  { cz: '<img src="energi/typ_trenera.png" class="fi"> Trenéři', en: '<img src="energi/typ_trenera.png" class="fi"> Trainers' },
-  energy:    { cz: '<img src="energi/typ_energie.png" class="fi"> Energie', en: '<img src="energi/typ_energie.png" class="fi"> Energy' },
+  pokemon:   { cz: 'Pokémoni', en: 'Pokémon' },
+  trainers:  { cz: 'Trenéři', en: 'Trainers' },
+  energy:    { cz: 'Energie', en: 'Energy' },
   show:      { cz: 'Zobrazit', en: 'Display' },
   all_cards: { cz: 'Všechny karty', en: 'All cards' },
   for_trade: { cz: '🔄 K výměně', en: '🔄 For trade' },
@@ -4190,9 +4190,9 @@ const CHIP_I18N = {
   "setType('colorless')":        { cz: 'Bezbarvý', en: 'Colorless' },
   // Supertype chips
   "setSupertype('')":            { cz: 'Vše', en: 'All' },
-  "setSupertype('Pokémon')":     { cz: '<img src="energi/typ_pokemona.png" class="fi"> Pokémoni', en: '<img src="energi/typ_pokemona.png" class="fi"> Pokémon' },
-  "setSupertype('Trainer')":     { cz: '<img src="energi/typ_trenera.png" class="fi"> Trenéři', en: '<img src="energi/typ_trenera.png" class="fi"> Trainers' },
-  "setSupertype('Energy')":      { cz: '<img src="energi/typ_energie.png" class="fi"> Energie', en: '<img src="energi/typ_energie.png" class="fi"> Energy' },
+  "setSupertype('Pokémon')":     { cz: 'Pokémoni', en: 'Pokémon' },
+  "setSupertype('Trainer')":     { cz: 'Trenéři', en: 'Trainers' },
+  "setSupertype('Energy')":      { cz: 'Energie', en: 'Energy' },
   // Condition
   "setCond('')":                 { cz: 'Vše', en: 'All' },
 };
@@ -4220,8 +4220,10 @@ function applyI18N() {
     const translated = t(key);
     const cnt = el.querySelector('.st-cnt, .cnt');
     if (cnt) {
+      const img = el.querySelector('img');
+      const imgHTML = img ? img.outerHTML + ' ' : '';
       const cntHTML = cnt.outerHTML;
-      el.innerHTML = translated + ' ' + cntHTML;
+      el.innerHTML = imgHTML + translated + ' ' + cntHTML;
     } else if (translated.includes('<img')) {
       // Translation contains HTML (img icon) — use innerHTML
       el.innerHTML = translated;
@@ -4240,7 +4242,7 @@ function applyI18N() {
   });
 
   // 3) All chips: translate by onclick attribute
-  document.querySelectorAll('.type-chip, .st-btn, .sb-btn').forEach(btn => {
+  document.querySelectorAll('.type-chip, .sb-btn').forEach(btn => {
     const fn = btn.getAttribute('onclick');
     if (!fn) return;
     const entry = CHIP_I18N[fn];
