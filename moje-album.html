@@ -227,13 +227,17 @@ body { background: #06040c; overflow-x: hidden; }
 /* ── Accordion filter panels ─────────────────────────────── */
 .filter-accordions {
   display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+  align-items: flex-start;
 }
 .f-accordion {
-  flex: 1; min-width: 180px;
+  flex: 1 1 auto; min-width: 0;
   border: 1px solid rgba(255,255,255,0.06);
   border-radius: 12px; overflow: hidden;
   background: rgba(0,0,0,0.25);
-  transition: border-color .2s;
+  transition: border-color .2s, flex-basis .3s;
+}
+.f-accordion.open {
+  flex: 1 1 100%;
 }
 .f-accordion.has-filter { border-color: rgba(245,200,66,0.25); }
 .f-acc-header {
@@ -1353,14 +1357,14 @@ body { background: #06040c; overflow-x: hidden; }
           <div class="cd-badges" id="cdBadges"></div>
           <div class="cd-grid" id="cdGrid"></div>
           <div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">📈 Ceny z Cardmarket</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em" data-i18n="cm_prices">📈 Ceny z Cardmarket</div>
             <div id="cdPrices"></div>
           </div>
           <div>
-            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em">Moje cena (Kč)</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:5px;text-transform:uppercase;letter-spacing:.08em" data-i18n="my_price">Moje cena (Kč)</div>
             <div class="cd-price-row">
               <input class="cd-price-inp" type="number" id="cdPriceInp" placeholder="Nezadána" min="0">
-              <button class="cd-act-btn trade-off" onclick="saveCdPrice()" style="padding:7px 12px">Uložit cenu</button>
+              <button class="cd-act-btn trade-off" onclick="saveCdPrice()" style="padding:7px 12px" data-i18n="save_price">Uložit cenu</button>
             </div>
           </div>
           <div class="cd-actions" id="cdActions"></div>
@@ -1368,15 +1372,15 @@ body { background: #06040c; overflow-x: hidden; }
 <!-- Falzum detektor -->
           <div id="cdFakeSection" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
             <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">
-              🔍 Detekce falzum
-              <button id="cdFakeBtn" onclick="cdRunFakeCheck()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;color:#f59e0b;font-size:11px;padding:3px 10px;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(245,158,11,.1)'">
+              <span data-i18n="fake_detect">🔍 Detekce falzum</span>
+              <button id="cdFakeBtn" onclick="cdRunFakeCheck()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;color:#f59e0b;font-size:11px;padding:3px 10px;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(245,158,11,.1)'" data-i18n="check_ai">
                 🤖 Zkontrolovat AI
               </button>
             </div>
             <div id="cdFakeUpload" style="display:none;margin-bottom:10px">
               <label style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px;border:1px dashed rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(245,158,11,.4)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">
                 <span style="font-size:22px">📷</span>
-                <span style="font-size:12px;color:var(--text3)">Nahraj fotku karty pro AI analýzu</span>
+                <span style="font-size:12px;color:var(--text3)" data-i18n="upload_photo">Nahraj fotku karty pro AI analýzu</span>
                 <input type="file" accept="image/*" style="display:none" onchange="cdFakeFileSelected(this)">
               </label>
             </div>
@@ -1386,8 +1390,8 @@ body { background: #06040c; overflow-x: hidden; }
                     <!-- TCG hledání + URL -->
           <div class="cd-tcg-section">
             <div class="cd-tcg-title">
-              🔍 Najít / opravit kartu
-              <button class="cd-tcg-toggle" id="cdTcgToggle" onclick="toggleCdTcg()">▼ Rozbalit</button>
+              <span data-i18n="find_card">🔍 Najít / opravit kartu</span>
+              <button class="cd-tcg-toggle" id="cdTcgToggle" onclick="toggleCdTcg()" data-i18n="expand">▼ Rozbalit</button>
             </div>
             <div class="cd-tcg-body" id="cdTcgBody">
               <!-- Hledání podle jména + série + čísla -->
@@ -1908,16 +1912,17 @@ function openCardDetail(c) {
   // Info grid — app používá 'num' místo 'number', 'cond' místo 'condition', 'qty' místo 'count'
   const cardNum = c.number || c.num || '—';
   const cardHp  = c.hp || '—';
+  const L = currentLang === 'en';
   const rows = [
-    ['HP',        cardHp],
-    ['Číslo',     cardNum],
-    ['Typ',       c.types?.join(', ') || c.type || '—'],
-    ['Supertyp',  c.supertype || c.subtypesStr || c.category || '—'],
-    ['Série',     c.set || '—'],
-    ['Stav',      cond],
-    ['Vzácnost',  c.rarity || c.rarityCz || '—'],
-    ['Počet ks',  c.count || c.qty || 1],
-    ['Poznámka',  c.note || '—', true],
+    [L?'HP':'HP',          cardHp],
+    [L?'Number':'Číslo',   cardNum],
+    [L?'Type':'Typ',       c.types?.join(', ') || c.type || '—'],
+    [L?'Supertype':'Supertyp', c.supertype || c.subtypesStr || c.category || '—'],
+    [L?'Set':'Série',      c.set || '—'],
+    [L?'Condition':'Stav', cond],
+    [L?'Rarity':'Vzácnost',c.rarity || c.rarityCz || '—'],
+    [L?'Quantity':'Počet ks', c.count || c.qty || 1],
+    [L?'Note':'Poznámka',  c.note || '—', true],
   ];
   document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
     `<div class="cd-row${wide?' wide':''}">
@@ -1936,14 +1941,15 @@ function openCardDetail(c) {
   document.getElementById('cdPriceInp').value = c.price_czk || '';
 
   // Actions
+  const _L = currentLang === 'en';
   document.getElementById('cdActions').innerHTML = `
     <button class="cd-act-btn ${c.for_trade?'trade-on':'trade-off'}" onclick="toggleCdTrade()">
-      🔄 ${c.for_trade ? 'Zrušit výměnu' : 'Dát k výměně'}
+      🔄 ${c.for_trade ? (_L?'Cancel trade':'Zrušit výměnu') : (_L?'For trade':'Dát k výměně')}
     </button>
     <button class="cd-act-btn ${c.for_sell?'sell-on':'sell-off'}" onclick="toggleCdSell()">
-      💰 ${c.for_sell ? 'Zrušit prodej' : 'Dát k prodeji'}
+      💰 ${c.for_sell ? (_L?'Cancel sale':'Zrušit prodej') : (_L?'For sale':'Dát k prodeji')}
     </button>
-    <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 Smazat</button>`;
+    <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 ${_L?'Delete':'Smazat'}</button>`;
 
   modal.classList.add('open');
   modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
@@ -2257,16 +2263,17 @@ function _refreshCdModal(c) {
 
   // Info grid
   const cond = c.condition || c.cond || 'NM';
+  const L2 = currentLang === 'en';
   const rows = [
-    ['HP',       c.hp || '—'],
-    ['Číslo',    c.number || c.num || '—'],
-    ['Typ',      c.types?.join(', ') || c.type || '—'],
-    ['Supertyp', c.supertype || c.category || '—'],
-    ['Série',    c.set || '—'],
-    ['Stav',     cond],
-    ['Vzácnost', c.rarity || '—'],
-    ['Počet ks', c.count || c.qty || 1],
-    ['Poznámka', c.note || '—', true],
+    [L2?'HP':'HP',          c.hp || '—'],
+    [L2?'Number':'Číslo',   c.number || c.num || '—'],
+    [L2?'Type':'Typ',       c.types?.join(', ') || c.type || '—'],
+    [L2?'Supertype':'Supertyp', c.supertype || c.category || '—'],
+    [L2?'Set':'Série',      c.set || '—'],
+    [L2?'Condition':'Stav', cond],
+    [L2?'Rarity':'Vzácnost',c.rarity || '—'],
+    [L2?'Quantity':'Počet ks', c.count || c.qty || 1],
+    [L2?'Note':'Poznámka',  c.note || '—', true],
   ];
   document.getElementById('cdGrid').innerHTML = rows.map(([label, val, wide]) =>
     `<div class="cd-row${wide?' wide':''}">
@@ -2972,7 +2979,12 @@ function matchTrainerSub(c, t) {
 // ══════════════════════════════════════════════════════════════════
 function toggleAccordion(id) {
   const el = document.getElementById(id);
-  if (el) el.classList.toggle('open');
+  if (!el) return;
+  const wasOpen = el.classList.contains('open');
+  // Close all accordions in the same group first
+  document.querySelectorAll('.f-accordion').forEach(a => a.classList.remove('open'));
+  // Toggle the clicked one
+  if (!wasOpen) el.classList.add('open');
 }
 
 function showAccordionGroup(group) {
@@ -3171,6 +3183,15 @@ const I18N = {
   // Empty states
   no_albums: { cz: 'Zatím žádná alba', en: 'No albums yet' },
   loading_album: { cz: 'Načítám album…', en: 'Loading album…' },
+  // Card detail
+  cm_prices: { cz: '📈 Ceny z Cardmarket', en: '📈 Cardmarket prices' },
+  my_price:  { cz: 'Moje cena (Kč)', en: 'My price' },
+  save_price:{ cz: 'Uložit cenu', en: 'Save price' },
+  fake_detect:{ cz: '🔍 Detekce falzum', en: '🔍 Fake detection' },
+  check_ai:  { cz: '🤖 Zkontrolovat AI', en: '🤖 Check with AI' },
+  upload_photo:{ cz: 'Nahraj fotku karty pro AI analýzu', en: 'Upload card photo for AI analysis' },
+  find_card: { cz: '🔍 Najít / opravit kartu', en: '🔍 Find / fix card' },
+  expand:    { cz: '▼ Rozbalit', en: '▼ Expand' },
 };
 
 // Chip translations: keyed by onclick argument
