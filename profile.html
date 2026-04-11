@@ -577,6 +577,72 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 }
 
 
+/* ═══ SETTINGS ACCORDION ═══ */
+.settings-accordion {
+  margin-bottom: 24px;
+}
+.acc-item {
+  background: rgba(12,10,18,0.80);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  margin-bottom: 8px;
+  overflow: hidden;
+  backdrop-filter: blur(18px);
+  transition: border-color .2s;
+}
+.acc-item:hover { border-color: rgba(255,255,255,0.16); }
+.acc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; cursor: pointer; user-select: none;
+  gap: 10px;
+}
+.acc-header-left { display: flex; align-items: center; gap: 10px; }
+.acc-icon { font-size: 16px; }
+.acc-title { font-size: 13px; font-weight: 600; color: var(--text2); }
+.acc-subtitle { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.acc-chevron {
+  font-size: 11px; color: var(--text3);
+  transition: transform .25s cubic-bezier(0.34,1.56,0.64,1);
+  flex-shrink: 0;
+}
+.acc-item.open .acc-chevron { transform: rotate(180deg); }
+.acc-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height .3s ease;
+  padding: 0 20px;
+}
+.acc-item.open .acc-body { max-height: 400px; }
+.acc-body-inner { padding-bottom: 18px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 16px; }
+.acc-label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;
+}
+.curr-btn {
+  flex: 1; padding: 7px 0; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--text2); font-family: inherit;
+  font-size: 12px; cursor: pointer; transition: all .15s;
+}
+.curr-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.curr-btn.curr-active {
+  background: rgba(245,200,66,0.18);
+  border-color: rgba(245,200,66,0.45);
+  color: #f5c842; font-weight: 700;
+}
+.acc-rate-info { font-size: 11px; color: var(--text3); margin-top: 7px; }
+.acc-sync-select {
+  width: 100%; padding: 9px 12px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: var(--text2); font-family: inherit; font-size: 13px; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.acc-sync-select option { background: #1a1326; }
+.acc-last-sync { font-size: 11px; color: var(--text3); margin-top: 7px; }
+
 .chat-dropdown-wrap { position: relative; }
 .chat-icon-btn {
   position: relative; display: flex; align-items: center; justify-content: center;
@@ -880,6 +946,83 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
           <div class="groq-test-result" id="groqTestResult"></div>
         </div>
 
+      </div>
+    </div>
+
+    <!-- ═══ NASTAVENÍ (sync / měna / jazyk) — jen vlastník ═══ -->
+    <div class="groq-section settings-accordion" id="profileSettingsSection" style="display:none">
+      <div class="section-title">⚙️ Nastavení</div>
+
+      <!-- Sync mód -->
+      <div class="acc-item" id="accSync">
+        <div class="acc-header" onclick="toggleAcc('accSync')">
+          <div class="acc-header-left">
+            <span class="acc-icon">🔄</span>
+            <div>
+              <div class="acc-title">Sync mód</div>
+              <div class="acc-subtitle" id="accSyncSub">Každou hodinu</div>
+            </div>
+          </div>
+          <span class="acc-chevron">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="acc-body-inner">
+            <label class="acc-label">Frekvence synchronizace alba</label>
+            <select class="acc-sync-select" id="profileSyncSelect" onchange="profileChangeSyncMode(this.value)">
+              <option value="hourly">Každou hodinu</option>
+              <option value="realtime">Real-time (30s)</option>
+              <option value="manual">Manuálně</option>
+            </select>
+            <div class="acc-last-sync" id="profileLastSyncInfo"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Měna -->
+      <div class="acc-item" id="accCurrency">
+        <div class="acc-header" onclick="toggleAcc('accCurrency')">
+          <div class="acc-header-left">
+            <span class="acc-icon">💱</span>
+            <div>
+              <div class="acc-title">Měna</div>
+              <div class="acc-subtitle" id="accCurrencySub">EUR</div>
+            </div>
+          </div>
+          <span class="acc-chevron">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="acc-body-inner">
+            <label class="acc-label">Zobrazovat ceny v</label>
+            <div style="display:flex;gap:8px">
+              <button id="profileCurrBtnEUR" class="curr-btn" onclick="profileSetCurrency('EUR')">€ EUR</button>
+              <button id="profileCurrBtnCZK" class="curr-btn" onclick="profileSetCurrency('CZK')">Kč CZK</button>
+            </div>
+            <div class="acc-rate-info" id="profileEurRateInfo">Načítám kurz…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Jazyk -->
+      <div class="acc-item" id="accLang">
+        <div class="acc-header" onclick="toggleAcc('accLang')">
+          <div class="acc-header-left">
+            <span class="acc-icon">🌐</span>
+            <div>
+              <div class="acc-title">Jazyk</div>
+              <div class="acc-subtitle" id="accLangSub">CZ</div>
+            </div>
+          </div>
+          <span class="acc-chevron">▼</span>
+        </div>
+        <div class="acc-body">
+          <div class="acc-body-inner">
+            <label class="acc-label">Jazyk rozhraní</label>
+            <div style="display:flex;gap:8px">
+              <button id="profileLangBtnCZ" class="curr-btn" onclick="profileSetLang('cz')">🇨🇿 CZ</button>
+              <button id="profileLangBtnEN" class="curr-btn" onclick="profileSetLang('en')">🇬🇧 EN</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1541,6 +1684,100 @@ function showToast(msg, type='') {
   el.className = `toast${type ? ' '+type : ''} show`;
   setTimeout(() => el.classList.remove('show'), 3500);
 }
+
+// ═══════════════════════════════════════════════════════════
+//  NASTAVENÍ — accordion toggle
+// ═══════════════════════════════════════════════════════════
+function toggleAcc(id) {
+  const item = document.getElementById(id);
+  if (!item) return;
+  item.classList.toggle('open');
+}
+
+// ── Sync mód ──────────────────────────────────────────────
+const PROFILE_SYNC_KEY = 'pkc_album_sync_mode';
+function profileChangeSyncMode(mode) {
+  localStorage.setItem(PROFILE_SYNC_KEY, mode);
+  const labels = { hourly: 'Každou hodinu', realtime: 'Real-time (30s)', manual: 'Manuálně' };
+  const sub = document.getElementById('accSyncSub');
+  if (sub) sub.textContent = labels[mode] || mode;
+}
+
+// ── Měna ──────────────────────────────────────────────────
+function profileSetCurrency(cur) {
+  localStorage.setItem('pkc_currency', cur);
+  window._pkc_currency = cur;
+  profileUpdateCurrencyUI();
+}
+function profileUpdateCurrencyUI() {
+  const cur = localStorage.getItem('pkc_currency') || 'EUR';
+  window._pkc_currency = cur;
+  const btnEUR = document.getElementById('profileCurrBtnEUR');
+  const btnCZK = document.getElementById('profileCurrBtnCZK');
+  if (btnEUR) btnEUR.classList.toggle('curr-active', cur === 'EUR');
+  if (btnCZK) btnCZK.classList.toggle('curr-active', cur === 'CZK');
+  const sub = document.getElementById('accCurrencySub');
+  if (sub) sub.textContent = cur === 'CZK' ? 'Kč CZK' : '€ EUR';
+  // rate info
+  const rateEl = document.getElementById('profileEurRateInfo');
+  if (rateEl) {
+    if (window._profileEurRate) {
+      rateEl.textContent = '1 € = ' + window._profileEurRate.toFixed(2) + ' Kč';
+    } else {
+      rateEl.textContent = 'Načítám kurz…';
+      fetch('https://open.er-api.com/v6/latest/EUR')
+        .then(r => r.json())
+        .then(d => {
+          window._profileEurRate = d?.rates?.CZK || null;
+          if (rateEl && window._profileEurRate)
+            rateEl.textContent = '1 € = ' + window._profileEurRate.toFixed(2) + ' Kč';
+        }).catch(() => { if (rateEl) rateEl.textContent = ''; });
+    }
+  }
+}
+
+// ── Jazyk ─────────────────────────────────────────────────
+function profileSetLang(lang) {
+  localStorage.setItem('pkc_lang', lang);
+  profileUpdateLangUI(lang);
+}
+function profileUpdateLangUI(lang) {
+  const btnCZ = document.getElementById('profileLangBtnCZ');
+  const btnEN = document.getElementById('profileLangBtnEN');
+  if (btnCZ) btnCZ.classList.toggle('curr-active', lang === 'cz');
+  if (btnEN) btnEN.classList.toggle('curr-active', lang === 'en');
+  const sub = document.getElementById('accLangSub');
+  if (sub) sub.textContent = lang === 'en' ? 'EN' : 'CZ';
+}
+
+// ── Init nastavení sekce ──────────────────────────────────
+(async function initSettingsSection() {
+  await new Promise(r => setTimeout(r, 350));
+  if (!currentUser || !profileUserId || currentUser.id !== profileUserId) return;
+
+  const sec = document.getElementById('profileSettingsSection');
+  if (sec) sec.style.display = 'block';
+
+  // Sync mód
+  const savedMode = localStorage.getItem(PROFILE_SYNC_KEY) || 'hourly';
+  const sel = document.getElementById('profileSyncSelect');
+  if (sel) sel.value = savedMode;
+  profileChangeSyncMode(savedMode);
+
+  // Last sync info
+  const lastSync = localStorage.getItem('pkc_last_sync');
+  const lastEl = document.getElementById('profileLastSyncInfo');
+  if (lastEl && lastSync) {
+    const d = new Date(lastSync);
+    lastEl.textContent = 'Naposledy: ' + d.toLocaleTimeString('cs-CZ');
+  }
+
+  // Měna
+  profileUpdateCurrencyUI();
+
+  // Jazyk
+  profileUpdateLangUI(localStorage.getItem('pkc_lang') || 'cz');
+})();
 
 // ═══════════════════════════════════════════════════════════
 //  GROQ AI SEKCE — inicializace

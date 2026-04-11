@@ -1246,35 +1246,6 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
-    <div class="sb-divider"></div>
-
-    <div class="sb-section">
-      <span class="sb-label" data-i18n="sync_mode">Sync mód</span>
-      <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
-        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
-        <option value="hourly" data-i18n="sync_hourly">Každou hodinu</option>
-        <option value="realtime">Real-time (30s)</option>
-        <option value="manual" data-i18n="sync_manual">Manuálně</option>
-      </select>
-      <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
-    </div>
-    <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label" data-i18n="currency">Měna</span>
-      <div style="display:flex;gap:6px;">
-        <button id="currBtnEUR" onclick="setCurrency('EUR')" class="curr-btn">€ EUR</button>
-        <button id="currBtnCZK" onclick="setCurrency('CZK')" class="curr-btn">Kč CZK</button>
-      </div>
-      <div id="eurRateInfo" style="font-size:10px;color:var(--text3);margin-top:5px;padding:0 2px"></div>
-    </div>
-    <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label" data-i18n="lang">Jazyk</span>
-      <div style="display:flex;gap:6px;">
-        <button id="langBtnCZ" onclick="setLang('cz')" class="curr-btn curr-active">🇨🇿 CZ</button>
-        <button id="langBtnEN" onclick="setLang('en')" class="curr-btn">🇬🇧 EN</button>
-      </div>
-    </div>
   </aside>
 
   <!-- Main -->
@@ -1695,7 +1666,8 @@ let editingAlbumId = null;
     setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
   }
 
-  document.getElementById('syncModeSelect').value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
+  const syncSel = document.getElementById('syncModeSelect');
+  if (syncSel) syncSel.value = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
   updateLastSyncInfo();
   renderColorPicker();
   renderIconPicker();
@@ -4268,8 +4240,10 @@ function t(key) {
 function setLang(lang) {
   currentLang = lang;
   localStorage.setItem('pkc_lang', lang);
-  document.getElementById('langBtnCZ').classList.toggle('curr-active', lang === 'cz');
-  document.getElementById('langBtnEN').classList.toggle('curr-active', lang === 'en');
+  const btnCZ = document.getElementById('langBtnCZ');
+  const btnEN = document.getElementById('langBtnEN');
+  if (btnCZ) btnCZ.classList.toggle('curr-active', lang === 'cz');
+  if (btnEN) btnEN.classList.toggle('curr-active', lang === 'en');
   applyI18N();
 }
 
@@ -4358,6 +4332,7 @@ function setSyncState(state, label) {
 function updateLastSyncInfo() {
   const t  = localStorage.getItem(LAST_SYNC_KEY);
   const el = document.getElementById('lastSyncInfo');
+  if (!el) return;
   el.textContent = t ? 'Naposledy: ' + new Date(t).toLocaleTimeString('cs') : 'Ještě nesynchronizováno';
 }
 
