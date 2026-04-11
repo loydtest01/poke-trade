@@ -162,6 +162,12 @@ body { background: #06040c; overflow-x: hidden; }
   color: #f5c842; font-weight: 700;
 }
 
+
+/* ── Energi icons ─────────────────── */
+.fi { width:18px; height:18px; object-fit:contain; vertical-align:middle; margin-right:4px; }
+.nav-icon { width:20px; height:20px; object-fit:contain; vertical-align:middle; margin-right:5px; }
+.sb-icon { width:18px; height:18px; object-fit:contain; vertical-align:middle; margin-right:5px; }
+
 /* ── Main content ──────────────────────────────────────────── */
 .main { flex: 1; padding: 20px; min-width: 0; }
 
@@ -1171,11 +1177,11 @@ body { background: #06040c; overflow-x: hidden; }
     <a href="marketplace.html">Nabídky</a>
     <a href="moje-album.html" class="active">🎴 Moje alba</a>
     <a href="compare.html">Porovnat alba</a>
-    <a href="scanner.html">📷 Skener</a>
-    <a href="queue.html">📥 Čeká na zařazení</a>
+    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
+    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
     <a href="profile.html">Můj profil</a>
   
-    <a href="download.html">⬇ Ke stažení</a>
+    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -1206,7 +1212,7 @@ body { background: #06040c; overflow-x: hidden; }
     </a>
     <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
     <a href="profile.html" id="profileBtn" class="btn-nav-outline" style="display:none;font-size:13px" title="Můj profil">👤</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px">Odhlásit</button>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
 
@@ -1232,10 +1238,10 @@ body { background: #06040c; overflow-x: hidden; }
 
     <div class="sb-section">
       <span class="sb-label" data-i18n="spec_alb">Speciální alba</span>
-      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album">🔄 Výměna <span class="cnt" id="cnt-vymena">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album">🛒 Obchod <span class="cnt" id="cnt-obchod">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album"><img src="energi/vymena.png" class="sb-icon"> Výměna <span class="cnt" id="cnt-vymena">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75">✅ Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75">💚 Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1288,9 +1294,9 @@ body { background: #06040c; overflow-x: hidden; }
     <!-- Supertype lišta -->
     <div class="supertype-bar" style="margin-bottom:8px">
       <button class="st-btn active" onclick="setSupertype('')" data-i18n="all">Vše <span class="st-cnt" id="st-cnt-all">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Pokémon')" data-i18n="pokemon">🎴 Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Trainer')" data-i18n="trainers">🧑 Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
-      <button class="st-btn" onclick="setSupertype('Energy')" data-i18n="energy">⚡ Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Pokémon')" data-i18n="pokemon"><img src="energi/typ_pokemona.png" class="fi"> Pokémoni <span class="st-cnt" id="st-cnt-pokemon">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Trainer')" data-i18n="trainers"><img src="energi/typ_trenera.png" class="fi"> Trenéři <span class="st-cnt" id="st-cnt-trainer">0</span></button>
+      <button class="st-btn" onclick="setSupertype('Energy')" data-i18n="energy"><img src="energi/typ_energie.png" class="fi"> Energie <span class="st-cnt" id="st-cnt-energy">0</span></button>
     </div>
 
     <!-- ═══ Nový flat filter systém ═══ -->
@@ -1304,13 +1310,13 @@ body { background: #06040c; overflow-x: hidden; }
       <div class="f-accordion" id="fa-rarity-pokemon" data-group="pokemon">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setRarity('')">Vše</button>
-          <button class="type-chip" onclick="setRarity('common')">⚪ Common</button>
-          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-          <button class="type-chip" onclick="setRarity('holo')">✨ Holo Rare</button>
-          <button class="type-chip" onclick="setRarity('ultra')">💎 Ultra Rare</button>
-          <button class="type-chip" onclick="setRarity('secret')">🔴 Secret Rare</button>
-          <button class="type-chip" onclick="setRarity('promo')">🎁 Promo</button>
+          <button class="type-chip" onclick="setRarity('common')"><img src="energi/common.png" class="fi"> Common</button>
+          <button class="type-chip" onclick="setRarity('uncommon')"><img src="energi/uncommon.png" class="fi"> Uncommon</button>
+          <button class="type-chip" onclick="setRarity('rare')"><img src="energi/rare.png" class="fi"> Rare</button>
+          <button class="type-chip" onclick="setRarity('holo')"><img src="energi/holo.png" class="fi"> Holo Rare</button>
+          <button class="type-chip" onclick="setRarity('ultra')"><img src="energi/ultra_rare.png" class="fi"> Ultra Rare</button>
+          <button class="type-chip" onclick="setRarity('secret')"><img src="energi/secret_rare.png" class="fi"> Secret Rare</button>
+          <button class="type-chip" onclick="setRarity('promo')"><img src="energi/promo.png" class="fi"> Promo</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-element" data-group="pokemon">
@@ -1333,28 +1339,28 @@ body { background: #06040c; overflow-x: hidden; }
       <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setRarity('')">Vše</button>
-          <button class="type-chip" onclick="setRarity('uncommon')">🔵 Uncommon</button>
-          <button class="type-chip" onclick="setRarity('rare')">🌟 Rare</button>
-          <button class="type-chip" onclick="setRarity('fullart')">🖼️ Full-Art</button>
-          <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
+          <button class="type-chip" onclick="setRarity('uncommon')"><img src="energi/uncommon.png" class="fi"> Uncommon</button>
+          <button class="type-chip" onclick="setRarity('rare')"><img src="energi/rare.png" class="fi"> Rare</button>
+          <button class="type-chip" onclick="setRarity('fullart')"><img src="energi/full_art.png" class="fi"> Full-Art</button>
+          <button class="type-chip" onclick="setRarity('gold')"><img src="energi/gold.png" class="fi"> Gold</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-trainer-type" data-group="trainer">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setTrainerSub('')">Vše</button>
-          <button class="type-chip" onclick="setTrainerSub('Stadium')">🏟️ Stadion</button>
-          <button class="type-chip" onclick="setTrainerSub('Supporter')">🧑 Podpora</button>
-          <button class="type-chip" onclick="setTrainerSub('Item')">🎒 Předmět</button>
-          <button class="type-chip" onclick="setTrainerSub('Tool')">🔧 Nástroj</button>
+          <button class="type-chip" onclick="setTrainerSub('Stadium')"><img src="energi/stadion.png" class="fi"> Stadion</button>
+          <button class="type-chip" onclick="setTrainerSub('Supporter')"><img src="energi/supporter.png" class="fi"> Podpora</button>
+          <button class="type-chip" onclick="setTrainerSub('Item')"><img src="energi/item.png" class="fi"> Předmět</button>
+          <button class="type-chip" onclick="setTrainerSub('Tool')"><img src="energi/tool.png" class="fi"> Nástroj</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-rarity-energy" data-group="energy">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setRarity('')">Vše</button>
-          <button class="type-chip" onclick="setRarity('basic_energy')">⚡ Základní</button>
-          <button class="type-chip" onclick="setRarity('special_energy')">💠 Speciální</button>
-          <button class="type-chip" onclick="setRarity('collector_energy')">✨ Sběratelské</button>
-          <button class="type-chip" onclick="setRarity('gold')">🥇 Gold</button>
+          <button class="type-chip" onclick="setRarity('basic_energy')"><img src="energi/energie.png" class="fi"> Základní</button>
+          <button class="type-chip" onclick="setRarity('special_energy')"><img src="energi/specialni_edice.png" class="fi"> Speciální</button>
+          <button class="type-chip" onclick="setRarity('collector_energy')"><img src="energi/energie.png" class="fi"> Sběratelské</button>
+          <button class="type-chip" onclick="setRarity('gold')"><img src="energi/gold.png" class="fi"> Gold</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-energy-type" data-group="energy">
@@ -3790,51 +3796,51 @@ let _openFilterPanel = ''; // 'rarity' | 'type' | 'subtype' | 'energytype' | ''
 
 const FLAT_FILTER_DEFS = {
   all: [
-    { key: 'rarity',          label: '🌟 Rarity',             getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'type',            label: '🔥 Pokémon TYPE',        getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
-    { key: 'subtype',         label: '✨ Speciální edice',      getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
-    { key: 'subtype_trainer', label: '📋 Trainer typ',         getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
-    { key: 'energytype',      label: '⚡ Energy TYPE',          getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'rarity',          label: '<img src="energi/vzacnost.png" class="fi"> Rarity',             getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',            label: '<img src="energi/typ_pokemona.png" class="fi"> Pokémon TYPE',        getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'subtype',         label: '<img src="energi/specialni_edice.png" class="fi"> Speciální edice',      getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'subtype_trainer', label: '<img src="energi/typ_trenera.png" class="fi"> Trainer typ',         getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'energytype',      label: '<img src="energi/typ_energie.png" class="fi"> Energy TYPE',          getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
   ],
   pokemon: [
-    { key: 'rarity',  label: '🌟 Rarity',         getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'type',    label: '🔥 Pokémon TYPE',    getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
-    { key: 'subtype', label: '✨ Speciální edice',  getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'rarity',  label: '<img src="energi/vzacnost.png" class="fi"> Rarity',         getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'type',    label: '<img src="energi/typ_pokemona.png" class="fi"> Pokémon TYPE',    getValue: () => activeType,       getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'subtype', label: '<img src="energi/specialni_edice.png" class="fi"> Speciální edice',  getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
   ],
   trainer: [
-    { key: 'rarity',         label: '🌟 Rarity',        getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'subtype_trainer',label: '📋 Trainer typ',   getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
+    { key: 'rarity',         label: '<img src="energi/vzacnost.png" class="fi"> Rarity',        getValue: () => activeRarity,     getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'subtype_trainer',label: '<img src="energi/typ_trenera.png" class="fi"> Trainer typ',   getValue: () => activeTrainerSub, getLabel: () => tLabel(TRAINER_SUB_LABELS_I18N, activeTrainerSub) },
   ],
   energy: [
-    { key: 'rarity',     label: '🌟 Rarity',      getValue: () => activeRarity, getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
-    { key: 'energytype', label: '⚡ Energy TYPE',  getValue: () => activeType,   getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
+    { key: 'rarity',     label: '<img src="energi/vzacnost.png" class="fi"> Rarity',      getValue: () => activeRarity, getLabel: () => tLabel(RARITY_LABELS_I18N, activeRarity) },
+    { key: 'energytype', label: '<img src="energi/typ_energie.png" class="fi"> Energy TYPE',  getValue: () => activeType,   getLabel: () => tLabel(TYPE_LABELS_I18N, activeType) },
   ],
 };
 
 const FLAT_CHIPS = {
   rarity_pokemon: [
     { label: 'Vše',         fn: "setRarity('')" },
-    { label: '⚪ Common',   fn: "setRarity('common')" },
-    { label: '🔵 Uncommon', fn: "setRarity('uncommon')" },
-    { label: '🌟 Rare',     fn: "setRarity('rare')" },
-    { label: '✨ Holo Rare', fn: "setRarity('holo')" },
-    { label: '💎 Ultra Rare',fn: "setRarity('ultra')" },
-    { label: '🔴 Secret Rare',fn: "setRarity('secret')" },
-    { label: '🎁 Promo',    fn: "setRarity('promo')" },
+    { label: '<img src="energi/common.png" class="fi"> Common',   fn: "setRarity('common')" },
+    { label: '<img src="energi/uncommon.png" class="fi"> Uncommon', fn: "setRarity('uncommon')" },
+    { label: '<img src="energi/rare.png" class="fi"> Rare',     fn: "setRarity('rare')" },
+    { label: '<img src="energi/holo.png" class="fi"> Holo Rare', fn: "setRarity('holo')" },
+    { label: '<img src="energi/ultra_rare.png" class="fi"> Ultra Rare',fn: "setRarity('ultra')" },
+    { label: '<img src="energi/secret_rare.png" class="fi"> Secret Rare',fn: "setRarity('secret')" },
+    { label: '<img src="energi/promo.png" class="fi"> Promo',    fn: "setRarity('promo')" },
   ],
   rarity_trainer: [
     { label: 'Vše',          fn: "setRarity('')" },
-    { label: '🔵 Uncommon',  fn: "setRarity('uncommon')" },
-    { label: '🌟 Rare',      fn: "setRarity('rare')" },
-    { label: '🖼️ Full-Art',  fn: "setRarity('fullart')" },
-    { label: '🥇 Gold',      fn: "setRarity('gold')" },
+    { label: '<img src="energi/uncommon.png" class="fi"> Uncommon',  fn: "setRarity('uncommon')" },
+    { label: '<img src="energi/rare.png" class="fi"> Rare',      fn: "setRarity('rare')" },
+    { label: '<img src="energi/full_art.png" class="fi"> Full-Art',  fn: "setRarity('fullart')" },
+    { label: '<img src="energi/gold.png" class="fi"> Gold',      fn: "setRarity('gold')" },
   ],
   rarity_energy: [
     { label: 'Vše',           fn: "setRarity('')" },
-    { label: '⚡ Základní',   fn: "setRarity('basic_energy')" },
-    { label: '💠 Speciální',  fn: "setRarity('special_energy')" },
-    { label: '✨ Sběratelské',fn: "setRarity('collector_energy')" },
-    { label: '🥇 Gold',       fn: "setRarity('gold')" },
+    { label: '<img src="energi/energie.png" class="fi"> Základní',   fn: "setRarity('basic_energy')" },
+    { label: '<img src="energi/specialni_edice.png" class="fi"> Speciální',  fn: "setRarity('special_energy')" },
+    { label: '<img src="energi/energie.png" class="fi"> Sběratelské',fn: "setRarity('collector_energy')" },
+    { label: '<img src="energi/gold.png" class="fi"> Gold',       fn: "setRarity('gold')" },
   ],
   type_pokemon: [
     { label: 'Vše',                                                          fn: "setType('')" },
@@ -3860,42 +3866,42 @@ const FLAT_CHIPS = {
   ],
   subtype_pokemon: [
     { label: 'Vše',              fn: "setTrainerSub('')" },
-    { label: '🥚 Basic',         fn: "setTrainerSub('Basic')" },
+    { label: '<img src="energi/basic.png" class="fi"> Basic',         fn: "setTrainerSub('Basic')" },
     { label: '🔀 Stage 1',       fn: "setTrainerSub('Stage 1')" },
-    { label: '🔀 Stage 2',       fn: "setTrainerSub('Stage 2')" },
-    { label: '⭐ EX',            fn: "setTrainerSub('EX')" },
-    { label: '⭐ GX',            fn: "setTrainerSub('GX')" },
-    { label: '⭐ V',             fn: "setTrainerSub('V')" },
+    { label: '<img src="energi/stage_2.png" class="fi"> Stage 2',       fn: "setTrainerSub('Stage 2')" },
+    { label: '<img src="energi/EX.png" class="fi"> EX',            fn: "setTrainerSub('EX')" },
+    { label: '<img src="energi/GX.png" class="fi"> GX',            fn: "setTrainerSub('GX')" },
+    { label: '<img src="energi/V.png" class="fi"> V',             fn: "setTrainerSub('V')" },
     { label: '⭐ VMAX',          fn: "setTrainerSub('VMAX')" },
     { label: '⭐ VSTAR',         fn: "setTrainerSub('VSTAR')" },
-    { label: '⭐ ex',            fn: "setTrainerSub('ex')" },
-    { label: '🌟 Tera',          fn: "setTrainerSub('Tera')" },
-    { label: '🦎 TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
+    { label: '<img src="energi/ex_small.png" class="fi"> ex',            fn: "setTrainerSub('ex')" },
+    { label: '<img src="energi/Tera.png" class="fi"> Tera',          fn: "setTrainerSub('Tera')" },
+    { label: '<img src="energi/tag_team.png" class="fi"> TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
   ],
   subtype_all: [
     { label: 'Vše',              fn: "setTrainerSub('')" },
-    { label: '🥚 Basic',         fn: "setTrainerSub('Basic')" },
+    { label: '<img src="energi/basic.png" class="fi"> Basic',         fn: "setTrainerSub('Basic')" },
     { label: '🔀 Stage 1',       fn: "setTrainerSub('Stage 1')" },
-    { label: '🔀 Stage 2',       fn: "setTrainerSub('Stage 2')" },
-    { label: '⭐ EX',            fn: "setTrainerSub('EX')" },
-    { label: '⭐ GX',            fn: "setTrainerSub('GX')" },
-    { label: '⭐ V',             fn: "setTrainerSub('V')" },
+    { label: '<img src="energi/stage_2.png" class="fi"> Stage 2',       fn: "setTrainerSub('Stage 2')" },
+    { label: '<img src="energi/EX.png" class="fi"> EX',            fn: "setTrainerSub('EX')" },
+    { label: '<img src="energi/GX.png" class="fi"> GX',            fn: "setTrainerSub('GX')" },
+    { label: '<img src="energi/V.png" class="fi"> V',             fn: "setTrainerSub('V')" },
     { label: '⭐ VMAX',          fn: "setTrainerSub('VMAX')" },
     { label: '⭐ VSTAR',         fn: "setTrainerSub('VSTAR')" },
-    { label: '⭐ ex',            fn: "setTrainerSub('ex')" },
-    { label: '🌟 Tera',          fn: "setTrainerSub('Tera')" },
-    { label: '🦎 TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
-    { label: '🏟️ Stadium',      fn: "setTrainerSub('Stadium')" },
-    { label: '🧑 Supporter',    fn: "setTrainerSub('Supporter')" },
-    { label: '🎒 Item',          fn: "setTrainerSub('Item')" },
-    { label: '🔧 Tool',          fn: "setTrainerSub('Tool')" },
+    { label: '<img src="energi/ex_small.png" class="fi"> ex',            fn: "setTrainerSub('ex')" },
+    { label: '<img src="energi/Tera.png" class="fi"> Tera',          fn: "setTrainerSub('Tera')" },
+    { label: '<img src="energi/tag_team.png" class="fi"> TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
+    { label: '<img src="energi/stadion.png" class="fi"> Stadium',      fn: "setTrainerSub('Stadium')" },
+    { label: '<img src="energi/supporter.png" class="fi"> Supporter',    fn: "setTrainerSub('Supporter')" },
+    { label: '<img src="energi/item.png" class="fi"> Item',          fn: "setTrainerSub('Item')" },
+    { label: '<img src="energi/tool.png" class="fi"> Tool',          fn: "setTrainerSub('Tool')" },
   ],
   subtype_trainer: [
     { label: 'Vše',             fn: "setTrainerSub('')" },
-    { label: '🏟️ Stadium',     fn: "setTrainerSub('Stadium')" },
-    { label: '🧑 Supporter',   fn: "setTrainerSub('Supporter')" },
-    { label: '🎒 Item',        fn: "setTrainerSub('Item')" },
-    { label: '🔧 Tool',        fn: "setTrainerSub('Tool')" },
+    { label: '<img src="energi/stadion.png" class="fi"> Stadium',     fn: "setTrainerSub('Stadium')" },
+    { label: '<img src="energi/supporter.png" class="fi"> Supporter',   fn: "setTrainerSub('Supporter')" },
+    { label: '<img src="energi/item.png" class="fi"> Item',        fn: "setTrainerSub('Item')" },
+    { label: '<img src="energi/tool.png" class="fi"> Tool',        fn: "setTrainerSub('Tool')" },
   ],
   type_energy: [
     { label: 'Vše',                                                          fn: "setType('')" },
