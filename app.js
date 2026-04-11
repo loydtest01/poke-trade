@@ -15,21 +15,36 @@ const VERCEL_URL    = 'https://TVUJ-PROJEKT.vercel.app'; // ← URL tvého Verce
 
 // ── Supabase REST request ────────────────────────────
 async function supabaseRequest(path, method = 'GET', body = null, token = null, redirectTo = null) {
-  const headers = {
-    'Content-Type':  'application/json',
-    'apikey':        SUPABASE_ANON,
-    'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
+  // Použij getValidToken() pokud je dostupný (čeká na probíhající refresh)
+  const tok = token || (window.getValidToken ? await window.getValidToken() : null) || SUPABASE_ANON;
+  const _buildHeaders = (t) => {
+    const h = {
+      'Content-Type':  'application/json',
+      'apikey':        SUPABASE_ANON,
+      'Authorization': 'Bearer ' + t,
+    };
+    if (method === 'POST' || method === 'PATCH') h['Prefer'] = 'return=representation';
+    return h;
   };
-  if (method === 'POST' || method === 'PATCH') {
-    headers['Prefer'] = 'return=representation';
-  }
-  const opts = { method, headers };
-  if (body) {
-    if (redirectTo) body.redirect_to = redirectTo;
-    opts.body = JSON.stringify(body);
-  }
+  const _buildOpts = (t) => {
+    const opts = { method, headers: _buildHeaders(t) };
+    if (body) {
+      const b = redirectTo ? { ...body, redirect_to: redirectTo } : body;
+      opts.body = JSON.stringify(b);
+    }
+    return opts;
+  };
   try {
-    const res  = await fetch(`${SUPABASE_URL}/${path}`, opts);
+    const res = await fetch(`${SUPABASE_URL}/${path}`, _buildOpts(tok));
+    // 401 → refresh a jeden retry
+    if (res.status === 401 && window.getValidToken) {
+      const newTok = await window.getValidToken();
+      if (newTok && newTok !== tok) {
+        const retry = await fetch(`${SUPABASE_URL}/${path}`, _buildOpts(newTok));
+        const rt = await retry.text();
+        return rt ? JSON.parse(rt) : {};
+      }
+    }
     const text = await res.text();
     return text ? JSON.parse(text) : {};
   } catch (err) {
@@ -58,24 +73,52 @@ function logout() {
   window.location.href = 'login.html';
 }
 
-// ── Auto-refresh tokenu (každých 10 min) ─────────────
+// ── Auto-refresh tokenu (každých 9 min) ─────────────
+// window.getValidToken() – vždy vrátí čerstvý token; bezpečné pro uploady
 (function autoRefreshToken() {
-  async function refreshSession() {
+  var _refreshPromise = null;
+
+  function _doRefresh() {
     const rt = localStorage.getItem('sb_refresh_token');
-    if (!rt) return;
-    try {
-      const r = await supabaseRequest('auth/v1/token?grant_type=refresh_token', 'POST', { refresh_token: rt });
-      if (r?.access_token && r?.user?.id) {
-        localStorage.setItem('sb_token', r.access_token);
-        if (r.refresh_token) localStorage.setItem('sb_refresh_token', r.refresh_token);
-        localStorage.setItem('sb_user', JSON.stringify(r.user));
+    if (!rt) { _refreshPromise = null; return Promise.resolve(null); }
+    _refreshPromise = fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+      body: JSON.stringify({ refresh_token: rt })
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d?.access_token && d?.user?.id) {
+        localStorage.setItem('sb_token', d.access_token);
+        if (d.refresh_token) localStorage.setItem('sb_refresh_token', d.refresh_token);
+        localStorage.setItem('sb_user', JSON.stringify(d.user));
+        return d.access_token;
       }
-    } catch (e) { console.warn('[PokéTrade] Refresh failed:', e); }
+      return null;
+    })
+    .catch(e => { console.warn('[PokéTrade] Refresh failed:', e); return null; })
+    .finally(() => { _refreshPromise = null; });
+    return _refreshPromise;
   }
-  if (localStorage.getItem('sb_token')) setTimeout(refreshSession, 2000);
-  setInterval(refreshSession, 10 * 60 * 1000);
+
+  // Veřejná funkce – používej před každým DB voláním vyžadujícím auth
+  window.getValidToken = function() {
+    if (_refreshPromise) return _refreshPromise;
+    return Promise.resolve(localStorage.getItem('sb_token'));
+  };
+
+  if (localStorage.getItem('sb_token')) setTimeout(_doRefresh, 1500);
+  setInterval(_doRefresh, 9 * 60 * 1000);
+
+  // Při návratu na záložku – refresh pokud byl tab schovaný > 5 min
+  var _lastHidden = 0;
   document.addEventListener('visibilitychange', function() {
-    if (!document.hidden && localStorage.getItem('sb_token')) refreshSession();
+    if (document.hidden) {
+      _lastHidden = Date.now();
+    } else if (localStorage.getItem('sb_token')) {
+      if (Date.now() - _lastHidden > 5 * 60 * 1000) _doRefresh();
+      else _doRefresh();
+    }
   });
 })();
 
