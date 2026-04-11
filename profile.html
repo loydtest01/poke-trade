@@ -208,7 +208,7 @@ body::after {
   letter-spacing: 0.1em; color: var(--text3); margin-bottom: 16px;
   display: flex; align-items: center; gap: 6px;
 }
-.role-icon { font-size: 15px; }
+.role-icon { font-size: 18px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; }
 
 /* Velký score */
 .rating-score-row {
@@ -597,13 +597,13 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
   gap: 10px;
 }
 .acc-header-left { display: flex; align-items: center; gap: 10px; }
-.acc-icon { font-size: 16px; }
+.acc-icon { font-size: 18px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex-shrink: 0; }
 .acc-title { font-size: 13px; font-weight: 600; color: var(--text2); }
 .acc-subtitle { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .acc-chevron {
-  font-size: 11px; color: var(--text3);
+  font-size: 14px; color: var(--text2);
   transition: transform .25s cubic-bezier(0.34,1.56,0.64,1);
-  flex-shrink: 0;
+  flex-shrink: 0; opacity: 0.8;
 }
 .acc-item.open .acc-chevron { transform: rotate(180deg); }
 .acc-body {
@@ -611,7 +611,8 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
   transition: max-height .3s ease;
   padding: 0 20px;
 }
-.acc-item.open .acc-body { max-height: 400px; }
+.acc-item.open .acc-body { max-height: 600px; }
+.acc-item.open .acc-body.acc-body-groq { max-height: 900px; }
 .acc-body-inner { padding-bottom: 18px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 16px; }
 .acc-label {
   display: block; font-size: 11px; font-weight: 600; color: var(--text3);
@@ -703,6 +704,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 .notif-allow { background: rgba(74,158,255,0.2); color: #7ab8ff; }
 .notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); }
 @media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
+.nav-icon { width:20px; height:20px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 </style>
 </head>
 <body>
@@ -713,8 +715,8 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
   <nav class="nav-lnks">
-    <a href="marketplace.html">Nabídky</a>
-    <a href="moje-album.html">🎴 Moje album</a>
+    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
+    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
     <a href="compare.html">Porovnat alba</a>
     <a href="scanner.html">📷 Skener</a>
     <a href="queue.html">📥 Čeká na zařazení</a>
@@ -895,63 +897,64 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
     </div>
 
 
-    <!-- ── Groq AI sekce (pouze pro přihlášeného vlastníka profilu) ── -->
-    <div class="groq-section" id="groqSection" style="display:none">
-
-      <div class="section-title">🤖 Groq AI — osobní integrace</div>
-
-      <div class="groq-card">
-
-        <div class="groq-status" id="groqStatus">
-          <span class="groq-dot" id="groqDot"></span>
-          <span id="groqStatusText">Načítám…</span>
-        </div>
-
-        <div class="groq-form" id="groqForm">
-          <div class="groq-info-box">
-            <strong>🔒 Soukromé – jen ty vidíš svůj klíč</strong><br>
-            API klíč je uložen v databázi s Row-Level Security. Žádný jiný uživatel
-            ani aplikace ho nemůže přečíst. Klíč slouží pouze ke komunikaci s Groq API.
-            <a href="https://console.groq.com/keys" target="_blank" rel="noopener">
-              Získat klíč zdarma →
-            </a>
-          </div>
-
-          <label class="groq-label">Groq API klíč</label>
-          <div class="groq-key-row">
-            <input
-              type="password"
-              id="groqKeyInput"
-              class="groq-input"
-              placeholder="gsk_••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <button class="groq-eye-btn" id="groqEyeBtn" type="button" title="Zobrazit/skrýt">👁</button>
-          </div>
-
-          <label class="groq-label" style="margin-top:14px">Model</label>
-          <select class="groq-select" id="groqModelSelect"></select>
-
-          <div class="groq-actions">
-            <button class="btn-groq-save" id="groqSaveBtn" type="button">💾 Uložit klíč</button>
-            <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat</button>
-          </div>
-
-          <div class="groq-feedback" id="groqFeedback"></div>
-        </div>
-
-        <div id="groqTestWrap" style="display:none; margin-top:14px">
-          <button class="btn-groq-test" id="groqTestBtn" type="button">⚡ Otestovat připojení</button>
-          <div class="groq-test-result" id="groqTestResult"></div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- ═══ NASTAVENÍ (sync / měna / jazyk) — jen vlastník ═══ -->
+    <!-- ═══ NASTAVENÍ + GROQ — jen vlastník ═══ -->
     <div class="groq-section settings-accordion" id="profileSettingsSection" style="display:none">
       <div class="section-title">⚙️ Nastavení</div>
+
+      <!-- Groq AI -->
+      <div class="acc-item" id="accGroq">
+        <div class="acc-header" onclick="toggleAcc('accGroq')">
+          <div class="acc-header-left">
+            <span class="acc-icon">🤖</span>
+            <div>
+              <div class="acc-title">Groq AI</div>
+              <div class="acc-subtitle" id="accGroqSub">Osobní integrace</div>
+            </div>
+          </div>
+          <span class="acc-chevron">▼</span>
+        </div>
+        <div class="acc-body acc-body-groq">
+          <div class="acc-body-inner">
+            <div class="groq-status" id="groqStatus">
+              <span class="groq-dot" id="groqDot"></span>
+              <span id="groqStatusText">Načítám…</span>
+            </div>
+            <div class="groq-form" id="groqForm">
+              <div class="groq-info-box">
+                <strong>🔒 Soukromé – jen ty vidíš svůj klíč</strong><br>
+                API klíč je uložen v databázi s Row-Level Security. Žádný jiný uživatel
+                ani aplikace ho nemůže přečíst. Klíč slouží pouze ke komunikaci s Groq API.
+                <a href="https://console.groq.com/keys" target="_blank" rel="noopener">
+                  Získat klíč zdarma →
+                </a>
+              </div>
+              <label class="groq-label">Groq API klíč</label>
+              <div class="groq-key-row">
+                <input
+                  type="password"
+                  id="groqKeyInput"
+                  class="groq-input"
+                  placeholder="gsk_••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button class="groq-eye-btn" id="groqEyeBtn" type="button" title="Zobrazit/skrýt">👁</button>
+              </div>
+              <label class="groq-label" style="margin-top:14px">Model</label>
+              <select class="groq-select" id="groqModelSelect"></select>
+              <div class="groq-actions">
+                <button class="btn-groq-save" id="groqSaveBtn" type="button">💾 Uložit klíč</button>
+                <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat</button>
+              </div>
+              <div class="groq-feedback" id="groqFeedback"></div>
+            </div>
+            <div id="groqTestWrap" style="display:none; margin-top:14px">
+              <button class="btn-groq-test" id="groqTestBtn" type="button">⚡ Otestovat připojení</button>
+              <div class="groq-test-result" id="groqTestResult"></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- Sync mód -->
       <div class="acc-item" id="accSync">
@@ -1804,7 +1807,7 @@ function profileUpdateLangUI(lang) {
     setTimeout(() => { fb.textContent = ''; }, 3000);
   };
 
-  const section    = document.getElementById('groqSection');
+  const section    = document.getElementById('profileSettingsSection');
   const dot        = document.getElementById('groqDot');
   const statusTxt  = document.getElementById('groqStatusText');
   const keyInput   = document.getElementById('groqKeyInput');
@@ -1859,6 +1862,8 @@ function profileUpdateLangUI(lang) {
 
   dot.className   = hasKey ? 'groq-dot active' : 'groq-dot';
   statusTxt.textContent = hasKey ? 'Groq AI je aktivní ✓' : 'Groq AI není nakonfigurováno';
+  const groqSub = document.getElementById('accGroqSub');
+  if (groqSub) groqSub.textContent = hasKey ? 'Aktivní ✓' : 'Nekonfigurováno';
 
   // ── Zobrazit/skrýt klíč ────────────────────────────────────
   eyeBtn.addEventListener('click', () => {
