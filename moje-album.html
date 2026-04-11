@@ -4157,8 +4157,8 @@ const I18N = {
   for_sell:  { cz: '💰 K prodeji', en: '💰 For sale' },
   cond:      { cz: 'Stav karty', en: 'Card condition' },
   spec_alb:  { cz: 'Speciální alba', en: 'Special albums' },
-  trade_album:{ cz: '🔄 Výměna', en: '🔄 Trade' },
-  shop_album: { cz: '🛒 Obchod', en: '🛒 Shop' },
+  trade_album:{ cz: '<img src="energi/vymena.png" class="sb-icon"> Výměna', en: '<img src="energi/vymena.png" class="sb-icon"> Trade' },
+  shop_album: { cz: '<img src="energi/obchod.png" class="sb-icon"> Obchod', en: '<img src="energi/obchod.png" class="sb-icon"> Shop' },
   my_albums: { cz: 'Moje alba', en: 'My albums' },
   new_album: { cz: '＋ Nové album', en: '＋ New album' },
   loading:   { cz: 'Načítám…', en: 'Loading…' },
@@ -4269,6 +4269,9 @@ function applyI18N() {
     if (cnt) {
       const cntHTML = cnt.outerHTML;
       el.innerHTML = translated + ' ' + cntHTML;
+    } else if (translated.includes('<img')) {
+      // Translation contains HTML (img icon) — use innerHTML
+      el.innerHTML = translated;
     } else {
       el.textContent = translated;
     }
