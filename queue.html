@@ -1125,7 +1125,7 @@ async function doAssign(groups, albumId) {
         card_data: {
           name:      rc?.name     || ai.name      || 'Neznámá karta',
           set:       rc?.set      || ai.set       || '',
-          number:    rc?.number   || ai.number    || '',
+          number:    ai.number    || rc?.number   || '',
           condition: g.condition || ai.condition || 'NM',
           category:  (ai.category || 'Pokemon').toLowerCase(),
           type:      ai.type      || '',

@@ -1817,7 +1817,7 @@ window._currency = localStorage.getItem('pkc_currency') || 'EUR';
 
 async function fetchEurRate() {
   try {
-    const r = await fetch('https://api.frankfurter.app/latest?from=EUR&to=CZK');
+    const r = await fetch('https://open.er-api.com/v6/latest/EUR');
     const d = await r.json();
     window._eurRate = d?.rates?.CZK || null;
   } catch {}
@@ -2109,6 +2109,15 @@ async function loadCardRealPhotos(localId) {
     </div>`).join('');
 
   wrap.style.display = '';
+
+  // Aktualizuj allCardPhotosMap a překresli kartu v gridu (timing fix)
+  const key = String(localId);
+  allCardPhotosMap[key] = rows;
+  const gridCard = document.querySelector(`.card-slot[data-id="${key}"]`);
+  if (gridCard) {
+    const c = allCards.find(x => String(x.id) === key);
+    if (c) gridCard.outerHTML = renderCard(c, null);
+  }
 }
 
 function openCdPhotoLightbox(url) {
@@ -2549,6 +2558,8 @@ async function fetchLivePrices(c, el) {
     c.hp            = card.hp || c.hp || '';
     if (c.pTrend > 0 || c.pMin > 0) {
       renderPrices(c, el);
+      // Ulož ceny do Supabase
+      saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save]', e));
       // Aktualizuj HP v detailu pokud bylo prázdné
       if (c.hp) {
         const hpEl = document.querySelector('#cdGrid .cd-row:first-child .cd-row-val');
