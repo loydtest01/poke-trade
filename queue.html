@@ -92,7 +92,6 @@ body::after {
   padding: 7px 12px; background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
   color: #f0ece4; font-size: 13px; font-family: inherit; min-width: 180px;
-  color-scheme: dark;
 }
 .btn-gold {
   background: linear-gradient(135deg,#f5c842,#ff8c00); color: #000;
@@ -312,11 +311,6 @@ body::after {
   padding: 7px 10px; background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
   color: #f0ece4; font-size: 12px; font-family: inherit;
-  color-scheme: dark;
-}
-.album-sel option, .album-sel-inline option,
-#bulkAlbumSel option, #globalAlbumSel option {
-  background: #1e1b13; color: #f0ece4;
 }
 .btn-assign {
   background: linear-gradient(135deg,#4ade80,#16a34a); color: #000;
@@ -459,7 +453,7 @@ body::after {
 }
 #bulkBar.show { display: flex; }
 #bulkBar .bulk-count { font-size: 13px; font-weight: 700; color: #f5c842; }
-#bulkBar select { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: #f0e8d0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; color-scheme: dark; }
+#bulkBar select { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: #f0e8d0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
 #bulkBar .btn-bulk-assign { background: #f5c842; color: #1a1025; border: none; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
 #bulkBar .btn-bulk-cancel { background: transparent; border: 1px solid rgba(255,255,255,.2); color: rgba(240,232,208,.5); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
 
@@ -1115,6 +1109,31 @@ async function assignAll() {
   btn.disabled = false; btn.textContent = '💾 Zařadit vše';
 }
 
+// ── Upload oříznuté fotky do Storage ──────────────────────────
+async function _uploadCroppedPhoto(croppedDataUrl, originalPath) {
+  // Přepiš originální soubor oříznutou verzí (upsert)
+  const m = croppedDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) return null;
+  const mime   = m[1];
+  const buffer = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/card-photo/${originalPath}`,
+    {
+      method:  'POST',
+      headers: {
+        'apikey':        SUPABASE_ANON,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  mime,
+        'x-upsert':      'true',
+      },
+      body: buffer,
+    }
+  );
+  if (!res.ok) return null;
+  const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${originalPath}`;
+  return { path: originalPath, url };
+}
+
 async function doAssign(groups, albumId) {
   let ok = 0, fail = 0;
   const newCardIds = [];
@@ -1175,16 +1194,26 @@ async function doAssign(groups, albumId) {
       });
       const newId = existingId || (Array.isArray(res) ? res[0]?.local_id : res?.local_id);
       if (newId) newCardIds.push(String(newId));
-      // Ulož fotky do user_card_photos
+      // Ulož fotky do user_card_photos (oříznutá verze pokud existuje)
       if (newId) {
         for (const p of g.photos) {
           if (!p.storagePath) continue;
+          let finalPath = p.storagePath;
+          let finalUrl  = p.url;
+          // Pokud má oříznutou verzi → nahraj ji do Storage
+          if (p.croppedUrl) {
+            try {
+              const uploaded = await _uploadCroppedPhoto(p.croppedUrl, p.storagePath);
+              if (uploaded) { finalPath = uploaded.path; finalUrl = uploaded.url; }
+            } catch(e) { console.warn('[crop upload]', e); }
+          }
           sbReq('rest/v1/user_card_photos', 'POST', {
             user_id:             userId,
             user_card_local_id:  String(newId),
-            storage_path:        p.storagePath,
-            url:                 p.url,
+            storage_path:        finalPath,
+            url:                 finalUrl,
             side:                p.side || 'front',
+            batch_id:            g.batchId || null,
           }).catch(e => console.warn('[user_card_photos insert]', e));
         }
       }
