@@ -1120,7 +1120,27 @@ async function doAssign(groups, albumId) {
       // Pokud uživatel vložil URL, dotáhni ještě data pokud nejsou
       const rc = g.resolvedCard || (g.cardUrl ? await resolveCardUrl(g.cardUrl).catch(()=>null) : null);
 
-      const res = await sbReq('rest/v1/user_cards', 'POST', {
+      // ── Kontrola duplikátů ──────────────────────────────────────
+      const cardName   = rc?.name   || ai.name   || '';
+      const cardSet    = rc?.set    || ai.set    || '';
+      const cardNumber = ai.number  || rc?.number || '';
+      const normNum = n => String(n||'').replace(/^0+/,'').split('/')[0].trim();
+      let existingId = null;
+      if (cardName) {
+        const candidates = await sbReq(
+          `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
+        ).catch(()=>[]);
+        const dup = Array.isArray(candidates) && candidates.find(r => {
+          const d = r.card_data || {};
+          return d.name === cardName
+            && d.set  === cardSet
+            && normNum(d.number) === normNum(cardNumber);
+        });
+        if (dup) existingId = dup.local_id;
+      }
+      // ────────────────────────────────────────────────────────────
+
+      const res = existingId ? null : await sbReq('rest/v1/user_cards', 'POST', {
         user_id:   userId,
         card_data: {
           name:      rc?.name     || ai.name      || 'Neznámá karta',
@@ -1147,7 +1167,7 @@ async function doAssign(groups, albumId) {
         updated_at: new Date().toISOString(),
         for_trade:  false, for_sell: false,
       });
-      const newId = Array.isArray(res) ? res[0]?.local_id : res?.local_id;
+      const newId = existingId || (Array.isArray(res) ? res[0]?.local_id : res?.local_id);
       if (newId) newCardIds.push(String(newId));
       // Ulož fotky do user_card_photos
       if (newId) {
