@@ -1660,13 +1660,13 @@ async function fetchMissingImages() {
     await Promise.all(batch.map(async c => {
       const name = encodeURIComponent(c.name || '');
       const set  = encodeURIComponent(c.set  || '');
-      const num  = encodeURIComponent(c.number || c.num || '');
+      const num  = encodeURIComponent((c.number || c.num || '').toString().split('/')[0]);
       if (!name) return;
       try {
         // Zkus přesný dotaz (jméno + set + číslo)
         let q = `name:"${c.name}"`;
         if (set)  q += ` set.name:"${c.set}"`;
-        if (num)  q += ` number:${c.number || c.num}`;
+        const rawNum = (c.number || c.num || "").toString().split("/")[0]; if (rawNum) q += ` number:${rawNum}`;
         const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
         const res  = await fetch(url);
         if (!res.ok) return;
@@ -2517,7 +2517,7 @@ async function fetchLivePrices(c, el) {
     // Zkus přes apiId (přesné) nebo hledáním podle jména+čísla
     let apiUrl;
     const apiId = c.apiId || c.id;
-    const num   = c.number || c.num || '';
+    const num   = (c.number || c.num || "").toString().split("/")[0];
     const name  = c.name || '';
     const set   = c.set  || '';
 
