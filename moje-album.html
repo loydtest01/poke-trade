@@ -578,7 +578,7 @@ body { background: #06040c; overflow-x: hidden; }
 #cardDetailModal.open { display: flex; }
 .cd-box {
   background: #0e0c12; border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 20px; width: 100%; max-width: 820px;
+  border-radius: 20px; width: 100%; max-width: 1080px;
   display: flex; gap: 0; overflow: hidden;
   box-shadow: 0 24px 80px rgba(0,0,0,0.7);
   max-height: 90vh;
@@ -591,7 +591,7 @@ body { background: #06040c; overflow-x: hidden; }
 }
 /* Panel fotek vedle karty (poslední sloupec) */
 .cd-photos-panel {
-  flex: 0 0 130px; background: rgba(0,0,0,0.25);
+  flex: 0 0 310px; background: rgba(0,0,0,0.25);
   display: flex; flex-direction: column;
   border-left: 1px solid rgba(255,255,255,0.07);
   padding: 14px 10px; gap: 8px; overflow-y: auto;
@@ -602,19 +602,51 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .cd-photos-panel-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 2px;
 }
 .cd-photos-panel .cd-photo-thumb {
-  width: 100%; height: 85px;
+  width: 100%; height: auto; aspect-ratio: 2/3;
 }
 .cd-img {
   width: 100%; max-width: 220px; border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-  transition: transform .2s;
+  transition: box-shadow .3s;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
-.cd-img:hover { transform: scale(1.04); }
+/* photo panel individual item meta */
+.cd-panel-photo-item {
+  position: relative; border-radius: 8px; overflow: visible;
+  cursor: pointer; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cd-panel-photo-thumb {
+  position: relative; border-radius: 8px; overflow: hidden;
+  aspect-ratio: 2/3;
+  border: 1.5px solid rgba(255,255,255,0.12);
+  transition: transform .15s, border-color .15s;
+}
+.cd-panel-photo-thumb:hover { transform: scale(1.04); border-color: rgba(245,200,66,0.55); }
+.cd-panel-photo-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+.cd-panel-del-btn {
+  position: absolute; top: 4px; right: 4px;
+  background: rgba(248,113,113,0.9); border: none; border-radius: 5px;
+  color: #fff; font-size: 11px; font-weight: 700;
+  padding: 2px 6px; cursor: pointer; display: none;
+  line-height: 1; z-index: 5;
+}
+.cd-panel-photo-thumb:hover .cd-panel-del-btn { display: block; }
+.cd-panel-photo-date {
+  font-size: 9px; color: rgba(240,236,228,0.45);
+  text-align: center; line-height: 1.3; padding: 0 2px;
+}
+.cd-panel-photo-note {
+  font-size: 9px; color: #f5c842; font-style: italic;
+  text-align: center; line-height: 1.3; padding: 0 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .cd-no-img {
   width: 180px; height: 252px; border-radius: 12px;
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
@@ -2212,36 +2244,35 @@ async function loadCardRealPhotos(localId) {
     batches.get(key).push(r);
   }
 
-  // ── Renderuj složky do pravého panelu ────────────────────
+  // ── Renderuj fotky do pravého panelu — každá samostatně ────────
   let panelHtml = '';
-  for (const [batchKey, photos] of batches) {
-    const front   = photos.find(p => p.side === 'front') || photos[0];
-    const isSolo  = batchKey.startsWith('solo_');
-    const ts      = front.created_at
-      ? new Date(front.created_at).toLocaleTimeString('cs', { hour:'2-digit', minute:'2-digit' })
-      : '';
-    const count   = photos.length;
+  for (const [batchKey, batchPhotos] of batches) {
+    // Seřaď: front první
+    const sorted = [...batchPhotos].sort((a,b) => {
+      const order = {front:0,back:1,detail:2,name:3};
+      return (order[a.side]??9) - (order[b.side]??9);
+    });
+    // Připrav JSON celého batche pro otevření galerie
+    const batchJson = sorted.map(p => JSON.stringify(p).replace(/"/g,'&quot;')).join(',');
 
-    if (isSolo || count === 1) {
-      // Jediná fotka – kliknutím otevři galerii
-      const allRowsForGallery = JSON.stringify([front]).replace(/\\/g,'\\\\').replace(/`/g,'\\`');
+    for (let pi = 0; pi < sorted.length; pi++) {
+      const ph = sorted[pi];
+      const label = sideLabel[ph.side] || ph.side || '';
+      const ts = ph.created_at
+        ? new Date(ph.created_at).toLocaleString('cs', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
+        : '';
       panelHtml += `
-        <div class="cd-photo-thumb" onclick="openPhotoGalleryFromRows([${JSON.stringify(front).replace(/"/g,'&quot;')}], 0)" title="${sideLabel[front.side]||front.side}${ts ? ' · '+ts : ''}">
-          <img src="${esc(front.url)}" alt="${front.side}" loading="lazy">
-          <div class="cd-pt-side">${sideLabel[front.side]||front.side}</div>
-        </div>`;
-    } else {
-      // Složka – kliknutím otevři galerii se všemi fotkami z tohoto focení
-      const allBatchRows = photos.map(p => JSON.stringify(p).replace(/"/g,'&quot;')).join(',');
-      panelHtml += `
-        <div class="cd-photo-thumb" style="position:relative" onclick="openPhotoGalleryFromRows([${allBatchRows}], 0)" title="Focení ${ts} · ${count} fotek">
-          <img src="${esc(front.url)}" alt="přední" loading="lazy">
-          <div class="cd-pt-side">${sideLabel[front.side]||front.side}</div>
-          <div style="position:absolute;top:3px;left:3px;background:rgba(0,0,0,0.75);color:#f5c842;font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px">${count}×</div>
+        <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}">
+          <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], ${pi})">
+            <img src="${esc(ph.url)}" alt="${label}" loading="lazy">
+            <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoPanel('${ph.id}',this)" title="Smazat">✕</button>
+          </div>
+          ${ts ? `<div class="cd-panel-photo-date">${label} · ${ts}</div>` : `<div class="cd-panel-photo-date">${label}</div>`}
+          ${ph.note ? `<div class="cd-panel-photo-note">${ph.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
         </div>`;
     }
   }
-  panelList.innerHTML = panelHtml;
+  panelList.innerHTML = panelHtml || '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px 4px;opacity:.5">Žádné fotky</div>';
   wrap.style.display  = '';
 
   // Uložit do allCardPhotosMap pro grid
@@ -2262,7 +2293,103 @@ async function loadCardRealPhotos(localId) {
   loadCardRealPhotos._rows = rows;
 }
 
-// ── Otevři složku (batch modal) ───────────────────────────
+// ── Smazání fotky z panelu ──────────────────────────────────────
+async function deleteCardPhotoPanel(id, btn) {
+  if (!confirm('Smazat tuto fotku?')) return;
+  const item = btn.closest('.cd-panel-photo-item');
+  if (item) { item.style.transition = 'opacity .3s'; item.style.opacity = '0'; }
+  await sbReq(`rest/v1/user_card_photos?id=eq.${id}`, 'DELETE').catch(() => null);
+  setTimeout(() => { if (item) item.remove(); }, 300);
+}
+
+// ── 3D Lerp tilt na API kartě v detailu ────────────────────────
+(function() {
+  let _tiltAF = null;
+  let _tRx = 0, _tRy = 0, _cRx = 0, _cRy = 0;
+  const LERP = 0.08; // pomalost: nižší = líněji
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function applyDetailTilt(imgEl) {
+    if (imgEl._detailTiltBound) return;
+    imgEl._detailTiltBound = true;
+
+    // Glare element
+    const wrap = imgEl.parentElement;
+    let glare = wrap.querySelector('.cd-img-glare');
+    if (!glare) {
+      glare = document.createElement('div');
+      glare.className = 'cd-img-glare';
+      glare.style.cssText = `
+        position:absolute; inset:0; border-radius:12px;
+        pointer-events:none; z-index:3; opacity:0;
+        mix-blend-mode:screen; transition:opacity .3s;
+      `;
+      wrap.style.position = 'relative';
+      wrap.appendChild(glare);
+    }
+
+    function animate() {
+      _cRx = lerp(_cRx, _tRx, LERP);
+      _cRy = lerp(_cRy, _tRy, LERP);
+      const dx = Math.abs(_cRx - _tRx);
+      const dy = Math.abs(_cRy - _tRy);
+      imgEl.style.transform = `perspective(800px) rotateX(${_cRx}deg) rotateY(${_cRy}deg) scale(1.04)`;
+      if (dx > 0.01 || dy > 0.01) {
+        _tiltAF = requestAnimationFrame(animate);
+      } else {
+        _tiltAF = null;
+      }
+    }
+
+    imgEl.addEventListener('mousemove', (e) => {
+      const rect = imgEl.getBoundingClientRect();
+      const cx = (e.clientX - rect.left) / rect.width;
+      const cy = (e.clientY - rect.top) / rect.height;
+      _tRx = (cy - 0.5) * 56;   // ±28° vertikálně
+      _tRy = (cx - 0.5) * 44;   // ±22° horizontálně
+      glare.style.opacity = '0.7';
+      glare.style.background = `radial-gradient(circle at ${cx*100}% ${cy*100}%,
+        rgba(255,255,255,0.42) 0%, rgba(255,255,255,0.06) 50%, transparent 75%)`;
+      if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
+    });
+
+    imgEl.addEventListener('mouseleave', () => {
+      _tRx = 0; _tRy = 0;
+      glare.style.opacity = '0';
+      imgEl.style.transition = 'transform 0.6s cubic-bezier(.22,1,.36,1), box-shadow .3s';
+      if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
+      setTimeout(() => { imgEl.style.transition = ''; }, 650);
+    });
+
+    // Touch support
+    imgEl.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const rect = imgEl.getBoundingClientRect();
+      const cx = (t.clientX - rect.left) / rect.width;
+      const cy = (t.clientY - rect.top) / rect.height;
+      _tRx = (cy - 0.5) * 56;
+      _tRy = (cx - 0.5) * 44;
+      if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
+    }, { passive: false });
+
+    imgEl.addEventListener('touchend', () => {
+      _tRx = 0; _tRy = 0;
+      if (!_tiltAF) _tiltAF = requestAnimationFrame(animate);
+    });
+  }
+
+  // Hook into openCardDetail — apply tilt after image is rendered
+  const _origOpenCardDetail = window.openCardDetail || function(){};
+  // We observe changes to cdImgWrap instead
+  const _detailImgObserver = new MutationObserver(() => {
+    const img = document.querySelector('#cdImgWrap .cd-img');
+    if (img) applyDetailTilt(img);
+  });
+  const wrap = document.getElementById('cdImgWrap');
+  if (wrap) _detailImgObserver.observe(wrap, { childList: true, subtree: true });
+})();
 function openBatchFolder(count, batchKey) {
   const rows   = (loadCardRealPhotos._rows || []).filter(r =>
     (r.batch_id || ('solo_' + r.id)) === batchKey
@@ -4329,8 +4456,8 @@ function applyTilt(card) {
     const rect = card.getBoundingClientRect();
     const cx = (e.clientX - rect.left) / rect.width;   // 0..1
     const cy = (e.clientY - rect.top)  / rect.height;  // 0..1
-    const rx = (cy - 0.5) * 28;  // naklon -14..14 deg
-    const ry = (cx - 0.5) * -28;
+    const rx = (cy - 0.5) * -28;  // reversed
+    const ry = (cx - 0.5) * 28;   // reversed
     card.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.06)`;
     card.style.transition = 'transform 0.05s ease-out, box-shadow .15s, border-color .15s';
     card.style.boxShadow  = `${ry*-0.5}px ${rx*0.5}px 20px rgba(0,0,0,0.5)`;
