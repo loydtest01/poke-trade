@@ -1165,6 +1165,18 @@ body { background: #06040c; overflow-x: hidden; }
 .notif-dismiss { background: transparent; color: rgba(240,236,228,0.4); border: 1px solid rgba(255,255,255,0.08); }
 @media (max-width: 480px) { .chat-drop { width: calc(100vw - 20px); right: -60px; } }
 
+
+/* Odhlásit — červené */
+.btn-logout {
+  color: rgba(248,113,113,0.85) !important;
+  border-color: rgba(248,113,113,0.25) !important;
+}
+.btn-logout:hover {
+  background: rgba(248,113,113,0.1) !important;
+  color: #f87171 !important;
+  border-color: rgba(248,113,113,0.45) !important;
+}
+.btn-logout .nav-icon { filter: brightness(1) saturate(1) !important; mix-blend-mode: normal !important; }
 </style>
 </head>
 <body>
@@ -1211,7 +1223,7 @@ body { background: #06040c; overflow-x: hidden; }
       <span id="userName"></span>
     </a>
     <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline btn-logout" style="display:none;font-size:13px"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
 
@@ -1239,7 +1251,7 @@ body { background: #06040c; overflow-x: hidden; }
       <span class="sb-label" data-i18n="spec_alb">Speciální alba</span>
       <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album"><img src="energi/vymena.png" class="sb-icon"> Výměna <span class="cnt" id="cnt-vymena">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75">✅ Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
+      <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75"><img src="energi/vymeneno.png" class="sb-icon"> Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
     </div>
     <div class="sb-divider"></div>
@@ -3873,13 +3885,13 @@ const FLAT_CHIPS = {
   subtype_pokemon: [
     { label: 'Vše',              fn: "setTrainerSub('')" },
     { label: '<img src="energi/basic.png" class="fi"> Basic',         fn: "setTrainerSub('Basic')" },
-    { label: '🔀 Stage 1',       fn: "setTrainerSub('Stage 1')" },
+    { label: '<img src="energi/stage_1.png" class="fi"> Stage 1',       fn: "setTrainerSub('Stage 1')" },
     { label: '<img src="energi/stage_2.png" class="fi"> Stage 2',       fn: "setTrainerSub('Stage 2')" },
     { label: '<img src="energi/EX.png" class="fi"> EX',            fn: "setTrainerSub('EX')" },
     { label: '<img src="energi/GX.png" class="fi"> GX',            fn: "setTrainerSub('GX')" },
     { label: '<img src="energi/V.png" class="fi"> V',             fn: "setTrainerSub('V')" },
-    { label: '⭐ VMAX',          fn: "setTrainerSub('VMAX')" },
-    { label: '⭐ VSTAR',         fn: "setTrainerSub('VSTAR')" },
+    { label: '<img src="energi/vmax.png" class="fi"> VMAX',          fn: "setTrainerSub('VMAX')" },
+    { label: '<img src="energi/vstar.png" class="fi"> VSTAR',         fn: "setTrainerSub('VSTAR')" },
     { label: '<img src="energi/ex_small.png" class="fi"> ex',            fn: "setTrainerSub('ex')" },
     { label: '<img src="energi/Tera.png" class="fi"> Tera',          fn: "setTrainerSub('Tera')" },
     { label: '<img src="energi/tag_team.png" class="fi"> TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
@@ -3887,13 +3899,13 @@ const FLAT_CHIPS = {
   subtype_all: [
     { label: 'Vše',              fn: "setTrainerSub('')" },
     { label: '<img src="energi/basic.png" class="fi"> Basic',         fn: "setTrainerSub('Basic')" },
-    { label: '🔀 Stage 1',       fn: "setTrainerSub('Stage 1')" },
+    { label: '<img src="energi/stage_1.png" class="fi"> Stage 1',       fn: "setTrainerSub('Stage 1')" },
     { label: '<img src="energi/stage_2.png" class="fi"> Stage 2',       fn: "setTrainerSub('Stage 2')" },
     { label: '<img src="energi/EX.png" class="fi"> EX',            fn: "setTrainerSub('EX')" },
     { label: '<img src="energi/GX.png" class="fi"> GX',            fn: "setTrainerSub('GX')" },
     { label: '<img src="energi/V.png" class="fi"> V',             fn: "setTrainerSub('V')" },
-    { label: '⭐ VMAX',          fn: "setTrainerSub('VMAX')" },
-    { label: '⭐ VSTAR',         fn: "setTrainerSub('VSTAR')" },
+    { label: '<img src="energi/vmax.png" class="fi"> VMAX',          fn: "setTrainerSub('VMAX')" },
+    { label: '<img src="energi/vstar.png" class="fi"> VSTAR',         fn: "setTrainerSub('VSTAR')" },
     { label: '<img src="energi/ex_small.png" class="fi"> ex',            fn: "setTrainerSub('ex')" },
     { label: '<img src="energi/Tera.png" class="fi"> Tera',          fn: "setTrainerSub('Tera')" },
     { label: '<img src="energi/tag_team.png" class="fi"> TAG TEAM',      fn: "setTrainerSub('TAG TEAM')" },
