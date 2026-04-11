@@ -651,6 +651,14 @@ let cardGroups = [];
   document.getElementById('logoutBtn').style.display  = '';
   document.getElementById('userName').textContent    = uname;
   document.getElementById('userAvatar').textContent  = (uname[0]||'?').toUpperCase();
+    // Load avatar from localStorage
+    (function(){
+      try {
+        var av=localStorage.getItem('pkc_avatar_local');
+        var el=document.getElementById('userAvatar');
+        if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+      } catch(e){}
+    })();
 
   await loadAlbums();
   await loadQueue();

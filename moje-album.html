@@ -82,10 +82,11 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
 .user-avatar {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 50%;
   background: var(--yellow); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
 }
 
 /* ── Layout ────────────────────────────────────────────────── */
@@ -1663,6 +1664,14 @@ let editingAlbumId = null;
     document.getElementById('logoutBtn').style.display  = '';
     document.getElementById('userName').textContent     = uname;
     document.getElementById('userAvatar').textContent   = (uname[0] || '?').toUpperCase();
+    // Load avatar from localStorage
+    (function(){
+      try {
+        var av=localStorage.getItem('pkc_avatar_local');
+        var el=document.getElementById('userAvatar');
+        if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+      } catch(e){}
+    })();
     // Načti profilový avatar z Supabase profiles
     loadAvatar(userId);
   } else {

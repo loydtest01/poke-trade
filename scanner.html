@@ -1183,6 +1183,14 @@ function showMain() {
   const username = currentUser?.user_metadata?.username || currentUser?.email?.split('@')[0] || 'Trainer';
   if(document.getElementById('userName')) document.getElementById('userName').textContent = username;
   if(document.getElementById('userAvatar')) document.getElementById('userAvatar').textContent = (username[0]||'?').toUpperCase();
+    // Load avatar from localStorage
+    (function(){
+      try {
+        var av=localStorage.getItem('pkc_avatar_local');
+        var el=document.getElementById('userAvatar');
+        if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+      } catch(e){}
+    })();
   if(document.getElementById('userChip')) document.getElementById('userChip').style.display = '';
   if(document.getElementById('loginLink')) document.getElementById('loginLink').style.display = 'none';
   if(document.getElementById('logoutBtn')) document.getElementById('logoutBtn').style.display = '';

@@ -860,5 +860,15 @@ document.addEventListener('click', e => {
   if (modal && e.target === modal) modal.style.display = 'none';
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  try{
+    var av=localStorage.getItem('pkc_avatar_local');
+    var el=document.getElementById('userAvatar');
+    if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+  }catch(e){}
+});
+</script>
 </body>
 </html>

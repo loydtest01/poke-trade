@@ -45,7 +45,8 @@
       background: #f5c842; color: #000;
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 800;
-    }
+      background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0; width: 30px; height: 30px;
+}
 
     /* ── PAGE ── */
     .page-wrap {
@@ -487,6 +488,16 @@
       setTimeout(() => btn.textContent = '📋 Kopírovat vzor', 2000);
     });
   }
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  try{
+    var av=localStorage.getItem('pkc_avatar_local');
+    var el=document.getElementById('userAvatar');
+    if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+  }catch(e){}
+});
 </script>
 </body>
 </html>

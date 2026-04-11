@@ -74,10 +74,11 @@ body::after {
   cursor: pointer; text-decoration: none; color: var(--text);
 }
 .user-avatar {
-  width: 26px; height: 26px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 50%;
   background: var(--yellow); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
 }
 
 /* ═══ LAYOUT ═══ */
@@ -107,6 +108,88 @@ body::after {
   font-family: 'Unbounded', sans-serif; font-size: 32px; font-weight: 800;
   color: #000; letter-spacing: -1px;
   box-shadow: 0 0 0 3px rgba(245,200,66,0.25), 0 0 24px rgba(245,200,66,0.15);
+  background-size: cover; background-position: center; overflow: hidden;
+}
+.avatar-edit-btn {
+  position: absolute; bottom: 0; right: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--yellow); border: 2px solid rgba(8,8,12,0.9);
+  color: #000; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, background .15s; z-index: 2;
+}
+.avatar-edit-btn:hover { transform: scale(1.15); background: #ffd700; }
+
+/* ═══ AVATAR MODAL ═══ */
+.av-overlay {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 0; transition: opacity .2s;
+}
+.av-overlay.show { opacity: 1; }
+.av-modal {
+  background: rgba(14,12,22,0.97); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px; width: 100%; max-width: 480px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  transform: translateY(16px); transition: transform .2s;
+  overflow: hidden;
+}
+.av-overlay.show .av-modal { transform: translateY(0); }
+.av-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.av-title { font-family: 'Unbounded',sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+.av-close { background: none; border: none; color: var(--text3); cursor: pointer; font-size: 20px; line-height: 1; padding: 0; }
+.av-close:hover { color: var(--text); }
+.av-tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.av-tab {
+  flex: 1; padding: 11px; font-size: 12px; font-weight: 600; text-align: center;
+  cursor: pointer; color: var(--text3); background: none; border: none;
+  border-bottom: 2px solid transparent; transition: all .15s; font-family: inherit;
+}
+.av-tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+.av-body { padding: 20px; }
+.av-drop {
+  border: 2px dashed rgba(255,255,255,0.15); border-radius: 14px;
+  padding: 28px 20px; text-align: center; cursor: pointer;
+  transition: border-color .15s; color: var(--text3); font-size: 13px;
+  margin-bottom: 14px;
+}
+.av-drop:hover, .av-drop.drag { border-color: var(--yellow); color: var(--text); }
+.av-drop-icon { font-size: 32px; margin-bottom: 8px; }
+.av-drop small { display: block; font-size: 11px; margin-top: 4px; opacity: .6; }
+/* Canvas cropper */
+.av-cropper-wrap {
+  position: relative; border-radius: 14px; overflow: hidden;
+  background: #000; margin-bottom: 14px; display: none;
+  touch-action: none;
+}
+.av-cropper-wrap canvas { display: block; width: 100%; cursor: grab; }
+.av-cropper-wrap canvas:active { cursor: grabbing; }
+.av-crop-hint { font-size: 11px; color: var(--text3); text-align: center; margin-bottom: 14px; }
+.av-zoom-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.av-zoom-row input[type=range] { flex: 1; accent-color: var(--yellow); }
+.av-zoom-label { font-size: 11px; color: var(--text3); width: 32px; text-align: right; }
+.av-actions { display: flex; gap: 10px; }
+.av-btn-save {
+  flex: 1; padding: 11px; border-radius: 10px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, var(--yellow), #ff8c00);
+  color: #000; font-weight: 700; font-size: 13px; font-family: inherit;
+  transition: opacity .15s;
+}
+.av-btn-save:hover { opacity: .88; }
+.av-btn-save:disabled { opacity: .4; cursor: not-allowed; }
+.av-btn-cancel {
+  padding: 11px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: var(--text2); cursor: pointer;
+  font-size: 13px; font-family: inherit; transition: background .15s;
+}
+.av-btn-cancel:hover { background: rgba(255,255,255,0.09); }
+.av-card-hint {
+  font-size: 12px; color: var(--text3); line-height: 1.6;
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.15);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 14px;
 }
 .profile-online-dot {
   position: absolute; bottom: 4px; right: 4px;
@@ -760,6 +843,9 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
       <div class="profile-avatar-wrap">
         <div class="profile-avatar" id="heroAvatar">?</div>
         <div class="profile-online-dot" id="onlineDot" style="display:none"></div>
+        <button class="avatar-edit-btn" id="avatarEditBtn" style="display:none" onclick="openAvatarModal()" title="Změnit profilovku">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
       </div>
       <div class="profile-info">
         <div class="profile-username" id="heroUsername">Načítám…</div>
@@ -1326,6 +1412,9 @@ function renderProfile(p) {
   if (currentUser?.id === profileUserId) {
     document.getElementById('btnSendMsg').style.display = 'none';
     document.getElementById('btnLeaveReview').style.display = 'none';
+    // Zobraz avatar edit tlacitko
+    const editBtn = document.getElementById('avatarEditBtn');
+    if (editBtn) editBtn.style.display = 'flex';
     // Zobraz dashboard
     const ds = document.getElementById('dashboardSection');
     if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); }
@@ -2299,5 +2388,286 @@ function setProgress(pct, label) {
   if (pl) pl.textContent = label;
 }
 </script>
+
+<!-- ═══ AVATAR MODAL ═══ -->
+<div class="av-overlay" id="avOverlay" style="display:none" onclick="if(event.target===this)closeAvatarModal()">
+  <div class="av-modal">
+    <div class="av-head">
+      <span class="av-title">🖼 Profilový obrázek</span>
+      <button class="av-close" onclick="closeAvatarModal()">×</button>
+    </div>
+    <div class="av-tabs">
+      <button class="av-tab active" id="avTabPhoto" onclick="switchAvTab('photo')">📷 Vlastní fotka</button>
+      <button class="av-tab" id="avTabCard" onclick="switchAvTab('card')">🃏 Z Pokémon kartičky</button>
+    </div>
+    <div class="av-body">
+      <div id="avPanelPhoto">
+        <div class="av-drop" id="avDropPhoto"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="avHandleDrop(event,'photo')"
+          onclick="document.getElementById('avFilePhoto').click()">
+          <div class="av-drop-icon">🖼</div>
+          <div>Přetáhni fotku nebo klikni pro výběr</div>
+          <small>JPG, PNG, WEBP — max 10 MB</small>
+        </div>
+        <input type="file" id="avFilePhoto" accept="image/*" style="display:none" onchange="avLoadFile(this.files[0],'photo')">
+      </div>
+      <div id="avPanelCard" style="display:none">
+        <div class="av-card-hint">
+          💡 Nahraj obrázek Pokémon kartičky a vyřízni si libovolnou část — třeba obličej Pokémona — jako kulaté profilové foto.
+        </div>
+        <div class="av-drop" id="avDropCard"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="avHandleDrop(event,'card')"
+          onclick="document.getElementById('avFileCard').click()">
+          <div class="av-drop-icon">🃏</div>
+          <div>Přetáhni kartičku nebo klikni pro výběr</div>
+          <small>Foto kartičky — JPG, PNG</small>
+        </div>
+        <input type="file" id="avFileCard" accept="image/*" style="display:none" onchange="avLoadFile(this.files[0],'card')">
+      </div>
+      <div class="av-cropper-wrap" id="avCropperWrap">
+        <canvas id="avCanvas"></canvas>
+      </div>
+      <div class="av-crop-hint" id="avCropHint" style="display:none">Táhni pro posun · kolečko / gesta pro přiblížení</div>
+      <div class="av-zoom-row" id="avZoomRow" style="display:none">
+        <span style="font-size:13px">🔍</span>
+        <input type="range" id="avZoomSlider" min="0.5" max="4" step="0.01" value="1" oninput="avSetZoom(+this.value)">
+        <span class="av-zoom-label" id="avZoomLabel">100%</span>
+      </div>
+      <div class="av-actions">
+        <button class="av-btn-cancel" onclick="closeAvatarModal()">Zrušit</button>
+        <button class="av-btn-save" id="avSaveBtn" onclick="avSave()" disabled>💾 Uložit profilovku</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var CANVAS_SIZE=420, OUT_SIZE=400;
+  var img=null, zoom=1, minZoom=0.5;
+  var offX=0, offY=0;
+  var dragging=false, lastX=0, lastY=0, lastPinchDist=null;
+  var canvas, ctx;
+
+  function init(){
+    canvas=document.getElementById('avCanvas');
+    canvas.width=canvas.height=CANVAS_SIZE;
+    ctx=canvas.getContext('2d');
+    canvas.addEventListener('mousedown',function(e){dragging=true;lastX=e.clientX;lastY=e.clientY;});
+    canvas.addEventListener('mousemove',function(e){
+      if(!dragging||!img)return;
+      var scale=CANVAS_SIZE/canvas.offsetWidth;
+      offX+=(e.clientX-lastX)*scale; offY+=(e.clientY-lastY)*scale;
+      lastX=e.clientX;lastY=e.clientY; clamp(); draw();
+    });
+    canvas.addEventListener('mouseup',function(){dragging=false;});
+    canvas.addEventListener('mouseleave',function(){dragging=false;});
+    canvas.addEventListener('wheel',function(e){
+      e.preventDefault();
+      if(!img)return;
+      avSetZoom(Math.max(minZoom,Math.min(4,zoom+(e.deltaY<0?0.07:-0.07))));
+    },{passive:false});
+    canvas.addEventListener('touchstart',function(e){
+      if(e.touches.length===1){dragging=true;lastX=e.touches[0].clientX;lastY=e.touches[0].clientY;}
+      if(e.touches.length===2){lastPinchDist=pdist(e);}
+      e.preventDefault();
+    },{passive:false});
+    canvas.addEventListener('touchmove',function(e){
+      e.preventDefault();
+      if(e.touches.length===1&&dragging){
+        var scale=CANVAS_SIZE/canvas.offsetWidth;
+        offX+=(e.touches[0].clientX-lastX)*scale; offY+=(e.touches[0].clientY-lastY)*scale;
+        lastX=e.touches[0].clientX;lastY=e.touches[0].clientY; clamp(); draw();
+      }
+      if(e.touches.length===2&&lastPinchDist){
+        var d=pdist(e);
+        avSetZoom(Math.max(minZoom,Math.min(4,zoom*(d/lastPinchDist))));
+        lastPinchDist=d;
+      }
+    },{passive:false});
+    canvas.addEventListener('touchend',function(){dragging=false;lastPinchDist=null;});
+  }
+
+  function pdist(e){
+    var dx=e.touches[0].clientX-e.touches[1].clientX;
+    var dy=e.touches[0].clientY-e.touches[1].clientY;
+    return Math.sqrt(dx*dx+dy*dy);
+  }
+
+  window.avSetZoom=function(z){
+    zoom=z; clamp(); draw();
+    var sl=document.getElementById('avZoomSlider');
+    var lb=document.getElementById('avZoomLabel');
+    if(sl)sl.value=z;
+    if(lb)lb.textContent=Math.round(z*100)+'%';
+  };
+
+  function clamp(){
+    if(!img)return;
+    var iw=img.width*zoom, ih=img.height*zoom;
+    var minX=CANVAS_SIZE-iw, minY=CANVAS_SIZE-ih;
+    if(iw<CANVAS_SIZE){offX=Math.max(minX/2,Math.min(-minX/2,offX));}
+    else{offX=Math.max(minX,Math.min(0,offX));}
+    if(ih<CANVAS_SIZE){offY=Math.max(minY/2,Math.min(-minY/2,offY));}
+    else{offY=Math.max(minY,Math.min(0,offY));}
+  }
+
+  function draw(){
+    if(!ctx||!img)return;
+    ctx.clearRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    // Dark bg
+    ctx.fillStyle='#111';
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    // Image
+    ctx.drawImage(img,offX,offY,img.width*zoom,img.height*zoom);
+    // Dim outside circle
+    ctx.save();
+    ctx.fillStyle='rgba(0,0,0,0.55)';
+    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath();
+    ctx.arc(CANVAS_SIZE/2,CANVAS_SIZE/2,CANVAS_SIZE/2-8,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    // Circle border
+    ctx.strokeStyle='rgba(245,200,66,0.7)';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.arc(CANVAS_SIZE/2,CANVAS_SIZE/2,CANVAS_SIZE/2-8,0,Math.PI*2);
+    ctx.stroke();
+  }
+
+  function loadImage(file){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      var i=new Image();
+      i.onload=function(){
+        img=i;
+        // Fit image so it fills the circle initially
+        var scaleW=CANVAS_SIZE/i.width, scaleH=CANVAS_SIZE/i.height;
+        zoom=Math.max(scaleW,scaleH);
+        minZoom=Math.min(zoom,0.5);
+        offX=(CANVAS_SIZE-i.width*zoom)/2;
+        offY=(CANVAS_SIZE-i.height*zoom)/2;
+        var wrap=document.getElementById('avCropperWrap');
+        var hint=document.getElementById('avCropHint');
+        var zrow=document.getElementById('avZoomRow');
+        var sbtn=document.getElementById('avSaveBtn');
+        if(wrap)wrap.style.display='block';
+        if(hint)hint.style.display='block';
+        if(zrow)zrow.style.display='flex';
+        if(sbtn)sbtn.disabled=false;
+        avSetZoom(zoom);
+        draw();
+      };
+      i.src=e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  window.avHandleDrop=function(e,tab){
+    e.preventDefault();
+    document.getElementById(tab==='photo'?'avDropPhoto':'avDropCard').classList.remove('drag');
+    var f=e.dataTransfer.files[0];
+    if(f&&f.type.startsWith('image/'))loadImage(f);
+  };
+
+  window.avLoadFile=function(f,tab){
+    if(f&&f.type.startsWith('image/'))loadImage(f);
+  };
+
+  window.avSave=function(){
+    if(!img)return;
+    // Render final circle to output canvas
+    var out=document.createElement('canvas');
+    out.width=out.height=OUT_SIZE;
+    var octx=out.getContext('2d');
+    var scale=OUT_SIZE/CANVAS_SIZE;
+    octx.beginPath();
+    octx.arc(OUT_SIZE/2,OUT_SIZE/2,OUT_SIZE/2,0,Math.PI*2);
+    octx.clip();
+    octx.drawImage(img,offX*scale,offY*scale,img.width*zoom*scale,img.height*zoom*scale);
+    var dataUrl=out.toDataURL('image/png');
+    // Apply to all avatar elements immediately
+    applyAvatar(dataUrl);
+    // Save to Supabase if possible, else localStorage
+    saveAvatarToSupabase(dataUrl);
+    closeAvatarModal();
+  };
+
+  function applyAvatar(url){
+    var els=['userAvatar','heroAvatar'];
+    els.forEach(function(id){
+      var el=document.getElementById(id);
+      if(!el)return;
+      el.textContent='';
+      el.style.backgroundImage='url('+url+')';
+      el.style.backgroundSize='cover';
+      el.style.backgroundPosition='center';
+    });
+    // Also persist in localStorage as fallback
+    try{localStorage.setItem('pkc_avatar_local',url);}catch(e){}
+  }
+
+  async function saveAvatarToSupabase(dataUrl){
+    try{
+      var u=null;
+      try{var raw=localStorage.getItem('sb_user');if(raw)u=JSON.parse(raw);}catch(e){}
+      if(!u||!u.id)return;
+      var tk=localStorage.getItem('sb_token');
+      var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'';
+      var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'';
+      if(!tk||!SBU||!SBA)return;
+      await fetch(SBU+'/rest/v1/profiles?id=eq.'+u.id,{
+        method:'PATCH',
+        headers:{'apikey':SBA,'Authorization':'Bearer '+tk,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({avatar_url:dataUrl})
+      });
+    }catch(e){console.warn('[Avatar] Supabase save failed:',e);}
+  }
+
+  window.openAvatarModal=function(){
+    var ov=document.getElementById('avOverlay');
+    if(!ov)return;
+    if(!canvas)init();
+    ov.style.display='flex';
+    requestAnimationFrame(function(){ov.classList.add('show');});
+  };
+
+  window.closeAvatarModal=function(){
+    var ov=document.getElementById('avOverlay');
+    if(!ov)return;
+    ov.classList.remove('show');
+    setTimeout(function(){ov.style.display='none';},200);
+  };
+
+  window.switchAvTab=function(tab){
+    document.getElementById('avTabPhoto').classList.toggle('active',tab==='photo');
+    document.getElementById('avTabCard').classList.toggle('active',tab==='card');
+    document.getElementById('avPanelPhoto').style.display=tab==='photo'?'':'none';
+    document.getElementById('avPanelCard').style.display=tab==='card'?'':'none';
+  };
+
+  // Load local fallback avatar on page load
+  window.addEventListener('DOMContentLoaded',function(){
+    var local=null;
+    try{local=localStorage.getItem('pkc_avatar_local');}catch(e){}
+    if(local){
+      ['userAvatar','heroAvatar'].forEach(function(id){
+        var el=document.getElementById(id);
+        if(el&&!el.style.backgroundImage){
+          el.textContent='';
+          el.style.backgroundImage='url('+local+')';
+          el.style.backgroundSize='cover';
+          el.style.backgroundPosition='center';
+        }
+      });
+    }
+  });
+})();
+</script>
 </body>
-</html>
