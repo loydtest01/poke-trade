@@ -1203,6 +1203,10 @@ body { background: #06040c; overflow-x: hidden; }
         </div>
       </div>
     </div>
+    <button class="sync-btn" id="syncBtn" onclick="doSync()">
+      <div class="sync-dot" id="syncDot"></div>
+      <span id="syncLabel">Sync</span>
+    </button>
     <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
@@ -4334,8 +4338,9 @@ function applyI18N() {
 
 function setSyncState(state, label) {
   const dot = document.getElementById('syncDot');
-  dot.className = 'sync-dot' + (state ? ' ' + state : '');
-  document.getElementById('syncLabel').textContent = label;
+  const lbl = document.getElementById('syncLabel');
+  if (dot) dot.className = 'sync-dot' + (state ? ' ' + state : '');
+  if (lbl) lbl.textContent = label;
 }
 
 function updateLastSyncInfo() {
