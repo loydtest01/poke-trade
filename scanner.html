@@ -141,8 +141,9 @@ body::after {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 11px 14px; font-size: 14px; font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s; width: 100%; color-scheme: dark;
 }
+.field select option { background: #0e0c14; color: #f0ece4; }
 .field input:focus, .field select:focus {
   outline: none;
   border-color: rgba(245,200,66,0.5);
@@ -393,8 +394,9 @@ body::after {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 6px 10px; font-size: 12px; font-family: inherit;
-  flex: 1; min-width: 80px;
+  flex: 1; min-width: 80px; color-scheme: dark;
 }
+.result-edit select option { background: #0e0c14; color: #f0ece4; }
 .result-edit input:focus, .result-edit select:focus {
   outline: none; border-color: rgba(245,200,66,0.4);
 }
@@ -1082,22 +1084,10 @@ let nextId       = 1;
 ═══════════════════════════════════════════════════════ */
 function toast(msg, type = '') {
   const el = document.getElementById('toast');
-  if (!el) { console.warn('[toast]', msg); return; }
   el.textContent = msg;
-  // Barva dle typu
-  el.style.borderColor = type === 'success' ? 'rgba(46,204,113,0.45)'
-    : type === 'error' ? 'rgba(239,68,68,0.45)'
-    : 'rgba(255,255,255,0.15)';
-  el.style.color = type === 'success' ? '#4ade80'
-    : type === 'error' ? '#f87171'
-    : '#f0ece4';
-  el.style.opacity = '1';
-  el.style.transform = 'translateX(-50%) translateY(0)';
+  el.className = 'show ' + type;
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => {
-    el.style.opacity = '0';
-    el.style.transform = 'translateX(-50%) translateY(20px)';
-  }, 3200);
+  toast._t = setTimeout(() => el.className = '', 3200);
 }
 
 function togglePw(id, btn) {
@@ -1233,7 +1223,7 @@ function showMain() {
    GROQ KEY – sync ze Supabase (user_api_keys) pokud není lokálně
 ═══════════════════════════════════════════════════════ */
 async function syncGroqKeyFromSupabase() {
-  // Vždy syncujeme ze Supabase – uživatel mohl přidat více klíčů v profilu
+  if (hasGroqKey()) { updateGroqStatusBadge(); return; } // už máme
   try {
     const token = localStorage.getItem('sb_token');
     if (!token || !currentUser) { updateGroqStatusBadge(); return; }
@@ -1245,8 +1235,7 @@ async function syncGroqKeyFromSupabase() {
     if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
       localStorage.setItem('groqApiKey', rows[0].groq_key);
       if (rows[0].groq_model) localStorage.setItem('groqModel', rows[0].groq_model);
-      const keyCount = getGroqKeys().length;
-      console.log('[Scanner] Groq klíče synchronizovány ze Supabase, počet:', keyCount);
+      console.log('[Scanner] Groq klíč synchronizován ze Supabase');
     }
   } catch (e) { console.warn('[Scanner] Sync Groq klíče selhal:', e); }
   updateGroqStatusBadge();
@@ -1255,24 +1244,14 @@ async function syncGroqKeyFromSupabase() {
 /* ═══════════════════════════════════════════════════════
    GROQ KEY
 ═══════════════════════════════════════════════════════ */
-// Vrátí pole všech Groq klíčů (uloženy jako "key1,key2,..." nebo jen jeden klíč)
-function getGroqKeys() {
-  const raw = localStorage.getItem('groqApiKey') || '';
-  return raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
-}
-function getGroqKey()   { return getGroqKeys()[0] || ''; }
-function hasGroqKey()   { return getGroqKeys().length > 0; }
-
-// Index aktuálně aktivního klíče – rotuje při 429
-let _groqKeyIdx = 0;
+function getGroqKey()   { return localStorage.getItem('groqApiKey') || ''; }
+function hasGroqKey()   { return !!getGroqKey(); }
 
 function updateGroqStatusBadge() {
   const el = document.getElementById('groqStatus');
   if (!el) return;
-  const n = getGroqKeys().length;
-  if (n > 0) {
-    el.textContent = n > 1 ? `AI ✓ (${n} klíčů)` : 'AI ✓';
-    el.className = 'badge badge-green';
+  if (hasGroqKey()) {
+    el.textContent = 'AI ✓'; el.className = 'badge badge-green';
   } else {
     el.textContent = 'AI ✗'; el.className = 'badge badge-red';
   }
@@ -1471,9 +1450,6 @@ async function recognizeAll() {
     }
 
     renderAll();
-
-    // Krátká pauza mezi kartami – snižuje riziko rate limitu
-    if (i < pending.length - 1) await new Promise(r => setTimeout(r, 800));
   }
 
   setProgress(100, 'Hotovo!');
@@ -1490,12 +1466,11 @@ function setProgress(pct, label) {
 }
 
 async function callGroq(dataUrl) {
-  const keys = getGroqKeys();
-  if (!keys.length) { toast('❌ Nastav Groq API klíč v ⚙️ Nastavení', 'error'); return null; }
-
+  const key = getGroqKey();
   let base64 = dataUrl, mediaType = 'image/jpeg';
 
   if (dataUrl.startsWith('http') || dataUrl.startsWith('blob:')) {
+    // Foto z telefonu přes Supabase Storage – stáhni a převeď na base64
     try {
       const resp = await fetch(dataUrl);
       const blob = await resp.blob();
@@ -1512,71 +1487,38 @@ async function callGroq(dataUrl) {
     if (m) { mediaType = m[1]; base64 = dataUrl.slice(m[0].length); }
   }
 
-  const body = JSON.stringify({
-    model: GROQ_MODEL,
-    messages: [{
-      role: 'user',
-      content: [
-        { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
-        { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
-      ]
-    }],
-    temperature: 0.1,
-    max_tokens: 500,
+  const res = await fetch(GROQ_PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
+          { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
+        ]
+      }],
+      temperature: 0.1,
+      max_tokens: 500,
+    })
   });
 
-  // Zkus každý klíč – při 429 přejdi na další
-  for (let attempt = 0; attempt < keys.length; attempt++) {
-    const keyIdx = (_groqKeyIdx + attempt) % keys.length;
-    const key = keys[keyIdx];
-
-    let res;
-    try {
-      res = await fetch(GROQ_PROXY, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
-        body
-      });
-    } catch(e) {
-      toast('⚠️ Síťová chyba, zkouším dál...', 'error');
-      continue;
-    }
-
-    if (res.status === 429) {
-      const nextIdx = (keyIdx + 1) % keys.length;
-      if (attempt < keys.length - 1) {
-        toast(`⚠️ Klíč #${keyIdx + 1} limit – přepínám na klíč #${nextIdx + 1}...`);
-        await new Promise(r => setTimeout(r, 600)); // krátká pauza před dalším klíčem
-        continue;
-      } else {
-        toast('⚠️ Limit Groq klíčů vyčerpán – přidej nový klíč v Profilu', 'error');
-        return null;
-      }
-    }
-
-    if (res.status === 401) {
-      toast(`❌ Klíč #${keyIdx + 1} je neplatný`, 'error');
-      continue; // zkus další
-    }
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      toast('⚠️ Groq chyba: ' + (err?.error?.message || res.status));
-      return null;
-    }
-
-    // Úspěch – zapamatuj si úspěšný klíč pro příští kartu
-    _groqKeyIdx = keyIdx;
-    trackGroqCall();
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    try {
-      const m = content.match(/\{[\s\S]*\}/);
-      return m ? JSON.parse(m[0]) : null;
-    } catch { return null; }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    if (res.status === 401) toast('❌ Neplatný Groq API klíč', 'error');
+    else if (res.status === 429) toast('⚠️ Groq rate limit – počkej chvíli');
+    else toast('⚠️ Groq chyba: ' + res.status);
+    return null;
   }
 
-  return null;
+  const data = await res.json();
+  trackGroqCall();
+  const content = data.choices?.[0]?.message?.content || '';
+  try {
+    const m = content.match(/\{[\s\S]*\}/);
+    return m ? JSON.parse(m[0]) : null;
+  } catch { return null; }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1643,7 +1585,13 @@ function renderSingleResult(p, container) {
       ? `<img class="result-thumb" src="${imgSrc}" alt="${r.name}" onerror="this.style.display='none'">`
       : `<div class="result-thumb-placeholder">🃏</div>`}
     <div class="result-info">
-      <div class="result-name">${r.name || '–'}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+        <div class="result-name">${r.name || '–'}</div>
+        <button onclick="removePhoto(${p.id})" title="Odebrat kartičku"
+          style="flex-shrink:0;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.25);color:#f87171;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">
+          🗑 Odebrat
+        </button>
+      </div>
       <div class="result-meta">
         ${r.set    ? `<span class="badge badge-gold">${r.set}</span>` : ''}
         ${r.number ? `<span class="badge badge-blue">#${r.number}</span>` : ''}
@@ -1668,9 +1616,9 @@ function renderSingleResult(p, container) {
           onchange="updateResult(${p.id},'set',this.value)" title="Set">
         <input type="text" value="${r.number || ''}" placeholder="Číslo"
           onchange="updateResult(${p.id},'number',this.value)" style="max-width:90px;" title="Číslo">
-        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav">
+        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav" style="color-scheme:dark">
           ${['NM','LP','MP','HP','D'].map(c =>
-            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}">${c}</option>`).join('')}
+            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}" style="background:#0e0c14;color:#f0ece4;">${c}</option>`).join('')}
         </select>
       </div>
 
@@ -1824,12 +1772,7 @@ async function pollNewPhotos() {
       renderAll();
       toast(`📲 ${added} foto přijato z telefonu`, 'success');
     }
-  } catch(e) {
-    // Ignoruj síťové chyby (offline, 502 od Supabase) — polling zkusí znovu za 5s
-    if (e.message && !e.message.includes('Failed to fetch') && !e.message.includes('NetworkError')) {
-      console.warn('[pollNewPhotos]', e.message);
-    }
-  }
+  } catch(e) { /* silent */ }
 }
 
 /* ── GROQ USAGE TRACKER ── */
@@ -2078,10 +2021,12 @@ async function queueTcgConfirm(photoId) {
     number:    card.number    || '',
     hp:        card.hp        || p.result?.hp || '',
     type:      (card.types||[])[0] || p.result?.type || '',
+    types:     card.types || [],
     supertype: card.supertype || p.result?.supertype || '',
     rarity:    card.rarity    || p.result?.rarity || '',
     imageUrl:  card.images?.large || card.images?.small || '',
     apiSmall:  card.images?.small || '',
+    apiLarge:  card.images?.large || '',
     apiId:     card.id,
     pMin:      cm.lowPrice   || 0,
     pTrend:    cm.trendPrice || 0,
@@ -2089,21 +2034,67 @@ async function queueTcgConfirm(photoId) {
   p.tcgCard = null; // vynutit přepis
 
   try {
-    // Ulož identifikovanou kartu do Supabase s novou fotkou
-    if (p.isUrl && p.dataUrl && currentUser?.id && currentToken) {
-      await _savePhotoToCard(p);
+    if (!currentUser?.id || !currentToken) throw new Error('Nejsi přihlášen');
+
+    // ── 1. Ulož kartu do user_cards ──────────────────────────
+    const r = p.result;
+    const cardPayload = {
+      local_id:   uid(),
+      updated_at: nowIso(),
+      for_trade:  false,
+      for_sell:   false,
+      price_czk:  null,
+      card_data: {
+        name:      r.name      || card.name || '',
+        set:       r.set       || card.set?.name || '',
+        number:    r.number    || card.number || '',
+        condition: r.condition || 'NM',
+        category:  (r.category || 'Pokemon').toLowerCase(),
+        type:      r.type      || (card.types||[])[0] || '',
+        types:     r.types     || card.types || [],
+        supertype: r.supertype || card.supertype || '',
+        rarity:    r.rarity    || card.rarity || '',
+        hp:        r.hp        || card.hp || '',
+        lang:      r.lang      || 'EN',
+        variant:   r.variant   || 'Normal',
+        subtype:   r.subtype   || '',
+        imageUrl:  card.images?.large || card.images?.small || '',
+        apiSmall:  card.images?.small || '',
+        apiLarge:  card.images?.large || '',
+        apiId:     card.id,
+        count:     1,
+        note:      '',
+        tags:      [],
+      },
+    };
+
+    const saveRes = await sbReq(
+      'rest/v1/user_cards', 'POST',
+      { user_id: currentUser.id, ...cardPayload },
+      currentToken
+    );
+    const savedId = Array.isArray(saveRes) ? saveRes[0]?.local_id : saveRes?.local_id;
+    if (savedId) {
+      p.savedLocalId  = savedId || cardPayload.local_id;
+      p.saveSelected  = false; // Už je uloženo, checkbox nebude nutný
     }
+
+    // ── 2. Vlož foto do user_card_photos pokud přišlo z queue ─
+    if (p.isUrl && p.dataUrl && (savedId || cardPayload.local_id)) {
+      await _savePhotoToCard(p, savedId || cardPayload.local_id).catch(e => console.warn('[confirm photo]', e));
+    }
+
+    toast(`✅ Karta uložena: ${card.name}`, 'success');
+
   } catch(e) {
-    console.warn('[queueTcgConfirm photo save]', e);
+    console.error('[queueTcgConfirm]', e);
+    toast('❌ Chyba uložení: ' + e.message, 'error');
   } finally {
-    // Re-enable button BEFORE DOM replacement (btn ref becomes stale after replaceWith)
     if (btn) { btn.disabled = false; btn.textContent = '✓ Potvrdit vybranou kartu'; }
   }
 
   state.selectedIdx = -1;
-  // Full re-render keeps all cards in sync (also resets search state in DOM)
   renderAll();
-  toast(`✅ Karta uložena: ${card.name}`, 'success');
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2231,13 +2222,5 @@ async function _savePhotoToCard(p, localId) {
   }
 })();
 </script>
-
-<div id="toast" style="
-  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
-  background:#1a1625; border:1px solid rgba(255,255,255,0.15); border-radius:12px;
-  padding:10px 20px; font-size:13px; font-weight:500; color:#f0ece4;
-  z-index:9999; pointer-events:none; opacity:0; transition:all .25s;
-  white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,0.5);
-"></div>
 </body>
 </html>

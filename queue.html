@@ -1206,11 +1206,14 @@ async function doAssign(groups, albumId) {
           number:    ai.number    || rc?.number   || '',
           condition: g.condition || ai.condition || 'NM',
           category:  ai.category || 'Pokémon',
-          type:      ai.type      || '',
-          hp:        ai.hp        || '',
+          type:      ai.type      || (rc?.types?.[0]) || '',
+          types:     rc?.types    || [],
+          hp:        ai.hp        || rc?.hp       || '',
           lang:      ai.lang      || 'EN',
           variant:   ai.variant   || 'Normal',
           subtype:   ai.subtype   || '',
+          supertype: rc?.supertype || '',
+          rarity:    rc?.rarity   || '',
           note:      g.comment    || ai.notes || '',
           photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.croppedUrl || fp?.url || ''; })(),
           imageUrl:  rc?.imageUrl || '',
@@ -1406,6 +1409,9 @@ async function autoSearchAll() {
 // Uživatel klikne "Vyhledat" → najdeme karty dle AI parametrů
 // → zobrazíme grid s obrázky → uživatel klikne na správnou → uložíme
 
+// Stav stránkování per skupina: { query, page, totalCount, cards }
+const _tcgPageState = {};
+
 async function tcgSearch(gi, autoMode = false) {
   const g = cardGroups[gi];
   if (!g) return;
@@ -1433,19 +1439,25 @@ async function tcgSearch(gi, autoMode = false) {
   try {
     // Zkusíme nejprve přesný dotaz, pak postupně uvolňujeme
     let cards = [];
+    let totalCount = 0;
+    let _lastQuery = '';
 
     if (parts.length >= 2) {
       // Přesný dotaz: jméno + set nebo jméno + číslo
-      const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=12&orderBy=-set.releaseDate`;
+      _lastQuery = parts.join(' ');
+      const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
       const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
       cards = r1?.data || [];
+      totalCount = r1?.totalCount || cards.length;
     }
 
     if (!cards.length && ai.name) {
       // Fallback: jen jméno
+      _lastQuery = `name:"${ai.name}"`;
       const url2 = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
       const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
       cards = r2?.data || [];
+      totalCount = r2?.totalCount || cards.length;
     }
 
     if (!cards.length && ai.name) {
@@ -1453,9 +1465,11 @@ async function tcgSearch(gi, autoMode = false) {
       // Pro JP karty zkusíme i filtr jazyka
       const namePart = ai.name.split(' ')[0]; // jen první slovo
       const jpFilter = (g?.aiResult?.lang === 'JP') ? '+regulationMark:*' : '';
+      _lastQuery = `name:${namePart}*${jpFilter}`;
       const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*${jpFilter}&pageSize=20&orderBy=-set.releaseDate`;
       const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
       cards = r3?.data || [];
+      totalCount = r3?.totalCount || cards.length;
     }
 
     if (!cards.length) {
@@ -1476,6 +1490,8 @@ async function tcgSearch(gi, autoMode = false) {
         set: best.set?.name || '', number: best.number || '',
         imageUrl: best.images?.small || '', apiSmall: best.images?.small || '',
         apiLarge: best.images?.large || '',
+        hp: best.hp || '', types: best.types || [],
+        supertype: best.supertype || '', rarity: best.rarity || '',
       };
       // Aktualizuj header thumb + name pokud je lepší než placeholder
       const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
@@ -1484,7 +1500,10 @@ async function tcgSearch(gi, autoMode = false) {
       if (nameEl && best.name) nameEl.textContent = best.name;
     }
 
-    statusEl.textContent = `${isJP ? '🇯🇵 ' : ''}Nalezeno ${cards.length} karet – ${autoMode ? 'automaticky předvybrána nejlepší shoda, uprav pokud nesedí' : 'vyber správnou'}:`;
+    statusEl.textContent = `${isJP ? '🇯🇵 ' : ''}Nalezeno ${cards.length}${totalCount > cards.length ? ' z '+totalCount : ''} karet – ${autoMode ? 'automaticky předvybrána nejlepší shoda, uprav pokud nesedí' : 'vyber správnou'}:`;
+
+    // Ulož stav stránkování
+    _tcgPageState[gi] = { query: parts, page: 1, totalCount, cards: [...cards], autoMode };
 
     // Render grid
     gridEl.innerHTML = cards.map((c, idx) => {
@@ -1494,18 +1513,34 @@ async function tcgSearch(gi, autoMode = false) {
           id="sc-${gi}-${idx}"
           onclick="tcgSelectCard(${gi}, ${idx})"
           data-card='${JSON.stringify({
-            apiId:    c.id,
-            name:     c.name,
-            set:      c.set?.name || '',
-            number:   c.number    || '',
-            imageUrl: c.images?.small  || '',
-            apiSmall: c.images?.small  || '',
-            apiLarge: c.images?.large  || '',
+            apiId:     c.id,
+            name:      c.name,
+            set:       c.set?.name || '',
+            number:    c.number    || '',
+            imageUrl:  c.images?.small  || '',
+            apiSmall:  c.images?.small  || '',
+            apiLarge:  c.images?.large  || '',
+            hp:        c.hp        || '',
+            types:     c.types     || [],
+            supertype: c.supertype || '',
+            rarity:    c.rarity    || '',
           }).replace(/'/g, "&#39;")}'>
         ${img ? `<img src="${img}" alt="${esc(c.name)}" loading="lazy">` : '<div style="height:110px;background:rgba(255,255,255,.05)"></div>'}
         <div class="sc-name">${esc(c.name)}<br><span style="opacity:.6">#${esc(c.number)} · ${esc(c.set?.name||'')}</span></div>
       </div>`;
     }).join('');
+
+    // Tlačítko "Načíst další" pokud existuje více výsledků
+    if (totalCount > cards.length) {
+      const loadMoreBtn = document.createElement('div');
+      loadMoreBtn.id = `loadMore-${gi}`;
+      loadMoreBtn.style.cssText = 'grid-column:1/-1;text-align:center;margin-top:6px;';
+      loadMoreBtn.innerHTML = `<button onclick="loadMoreTcg(${gi})"
+        style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
+        ⬇ Načíst další (${cards.length} z ${totalCount})
+      </button>`;
+      gridEl.appendChild(loadMoreBtn);
+    }
 
   } catch(e) {
     statusEl.className = 'cg-search-status err';
@@ -1513,6 +1548,77 @@ async function tcgSearch(gi, autoMode = false) {
   }
 
   btn.disabled = false;
+}
+
+// ── Načíst další stránku výsledků ────────────────────────────
+async function loadMoreTcg(gi) {
+  const state = _tcgPageState[gi];
+  if (!state) return;
+  const gridEl   = document.getElementById(`searchGrid-${gi}`);
+  const statusEl = document.getElementById(`searchStatus-${gi}`);
+  const loadBtn  = document.getElementById(`loadMore-${gi}`);
+  if (!gridEl || !state.query) return;
+
+  state.page++;
+  if (loadBtn) { loadBtn.querySelector('button').disabled = true; loadBtn.querySelector('button').textContent = '⏳ Načítám…'; }
+
+  try {
+    const q = state.query.length ? state.query.join(' ') : state.query;
+    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&page=${state.page}&orderBy=-set.releaseDate`;
+    const res = await fetch(url).then(r => r.json()).catch(() => null);
+    const newCards = res?.data || [];
+
+    if (!newCards.length) {
+      if (loadBtn) loadBtn.remove();
+      return;
+    }
+
+    const startIdx = state.cards.length;
+    state.cards.push(...newCards);
+
+    // Přidej nové karty do gridu (před tlačítko nebo na konec)
+    if (loadBtn) loadBtn.remove();
+
+    newCards.forEach((c, i) => {
+      const idx = startIdx + i;
+      const img = c.images?.small || '';
+      const g = cardGroups[gi];
+      const alreadySelected = g?.resolvedCard?.apiId === c.id;
+      const div = document.createElement('div');
+      div.className = `cg-search-card${alreadySelected ? ' selected' : ''}`;
+      div.id = `sc-${gi}-${idx}`;
+      div.onclick = () => tcgSelectCard(gi, idx);
+      div.dataset.card = JSON.stringify({
+        apiId: c.id, name: c.name,
+        set: c.set?.name || '', number: c.number || '',
+        imageUrl: c.images?.small || '', apiSmall: c.images?.small || '',
+        apiLarge: c.images?.large || '',
+        hp: c.hp || '', types: c.types || [],
+        supertype: c.supertype || '', rarity: c.rarity || '',
+      });
+      div.innerHTML = img
+        ? `<img src="${img}" alt="${esc(c.name)}" loading="lazy"><div class="sc-name">${esc(c.name)}<br><span style="opacity:.6">#${esc(c.number)} · ${esc(c.set?.name||'')}</span></div>`
+        : `<div style="height:110px;background:rgba(255,255,255,.05)"></div><div class="sc-name">${esc(c.name)}</div>`;
+      gridEl.appendChild(div);
+    });
+
+    // Přidej nové tlačítko "Načíst další" pokud ještě jsou výsledky
+    if (state.cards.length < state.totalCount) {
+      const loadMoreBtn = document.createElement('div');
+      loadMoreBtn.id = `loadMore-${gi}`;
+      loadMoreBtn.style.cssText = 'grid-column:1/-1;text-align:center;margin-top:6px;';
+      loadMoreBtn.innerHTML = `<button onclick="loadMoreTcg(${gi})"
+        style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
+        ⬇ Načíst další (${state.cards.length} z ${state.totalCount})
+      </button>`;
+      gridEl.appendChild(loadMoreBtn);
+    }
+
+    if (statusEl) statusEl.textContent = `Zobrazeno ${state.cards.length} z ${state.totalCount} karet – vyber správnou:`;
+
+  } catch(e) {
+    if (loadBtn) { loadBtn.querySelector('button').disabled = false; loadBtn.querySelector('button').textContent = '⬇ Načíst další'; }
+  }
 }
 
 function tcgSelectCard(gi, idx) {
@@ -1534,7 +1640,7 @@ function tcgSelectCard(gi, idx) {
   // Označit vybranou
   cardEl.classList.add('selected');
 
-  // Uložit do skupiny
+  // Uložit do skupiny (včetně všech polí)
   g.resolvedCard = cardData;
   g.cardUrl = ''; // URL input není potřeba
 
