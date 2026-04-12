@@ -1764,25 +1764,10 @@ function initSwipe() {
 async function identifyCard(dataUrl) {
   if (!groqKey) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  const PROMPT = `You are a Pokemon TCG card authentication expert. Read the card name EXACTLY as printed - do NOT translate.
+  const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed - do NOT translate.
 CRITICAL RULE: If Japanese (katakana/hiragana/kanji) → name in Japanese, lang="JP". If English → lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-
-FAKE DETECTION — carefully examine ALL of the following:
-1. CUT QUALITY: Are card edges straight and clean? Look for jagged, wavy, uneven, or rough cuts. Genuine cards have precise machine-cut edges. Ragged or irregular edges are a strong fake indicator.
-2. PRINT QUALITY: Blurry or pixelated text/artwork, visible print lines, incorrect resolution, washed-out or oversaturated colors.
-3. FONT & TYPOGRAPHY: Wrong font style, incorrect letter spacing (kerning), letters too thick/thin, HP or damage numbers in wrong font, incorrect accent characters.
-4. COLORS: Wrong color saturation or hue on border, background, or artwork. Borders should be sharply contrasting, not fading. Brownish/yellowish tint on holo cards is a red flag.
-5. HOLOGRAPHIC ELEMENTS: Flat or incorrectly printed holo — genuine holos have physical texture/foil, fakes print the pattern instead. Missing holographic texture where it should exist.
-6. CARD LAYERS: Genuine cards have 3 layers (white/dark/white sandwich). If card edge is visible, check for the dark middle layer.
-7. SET SYMBOL & NUMBERS: Incorrect, missing, or misaligned set symbol. Wrong collector number format. Missing or incorrect copyright text at card bottom.
-8. STATS: Inflated HP or damage values beyond known maximums for the era. Mismatched name and artwork (e.g., Charizard image with Caterpie name).
-9. ENERGY SYMBOLS: Misaligned, misshapen, incorrectly sized, or missing energy symbols in attack costs, weakness, resistance, retreat.
-10. SPECIAL RED FLAGS: "2nd Edition" stamp (never exists on real cards), hand gesture sub-games printed on card, "authentic reproduction" watermarks, text like "flash cards".
-11. BORDERS: Uneven border thickness on any side compared to others.
-
-Set fake=true only with clear visual evidence. fakeConfidence: low/medium/high. fakeReasons: specific observations in Czech.
 Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"","lang":"EN","confidence":"high/medium/low","notes":"","fake":false,"fakeConfidence":"low","fakeReasons":[]}`;
   const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
   const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
@@ -1810,24 +1795,6 @@ Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"",
     const raw = data.choices?.[0]?.message?.content || '';
     const p   = parseJson(raw);
     if (!p?.name) return null;
-
-    // ── Krok 2: Porovnání s referenčním originálem z Pokemon TCG API ──
-    // Pouze pokud AI identifikovala kartu s dostatečnou jistotou
-    if (p.name && p.confidence !== 'low') {
-      try {
-        const refImg = await fetchReferenceCardImage(p.name, p.number, p.set);
-        if (refImg) {
-          p.referenceComparison = await compareWithReference(dataUrl, refImg, p, groqKey);
-          // Sloučit výsledky srovnání s původním výsledkem
-          if (p.referenceComparison?.fake === true && !p.fake) {
-            p.fake = true;
-            p.fakeConfidence = p.referenceComparison.fakeConfidence || 'medium';
-            p.fakeReasons = [...(p.fakeReasons || []), ...(p.referenceComparison.fakeReasons || [])];
-          }
-          p.refImageUrl = refImg;
-        }
-      } catch(e) { /* srovnání selhalo, ignoruj */ }
-    }
 
     return p;
   } catch { return null; }
