@@ -1176,6 +1176,14 @@ async function processFrontPhoto(dataUrl) {
     const result = await identifyCard(dataUrl);
     cards[currentCard].frontAI = result;
     showAiResult(result);
+    // Pokud probíhá srovnání s originálem (async v identifyCard), zobrazíme mezitím zprávu
+    if (result?.name && result?.confidence !== 'low' && !result?.refImageUrl) {
+      const refNote = document.createElement('div');
+      refNote.id = 'refCheckNote';
+      refNote.style.cssText = 'font-size:10px;color:var(--muted);text-align:right;margin-top:4px';
+      refNote.textContent = '🔍 Hledám referenční originál…';
+      document.getElementById('aiResultBox').appendChild(refNote);
+    }
     // Japonská karta → zobrazit panel pro záběr názvu
     // Detekce: lang=JP nebo jméno obsahuje japonské znaky
     const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
@@ -1386,7 +1394,38 @@ function showAiResult(r) {
            `</div>`;
   }
   const condText = r.condition ? r.condition + (r.conditionNotes ? ' – ' + r.conditionNotes : '') : '';
+
+  // Fake detection banner
+  const isFakeSuspect = r.fake === true;
+  const fakeConf = r.fakeConfidence || 'low';
+  const fakeReasons = Array.isArray(r.fakeReasons) ? r.fakeReasons : [];
+  const hasRef = !!r.refImageUrl;
+  const refMatch = r.referenceComparison?.match;
+  let fakeBanner = '';
+  if (isFakeSuspect) {
+    const fakeConfLabel = fakeConf === 'high' ? '🔴 Vysoká jistota' : fakeConf === 'medium' ? '🟠 Střední jistota' : '🟡 Nízká jistota';
+    const fakeReasonsHtml = fakeReasons.length ? fakeReasons.map(r => `<div style="font-size:11px;color:#fca5a5;margin-top:3px">• ${escHtml(r)}</div>`).join('') : '';
+    const refHtml = hasRef ? `<div style="font-size:10px;color:#fca5a5;margin-top:4px;opacity:.8">🔍 Porovnáno s originálním referenčním snímkem${refMatch === 'no' ? ' — neshoduje se' : ''}</div>` : '';
+    fakeBanner = `<div style="background:rgba(239,68,68,.18);border:2px solid rgba(239,68,68,.6);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:800;color:#f87171">⚠️ MOŽNÝ FALSIFIKÁT</div>
+      <div style="font-size:11px;color:#fca5a5;margin-top:2px">${fakeConfLabel}</div>
+      ${fakeReasonsHtml}
+      ${refHtml}
+    </div>`;
+  } else if (hasRef && refMatch === 'yes') {
+    fakeBanner = `<div style="background:rgba(74,222,128,.1);border:1.5px solid rgba(74,222,128,.3);border-radius:10px;padding:8px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:#4ade80">✅ Shoduje se s originálem</div>
+      <div style="font-size:10px;color:#86efac;margin-top:2px">Porovnáno s referenčním snímkem z Pokemon TCG databáze</div>
+    </div>`;
+  } else if (hasRef && refMatch === 'uncertain') {
+    fakeBanner = `<div style="background:rgba(250,204,21,.08);border:1.5px solid rgba(250,204,21,.3);border-radius:10px;padding:8px 12px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:#facc15">🟡 Srovnání nejisté</div>
+      <div style="font-size:10px;color:#fde68a;margin-top:2px">${escHtml(r.referenceComparison?.matchNotes || 'Kvalita fotky nebo úhel neumožnily jednoznačné srovnání')}</div>
+    </div>`;
+  }
+
   aiBox.innerHTML =
+    fakeBanner +
     `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🤖 AI rozpoznávání:</div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px">` +
       row('Název', r.name) +
@@ -1415,7 +1454,12 @@ function showAiResult(r) {
       b.classList.toggle('selected', b.dataset.cond === r.condition);
     });
     currentCond = r.condition;
-    haptic([40, 30, 80]); // double pulse = AI success
+    if (r.fake === true) {
+      haptic([80, 50, 80, 50, 80]); // triple pulse = fake warning
+      toast('⚠️ AI detekovala možný falsifikát!');
+    } else {
+      haptic([40, 30, 80]); // double pulse = AI success
+    }
   }
 }
 
@@ -1720,12 +1764,26 @@ function initSwipe() {
 async function identifyCard(dataUrl) {
   if (!groqKey) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
-CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
-If the card text is in English, write the name in English, set lang="EN".
+  const PROMPT = `You are a Pokemon TCG card authentication expert. Read the card name EXACTLY as printed - do NOT translate.
+CRITICAL RULE: If Japanese (katakana/hiragana/kanji) → name in Japanese, lang="JP". If English → lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}` ;
+
+FAKE DETECTION — carefully examine ALL of the following:
+1. CUT QUALITY: Are card edges straight and clean? Look for jagged, wavy, uneven, or rough cuts. Genuine cards have precise machine-cut edges. Ragged or irregular edges are a strong fake indicator.
+2. PRINT QUALITY: Blurry or pixelated text/artwork, visible print lines, incorrect resolution, washed-out or oversaturated colors.
+3. FONT & TYPOGRAPHY: Wrong font style, incorrect letter spacing (kerning), letters too thick/thin, HP or damage numbers in wrong font, incorrect accent characters.
+4. COLORS: Wrong color saturation or hue on border, background, or artwork. Borders should be sharply contrasting, not fading. Brownish/yellowish tint on holo cards is a red flag.
+5. HOLOGRAPHIC ELEMENTS: Flat or incorrectly printed holo — genuine holos have physical texture/foil, fakes print the pattern instead. Missing holographic texture where it should exist.
+6. CARD LAYERS: Genuine cards have 3 layers (white/dark/white sandwich). If card edge is visible, check for the dark middle layer.
+7. SET SYMBOL & NUMBERS: Incorrect, missing, or misaligned set symbol. Wrong collector number format. Missing or incorrect copyright text at card bottom.
+8. STATS: Inflated HP or damage values beyond known maximums for the era. Mismatched name and artwork (e.g., Charizard image with Caterpie name).
+9. ENERGY SYMBOLS: Misaligned, misshapen, incorrectly sized, or missing energy symbols in attack costs, weakness, resistance, retreat.
+10. SPECIAL RED FLAGS: "2nd Edition" stamp (never exists on real cards), hand gesture sub-games printed on card, "authentic reproduction" watermarks, text like "flash cards".
+11. BORDERS: Uneven border thickness on any side compared to others.
+
+Set fake=true only with clear visual evidence. fakeConfidence: low/medium/high. fakeReasons: specific observations in Czech.
+Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"","lang":"EN","confidence":"high/medium/low","notes":"","fake":false,"fakeConfidence":"low","fakeReasons":[]}`;
   const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
   const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
   async function call(model) {
@@ -1733,7 +1791,7 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
       method: 'POST',
       headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
       body: JSON.stringify({
-        model, max_tokens: 500, temperature: 0.05,
+        model, max_tokens: 700, temperature: 0.05,
         messages: [
           { role:'user', content:[
             { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
@@ -1751,7 +1809,81 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
     catch(e1) { data = await call(MODEL_FALLBACK); }
     const raw = data.choices?.[0]?.message?.content || '';
     const p   = parseJson(raw);
-    return p?.name ? p : null;
+    if (!p?.name) return null;
+
+    // ── Krok 2: Porovnání s referenčním originálem z Pokemon TCG API ──
+    // Pouze pokud AI identifikovala kartu s dostatečnou jistotou
+    if (p.name && p.confidence !== 'low') {
+      try {
+        const refImg = await fetchReferenceCardImage(p.name, p.number, p.set);
+        if (refImg) {
+          p.referenceComparison = await compareWithReference(dataUrl, refImg, p, groqKey);
+          // Sloučit výsledky srovnání s původním výsledkem
+          if (p.referenceComparison?.fake === true && !p.fake) {
+            p.fake = true;
+            p.fakeConfidence = p.referenceComparison.fakeConfidence || 'medium';
+            p.fakeReasons = [...(p.fakeReasons || []), ...(p.referenceComparison.fakeReasons || [])];
+          }
+          p.refImageUrl = refImg;
+        }
+      } catch(e) { /* srovnání selhalo, ignoruj */ }
+    }
+
+    return p;
+  } catch { return null; }
+}
+
+// ── Stažení referenčního obrázku z Pokemon TCG API ────────────
+async function fetchReferenceCardImage(name, number, set) {
+  try {
+    // Sestavit query – name je nejdůležitější
+    const q = encodeURIComponent(`name:"${name}"`);
+    const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=3&select=id,name,images,number,set`, {
+      signal: AbortSignal.timeout(4000)
+    });
+    if (!r.ok) return null;
+    const d = await r.json();
+    const cards = d.data || [];
+    if (!cards.length) return null;
+
+    // Preferuj kartu kde sedí číslo nebo série
+    let best = cards[0];
+    if (number || set) {
+      const match = cards.find(c =>
+        (number && c.number === String(number)) ||
+        (set && c.set?.name?.toLowerCase().includes(set.toLowerCase()))
+      );
+      if (match) best = match;
+    }
+
+    return best?.images?.small || best?.images?.large || null;
+  } catch { return null; }
+}
+
+// ── Srovnání foceného vs. referenčního originálu přes AI ──────
+async function compareWithReference(userDataUrl, refUrl, cardInfo, key) {
+  if (!key) return null;
+  try {
+    const { mt, b64 } = splitDataUrl(userDataUrl);
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','Authorization':'Bearer '+key },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        max_tokens: 400, temperature: 0.05,
+        messages: [{ role:'user', content:[
+          { type:'image_url', image_url:{ url: refUrl } },
+          { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
+          { type:'text', text: `The FIRST image is the official reference Pokemon card. The SECOND image is the card being authenticated.
+Compare them carefully: colors, fonts, borders, artwork style, holo pattern, set symbol, energy symbols, card proportions, cut quality.
+Note any differences. A real card should match the reference closely.
+Return ONLY JSON: {"match":"yes/no/uncertain","fake":false,"fakeConfidence":"low/medium/high","fakeReasons":["diff in Czech"],"matchNotes":"brief Czech note"}` }
+        ]}]
+      })
+    });
+    if (!resp.ok) return null;
+    const d = await resp.json();
+    return parseJson(d.choices?.[0]?.message?.content || '');
   } catch { return null; }
 }
 
