@@ -278,6 +278,109 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .msg-listing-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .msg-listing-price { font-size: 13px; font-weight: 700; color: var(--green); margin-top: 2px; }
 
+/* ── Nová konverzace ── */
+.btn-new-conv {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(245,200,66,0.12); border: 1px solid rgba(245,200,66,0.25);
+  color: #f5c842; font-size: 18px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s; font-family: inherit;
+}
+.btn-new-conv:hover { background: rgba(245,200,66,0.22); }
+
+/* ── Konverzace kebab menu ── */
+.conv-item { position: relative; }
+.conv-kebab {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border-radius: 6px; border: none;
+  background: transparent; color: rgba(240,236,228,0.4); font-size: 16px;
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+  transition: all .15s; z-index: 2;
+}
+.conv-item:hover .conv-kebab { display: flex; }
+.conv-kebab:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+
+/* ── Kontextové menu konverzace ── */
+.conv-ctx-menu {
+  position: fixed; z-index: 500;
+  background: #1a1625; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 6px; min-width: 180px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: none;
+}
+.conv-ctx-menu.open { display: block; }
+.ctx-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 7px; font-size: 13px; font-weight: 500;
+  color: rgba(240,236,228,0.8); cursor: pointer; transition: all .12s;
+  border: none; background: transparent; width: 100%; font-family: inherit;
+  text-align: left;
+}
+.ctx-item:hover { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.ctx-item.danger:hover { background: rgba(239,68,68,0.12); color: #ef4444; }
+.ctx-sep { height: 1px; background: rgba(255,255,255,0.08); margin: 4px 0; }
+
+/* ── Chat header akce ── */
+.chat-header-actions {
+  display: flex; align-items: center; gap: 6px; margin-left: auto;
+}
+.btn-chat-action {
+  padding: 6px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.12); background: transparent;
+  color: rgba(240,236,228,0.65); cursor: pointer; font-family: inherit;
+  transition: all .15s; display: flex; align-items: center; gap: 5px;
+}
+.btn-chat-action:hover { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.btn-chat-action.danger:hover { background: rgba(239,68,68,0.12); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+
+/* ── Modal: nová konverzace / hledání uživatele ── */
+.modal-overlay { display: none; position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #0f0c18; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px; width: 100%; max-width: 440px; padding: 24px;
+  position: relative;
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.modal-head h3 { font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 700; color: #f0ece4; margin: 0; }
+.modal-close { background: rgba(255,255,255,0.07); border: none; border-radius: 7px; color: rgba(240,236,228,0.5); font-size: 16px; padding: 4px 10px; cursor: pointer; }
+.modal-close:hover { background: rgba(255,255,255,0.12); color: #f0ece4; }
+.modal-search-input {
+  width: 100%; padding: 10px 14px; border-radius: 10px; font-size: 14px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: #f0ece4; font-family: inherit; outline: none; box-sizing: border-box;
+}
+.modal-search-input:focus { border-color: rgba(245,200,66,0.4); }
+.modal-results { margin-top: 10px; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; }
+.modal-result-item {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border-radius: 10px; cursor: pointer; transition: all .12s;
+}
+.modal-result-item:hover { background: rgba(255,255,255,0.06); }
+.modal-result-avatar {
+  width: 36px; height: 36px; border-radius: 50%; background: rgba(245,200,66,0.2);
+  color: #f5c842; display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 800; flex-shrink: 0; overflow: hidden;
+}
+.modal-result-name { font-size: 14px; font-weight: 600; color: #f0ece4; }
+.modal-result-hint { font-size: 11px; color: rgba(240,236,228,0.4); margin-top: 1px; }
+.modal-hint { font-size: 13px; color: rgba(240,236,228,0.35); text-align: center; padding: 16px 0; }
+
+/* ── Zablokovaný banner ── */
+.blocked-banner {
+  display: none; background: rgba(239,68,68,0.08);
+  border-top: 1px solid rgba(239,68,68,0.2);
+  padding: 10px 16px; font-size: 12px; color: rgba(239,68,68,0.8);
+  text-align: center; align-items: center; justify-content: center; gap: 10px;
+}
+.blocked-banner.visible { display: flex; }
+.btn-unblock { padding: 4px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3);
+  color: #ef4444; cursor: pointer; font-family: inherit; transition: all .15s; }
+.btn-unblock:hover { background: rgba(239,68,68,0.25); }
+
 /* Multiple listing attachments */
 .msg-listings-group {
   display: flex; flex-direction: column; gap: 4px; margin-top: 7px;
@@ -558,6 +661,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   <aside class="conv-sidebar">
     <div class="conv-header">
       <h2>💬 Zprávy</h2>
+      <button class="btn-new-conv" onclick="openNewConvModal()" title="Nová konverzace">＋</button>
       <div class="conv-search-wrap">
         <input class="conv-search" id="convSearch" type="text" placeholder="Hledat konverzaci..." oninput="filterConversations()">
       </div>
@@ -588,13 +692,20 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <div class="chat-header-name" id="chatPartnerName" onclick="openPartnerProfile()" title="Zobrazit profil">—</div>
         <div class="chat-header-sub" id="chatHeaderSub">Klikni na jméno pro zobrazení profilu</div>
       </div>
-      <a class="btn-profile" id="btnViewProfile" href="#" title="Zobrazit profil a hodnocení">
-        ⭐ Profil & hodnocení
-      </a>
+      <div class="chat-header-actions">
+        <a class="btn-chat-action" id="btnViewProfile" href="#" title="Zobrazit profil">⭐ Profil</a>
+        <button class="btn-chat-action" onclick="openConvMenu(event)" title="Více možností">⋮</button>
+      </div>
     </div>
 
     <!-- Messages area -->
     <div class="chat-messages" id="chatMessages" style="display:none"></div>
+
+    <!-- Blocked banner -->
+    <div class="blocked-banner" id="blockedBanner">
+      <span>🚫 Tohoto uživatele máš zablokovaného — nemůžeš mu psát.</span>
+      <button class="btn-unblock" onclick="unblockPartner()">Odblokovat</button>
+    </div>
 
     <!-- Input area -->
     <div class="chat-input-area" id="chatInputArea" style="display:none">
@@ -611,6 +722,30 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       </div>
     </div>
   </div>
+</div>
+
+<!-- ═══ NOVÁ KONVERZACE MODAL ═══ -->
+<div class="modal-overlay" id="newConvModal" onclick="if(event.target===this)closeNewConvModal()">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>💬 Nová konverzace</h3>
+      <button class="modal-close" onclick="closeNewConvModal()">✕</button>
+    </div>
+    <input class="modal-search-input" id="newConvSearch" type="text"
+      placeholder="Hledat uživatele podle přezdívky…"
+      oninput="onNewConvSearch()" autocomplete="off">
+    <div class="modal-results" id="newConvResults">
+      <div class="modal-hint">Zadej alespoň 2 znaky…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ KONVERZACE KONTEXTOVÉ MENU ═══ -->
+<div class="conv-ctx-menu" id="convCtxMenu">
+  <button class="ctx-item" onclick="ctxViewProfile()">👤 Zobrazit profil</button>
+  <button class="ctx-item" onclick="ctxBlockUser()">🚫 Zablokovat uživatele</button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item danger" onclick="ctxDeleteConv()">🗑 Smazat konverzaci</button>
 </div>
 
 <!-- ═══ LISTING PICKER MODAL ═══ -->
@@ -707,6 +842,8 @@ function doLogout(){
 // ═══ STATE ═══
 let conversations = [];
 let activeConvId  = null;
+let blockedUsers  = new Set(); // Set of blocked user IDs (načteno při init)
+let ctxConv       = null;      // konverzace pro kontextové menu
 let activePartner = null; // {id, username}
 let messages      = [];
 let attachedListings = []; // listings to attach to next message
@@ -716,7 +853,7 @@ let pollTimer = null;
 
 // ═══ INIT ═══
 async function init() {
-  await loadConversations();
+  await Promise.all([loadConversations(), loadBlockedUsers()]);
 
   // Check URL params: ?with=USER_ID&listing=LISTING_ID
   const params = new URLSearchParams(location.search);
@@ -772,19 +909,25 @@ function renderConversations() {
     const time    = formatConvTime(c.last_message_at);
     const active  = c.id === activeConvId;
 
+    const isBlocked = blockedUsers.has(isUser1 ? c.user2_id : c.user1_id);
+    const partnerId = isUser1 ? c.user2_id : c.user1_id;
+    // Skip hidden conversations
+    if ((isUser1 && c.hidden_user1) || (!isUser1 && c.hidden_user2)) return '';
+
     return `
       <div class="conv-item${active?' active':''}${unread > 0 ? ' unread' : ''}" onclick="selectConversation('${c.id}')">
         <div class="conv-avatar">${esc(initial)}</div>
         <div class="conv-info">
-          <div class="conv-name">${esc(partner)}</div>
+          <div class="conv-name">${esc(partner)}${isBlocked ? ' 🚫' : ''}</div>
           <div class="conv-last-msg">${esc(lastMsg)}</div>
         </div>
         <div class="conv-right">
           <div class="conv-time">${esc(time)}</div>
           <div class="conv-unread">${unread}</div>
         </div>
+        <button class="conv-kebab" onclick="openConvCtxMenu(event,'${c.id}','${partnerId}','${esc(partner)}')" title="Možnosti">⋮</button>
       </div>`;
-  }).join('');
+  }).filter(Boolean).join('');
 
   // Update nav badge
   const totalUnread = conversations.reduce((s,c) => {
@@ -832,14 +975,19 @@ async function openConversation(conv) {
   document.getElementById('chatEmpty').style.display = 'none';
   document.getElementById('chatHeader').style.display = '';
   document.getElementById('chatMessages').style.display = '';
-  document.getElementById('chatInputArea').style.display = '';
+  // chatInputArea visibility handled below in blocked check
 
   // Header
   const initial = (activePartner.username||'?')[0].toUpperCase();
   document.getElementById('chatAvatar').textContent = initial;
   document.getElementById('chatPartnerName').textContent = activePartner.username;
-  document.getElementById('chatHeaderSub').textContent = 'Klikni na jméno pro zobrazení profilu a hodnocení';
+  document.getElementById('chatHeaderSub').textContent = 'Klikni na jméno pro zobrazení profilu';
   document.getElementById('btnViewProfile').href = `profile.html?user=${activePartner.id}`;
+
+  // Zablokovaný uživatel?
+  const isPartnerBlocked = blockedUsers.has(activePartner.id);
+  document.getElementById('blockedBanner').classList.toggle('visible', isPartnerBlocked);
+  document.getElementById('chatInputArea').style.display = isPartnerBlocked ? 'none' : '';
 
   // Mobile
   document.getElementById('chatWrap').classList.add('conv-open');
@@ -1244,6 +1392,237 @@ function openPartnerProfile() {
   }
 }
 
+// ═══ BLOKOVÁNÍ UŽIVATELŮ ═══════════════════════════════════════
+
+async function loadBlockedUsers() {
+  if (!token) return;
+  try {
+    const data = await sb(
+      `rest/v1/blocked_users?blocker_id=eq.${userId}&select=blocked_id`,
+      'GET', null, token
+    );
+    blockedUsers = new Set((data || []).map(r => r.blocked_id));
+  } catch (e) { /* tabulka možná ještě neexistuje */ }
+}
+
+async function blockUser(targetId, targetUsername) {
+  if (!targetId || !token) return;
+  if (!confirm(`Opravdu chceš zablokovat uživatele @${targetUsername}?
+
+Nemůžeš mu psát ani číst jeho zprávy.`)) return;
+
+  await sb('rest/v1/blocked_users', 'POST', {
+    blocker_id: userId,
+    blocked_id: targetId,
+  }, token);
+
+  blockedUsers.add(targetId);
+
+  // Pokud je to aktivní partner — zobraz blocked banner
+  if (activePartner?.id === targetId) {
+    document.getElementById('blockedBanner').classList.add('visible');
+    document.getElementById('chatInputArea').style.display = 'none';
+  }
+
+  renderConversations();
+  showToast(`@${targetUsername} byl zablokován.`, '');
+}
+
+async function unblockPartner() {
+  if (!activePartner?.id || !token) return;
+  const name = activePartner.username;
+
+  await fetch(`${SB_URL}/rest/v1/blocked_users?blocker_id=eq.${userId}&blocked_id=eq.${activePartner.id}`, {
+    method: 'DELETE',
+    headers: { 'apikey': SB_ANON, 'Authorization': `Bearer ${token}` }
+  });
+
+  blockedUsers.delete(activePartner.id);
+  document.getElementById('blockedBanner').classList.remove('visible');
+  document.getElementById('chatInputArea').style.display = '';
+
+  renderConversations();
+  showToast(`@${name} byl odblokován.`, '');
+}
+
+// ═══ SMAZÁNÍ KONVERZACE (soft delete — skryje pro tohoto uživatele) ═
+
+async function deleteConversation(convId) {
+  if (!convId || !token) return;
+  const conv = conversations.find(c => c.id === convId);
+  if (!conv) return;
+
+  const isUser1 = conv.user1_id === userId;
+  const field = isUser1 ? 'hidden_user1' : 'hidden_user2';
+  const partner = isUser1 ? conv.user2_username : conv.user1_username;
+
+  if (!confirm(`Smazat konverzaci s @${partner}?
+
+Konverzace zmizí z tvého seznamu. Druhý uživatel ji stále uvidí.`)) return;
+
+  await fetch(`${SB_URL}/rest/v1/conversations?id=eq.${convId}`, {
+    method: 'PATCH',
+    headers: {
+      'apikey': SB_ANON, 'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json', 'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ [field]: true })
+  });
+
+  // Pokud to byla aktivní konverzace — zavři ji
+  if (activeConvId === convId) {
+    activeConvId = null;
+    activePartner = null;
+    document.getElementById('chatEmpty').style.display = '';
+    document.getElementById('chatHeader').style.display = 'none';
+    document.getElementById('chatMessages').style.display = 'none';
+    document.getElementById('chatInputArea').style.display = 'none';
+    document.getElementById('blockedBanner').classList.remove('visible');
+    document.getElementById('chatWrap').classList.remove('conv-open');
+  }
+
+  await loadConversations();
+  showToast('Konverzace smazána.', '');
+}
+
+// ═══ KONTEXTOVÉ MENU KONVERZACE ════════════════════════════════
+
+let _ctxConvId     = null;
+let _ctxPartnerId  = null;
+let _ctxPartnerName = null;
+
+function openConvCtxMenu(e, convId, partnerId, partnerName) {
+  e.stopPropagation();
+  _ctxConvId      = convId;
+  _ctxPartnerId   = partnerId;
+  _ctxPartnerName = partnerName;
+
+  const menu = document.getElementById('convCtxMenu');
+  menu.classList.add('open');
+
+  // Pozicuj menu u kurzoru (s korekcí aby nevyčnívalo mimo viewport)
+  const x = Math.min(e.clientX, window.innerWidth - 200);
+  const y = Math.min(e.clientY, window.innerHeight - 160);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+
+  // Zavři kliknutím jinam
+  setTimeout(() => {
+    document.addEventListener('click', closeConvCtxMenu, { once: true });
+  }, 10);
+}
+
+function closeConvCtxMenu() {
+  document.getElementById('convCtxMenu').classList.remove('open');
+}
+
+function ctxViewProfile() {
+  closeConvCtxMenu();
+  if (_ctxPartnerId) window.open(`profile.html?user=${_ctxPartnerId}`, '_blank');
+}
+
+async function ctxBlockUser() {
+  closeConvCtxMenu();
+  await blockUser(_ctxPartnerId, _ctxPartnerName);
+}
+
+async function ctxDeleteConv() {
+  closeConvCtxMenu();
+  await deleteConversation(_ctxConvId);
+}
+
+// Kebab menu z chat headeru (aktivní konverzace)
+function openConvMenu(e) {
+  if (!activePartner || !activeConvId) return;
+  const isBlocked = blockedUsers.has(activePartner.id);
+
+  // Dynamicky nastavíme text blokace
+  const menu = document.getElementById('convCtxMenu');
+  const blockBtn = menu.querySelector('.ctx-item:nth-child(2)');
+  blockBtn.textContent = isBlocked ? '✅ Odblokovat uživatele' : '🚫 Zablokovat uživatele';
+  blockBtn.onclick = isBlocked ? () => { closeConvCtxMenu(); unblockPartner(); } : ctxBlockUser;
+
+  openConvCtxMenu(e, activeConvId, activePartner.id, activePartner.username);
+}
+
+// ═══ NOVÁ KONVERZACE — hledání uživatele ═══════════════════════
+
+let _newConvSearchTimeout = null;
+
+function openNewConvModal() {
+  document.getElementById('newConvModal').classList.add('open');
+  document.getElementById('newConvSearch').value = '';
+  document.getElementById('newConvResults').innerHTML = '<div class="modal-hint">Zadej alespoň 2 znaky…</div>';
+  setTimeout(() => document.getElementById('newConvSearch').focus(), 80);
+}
+
+function closeNewConvModal() {
+  document.getElementById('newConvModal').classList.remove('open');
+  clearTimeout(_newConvSearchTimeout);
+}
+
+function onNewConvSearch() {
+  clearTimeout(_newConvSearchTimeout);
+  const q = document.getElementById('newConvSearch').value.trim();
+  if (q.length < 2) {
+    document.getElementById('newConvResults').innerHTML = '<div class="modal-hint">Zadej alespoň 2 znaky…</div>';
+    return;
+  }
+  document.getElementById('newConvResults').innerHTML = '<div class="modal-hint">Hledám…</div>';
+  _newConvSearchTimeout = setTimeout(() => searchNewConvUsers(q), 320);
+}
+
+async function searchNewConvUsers(q) {
+  const enc = encodeURIComponent(q);
+
+  // Zkus view user_search (bezpečné RLS), fallback na profiles
+  let data = await sb(
+    `rest/v1/user_search?username=ilike.*${enc}*&id=neq.${userId}&select=id,username,avatar_url,email_hint&limit=8`,
+    'GET', null, token
+  );
+  if (!Array.isArray(data) || data.code) {
+    data = await sb(
+      `rest/v1/profiles?username=ilike.*${enc}*&id=neq.${userId}&select=id,username&limit=8`,
+      'GET', null, token
+    );
+  }
+
+  const res = document.getElementById('newConvResults');
+  if (!Array.isArray(data) || !data.length) {
+    res.innerHTML = '<div class="modal-hint">Žádný uživatel nenalezen.</div>';
+    return;
+  }
+
+  res.innerHTML = data.map(u => {
+    const initial  = (u.username || '?')[0].toUpperCase();
+    const blocked  = blockedUsers.has(u.id);
+    const avatarHtml = u.avatar_url
+      ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initial}'">`
+      : initial;
+    return `
+      <div class="modal-result-item" onclick="startConvWithUser('${u.id}','${esc(u.username)}')">
+        <div class="modal-result-avatar">${avatarHtml}</div>
+        <div>
+          <div class="modal-result-name">@${esc(u.username)}${blocked ? ' 🚫' : ''}</div>
+          ${u.email_hint ? `<div class="modal-result-hint">${esc(u.email_hint)}</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function startConvWithUser(partnerId, partnerUsername) {
+  closeNewConvModal();
+  if (blockedUsers.has(partnerId)) {
+    if (!confirm(`@${partnerUsername} máš zablokovaného. Odblokovat a napsat?`)) return;
+    await fetch(`${SB_URL}/rest/v1/blocked_users?blocker_id=eq.${userId}&blocked_id=eq.${partnerId}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SB_ANON, 'Authorization': `Bearer ${token}` }
+    });
+    blockedUsers.delete(partnerId);
+  }
+  await openOrCreateConversation(partnerId, partnerUsername, null);
+}
+
 // ═══ MOBILE BACK ═══
 function goBackToList() {
   document.getElementById('chatWrap').classList.remove('conv-open');
@@ -1257,6 +1636,13 @@ function startPolling() {
     await loadConversations();
     if (activeConvId) {
       await loadMessages();
+      // Recheck blocked state (může se změnit z jiného zařízení)
+      await loadBlockedUsers();
+      if (activePartner) {
+        const isBlocked = blockedUsers.has(activePartner.id);
+        document.getElementById('blockedBanner').classList.toggle('visible', isBlocked);
+        document.getElementById('chatInputArea').style.display = isBlocked ? 'none' : '';
+      }
       // Mark read
       const conv = conversations.find(c => c.id === activeConvId);
       if (conv) {
