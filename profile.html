@@ -983,8 +983,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
               <label class="groq-label" style="margin-top:14px">Model</label>
               <select class="groq-select" id="groqModelSelect"></select>
               <div class="groq-actions">
-                <button class="btn-groq-save" id="groqSaveBtn" type="button">💾 Uložit klíč</button>
-                <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat</button>
+                <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>
               </div>
               <div class="groq-feedback" id="groqFeedback"></div>
             </div>
@@ -1855,6 +1854,26 @@ function profileUpdateLangUI(lang) {
   const keyInput   = document.getElementById('groqKeyInput');
   const addBtn     = document.getElementById('groqAddBtn');
   const keysList   = document.getElementById('groqKeysList');
+  const deleteBtn  = document.getElementById('groqDeleteBtn');
+  const feedback   = document.getElementById('groqFeedback');
+  const testWrap   = document.getElementById('groqTestWrap');
+  const testBtn    = document.getElementById('groqTestBtn');
+  const testResult = document.getElementById('groqTestResult');
+  const modelSel   = document.getElementById('groqModelSelect');
+
+  // Naplň model select – vision modely automaticky
+  const VISION_MODELS = [
+    { id: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout (doporučeno, vision)' },
+    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick (vision)' },
+    { id: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (text)' },
+    { id: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (rychlý)' },
+  ];
+  VISION_MODELS.forEach(function(m) {
+    const opt = document.createElement('option');
+    opt.value = m.id; opt.textContent = m.label;
+    modelSel.appendChild(opt);
+  });
+  modelSel.value = 'meta-llama/llama-4-scout-17b-16e-instruct'; // výchozí
 
   // ── Pomocné ─────────────────────────────────────────────────
   function maskKey(k) {
