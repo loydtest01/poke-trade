@@ -1,6 +1,6 @@
 {
-  "name": "AI PC – PhotoBridge",
-  "short_name": "AI PC",
+  "name": "PokéTrade – PhotoBridge",
+  "short_name": "PokéTrade",
   "description": "Posílej fotky karet přímo do AI na PC",
   "start_url": "./mobile.html",
   "display": "standalone",

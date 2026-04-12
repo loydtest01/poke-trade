@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AI PC">
+<meta name="apple-mobile-web-app-title" content="PokéTrade">
 <style>
 :root {
   --bg:      #0f1117;
@@ -243,6 +243,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 <div id="app">
   <div class="hdr">
     <div class="hdr-logo">
+      <img src="icon-aipc-192.png" alt="logo" onerror="this.style.display='none'">
       PhotoBridge
     </div>
     <div class="hdr-progress" id="hdrProg" style="display:none"></div>
@@ -251,6 +252,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
       <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
       <button id="chipInstall" onclick="installPWA()" title="Přidat na plochu" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;white-space:nowrap;cursor:pointer;text-align:center">📲 Plocha</button>
+      <button id="chipLogout" onclick="doMobileLogout()" title="Odhlásit" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;white-space:nowrap;cursor:pointer;text-align:center">⏻ Odhlásit</button>
     </div>
   </div>
   <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -260,7 +262,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <!-- ══ LOGIN ══ -->
     <div class="screen" id="scLogin">
       <div style="text-align:center;padding:28px 0 16px">
-        <div style="font-size:52px">🎴</div>
+        <img src="icon-aipc-192.png" alt="PokéTrade" style="width:72px;height:72px;border-radius:18px;object-fit:cover" onerror="this.outerHTML='<div style=\'font-size:52px\'>🎴</div>'">
         <div style="font-size:20px;font-weight:800;margin-top:10px">PhotoBridge</div>
         <div style="font-size:13px;color:var(--muted);margin-top:6px">Přihlas se svým PokéTrade účtem</div>
       </div>
@@ -582,16 +584,26 @@ window.onload = () => {
     toast('🎭 FAKE trénink zapnut');
   }
 
-  // Pokud má uživatel token, ukáž scSetup (inline script to nestihl – scSetup ještě nebyl v DOMu)
+  // Pokud má uživatel token, ukáž scSetup a ověř / obnov přihlášení
   if (mobileToken) {
     showScreen('scSetup');
+    showLogoutChip(true);
     loadGroqInBackground();
-    verifyToken(mobileToken).then(valid => {
+    verifyToken(mobileToken).then(async valid => {
       if (!valid) {
-        mobileToken = '';
-        localStorage.removeItem('sb_token');
-        showScreen('scLogin');
-        toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
+        // Zkus obnovit přes refresh token
+        const refreshed = await tryRefreshToken();
+        if (refreshed) {
+          updateStatusChips();
+          loadGroqInBackground();
+        } else {
+          mobileToken = '';
+          localStorage.removeItem('sb_token');
+          localStorage.removeItem('sb_refresh');
+          showLogoutChip(false);
+          showScreen('scLogin');
+          toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
+        }
       }
     });
   }
@@ -626,6 +638,50 @@ async function verifyToken(token) {
   } catch { return false; }
 }
 
+// ── Token refresh ──────────────────────────────────────────────
+async function tryRefreshToken() {
+  const refresh = localStorage.getItem('sb_refresh');
+  if (!refresh) return false;
+  try {
+    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refresh }),
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!r.ok) return false;
+    const data = await r.json();
+    if (!data.access_token) return false;
+    mobileToken = data.access_token;
+    localStorage.setItem('sb_token', mobileToken);
+    if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+
+// Automatický refresh každých 50 minut (token Supabase vydrží 1 hod)
+setInterval(async () => {
+  if (!mobileToken) return;
+  const valid = await verifyToken(mobileToken);
+  if (!valid) {
+    const refreshed = await tryRefreshToken();
+    if (!refreshed) {
+      mobileToken = '';
+      localStorage.removeItem('sb_token');
+      localStorage.removeItem('sb_refresh');
+      showScreen('scLogin');
+      toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
+    } else {
+      updateStatusChips();
+    }
+  }
+}, 20 * 60 * 1000);
+
+function showLogoutChip(visible) {
+  const btn = document.getElementById('chipLogout');
+  if (btn) btn.style.display = visible ? '' : 'none';
+}
+
 async function doMobileLogin() {
   const email = document.getElementById('loginEmail')?.value?.trim();
   const pass  = document.getElementById('loginPass')?.value;
@@ -654,6 +710,7 @@ async function doMobileLogin() {
     if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
     // Přepni na setup okamžitě, Groq načti na pozadí
     showScreen('scSetup');
+    showLogoutChip(true);
     updateStatusChips();
     loadGroqInBackground();
   } catch(e) {
@@ -674,6 +731,7 @@ function doMobileLogout() {
   localStorage.removeItem('sb_token');
   localStorage.removeItem('sb_refresh');
   mobileToken = '';
+  showLogoutChip(false);
   showLoginScreen();
   toast('Odhlášeno');
 }
