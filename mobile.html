@@ -1269,6 +1269,25 @@ function processDetailPhoto(dataUrl) {
   updateAddDetailBtn();
   const n = cards[currentCard].detailPhotos.length;
   toast(`📷 Fotodetail ${n}/10 přidán`);
+
+  // Pokud karta dosud nebyla rozpoznána, zkus AI automaticky z tohoto detailu
+  if (groqKey && !cards[currentCard].frontAI?.name) {
+    const aiBox = document.getElementById('aiResultBox');
+    if (aiBox) {
+      aiBox.style.display = '';
+      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším rozpoznat z detailu…</div>';
+      identifyCard(dataUrl).then(result => {
+        if (result?.name) {
+          cards[currentCard].frontAI = result;
+          showAiResult(result);
+          haptic([40,30,80]);
+          toast('✅ Karta rozpoznána z detailu!');
+        } else {
+          showAiResult(null);
+        }
+      });
+    }
+  }
 }
 
 function removeDetailPhoto(idx) {
@@ -1393,7 +1412,20 @@ function showAiResult(r) {
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (!r || !r.name) {
-    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>';
+    const detailCount = (cards[currentCard]?.detailPhotos || []).length;
+    const detailBtn = detailCount > 0
+      ? `<button onclick="retryWithDetails()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(167,139,250,.4);background:rgba(167,139,250,.1);color:var(--purple);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔍 Zkusit z detailu (${detailCount})</button>`
+      : '';
+    aiBox.innerHTML = `
+      <div style="color:var(--muted);font-size:12px;margin-bottom:8px">❓ AI kartu nerozpoznala</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button onclick="triggerCapture('front')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📷 Vyfotit znovu</button>
+        <button onclick="triggerGallery('front')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖼️ Z galerie</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button onclick="retryAI()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(100,116,139,.3);background:rgba(100,116,139,.08);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Zkusit znovu</button>
+        ${detailBtn}
+      </div>`;
     return;
   }
   // Confidence
@@ -1450,6 +1482,40 @@ function selectCond(btn) {
   document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   currentCond = btn.dataset.cond;
+}
+
+// ── Zkusit AI znovu na stejné fotce ──────────────────────────
+async function retryAI() {
+  const photo = cards[currentCard]?.frontPhoto;
+  if (!photo || !groqKey) return;
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
+  const result = await identifyCard(photo);
+  cards[currentCard].frontAI = result;
+  showAiResult(result);
+  if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
+}
+
+// ── Zkusit AI na detailních fotkách ──────────────────────────
+async function retryWithDetails() {
+  const details = cards[currentCard]?.detailPhotos || [];
+  if (!details.length || !groqKey) return;
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším z detailních fotek…</div>';
+  let result = null;
+  for (const photo of details) {
+    result = await identifyCard(photo);
+    if (result?.name) break;
+  }
+  if (result?.name) {
+    cards[currentCard].frontAI = result;
+    showAiResult(result);
+    haptic([40,30,80]);
+    toast('✅ Karta rozpoznána z detailu!');
+  } else {
+    showAiResult(null);
+    toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
+  }
 }
 
 function skipFront() {
