@@ -396,10 +396,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <!-- Button state A: no photo yet -->
       <div class="btn-row" id="btnEmpty">
         <button class="btn btn-secondary" onclick="skipFront()">Přeskočit ↷</button>
+        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:1.4">🖼️ Z galerie</button>
       </div>
 
       <!-- Button state B: photo taken → detail or continue -->
       <div class="btn-row" id="btnPhoto" style="display:none">
+        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:0.8;font-size:12px">🖼️</button>
         <button class="btn btn-purple" id="addDetailBtn" onclick="triggerCapture('detail')">🔍 Fotodetail</button>
         <button class="btn btn-primary" id="frontNextBtn" onclick="confirmFront()">Pokračovat →</button>
       </div>
@@ -543,6 +545,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
 <!-- Camera capture -->
 <input type="file" id="captureInput" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(this)">
+<!-- Gallery picker (no camera constraint) -->
+<input type="file" id="galleryInput" accept="image/*" style="display:none" onchange="handleGalleryPick(this)">
 <!-- Gallery wizard file picker (single or multi depending on mode) -->
 <input type="file" id="galFileInput" accept="image/*" style="display:none" onchange="handleGalFilePick(this)">
 
@@ -1145,6 +1149,26 @@ function triggerCapture(mode) {
   document.getElementById('captureInput').click();
 }
 
+function triggerGallery(mode) {
+  captureMode = mode;
+  const input = document.getElementById('galleryInput');
+  input.value = '';
+  input.click();
+}
+
+function handleGalleryPick(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    if (captureMode === 'front') processFrontPhoto(e.target.result);
+    else if (captureMode === 'detail') processDetailPhoto(e.target.result);
+    else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
+    else processBackPhoto(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
 function handleCapture(input) {
   const file = input.files[0];
   if (!file) return;
@@ -1176,14 +1200,6 @@ async function processFrontPhoto(dataUrl) {
     const result = await identifyCard(dataUrl);
     cards[currentCard].frontAI = result;
     showAiResult(result);
-    // Pokud probíhá srovnání s originálem (async v identifyCard), zobrazíme mezitím zprávu
-    if (result?.name && result?.confidence !== 'low' && !result?.refImageUrl) {
-      const refNote = document.createElement('div');
-      refNote.id = 'refCheckNote';
-      refNote.style.cssText = 'font-size:10px;color:var(--muted);text-align:right;margin-top:4px';
-      refNote.textContent = '🔍 Hledám referenční originál…';
-      document.getElementById('aiResultBox').appendChild(refNote);
-    }
     // Japonská karta → zobrazit panel pro záběr názvu
     // Detekce: lang=JP nebo jméno obsahuje japonské znaky
     const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
@@ -1768,6 +1784,7 @@ async function identifyCard(dataUrl) {
 CRITICAL RULE: If Japanese (katakana/hiragana/kanji) → name in Japanese, lang="JP". If English → lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
+IMPORTANT: The card may be inside a plastic sleeve, soft sleeve, or hard protective case. Glare, reflections, or plastic edges are NOT part of the card — look through them and read the card underneath. Even if the image has reflections or is slightly blurry through plastic, do your best to identify the card.
 Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"","lang":"EN","confidence":"high/medium/low","notes":"","fake":false,"fakeConfidence":"low","fakeReasons":[]}`;
   const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
   const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
