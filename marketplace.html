@@ -750,6 +750,94 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   font-size: 13px; color: var(--text3); line-height: 1.6;
 }
 
+/* ── Advanced search filter ── */
+.search-filter-btn {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  background: none; border: none;
+  color: var(--text3); font-size: 13px; cursor: pointer;
+  padding: 4px 8px; border-radius: 5px; line-height: 1;
+  transition: all .15s; letter-spacing: .02em; font-weight: 700;
+}
+.search-filter-btn:hover { color: var(--yellow); background: rgba(245,200,66,0.08); }
+.search-filter-btn.active { color: var(--yellow); background: rgba(245,200,66,0.12); }
+
+.adv-filter-panel {
+  background: rgba(8,4,14,0.96);
+  border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  animation: panelSlide .18s ease;
+  backdrop-filter: blur(12px);
+}
+.adv-filter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+@media(max-width:900px) { .adv-filter-grid { grid-template-columns: 1fr 1fr; } }
+.adv-field label {
+  display: block;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  color: var(--text3); text-transform: uppercase; margin-bottom: 5px;
+}
+.adv-inp {
+  width: 100%; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 13px; outline: none;
+}
+.adv-inp:focus { border-color: rgba(245,200,66,0.4); }
+.adv-url-row { margin-bottom: 12px; }
+.adv-url-row > label {
+  display: block;
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  color: var(--text3); text-transform: uppercase; margin-bottom: 5px;
+}
+.adv-url-preview {
+  display: flex; align-items: center; gap: 10px; margin-top: 8px;
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 9px; padding: 8px 12px; font-size: 12px; color: var(--text2);
+}
+.adv-filter-footer {
+  display: flex; gap: 8px; align-items: center;
+  padding-top: 10px; border-top: 1px solid var(--border);
+}
+.btn-adv-search {
+  padding: 8px 18px; border-radius: 8px; border: none;
+  background: linear-gradient(135deg,var(--yellow),#ff8c00);
+  color: #000; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+}
+.btn-adv-clear {
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid var(--border); background: transparent;
+  color: var(--text3); font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.btn-adv-clear:hover { color: var(--text); border-color: var(--border2); }
+.adv-filter-active-badge {
+  font-size: 11px; color: var(--yellow);
+  display: flex; align-items: center; gap: 4px;
+}
+.adv-filter-active-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--yellow); display: inline-block;
+  box-shadow: 0 0 6px var(--yellow);
+}
+
+/* ── Sidebar counts ── */
+.sb-count {
+  margin-left: auto;
+  font-size: 10px; font-weight: 700;
+  background: rgba(255,255,255,0.06);
+  color: var(--text3);
+  padding: 1px 7px; border-radius: 10px;
+  min-width: 22px; text-align: center;
+  transition: all .2s;
+}
+.sb-count.has-val { background: rgba(245,200,66,0.12); color: var(--yellow); }
+
 /* ── Album price info in listing form ──────────────────────── */
 .album-price-info {
   display: flex; align-items: center; gap: 8px;
@@ -807,8 +895,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   <aside class="sidebar">
     <div class="sb-section">
       <span class="sb-label">Typ nabídky</span>
-      <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"> Prodej</label>
-      <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"> Výměna</label>
+      <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"> Prodej <span class="sb-count" id="sbCountSell">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"> Výměna <span class="sb-count" id="sbCountTrade">0</span></label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -822,10 +910,10 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <div class="sb-divider"></div>
     <div class="sb-section">
       <span class="sb-label">Stav karty</span>
-      <label class="filter-opt"><input type="checkbox" id="fNM" checked onchange="applyFilters()"> NM</label>
-      <label class="filter-opt"><input type="checkbox" id="fLP" checked onchange="applyFilters()"> LP</label>
-      <label class="filter-opt"><input type="checkbox" id="fMP" checked onchange="applyFilters()"> MP</label>
-      <label class="filter-opt"><input type="checkbox" id="fHP" onchange="applyFilters()"> HP / D</label>
+      <label class="filter-opt"><input type="checkbox" id="fNM" checked onchange="applyFilters()"> NM <span class="sb-count" id="sbCountNM">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="fLP" checked onchange="applyFilters()"> LP <span class="sb-count" id="sbCountLP">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="fMP" checked onchange="applyFilters()"> MP <span class="sb-count" id="sbCountMP">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="fHP" onchange="applyFilters()"> HP / D <span class="sb-count" id="sbCountHP">0</span></label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -867,7 +955,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <div id="listView">
       <div class="market-toolbar">
         <div class="search-wrap">
-          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()">
+          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()" style="padding-right:42px">
+          <button class="search-filter-btn" id="advFilterBtn" onclick="toggleAdvFilter()" title="Pokročilé filtry">▾ Filtr</button>
         </div>
         <select class="sort-sel" id="sortSel" onchange="applyFilters()">
           <option value="newest">Nejnovější</option>
@@ -880,11 +969,85 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')">⊞ Mřížka</button>
         </div>
         <span class="count-info" id="countInfo">0 nabídek</span>
-        <button id="btnPendingQueue" class="btn-pending" onclick="togglePendingPanel()" style="display:none">
+        <button id="btnPendingQueue" class="btn-pending" onclick="togglePendingPanel()" style="opacity:0.45;pointer-events:none">
           ⏳ Čeká na vystavení <span class="pending-badge" id="pendingBadgeBtn">0</span>
         </button>
         <button onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
       </div>
+      <!-- ADVANCED FILTER PANEL -->
+      <div id="advFilterPanel" class="adv-filter-panel" style="display:none">
+        <div class="adv-filter-grid">
+          <div class="adv-field">
+            <label>Název Pokémona</label>
+            <input class="adv-inp" id="afName" placeholder="Charizard...">
+          </div>
+          <div class="adv-field">
+            <label>Série / Set</label>
+            <input class="adv-inp" id="afSet" placeholder="Scarlet &amp; Violet...">
+          </div>
+          <div class="adv-field">
+            <label>Číslo karty</label>
+            <input class="adv-inp" id="afNumber" placeholder="025/198">
+          </div>
+          <div class="adv-field">
+            <label>Typ / Element</label>
+            <select class="adv-inp" id="afType">
+              <option value="">Všechny typy</option>
+              <option value="fire">🔥 Ohnivý</option>
+              <option value="water">💧 Vodní</option>
+              <option value="grass">🌿 Travní</option>
+              <option value="lightning">⚡ Elektrický</option>
+              <option value="psychic">🔮 Psychický</option>
+              <option value="darkness">🌑 Temný</option>
+              <option value="dragon">🐉 Dračí</option>
+              <option value="fighting">👊 Bojový</option>
+              <option value="metal">⚙️ Kovový</option>
+              <option value="colorless">⭐ Bezbarvý</option>
+            </select>
+          </div>
+          <div class="adv-field">
+            <label>Vzácnost</label>
+            <select class="adv-inp" id="afRarity">
+              <option value="">Všechny vzácnosti</option>
+              <option value="common">Common</option>
+              <option value="uncommon">Uncommon</option>
+              <option value="rare">Rare</option>
+              <option value="rare holo">Rare Holo</option>
+              <option value="rare ultra">Ultra Rare / V / ex</option>
+              <option value="special illustration rare">Special Illustration Rare</option>
+              <option value="hyper rare">Hyper Rare</option>
+              <option value="illustration rare">Illustration Rare</option>
+            </select>
+          </div>
+          <div class="adv-field">
+            <label>Stav karty</label>
+            <select class="adv-inp" id="afCond">
+              <option value="">Všechny stavy</option>
+              <option value="NM">NM – Nová / Mint</option>
+              <option value="LP">LP – Lehce hraná</option>
+              <option value="MP">MP – Středně hraná</option>
+              <option value="HP">HP – Hodně hraná</option>
+              <option value="D">D – Poškozená</option>
+            </select>
+          </div>
+        </div>
+        <div class="adv-url-row">
+          <label>📎 Importovat z URL (pokemontcg.io / Cardmarket)</label>
+          <div style="display:flex;gap:8px">
+            <input class="adv-inp" id="afUrl" placeholder="https://www.cardmarket.com/... nebo https://api.pokemontcg.io/v2/cards/...">
+            <button onclick="importFromUrl()" style="padding:8px 16px;border-radius:8px;border:none;background:rgba(74,158,255,0.2);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">Načíst</button>
+          </div>
+          <div id="afUrlPreview" style="display:none" class="adv-url-preview">
+            <div id="afUrlPreviewContent"></div>
+          </div>
+        </div>
+        <div class="adv-filter-footer">
+          <button class="btn-adv-search" onclick="applyAdvancedFilter()">🔍 Vyhledat</button>
+          <button class="btn-adv-clear" onclick="clearAdvancedFilter()">✕ Zrušit</button>
+          <span id="advFilterActiveBadge" class="adv-filter-active-badge" style="display:none">Aktivní filtr</span>
+        </div>
+      </div>
+
       <div id="listingsWrap" class="listings-wrap"></div>
     </div>
 
@@ -1221,6 +1384,122 @@ let tradeViewMode='img', selectedTradeIds=new Set();
   applyFilters();
 })();
 
+// ── Advanced filter state ─────────────────────────────────────
+let advFilterData = {};
+let advFilterActive = false;
+
+function toggleAdvFilter() {
+  const panel = document.getElementById('advFilterPanel');
+  const btn   = document.getElementById('advFilterBtn');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : '';
+  btn.classList.toggle('active', !isOpen);
+}
+
+function applyAdvancedFilter() {
+  advFilterData = {
+    name:   (document.getElementById('afName')?.value||'').trim().toLowerCase(),
+    set:    (document.getElementById('afSet')?.value||'').trim().toLowerCase(),
+    number: (document.getElementById('afNumber')?.value||'').trim().toLowerCase(),
+    type:   (document.getElementById('afType')?.value||'').trim().toLowerCase(),
+    rarity: (document.getElementById('afRarity')?.value||'').trim().toLowerCase(),
+    cond:   (document.getElementById('afCond')?.value||'').trim(),
+  };
+  advFilterActive = Object.values(advFilterData).some(v => v !== '');
+  const badge = document.getElementById('advFilterActiveBadge');
+  if (badge) badge.style.display = advFilterActive ? '' : 'none';
+  applyFilters();
+}
+
+function clearAdvancedFilter() {
+  ['afName','afSet','afNumber','afUrl'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  ['afType','afRarity','afCond'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.selectedIndex = 0;
+  });
+  const prev = document.getElementById('afUrlPreview');
+  if(prev) prev.style.display = 'none';
+  advFilterData = {};
+  advFilterActive = false;
+  const badge = document.getElementById('advFilterActiveBadge');
+  if(badge) badge.style.display = 'none';
+  applyFilters();
+}
+
+async function importFromUrl() {
+  const url = (document.getElementById('afUrl')?.value||'').trim();
+  if (!url) return;
+  const preview = document.getElementById('afUrlPreview');
+  const content = document.getElementById('afUrlPreviewContent');
+  preview.style.display = '';
+  content.innerHTML = '<span style="color:var(--blue)">⏳ Načítám...</span>';
+  try {
+    let name = '', setName = '', number = '';
+    if (url.includes('pokemontcg.io')) {
+      const idMatch = url.match(/cards\/([a-zA-Z0-9]+-[a-zA-Z0-9]+)/);
+      if (idMatch) {
+        const res  = await fetch('https://api.pokemontcg.io/v2/cards/' + idMatch[1]);
+        const json = await res.json();
+        if (json.data) {
+          name    = json.data.name || '';
+          setName = json.data.set?.name || '';
+          number  = json.data.number || '';
+        }
+      } else {
+        const qMatch = url.match(/[?&]q=([^&]+)/);
+        if (qMatch) {
+          const q = decodeURIComponent(qMatch[1]);
+          const nameM = q.match(/name:"?([^"&]+)"?/i); if(nameM) name = nameM[1];
+          const setM  = q.match(/set\.name:"?([^"&]+)"?/i); if(setM) setName = setM[1];
+        }
+      }
+    } else if (url.includes('cardmarket.com')) {
+      const parts    = url.replace(/\/$/, '').split('/');
+      const cardSlug = parts[parts.length - 1];
+      const setSlug  = parts[parts.length - 2];
+      name    = cardSlug.replace(/-[0-9]+-[0-9]+$/, '').replace(/-[0-9]+$/, '').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      setName = setSlug.replace(/-and-/gi,' & ').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    }
+    if (name || setName) {
+      if (name)    document.getElementById('afName').value   = name;
+      if (setName) document.getElementById('afSet').value    = setName;
+      if (number)  document.getElementById('afNumber').value = number;
+      content.innerHTML = '✅ Extrahováno: <strong>' + esc(name) + '</strong>' + (setName ? ' · ' + esc(setName) : '') + (number ? ' #' + esc(number) : '');
+      applyAdvancedFilter();
+    } else {
+      content.innerHTML = '<span style="color:var(--red)">Karta nenalezena v URL. Zkus URL přímo na kartičku.</span>';
+    }
+  } catch(e) {
+    content.innerHTML = '<span style="color:var(--red)">Chyba: ' + esc(e.message) + '</span>';
+  }
+}
+
+function updateSidebarCounts(baseListings) {
+  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0 };
+  baseListings.forEach(l => {
+    if (l.allow_trade === false || l.price_czk > 0) c.sell++;
+    if (l.allow_trade === true) c.trade++;
+    const cond = l.card_condition || 'NM';
+    if      (cond==='NM')            c.NM++;
+    else if (cond==='LP')            c.LP++;
+    else if (cond==='MP')            c.MP++;
+    else if (cond==='HP'||cond==='D') c.HP++;
+  });
+  const upd = (id, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = val;
+    el.classList.toggle('has-val', val > 0);
+  };
+  upd('sbCountSell',  c.sell);
+  upd('sbCountTrade', c.trade);
+  upd('sbCountNM',    c.NM);
+  upd('sbCountLP',    c.LP);
+  upd('sbCountMP',    c.MP);
+  upd('sbCountHP',    c.HP);
+}
+
 // ── Filters + Sort ────────────────────────────────────────────
 function applyFilters(){
   const q       = (document.getElementById('searchInput').value||'').toLowerCase();
@@ -1245,7 +1524,10 @@ function applyFilters(){
   if(document.getElementById('fOther').checked)   elFilters.push('other');
   const anyEl = elFilters.length === 0;
 
-  filteredListings = allListings.filter(l => {
+  const af = advFilterData || {};
+
+  // Base match: text search + advanced filter (without sidebar checkboxes)
+  function matchesBase(l) {
     const cards = l.cards_data || [];
     const hasName = cards.some(c =>
       (c.name||'').toLowerCase().includes(q) ||
@@ -1255,6 +1537,37 @@ function applyFilters(){
       (l.title||'').toLowerCase().includes(q);
     if(q && !hasName) return false;
 
+    if(af.name) {
+      const n = (l.card_name||(cards[0]?.name)||'').toLowerCase();
+      if(!n.includes(af.name)) return false;
+    }
+    if(af.set) {
+      const s = (l.card_set||(cards[0]?.set)||'').toLowerCase();
+      if(!s.includes(af.set)) return false;
+    }
+    if(af.number) {
+      const num = (l.card_number||(cards[0]?.number)||'').toLowerCase();
+      if(!num.includes(af.number)) return false;
+    }
+    if(af.type) {
+      const t = (l.card_type||'').toLowerCase();
+      if(!t.includes(af.type)) return false;
+    }
+    if(af.rarity) {
+      const r = (l.card_rarity||(cards[0]?.rarity)||'').toLowerCase();
+      if(!r.includes(af.rarity)) return false;
+    }
+    if(af.cond) {
+      if((l.card_condition||'NM') !== af.cond) return false;
+    }
+    return true;
+  }
+
+  // Compute base (for sidebar counts) — text + advanced, no sidebar checkboxes
+  const baseListings = allListings.filter(matchesBase);
+  updateSidebarCounts(baseListings);
+
+  filteredListings = baseListings.filter(l => {
     const isSell  = l.allow_trade === false || l.price_czk > 0;
     const isTrade = l.allow_trade === true;
     if(!fSell  && isSell && !isTrade) return false;
@@ -2126,7 +2439,10 @@ function updatePendingBadge() {
   const b2    = document.getElementById('pendingBadgePanel');
   if (b1) b1.textContent = count;
   if (b2) b2.textContent = count;
-  if (btn) btn.style.display = count > 0 ? '' : 'none';
+  if (btn) {
+    btn.style.opacity = count > 0 ? '1' : '0.45';
+    btn.style.pointerEvents = count > 0 ? '' : 'none';
+  }
   if (count === 0 && _pendingPanelOpen) togglePendingPanel(false);
 }
 
