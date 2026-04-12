@@ -1254,14 +1254,24 @@ async function syncGroqKeyFromSupabase() {
 /* ═══════════════════════════════════════════════════════
    GROQ KEY
 ═══════════════════════════════════════════════════════ */
-function getGroqKey()   { return localStorage.getItem('groqApiKey') || ''; }
-function hasGroqKey()   { return !!getGroqKey(); }
+// Vrátí pole všech Groq klíčů (uloženy jako "key1,key2,..." nebo jen jeden klíč)
+function getGroqKeys() {
+  const raw = localStorage.getItem('groqApiKey') || '';
+  return raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+}
+function getGroqKey()   { return getGroqKeys()[0] || ''; }
+function hasGroqKey()   { return getGroqKeys().length > 0; }
+
+// Index aktuálně aktivního klíče – rotuje při 429
+let _groqKeyIdx = 0;
 
 function updateGroqStatusBadge() {
   const el = document.getElementById('groqStatus');
   if (!el) return;
-  if (hasGroqKey()) {
-    el.textContent = 'AI ✓'; el.className = 'badge badge-green';
+  const n = getGroqKeys().length;
+  if (n > 0) {
+    el.textContent = n > 1 ? `AI ✓ (${n} klíčů)` : 'AI ✓';
+    el.className = 'badge badge-green';
   } else {
     el.textContent = 'AI ✗'; el.className = 'badge badge-red';
   }
@@ -1460,6 +1470,9 @@ async function recognizeAll() {
     }
 
     renderAll();
+
+    // Krátká pauza mezi kartami – snižuje riziko rate limitu
+    if (i < pending.length - 1) await new Promise(r => setTimeout(r, 800));
   }
 
   setProgress(100, 'Hotovo!');
@@ -1476,11 +1489,12 @@ function setProgress(pct, label) {
 }
 
 async function callGroq(dataUrl) {
-  const key = getGroqKey();
+  const keys = getGroqKeys();
+  if (!keys.length) { toast('❌ Nastav Groq API klíč v ⚙️ Nastavení', 'error'); return null; }
+
   let base64 = dataUrl, mediaType = 'image/jpeg';
 
   if (dataUrl.startsWith('http') || dataUrl.startsWith('blob:')) {
-    // Foto z telefonu přes Supabase Storage – stáhni a převeď na base64
     try {
       const resp = await fetch(dataUrl);
       const blob = await resp.blob();
@@ -1497,38 +1511,71 @@ async function callGroq(dataUrl) {
     if (m) { mediaType = m[1]; base64 = dataUrl.slice(m[0].length); }
   }
 
-  const res = await fetch(GROQ_PROXY, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [{
-        role: 'user',
-        content: [
-          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
-          { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
-        ]
-      }],
-      temperature: 0.1,
-      max_tokens: 500,
-    })
+  const body = JSON.stringify({
+    model: GROQ_MODEL,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
+        { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
+      ]
+    }],
+    temperature: 0.1,
+    max_tokens: 500,
   });
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    if (res.status === 401) toast('❌ Neplatný Groq API klíč', 'error');
-    else if (res.status === 429) toast('⚠️ Groq rate limit – počkej chvíli');
-    else toast('⚠️ Groq chyba: ' + res.status);
-    return null;
+  // Zkus každý klíč – při 429 přejdi na další
+  for (let attempt = 0; attempt < keys.length; attempt++) {
+    const keyIdx = (_groqKeyIdx + attempt) % keys.length;
+    const key = keys[keyIdx];
+
+    let res;
+    try {
+      res = await fetch(GROQ_PROXY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
+        body
+      });
+    } catch(e) {
+      toast('⚠️ Síťová chyba, zkouším dál...', 'error');
+      continue;
+    }
+
+    if (res.status === 429) {
+      const nextIdx = (keyIdx + 1) % keys.length;
+      if (attempt < keys.length - 1) {
+        toast(`⚠️ Klíč #${keyIdx + 1} limit – přepínám na klíč #${nextIdx + 1}...`);
+        await new Promise(r => setTimeout(r, 600)); // krátká pauza před dalším klíčem
+        continue;
+      } else {
+        toast('❌ Všechny klíče mají rate limit – počkej chvíli', 'error');
+        return null;
+      }
+    }
+
+    if (res.status === 401) {
+      toast(`❌ Klíč #${keyIdx + 1} je neplatný`, 'error');
+      continue; // zkus další
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      toast('⚠️ Groq chyba: ' + (err?.error?.message || res.status));
+      return null;
+    }
+
+    // Úspěch – zapamatuj si úspěšný klíč pro příští kartu
+    _groqKeyIdx = keyIdx;
+    trackGroqCall();
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    try {
+      const m = content.match(/\{[\s\S]*\}/);
+      return m ? JSON.parse(m[0]) : null;
+    } catch { return null; }
   }
 
-  const data = await res.json();
-  trackGroqCall();
-  const content = data.choices?.[0]?.message?.content || '';
-  try {
-    const m = content.match(/\{[\s\S]*\}/);
-    return m ? JSON.parse(m[0]) : null;
-  } catch { return null; }
+  return null;
 }
 
 /* ═══════════════════════════════════════════════════════
