@@ -1390,7 +1390,13 @@ function showAiResult(r) {
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (!r || !r.name) {
-    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>';
+    const debugHtml = r?._raw
+      ? `<div style="margin-top:6px;font-size:10px;color:#475569;background:rgba(0,0,0,.3);border-radius:6px;padding:6px 8px;word-break:break-all;max-height:60px;overflow:hidden">AI odpověď: ${escHtml(r._raw)}</div>`
+      : '';
+    aiBox.innerHTML = `
+      <div style="color:var(--muted);font-size:12px;margin-bottom:8px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>
+      <button onclick="retryAI()" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Zkusit znovu</button>
+      ${debugHtml}`;
     return;
   }
   // Confidence
@@ -1483,6 +1489,17 @@ function selectCond(btn) {
   document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   currentCond = btn.dataset.cond;
+}
+
+async function retryAI() {
+  const photo = cards[currentCard]?.frontPhoto;
+  if (!photo || !groqKey) return;
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
+  const result = await identifyCard(photo);
+  cards[currentCard].frontAI = result;
+  showAiResult(result);
+  if (result?.name) toast('✅ Karta rozpoznána!');
 }
 
 function skipFront() {
@@ -1786,9 +1803,12 @@ Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subty
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
 IMPORTANT: The card may be inside a plastic sleeve, soft sleeve, or hard protective case. Glare, reflections, or plastic edges are NOT part of the card — look through them and read the card underneath. Even if the image has reflections or is slightly blurry through plastic, do your best to identify the card.
 Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"","lang":"EN","confidence":"high/medium/low","notes":"","fake":false,"fakeConfidence":"low","fakeReasons":[]}`;
-  const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
-  const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
-  async function call(model) {
+  const MODELS = [
+    'llama-3.2-90b-vision-preview',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.2-11b-vision-preview',
+  ];
+  async function callModel(model) {
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
@@ -1805,16 +1825,19 @@ Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"",
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     return resp.json();
   }
-  try {
-    let data;
-    try { data = await call(MODEL_PRIMARY); }
-    catch(e1) { data = await call(MODEL_FALLBACK); }
-    const raw = data.choices?.[0]?.message?.content || '';
-    const p   = parseJson(raw);
-    if (!p?.name) return null;
-
-    return p;
-  } catch { return null; }
+  let lastRaw = '';
+  for (const model of MODELS) {
+    try {
+      const data = await callModel(model);
+      const raw = data.choices?.[0]?.message?.content || '';
+      lastRaw = raw;
+      const p = parseJson(raw);
+      if (p?.name) return p;
+      // JSON parsed but no name — try next model
+    } catch { /* try next model */ }
+  }
+  // All models failed — return sentinel with debug info
+  return { _failed: true, _raw: lastRaw.slice(0, 200) };
 }
 
 // ── Stažení referenčního obrázku z Pokemon TCG API ────────────
