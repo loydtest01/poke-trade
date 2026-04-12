@@ -320,6 +320,7 @@ body::after {
 </div>
 
 <script src="app.js"></script>
+<script src="notif-bell.js"></script>
 <script src="fake-detector.js"></script>
 <script>
 
@@ -487,22 +488,17 @@ async function startOnlineCompare() {
 // ── KONEC ONLINE MODE ─────────────────────────────────────────────
 
 // ── LOCAL ALBUM PICKER — výběr alba ze Supabase bez share linku ──
-let _localPickerTarget = 1;   // 1 = albumA, 2 = albumB
-let _localPickerAlbums = [];  // cache alb
+let _localPickerTarget = 1;
+let _localPickerAlbums = [];
 let _localPickerSelectedId = null;
 
 async function openLocalAlbumPicker(num) {
   _localPickerTarget = num;
   _localPickerSelectedId = null;
   document.getElementById('btnLocalPickerGo').disabled = true;
-
-  const subtitle = num === 1
-    ? 'Vybíráš album pro stranu A (levá)'
-    : 'Vybíráš album pro stranu B (pravá)';
-  document.getElementById('localPickerSubtitle').textContent = subtitle;
-
-  const modal = document.getElementById('localAlbumModal');
-  modal.style.display = 'flex';
+  document.getElementById('localPickerSubtitle').textContent =
+    num === 1 ? 'Vybíráš album pro stranu A (levá)' : 'Vybíráš album pro stranu B (pravá)';
+  document.getElementById('localAlbumModal').style.display = 'flex';
 
   const token = localStorage.getItem('sb_token');
   const myId  = localStorage.getItem('sb_user_id');
@@ -512,7 +508,6 @@ async function openLocalAlbumPicker(num) {
     return;
   }
 
-  // Načti alba pokud ještě nemáme cache
   if (_localPickerAlbums.length === 0) {
     try {
       const r = await fetch(
@@ -526,7 +521,6 @@ async function openLocalAlbumPicker(num) {
       return;
     }
   }
-
   renderLocalPickerList();
 }
 
@@ -553,10 +547,7 @@ function pickLocalAlbum(albumId, el) {
     i.classList.remove('selected');
     i.querySelector('.album-pick-check').textContent = '';
   });
-  if (el) {
-    el.classList.add('selected');
-    el.querySelector('.album-pick-check').textContent = '✓';
-  }
+  if (el) { el.classList.add('selected'); el.querySelector('.album-pick-check').textContent = '✓'; }
   _localPickerSelectedId = albumId;
   document.getElementById('btnLocalPickerGo').disabled = false;
 }
@@ -568,48 +559,38 @@ function closeLocalAlbumPicker() {
 async function confirmLocalAlbum() {
   if (!_localPickerSelectedId) return;
   const btn = document.getElementById('btnLocalPickerGo');
-  btn.disabled = true;
-  btn.textContent = 'Načítám…';
+  btn.disabled = true; btn.textContent = 'Načítám…';
 
   const token = localStorage.getItem('sb_token');
   const myId  = localStorage.getItem('sb_user_id');
 
   try {
-    // Načti karty alba
     const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
     let cards = [];
-
     if (albumObj && albumObj.card_ids && albumObj.card_ids.length > 0) {
       const ids = albumObj.card_ids.map(id => `"${id}"`).join(',');
       const cardsRes = await fetch(
         `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${myId}&local_id=in.(${ids})&select=card_data`,
         { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
       );
-      const cardsData = await cardsRes.json();
-      cards = (cardsData || []).map(c => c.card_data);
+      cards = ((await cardsRes.json()) || []).map(c => c.card_data);
     }
-
     const albumData = { name: albumObj ? esc(albumObj.name) : 'Moje album', cards };
-
     if (_localPickerTarget === 1) {
       albumA = albumData;
-      const drop = document.getElementById('drop1');
-      drop.classList.add('loaded');
+      document.getElementById('drop1').classList.add('loaded');
       document.getElementById('label1').textContent = albumData.name;
     } else {
       albumB = albumData;
-      const drop = document.getElementById('drop2');
-      drop.classList.add('loaded');
+      document.getElementById('drop2').classList.add('loaded');
       document.getElementById('label2').textContent = albumData.name;
     }
-
     closeLocalAlbumPicker();
     if (albumA && albumB) runCompare();
   } catch(e) {
     alert('Chyba při načítání alba. Zkus to znovu.');
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Použít toto album →';
+    btn.disabled = false; btn.textContent = 'Použít toto album →';
   }
 }
 // ── KONEC LOCAL ALBUM PICKER ──────────────────────────────────────
