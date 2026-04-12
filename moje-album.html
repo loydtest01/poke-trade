@@ -4242,7 +4242,7 @@ function applyI18N() {
   });
 
   // 3) All chips: translate by onclick attribute
-  document.querySelectorAll('.type-chip, .sb-btn').forEach(btn => {
+  document.querySelectorAll('.type-chip').forEach(btn => {
     const fn = btn.getAttribute('onclick');
     if (!fn) return;
     const entry = CHIP_I18N[fn];
