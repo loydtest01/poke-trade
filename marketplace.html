@@ -354,7 +354,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   padding: 9px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: rgba(255,255,255,0.05);
   color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
-  resize: none; height: 70px; line-height: 1.5;
+  resize: vertical; height: 70px; line-height: 1.5; width: 100%; box-sizing: border-box;
 }
 .panel-textarea::placeholder, .panel-inp::placeholder { color: var(--text3); }
 
@@ -776,6 +776,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         </div>
         <span class="count-info" id="countInfo">0 nabídek</span>
         <button onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
+        <button onclick="openQrModal()" title="QR kód pro mobilní přidání" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(245,200,66,0.3);background:rgba(245,200,66,0.08);color:var(--yellow);font-size:16px;cursor:pointer;white-space:nowrap">📱</button>
       </div>
       <div id="listingsWrap" class="listings-wrap"></div>
     </div>
@@ -934,7 +935,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       </div>
       <div>
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis (nepovinné)</div>
-        <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
+        <textarea id="addDesc" class="panel-textarea" style="height:100px;width:100%;box-sizing:border-box" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
       </div>
       <!-- AI SCAN ZONE -->
       <div>
@@ -959,6 +960,28 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           </div>
           <div class="ai-scan-status" id="aiScanStatus">Analyzuji kartu...</div>
         </div>
+      </div>
+
+      <!-- Vybraná fotka z alba -->
+      <div id="addPhotoPreviewRow" style="display:none">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Fotka z alba</div>
+        <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
+          <img id="addAlbumPhoto" src="" style="width:44px;height:60px;border-radius:5px;object-fit:cover">
+          <span style="font-size:12px;color:var(--text3)">Fotka z tvého alba</span>
+          <button onclick="document.getElementById('addPhotoPreviewRow').style.display='none';_addAlbumPhotoUrl=null" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px">✕</button>
+        </div>
+      </div>
+
+      <!-- Délka nabídky -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Délka nabídky</div>
+        <div style="display:flex;gap:6px">
+          <button class="dur-btn" data-days="7"  onclick="setDuration(this,7)"  style="flex:1;padding:9px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;cursor:pointer;transition:all .15s">7 dní</button>
+          <button class="dur-btn" data-days="14" onclick="setDuration(this,14)" style="flex:1;padding:9px 4px;border-radius:8px;border:1px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.1);color:var(--yellow);font-size:13px;cursor:pointer;transition:all .15s">14 dní</button>
+          <button class="dur-btn" data-days="21" onclick="setDuration(this,21)" style="flex:1;padding:9px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;cursor:pointer;transition:all .15s">21 dní</button>
+          <button class="dur-btn" data-days="30" onclick="setDuration(this,30)" style="flex:1;padding:9px 4px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text);font-size:13px;cursor:pointer;transition:all .15s">30 dní</button>
+        </div>
+        <div id="addExpiryHint" style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">Nabídka bude aktivní 14 dní</div>
       </div>
 
       <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
@@ -1095,6 +1118,7 @@ let tradeViewMode='img', selectedTradeIds=new Set();
     return;
   }
   allListings = res;
+  checkExpiredListings(allListings).catch(()=>null);
   applyFilters();
 })();
 
@@ -1195,6 +1219,7 @@ function renderListings(){
           <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
           ${set?`<span>${esc(set)}</span>`:''}
           <span>${timeAgo(l.created_at)}</span>
+          ${l.expires_at ? `<span style="color:${new Date(l.expires_at)-new Date()<3*86400000?'#f87171':'var(--text3)'}">⏳ do ${new Date(l.expires_at).toLocaleDateString('cs')}</span>` : ''}
         </div>
         <div class="listing-tags">
           ${price>0 ? '<span class="tag tag-sell">Prodej</span>' : ''}
@@ -1573,16 +1598,72 @@ async function sendMsg(){
 }
 
 // ── Add listing ───────────────────────────────────────────────
-function openAddListing(){
+let _addDurationDays = 14;
+let _addAlbumPhotoUrl = null;
+
+function setDuration(btn, days) {
+  _addDurationDays = days;
+  document.querySelectorAll('.dur-btn').forEach(b => {
+    b.style.borderColor = 'rgba(255,255,255,0.1)';
+    b.style.background  = 'rgba(255,255,255,0.04)';
+    b.style.color       = 'var(--text)';
+  });
+  btn.style.borderColor = 'rgba(245,200,66,0.4)';
+  btn.style.background  = 'rgba(245,200,66,0.1)';
+  btn.style.color       = 'var(--yellow)';
+  const exp = new Date(); exp.setDate(exp.getDate() + days);
+  document.getElementById('addExpiryHint').textContent =
+    `Nabídka bude aktivní ${days} dní (do ${exp.toLocaleDateString('cs')})`;
+}
+
+function openAddListing(pending){
   if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
   document.getElementById('addModal').style.display='flex';
   resetAiZone();
+  // Reset duration to 14d default
+  _addDurationDays = 14;
+  document.querySelectorAll('.dur-btn').forEach(b => {
+    b.style.borderColor = 'rgba(255,255,255,0.1)';
+    b.style.background  = 'rgba(255,255,255,0.04)';
+    b.style.color       = 'var(--text)';
+  });
+  const def = document.querySelector('.dur-btn[data-days="14"]');
+  if(def) setDuration(def, 14);
+
+  // Pre-fill from pending listing (from moje-alba)
+  if(pending) {
+    addCardData = pending.card;
+    _addAlbumPhotoUrl = pending.photoUrl || null;
+
+    // Show card preview
+    const prev = document.getElementById('addCardPreview');
+    document.getElementById('addCardImg').src   = pending.card.images?.small || pending.card.images?.large || '';
+    document.getElementById('addCardName').textContent = pending.card.name || '';
+    document.getElementById('addCardMeta').textContent = (pending.card.set?.name||'') + (pending.card.number?' · #'+pending.card.number:'');
+    prev.style.display = 'flex';
+
+    // Show album photo preview
+    if(_addAlbumPhotoUrl) {
+      document.getElementById('addAlbumPhoto').src = _addAlbumPhotoUrl;
+      document.getElementById('addPhotoPreviewRow').style.display = '';
+    }
+
+    // Set listing type
+    const type = pending.listingType || 'sell';
+    if(type === 'trade')     setAddType('trade');
+    else if(type === 'both') setAddType('both');
+    else                     setAddType('sell');
+
+    // Pre-fill price
+    if(pending.price) document.getElementById('addPrice').value = pending.price;
+  }
 }
 function closeAddListing(){
   document.getElementById('addModal').style.display='none';
-  addCardData=null;
+  addCardData=null; _addAlbumPhotoUrl=null;
   document.getElementById('addCardPreview').style.display='none';
   document.getElementById('addCardUrl').value='';
+  document.getElementById('addPhotoPreviewRow').style.display='none';
   resetAiZone();
 }
 
@@ -1924,6 +2005,9 @@ async function submitListing(){
     cardmarketUrl: card.cardmarket?.url||'',
   } : {};
 
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + (_addDurationDays || 14));
+
   const payload = {
     user_id:        userId,
     username:       username,
@@ -1936,26 +2020,116 @@ async function submitListing(){
     card_type:      card?.types?.[0]||'',
     card_rarity:    card?.rarity||'',
     card_condition: cond,
-    api_image_url:  card?.images?.large || card?.images?.small || '',
+    api_image_url:  _addAlbumPhotoUrl || card?.images?.large || card?.images?.small || '',
     price_czk:      (addType==='trade') ? null : price,
     allow_trade:    (addType==='trade'||addType==='both'),
     allow_offer:    true,
     trade_wants:    wants,
     description:    desc,
     status:         'active',
+    expires_at:     expiresAt.toISOString(),
+    duration_days:  _addDurationDays || 14,
   };
 
   const res = await sbReq('rest/v1/listings','POST',payload,token);
   if(res._err){ alert('Chyba: '+res._err); return; }
-  alert('Nabídka zveřejněna!');
+  alert('Nabídka zveřejněna! Aktivní do ' + expiresAt.toLocaleDateString('cs') + '.');
   closeAddListing();
-  // Reload
   allListings.unshift(Array.isArray(res)?res[0]:res);
   applyFilters();
 }
 
-function openChat() {
-  if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
+// ── Expiry check — run after listings load ────────────────────
+async function checkExpiredListings(listings) {
+  if (!token || !userId) return;
+  const now = new Date();
+  const myExpired = listings.filter(l =>
+    l.user_id === userId &&
+    l.status === 'active' &&
+    l.expires_at &&
+    new Date(l.expires_at) < now
+  );
+  for (const l of myExpired) {
+    // Mark as expired in DB
+    await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', { status: 'expired' }).catch(()=>null);
+    l.status = 'expired';
+    // Send system notification message to owner
+    await sbReq('rest/v1/messages', 'POST', {
+      listing_id:       l.id,
+      sender_id:        'system',
+      receiver_id:      userId,
+      sender_username:  'PokéTrade',
+      receiver_username: username,
+      text: `⏰ Tvoje nabídka „${l.title || l.card_name}" vypršela a byla automaticky stažena. Chceš ji znovu vystavit?`,
+    }).catch(()=>null);
+  }
+  return myExpired.length;
+}
+
+// ── On load: check for pending listing from moje-alba ─────────
+(function checkPendingListing() {
+  const raw = localStorage.getItem('pendingListing');
+  if (!raw) return;
+  localStorage.removeItem('pendingListing');
+  let pending;
+  try { pending = JSON.parse(raw); } catch(e) { return; }
+  // Wait for token to be ready, then open modal
+  const tryOpen = () => {
+    if (token) { openAddListing(pending); }
+    else { setTimeout(tryOpen, 300); }
+  };
+  setTimeout(tryOpen, 600);
+})();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   if(!currentListing) return;
   var l = currentListing;
   var sellerId = l.user_id;
@@ -2204,5 +2378,92 @@ async function mktRunFakeCheck() {
   }
 }
 </script>
+<!-- QR CODE MODAL -->
+<div id="qrModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.87);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:360px;padding:28px;display:flex;flex-direction:column;gap:16px;align-items:center">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+      <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:800;color:#fff">📱 Mobilní přidání</div>
+      <button onclick="closeQrModal()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3);text-align:center;line-height:1.5">
+      Naskenuj QR kód telefonem — otevře se formulář<br>a rovnou půjde vyfotit kartu kamerou
+    </div>
+    <div id="qrCanvas" style="background:#fff;border-radius:12px;padding:12px;width:200px;height:200px;display:flex;align-items:center;justify-content:center">
+      <div style="color:#999;font-size:12px">Generuji…</div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);text-align:center;word-break:break-all;max-width:280px" id="qrUrl"></div>
+    <button onclick="copyQrUrl()" style="padding:9px 20px;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text);font-size:13px;cursor:pointer;width:100%">📋 Kopírovat odkaz</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+let _qrInstance = null;
+
+function openQrModal() {
+  document.getElementById('qrModal').style.display = 'flex';
+  const base = window.location.origin + window.location.pathname;
+  const url  = base + '?newlisting=1&mode=camera';
+  document.getElementById('qrUrl').textContent = url;
+
+  const container = document.getElementById('qrCanvas');
+  container.innerHTML = '';
+
+  try {
+    _qrInstance = new QRCode(container, {
+      text:           url,
+      width:          176,
+      height:         176,
+      colorDark:      '#000000',
+      colorLight:     '#ffffff',
+      correctLevel:   QRCode.CorrectLevel.M,
+    });
+  } catch(e) {
+    container.innerHTML = '<div style="color:#f87171;font-size:11px;text-align:center">Nepodařilo se vygenerovat QR.<br>Zkopíruj odkaz níže.</div>';
+  }
+}
+
+function closeQrModal() {
+  document.getElementById('qrModal').style.display = 'none';
+  _qrInstance = null;
+}
+
+function copyQrUrl() {
+  const url = document.getElementById('qrUrl').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = event.target;
+    btn.textContent = '✅ Zkopírováno!';
+    setTimeout(() => btn.textContent = '📋 Kopírovat odkaz', 2000);
+  }).catch(() => {
+    prompt('Zkopíruj tento odkaz:', url);
+  });
+}
+
+// ── Handle ?mode=camera on load — open form + trigger camera ──
+(function handleQrLaunch() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('newlisting') !== '1' || params.get('mode') !== 'camera') return;
+
+  // Clean URL
+  history.replaceState({}, '', window.location.pathname);
+
+  // Wait for token + DOM, then open form and trigger camera
+  const tryLaunch = () => {
+    if (!token) { setTimeout(tryLaunch, 300); return; }
+    openAddListing();
+    // Trigger camera via the AI scan input after a short delay
+    setTimeout(() => {
+      const input = document.getElementById('aiPhotoInput');
+      if (input) {
+        // On mobile this opens camera directly
+        input.setAttribute('capture', 'environment');
+        input.click();
+      }
+    }, 500);
+  };
+  setTimeout(tryLaunch, 600);
+})();
+</script>
+
 </body>
 </html>

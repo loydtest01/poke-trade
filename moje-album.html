@@ -2843,24 +2843,109 @@ async function saveCardUpdates(c) {
 
 async function toggleCdTrade() {
   if (!_detailCard) return;
-  _detailCard.for_trade = !_detailCard.for_trade;
+  if (!_detailCard.for_trade) {
+    // Enabling — open photo picker first
+    openListingPhotoModal('trade'); return;
+  }
+  // Disabling
+  _detailCard.for_trade = false;
   _detailCard.updated_at = new Date().toISOString();
-  saveLocal();
-  openCardDetail(_detailCard);
-  render();
+  saveLocal(); openCardDetail(_detailCard); render();
   await syncCardToServer(_detailCard);
   syncVymenaAlbum().catch(e => console.warn('[vymena toggleCdTrade]', e));
 }
 
 async function toggleCdSell() {
   if (!_detailCard) return;
-  _detailCard.for_sell = !_detailCard.for_sell;
+  if (!_detailCard.for_sell) {
+    openListingPhotoModal('sell'); return;
+  }
+  _detailCard.for_sell = false;
   _detailCard.updated_at = new Date().toISOString();
-  saveLocal();
-  openCardDetail(_detailCard);
-  render();
+  saveLocal(); openCardDetail(_detailCard); render();
   await syncCardToServer(_detailCard);
   syncObchodAlbum().catch(e => console.warn('[obchod toggleCdSell]', e));
+}
+
+// ── Photo picker for new listing ───────────────────────────────
+let _pendingListingType = null;
+let _selectedListingPhotoUrl = null;
+
+async function openListingPhotoModal(type) {
+  if (!_detailCard) return;
+  _pendingListingType = type;
+  _selectedListingPhotoUrl = null;
+  const modal = document.getElementById('listingPhotoModal');
+  const grid  = document.getElementById('listingPhotoGrid');
+  const btn   = document.getElementById('listingPhotoConfirmBtn');
+  grid.innerHTML = '<div style="color:var(--text3);font-size:12px;grid-column:1/-1;text-align:center;padding:16px">Načítám fotky…</div>';
+  btn.style.opacity = '.4'; btn.style.pointerEvents = 'none';
+  modal.style.display = 'flex';
+
+  const localId = _detailCard.id || _detailCard.local_id;
+  const rows = await sbReq(
+    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(localId)}&order=created_at.asc`
+  ).catch(() => null);
+
+  if (!rows?.length) {
+    grid.innerHTML = '<div style="color:var(--text3);font-size:12px;grid-column:1/-1;text-align:center;padding:16px">Karta nemá žádné fotky.<br>Pokračuj bez fotky nebo nejdříve vyfot kartu.</div>';
+    btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; return;
+  }
+  grid.innerHTML = rows.map(r =>
+    `<div class="lpm-photo" onclick="selectListingPhoto(this,'${r.url.replace(/'/g,"\\'")}')" style="cursor:pointer;border-radius:8px;border:2px solid transparent;overflow:hidden;aspect-ratio:3/4;transition:border-color .15s">
+      <img src="${r.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+    </div>`
+  ).join('');
+}
+
+function selectListingPhoto(el, url) {
+  document.querySelectorAll('.lpm-photo').forEach(x => x.style.borderColor='transparent');
+  el.style.borderColor = 'var(--yellow)';
+  _selectedListingPhotoUrl = url;
+  const btn = document.getElementById('listingPhotoConfirmBtn');
+  btn.style.opacity = '1'; btn.style.pointerEvents = 'auto';
+}
+
+function closeListingPhotoModal() {
+  document.getElementById('listingPhotoModal').style.display = 'none';
+  _pendingListingType = null; _selectedListingPhotoUrl = null;
+}
+
+async function confirmListingPhoto() {
+  if (!_detailCard || !_pendingListingType) return;
+  const c = _detailCard;
+  const cd = c.card_data || {};
+
+  // Mark card
+  if (_pendingListingType === 'trade' || _pendingListingType === 'both') c.for_trade = true;
+  if (_pendingListingType === 'sell'  || _pendingListingType === 'both') c.for_sell  = true;
+  c.updated_at = new Date().toISOString();
+  saveLocal(); render();
+  syncCardToServer(c).catch(()=>null);
+  if (c.for_trade) syncVymenaAlbum().catch(()=>null);
+  if (c.for_sell)  syncObchodAlbum().catch(()=>null);
+
+  // Save pending listing to localStorage
+  localStorage.setItem('pendingListing', JSON.stringify({
+    card: {
+      name: cd.name || c.name || '',
+      set: { name: cd.set?.name || cd.setName || '' },
+      number: cd.number || '',
+      hp: cd.hp || '',
+      types: cd.types || [],
+      supertype: cd.supertype || '',
+      images: cd.images || null,
+      rarity: cd.rarity || '',
+      cardmarket: cd.cardmarket || null,
+    },
+    photoUrl: _selectedListingPhotoUrl || null,
+    listingType: _pendingListingType,
+    price: c.price_czk || null,
+  }));
+
+  closeListingPhotoModal();
+  closeCardDetail();
+  window.location.href = 'marketplace.html?newlisting=1';
 }
 
 async function saveCdPrice() {
@@ -5262,6 +5347,22 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
 .pp-card-name { padding:6px 8px 2px;font-size:11px;font-weight:600;color:#f0ece4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
 .pp-card-cond { padding:0 8px 8px;font-size:10px;color:rgba(240,236,228,0.4); }
 </style>
+
+<!-- LISTING PHOTO PICKER MODAL -->
+<div id="listingPhotoModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.87);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:460px;max-height:82vh;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:800;color:#fff">Vybrat fotku nabídky</div>
+      <button onclick="closeListingPhotoModal()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div style="font-size:12px;color:var(--text3)">Vyber fotku, která se zobrazí kupujícím v obchodě</div>
+    <div id="listingPhotoGrid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button id="listingPhotoConfirmBtn" onclick="confirmListingPhoto()" style="flex:1;padding:11px;border-radius:9px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-weight:800;font-size:14px;cursor:pointer;opacity:.4;pointer-events:none;transition:opacity .2s">Pokračovat →</button>
+      <button onclick="closeListingPhotoModal()" style="padding:11px 18px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--text3);font-size:13px;cursor:pointer">Zrušit</button>
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
