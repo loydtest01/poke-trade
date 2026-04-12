@@ -650,7 +650,36 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 <script src="app.js"></script>
 <script>
-// ── Auth ──────────────────────────────────────────────────────
+/* ── Groq – retry AI ────────────────────────────────────────── */
+const GROQ_PROXY = '/api/groq';
+const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const GROQ_PROMPT = `You are a Pokémon Trading Card Game expert. The user sends a photo of a Pokémon card.
+The card can be in ANY language: EN, JP, ZH, KO, DE, FR.
+
+TASK: Read EXACT text from card. DO NOT translate.
+
+Respond ONLY as JSON (no other text):
+{
+  "name": "exact name from card",
+  "nameOrig": "exact name from card (same)",
+  "set": "set name or code as printed",
+  "number": "card number e.g. 007/067",
+  "type": "Pokemon type from icon: Fire/Water/Grass/Lightning/Psychic/Darkness/Dragon/Metal/Fighting/Fairy/Colorless",
+  "category": "Pokemon or Trainer or Energy",
+  "subtype": "V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera or empty",
+  "hp": "HP number or empty",
+  "variant": "Normal/Holo/Reverse Holo/Full Art/Alt Art/Rainbow/Gold",
+  "condition": "NM or LP or MP or HP or D",
+  "lang": "EN or JP or ZH or KO or DE or FR",
+  "confidence": "high or medium or low"
+}`;
+
+function _getGroqKey() {
+  // Sdílí se s scanner.html přes localStorage
+  return localStorage.getItem('groq_api_key') || localStorage.getItem('groq_key') || '';
+}
+
+/* ── Auth ──────────────────────────────────────────────────────── */
 let userId = null;
 let token  = null;
 let albums = [];
@@ -858,6 +887,98 @@ function renderGroups() {
   setTimeout(autoSearchAll, 400);
 }
 
+/* ═══════════════════════════════════════════════════════
+   RETRY AI – znovu projít fotku přes Groq
+═══════════════════════════════════════════════════════ */
+async function retryAi(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+
+  const btn = document.getElementById(`retryAiBtn-${gi}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Analyzuji…'; }
+
+  const key = _getGroqKey();
+  if (!key) {
+    toast('❌ Groq API klíč není nastaven – přihlas se ve skeneru a nastav klíč', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
+    return;
+  }
+
+  // Vezmi přední fotku (preferuj ořezanou)
+  const frontPhoto = g.photos.find(p => p.side === 'front') || g.photos[0];
+  if (!frontPhoto?.url) {
+    toast('❌ Nenalezena žádná fotka pro analýzu', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
+    return;
+  }
+
+  try {
+    // Stáhni fotku a převeď na base64
+    const resp = await fetch(frontPhoto.croppedUrl || frontPhoto.url);
+    const blob = await resp.blob();
+    const mediaType = blob.type || 'image/jpeg';
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload  = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+
+    // Zavolej Groq
+    const groqRes = await fetch(GROQ_PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
+            { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
+          ]
+        }],
+        temperature: 0.1,
+        max_tokens: 500,
+      })
+    });
+
+    if (!groqRes.ok) {
+      const err = await groqRes.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'HTTP ' + groqRes.status);
+    }
+
+    const data    = await groqRes.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const match   = content.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('AI nevrátila JSON');
+    const result = JSON.parse(match[0]);
+
+    if (!result.name) throw new Error('AI nenašla název karty');
+
+    // Ulož nový výsledek
+    g.aiResult = { ...result, _retried: true };
+
+    // Přebuildi element skupiny na místě
+    const oldEl = document.getElementById(`group-${gi}`);
+    if (oldEl) {
+      const wasExpanded = oldEl.classList.contains('expanded');
+      const newEl = buildGroupEl(g, gi);
+      if (wasExpanded) newEl.classList.add('expanded');
+      oldEl.parentNode.replaceChild(newEl, oldEl);
+    }
+
+    toast(`✅ AI znovu rozpoznala: ${result.name}`, 'success');
+
+    // Pokud má AI jméno, zkus rovnou vyhledat v TCG API
+    if (result.name) setTimeout(() => tcgSearch(gi), 300);
+
+  } catch(e) {
+    console.error('[retryAi]', e);
+    toast('❌ Chyba AI analýzy: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
+  }
+}
+
 function buildGroupEl(g, gi) {
   const ai = g.aiResult || {};
   const frontPhoto = g.photos.find(p => p.side === 'front');
@@ -1011,12 +1132,25 @@ function buildGroupEl(g, gi) {
       <!-- AI info -->
       ${aiRows ? `
         <div class="cg-ai">
-          <div class="cg-ai-title">🤖 AI rozpoznávání</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div class="cg-ai-title" style="margin-bottom:0">🤖 AI rozpoznávání${g.aiResult?._retried ? ' <span style="font-size:10px;color:#22c55e">✓ znovu</span>' : ''}</div>
+            <button id="retryAiBtn-${gi}" onclick="retryAi(${gi})"
+              style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.25);color:#f5c842;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">
+              🔄 Znovu AI
+            </button>
+          </div>
           <div class="ai-grid">${aiRows}</div>
           ${ai.conditionNotes ? `<div style="margin-top:8px;font-size:12px;color:rgba(240,232,208,.5)">📝 ${esc(ai.conditionNotes)}</div>` : ''}
           ${ai.notes ? `<div style="margin-top:4px;font-size:12px;color:rgba(240,232,208,.4)">💬 ${esc(ai.notes)}</div>` : ''}
           ${confPct !== null ? `<div class="ai-conf">Konfidence: ${confPct}%</div>` : ''}
-        </div>` : ''}
+        </div>` : `
+        <div class="cg-ai" style="text-align:center;padding:12px 0">
+          <div style="font-size:12px;color:rgba(240,232,208,.35);margin-bottom:10px">⚠️ AI kartu nerozpoznala nebo chybí data</div>
+          <button id="retryAiBtn-${gi}" onclick="retryAi(${gi})"
+            style="background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.4);color:#f5c842;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+            🔄 Znovu projít AI
+          </button>
+        </div>`}
 
       <!-- Vyhledávání v TCG API -->
       <div class="cg-search">
