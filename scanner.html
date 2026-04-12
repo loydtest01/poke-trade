@@ -1177,6 +1177,7 @@ function hasGroqKey()   { return !!getGroqKey(); }
 
 function updateGroqStatusBadge() {
   const el = document.getElementById('groqStatus');
+  if (!el) return;
   if (hasGroqKey()) {
     el.textContent = 'AI ✓'; el.className = 'badge badge-green';
   } else {
@@ -2061,6 +2062,7 @@ async function _savePhotoToCard(p, localId) {
   var avatar = document.getElementById('userAvatar');
   var loginLink = document.getElementById('loginLink');
   var logoutBtn = document.getElementById('logoutBtn');
+  var profileBtn = document.getElementById('profileBtn');
   if (u && u.id) {
     var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
     if (chip) chip.style.display = '';
