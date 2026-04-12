@@ -965,6 +965,104 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .trade-offer-confirm-btn:hover { opacity: .88; }
 
+/* ── Sidebar: Typ položek (Vše / Karty / Sealed) ──────────────── */
+.item-type-row { display: flex; gap: 4px; }
+.item-type-btn {
+  flex: 1; padding: 5px 6px; border-radius: 7px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.04); color: var(--text3);
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: all .14s; font-family: inherit; text-align: center;
+}
+.item-type-btn:hover { background: rgba(255,255,255,0.08); color: var(--text2); }
+.item-type-btn.active {
+  background: rgba(245,200,66,0.14); border-color: rgba(245,200,66,0.35);
+  color: var(--yellow);
+}
+
+/* ── Add listing modal: tabs ──────────────────────────────────── */
+.listing-tab {
+  flex: 1; padding: 7px 10px; border-radius: 7px; border: none;
+  background: transparent; color: var(--text3);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all .14s; font-family: inherit;
+}
+.listing-tab:hover { color: var(--text2); background: rgba(255,255,255,0.06); }
+.listing-tab.active { background: rgba(255,255,255,0.1); color: var(--text); }
+
+/* ── Product type grid ────────────────────────────────────────── */
+.prod-type-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.prod-type-btn {
+  padding: 8px 4px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text3); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .14s; font-family: inherit;
+  text-align: center; line-height: 1.4;
+}
+.prod-type-btn:hover { border-color: rgba(168,85,247,0.35); background: rgba(168,85,247,0.07); color: var(--text2); }
+.prod-type-btn.active {
+  border-color: rgba(168,85,247,0.55); background: rgba(168,85,247,0.14);
+  color: #c084fc;
+}
+
+/* ── Language buttons ─────────────────────────────────────────── */
+.lang-btn {
+  padding: 5px 11px; border-radius: 7px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text3); font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .14s; font-family: inherit;
+}
+.lang-btn:hover { border-color: var(--border2); color: var(--text2); }
+.lang-btn.active { border-color: rgba(245,200,66,0.5); background: rgba(245,200,66,0.12); color: var(--yellow); }
+
+/* ── Seal condition buttons ───────────────────────────────────── */
+.seal-btn {
+  padding: 6px 13px; border-radius: 8px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text3); font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: all .14s; font-family: inherit;
+}
+.seal-btn:hover { border-color: var(--border2); color: var(--text2); }
+.seal-btn.active { border-color: rgba(74,222,128,0.45); background: rgba(74,222,128,0.1); color: #4ade80; }
+
+/* ── Product set search results ───────────────────────────────── */
+.prod-set-result {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  margin-bottom: 4px; transition: all .13s;
+}
+.prod-set-result:hover { border-color: var(--border2); background: rgba(255,255,255,0.06); }
+.prod-set-logo { width: 48px; height: 24px; object-fit: contain; flex-shrink: 0; }
+.prod-set-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.prod-set-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.prod-set-selected {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid rgba(168,85,247,0.3); background: rgba(168,85,247,0.07);
+}
+
+/* ── Product photo upload ─────────────────────────────────────── */
+.photo-multi-zone {
+  border: 2px dashed rgba(168,85,247,0.3); border-radius: 12px;
+  background: rgba(168,85,247,0.04); padding: 16px;
+  text-align: center; cursor: pointer; transition: all .2s;
+  min-height: 100px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 6px;
+}
+.photo-multi-zone:hover { border-color: rgba(168,85,247,0.6); background: rgba(168,85,247,0.09); }
+.photo-preview-strip { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+.photo-thumb {
+  width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
+  border: 1px solid rgba(168,85,247,0.3);
+}
+
+/* ── Listing list tags: product / sealed / lang ───────────────── */
+.tag-product { background: rgba(168,85,247,0.15); color: #c084fc; border: 1px solid rgba(168,85,247,0.3); }
+.tag-sealed  { background: rgba(74,222,128,0.12);  color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+.tag-lang    { background: rgba(255,255,255,0.07);  color: var(--text2); border: 1px solid var(--border); }
+
 </style>
 </head>
 <body>
@@ -2916,9 +3014,6 @@ async function submitProductListing() {
   setListingTab('card');
   applyFilters();
 }
-
-// Reset product form on modal close
-const _origCloseAddListing = closeAddListing;
 
 // ── Pending Queue (Čeká na vystavení) ─────────────────────────
 const PENDING_KEY = 'pkt_pending_listings';
