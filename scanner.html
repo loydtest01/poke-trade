@@ -141,9 +141,8 @@ body::after {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 11px 14px; font-size: 14px; font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s; width: 100%; color-scheme: dark;
+  transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
 }
-.field select option { background: #0e0c14; color: #f0ece4; }
 .field input:focus, .field select:focus {
   outline: none;
   border-color: rgba(245,200,66,0.5);
@@ -394,9 +393,8 @@ body::after {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 6px 10px; font-size: 12px; font-family: inherit;
-  flex: 1; min-width: 80px; color-scheme: dark;
+  flex: 1; min-width: 80px;
 }
-.result-edit select option { background: #0e0c14; color: #f0ece4; }
 .result-edit input:focus, .result-edit select:focus {
   outline: none; border-color: rgba(245,200,66,0.4);
 }
@@ -1084,10 +1082,22 @@ let nextId       = 1;
 ═══════════════════════════════════════════════════════ */
 function toast(msg, type = '') {
   const el = document.getElementById('toast');
+  if (!el) { console.warn('[toast]', msg); return; }
   el.textContent = msg;
-  el.className = 'show ' + type;
+  // Barva dle typu
+  el.style.borderColor = type === 'success' ? 'rgba(46,204,113,0.45)'
+    : type === 'error' ? 'rgba(239,68,68,0.45)'
+    : 'rgba(255,255,255,0.15)';
+  el.style.color = type === 'success' ? '#4ade80'
+    : type === 'error' ? '#f87171'
+    : '#f0ece4';
+  el.style.opacity = '1';
+  el.style.transform = 'translateX(-50%) translateY(0)';
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => el.className = '', 3200);
+  toast._t = setTimeout(() => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 3200);
 }
 
 function togglePw(id, btn) {
@@ -1610,9 +1620,9 @@ function renderSingleResult(p, container) {
           onchange="updateResult(${p.id},'set',this.value)" title="Set">
         <input type="text" value="${r.number || ''}" placeholder="Číslo"
           onchange="updateResult(${p.id},'number',this.value)" style="max-width:90px;" title="Číslo">
-        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav" style="color-scheme:dark">
+        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav">
           ${['NM','LP','MP','HP','D'].map(c =>
-            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}" style="background:#0e0c14;color:#f0ece4;">${c}</option>`).join('')}
+            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}">${c}</option>`).join('')}
         </select>
       </div>
 
@@ -1766,7 +1776,12 @@ async function pollNewPhotos() {
       renderAll();
       toast(`📲 ${added} foto přijato z telefonu`, 'success');
     }
-  } catch(e) { /* silent */ }
+  } catch(e) {
+    // Ignoruj síťové chyby (offline, 502 od Supabase) — polling zkusí znovu za 5s
+    if (e.message && !e.message.includes('Failed to fetch') && !e.message.includes('NetworkError')) {
+      console.warn('[pollNewPhotos]', e.message);
+    }
+  }
 }
 
 /* ── GROQ USAGE TRACKER ── */
@@ -2168,5 +2183,13 @@ async function _savePhotoToCard(p, localId) {
   }
 })();
 </script>
+
+<div id="toast" style="
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:#1a1625; border:1px solid rgba(255,255,255,0.15); border-radius:12px;
+  padding:10px 20px; font-size:13px; font-weight:500; color:#f0ece4;
+  z-index:9999; pointer-events:none; opacity:0; transition:all .25s;
+  white-space:nowrap; box-shadow:0 8px 32px rgba(0,0,0,0.5);
+"></div>
 </body>
 </html>
