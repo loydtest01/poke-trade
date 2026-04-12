@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="fake-detector.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════════
@@ -834,7 +835,12 @@ body::after {
           🤖 Rozpoznat kartičky
         </button>
       </div>
-      <div class="action-bar-right">
+      <div class="action-bar-right" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <select id="targetAlbumSel"
+          style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#f0ece4;font-size:12px;padding:6px 10px;font-family:inherit;outline:none;max-width:160px;cursor:pointer;color-scheme:dark"
+          title="Album pro uložení">
+          <option value="">⏳ Načítám alba…</option>
+        </select>
         <button class="btn btn-primary" id="saveBtn" onclick="saveSelected()" disabled>
           💾 Uložit do alba
         </button>
@@ -986,6 +992,8 @@ Respond ONLY as JSON (no other text):
 ═══════════════════════════════════════════════════════ */
 let currentUser  = null;
 let currentToken = null;
+let _scannerAlbums = [];      // načtená alba uživatele
+let _defaultAlbumId = null;   // album s nejvíce kartami
 let photos       = [];   // { id, dataUrl, name, status, result, tcgCard }
 let nextId       = 1;
 
@@ -1215,8 +1223,69 @@ function showMain() {
   syncGroqKeyFromSupabase();
   showQrPanel();
   startPolling();
+  loadAlbums();   // načti alba + nastav výchozí
   // Update Groq counter in settings if already open
   setTimeout(updateGroqCounter, 100);
+}
+
+/* ═══════════════════════════════════════════════════════
+   ALBA – načtení a výchozí výběr
+═══════════════════════════════════════════════════════ */
+async function loadAlbums() {
+  const sel = document.getElementById('targetAlbumSel');
+  if (!sel || !currentUser?.id || !currentToken) return;
+
+  try {
+    const rows = await sbReq(
+      `rest/v1/user_albums?user_id=eq.${currentUser.id}&order=name.asc&select=id,name,icon,card_ids`,
+      'GET', null, currentToken
+    );
+    if (!Array.isArray(rows) || !rows.length) {
+      sel.innerHTML = '<option value="">📁 Žádná alba</option>';
+      return;
+    }
+
+    _scannerAlbums = rows.map(a => ({ ...a, cardIds: a.card_ids || [] }));
+
+    // Najdi album s nejvíce kartami
+    const biggest = _scannerAlbums.reduce((best, a) =>
+      (a.cardIds.length > best.cardIds.length ? a : best), _scannerAlbums[0]);
+    _defaultAlbumId = biggest.id;
+
+    // Naplň select
+    sel.innerHTML = _scannerAlbums.map(a =>
+      `<option value="${a.id}" ${a.id === _defaultAlbumId ? 'selected' : ''}>` +
+      `${a.icon || '📁'} ${a.name} (${a.cardIds.length})</option>`
+    ).join('');
+
+  } catch(e) {
+    console.warn('[loadAlbums]', e);
+    sel.innerHTML = '<option value="">⚠️ Chyba načtení</option>';
+  }
+}
+
+/**
+ * Přidá localIds karet do vybraného alba (PATCH card_ids).
+ */
+async function _assignCardsToAlbum(albumId, localIds) {
+  if (!albumId || !localIds?.length) return;
+  const alb = _scannerAlbums.find(a => a.id === albumId);
+  if (!alb) return;
+
+  const merged = [...new Set([...alb.cardIds, ...localIds])];
+  try {
+    await sbReq(
+      `rest/v1/user_albums?id=eq.${albumId}`, 'PATCH',
+      { card_ids: merged, updated_at: nowIso() },
+      currentToken
+    );
+    alb.cardIds = merged;
+    // Aktualizuj čítač v selectu
+    const opt = document.querySelector(`#targetAlbumSel option[value="${albumId}"]`);
+    if (opt) opt.textContent = `${alb.icon || '📁'} ${alb.name} (${merged.length})`;
+  } catch(e) {
+    console.warn('[_assignCardsToAlbum]', e);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1441,6 +1510,26 @@ async function recognizeAll() {
         const tcgCard = await fetchTcgCard(result.name, result.set, result.number);
         if (tcgCard) p.tcgCard = tcgCard;
 
+        // 3. Fake Detector – Varianta A: analýza fotky uživatele
+        if (typeof FakeDetector !== 'undefined' && p.dataUrl) {
+          try {
+            setProgress(null, `Kontroluji autenticitu: ${result.name}…`);
+            p.fakeResult = await FakeDetector.analyze(p.dataUrl, {
+              name:   result.name,
+              set:    result.set    || (tcgCard?.set?.name  || ''),
+              number: result.number || (tcgCard?.localId   || ''),
+              hp:     result.hp     || (tcgCard?.hp         || ''),
+              rarity: result.rarity || (tcgCard?.rarity     || ''),
+            });
+          } catch(e) { console.warn('FakeDetector error:', e); }
+        }
+
+        // 4. Varianta B: stáhnout oficiální URL pro porovnání tlačítkem
+        try {
+          const officialUrl = await fetchPokemontcgImage(result.name, result.number, result.set);
+          if (officialUrl) p.officialImageUrl = officialUrl;
+        } catch(e) { /* tiché selhání */ }
+
       } else {
         p.status = 'error';
       }
@@ -1461,8 +1550,8 @@ async function recognizeAll() {
 }
 
 function setProgress(pct, label) {
-  document.getElementById('progressFill').style.width  = pct + '%';
-  document.getElementById('progressLabel').textContent = label;
+  if (pct !== null) document.getElementById('progressFill').style.width = pct + '%';
+  if (label)        document.getElementById('progressLabel').textContent = label;
 }
 
 async function callGroq(dataUrl) {
@@ -1519,6 +1608,126 @@ async function callGroq(dataUrl) {
     const m = content.match(/\{[\s\S]*\}/);
     return m ? JSON.parse(m[0]) : null;
   } catch { return null; }
+}
+
+/* ═══════════════════════════════════════════════════════
+   FAKE DETECTOR HELPERS
+═══════════════════════════════════════════════════════ */
+
+/**
+ * Fetch official card image URL from pokemontcg.io
+ * Returns the large image URL string, or null if not found.
+ */
+async function fetchPokemontcgImage(name, number, set) {
+  if (!name) return null;
+  try {
+    let q = `name:"${name}"`;
+    if (number) q += ` number:${number.split('/')[0]}`;
+    if (set)    q += ` set.name:"${set}"`;
+
+    const res = await fetch(
+      `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5&orderBy=-set.releaseDate`
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const card = data?.data?.[0];
+    return card?.images?.large || card?.images?.small || null;
+  } catch { return null; }
+}
+
+/**
+ * Varianta B: stáhne officiální obrázek a spustí FakeDetector na něm
+ * pro porovnání s výsledkem Varianty A.
+ * Uloží výsledek do p.compareResult a překreslí kartu.
+ */
+async function compareWithOriginal(pid) {
+  const p = photos.find(x => x.id === pid);
+  if (!p) return;
+
+  const btn = document.getElementById(`fakeCmpBtn_${pid}`);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Porovnávám…'; }
+
+  try {
+    // Pokud ještě nemáme officialUrl, zkus znovu
+    if (!p.officialImageUrl && p.result) {
+      p.officialImageUrl = await fetchPokemontcgImage(p.result.name, p.result.number, p.result.set);
+    }
+
+    if (!p.officialImageUrl) {
+      toast('❌ Oficiální obrázek nenalezen na pokemontcg.io', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🔍 Porovnat s originálem'; }
+      return;
+    }
+
+    if (typeof FakeDetector === 'undefined') {
+      toast('❌ FakeDetector není načtený', 'error');
+      return;
+    }
+
+    p.compareResult = await FakeDetector.analyze(p.dataUrl, p.result ? {
+      name: p.result.name, set: p.result.set, number: p.result.number,
+      hp: p.result.hp, rarity: p.result.rarity,
+    } : null);
+
+    // Store official image URL for display
+    p.compareOfficialUrl = p.officialImageUrl;
+
+    // Re-render this card at the same position
+    const el = document.getElementById('rcard_' + pid);
+    if (el) {
+      const container = el.parentElement;
+      const nextSibling = el.nextSibling;
+      el.remove();
+      const tempContainer = { appendChild: (node) => {
+        if (nextSibling) container.insertBefore(node, nextSibling);
+        else container.appendChild(node);
+      }};
+      renderSingleResult(p, tempContainer);
+    }
+  } catch(e) {
+    toast('❌ Chyba porovnání: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 Porovnat s originálem'; }
+  }
+}
+
+/**
+ * Render inline fake-detector result banner (Varianta A)
+ * into the element with id fakeBannerA_{pid}
+ */
+function renderFakeBanner(pid) {
+  const p = photos.find(x => x.id === pid);
+  if (!p?.fakeResult) return;
+  const el = document.getElementById(`fakeBannerA_${pid}`);
+  if (!el) return;
+  if (typeof FakeDetector !== 'undefined') {
+    FakeDetector.renderResult(p.fakeResult, el);
+  }
+}
+
+/**
+ * Render compare result banner (Varianta B)
+ * into the element with id fakeBannerB_{pid}
+ */
+function renderCompareBanner(pid) {
+  const p = photos.find(x => x.id === pid);
+  if (!p?.compareResult) return;
+  const el = document.getElementById(`fakeBannerB_${pid}`);
+  if (!el) return;
+
+  const officialHtml = p.compareOfficialUrl
+    ? `<div style="margin-bottom:10px;text-align:center">
+         <img src="${p.compareOfficialUrl}" alt="Originál" style="max-height:120px;border-radius:8px;border:1px solid rgba(255,255,255,.12)" onerror="this.style.display='none'">
+         <div style="font-size:10px;color:rgba(240,232,208,.3);margin-top:4px">Referenční obrázek z pokemontcg.io</div>
+       </div>`
+    : '';
+
+  // Reuse FakeDetector.renderResult
+  if (typeof FakeDetector !== 'undefined') {
+    el.innerHTML = officialHtml;
+    const resultEl = document.createElement('div');
+    el.appendChild(resultEl);
+    FakeDetector.renderResult(p.compareResult, resultEl);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1608,6 +1817,40 @@ function renderSingleResult(p, container) {
         ${tcg.hp ? '· HP ' + tcg.hp : ''}
       </div>` : ''}
 
+      <!-- ── FAKE DETECTOR ─────────────────────────────── -->
+      <div style="margin:10px 0;border-top:1px solid rgba(255,255,255,.06);padding-top:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:rgba(240,232,208,.4)">🔐 Autenticita</span>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${p.fakeResult
+              ? `<button onclick="document.getElementById('fakeSectionA_${p.id}').style.display = document.getElementById('fakeSectionA_${p.id}').style.display==='none'?'block':'none'"
+                   style="background:${p.fakeResult.verdict==='real'?'rgba(34,197,94,.12)':p.fakeResult.verdict==='fake'?'rgba(248,113,113,.12)':'rgba(245,158,11,.12)'};border:1px solid ${p.fakeResult.verdict==='real'?'rgba(34,197,94,.3)':p.fakeResult.verdict==='fake'?'rgba(248,113,113,.35)':'rgba(245,158,11,.3)'};color:${p.fakeResult.verdict==='real'?'#22c55e':p.fakeResult.verdict==='fake'?'#f87171':'#f59e0b'};border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">
+                  ${ {'real':'✅ Pravá','fake':'❌ Falzum','suspicious':'⚠️ Podezřelá','unknown':'❓ Nelze určit'}[p.fakeResult.verdict]||'❓' }
+                  · ${p.fakeResult.score}/100
+                </button>`
+              : `<span style="font-size:11px;color:rgba(240,232,208,.25);font-style:italic">Analýza probíhá při skenování…</span>`
+            }
+            <button id="fakeCmpBtn_${p.id}"
+              onclick="compareWithOriginal(${p.id})"
+              style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:rgba(240,232,208,.5);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;font-family:inherit;white-space:nowrap">
+              🔍 Porovnat s originálem
+            </button>
+          </div>
+        </div>
+
+        <!-- Varianta A – výsledek přímé analýzy fotky -->
+        <div id="fakeSectionA_${p.id}" style="display:${p.fakeResult?'none':'none'}">
+          <div id="fakeBannerA_${p.id}"></div>
+        </div>
+        ${ p.fakeResult ? `` : '' }
+
+        <!-- Varianta B – porovnání s officiálním obrázkem -->
+        <div id="fakeSectionB_${p.id}" style="display:none">
+          <div id="fakeBannerB_${p.id}"></div>
+        </div>
+      </div>
+      <!-- ── /FAKE DETECTOR ─────────────────────────────── -->
+
       <!-- Editable fields -->
       <div class="result-edit">
         <input type="text" value="${r.name || ''}" placeholder="Název"
@@ -1653,6 +1896,17 @@ function renderSingleResult(p, container) {
     </div>
   `;
   container.appendChild(div);
+
+  // Render fake detector result banner A (if analysis already done)
+  if (p.fakeResult) {
+    renderFakeBanner(p.id);
+    document.getElementById(`fakeSectionA_${p.id}`).style.display = 'block';
+  }
+  // Render compare banner B (if comparison already done)
+  if (p.compareResult) {
+    renderCompareBanner(p.id);
+    document.getElementById(`fakeSectionB_${p.id}`).style.display = 'block';
+  }
 }
 
 function updateResult(id, field, value) {
@@ -1863,17 +2117,23 @@ async function saveSelected() {
       saved += batch.length;
       // Mark as saved + link photos
       const batchPhotos = toSave.slice(i, i + 200);
+      const savedLocalIds = [];
       batchPhotos.forEach((p, j) => {
         p.saveSelected = false;
         p.status = 'identified';
         // Ulož local_id pro případné pozdější linkování
         const localId = batch[j]?.local_id;
-        if (localId) p.savedLocalId = localId;
+        if (localId) { p.savedLocalId = localId; savedLocalIds.push(localId); }
         // Pokud fotka přišla z queue (je to URL), ulož ji do user_card_photos
         if (p.isUrl && p.dataUrl && localId) {
           _savePhotoToCard(p, localId).catch(e => console.warn('[photo link saveSelected]', e));
         }
       });
+      // Přiřaď do vybraného alba
+      const albumId = document.getElementById('targetAlbumSel')?.value;
+      if (albumId && savedLocalIds.length) {
+        _assignCardsToAlbum(albumId, savedLocalIds).catch(e => console.warn('[album assign]', e));
+      }
     }
   }
 
@@ -2077,6 +2337,13 @@ async function queueTcgConfirm(photoId) {
     if (savedId) {
       p.savedLocalId  = savedId || cardPayload.local_id;
       p.saveSelected  = false; // Už je uloženo, checkbox nebude nutný
+    }
+
+    // ── 1b. Přiřaď do alba ───────────────────────────────────
+    const albumId = document.getElementById('targetAlbumSel')?.value;
+    const cardLocalId = savedId || cardPayload.local_id;
+    if (albumId && cardLocalId) {
+      _assignCardsToAlbum(albumId, [cardLocalId]).catch(e => console.warn('[confirm album]', e));
     }
 
     // ── 2. Vlož foto do user_card_photos pokud přišlo z queue ─
