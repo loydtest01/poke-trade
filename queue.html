@@ -675,8 +675,8 @@ Respond ONLY as JSON (no other text):
 }`;
 
 function _getGroqKey() {
-  // Sdílí se s scanner.html přes localStorage
-  return localStorage.getItem('groq_api_key') || localStorage.getItem('groq_key') || '';
+  // Sdílí se se scanner.html – klíč je uložen jako 'groqApiKey'
+  return localStorage.getItem('groqApiKey') || '';
 }
 
 /* ── Auth ──────────────────────────────────────────────────────── */

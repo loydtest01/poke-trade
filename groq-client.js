@@ -16,17 +16,17 @@
     apiKey: null,      // načteno ze Supabase, jen v RAM
     apiKeys: [],       // pole klíčů pro rotaci
     keyIndex: 0,       // aktuální aktivní klíč
-    model: 'llama-3.3-70b-versatile',
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     enabled: false,
     loaded: false,
   };
 
   // ── Dostupné Groq modely ─────────────────────────────────────
   const GROQ_MODELS = [
-    { id: 'llama-3.3-70b-versatile',   label: 'Llama 3.3 70B (doporučeno)' },
-    { id: 'llama-3.1-8b-instant',      label: 'Llama 3.1 8B (rychlý)' },
-    { id: 'mixtral-8x7b-32768',        label: 'Mixtral 8x7B' },
-    { id: 'gemma2-9b-it',              label: 'Gemma 2 9B' },
+    { id: 'meta-llama/llama-4-scout-17b-16e-instruct', label: 'Llama 4 Scout 17B (vision, doporučeno)' },
+    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct', label: 'Llama 4 Maverick 17B (vision)' },
+    { id: 'llama-3.3-70b-versatile',   label: 'Llama 3.3 70B (text)' },
+    { id: 'llama-3.1-8b-instant',      label: 'Llama 3.1 8B (rychlý, text)' },
   ];
 
   // ── Interní REST helper ──────────────────────────────────────
@@ -60,7 +60,7 @@
       _state.apiKeys = keys;
       _state.apiKey  = keys[0] || null;
       _state.keyIndex = 0;
-      _state.model   = data.groq_model || 'llama-3.3-70b-versatile';
+      _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
       _state.enabled = data.groq_enabled !== false && keys.length > 0;
       _state.loaded  = true;
 
