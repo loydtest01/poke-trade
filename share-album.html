@@ -543,22 +543,48 @@ async function searchUsers(q) {
   res.classList.add('open');
 
   const enc = encodeURIComponent(q);
-  // Hledej podle username nebo emailu, ne sebe
-  const data = await sbGet(`rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${ME.id}&select=id,username,email&limit=8`);
 
-  if (!data || !data.length) {
-    res.innerHTML = '<div class="search-hint">Žádný uživatel nenalezen</div>';
+  // Použij view user_search (RLS bezpečné — neexponuje plný email)
+  // Fallback na profiles pokud view ještě není nasazeno
+  let data = await sbGet(
+    `rest/v1/user_search?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url,email_hint&limit=8`
+  );
+
+  // Fallback: pokud view neexistuje nebo vrátí chybu, zkus přímo profiles
+  if (!data || data.code === '42P01' || (data.message && data.message.includes('does not exist'))) {
+    data = await sbGet(
+      `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${ME.id}&select=id,username,email&limit=8`
+    );
+    // Maskuj emaily z fallbacku
+    if (Array.isArray(data)) {
+      data = data.map(u => ({
+        ...u,
+        email_hint: u.email ? u.email.substring(0,2) + '***@' + u.email.split('@')[1] : null,
+        email: undefined
+      }));
+    }
+  }
+
+  if (!Array.isArray(data) || !data.length) {
+    res.innerHTML = '<div class="search-hint">Žádný uživatel nenalezen. Zkontroluj přezdívku.</div>';
     return;
   }
-  res.innerHTML = data.map(u => `
-    <div class="search-result-item" onclick="selectUser(${JSON.stringify(JSON.stringify(u))})">
-      <div class="sr-avatar">${(u.username||u.email||'?')[0].toUpperCase()}</div>
-      <div>
-        <div class="sr-name">${esc(u.username || '—')}</div>
-        <div class="sr-email">${esc(u.email || '')}</div>
+
+  res.innerHTML = data.map(u => {
+    const initial = (u.username || '?')[0].toUpperCase();
+    const avatarHtml = u.avatar_url
+      ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initial}'">`
+      : initial;
+    return `
+      <div class="search-result-item" onclick="selectUser(${JSON.stringify(JSON.stringify({id:u.id, username:u.username, avatar_url:u.avatar_url||null}))})">
+        <div class="sr-avatar">${avatarHtml}</div>
+        <div>
+          <div class="sr-name">@${esc(u.username || '—')}</div>
+          ${u.email_hint ? `<div class="sr-email">${esc(u.email_hint)}</div>` : ''}
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function selectUser(jsonStr) {
@@ -566,8 +592,14 @@ function selectUser(jsonStr) {
   selectedUser = u;
   document.getElementById('userSearch').value = '';
   document.getElementById('searchResults').classList.remove('open');
-  document.getElementById('selAvatar').textContent = (u.username || u.email || '?')[0].toUpperCase();
-  document.getElementById('selName').textContent = u.username ? `@${u.username}` : u.email;
+
+  const avatarEl = document.getElementById('selAvatar');
+  if (u.avatar_url) {
+    avatarEl.innerHTML = `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${(u.username||'?')[0].toUpperCase()}'">`;
+  } else {
+    avatarEl.textContent = (u.username || '?')[0].toUpperCase();
+  }
+  document.getElementById('selName').textContent = `@${u.username}`;
   document.getElementById('selectedUserRow').classList.add('visible');
   checkSendBtn();
 }

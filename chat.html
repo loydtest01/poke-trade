@@ -283,6 +283,61 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   display: flex; flex-direction: column; gap: 4px; margin-top: 7px;
 }
 
+/* ── Album share invite card ── */
+.msg-share-invite {
+  margin-top: 8px;
+  background: rgba(245,200,66,0.07);
+  border: 1px solid rgba(245,200,66,0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 320px;
+}
+.share-invite-header {
+  display: flex; align-items: center; gap: 10px;
+}
+.share-invite-icon {
+  font-size: 24px; flex-shrink: 0;
+}
+.share-invite-info { flex: 1; }
+.share-invite-album {
+  font-size: 13px; font-weight: 700; color: #f5c842;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.share-invite-meta {
+  font-size: 11px; color: rgba(240,236,228,0.5); margin-top: 2px;
+}
+.share-invite-expiry {
+  font-size: 11px; color: rgba(240,236,228,0.35);
+}
+.share-invite-actions {
+  display: flex; gap: 8px;
+}
+.btn-invite-accept {
+  flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  background: #f5c842; color: #000; border: none; cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.btn-invite-accept:hover { background: #ffd84d; }
+.btn-invite-accept:disabled { opacity: .4; cursor: not-allowed; }
+.btn-invite-decline {
+  padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.6);
+  border: 1px solid rgba(255,255,255,0.1); cursor: pointer; font-family: inherit;
+  transition: all .15s;
+}
+.btn-invite-decline:hover { background: rgba(239,68,68,0.15); color: #ef4444; border-color: rgba(239,68,68,0.3); }
+.msg-share-status {
+  font-size: 12px; text-align: center; padding: 6px 0 2px;
+  color: rgba(240,236,228,0.45);
+}
+.msg-share-status.accepted { color: #22c55e; }
+.msg-share-status.declined { color: #ef4444; }
+.msg-share-status.expired  { color: rgba(240,236,228,0.3); }
+
 /* ── Input area ── */
 .chat-input-area {
   padding: 12px 16px; border-top: 1px solid var(--border);
@@ -848,6 +903,51 @@ function renderMessages() {
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
     const refs = m.listing_refs || [];
 
+    // ── Album share invite zpráva ────────────────────────────────
+    if (m.type === 'album_share_invite' && m.metadata) {
+      const meta     = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
+      const shareId  = meta.share_id || '';
+      const status   = meta.status || 'pending';
+      const cards    = meta.cards_count || 0;
+      const expires  = meta.expires_at ? new Date(meta.expires_at) : null;
+      const isExpired = expires && expires < new Date();
+      const expiryTxt = expires
+        ? (isExpired ? 'Vypršelo' : 'Vyprší ' + expires.toLocaleDateString('cs', {day:'numeric', month:'short'}))
+        : '';
+
+      let statusHtml = '';
+      if (status === 'accepted')      statusHtml = '<div class="msg-share-status accepted">✅ Přijato — porovnání probíhá</div>';
+      else if (status === 'declined') statusHtml = '<div class="msg-share-status declined">❌ Odmítnuto</div>';
+      else if (isExpired)             statusHtml = '<div class="msg-share-status expired">⏰ Sdílení vypršelo</div>';
+
+      const actionsHtml = (!isMe && status === 'pending' && !isExpired) ? `
+        <div class="share-invite-actions">
+          <button class="btn-invite-accept" onclick="handleShareInvite('${shareId}','accept',this)">Přijmout a porovnat →</button>
+          <button class="btn-invite-decline" onclick="handleShareInvite('${shareId}','decline',this)">Odmítnout</button>
+        </div>` : '';
+
+      html += `
+        <div class="msg-row ${isMe?'me':'them'}">
+          <div class="msg-bubble" style="padding:10px 12px;background:${isMe?'rgba(245,200,66,0.08)':'rgba(255,255,255,0.04)'}">
+            <div class="msg-share-invite">
+              <div class="share-invite-header">
+                <div class="share-invite-icon">📁</div>
+                <div class="share-invite-info">
+                  <div class="share-invite-album">${esc(meta.album_name || 'Album')}</div>
+                  <div class="share-invite-meta">${cards} karet${isMe ? ' · pro @'+esc(meta.receiver_username||'') : ''}</div>
+                  <div class="share-invite-expiry">${esc(expiryTxt)}</div>
+                </div>
+              </div>
+              ${statusHtml}
+              ${actionsHtml}
+            </div>
+            <div class="msg-time" style="margin-top:6px">${esc(time)}</div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    // ── Standardní zpráva ────────────────────────────────────────
     let listingsHtml = '';
     if (refs.length) {
       listingsHtml = '<div class="msg-listings-group">';
@@ -880,6 +980,44 @@ function renderMessages() {
 
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
+}
+
+// ═══ SHARE INVITE ACTIONS ═══
+async function handleShareInvite(shareId, action, btn) {
+  if (!shareId || !token) return;
+  btn.disabled = true;
+  btn.textContent = action === 'accept' ? 'Přijímám…' : 'Odmítám…';
+
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        status: action === 'accept' ? 'accepted' : 'declined',
+        ...(action === 'accept' && { accepted_at: new Date().toISOString() })
+      })
+    });
+
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+
+    if (action === 'accept') {
+      // Přesměruj na compare s share_id
+      location.href = `compare.html?share_id=${shareId}`;
+    } else {
+      // Odmítnutí — obnov zprávy aby se zobrazil nový stav
+      showToast('Sdílení odmítnuto.', '');
+      await loadMessages();
+    }
+  } catch (e) {
+    showToast('❌ Chyba: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = action === 'accept' ? 'Přijmout a porovnat →' : 'Odmítnout';
+  }
 }
 
 // ═══ SEND MESSAGE ═══
