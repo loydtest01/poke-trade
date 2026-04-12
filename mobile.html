@@ -253,7 +253,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
   <div class="hdr">
     <div class="hdr-logo">
-      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.1</span>
+      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.2</span>
     </div>
     <div class="hdr-progress" id="hdrProg" style="display:none"></div>
     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
@@ -639,25 +639,32 @@ window.onload = () => {
 };
 
 async function loadGroqInBackground() {
-  if (groqKey) {
-    // i z URL parametru může přijít víc klíčů oddělených čárkou
+  // URL ?gk= slouží jen jako okamžitý fallback – vždy načteme všechny klíče ze serveru
+  if (groqKey && !mobileToken) {
+    // Není token → použij jen URL klíč
     _groqKeys = parseGroqKeys(groqKey);
     if (_groqKeys.length) groqKey = _groqKeys[0];
     updateStatusChips(); return;
   }
-  try {
-    const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(3000) });
-    if (r.ok) {
-      const d = await r.json();
-      if (d.key) {
-        dbg('RAW server key (' + d.key.length + ' znaků): ' + d.key.slice(0,60).replace(/\n/g,'↵').replace(/;/g,'；'));
-        _groqKeys = parseGroqKeys(d.key);
-        groqKey = _groqKeys[0] || d.key;
-        dbg('Ze SERVERU: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
-        updateStatusChips(); return;
+
+  // Pokus 1: náš server /api/groq-key (vrátí celý řetězec se všemi klíči)
+  if (mobileToken) {
+    try {
+      const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(5000) });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.key) {
+          dbg('RAW server key (' + d.key.length + ' znaků): ' + d.key.slice(0,80).replace(/\n/g,'↵'));
+          _groqKeys = parseGroqKeys(d.key);
+          groqKey = _groqKeys[0] || d.key;
+          dbg('Ze SERVERU: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
+          updateStatusChips(); return;
+        }
       }
-    }
-  } catch {}
+    } catch(e) { dbg('Server fetch chyba: ' + e.message); }
+  }
+
+  // Pokus 2: Supabase přímo
   try {
     if (!USER_ID) return;
     const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
@@ -666,13 +673,21 @@ async function loadGroqInBackground() {
     const rows = await r.json();
     if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
       const rawKey = rows[0].groq_key;
-      dbg('RAW groq_key (' + rawKey.length + ' znaků): ' + rawKey.slice(0,60).replace(/\n/g,'↵').replace(/;/g,'；'));
+      dbg('RAW groq_key (' + rawKey.length + ' znaků): ' + rawKey.slice(0,80).replace(/\n/g,'↵'));
       _groqKeys = parseGroqKeys(rawKey);
       groqKey = _groqKeys[0] || rawKey;
       dbg('Ze SUPABASE: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
-      updateStatusChips();
+      updateStatusChips(); return;
     }
-  } catch {}
+  } catch(e) { dbg('Supabase fetch chyba: ' + e.message); }
+
+  // Pokus 3: fallback na URL klíč pokud server selhal
+  if (groqKey) {
+    _groqKeys = parseGroqKeys(groqKey);
+    if (_groqKeys.length) groqKey = _groqKeys[0];
+    dbg('Fallback na URL klíč: ' + _groqKeys.length + ' klíčů');
+    updateStatusChips();
+  }
 }
 
 
