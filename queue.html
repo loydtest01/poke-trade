@@ -1347,7 +1347,7 @@ async function doAssign(groups, albumId) {
           variant:   ai.variant   || 'Normal',
           subtype:   ai.subtype   || '',
           supertype: rc?.supertype || '',
-          rarity:    rc?.rarity   || '',
+          rarity:    rc?.rarity   || ai.rarity || '',
           note:      g.comment    || ai.notes || '',
           photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.croppedUrl || fp?.url || ''; })(),
           imageUrl:  rc?.imageUrl || '',
@@ -1355,6 +1355,11 @@ async function doAssign(groups, albumId) {
           apiLarge:  rc?.apiLarge || '',
           apiId:     rc?.apiId    || '',
           sourceUrl: rc?.sourceUrl || g.cardUrl || '',
+          pMin:           rc?.pMin          || 0,
+          pTrend:         rc?.pTrend        || 0,
+          p30d:           rc?.p30d          || 0,
+          cardmarketUrl:  rc?.cardmarketUrl || '',
+          pricesFetchedAt: rc?.pricesFetchedAt || null,
           count: qty, qty, tags: [], for_trade: false, for_sell: false,
           backCondition: g.backAi?.condition || null,
           backIssues:    g.backAi?.issues    || [],
@@ -1835,14 +1840,24 @@ async function resolveCardUrl(url) {
     const res = await fetch(`https://api.pokemontcg.io/v2/cards/${cardId}`).then(r => r.json()).catch(() => null);
     const c = res?.data;
     if (c) {
+      const cm = c.cardmarket?.prices || {};
       result = {
-        apiId:    c.id,
-        name:     c.name,
-        set:      c.set?.name,
-        number:   c.number,
-        imageUrl: c.images?.small,
-        apiSmall: c.images?.small,
-        apiLarge: c.images?.large,
+        apiId:          c.id,
+        name:           c.name,
+        set:            c.set?.name,
+        number:         c.number,
+        hp:             c.hp || '',
+        rarity:         c.rarity || '',
+        supertype:      c.supertype || '',
+        types:          c.types || [],
+        imageUrl:       c.images?.small,
+        apiSmall:       c.images?.small,
+        apiLarge:       c.images?.large,
+        pMin:           cm.lowPrice   || 0,
+        pTrend:         cm.trendPrice || 0,
+        p30d:           cm.avg30 || cm.avg7 || 0,
+        cardmarketUrl:  c.cardmarket?.url || '',
+        pricesFetchedAt: new Date().toISOString(),
       };
     }
   } else if (ptcgImg) {
@@ -1852,14 +1867,24 @@ async function resolveCardUrl(url) {
     const res = await fetch(apiUrl).then(r => r.json()).catch(() => null);
     const c = res?.data?.[0];
     if (c) {
+      const cm = c.cardmarket?.prices || {};
       result = {
-        apiId:    c.id,
-        name:     c.name,
-        set:      c.set?.name,
-        number:   c.number,
-        imageUrl: c.images?.small,
-        apiSmall: c.images?.small,
-        apiLarge: c.images?.large,
+        apiId:          c.id,
+        name:           c.name,
+        set:            c.set?.name,
+        number:         c.number,
+        hp:             c.hp || '',
+        rarity:         c.rarity || '',
+        supertype:      c.supertype || '',
+        types:          c.types || [],
+        imageUrl:       c.images?.small,
+        apiSmall:       c.images?.small,
+        apiLarge:       c.images?.large,
+        pMin:           cm.lowPrice   || 0,
+        pTrend:         cm.trendPrice || 0,
+        p30d:           cm.avg30 || cm.avg7 || 0,
+        cardmarketUrl:  c.cardmarket?.url || '',
+        pricesFetchedAt: new Date().toISOString(),
       };
     } else {
       // Obrázek přímo z URL bez API dat

@@ -1729,6 +1729,17 @@ async function fetchMissingImages() {
         c.apiSmall = card.images.small;
         c.apiLarge = card.images.large;
         c.apiId    = card.id;
+        // Pokud ještě nemáme ceny, vezmi je rovnou z téhož API odpovědi
+        if (!c.pricesFetchedAt) {
+          const cm = card.cardmarket?.prices || {};
+          c.pMin           = cm.lowPrice   || 0;
+          c.pTrend         = cm.trendPrice || 0;
+          c.p30d           = cm.avg30 || cm.avg7 || 0;
+          c.cardmarketUrl  = card.cardmarket?.url || '';
+          c.hp             = c.hp || card.hp || '';
+          c.rarity         = c.rarity || card.rarity || '';
+          c.pricesFetchedAt = new Date().toISOString();
+        }
         // Ulož zpět do Supabase
         if (userId) {
           await sbReq(`rest/v1/user_cards?local_id=eq.${c.id}&user_id=eq.${userId}`, 'PATCH', {
@@ -2109,8 +2120,10 @@ function openCardDetail(c) {
 
   // Ceny z Cardmarket (uložené z pokemontcg.io při přidání karty v aplikaci)
   renderPrices(c, document.getElementById('cdPrices'));
-  // Pokud chybí — zkus načíst z pokemontcg.io API živě
-  if (!(c.pTrend > 0) && !(c.pMin > 0)) {
+  // Pokud ceny nebyly hledány nebo jsou starší 7 dní → zkus načíst z pokemontcg.io API
+  const PRICE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 dní
+  const priceFresh = c.pricesFetchedAt && (Date.now() - new Date(c.pricesFetchedAt).getTime()) < PRICE_TTL_MS;
+  if (!priceFresh) {
     fetchLivePrices(c, document.getElementById('cdPrices'));
   }
 
@@ -2820,10 +2833,12 @@ async function saveCardUpdates(c) {
       name: c.name, set: c.set, number: c.number, num: c.num,
       condition: c.condition||c.cond||'NM', category: c.category||'pokemon',
       type: c.type, types: c.types||[], supertype: c.supertype,
+      subtype: c.subtype||'', variant: c.variant||'', lang: c.lang||'',
       hp: c.hp, rarity: c.rarity, imageUrl: c.imageUrl,
-      apiSmall: c.apiSmall, apiId: c.apiId,
+      apiSmall: c.apiSmall, apiLarge: c.apiLarge||null, apiId: c.apiId,
       pMin: c.pMin||0, pTrend: c.pTrend||0, p30d: c.p30d||0,
       cardmarketUrl: c.cardmarketUrl||'',
+      pricesFetchedAt: c.pricesFetchedAt||null,
       photoUrl: c.photoUrl||'', note: c.note||'',
       count: c.count||c.qty||1, tags: c.tags||[],
       for_trade: c.for_trade||false, for_sell: c.for_sell||false,
@@ -3154,6 +3169,9 @@ async function fetchLivePrices(c, el) {
     }
 
     if (!card) {
+      // Karta nenalezena — ulož timestamp aby se za 7 dní zkusilo znovu
+      c.pricesFetchedAt = new Date().toISOString();
+      saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save notfound]', e));
       if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
         Ceny nenalezeny — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
         style="color:var(--yellow)">hledat na Cardmarket ↗</a></div>`;
@@ -3167,6 +3185,7 @@ async function fetchLivePrices(c, el) {
     c.p30d          = cm.avg30 || cm.avg7 || 0;
     c.cardmarketUrl = card.cardmarket?.url || '';
     c.hp            = card.hp || c.hp || '';
+    c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
     if (c.pTrend > 0 || c.pMin > 0) {
       renderPrices(c, el);
       // Ulož ceny do Supabase
@@ -3182,6 +3201,8 @@ async function fetchLivePrices(c, el) {
         if (link) link.href = c.cardmarketUrl;
       }
     } else {
+      // Ceny jsou 0 — ulož timestamp aby se za 7 dní zkusilo znovu
+      saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save zero]', e));
       if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
         Ceny na Cardmarket nejsou k dispozici — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
         style="color:var(--yellow)">otevřít Cardmarket ↗</a></div>`;
@@ -3805,12 +3826,20 @@ async function markAsCompleted(target) {
 function buildCardData(c) {
   if (!c) return {};
   return {
-    name: c.name || '', set: c.set || '', number: c.number || '',
-    condition: c.condition || 'NM', category: c.category || 'pokemon',
+    name: c.name || '', set: c.set || '', number: c.number || '', num: c.num || '',
+    condition: c.condition || c.cond || 'NM', category: c.category || 'pokemon',
     type: c.type || '', types: c.types || [], supertype: c.supertype || '',
-    imageUrl: c.imageUrl || null, apiSmall: c.apiSmall || null,
-    images: c.images || null, pTrend: c.pTrend || null,
-    count: c.count || 1, note: c.note || '', tags: c.tags || [],
+    subtype: c.subtype || '', variant: c.variant || '', lang: c.lang || '',
+    imageUrl: c.imageUrl || null, apiSmall: c.apiSmall || null, apiLarge: c.apiLarge || null,
+    images: c.images || null, apiId: c.apiId || null,
+    hp: c.hp || '', rarity: c.rarity || '',
+    pMin: c.pMin || 0, pTrend: c.pTrend || 0, p30d: c.p30d || 0,
+    cardmarketUrl: c.cardmarketUrl || '',
+    pricesFetchedAt: c.pricesFetchedAt || null,
+    photoUrl: c.photoUrl || '', note: c.note || '',
+    count: c.count || c.qty || 1, tags: c.tags || [],
+    for_trade: c.for_trade || false, for_sell: c.for_sell || false,
+    price_czk: c.price_czk || null,
   };
 }
 
