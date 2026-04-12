@@ -894,6 +894,15 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <div class="page-wrap">
   <aside class="sidebar">
     <div class="sb-section">
+      <span class="sb-label">Typ položek</span>
+      <div class="item-type-row" style="margin-top:2px">
+        <button class="item-type-btn active" id="itAll"     onclick="setItemType('all')">Vše</button>
+        <button class="item-type-btn"         id="itCards"  onclick="setItemType('card')">🃏 Karty</button>
+        <button class="item-type-btn"         id="itSealed" onclick="setItemType('product')">📦 Sealed</button>
+      </div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
       <span class="sb-label">Typ nabídky</span>
       <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"> Prodej <span class="sb-count" id="sbCountSell">0</span></label>
       <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"> Výměna <span class="sb-count" id="sbCountTrade">0</span></label>
@@ -1157,11 +1166,17 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <!-- ADD LISTING MODAL -->
 <div id="addModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
   <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
       <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#fff">Nová nabídka</div>
       <button onclick="closeAddListing()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:12px">
+    <!-- Listing type tabs -->
+    <div style="display:flex;gap:6px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px;margin-bottom:16px">
+      <button class="listing-tab active" id="tabCard" onclick="setListingTab('card')">🃏 Karta</button>
+      <button class="listing-tab" id="tabProduct" onclick="setListingTab('product')">📦 Produkt / Sealed</button>
+    </div>
+    <!-- CARD FORM -->
+    <div id="cardListingForm" style="display:flex;flex-direction:column;gap:12px">
       <div>
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Pokemontcg.io URL nebo název karty</div>
         <div style="display:flex;gap:8px">
@@ -1247,10 +1262,117 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         </div>
       </div>
 
-      <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer">
+      <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
         Zveřejnit nabídku
       </button>
-    </div>
+    </div><!-- /cardListingForm -->
+
+    <!-- PRODUCT / SEALED FORM -->
+    <div id="productListingForm" style="display:none;flex-direction:column;gap:14px">
+
+      <!-- Typ produktu -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Typ produktu</div>
+        <div class="prod-type-grid">
+          <button class="prod-type-btn active" id="pt_booster"    onclick="setProdType('booster')">✉️<br>Booster</button>
+          <button class="prod-type-btn"         id="pt_boosterbox" onclick="setProdType('boosterbox')">📦<br>Booster Box</button>
+          <button class="prod-type-btn"         id="pt_etb"        onclick="setProdType('etb')">🎁<br>ETB</button>
+          <button class="prod-type-btn"         id="pt_tin"        onclick="setProdType('tin')">🥫<br>Tin</button>
+          <button class="prod-type-btn"         id="pt_blister"    onclick="setProdType('blister')">💊<br>Blister</button>
+          <button class="prod-type-btn"         id="pt_bundle"     onclick="setProdType('bundle')">🗂️<br>Bundle</button>
+          <button class="prod-type-btn"         id="pt_deck"       onclick="setProdType('deck')">🎴<br>Deck</button>
+          <button class="prod-type-btn"         id="pt_other"      onclick="setProdType('other')">⋯<br>Jiné</button>
+        </div>
+        <div id="prodTypeHint" style="font-size:11px;color:var(--text3);margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:7px"></div>
+      </div>
+
+      <!-- Série / Set vyhledávání -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série / Set</div>
+        <div style="display:flex;gap:8px">
+          <input id="prodSetInput" class="panel-inp" placeholder="Scarlet & Violet 151..." style="flex:1" oninput="prodSetInputChange()">
+          <button onclick="searchProdSet()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700;font-family:inherit">Hledat</button>
+        </div>
+        <div id="prodSetResults" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto"></div>
+        <div id="prodSetSelected" class="prod-set-selected" style="display:none">
+          <img id="prodSetLogo" class="prod-set-logo" src="" onerror="this.style.display='none'">
+          <div>
+            <div id="prodSetName" style="font-size:13px;font-weight:700;color:var(--text)"></div>
+            <div id="prodSetMeta" style="font-size:11px;color:var(--text3)"></div>
+          </div>
+          <button onclick="clearProdSet()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+        </div>
+      </div>
+
+      <!-- Jazyk -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Jazyk produktu</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="lang-btn active" id="langEN" onclick="setProdLang('EN')">🇬🇧 EN</button>
+          <button class="lang-btn"         id="langCZ" onclick="setProdLang('CZ')">🇨🇿 CZ</button>
+          <button class="lang-btn"         id="langJP" onclick="setProdLang('JP')">🇯🇵 JP</button>
+          <button class="lang-btn"         id="langDE" onclick="setProdLang('DE')">🇩🇪 DE</button>
+          <button class="lang-btn"         id="langFR" onclick="setProdLang('FR')">🇫🇷 FR</button>
+          <button class="lang-btn"         id="langIT" onclick="setProdLang('IT')">🇮🇹 IT</button>
+        </div>
+      </div>
+
+      <!-- Stav obalu -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Stav obalu</div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap">
+          <button class="seal-btn active" id="sealSealed"  onclick="setSealCond('sealed')">🔒 Sealed – nový</button>
+          <button class="seal-btn"         id="sealDamaged" onclick="setSealCond('damaged')">⚠️ Poškozený obal</button>
+          <button class="seal-btn"         id="sealOpen"    onclick="setSealCond('open')">📂 Otevřený</button>
+        </div>
+      </div>
+
+      <!-- Počet kusů + EAN -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Počet kusů</div>
+          <input id="prodQty" class="panel-inp" type="number" min="1" value="1" placeholder="1">
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">EAN / GTIN <span style="letter-spacing:0;font-weight:400">(nepovinné)</span></div>
+          <input id="prodEan" class="panel-inp" placeholder="4000116001234">
+        </div>
+      </div>
+
+      <!-- Cena -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Cena (Kč)</div>
+        <input id="prodPrice" class="panel-inp" type="number" placeholder="Např. 1 200">
+      </div>
+
+      <!-- Popis -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis / poznámka (nepovinné)</div>
+        <textarea id="prodDesc" class="panel-textarea" style="height:70px" placeholder="Stav pečetě, odkud pochází, detail obalu..."></textarea>
+      </div>
+
+      <!-- Fotky produktu -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky produktu</div>
+          <span style="font-size:10px;color:var(--text3);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);padding:2px 8px;border-radius:20px;color:#fbbf24">Doporučeny 2+ fotky pečetě</span>
+        </div>
+        <div class="photo-multi-zone" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault()" ondrop="handleProdPhotoDrop(event)">
+          <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
+          <div id="prodPhotoContent">
+            <div style="font-size:24px;margin-bottom:6px">📸</div>
+            <div style="font-size:13px;font-weight:600;color:var(--text2)">Přetáhni nebo vyber fotky</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">JPEG, PNG – více fotek najednou</div>
+          </div>
+          <div class="photo-preview-strip" id="prodPhotoStrip"></div>
+        </div>
+      </div>
+
+      <button onclick="submitProductListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
+        📦 Zveřejnit produkt
+      </button>
+    </div><!-- /productListingForm -->
+
   </div>
 </div>
 
@@ -1560,6 +1682,11 @@ function applyFilters(){
     if(af.cond) {
       if((l.card_condition||'NM') !== af.cond) return false;
     }
+    // Item type filter (Karty / Sealed)
+    const ltype = l.listing_type || 'card';
+    if(currentItemType === 'card'    && ltype !== 'card')    return false;
+    if(currentItemType === 'product' && ltype !== 'product') return false;
+
     return true;
   }
 
@@ -1620,10 +1747,12 @@ function renderListings(){
     const condColor = cond==='NM'?'tag-cond':cond==='LP'?'tag-warn':'tag-warn';
 
     return `<div class="listing-row" onclick="openDetail('${esc(l.id)}')">
-      <div class="card-thumb">
+      <div class="card-thumb" style="${l.listing_type==='product'?'background:rgba(168,85,247,0.08);border-color:rgba(168,85,247,0.2)':''}">
         ${img
-          ? `<img src="${esc(img)}" alt="${esc(name)}" loading="lazy">`
-          : `<div class="card-thumb-placeholder">${esc(name)}</div>`}
+          ? `<img src="${esc(img)}" alt="${esc(name)}" loading="lazy" style="${l.listing_type==='product'?'object-fit:contain;padding:4px':''}">`
+          : l.listing_type==='product'
+            ? `<div class="card-thumb-placeholder" style="font-size:24px">📦</div>`
+            : `<div class="card-thumb-placeholder">${esc(name)}</div>`}
       </div>
       <div class="listing-info">
         <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
@@ -1633,9 +1762,13 @@ function renderListings(){
           <span>${timeAgo(l.created_at)}</span>
         </div>
         <div class="listing-tags">
-          ${price>0 ? '<span class="tag tag-sell">Prodej</span>' : ''}
+          ${l.listing_type==='product' ? '<span class="tag tag-product">📦 '+esc(l.product_type_label||'Produkt')+'</span>' : ''}
+          ${price>0 && l.listing_type!=='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
+          ${price>0 && l.listing_type==='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
           ${isTrade  ? '<span class="tag tag-trade">Výměna</span>' : ''}
-          <span class="tag ${condColor}">${esc(cond)}</span>
+          ${l.listing_type==='product' ? '<span class="tag tag-sealed">'+(l.product_sealed_cond==='sealed'?'🔒 Sealed':l.product_sealed_cond==='damaged'?'⚠️ Poškozený obal':'📂 Otevřený')+'</span>' : ''}
+          ${l.listing_type==='product' && l.product_lang ? '<span class="tag tag-lang">'+esc(l.product_lang)+'</span>' : ''}
+          ${l.listing_type!=='product' ? '<span class="tag '+condColor+'">'+esc(cond)+'</span>' : ''}
         </div>
       </div>
       <div class="listing-right">
@@ -2012,6 +2145,7 @@ async function sendMsg(){
 function openAddListing(){
   if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
   document.getElementById('addModal').style.display='flex';
+  setListingTab('card');
   resetAiZone();
   // Generate QR code after a short delay (library may still be loading)
   setTimeout(generateInlineQr, 300);
@@ -2023,6 +2157,14 @@ function closeAddListing(){
   document.getElementById('addCardUrl').value='';
   resetAiZone();
   resetQrInline();
+  // Reset product form
+  selectedProdType='booster'; selectedProdLang='EN'; selectedSealCond='sealed';
+  selectedProdSet=null; prodPhotos=[];
+  const pi = document.getElementById('prodSetInput'); if(pi) pi.value='';
+  const ps = document.getElementById('prodSetSelected'); if(ps) ps.style.display='none';
+  const pr = document.getElementById('prodSetResults'); if(pr) pr.style.display='none';
+  const strip = document.getElementById('prodPhotoStrip'); if(strip) strip.innerHTML='';
+  const pc = document.getElementById('prodPhotoContent'); if(pc) pc.style.display='';
   // Pending queue cleanup
   if(typeof closeAddListing_pendingCleanup === 'function') closeAddListing_pendingCleanup();
 }
@@ -2399,6 +2541,221 @@ async function submitListing(){
   allListings.unshift(Array.isArray(res)?res[0]:res);
   applyFilters();
 }
+
+// ── Item type filter (Karty / Sealed produkty) ───────────────
+let currentItemType = 'all';
+
+function setItemType(type) {
+  currentItemType = type;
+  ['all','card','product'].forEach(t => {
+    const id = t==='all'?'itAll':t==='card'?'itCards':'itSealed';
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('active', t===type);
+  });
+  applyFilters();
+}
+
+// ── Listing type tab (modal) ──────────────────────────────────
+let currentListingTab = 'card';
+
+function setListingTab(tab) {
+  currentListingTab = tab;
+  document.getElementById('tabCard').classList.toggle('active', tab==='card');
+  document.getElementById('tabProduct').classList.toggle('active', tab==='product');
+  document.getElementById('cardListingForm').style.display    = tab==='card'    ? 'flex' : 'none';
+  document.getElementById('productListingForm').style.display = tab==='product' ? 'flex' : 'none';
+}
+
+// ── Product type selection ─────────────────────────────────────
+const PROD_TYPES = {
+  booster:    { label:'Booster Pack',       hint:'1 balíček – standardně 10 karet. Uveď počet kusů.', qty:1 },
+  boosterbox: { label:'Booster Box',        hint:'Celý display – standardně 36 boosterů v krabici.', qty:1 },
+  etb:        { label:'Elite Trainer Box',  hint:'ETB obsahuje 9 boosterů + sběratelské doplňky.', qty:1 },
+  tin:        { label:'Tin',                hint:'Kovová krabička s 3–4 boostery a promo kartou.', qty:1 },
+  blister:    { label:'Blister Pack',       hint:'1–3 boostery v blister balení.', qty:1 },
+  bundle:     { label:'Bundle',             hint:'Balíček obsahující více různých produktů.', qty:1 },
+  deck:       { label:'Starter/Theme Deck', hint:'Kompletní hrací balíček ~60 karet.', qty:1 },
+  other:      { label:'Jiný produkt',       hint:'Ostatní sealed produkty, promo balení, kolekce...', qty:1 },
+};
+let selectedProdType = 'booster';
+let selectedProdLang = 'EN';
+let selectedSealCond = 'sealed';
+let selectedProdSet  = null;
+let prodPhotos = [];
+
+function setProdType(type) {
+  selectedProdType = type;
+  Object.keys(PROD_TYPES).forEach(t => {
+    const el = document.getElementById('pt_'+t);
+    if(el) el.classList.toggle('active', t===type);
+  });
+  const hint = document.getElementById('prodTypeHint');
+  if(hint) hint.textContent = PROD_TYPES[type]?.hint || '';
+}
+
+function setProdLang(lang) {
+  selectedProdLang = lang;
+  ['EN','CZ','JP','DE','FR','IT'].forEach(l => {
+    const el = document.getElementById('lang'+l);
+    if(el) el.classList.toggle('active', l===lang);
+  });
+}
+
+function setSealCond(cond) {
+  selectedSealCond = cond;
+  ['Sealed','Damaged','Open'].forEach(c => {
+    const id = 'seal' + c.charAt(0).toUpperCase() + c.slice(1);
+    const el = document.getElementById(id);
+    if(el) el.classList.toggle('active', c.toLowerCase()===cond||
+      (c==='Sealed'&&cond==='sealed')||(c==='Damaged'&&cond==='damaged')||(c==='Open'&&cond==='open'));
+  });
+}
+
+// ── Product set search ─────────────────────────────────────────
+let prodSetSearchTimeout = null;
+
+function prodSetInputChange() {
+  clearTimeout(prodSetSearchTimeout);
+  prodSetSearchTimeout = setTimeout(searchProdSet, 600);
+}
+
+async function searchProdSet() {
+  const q = (document.getElementById('prodSetInput')?.value||'').trim();
+  if(!q) return;
+  const wrap = document.getElementById('prodSetResults');
+  if(!wrap) return;
+  wrap.style.display = '';
+  wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">⏳ Hledám série...</div>';
+  try {
+    const res  = await fetch('https://api.pokemontcg.io/v2/sets?q=name:"'+encodeURIComponent(q)+'"&pageSize=10&orderBy=-releaseDate');
+    const json = await res.json();
+    const sets = json.data || [];
+    if(!sets.length) {
+      // Fallback: search without quotes
+      const res2  = await fetch('https://api.pokemontcg.io/v2/sets?q=name:'+encodeURIComponent(q)+'&pageSize=8&orderBy=-releaseDate');
+      const json2 = await res2.json();
+      sets.push(...(json2.data||[]));
+    }
+    if(!sets.length) { wrap.innerHTML='<div style="font-size:12px;color:var(--text3);padding:8px">Žádná série nenalezena.</div>'; return; }
+    wrap.innerHTML = sets.slice(0,8).map(s=>`
+      <div class="prod-set-result" onclick="selectProdSet(${JSON.stringify(JSON.stringify(s))})">
+        <img class="prod-set-logo" src="${esc(s.images?.logo||s.images?.symbol||'')}" onerror="this.style.display='none'">
+        <div>
+          <div class="prod-set-name">${esc(s.name)}</div>
+          <div class="prod-set-meta">${esc(s.series||'')} · ${esc(s.releaseDate||'')} · ${s.printedTotal||'?'} karet</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    wrap.innerHTML = '<div style="font-size:12px;color:var(--red);padding:8px">Chyba: '+esc(e.message)+'</div>';
+  }
+}
+
+function selectProdSet(jsonStr) {
+  const s = JSON.parse(jsonStr);
+  selectedProdSet = s;
+  document.getElementById('prodSetResults').style.display = 'none';
+  document.getElementById('prodSetInput').value = s.name;
+  const sel = document.getElementById('prodSetSelected');
+  if(sel) {
+    sel.style.display = 'flex';
+    document.getElementById('prodSetLogo').src  = s.images?.logo || '';
+    document.getElementById('prodSetName').textContent = s.name;
+    document.getElementById('prodSetMeta').textContent = (s.series||'') + (s.releaseDate?' · '+s.releaseDate:'') + (s.printedTotal?' · '+s.printedTotal+' karet':'');
+  }
+}
+
+function clearProdSet() {
+  selectedProdSet = null;
+  document.getElementById('prodSetInput').value = '';
+  document.getElementById('prodSetSelected').style.display = 'none';
+}
+
+// ── Product photos ─────────────────────────────────────────────
+function handleProdPhotos(files) {
+  if(!files?.length) return;
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      prodPhotos.push({ base64: ev.target.result.split(',')[1], mime: file.type, src: ev.target.result });
+      renderProdPhotoStrip();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleProdPhotoDrop(e) {
+  e.preventDefault();
+  if(e.dataTransfer?.files) handleProdPhotos(e.dataTransfer.files);
+}
+
+function renderProdPhotoStrip() {
+  const strip = document.getElementById('prodPhotoStrip');
+  if(!strip) return;
+  strip.innerHTML = prodPhotos.map((p,i) =>
+    `<div style="position:relative">
+      <img class="photo-thumb" src="${p.src}">
+      <button onclick="removeProdPhoto(${i})" style="position:absolute;top:-4px;right:-4px;background:rgba(248,113,113,0.9);border:none;border-radius:50%;width:16px;height:16px;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
+    </div>`).join('');
+  document.getElementById('prodPhotoContent').style.display = prodPhotos.length ? 'none' : '';
+}
+
+function removeProdPhoto(idx) {
+  prodPhotos.splice(idx, 1);
+  renderProdPhotoStrip();
+}
+
+// ── Submit product listing ────────────────────────────────────
+async function submitProductListing() {
+  if(!token) { alert('Přihlas se.'); return; }
+  const price = parseInt(document.getElementById('prodPrice').value)||null;
+  const qty   = parseInt(document.getElementById('prodQty').value)||1;
+  const ean   = document.getElementById('prodEan').value.trim()||null;
+  const desc  = document.getElementById('prodDesc').value.trim()||null;
+  const setData = selectedProdSet;
+  const prodTypeLabel = PROD_TYPES[selectedProdType]?.label || selectedProdType;
+  const title = (setData?.name||'Neznámý set') + ' – ' + prodTypeLabel + (qty>1?' ('+qty+'×)':'');
+
+  if(!price) { alert('Zadej cenu produktu.'); return; }
+  if(!setData && !(document.getElementById('prodSetInput')?.value||'').trim()) {
+    alert('Zadej nebo vyber sérii/set.'); return;
+  }
+
+  const payload = {
+    user_id:        userId,
+    username:       username,
+    title:          title,
+    listing_type:   'product',
+    product_type:   selectedProdType,
+    product_type_label: prodTypeLabel,
+    product_set_id: setData?.id || null,
+    product_set_name: setData?.name || document.getElementById('prodSetInput').value.trim(),
+    product_lang:   selectedProdLang,
+    product_sealed_cond: selectedSealCond,
+    product_qty:    qty,
+    product_ean:    ean,
+    api_image_url:  setData?.images?.logo || setData?.images?.symbol || '',
+    cards_data:     [],
+    card_name:      title,
+    card_set:       setData?.name || '',
+    card_condition: selectedSealCond === 'sealed' ? 'NM' : selectedSealCond === 'damaged' ? 'LP' : 'MP',
+    price_czk:      price,
+    allow_trade:    false,
+    description:    desc,
+    status:         'active',
+  };
+
+  const res = await sbReq('rest/v1/listings','POST',payload,token);
+  if(res._err) { alert('Chyba: '+res._err); return; }
+  alert('Produkt zveřejněn!');
+  closeAddListing();
+  allListings.unshift(Array.isArray(res)?res[0]:res);
+  prodPhotos = [];
+  setListingTab('card');
+  applyFilters();
+}
+
+// Reset product form on modal close
+const _origCloseAddListing = closeAddListing;
 
 // ── Pending Queue (Čeká na vystavení) ─────────────────────────
 const PENDING_KEY = 'pkt_pending_listings';
