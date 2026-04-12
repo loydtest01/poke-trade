@@ -631,6 +631,72 @@ body::after {
 }
 .btn-nav-outline:hover { background: rgba(255,255,255,0.08) !important; color: #f0ece4; }
 
+/* ── Chat icon button ── */
+.chat-dropdown-wrap { position: relative; }
+.chat-icon-btn {
+  position: relative;
+  width: 36px; height: 36px; border-radius: 9px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(240,236,228,0.65); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: all .15s;
+  padding: 0;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px;
+  background: #f87171; color: #fff;
+  font-size: 9px; font-weight: 900;
+  min-width: 16px; height: 16px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; padding: 0 4px;
+  line-height: 1;
+}
+.chat-drop {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  width: 300px; background: rgba(10,8,16,0.97);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+  backdrop-filter: blur(20px); box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  opacity: 0; pointer-events: none; transform: translateY(-6px);
+  transition: all .18s ease; z-index: 300; overflow: hidden;
+}
+.chat-drop.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.chat-drop-head {
+  padding: 12px 14px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.chat-drop-title { font-size: 13px; font-weight: 700; color: #f0ece4; }
+.chat-drop-all { font-size: 11px; color: rgba(116,180,255,0.8); text-decoration: none; }
+.chat-drop-all:hover { color: #74b4ff; }
+.chat-drop-list { max-height: 320px; overflow-y: auto; }
+.chat-drop-empty { padding: 24px 16px; text-align: center; font-size: 13px; color: rgba(240,236,228,0.35); }
+.cdrop-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  text-decoration: none; transition: background .1s;
+}
+.cdrop-item:hover { background: rgba(255,255,255,0.04); }
+.cdrop-item.unread { background: rgba(245,200,66,0.04); }
+.cdrop-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: var(--yellow,#f5c842);
+  color: #000; font-size: 12px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cdrop-info { flex: 1; min-width: 0; }
+.cdrop-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.cdrop-name { font-size: 12px; font-weight: 600; color: #f0ece4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdrop-time { font-size: 10px; color: rgba(240,236,228,0.35); flex-shrink: 0; }
+.cdrop-msg { font-size: 11px; color: rgba(240,236,228,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.cdrop-unread-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--yellow,#f5c842); flex-shrink: 0; }
+
+/* ── Topbar icon button (QR + Settings) ── */
+.topbar-icon-btn {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(240,236,228,0.65); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; transition: all .15s;
+  font-size: 16px; padding: 0;
+}
+.topbar-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+
 </style>
 </head>
 <body>
@@ -692,6 +758,10 @@ body::after {
     <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
   </nav>
   <div class="topbar-right">
+    <!-- QR propoj telefon button -->
+    <button class="topbar-icon-btn" onclick="openQrModal()" title="📱 Propoj telefon – QR kód">📱</button>
+    <!-- Settings button -->
+    <button class="topbar-icon-btn" onclick="openSettings()" title="⚙️ Nastavení">⚙️</button>
     <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -1617,7 +1687,7 @@ function closeQrOutside(e) { if (e.target.id === 'qrModal') closeQrModal(); }
 function hideQrPanel()     { document.getElementById('qrPanel').style.display = 'none'; localStorage.setItem('qrPanelHidden','1'); }
 
 function showQrPanel() {
-  if (localStorage.getItem('qrPanelHidden') === '1') return;
+  if (localStorage.getItem('qrPanelHidden') === '1') return;  // respektuje volbu uživatele; vždy dostupné přes 📱 v topbaru
   document.getElementById('qrPanel').style.display = 'flex';
   renderQr('qrCodeBox', 140);
 }
