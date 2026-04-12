@@ -570,8 +570,21 @@ let batchId      = Date.now().toString(36);
 let cards        = [];
 let fakeMode     = params.get('fake') === '1';  // ?fake=1 → auto-zapne FAKE mód
 
-// ─── Groq key ────────────────────────────────────────────────
+// ─── Groq key(s) ─────────────────────────────────────────────
 let groqKey = params.get('gk') || null;
+let _groqKeys = [];   // pole klíčů po načtení ze serveru
+let _groqKeyIdx = 0;  // index aktuálně použitého klíče
+
+function parseGroqKeys(raw) {
+  if (!raw) return [];
+  return raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+}
+function nextGroqKey() {
+  if (!_groqKeys.length) return groqKey;
+  _groqKeyIdx = (_groqKeyIdx + 1) % _groqKeys.length;
+  groqKey = _groqKeys[_groqKeyIdx];
+  return groqKey;
+}
 
 // ─── Init ────────────────────────────────────────────────────
 window.onload = () => {
@@ -602,10 +615,22 @@ window.onload = () => {
 };
 
 async function loadGroqInBackground() {
-  if (groqKey) { updateStatusChips(); return; }
+  if (groqKey) {
+    // i z URL parametru může přijít víc klíčů oddělených čárkou
+    _groqKeys = parseGroqKeys(groqKey);
+    if (_groqKeys.length) groqKey = _groqKeys[0];
+    updateStatusChips(); return;
+  }
   try {
     const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(3000) });
-    if (r.ok) { const d = await r.json(); if (d.key) { groqKey = d.key; updateStatusChips(); return; } }
+    if (r.ok) {
+      const d = await r.json();
+      if (d.key) {
+        _groqKeys = parseGroqKeys(d.key);
+        groqKey = _groqKeys[0] || d.key;
+        updateStatusChips(); return;
+      }
+    }
   } catch {}
   try {
     if (!USER_ID) return;
@@ -614,7 +639,9 @@ async function loadGroqInBackground() {
     });
     const rows = await r.json();
     if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
-      groqKey = rows[0].groq_key; updateStatusChips();
+      _groqKeys = parseGroqKeys(rows[0].groq_key);
+      groqKey = _groqKeys[0] || rows[0].groq_key;
+      updateStatusChips();
     }
   } catch {}
 }
@@ -1865,39 +1892,53 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
   let lastErr = '';
   let lastRaw = '';
 
+  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
+
   for (const model of MODELS) {
-    try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
-        body: JSON.stringify({
-          model, max_tokens: 500, temperature: 0.05,
-          messages: [{ role: 'user', content: [
-            { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
-            { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
-          ]}]
-        }),
-        signal: AbortSignal.timeout(15000)
-      });
+    // Zkus každý klíč pro tento model (rotace při 429)
+    for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
+      const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
+      try {
+        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentKey },
+          body: JSON.stringify({
+            model, max_tokens: 500, temperature: 0.05,
+            messages: [{ role: 'user', content: [
+              { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+              { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
+            ]}]
+          }),
+          signal: AbortSignal.timeout(15000)
+        });
 
-      if (!resp.ok) {
-        const errBody = await resp.text().catch(() => '');
-        lastErr = `${model}: HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
-        continue; // zkus další model
+        if (!resp.ok) {
+          const errBody = await resp.text().catch(() => '');
+          if (resp.status === 429 && ki < keys.length - 1) {
+            // Rate limit – přepni na další klíč
+            console.warn('[Groq] 429 na klíči', ki + 1, '– přepínám…');
+            lastErr = `klíč ${ki+1}: rate limit, zkouším ${ki+2}…`;
+            continue; // zkus další klíč
+          }
+          lastErr = `${model}: HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
+          break; // jiná chyba – zkus další model
+        }
+
+        // Úspěch – zapamatuj si tento klíč jako preferovaný
+        _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
+        const data = await resp.json();
+        lastRaw = data.choices?.[0]?.message?.content || '';
+        const p = parseJson(lastRaw);
+
+        if (p?.name) return p; // úspěch
+
+        lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
+        break; // špatná odpověď – zkus další model
+
+      } catch (e) {
+        lastErr = `${model}: ${e.message || e}`;
+        break;
       }
-
-      const data = await resp.json();
-      lastRaw = data.choices?.[0]?.message?.content || '';
-      const p = parseJson(lastRaw);
-
-      if (p?.name) return p; // úspěch
-
-      lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
-      // zkus další model
-
-    } catch (e) {
-      lastErr = `${model}: ${e.message || e}`;
-      // zkus další model
     }
   }
 

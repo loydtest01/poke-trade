@@ -14,6 +14,8 @@
   // ── Stav modulu ─────────────────────────────────────────────
   const _state = {
     apiKey: null,      // načteno ze Supabase, jen v RAM
+    apiKeys: [],       // pole klíčů pro rotaci
+    keyIndex: 0,       // aktuální aktivní klíč
     model: 'llama-3.3-70b-versatile',
     enabled: false,
     loaded: false,
@@ -54,12 +56,15 @@
         return false;
       }
 
-      _state.apiKey  = data.groq_key;
+      const keys = data.groq_key.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      _state.apiKeys = keys;
+      _state.apiKey  = keys[0] || null;
+      _state.keyIndex = 0;
       _state.model   = data.groq_model || 'llama-3.3-70b-versatile';
-      _state.enabled = data.groq_enabled !== false;
+      _state.enabled = data.groq_enabled !== false && keys.length > 0;
       _state.loaded  = true;
 
-      console.log('[Groq] Klíč načten ✓ | Model:', _state.model);
+      console.log('[Groq] Klíčů načteno:', keys.length, '| Model:', _state.model);
       return true;
     } catch (e) {
       console.error('[Groq] Chyba načítání klíče:', e);
@@ -133,20 +138,23 @@
 
     const body = JSON.stringify({ model, messages, temperature, max_tokens, stream });
 
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${_state.apiKey}`,
-        'Content-Type':  'application/json',
-      },
-      body,
-    });
-
-    if (!res.ok) {
+    // Key rotation – zkus každý klíč při 429
+    const keys = _state.apiKeys.length ? _state.apiKeys : [_state.apiKey];
+    let res, lastErr;
+    for (let attempt = 0; attempt < keys.length; attempt++) {
+      const keyToUse = keys[(_state.keyIndex + attempt) % keys.length];
+      res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${keyToUse}`, 'Content-Type': 'application/json' },
+        body,
+      });
+      if (res.ok) { _state.keyIndex = (_state.keyIndex + attempt) % keys.length; break; }
       const err = await res.json().catch(() => ({}));
-      const msg = err?.error?.message || `HTTP ${res.status}`;
-      throw new Error(`Groq API chyba: ${msg}`);
+      lastErr = err?.error?.message || `HTTP ${res.status}`;
+      if (res.status !== 429) break; // jen 429 přepíná klíč
+      console.warn('[Groq] Rate limit na klíči', attempt + 1, '– zkouším další…');
     }
+    if (!res || !res.ok) throw new Error(`Groq API chyba: ${lastErr || 'Neznámá chyba'}`);
 
     if (stream && options.onChunk) {
       const reader = res.body.getReader();
