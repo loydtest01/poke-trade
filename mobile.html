@@ -1952,15 +1952,12 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
 async function identifyCardWithCondition(dataUrl) {
   if (!groqKey) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        max_tokens: 280, temperature: 0.05,
-        messages: [
-          { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
+  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
+  const bodyObj = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    max_tokens: 280, temperature: 0.05,
+    messages: [
+      { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
 If card text is Japanese, write name in Japanese (katakana/kanji) exactly as printed and set lang="JP".
 If card text is English, write name in English exactly as printed and set lang="EN".
 Also assess physical condition carefully.
@@ -1969,18 +1966,37 @@ Return ONLY raw JSON (no markdown, no fences):
 Condition: NM (Near Mint), LP (Lightly Played), MP (Moderately Played), HP (Heavily Played), D (Damaged).
 Look at: edge wear, scratches, whitening, creases, surface damage.
 If card is unreadable return: {"name":null}` },
-          { role:'user', content:[
-            { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
-            { type:'text', text:'Identify this Pokemon card and assess its condition. Return ONLY JSON.' }
-          ]}
-        ]
-      })
-    });
-    const data = await resp.json();
-    const raw  = data.choices?.[0]?.message?.content || '';
-    const p    = parseJson(raw);
-    return p?.name ? p : null;
-  } catch { return null; }
+      { role:'user', content:[
+        { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
+        { type:'text', text:'Identify this Pokemon card and assess its condition. Return ONLY JSON.' }
+      ]}
+    ]
+  };
+  // Rotace klíčů při 429
+  for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
+    const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + currentKey },
+        body: JSON.stringify(bodyObj),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!resp.ok) {
+        if (resp.status === 429 && ki < keys.length - 1) {
+          console.warn('[Groq] identifyCardWithCondition: 429 na klíči', ki + 1, '– přepínám…');
+          continue;
+        }
+        return null;
+      }
+      _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
+      const data = await resp.json();
+      const raw  = data.choices?.[0]?.message?.content || '';
+      const p    = parseJson(raw);
+      return p?.name ? p : null;
+    } catch { return null; }
+  }
+  return null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -2049,31 +2065,47 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 async function analyzeBackPhoto(dataUrl) {
   if (!groqKey) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + groqKey },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        max_tokens: 200, temperature: 0.05,
-        messages: [
-          { role: 'system', content: `Analyze ONLY the physical condition of this Pokemon card BACK side.
+  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
+  const bodyObj = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    max_tokens: 200, temperature: 0.05,
+    messages: [
+      { role: 'system', content: `Analyze ONLY the physical condition of this Pokemon card BACK side.
 Look for: corner whitening/bending, edge wear, scratches, creases, print lines, surface damage.
 Return ONLY raw JSON (no markdown):
 {"condition":"NM","issues":["bent top-right corner","light edge wear"],"notes":"brief note in czech"}
 Condition scale: NM=perfect, LP=minor wear, MP=visible wear, HP=major damage, D=severe.
 If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez poškození"}` },
-          { role: 'user', content: [
-            { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
-            { type: 'text', text: 'Analyze the back side condition. Return ONLY JSON.' }
-          ]}
-        ]
-      })
-    });
-    const data = await resp.json();
-    const raw  = data.choices?.[0]?.message?.content || '';
-    return parseJson(raw);
-  } catch { return null; }
+      { role: 'user', content: [
+        { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+        { type: 'text', text: 'Analyze the back side condition. Return ONLY JSON.' }
+      ]}
+    ]
+  };
+  // Rotace klíčů při 429
+  for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
+    const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
+    try {
+      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + currentKey },
+        body: JSON.stringify(bodyObj),
+        signal: AbortSignal.timeout(15000)
+      });
+      if (!resp.ok) {
+        if (resp.status === 429 && ki < keys.length - 1) {
+          console.warn('[Groq] analyzeBackPhoto: 429 na klíči', ki + 1, '– přepínám…');
+          continue;
+        }
+        return null;
+      }
+      _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
+      const data = await resp.json();
+      const raw  = data.choices?.[0]?.message?.content || '';
+      return parseJson(raw);
+    } catch { return null; }
+  }
+  return null;
 }
 
 // ── Periodická aktualizace stavových čipů ──────────────────
