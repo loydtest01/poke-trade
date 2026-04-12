@@ -847,6 +847,114 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .album-price-info strong { color: var(--yellow); font-size: 15px; font-weight: 800; }
 
+/* ── Album Compare ──────────────────────────────────────────── */
+.btn-album-compare {
+  width: 100%; padding: 8px 10px; border-radius: 9px;
+  border: 1px solid rgba(116,180,255,0.3);
+  background: rgba(74,158,255,0.07);
+  color: var(--blue); font-family: 'DM Sans', sans-serif;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all .15s; display: flex; align-items: center;
+  gap: 7px; text-align: left;
+}
+.btn-album-compare:hover { background: rgba(74,158,255,0.14); border-color: rgba(116,180,255,0.5); }
+.btn-album-compare.active { background: rgba(74,158,255,0.18); border-color: rgba(116,180,255,0.6); color: #a5d0ff; }
+.btn-album-compare .ac-badge {
+  margin-left: auto; font-size: 10px; font-weight: 900;
+  background: var(--blue); color: #000;
+  padding: 1px 6px; border-radius: 8px; min-width: 20px; text-align: center;
+}
+
+.album-picker-drop {
+  margin-top: 6px; background: rgba(8,4,14,0.97);
+  border: 1px solid rgba(116,180,255,0.2); border-radius: 10px;
+  overflow: hidden; animation: panelSlide .15s ease;
+}
+.album-picker-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 12px; color: var(--text2); transition: background .12s;
+}
+.album-picker-item:last-child { border-bottom: none; }
+.album-picker-item:hover { background: rgba(116,180,255,0.08); color: var(--text); }
+.album-picker-item.sel { background: rgba(116,180,255,0.12); color: var(--blue); }
+.album-picker-icon { font-size: 14px; flex-shrink: 0; }
+
+/* active compare banner in main area */
+.compare-banner {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-radius: 10px; margin-bottom: 10px;
+  background: rgba(74,158,255,0.1); border: 1px solid rgba(116,180,255,0.25);
+  font-size: 12px; color: var(--blue); animation: panelSlide .15s ease;
+}
+.compare-banner strong { color: #a5d0ff; }
+.compare-banner-close {
+  margin-left: auto; background: none; border: none;
+  color: rgba(116,180,255,0.5); font-size: 14px; cursor: pointer;
+  padding: 2px 6px; border-radius: 5px; line-height: 1;
+}
+.compare-banner-close:hover { color: var(--blue); }
+
+/* ── Trade: Album card finder ──────────────────────────────── */
+.btn-find-trade-cards {
+  padding: 7px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  border: 1px solid rgba(116,180,255,0.35);
+  background: rgba(74,158,255,0.1); color: var(--blue);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-find-trade-cards:hover { background: rgba(74,158,255,0.2); }
+
+#tradeAlbumPicker {
+  background: rgba(8,4,14,0.97);
+  border: 1px solid rgba(116,180,255,0.18);
+  border-radius: 10px; padding: 10px; margin-bottom: 8px;
+  animation: panelSlide .15s ease;
+}
+.tap-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.tap-albums { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.tap-album-btn {
+  padding: 4px 11px; border-radius: 20px; font-size: 12px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.04);
+  color: var(--text2); cursor: pointer; transition: all .13s;
+}
+.tap-album-btn:hover { border-color: var(--border2); color: var(--text); }
+.tap-album-btn.sel { border-color: rgba(116,180,255,0.5); background: rgba(74,158,255,0.12); color: var(--blue); }
+
+#tradeAlbumResults {
+  margin-top: 6px;
+}
+.trade-album-match-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  transition: all .12s; margin-bottom: 4px;
+}
+.trade-album-match-row:hover { border-color: rgba(116,180,255,0.4); background: rgba(74,158,255,0.06); }
+.trade-album-match-row.queued { border-color: rgba(116,180,255,0.5); background: rgba(74,158,255,0.1); }
+.tam-img { width: 32px; height: 44px; border-radius: 5px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.04); }
+.tam-info { flex: 1; min-width: 0; }
+.tam-name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tam-meta { font-size: 10px; color: var(--text3); }
+.tam-add { padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  border: 1px solid rgba(116,180,255,0.35); background: transparent; color: var(--blue); cursor: pointer; }
+.tam-add:hover { background: rgba(74,158,255,0.15); }
+.tam-add.done { border-color: rgba(74,222,128,0.4); color: #4ade80; pointer-events: none; }
+.tam-empty { font-size: 12px; color: var(--text3); padding: 8px 0; text-align: center; }
+
+/* confirm trade offer UI */
+.trade-offer-confirm {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; margin-top: 8px;
+  background: rgba(74,222,128,0.07); border: 1px solid rgba(74,222,128,0.2);
+}
+.trade-offer-confirm-btn {
+  margin-left: auto; padding: 6px 14px; border-radius: 7px; border: none;
+  background: linear-gradient(135deg, #22c55e, #15803d);
+  color: #fff; font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.trade-offer-confirm-btn:hover { opacity: .88; }
+
 </style>
 </head>
 <body>
@@ -942,6 +1050,19 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <label class="filter-opt"><input type="checkbox" id="fCommon" onchange="applyFilters()"> Common / Uncommon</label>
       <label class="filter-opt"><input type="checkbox" id="fRare" onchange="applyFilters()"> Rare / Holo</label>
       <label class="filter-opt"><input type="checkbox" id="fUltra" onchange="applyFilters()"> Ultra Rare / V / ex</label>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">Moje alba</span>
+      <button class="btn-album-compare" id="btnAlbumCompare" onclick="toggleAlbumPicker()">
+        📚 Porovnat s albem
+        <span class="ac-badge" id="acBadge" style="display:none">0</span>
+      </button>
+      <div id="albumPickerDrop" class="album-picker-drop" style="display:none">
+        <div id="albumPickerList">
+          <div class="album-picker-item" style="color:var(--text3);font-size:11px;pointer-events:none">⏳ Načítám alba...</div>
+        </div>
+      </div>
     </div>
   </aside>
 
@@ -1057,6 +1178,12 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         </div>
       </div>
 
+      <div id="compareBanner" class="compare-banner" style="display:none">
+        📚 <strong id="compareBannerLabel">Porovnání s albem</strong>
+        <span id="compareBannerCount" style="font-size:11px;opacity:.7"></span>
+        <button class="compare-banner-close" onclick="clearAlbumCompare()" title="Zrušit porovnání">✕ Zrušit</button>
+      </div>
+
       <div id="listingsWrap" class="listings-wrap"></div>
     </div>
 
@@ -1121,6 +1248,15 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
             <div class="trade-wants-box" id="tradeWantsBox" style="display:none">
               <div class="trade-wants-label">Prodejce chce za tuto kartu:</div>
               <div class="trade-wants-tags" id="tradeWantsTags"></div>
+              <div style="margin-top:7px">
+                <button class="btn-find-trade-cards" onclick="toggleTradeAlbumPicker()">🔍 Hledej kartičky z mého alba</button>
+              </div>
+              <!-- Album picker for trade -->
+              <div id="tradeAlbumPicker" style="display:none">
+                <div class="tap-label">Ze kterého alba hledat?</div>
+                <div class="tap-albums" id="tapAlbumBtns"></div>
+                <div id="tradeAlbumResults"></div>
+              </div>
             </div>
 
             <!-- Shoda: karty z alba co sedí s wants -->
@@ -3152,6 +3288,322 @@ function useSearchCard(jsonStr){
 // Rovněž přepojíme tlačítko v add modal aby šlo přes search modal
 function openCardSearchForListing(){
   openCardSearch('listing');
+}
+
+// ── Album Compare ─────────────────────────────────────────────
+let userAlbums = [];          // [{id, name, card_count}]
+let albumCardsCache = {};     // albumId → Set of card names (lowercase)
+let activeCompareAlbumId = null;
+let albumPickerOpen = false;
+let albumsLoaded = false;
+
+async function loadUserAlbums() {
+  if (!token || !userId || albumsLoaded) return;
+  albumsLoaded = true;
+  try {
+    // Try user_albums table first
+    const res = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&select=id,name,card_count&order=created_at.asc`, 'GET', null, token);
+    if (Array.isArray(res) && !res._err && res.length > 0) {
+      userAlbums = res;
+    } else {
+      // Fallback: treat myCards as single "Moje sbírka" album
+      userAlbums = [{ id: '__mycards__', name: 'Moje sbírka', card_count: myCards.length }];
+    }
+  } catch(e) {
+    userAlbums = [{ id: '__mycards__', name: 'Moje sbírka', card_count: myCards.length }];
+  }
+  renderAlbumPickerList();
+  renderTapAlbumBtns();
+}
+
+function renderAlbumPickerList() {
+  const wrap = document.getElementById('albumPickerList');
+  if (!wrap) return;
+  if (!userAlbums.length) {
+    wrap.innerHTML = '<div class="album-picker-item" style="color:var(--text3);font-size:11px;pointer-events:none">Žádná alba nenalezena</div>';
+    return;
+  }
+  // "All albums" option + each album
+  const allItem = `<div class="album-picker-item ${activeCompareAlbumId === '__all__' ? 'sel' : ''}" onclick="selectCompareAlbum('__all__')">
+    <span class="album-picker-icon">📚</span>
+    <span>Všechna alba</span>
+  </div>`;
+  const items = userAlbums.map(a =>
+    `<div class="album-picker-item ${activeCompareAlbumId === String(a.id) ? 'sel' : ''}" onclick="selectCompareAlbum('${esc(String(a.id))}')">
+      <span class="album-picker-icon">📒</span>
+      <span style="flex:1">${esc(a.name)}</span>
+      ${a.card_count ? `<span style="font-size:10px;color:var(--text3)">${a.card_count} karet</span>` : ''}
+    </div>`
+  ).join('');
+  wrap.innerHTML = allItem + items;
+}
+
+function toggleAlbumPicker() {
+  albumPickerOpen = !albumPickerOpen;
+  const drop = document.getElementById('albumPickerDrop');
+  const btn  = document.getElementById('btnAlbumCompare');
+  if (drop) drop.style.display = albumPickerOpen ? '' : 'none';
+  if (btn)  btn.classList.toggle('active', albumPickerOpen || !!activeCompareAlbumId);
+  if (albumPickerOpen) loadUserAlbums();
+}
+
+async function getAlbumCardNames(albumId) {
+  if (albumCardsCache[albumId]) return albumCardsCache[albumId];
+  const names = new Set();
+  try {
+    if (albumId === '__all__') {
+      // Merge all album cards
+      for (const a of userAlbums) {
+        const sub = await getAlbumCardNames(String(a.id));
+        sub.forEach(n => names.add(n));
+      }
+    } else if (albumId === '__mycards__') {
+      myCards.forEach(c => {
+        if (c.name) names.add(c.name.toLowerCase());
+      });
+    } else {
+      // Load from user_cards for this album
+      const res = await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&album_id=eq.${albumId}&select=card_data`, 'GET', null, token);
+      if (Array.isArray(res)) {
+        res.forEach(r => {
+          const n = r.card_data?.name;
+          if (n) names.add(n.toLowerCase());
+        });
+      }
+      // Fallback: if empty try without album_id filter (use myCards)
+      if (!names.size) {
+        myCards.forEach(c => { if (c.name) names.add(c.name.toLowerCase()); });
+      }
+    }
+  } catch(e) {
+    myCards.forEach(c => { if (c.name) names.add(c.name.toLowerCase()); });
+  }
+  albumCardsCache[albumId] = names;
+  return names;
+}
+
+async function selectCompareAlbum(albumId) {
+  activeCompareAlbumId = albumId;
+  albumPickerOpen = false;
+  const drop = document.getElementById('albumPickerDrop');
+  const btn  = document.getElementById('btnAlbumCompare');
+  if (drop) drop.style.display = 'none';
+
+  // Load cards for this album
+  const albumNames = await getAlbumCardNames(albumId);
+
+  // Show banner
+  const banner = document.getElementById('compareBanner');
+  const bannerLabel = document.getElementById('compareBannerLabel');
+  const bannerCount = document.getElementById('compareBannerCount');
+  const badge = document.getElementById('acBadge');
+
+  let albumName = albumId === '__all__' ? 'Všechna alba' : (userAlbums.find(a=>String(a.id)===albumId)?.name || 'Alba');
+  if (btn) btn.classList.add('active');
+
+  // Re-render picker list with selection
+  renderAlbumPickerList();
+  // Apply the compare filter
+  applyFilters();
+
+  // Count how many filtered listings are missing
+  const missing = filteredListings.filter(l => {
+    const cardName = (l.card_name || (l.cards_data?.[0]?.name) || '').toLowerCase();
+    return cardName && !albumNames.has(cardName);
+  }).length;
+
+  if (banner) banner.style.display = '';
+  if (bannerLabel) bannerLabel.textContent = 'Karty chybějící v: ' + albumName;
+  if (bannerCount) bannerCount.textContent = `· ${missing} nabídek s kartami, které nemáš`;
+  if (badge) { badge.textContent = missing; badge.style.display = missing ? '' : 'none'; }
+}
+
+function clearAlbumCompare() {
+  activeCompareAlbumId = null;
+  albumPickerOpen = false;
+  const banner = document.getElementById('compareBanner');
+  const badge  = document.getElementById('acBadge');
+  const btn    = document.getElementById('btnAlbumCompare');
+  const drop   = document.getElementById('albumPickerDrop');
+  if (banner) banner.style.display = 'none';
+  if (badge)  badge.style.display = 'none';
+  if (btn)    btn.classList.remove('active');
+  if (drop)   drop.style.display = 'none';
+  renderAlbumPickerList();
+  applyFilters();
+}
+
+// Extend applyFilters to support album compare filter
+// We patch into the existing flow via a wrapper check in renderListings
+const _origApplyFilters = applyFilters;
+// Instead, patch the filteredListings post-processing
+const _origRenderListings = renderListings;
+function renderListings() {
+  if (activeCompareAlbumId) {
+    const albumNames = albumCardsCache[activeCompareAlbumId];
+    if (albumNames) {
+      filteredListings = filteredListings.filter(l => {
+        if (l.listing_type === 'product') return true; // always show products
+        const cardName = (l.card_name || (l.cards_data?.[0]?.name) || '').toLowerCase();
+        return !cardName || !albumNames.has(cardName);
+      });
+      // Update banner count
+      const bannerCount = document.getElementById('compareBannerCount');
+      const badge = document.getElementById('acBadge');
+      if (bannerCount) bannerCount.textContent = `· ${filteredListings.length} nabídek s kartami, které nemáš`;
+      if (badge) { badge.textContent = filteredListings.length; badge.style.display = filteredListings.length ? '' : 'none'; }
+    }
+  }
+  _origRenderListings();
+}
+
+
+// ── Trade: Album card finder ──────────────────────────────────
+let tradeAlbumPickerOpen = false;
+let selectedTradeAlbumId = null;
+let tradeAlbumQueuedIds = new Set(); // cards queued to offer
+
+function renderTapAlbumBtns() {
+  const wrap = document.getElementById('tapAlbumBtns');
+  if (!wrap) return;
+  const allBtn = `<button class="tap-album-btn ${selectedTradeAlbumId === '__all__' ? 'sel' : ''}" onclick="selectTradeAlbum('__all__')">📚 Všechna alba</button>`;
+  const albumBtns = userAlbums.map(a =>
+    `<button class="tap-album-btn ${selectedTradeAlbumId === String(a.id) ? 'sel' : ''}" onclick="selectTradeAlbum('${esc(String(a.id))}')">📒 ${esc(a.name)}</button>`
+  ).join('');
+  wrap.innerHTML = allBtn + albumBtns;
+}
+
+async function toggleTradeAlbumPicker() {
+  tradeAlbumPickerOpen = !tradeAlbumPickerOpen;
+  const wrap = document.getElementById('tradeAlbumPicker');
+  if (wrap) wrap.style.display = tradeAlbumPickerOpen ? '' : 'none';
+  if (tradeAlbumPickerOpen) {
+    await loadUserAlbums();
+    renderTapAlbumBtns();
+    // Auto-select first album if only one
+    if (!selectedTradeAlbumId && userAlbums.length === 1) {
+      await selectTradeAlbum(String(userAlbums[0].id));
+    }
+  }
+}
+
+async function selectTradeAlbum(albumId) {
+  selectedTradeAlbumId = albumId;
+  renderTapAlbumBtns();
+  await renderTradeAlbumMatches();
+}
+
+async function renderTradeAlbumMatches() {
+  const wrap = document.getElementById('tradeAlbumResults');
+  if (!wrap || !currentListing) return;
+  wrap.innerHTML = '<div class="tam-empty">⏳ Hledám shody...</div>';
+
+  const keywords = parseTradeWants(currentListing.trade_wants || '');
+  if (!keywords.length) {
+    wrap.innerHTML = '<div class="tam-empty">Prodejce nespecifikoval, co chce za výměnu.</div>';
+    return;
+  }
+
+  // Get cards from selected album
+  let albumCards = [];
+  try {
+    if (selectedTradeAlbumId === '__all__') {
+      albumCards = myCards;
+    } else if (selectedTradeAlbumId === '__mycards__') {
+      albumCards = myCards;
+    } else {
+      const res = await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&album_id=eq.${selectedTradeAlbumId}&select=local_id,card_data,for_trade`, 'GET', null, token);
+      if (Array.isArray(res) && res.length > 0) {
+        albumCards = res.map(r => ({ ...r.card_data, id: r.local_id, for_trade: r.for_trade }));
+      } else {
+        albumCards = myCards; // fallback
+      }
+    }
+  } catch(e) {
+    albumCards = myCards;
+  }
+
+  // Find matches
+  const matchIds = computeTradeMatches(keywords, albumCards);
+  const matched = albumCards.filter(c => matchIds.has(String(c.id)));
+
+  if (!matched.length) {
+    wrap.innerHTML = '<div class="tam-empty">😔 Žádná shoda v tomto albu s tím, co prodejce chce.</div>';
+    return;
+  }
+
+  wrap.innerHTML = matched.slice(0, 20).map(c => {
+    const img = c.images?.small || c.apiSmall || c.imageUrl || '';
+    const isQueued = tradeAlbumQueuedIds.has(String(c.id));
+    return `<div class="trade-album-match-row ${isQueued ? 'queued' : ''}" id="tam-${esc(String(c.id))}">
+      ${img ? `<img class="tam-img" src="${esc(img)}" loading="lazy">` : '<div class="tam-img" style="display:flex;align-items:center;justify-content:center;font-size:18px">🃏</div>'}
+      <div class="tam-info">
+        <div class="tam-name">${esc(c.name || '?')}</div>
+        <div class="tam-meta">${esc(c.set || '')}${c.number ? ' #'+esc(c.number||c.num||'') : ''}${c.for_trade ? ' · <span style="color:#4ade80">k výměně</span>' : ''}</div>
+      </div>
+      <button class="tam-add ${isQueued ? 'done' : ''}" onclick="queueTradeAlbumCard(${JSON.stringify(JSON.stringify(c))})">
+        ${isQueued ? '✓ Přidáno' : 'Nabídnout'}
+      </button>
+    </div>`;
+  }).join('');
+
+  if (matched.length > 0) {
+    wrap.innerHTML += renderTradeOfferConfirmUI();
+  }
+}
+
+function renderTradeOfferConfirmUI() {
+  if (tradeAlbumQueuedIds.size === 0) return '';
+  return `<div class="trade-offer-confirm">
+    <span style="font-size:12px;color:var(--text2)">📬 ${tradeAlbumQueuedIds.size} karet připraveno k nabídnutí</span>
+    <button class="trade-offer-confirm-btn" onclick="sendTradeAlbumOffer()">Poslat nabídku</button>
+  </div>`;
+}
+
+function queueTradeAlbumCard(jsonStr) {
+  const c = JSON.parse(jsonStr);
+  const id = String(c.id);
+  if (tradeAlbumQueuedIds.has(id)) {
+    tradeAlbumQueuedIds.delete(id);
+  } else {
+    tradeAlbumQueuedIds.add(id);
+    // Also add to selectedTradeIds so sendTrade() works
+    selectedTradeIds.add(id);
+    // Add to myCards if not there
+    if (!myCards.find(mc => String(mc.id) === id)) {
+      myCards.push({ ...c, for_trade: true });
+    }
+  }
+  // Re-render matches and confirm UI
+  renderTradeAlbumMatches();
+}
+
+async function sendTradeAlbumOffer() {
+  if (tradeAlbumQueuedIds.size === 0) { alert('Vyber alespoň jednu kartu k nabídnutí.'); return; }
+  // Confirm dialog
+  const confirmed = confirm(`Opravdu odeslat nabídku výměny s ${tradeAlbumQueuedIds.size} kartami prodejci ${esc(currentListing?.username || '?')}?`);
+  if (!confirmed) return;
+
+  const selCards = myCards.filter(c => tradeAlbumQueuedIds.has(String(c.id)));
+  const l = currentListing;
+  const res = await sbReq('rest/v1/offers', 'POST', {
+    listing_id: l.id,
+    seller_id:  l.user_id,
+    buyer_id:   userId,
+    buyer_username: username,
+    offer_type: 'trade',
+    trade_card_ids: selCards.map(c => String(c.id)),
+    trade_card_names: selCards.map(c => c.name).join(', '),
+    message: `Nabídka z Alba: ${selCards.map(c=>c.name).join(', ')}`,
+    status: 'pending',
+  }, token);
+
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+  alert('✅ Nabídka výměny odeslána!');
+  tradeAlbumQueuedIds.clear();
+  selectedTradeIds.clear();
+  document.getElementById('tradeAlbumPicker').style.display = 'none';
+  tradeAlbumPickerOpen = false;
 }
 
 </script>
