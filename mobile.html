@@ -243,17 +243,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 <div id="app">
 
   <!-- DEBUG PANEL – dočasný, smazat po vyřešení -->
-  <div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0f172a;border-top:2px solid #f59e0b;padding:8px;font-size:10px;font-family:monospace;color:#fbbf24;max-height:180px;overflow-y:auto">
-    <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-      <b>🔍 GROQ DEBUG</b>
-      <span onclick="document.getElementById('debugPanel').style.display='none'" style="cursor:pointer;color:#ef4444">✕ zavřít</span>
-    </div>
-    <div id="debugLog"></div>
-  </div>
+  
 
   <div class="hdr">
     <div class="hdr-logo">
-      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.2</span>
+      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.3</span>
     </div>
     <div class="hdr-progress" id="hdrProg" style="display:none"></div>
     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
@@ -592,17 +586,7 @@ function parseGroqKeys(raw) {
   return keys;
 }
 
-function dbg(msg) {
-  const panel = document.getElementById('debugPanel');
-  const log   = document.getElementById('debugLog');
-  if (!panel || !log) return;
-  panel.style.display = 'block';
-  const line = document.createElement('div');
-  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-  log.appendChild(line);
-  panel.scrollTop = panel.scrollHeight;
-  console.log('[DBG]', msg);
-}
+function dbg(msg) { console.log('[DBG]', msg); }
 function nextGroqKey() {
   if (!_groqKeys.length) return groqKey;
   _groqKeyIdx = (_groqKeyIdx + 1) % _groqKeys.length;
@@ -1484,9 +1468,16 @@ function showAiResult(r) {
   aiBox.style.display = '';
   if (!r || !r.name) {
     const errMsg = r?._error || '';
-    const errHtml = errMsg
-      ? `<div style="margin-top:6px;font-size:10px;color:#f87171;background:rgba(248,113,113,.08);border-radius:6px;padding:6px 8px;word-break:break-all">${escHtml(errMsg)}</div>`
-      : '';
+    const is429 = errMsg.includes('Limit Groq') || errMsg.includes('429') || errMsg.includes('rate limit');
+    const errHtml = is429
+      ? `<div style="margin-top:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:8px 10px">
+           <div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px">⚠️ Limit Groq klíčů vyčerpán</div>
+           <div style="font-size:10px;color:var(--muted);line-height:1.5">Denní limit AI rozpoznávání byl dosažen. Doporučujeme přidat nový Groq klíč v&nbsp;Profilu.</div>
+           <a href="/profile.html" style="display:inline-block;margin-top:6px;font-size:11px;color:#fbbf24;font-weight:700;text-decoration:none">→ Přejít do Profilu</a>
+         </div>`
+      : errMsg
+        ? `<div style="margin-top:6px;font-size:10px;color:#f87171;background:rgba(248,113,113,.08);border-radius:6px;padding:6px 8px;word-break:break-all">${escHtml(errMsg)}</div>`
+        : '';
     const detailCount = (cards[currentCard]?.detailPhotos || []).length;
     const detailBtn = detailCount > 0
       ? `<button onclick="retryWithDetails()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(167,139,250,.4);background:rgba(167,139,250,.1);color:var(--purple);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔍 Zkusit z detailu (${detailCount})</button>`
@@ -1961,12 +1952,12 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
           const errBody = await resp.text().catch(() => '');
           if (resp.status === 429 && ki < keys.length - 1) {
             // Rate limit – přepni na další klíč
-            dbg('429 klíč ' + (ki+1) + '/' + keys.length + ' → zkouším ' + (ki+2));
             lastErr = `klíč ${ki+1}: rate limit, zkouším ${ki+2}…`;
             continue; // zkus další klíč
           }
           if (resp.status === 429 && ki >= keys.length - 1) {
-            dbg('429 na VŠECH ' + keys.length + ' klíčích! Všechny stejná org?');
+            lastErr = '⚠️ Limit Groq klíčů vyčerpán – doporučujeme přidat nový klíč v Profilu';
+            break;
           }
           lastErr = `${model}: HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
           break; // jiná chyba – zkus další model

@@ -1233,7 +1233,7 @@ function showMain() {
    GROQ KEY – sync ze Supabase (user_api_keys) pokud není lokálně
 ═══════════════════════════════════════════════════════ */
 async function syncGroqKeyFromSupabase() {
-  if (hasGroqKey()) { updateGroqStatusBadge(); return; } // už máme
+  // Vždy syncujeme ze Supabase – uživatel mohl přidat více klíčů v profilu
   try {
     const token = localStorage.getItem('sb_token');
     if (!token || !currentUser) { updateGroqStatusBadge(); return; }
@@ -1245,7 +1245,8 @@ async function syncGroqKeyFromSupabase() {
     if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
       localStorage.setItem('groqApiKey', rows[0].groq_key);
       if (rows[0].groq_model) localStorage.setItem('groqModel', rows[0].groq_model);
-      console.log('[Scanner] Groq klíč synchronizován ze Supabase');
+      const keyCount = getGroqKeys().length;
+      console.log('[Scanner] Groq klíče synchronizovány ze Supabase, počet:', keyCount);
     }
   } catch (e) { console.warn('[Scanner] Sync Groq klíče selhal:', e); }
   updateGroqStatusBadge();
@@ -1548,7 +1549,7 @@ async function callGroq(dataUrl) {
         await new Promise(r => setTimeout(r, 600)); // krátká pauza před dalším klíčem
         continue;
       } else {
-        toast('❌ Všechny klíče mají rate limit – počkej chvíli', 'error');
+        toast('⚠️ Limit Groq klíčů vyčerpán – přidej nový klíč v Profilu', 'error');
         return null;
       }
     }
