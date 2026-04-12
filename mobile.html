@@ -1817,6 +1817,33 @@ function initSwipe() {
 }
 
 // ══════════════════════════════════════════════
+// Auto-discovery vision modelů z Groq API
+// ══════════════════════════════════════════════
+let _visionModelsCache = null;
+const KNOWN_VISION_MODELS = [
+  'meta-llama/llama-4-scout-17b-16e-instruct',
+  'meta-llama/llama-4-maverick-17b-128e-instruct',
+  'llava-v1.5-7b-4096-preview',
+];
+async function getVisionModels() {
+  if (_visionModelsCache) return _visionModelsCache;
+  try {
+    const r = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: { 'Authorization': 'Bearer ' + groqKey },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!r.ok) throw new Error('models fetch ' + r.status);
+    const data = await r.json();
+    const available = new Set((data.data || []).map(m => m.id));
+    const filtered = KNOWN_VISION_MODELS.filter(m => available.has(m));
+    _visionModelsCache = filtered.length ? filtered : [KNOWN_VISION_MODELS[0]];
+  } catch {
+    _visionModelsCache = [KNOWN_VISION_MODELS[0]];
+  }
+  return _visionModelsCache;
+}
+
+// ══════════════════════════════════════════════
 // AI – identifikace karty (batch, bez stavu)
 // ══════════════════════════════════════════════
 async function identifyCard(dataUrl) {
@@ -1833,10 +1860,7 @@ Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subty
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
 Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
 
-  const MODELS = [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-4-maverick-17b-128e-instruct',
-  ];
+  const MODELS = await getVisionModels();
 
   let lastErr = '';
   let lastRaw = '';
