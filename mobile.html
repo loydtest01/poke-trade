@@ -394,12 +394,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <!-- Button state A: no photo yet -->
       <div class="btn-row" id="btnEmpty">
         <button class="btn btn-secondary" onclick="skipFront()">Přeskočit ↷</button>
-        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:1.4">🖼️ Z galerie</button>
       </div>
 
       <!-- Button state B: photo taken → detail or continue -->
       <div class="btn-row" id="btnPhoto" style="display:none">
-        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:0.8;font-size:13px" title="Nahradit z galerie">🖼️</button>
         <button class="btn btn-purple" id="addDetailBtn" onclick="triggerCapture('detail')">🔍 Fotodetail</button>
         <button class="btn btn-primary" id="frontNextBtn" onclick="confirmFront()">Pokračovat →</button>
       </div>
@@ -543,8 +541,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
 <!-- Camera capture -->
 <input type="file" id="captureInput" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(this)">
-<!-- Gallery picker – bez omezení na kameru -->
-<input type="file" id="galleryInput" accept="image/*" style="display:none" onchange="handleGalleryPick(this)">
 <!-- Gallery wizard file picker (single or multi depending on mode) -->
 <input type="file" id="galFileInput" accept="image/*" style="display:none" onchange="handleGalFilePick(this)">
 
@@ -629,62 +625,6 @@ async function verifyToken(token) {
     return r.ok;
   } catch { return false; }
 }
-
-// ── Obnovení tokenu přes refresh token ───────────────────────
-async function tryRefreshToken() {
-  const refresh = localStorage.getItem('sb_refresh');
-  if (!refresh) return false;
-  try {
-    const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
-      method: 'POST',
-      headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refresh }),
-      signal: AbortSignal.timeout(6000)
-    });
-    if (!r.ok) return false;
-    const d = await r.json();
-    if (!d.access_token) return false;
-    mobileToken = d.access_token;
-    localStorage.setItem('sb_token', mobileToken);
-    if (d.refresh_token) localStorage.setItem('sb_refresh', d.refresh_token);
-    updateStatusChips();
-    return true;
-  } catch { return false; }
-}
-
-// ── Zajistit platný token (ověř → refresh → login) ───────────
-async function ensureValidToken() {
-  if (!mobileToken) return false;
-  const valid = await verifyToken(mobileToken);
-  if (valid) return true;
-  // Token vypršel → zkus refresh
-  const refreshed = await tryRefreshToken();
-  if (refreshed) return true;
-  // Refresh selhal → přihlášení
-  mobileToken = '';
-  localStorage.removeItem('sb_token');
-  localStorage.removeItem('sb_refresh');
-  showScreen('scLogin');
-  toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
-  return false;
-}
-
-// ── Při návratu do appky zkontroluj token na pozadí ─────────
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && mobileToken) {
-    verifyToken(mobileToken).then(valid => {
-      if (!valid) tryRefreshToken().then(ok => {
-        if (!ok) {
-          mobileToken = '';
-          localStorage.removeItem('sb_token');
-          localStorage.removeItem('sb_refresh');
-          showScreen('scLogin');
-          toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
-        }
-      });
-    });
-  }
-});
 
 async function doMobileLogin() {
   const email = document.getElementById('loginEmail')?.value?.trim();
@@ -1028,11 +968,6 @@ function galEditCard(idx) {
 async function sendGallery() {
   const withPhoto = galCards.filter(c => c.frontPhoto).length;
   if (!withPhoto) { toast('⚠️ Žádná karta nemá přední fotku'); return; }
-
-  // Před odesláním ověř/obnov token
-  const tokenOk = await ensureValidToken();
-  if (!tokenOk) return;
-
   showScreen('scSending');
   const total = galCards.length;
   const bId = Date.now().toString(36) + '_gal';
@@ -1152,27 +1087,7 @@ function triggerCapture(mode) {
   document.getElementById('captureInput').click();
 }
 
-function triggerGallery(mode) {
-  captureMode = mode;
-  const input = document.getElementById('galleryInput');
-  input.value = '';
-  input.click();
-}
-
 function handleCapture(input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    if (captureMode === 'front') processFrontPhoto(e.target.result);
-    else if (captureMode === 'detail') processDetailPhoto(e.target.result);
-    else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
-    else processBackPhoto(e.target.result);
-  };
-  reader.readAsDataURL(file);
-}
-
-function handleGalleryPick(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -1269,25 +1184,6 @@ function processDetailPhoto(dataUrl) {
   updateAddDetailBtn();
   const n = cards[currentCard].detailPhotos.length;
   toast(`📷 Fotodetail ${n}/10 přidán`);
-
-  // Pokud karta dosud nebyla rozpoznána, zkus AI automaticky z tohoto detailu
-  if (groqKey && !cards[currentCard].frontAI?.name) {
-    const aiBox = document.getElementById('aiResultBox');
-    if (aiBox) {
-      aiBox.style.display = '';
-      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším rozpoznat z detailu…</div>';
-      identifyCard(dataUrl).then(result => {
-        if (result?.name) {
-          cards[currentCard].frontAI = result;
-          showAiResult(result);
-          haptic([40,30,80]);
-          toast('✅ Karta rozpoznána z detailu!');
-        } else {
-          showAiResult(null);
-        }
-      });
-    }
-  }
 }
 
 function removeDetailPhoto(idx) {
@@ -1412,20 +1308,7 @@ function showAiResult(r) {
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (!r || !r.name) {
-    const detailCount = (cards[currentCard]?.detailPhotos || []).length;
-    const detailBtn = detailCount > 0
-      ? `<button onclick="retryWithDetails()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(167,139,250,.4);background:rgba(167,139,250,.1);color:var(--purple);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔍 Zkusit z detailu (${detailCount})</button>`
-      : '';
-    aiBox.innerHTML = `
-      <div style="color:var(--muted);font-size:12px;margin-bottom:8px">❓ AI kartu nerozpoznala</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button onclick="triggerCapture('front')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">📷 Vyfotit znovu</button>
-        <button onclick="triggerGallery('front')" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🖼️ Z galerie</button>
-      </div>
-      <div style="display:flex;gap:6px;margin-top:6px">
-        <button onclick="retryAI()" style="flex:1;padding:9px;border-radius:8px;border:1.5px solid rgba(100,116,139,.3);background:rgba(100,116,139,.08);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Zkusit znovu</button>
-        ${detailBtn}
-      </div>`;
+    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>';
     return;
   }
   // Confidence
@@ -1482,40 +1365,6 @@ function selectCond(btn) {
   document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   currentCond = btn.dataset.cond;
-}
-
-// ── Zkusit AI znovu na stejné fotce ──────────────────────────
-async function retryAI() {
-  const photo = cards[currentCard]?.frontPhoto;
-  if (!photo || !groqKey) return;
-  const aiBox = document.getElementById('aiResultBox');
-  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
-  const result = await identifyCard(photo);
-  cards[currentCard].frontAI = result;
-  showAiResult(result);
-  if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
-}
-
-// ── Zkusit AI na detailních fotkách ──────────────────────────
-async function retryWithDetails() {
-  const details = cards[currentCard]?.detailPhotos || [];
-  if (!details.length || !groqKey) return;
-  const aiBox = document.getElementById('aiResultBox');
-  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším z detailních fotek…</div>';
-  let result = null;
-  for (const photo of details) {
-    result = await identifyCard(photo);
-    if (result?.name) break;
-  }
-  if (result?.name) {
-    cards[currentCard].frontAI = result;
-    showAiResult(result);
-    haptic([40,30,80]);
-    toast('✅ Karta rozpoznána z detailu!');
-  } else {
-    showAiResult(null);
-    toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
-  }
 }
 
 function skipFront() {
@@ -1660,10 +1509,6 @@ function goBack() {
 
 // ─── Send all (batch) ────────────────────────────────────────
 async function sendAll() {
-  // Před odesláním ověř/obnov token
-  const tokenOk = await ensureValidToken();
-  if (!tokenOk) return; // ensureValidToken už zobrazil login
-
   showScreen('scSending');
   const total = cards.length;
 
