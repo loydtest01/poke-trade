@@ -2911,6 +2911,18 @@ function closeListingPhotoModal() {
   _pendingListingType = null; _selectedListingPhotoUrl = null;
 }
 
+// ── Fronta "Čeká na vystavení" pro marketplace ─────────────────
+function pushToPendingQueue(cards) {
+  const PENDING_KEY = 'pkt_pending_listings';
+  try {
+    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    cards.forEach(card => {
+      if (!q.find(c => c._pendingId === card._pendingId)) q.push(card);
+    });
+    localStorage.setItem(PENDING_KEY, JSON.stringify(q));
+  } catch(e) { console.error('[pendingQueue]', e); }
+}
+
 async function confirmListingPhoto() {
   if (!_detailCard || !_pendingListingType) return;
   const c = _detailCard;
@@ -2925,27 +2937,30 @@ async function confirmListingPhoto() {
   if (c.for_trade) syncVymenaAlbum().catch(()=>null);
   if (c.for_sell)  syncObchodAlbum().catch(()=>null);
 
-  // Save pending listing to localStorage
-  localStorage.setItem('pendingListing', JSON.stringify({
-    card: {
-      name: cd.name || c.name || '',
-      set: { name: cd.set?.name || cd.setName || '' },
-      number: cd.number || '',
-      hp: cd.hp || '',
-      types: cd.types || [],
-      supertype: cd.supertype || '',
-      images: cd.images || null,
-      rarity: cd.rarity || '',
+  // Přidat do fronty "Čeká na vystavení" pro marketplace
+  if (_pendingListingType === 'sell' || _pendingListingType === 'both') {
+    const pendingCard = {
+      _pendingId: String(c.id || c.local_id || '') + '_' + Date.now(),
+      id:         cd.id         || c.id         || c.local_id || '',
+      name:       cd.name       || c.name       || '',
+      set:        { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
+      number:     cd.number     || '',
+      hp:         cd.hp         || '',
+      types:      cd.types      || [],
+      supertype:  cd.supertype  || '',
+      images:     cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
+      rarity:     cd.rarity     || '',
       cardmarket: cd.cardmarket || null,
-    },
-    photoUrl: _selectedListingPhotoUrl || null,
-    listingType: _pendingListingType,
-    price: c.price_czk || null,
-  }));
+      album_price: c.price_czk  || null,
+      condition:  cd.condition  || c.condition  || 'NM',
+      photoUrl:   _selectedListingPhotoUrl || null,
+    };
+    pushToPendingQueue([pendingCard]);
+  }
 
   closeListingPhotoModal();
   closeCardDetail();
-  window.location.href = 'marketplace.html?newlisting=1';
+  window.location.href = 'marketplace.html?sell=1';
 }
 
 async function saveCdPrice() {
@@ -3496,6 +3511,32 @@ async function _bulkSetSellConfirm(ids, forSell) {
     updateStats(); cancelSelect(); render();
     setSyncState('ok', forSell ? `${ids.length} karet → obchod ✓` : `Prodej odebrán ✓`);
     setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+
+    // Přidat do fronty "Čeká na vystavení" a přesměrovat na marketplace
+    if (forSell) {
+      const pendingCards = ids.map(id => {
+        const c  = allCards.find(x => String(x.id) === id);
+        if (!c) return null;
+        const cd = c.card_data || {};
+        return {
+          _pendingId:  String(c.id || id) + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+          id:          cd.id         || c.id         || id,
+          name:        cd.name       || c.name       || '',
+          set:         { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
+          number:      cd.number     || '',
+          hp:          cd.hp         || '',
+          types:       cd.types      || [],
+          supertype:   cd.supertype  || '',
+          images:      cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
+          rarity:      cd.rarity     || '',
+          cardmarket:  cd.cardmarket || null,
+          album_price: c.price_czk   || null,
+          condition:   cd.condition  || c.condition  || 'NM',
+        };
+      }).filter(Boolean);
+      pushToPendingQueue(pendingCards);
+      window.location.href = 'marketplace.html?sell=1';
+    }
   } catch(e) { console.error('[sell]', e); setSyncState('', 'Chyba: ' + e.message); }
 }
 
