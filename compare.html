@@ -259,7 +259,8 @@ body::after {
           <div class="cd-icon">📂</div>
           <div class="cd-label" id="label1">Album A</div>
           <small>Přetáhni .pktr nebo .pkte</small>
-          <label class="btn-ghost">
+          <button class="btn-ghost" onclick="openLocalAlbumPicker(1)" style="margin-bottom:4px">🗂 Vybrat z mých alb</button>
+          <label class="btn-ghost" style="font-size:12px;opacity:.7">
             Vybrat soubor
             <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,1)" style="display:none">
           </label>
@@ -276,7 +277,8 @@ body::after {
           <div class="cd-icon">📂</div>
           <div class="cd-label" id="label2">Album B</div>
           <small>Přetáhni .pktr nebo .pkte</small>
-          <label class="btn-ghost">
+          <button class="btn-ghost" onclick="openLocalAlbumPicker(2)" style="margin-bottom:4px">🗂 Vybrat z mých alb</button>
+          <label class="btn-ghost" style="font-size:12px;opacity:.7">
             Vybrat soubor
             <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,2)" style="display:none">
           </label>
@@ -483,6 +485,134 @@ async function startOnlineCompare() {
   runCompare();
 }
 // ── KONEC ONLINE MODE ─────────────────────────────────────────────
+
+// ── LOCAL ALBUM PICKER — výběr alba ze Supabase bez share linku ──
+let _localPickerTarget = 1;   // 1 = albumA, 2 = albumB
+let _localPickerAlbums = [];  // cache alb
+let _localPickerSelectedId = null;
+
+async function openLocalAlbumPicker(num) {
+  _localPickerTarget = num;
+  _localPickerSelectedId = null;
+  document.getElementById('btnLocalPickerGo').disabled = true;
+
+  const subtitle = num === 1
+    ? 'Vybíráš album pro stranu A (levá)'
+    : 'Vybíráš album pro stranu B (pravá)';
+  document.getElementById('localPickerSubtitle').textContent = subtitle;
+
+  const modal = document.getElementById('localAlbumModal');
+  modal.style.display = 'flex';
+
+  const token = localStorage.getItem('sb_token');
+  const myId  = localStorage.getItem('sb_user_id');
+  if (!token || !myId) {
+    document.getElementById('localPickerList').innerHTML =
+      '<div class="album-picker-empty">❌ Nejsi přihlášen. <a href="login.html" style="color:#f5c842">Přihlásit se</a></div>';
+    return;
+  }
+
+  // Načti alba pokud ještě nemáme cache
+  if (_localPickerAlbums.length === 0) {
+    try {
+      const r = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_albums?user_id=eq.${myId}&select=id,name,card_ids,updated_at&order=updated_at.desc&limit=30`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
+      );
+      _localPickerAlbums = await r.json() || [];
+    } catch(e) {
+      document.getElementById('localPickerList').innerHTML =
+        '<div class="album-picker-empty">❌ Chyba načítání. Zkus znovu.</div>';
+      return;
+    }
+  }
+
+  renderLocalPickerList();
+}
+
+function renderLocalPickerList() {
+  const list = document.getElementById('localPickerList');
+  if (!_localPickerAlbums.length) {
+    list.innerHTML = '<div class="album-picker-empty">Nemáš žádná alba. Vytvoř si album v sekci <a href="moje-album.html" style="color:#f5c842">Moje alba</a>.</div>';
+    return;
+  }
+  list.innerHTML = _localPickerAlbums.map(a => `
+    <div class="album-pick-item" id="lpick-${a.id}" onclick="pickLocalAlbum('${a.id}', this)">
+      <div class="album-pick-icon">📁</div>
+      <div class="album-pick-info">
+        <div class="album-pick-name">${esc(a.name)}</div>
+        <div class="album-pick-meta">${(a.card_ids||[]).length} karet · ${new Date(a.updated_at).toLocaleDateString('cs')}</div>
+      </div>
+      <div class="album-pick-check"></div>
+    </div>
+  `).join('');
+}
+
+function pickLocalAlbum(albumId, el) {
+  document.querySelectorAll('#localPickerList .album-pick-item').forEach(i => {
+    i.classList.remove('selected');
+    i.querySelector('.album-pick-check').textContent = '';
+  });
+  if (el) {
+    el.classList.add('selected');
+    el.querySelector('.album-pick-check').textContent = '✓';
+  }
+  _localPickerSelectedId = albumId;
+  document.getElementById('btnLocalPickerGo').disabled = false;
+}
+
+function closeLocalAlbumPicker() {
+  document.getElementById('localAlbumModal').style.display = 'none';
+}
+
+async function confirmLocalAlbum() {
+  if (!_localPickerSelectedId) return;
+  const btn = document.getElementById('btnLocalPickerGo');
+  btn.disabled = true;
+  btn.textContent = 'Načítám…';
+
+  const token = localStorage.getItem('sb_token');
+  const myId  = localStorage.getItem('sb_user_id');
+
+  try {
+    // Načti karty alba
+    const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
+    let cards = [];
+
+    if (albumObj && albumObj.card_ids && albumObj.card_ids.length > 0) {
+      const ids = albumObj.card_ids.map(id => `"${id}"`).join(',');
+      const cardsRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${myId}&local_id=in.(${ids})&select=card_data`,
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
+      );
+      const cardsData = await cardsRes.json();
+      cards = (cardsData || []).map(c => c.card_data);
+    }
+
+    const albumData = { name: albumObj ? esc(albumObj.name) : 'Moje album', cards };
+
+    if (_localPickerTarget === 1) {
+      albumA = albumData;
+      const drop = document.getElementById('drop1');
+      drop.classList.add('loaded');
+      document.getElementById('label1').textContent = albumData.name;
+    } else {
+      albumB = albumData;
+      const drop = document.getElementById('drop2');
+      drop.classList.add('loaded');
+      document.getElementById('label2').textContent = albumData.name;
+    }
+
+    closeLocalAlbumPicker();
+    if (albumA && albumB) runCompare();
+  } catch(e) {
+    alert('Chyba při načítání alba. Zkus to znovu.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Použít toto album →';
+  }
+}
+// ── KONEC LOCAL ALBUM PICKER ──────────────────────────────────────
 
 async function handleDrop(e, num) {
   e.preventDefault();
@@ -947,6 +1077,26 @@ function initCmpFilters() {
 </script>
 
 <!-- Fake detector modal pro compare -->
+<!-- ── LOCAL ALBUM PICKER MODAL ─────────────────────────────── -->
+<div id="localAlbumModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:#f0ece4">📂 Vyber album</div>
+        <div id="localPickerSubtitle" style="font-size:12px;color:rgba(240,236,228,.5);margin-top:3px">Vybíráš album pro stranu A</div>
+      </div>
+      <button onclick="closeLocalAlbumPicker()" style="background:none;border:none;color:rgba(240,236,228,.5);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div id="localPickerList" class="album-picker-list" style="overflow-y:auto;max-height:360px;padding-right:4px">
+      <div class="album-picker-empty">⏳ Načítám alba…</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-compare-go" id="btnLocalPickerGo" onclick="confirmLocalAlbum()" disabled style="flex:1">Použít toto album →</button>
+      <button onclick="closeLocalAlbumPicker()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#f0ece4;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:13px">Zrušit</button>
+    </div>
+  </div>
+</div>
+
 <div id="cmpFakeModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
   <div style="background:#0e0c12;border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:480px;padding:24px;position:relative;max-height:90vh;overflow-y:auto">
     <button onclick="document.getElementById('cmpFakeModal').style.display='none'" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:rgba(240,232,208,.6);font-size:16px;padding:4px 10px;cursor:pointer">✕</button>
