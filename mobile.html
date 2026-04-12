@@ -9,7 +9,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PokéTrade">
+<meta name="apple-mobile-web-app-title" content="AI PC">
 <style>
 :root {
   --bg:      #0f1117;
@@ -243,7 +243,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 <div id="app">
   <div class="hdr">
     <div class="hdr-logo">
-      <img src="icon-aipc-192.png" alt="logo" onerror="this.style.display='none'">
       PhotoBridge
     </div>
     <div class="hdr-progress" id="hdrProg" style="display:none"></div>
@@ -252,7 +251,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
       <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
       <button id="chipInstall" onclick="installPWA()" title="Přidat na plochu" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;white-space:nowrap;cursor:pointer;text-align:center">📲 Plocha</button>
-      <button id="chipLogout" onclick="doMobileLogout()" title="Odhlásit" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:#f87171;white-space:nowrap;cursor:pointer;text-align:center">⏻ Odhlásit</button>
     </div>
   </div>
   <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
@@ -262,7 +260,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <!-- ══ LOGIN ══ -->
     <div class="screen" id="scLogin">
       <div style="text-align:center;padding:28px 0 16px">
-        <img src="icon-aipc-192.png" alt="PokéTrade" style="width:72px;height:72px;border-radius:18px;object-fit:cover" onerror="this.outerHTML='<div style=\'font-size:52px\'>🎴</div>'">
+        <div style="font-size:52px">🎴</div>
         <div style="font-size:20px;font-weight:800;margin-top:10px">PhotoBridge</div>
         <div style="font-size:13px;color:var(--muted);margin-top:6px">Přihlas se svým PokéTrade účtem</div>
       </div>
@@ -401,7 +399,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
       <!-- Button state B: photo taken → detail or continue -->
       <div class="btn-row" id="btnPhoto" style="display:none">
-        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:0.8;font-size:12px">🖼️</button>
+        <button class="btn btn-secondary" onclick="triggerGallery('front')" style="flex:0.8;font-size:13px" title="Nahradit z galerie">🖼️</button>
         <button class="btn btn-purple" id="addDetailBtn" onclick="triggerCapture('detail')">🔍 Fotodetail</button>
         <button class="btn btn-primary" id="frontNextBtn" onclick="confirmFront()">Pokračovat →</button>
       </div>
@@ -545,7 +543,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 
 <!-- Camera capture -->
 <input type="file" id="captureInput" accept="image/*" capture="environment" style="display:none" onchange="handleCapture(this)">
-<!-- Gallery picker (no camera constraint) -->
+<!-- Gallery picker – bez omezení na kameru -->
 <input type="file" id="galleryInput" accept="image/*" style="display:none" onchange="handleGalleryPick(this)">
 <!-- Gallery wizard file picker (single or multi depending on mode) -->
 <input type="file" id="galFileInput" accept="image/*" style="display:none" onchange="handleGalFilePick(this)">
@@ -588,26 +586,16 @@ window.onload = () => {
     toast('🎭 FAKE trénink zapnut');
   }
 
-  // Pokud má uživatel token, ukáž scSetup a ověř / obnov přihlášení
+  // Pokud má uživatel token, ukáž scSetup (inline script to nestihl – scSetup ještě nebyl v DOMu)
   if (mobileToken) {
     showScreen('scSetup');
-    showLogoutChip(true);
     loadGroqInBackground();
-    verifyToken(mobileToken).then(async valid => {
+    verifyToken(mobileToken).then(valid => {
       if (!valid) {
-        // Zkus obnovit přes refresh token
-        const refreshed = await tryRefreshToken();
-        if (refreshed) {
-          updateStatusChips();
-          loadGroqInBackground();
-        } else {
-          mobileToken = '';
-          localStorage.removeItem('sb_token');
-          localStorage.removeItem('sb_refresh');
-          showLogoutChip(false);
-          showScreen('scLogin');
-          toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
-        }
+        mobileToken = '';
+        localStorage.removeItem('sb_token');
+        showScreen('scLogin');
+        toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
       }
     });
   }
@@ -642,7 +630,7 @@ async function verifyToken(token) {
   } catch { return false; }
 }
 
-// ── Token refresh ──────────────────────────────────────────────
+// ── Obnovení tokenu přes refresh token ───────────────────────
 async function tryRefreshToken() {
   const refresh = localStorage.getItem('sb_refresh');
   if (!refresh) return false;
@@ -651,40 +639,52 @@ async function tryRefreshToken() {
       method: 'POST',
       headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh_token: refresh }),
-      signal: AbortSignal.timeout(5000)
+      signal: AbortSignal.timeout(6000)
     });
     if (!r.ok) return false;
-    const data = await r.json();
-    if (!data.access_token) return false;
-    mobileToken = data.access_token;
+    const d = await r.json();
+    if (!d.access_token) return false;
+    mobileToken = d.access_token;
     localStorage.setItem('sb_token', mobileToken);
-    if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
+    if (d.refresh_token) localStorage.setItem('sb_refresh', d.refresh_token);
+    updateStatusChips();
     return true;
   } catch { return false; }
 }
 
-// Automatický refresh každých 50 minut (token Supabase vydrží 1 hod)
-setInterval(async () => {
-  if (!mobileToken) return;
+// ── Zajistit platný token (ověř → refresh → login) ───────────
+async function ensureValidToken() {
+  if (!mobileToken) return false;
   const valid = await verifyToken(mobileToken);
-  if (!valid) {
-    const refreshed = await tryRefreshToken();
-    if (!refreshed) {
-      mobileToken = '';
-      localStorage.removeItem('sb_token');
-      localStorage.removeItem('sb_refresh');
-      showScreen('scLogin');
-      toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
-    } else {
-      updateStatusChips();
-    }
-  }
-}, 20 * 60 * 1000);
-
-function showLogoutChip(visible) {
-  const btn = document.getElementById('chipLogout');
-  if (btn) btn.style.display = visible ? '' : 'none';
+  if (valid) return true;
+  // Token vypršel → zkus refresh
+  const refreshed = await tryRefreshToken();
+  if (refreshed) return true;
+  // Refresh selhal → přihlášení
+  mobileToken = '';
+  localStorage.removeItem('sb_token');
+  localStorage.removeItem('sb_refresh');
+  showScreen('scLogin');
+  toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
+  return false;
 }
+
+// ── Při návratu do appky zkontroluj token na pozadí ─────────
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && mobileToken) {
+    verifyToken(mobileToken).then(valid => {
+      if (!valid) tryRefreshToken().then(ok => {
+        if (!ok) {
+          mobileToken = '';
+          localStorage.removeItem('sb_token');
+          localStorage.removeItem('sb_refresh');
+          showScreen('scLogin');
+          toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
+        }
+      });
+    });
+  }
+});
 
 async function doMobileLogin() {
   const email = document.getElementById('loginEmail')?.value?.trim();
@@ -714,7 +714,6 @@ async function doMobileLogin() {
     if (data.refresh_token) localStorage.setItem('sb_refresh', data.refresh_token);
     // Přepni na setup okamžitě, Groq načti na pozadí
     showScreen('scSetup');
-    showLogoutChip(true);
     updateStatusChips();
     loadGroqInBackground();
   } catch(e) {
@@ -735,7 +734,6 @@ function doMobileLogout() {
   localStorage.removeItem('sb_token');
   localStorage.removeItem('sb_refresh');
   mobileToken = '';
-  showLogoutChip(false);
   showLoginScreen();
   toast('Odhlášeno');
 }
@@ -1030,6 +1028,11 @@ function galEditCard(idx) {
 async function sendGallery() {
   const withPhoto = galCards.filter(c => c.frontPhoto).length;
   if (!withPhoto) { toast('⚠️ Žádná karta nemá přední fotku'); return; }
+
+  // Před odesláním ověř/obnov token
+  const tokenOk = await ensureValidToken();
+  if (!tokenOk) return;
+
   showScreen('scSending');
   const total = galCards.length;
   const bId = Date.now().toString(36) + '_gal';
@@ -1156,7 +1159,7 @@ function triggerGallery(mode) {
   input.click();
 }
 
-function handleGalleryPick(input) {
+function handleCapture(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -1169,7 +1172,7 @@ function handleGalleryPick(input) {
   reader.readAsDataURL(file);
 }
 
-function handleCapture(input) {
+function handleGalleryPick(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -1390,13 +1393,7 @@ function showAiResult(r) {
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (!r || !r.name) {
-    const debugHtml = r?._raw
-      ? `<div style="margin-top:6px;font-size:10px;color:#475569;background:rgba(0,0,0,.3);border-radius:6px;padding:6px 8px;word-break:break-all;max-height:60px;overflow:hidden">AI odpověď: ${escHtml(r._raw)}</div>`
-      : '';
-    aiBox.innerHTML = `
-      <div style="color:var(--muted);font-size:12px;margin-bottom:8px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>
-      <button onclick="retryAI()" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid rgba(79,142,247,.4);background:rgba(79,142,247,.1);color:var(--accent);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔄 Zkusit znovu</button>
-      ${debugHtml}`;
+    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">❓ AI kartu nerozpoznala – zkontroluj ručně</div>';
     return;
   }
   // Confidence
@@ -1416,38 +1413,7 @@ function showAiResult(r) {
            `</div>`;
   }
   const condText = r.condition ? r.condition + (r.conditionNotes ? ' – ' + r.conditionNotes : '') : '';
-
-  // Fake detection banner
-  const isFakeSuspect = r.fake === true;
-  const fakeConf = r.fakeConfidence || 'low';
-  const fakeReasons = Array.isArray(r.fakeReasons) ? r.fakeReasons : [];
-  const hasRef = !!r.refImageUrl;
-  const refMatch = r.referenceComparison?.match;
-  let fakeBanner = '';
-  if (isFakeSuspect) {
-    const fakeConfLabel = fakeConf === 'high' ? '🔴 Vysoká jistota' : fakeConf === 'medium' ? '🟠 Střední jistota' : '🟡 Nízká jistota';
-    const fakeReasonsHtml = fakeReasons.length ? fakeReasons.map(r => `<div style="font-size:11px;color:#fca5a5;margin-top:3px">• ${escHtml(r)}</div>`).join('') : '';
-    const refHtml = hasRef ? `<div style="font-size:10px;color:#fca5a5;margin-top:4px;opacity:.8">🔍 Porovnáno s originálním referenčním snímkem${refMatch === 'no' ? ' — neshoduje se' : ''}</div>` : '';
-    fakeBanner = `<div style="background:rgba(239,68,68,.18);border:2px solid rgba(239,68,68,.6);border-radius:10px;padding:10px 12px;margin-bottom:8px">
-      <div style="font-size:13px;font-weight:800;color:#f87171">⚠️ MOŽNÝ FALSIFIKÁT</div>
-      <div style="font-size:11px;color:#fca5a5;margin-top:2px">${fakeConfLabel}</div>
-      ${fakeReasonsHtml}
-      ${refHtml}
-    </div>`;
-  } else if (hasRef && refMatch === 'yes') {
-    fakeBanner = `<div style="background:rgba(74,222,128,.1);border:1.5px solid rgba(74,222,128,.3);border-radius:10px;padding:8px 12px;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:700;color:#4ade80">✅ Shoduje se s originálem</div>
-      <div style="font-size:10px;color:#86efac;margin-top:2px">Porovnáno s referenčním snímkem z Pokemon TCG databáze</div>
-    </div>`;
-  } else if (hasRef && refMatch === 'uncertain') {
-    fakeBanner = `<div style="background:rgba(250,204,21,.08);border:1.5px solid rgba(250,204,21,.3);border-radius:10px;padding:8px 12px;margin-bottom:8px">
-      <div style="font-size:12px;font-weight:700;color:#facc15">🟡 Srovnání nejisté</div>
-      <div style="font-size:10px;color:#fde68a;margin-top:2px">${escHtml(r.referenceComparison?.matchNotes || 'Kvalita fotky nebo úhel neumožnily jednoznačné srovnání')}</div>
-    </div>`;
-  }
-
   aiBox.innerHTML =
-    fakeBanner +
     `<div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">🤖 AI rozpoznávání:</div>` +
     `<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:8px">` +
       row('Název', r.name) +
@@ -1476,12 +1442,7 @@ function showAiResult(r) {
       b.classList.toggle('selected', b.dataset.cond === r.condition);
     });
     currentCond = r.condition;
-    if (r.fake === true) {
-      haptic([80, 50, 80, 50, 80]); // triple pulse = fake warning
-      toast('⚠️ AI detekovala možný falsifikát!');
-    } else {
-      haptic([40, 30, 80]); // double pulse = AI success
-    }
+    haptic([40, 30, 80]); // double pulse = AI success
   }
 }
 
@@ -1489,17 +1450,6 @@ function selectCond(btn) {
   document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   currentCond = btn.dataset.cond;
-}
-
-async function retryAI() {
-  const photo = cards[currentCard]?.frontPhoto;
-  if (!photo || !groqKey) return;
-  const aiBox = document.getElementById('aiResultBox');
-  aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
-  const result = await identifyCard(photo);
-  cards[currentCard].frontAI = result;
-  showAiResult(result);
-  if (result?.name) toast('✅ Karta rozpoznána!');
 }
 
 function skipFront() {
@@ -1644,6 +1594,10 @@ function goBack() {
 
 // ─── Send all (batch) ────────────────────────────────────────
 async function sendAll() {
+  // Před odesláním ověř/obnov token
+  const tokenOk = await ensureValidToken();
+  if (!tokenOk) return; // ensureValidToken už zobrazil login
+
   showScreen('scSending');
   const total = cards.length;
 
@@ -1797,23 +1751,20 @@ function initSwipe() {
 async function identifyCard(dataUrl) {
   if (!groqKey) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed - do NOT translate.
-CRITICAL RULE: If Japanese (katakana/hiragana/kanji) → name in Japanese, lang="JP". If English → lang="EN".
+  const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
+CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
+If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-IMPORTANT: The card may be inside a plastic sleeve, soft sleeve, or hard protective case. Glare, reflections, or plastic edges are NOT part of the card — look through them and read the card underneath. Even if the image has reflections or is slightly blurry through plastic, do your best to identify the card.
-Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"","lang":"EN","confidence":"high/medium/low","notes":"","fake":false,"fakeConfidence":"low","fakeReasons":[]}`;
-  const MODELS = [
-    'llama-3.2-90b-vision-preview',
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'llama-3.2-11b-vision-preview',
-  ];
-  async function callModel(model) {
+Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}` ;
+  const MODEL_PRIMARY  = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  const MODEL_FALLBACK = 'llama-3.2-11b-vision-preview';
+  async function call(model) {
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type':'application/json','Authorization':'Bearer '+groqKey },
       body: JSON.stringify({
-        model, max_tokens: 700, temperature: 0.05,
+        model, max_tokens: 500, temperature: 0.05,
         messages: [
           { role:'user', content:[
             { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
@@ -1825,72 +1776,13 @@ Respond ONLY valid JSON, no markdown: {"name":"","set":"","number":"","type":"",
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     return resp.json();
   }
-  let lastRaw = '';
-  for (const model of MODELS) {
-    try {
-      const data = await callModel(model);
-      const raw = data.choices?.[0]?.message?.content || '';
-      lastRaw = raw;
-      const p = parseJson(raw);
-      if (p?.name) return p;
-      // JSON parsed but no name — try next model
-    } catch { /* try next model */ }
-  }
-  // All models failed — return sentinel with debug info
-  return { _failed: true, _raw: lastRaw.slice(0, 200) };
-}
-
-// ── Stažení referenčního obrázku z Pokemon TCG API ────────────
-async function fetchReferenceCardImage(name, number, set) {
   try {
-    // Sestavit query – name je nejdůležitější
-    const q = encodeURIComponent(`name:"${name}"`);
-    const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=3&select=id,name,images,number,set`, {
-      signal: AbortSignal.timeout(4000)
-    });
-    if (!r.ok) return null;
-    const d = await r.json();
-    const cards = d.data || [];
-    if (!cards.length) return null;
-
-    // Preferuj kartu kde sedí číslo nebo série
-    let best = cards[0];
-    if (number || set) {
-      const match = cards.find(c =>
-        (number && c.number === String(number)) ||
-        (set && c.set?.name?.toLowerCase().includes(set.toLowerCase()))
-      );
-      if (match) best = match;
-    }
-
-    return best?.images?.small || best?.images?.large || null;
-  } catch { return null; }
-}
-
-// ── Srovnání foceného vs. referenčního originálu přes AI ──────
-async function compareWithReference(userDataUrl, refUrl, cardInfo, key) {
-  if (!key) return null;
-  try {
-    const { mt, b64 } = splitDataUrl(userDataUrl);
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json','Authorization':'Bearer '+key },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        max_tokens: 400, temperature: 0.05,
-        messages: [{ role:'user', content:[
-          { type:'image_url', image_url:{ url: refUrl } },
-          { type:'image_url', image_url:{ url:`data:${mt};base64,${b64}` } },
-          { type:'text', text: `The FIRST image is the official reference Pokemon card. The SECOND image is the card being authenticated.
-Compare them carefully: colors, fonts, borders, artwork style, holo pattern, set symbol, energy symbols, card proportions, cut quality.
-Note any differences. A real card should match the reference closely.
-Return ONLY JSON: {"match":"yes/no/uncertain","fake":false,"fakeConfidence":"low/medium/high","fakeReasons":["diff in Czech"],"matchNotes":"brief Czech note"}` }
-        ]}]
-      })
-    });
-    if (!resp.ok) return null;
-    const d = await resp.json();
-    return parseJson(d.choices?.[0]?.message?.content || '');
+    let data;
+    try { data = await call(MODEL_PRIMARY); }
+    catch(e1) { data = await call(MODEL_FALLBACK); }
+    const raw = data.choices?.[0]?.message?.content || '';
+    const p   = parseJson(raw);
+    return p?.name ? p : null;
   } catch { return null; }
 }
 
