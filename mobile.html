@@ -587,7 +587,9 @@ let _groqKeyIdx = 0;  // index aktuálně použitého klíče
 
 function parseGroqKeys(raw) {
   if (!raw) return [];
-  return raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+  const keys = raw.split(',').map(k => k.trim()).filter(k => k.startsWith('gsk_') && k.length > 20);
+  dbg && dbg('parseGroqKeys: celkem ' + raw.split(',').length + ' částí, platných gsk_: ' + keys.length);
+  return keys;
 }
 
 function dbg(msg) {
@@ -1902,6 +1904,7 @@ async function getVisionModels() {
 // ══════════════════════════════════════════════
 async function identifyCard(dataUrl) {
   if (!groqKey) return { _error: 'Chybí Groq API klíč (AI ✗)' };
+  dbg('identifyCard START: _groqKeys=' + _groqKeys.length + ' groqKey=' + (groqKey?.slice(0,8)||'null'));
 
   // Komprimuj pro Groq – velké fotky z kamery jsou příliš velké
   const compressed = await compressImage(dataUrl, 1200, 0.80);
