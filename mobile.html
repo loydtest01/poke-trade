@@ -243,7 +243,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 <div id="app">
   <div class="hdr">
     <div class="hdr-logo">
-      PhotoBridge
+      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.1</span>
     </div>
     <div class="hdr-progress" id="hdrProg" style="display:none"></div>
     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
@@ -628,6 +628,7 @@ async function loadGroqInBackground() {
       if (d.key) {
         _groqKeys = parseGroqKeys(d.key);
         groqKey = _groqKeys[0] || d.key;
+        console.log('[Groq] Načteno ze serveru, klíčů:', _groqKeys.length, '| první:', groqKey?.slice(0,8) + '…');
         updateStatusChips(); return;
       }
     }
@@ -641,6 +642,7 @@ async function loadGroqInBackground() {
     if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
       _groqKeys = parseGroqKeys(rows[0].groq_key);
       groqKey = _groqKeys[0] || rows[0].groq_key;
+      console.log('[Groq] Načteno ze Supabase, klíčů:', _groqKeys.length, '| první:', groqKey?.slice(0,8) + '…');
       updateStatusChips();
     }
   } catch {}
