@@ -898,7 +898,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <button onclick="fetchCardForListing()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
           <button onclick="openCardSearch('listing')" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700">🔍 Hledat</button>
         </div>
-        <div id="addCardPreview" style="margin-top:8px;display:none;flex;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
+        <div id="addCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
           <img id="addCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
           <div>
             <div id="addCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
@@ -936,7 +936,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis (nepovinné)</div>
         <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
       </div>
-      <!-- AI SCAN ZONE -->
+      <!-- AI SCAN ZONE – split layout -->
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka karty</div>
@@ -944,16 +944,28 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
             <span style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em">AI SCAN</span>
           </div>
         </div>
-        <div id="aiDropZone" class="ai-drop-zone" onclick="document.getElementById('aiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleAiDrop(event)">
-          <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
-          <div id="aiDropContent">
-            <div class="ai-drop-icon">📸</div>
-            <div class="ai-drop-title">Vyfot nebo přetáhni kartu</div>
-            <div class="ai-drop-hint">AI automaticky rozezná pokémona, sérii a číslo</div>
+        <!-- Two-column split: left = upload, right = QR -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <!-- LEFT: drag & drop / file picker -->
+          <div id="aiDropZone" class="ai-drop-zone" onclick="document.getElementById('aiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleAiDrop(event)" style="min-height:120px">
+            <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+            <div id="aiDropContent">
+              <div class="ai-drop-icon">📸</div>
+              <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber</div>
+              <div class="ai-drop-hint" style="font-size:11px">AI rozezná kartu</div>
+            </div>
+          </div>
+          <!-- RIGHT: QR code for mobile -->
+          <div id="qrInlinePanel" style="border:1px dashed rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px;cursor:pointer;min-height:120px;transition:border-color .15s" onclick="generateInlineQr()" title="Klikni pro vygenerování QR kódu">
+            <div id="qrInlineCanvas" style="background:#fff;border-radius:8px;padding:8px;display:flex;align-items:center;justify-content:center;width:90px;height:90px">
+              <div style="font-size:22px">📱</div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);text-align:center;line-height:1.4">Skenuj telefonem<br>→ vyfotí kartu kamerou</div>
+            <div id="qrCopyBtn" style="display:none;font-size:10px;color:var(--blue);cursor:pointer;padding:3px 8px;border:1px solid rgba(116,180,255,0.3);border-radius:6px" onclick="event.stopPropagation();copyInlineQrUrl()">📋 Kopírovat odkaz</div>
           </div>
         </div>
         <!-- AI Scan progress -->
-        <div id="aiScanProgress" style="display:none">
+        <div id="aiScanProgress" style="display:none;margin-top:6px">
           <div class="ai-scan-bar">
             <div class="ai-scan-fill" id="aiScanFill"></div>
           </div>
@@ -1577,6 +1589,8 @@ function openAddListing(){
   if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
   document.getElementById('addModal').style.display='flex';
   resetAiZone();
+  // Generate QR code after a short delay (library may still be loading)
+  setTimeout(generateInlineQr, 300);
 }
 function closeAddListing(){
   document.getElementById('addModal').style.display='none';
@@ -1584,6 +1598,7 @@ function closeAddListing(){
   document.getElementById('addCardPreview').style.display='none';
   document.getElementById('addCardUrl').value='';
   resetAiZone();
+  resetQrInline();
 }
 
 // ── AI Photo Recognition ──────────────────────────────────────
@@ -1598,8 +1613,8 @@ function resetAiZone(){
     zone.innerHTML=`<input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div id="aiDropContent">
       <div class="ai-drop-icon">📸</div>
-      <div class="ai-drop-title">Vyfot nebo přetáhni kartu</div>
-      <div class="ai-drop-hint">AI automaticky rozezná pokémona, sérii a číslo</div>
+      <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber</div>
+      <div class="ai-drop-hint" style="font-size:11px">AI rozezná kartu</div>
     </div>`;
   }
   const prog = document.getElementById('aiScanProgress');
@@ -1954,6 +1969,75 @@ async function submitListing(){
   applyFilters();
 }
 
+// ── Inline QR Code (in photo section) ─────────────────────────
+let _qrInlineGenerated = false;
+
+function generateInlineQr() {
+  const container = document.getElementById('qrInlineCanvas');
+  if (!container) return;
+  if (_qrInlineGenerated) return; // already generated
+  _qrInlineGenerated = true;
+
+  const base = window.location.origin + window.location.pathname;
+  const url  = base + '?newlisting=1&mode=camera';
+  window._qrInlineUrl = url;
+
+  container.innerHTML = '';
+  container.style.width  = '90px';
+  container.style.height = '90px';
+
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(container, {
+      text: url, width: 74, height: 74,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+    const copyBtn = document.getElementById('qrCopyBtn');
+    if (copyBtn) copyBtn.style.display = '';
+    const panel = document.getElementById('qrInlinePanel');
+    if (panel) { panel.style.borderColor='rgba(116,180,255,0.35)'; panel.style.cursor='default'; }
+  } else {
+    container.innerHTML = '<div style="color:#f87171;font-size:9px;text-align:center;padding:8px">QR knihovna<br>se načítá…</div>';
+    setTimeout(() => { _qrInlineGenerated = false; generateInlineQr(); }, 1500);
+  }
+}
+
+function copyInlineQrUrl() {
+  const url = window._qrInlineUrl;
+  if (!url) return;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('qrCopyBtn');
+    if (btn) { const orig = btn.textContent; btn.textContent = '✅ Zkopírováno!'; setTimeout(()=>btn.textContent=orig, 2000); }
+  }).catch(() => { prompt('Zkopíruj odkaz:', url); });
+}
+
+function resetQrInline() {
+  _qrInlineGenerated = false;
+  const container = document.getElementById('qrInlineCanvas');
+  if (container) container.innerHTML = '<div style="font-size:22px">📱</div>';
+  const copyBtn = document.getElementById('qrCopyBtn');
+  if (copyBtn) copyBtn.style.display = 'none';
+  const panel = document.getElementById('qrInlinePanel');
+  if (panel) { panel.style.borderColor=''; panel.style.cursor='pointer'; }
+  window._qrInlineUrl = null;
+}
+
+// ── Handle ?mode=camera (from QR scan on mobile) ───────────────
+window.addEventListener('load', function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('newlisting') !== '1' || params.get('mode') !== 'camera') return;
+  history.replaceState({}, '', window.location.pathname);
+  const tryLaunch = () => {
+    if (!token) { setTimeout(tryLaunch, 300); return; }
+    openAddListing();
+    setTimeout(() => {
+      const input = document.getElementById('aiPhotoInput');
+      if (input) { input.setAttribute('capture', 'environment'); input.click(); }
+    }, 600);
+  };
+  setTimeout(tryLaunch, 800);
+});
+
 function openChat() {
   if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
   if(!currentListing) return;
@@ -2204,5 +2288,6 @@ async function mktRunFakeCheck() {
   }
 }
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>
 </html>
