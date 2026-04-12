@@ -56,7 +56,9 @@
     .block-form input, .block-form select {
       background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
       color: #e2e0f0; border-radius: 7px; padding: .45rem .75rem; font-size: .85rem;
+      color-scheme: dark;
     }
+    .block-form select option { background: #0e0c14; color: #f0ece4; }
     .block-form input:focus { outline: none; border-color: rgba(245,200,66,.5); }
 
     .btn-danger {
@@ -160,11 +162,11 @@
   <div class="panel" id="panel-history">
     <div class="search-bar">
       <input type="text" id="histSearch" placeholder="Filtrovat podle IP nebo uživatele…" oninput="filterHistory()">
-      <select id="histFilter" onchange="filterHistory()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#e2e0f0;border-radius:8px;padding:.45rem .75rem;font-size:.85rem;">
-        <option value="">Vše</option>
-        <option value="login">Přihlášení</option>
-        <option value="register">Registrace</option>
-        <option value="failed">Neúspěšné</option>
+      <select id="histFilter" onchange="filterHistory()" style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:#e2e0f0;border-radius:8px;padding:.45rem .75rem;font-size:.85rem;color-scheme:dark;">
+        <option value="" style="background:#0e0c14;color:#f0ece4;">Vše</option>
+        <option value="login" style="background:#0e0c14;color:#f0ece4;">Přihlášení</option>
+        <option value="register" style="background:#0e0c14;color:#f0ece4;">Registrace</option>
+        <option value="failed" style="background:#0e0c14;color:#f0ece4;">Neúspěšné</option>
       </select>
     </div>
     <div class="card-box">

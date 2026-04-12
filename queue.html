@@ -94,7 +94,9 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   padding: 7px 12px; background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
   color: #f0ece4; font-size: 13px; font-family: inherit; min-width: 180px;
+  color-scheme: dark;
 }
+.album-sel option { background: #0e0c14; color: #f0ece4; }
 .btn-gold {
   background: linear-gradient(135deg,#f5c842,#ff8c00); color: #000;
   border: none; border-radius: 8px; padding: 8px 18px;
@@ -312,8 +314,9 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   flex: 1; min-width: 160px;
   padding: 7px 10px; background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;
-  color: #f0ece4; font-size: 12px; font-family: inherit;
+  color: #f0ece4; font-size: 12px; font-family: inherit; color-scheme: dark;
 }
+.cg-footer .album-sel-inline option { background: #0e0c14; color: #f0ece4; }
 .btn-assign {
   background: linear-gradient(135deg,#4ade80,#16a34a); color: #000;
   border: none; border-radius: 8px; padding: 8px 16px;
@@ -455,7 +458,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 #bulkBar.show { display: flex; }
 #bulkBar .bulk-count { font-size: 13px; font-weight: 700; color: #f5c842; }
-#bulkBar select { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: #f0e8d0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; }
+#bulkBar select { background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.15); color: #f0e8d0; border-radius: 8px; padding: 6px 10px; font-size: 12px; font-family: inherit; color-scheme: dark; }
+#bulkBar select option { background: #0e0c14; color: #f0ece4; }
 #bulkBar .btn-bulk-assign { background: #f5c842; color: #1a1025; border: none; border-radius: 8px; padding: 7px 16px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit; }
 #bulkBar .btn-bulk-cancel { background: transparent; border: 1px solid rgba(255,255,255,.2); color: rgba(240,232,208,.5); border-radius: 8px; padding: 7px 12px; font-size: 12px; cursor: pointer; font-family: inherit; }
 
@@ -564,8 +568,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     </div>
     <div class="head-actions">
       <select id="globalAlbumSel" class="album-sel" onchange="onGlobalAlbumChange(this)">
-        <option value="">— Zařadit bez alba —</option>
-        <option value="__new__">＋ Nové album…</option>
+        <option value="" style="background:#0e0c14;color:#f0ece4;">— Zařadit bez alba —</option>
+        <option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>
       </select>
       <div class="new-album-wrap" id="globalNewAlbumWrap">
         <input class="new-album-inp" id="globalNewAlbumInp" placeholder="Název nového alba…">
@@ -593,7 +597,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <div id="bulkBar">
   <span class="bulk-count" id="bulkCount">0 vybráno</span>
   <select id="bulkAlbumSel">
-    <option value="">— Bez alba —</option>
+    <option value="" style="background:#0e0c14;color:#f0ece4;">— Bez alba —</option>
   </select>
   <button class="btn-bulk-assign" onclick="bulkAssignSelected()">✅ Zařadit vybrané</button>
   <button class="btn-bulk-cancel" onclick="clearBulkSelection()">✕ Zrušit</button>
@@ -932,8 +936,8 @@ function buildGroupEl(g, gi) {
   }
 
   // Build album options for this group
-  const albumOpts = `<option value="">— Bez alba —</option><option value="__new__">＋ Nové album…</option>` +
-    albums.map(a => `<option value="${a.id}">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
+  const albumOpts = `<option value="" style="background:#0e0c14;color:#f0ece4;">— Bez alba —</option><option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>` +
+    albums.map(a => `<option value="${a.id}" style="background:#0e0c14;color:#f0ece4;">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
 
   el.innerHTML = `
     <!-- Header -->
@@ -1109,6 +1113,8 @@ async function ensureAlbum(albumId, newAlbumName) {
     // Přidej do všech selectů
     document.querySelectorAll('.album-sel-inline, #globalAlbumSel').forEach(sel => {
       const o = new Option(`📁 ${name}`, newId);
+      o.style.background = '#0e0c14';
+      o.style.color = '#f0ece4';
       sel.appendChild(o);
     });
   }

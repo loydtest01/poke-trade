@@ -6,6 +6,23 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ── Global dark <select> dropdown fix ──────────────────────────
+   Browsers use native OS rendering for option lists by default
+   (which is white). These rules force dark background everywhere. */
+select {
+  color-scheme: dark;
+}
+select option {
+  background: #12121a;
+  color: #e8e8f0;
+}
+select optgroup {
+  background: #0e0c14;
+  color: #9090a8;
+  font-weight: 700;
+  font-style: normal;
+}
+
 :root {
   --bg:       #0a0a0f;
   --bg2:      #12121a;

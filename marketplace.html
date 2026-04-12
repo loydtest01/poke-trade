@@ -149,7 +149,17 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   padding: 8px 12px; border-radius: 9px;
   border: 1px solid var(--border); background: rgba(255,255,255,0.06);
   color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 13px;
-  cursor: pointer; outline: none;
+  cursor: pointer; outline: none; color-scheme: dark;
+}
+.sort-sel option, .adv-inp option {
+  background: #0e0c14;
+  color: #f0ece4;
+}
+.sort-sel optgroup, .adv-inp optgroup {
+  background: #0a0810;
+  color: rgba(240,236,228,0.45);
+  font-style: normal;
+  font-weight: 700;
 }
 .view-toggle { display: flex; gap: 4px; background: rgba(255,255,255,0.05); border-radius: 9px; padding: 3px; }
 .vt-btn {
@@ -787,7 +797,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   width: 100%; padding: 8px 10px; border-radius: 8px;
   border: 1px solid var(--border); background: rgba(255,255,255,0.05);
   color: var(--text); font-family: 'DM Sans', sans-serif;
-  font-size: 13px; outline: none;
+  font-size: 13px; outline: none; color-scheme: dark;
 }
 .adv-inp:focus { border-color: rgba(245,200,66,0.4); }
 .adv-url-row { margin-bottom: 12px; }
@@ -1121,7 +1131,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           </div>
           <div class="adv-field">
             <label>Typ / Element</label>
-            <select class="adv-inp" id="afType">
+            <select class="adv-inp" id="afType" onchange="syncAdvTypeToSidebar(this.value)">
               <option value="">Všechny typy</option>
               <option value="fire">🔥 Ohnivý</option>
               <option value="water">💧 Vodní</option>
@@ -1137,7 +1147,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           </div>
           <div class="adv-field">
             <label>Vzácnost</label>
-            <select class="adv-inp" id="afRarity">
+            <select class="adv-inp" id="afRarity" onchange="syncAdvRarityToSidebar(this.value)">
               <option value="">Všechny vzácnosti</option>
               <option value="common">Common</option>
               <option value="uncommon">Uncommon</option>
@@ -1151,7 +1161,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           </div>
           <div class="adv-field">
             <label>Stav karty</label>
-            <select class="adv-inp" id="afCond">
+            <select class="adv-inp" id="afCond" onchange="syncAdvCondToSidebar(this.value)">
               <option value="">Všechny stavy</option>
               <option value="NM">NM – Nová / Mint</option>
               <option value="LP">LP – Lehce hraná</option>
@@ -1350,11 +1360,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <div>
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Stav karty</div>
         <select id="addCond" class="sort-sel" style="width:100%">
-          <option value="NM">NM – Nová / Mint</option>
-          <option value="LP">LP – Lehce hraná</option>
-          <option value="MP">MP – Středně hraná</option>
-          <option value="HP">HP – Hodně hraná</option>
-          <option value="D">D – Poškozená</option>
+          <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – Nová / Mint</option>
+          <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná</option>
+          <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná</option>
+          <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná</option>
+          <option value="D" style="background:#0e0c14;color:#f0ece4;">D – Poškozená</option>
         </select>
       </div>
       <div>
@@ -1860,10 +1870,27 @@ function applyFilters(){
   if(sort==='offers')     filteredListings.sort((a,b)=>(b.offer_count||0)-(a.offer_count||0));
 
   document.getElementById('countInfo').textContent = filteredListings.length + ' nabídek';
+  _syncSidebarToAdvDropdowns();
   renderListings();
 }
 
 function renderListings(){
+  // Album compare filter — remove cards already in the selected album
+  if (activeCompareAlbumId) {
+    const albumNames = albumCardsCache[activeCompareAlbumId];
+    if (albumNames) {
+      filteredListings = filteredListings.filter(l => {
+        if (l.listing_type === 'product') return true;
+        const cardName = (l.card_name || (l.cards_data?.[0]?.name) || '').toLowerCase();
+        return !cardName || !albumNames.has(cardName);
+      });
+      const bannerCount = document.getElementById('compareBannerCount');
+      const badge = document.getElementById('acBadge');
+      if (bannerCount) bannerCount.textContent = `· ${filteredListings.length} nabídek s kartami, které nemáš`;
+      if (badge) { badge.textContent = filteredListings.length; badge.style.display = filteredListings.length ? '' : 'none'; }
+    }
+  }
+
   const wrap = document.getElementById('listingsWrap');
   if(!filteredListings.length){
     wrap.innerHTML='<div class="empty-state"><div class="icon">🔍</div><h3>Žádné nabídky</h3><p>Zkus jiné filtry nebo hledání.</p></div>';
@@ -3290,6 +3317,140 @@ function openCardSearchForListing(){
   openCardSearch('listing');
 }
 
+// ── Advanced filter → Sidebar sync ───────────────────────────
+// When user picks in the dropdown panel, the left sidebar reacts.
+
+function syncAdvTypeToSidebar(val) {
+  // Uncheck all element checkboxes first
+  ['fFire','fWater','fGrass','fElec','fPsychic','fDark','fDragon','fOther'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  if (!val) return; // "Všechny typy" → uncheck all (= no filter = show all)
+  const map = {
+    fire:      'fFire',
+    water:     'fWater',
+    grass:     'fGrass',
+    lightning: 'fElec',
+    psychic:   'fPsychic',
+    darkness:  'fDark',
+    dragon:    'fDragon',
+    fighting:  'fOther',
+    metal:     'fOther',
+    colorless: 'fOther',
+  };
+  const cbId = map[val];
+  if (cbId) {
+    const cb = document.getElementById(cbId);
+    if (cb) cb.checked = true;
+  }
+  applyFilters();
+}
+
+function syncAdvRarityToSidebar(val) {
+  ['fCommon','fRare','fUltra'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.checked = false;
+  });
+  if (!val) return;
+  const map = {
+    'common':                    'fCommon',
+    'uncommon':                  'fCommon',
+    'rare':                      'fRare',
+    'rare holo':                 'fRare',
+    'rare ultra':                'fUltra',
+    'special illustration rare': 'fUltra',
+    'hyper rare':                'fUltra',
+    'illustration rare':         'fUltra',
+  };
+  const cbId = map[val];
+  if (cbId) {
+    const cb = document.getElementById(cbId);
+    if (cb) cb.checked = true;
+  }
+  applyFilters();
+}
+
+function syncAdvCondToSidebar(val) {
+  if (!val) {
+    // "Všechny stavy" → restore all checkboxes to checked
+    ['fNM','fLP','fMP','fHP'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = true;
+    });
+  } else {
+    // Uncheck all, then check only the selected one
+    ['fNM','fLP','fMP','fHP'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.checked = false;
+    });
+    const map = { NM:'fNM', LP:'fLP', MP:'fMP', HP:'fHP', D:'fHP' };
+    const cbId = map[val];
+    if (cbId) {
+      const cb = document.getElementById(cbId);
+      if (cb) cb.checked = true;
+    }
+  }
+  applyFilters();
+}
+
+function _syncSidebarToAdvDropdowns() {
+  // Sync condition dropdown
+  const condSel = document.getElementById('afCond');
+  if (condSel) {
+    const nm = document.getElementById('fNM')?.checked;
+    const lp = document.getElementById('fLP')?.checked;
+    const mp = document.getElementById('fMP')?.checked;
+    const hp = document.getElementById('fHP')?.checked;
+    const allOn = nm && lp && mp && hp;
+    if (allOn) {
+      condSel.value = '';
+    } else if (nm && !lp && !mp && !hp) {
+      condSel.value = 'NM';
+    } else if (!nm && lp && !mp && !hp) {
+      condSel.value = 'LP';
+    } else if (!nm && !lp && mp && !hp) {
+      condSel.value = 'MP';
+    } else if (!nm && !lp && !mp && hp) {
+      condSel.value = 'HP';
+    } else {
+      condSel.value = ''; // mixed selection → reset dropdown
+    }
+  }
+
+  // Sync rarity dropdown
+  const rarSel = document.getElementById('afRarity');
+  if (rarSel) {
+    const cm = document.getElementById('fCommon')?.checked;
+    const ra = document.getElementById('fRare')?.checked;
+    const ul = document.getElementById('fUltra')?.checked;
+    if (!cm && !ra && !ul) rarSel.value = '';
+    else if (cm && !ra && !ul)  rarSel.value = 'common';
+    else if (!cm && ra && !ul)  rarSel.value = 'rare';
+    else if (!cm && !ra && ul)  rarSel.value = 'rare ultra';
+    else rarSel.value = ''; // multiple checked → reset
+  }
+
+  // Sync element/type dropdown
+  const typSel = document.getElementById('afType');
+  if (typSel) {
+    const checks = {
+      fire:     document.getElementById('fFire')?.checked,
+      water:    document.getElementById('fWater')?.checked,
+      grass:    document.getElementById('fGrass')?.checked,
+      lightning:document.getElementById('fElec')?.checked,
+      psychic:  document.getElementById('fPsychic')?.checked,
+      darkness: document.getElementById('fDark')?.checked,
+      dragon:   document.getElementById('fDragon')?.checked,
+      other:    document.getElementById('fOther')?.checked,
+    };
+    const active = Object.entries(checks).filter(([,v])=>v).map(([k])=>k);
+    if (active.length === 0) typSel.value = '';
+    else if (active.length === 1) typSel.value = active[0] === 'other' ? 'fighting' : active[0];
+    else typSel.value = ''; // multiple → reset
+  }
+}
+
 // ── Album Compare ─────────────────────────────────────────────
 let userAlbums = [];          // [{id, name, card_count}]
 let albumCardsCache = {};     // albumId → Set of card names (lowercase)
@@ -3432,31 +3593,6 @@ function clearAlbumCompare() {
   renderAlbumPickerList();
   applyFilters();
 }
-
-// Extend applyFilters to support album compare filter
-// We patch into the existing flow via a wrapper check in renderListings
-const _origApplyFilters = applyFilters;
-// Instead, patch the filteredListings post-processing
-const _origRenderListings = renderListings;
-function renderListings() {
-  if (activeCompareAlbumId) {
-    const albumNames = albumCardsCache[activeCompareAlbumId];
-    if (albumNames) {
-      filteredListings = filteredListings.filter(l => {
-        if (l.listing_type === 'product') return true; // always show products
-        const cardName = (l.card_name || (l.cards_data?.[0]?.name) || '').toLowerCase();
-        return !cardName || !albumNames.has(cardName);
-      });
-      // Update banner count
-      const bannerCount = document.getElementById('compareBannerCount');
-      const badge = document.getElementById('acBadge');
-      if (bannerCount) bannerCount.textContent = `· ${filteredListings.length} nabídek s kartami, které nemáš`;
-      if (badge) { badge.textContent = filteredListings.length; badge.style.display = filteredListings.length ? '' : 'none'; }
-    }
-  }
-  _origRenderListings();
-}
-
 
 // ── Trade: Album card finder ──────────────────────────────────
 let tradeAlbumPickerOpen = false;

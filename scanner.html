@@ -141,8 +141,9 @@ body::after {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 11px 14px; font-size: 14px; font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s; width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s; width: 100%; color-scheme: dark;
 }
+.field select option { background: #0e0c14; color: #f0ece4; }
 .field input:focus, .field select:focus {
   outline: none;
   border-color: rgba(245,200,66,0.5);
@@ -393,8 +394,9 @@ body::after {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: var(--radius-sm); color: var(--text);
   padding: 6px 10px; font-size: 12px; font-family: inherit;
-  flex: 1; min-width: 80px;
+  flex: 1; min-width: 80px; color-scheme: dark;
 }
+.result-edit select option { background: #0e0c14; color: #f0ece4; }
 .result-edit input:focus, .result-edit select:focus {
   outline: none; border-color: rgba(245,200,66,0.4);
 }
@@ -1608,9 +1610,9 @@ function renderSingleResult(p, container) {
           onchange="updateResult(${p.id},'set',this.value)" title="Set">
         <input type="text" value="${r.number || ''}" placeholder="Číslo"
           onchange="updateResult(${p.id},'number',this.value)" style="max-width:90px;" title="Číslo">
-        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav">
+        <select onchange="updateResult(${p.id},'condition',this.value)" title="Stav" style="color-scheme:dark">
           ${['NM','LP','MP','HP','D'].map(c =>
-            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}">${c}</option>`).join('')}
+            `<option ${c === (r.condition||'NM') ? 'selected':''} value="${c}" style="background:#0e0c14;color:#f0ece4;">${c}</option>`).join('')}
         </select>
       </div>
 

@@ -122,7 +122,10 @@ body { background: #0a0a0f; overflow-x: hidden; }
   border: 1px solid rgba(255,255,255,0.1);
   background: rgba(255,255,255,0.05); color: var(--text2);
   font-family: inherit; font-size: 12px; cursor: pointer; outline: none;
+  color-scheme: dark;
 }
+.sort-select option { background: #0e0c14; color: #f0ece4; }
+.sort-select optgroup { background: #0a0810; color: rgba(240,236,228,0.45); font-style: normal; }
 
 /* ── Album book ─────────────────────────────────────────────── */
 .album-book { display: none; }
@@ -523,10 +526,10 @@ body { background: #0a0a0f; overflow-x: hidden; }
     <div class="side-section">
       <span class="side-label">Sync nastavení</span>
       <select id="syncModeSelect" onchange="changeSyncMode(this.value)"
-        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer">
-        <option value="hourly">Každou hodinu</option>
-        <option value="realtime">Real-time (30s)</option>
-        <option value="manual">Manuálně</option>
+        style="width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.05);color:var(--text2);font-family:inherit;font-size:12px;cursor:pointer;color-scheme:dark;">
+        <option value="hourly" style="background:#0e0c14;color:#f0ece4;">Každou hodinu</option>
+        <option value="realtime" style="background:#0e0c14;color:#f0ece4;">Real-time (30s)</option>
+        <option value="manual" style="background:#0e0c14;color:#f0ece4;">Manuálně</option>
       </select>
       <div id="lastSyncInfo" style="font-size:10px;color:var(--text3);margin-top:6px;padding:0 2px"></div>
     </div>
