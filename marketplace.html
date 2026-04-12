@@ -668,6 +668,97 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 *::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,0.35); }
 
+/* ── Pending queue button & badge ──────────────────────────── */
+.btn-pending {
+  position: relative;
+  padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(245,200,66,0.3);
+  background: rgba(245,200,66,0.07); color: var(--yellow);
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; gap: 6px; white-space: nowrap;
+  font-family: inherit;
+}
+.btn-pending:hover { background: rgba(245,200,66,0.14); border-color: rgba(245,200,66,0.5); }
+.btn-pending.active { background: rgba(245,200,66,0.18); border-color: rgba(245,200,66,0.6); }
+.pending-badge {
+  background: var(--yellow); color: #000;
+  font-size: 10px; font-weight: 900;
+  min-width: 18px; height: 18px; border-radius: 9px;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 5px; line-height: 1;
+}
+
+/* ── Pending queue panel ────────────────────────────────────── */
+#pendingPanel {
+  display: none;
+  background: rgba(10,8,18,0.96);
+  border: 1px solid rgba(245,200,66,0.18);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  animation: panelSlide .18s ease;
+}
+@keyframes panelSlide {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#pendingPanel .panel-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+}
+#pendingPanel .panel-head-title {
+  font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 800;
+  color: var(--yellow); display: flex; align-items: center; gap: 8px;
+}
+#pendingPanel .panel-close {
+  background: none; border: none; color: var(--text3);
+  font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1;
+}
+#pendingPanel .panel-close:hover { color: var(--text2); }
+.pending-list { display: flex; flex-direction: column; }
+.pending-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  cursor: pointer; transition: background .12s;
+}
+.pending-row:last-child { border-bottom: none; }
+.pending-row:hover { background: rgba(245,200,66,0.04); }
+.pending-row-img {
+  width: 36px; height: 50px; border-radius: 5px; object-fit: cover;
+  flex-shrink: 0; background: rgba(255,255,255,0.04);
+}
+.pending-row-info { flex: 1; min-width: 0; }
+.pending-row-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pending-row-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.pending-row-price {
+  font-size: 13px; font-weight: 700; color: var(--yellow);
+  white-space: nowrap; flex-shrink: 0;
+}
+.pending-row-cond {
+  font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 5px;
+  background: rgba(255,255,255,0.06); color: var(--text3);
+  white-space: nowrap; flex-shrink: 0;
+}
+.pending-row-del {
+  background: none; border: none; color: rgba(248,113,113,0.4);
+  font-size: 14px; cursor: pointer; padding: 4px 6px; line-height: 1;
+  border-radius: 5px; transition: all .12s; flex-shrink: 0;
+}
+.pending-row-del:hover { color: #f87171; background: rgba(248,113,113,0.1); }
+.pending-empty {
+  padding: 32px 16px; text-align: center;
+  font-size: 13px; color: var(--text3); line-height: 1.6;
+}
+
+/* ── Album price info in listing form ──────────────────────── */
+.album-price-info {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.18);
+  font-size: 12px; color: var(--text3); margin-bottom: 2px;
+}
+.album-price-info strong { color: var(--yellow); font-size: 15px; font-weight: 800; }
+
 </style>
 </head>
 <body>
@@ -758,6 +849,20 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   </aside>
 
   <main class="main">
+    <!-- PENDING QUEUE PANEL -->
+    <div id="pendingPanel">
+      <div class="panel-head">
+        <div class="panel-head-title">
+          ⏳ Čeká na vystavení
+          <span class="pending-badge" id="pendingBadgePanel">0</span>
+        </div>
+        <button class="panel-close" onclick="togglePendingPanel(false)">✕</button>
+      </div>
+      <div class="pending-list" id="pendingList">
+        <div class="pending-empty">Žádné karty nečekají na vystavení.</div>
+      </div>
+    </div>
+
     <!-- LIST VIEW -->
     <div id="listView">
       <div class="market-toolbar">
@@ -775,6 +880,9 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')">⊞ Mřížka</button>
         </div>
         <span class="count-info" id="countInfo">0 nabídek</span>
+        <button id="btnPendingQueue" class="btn-pending" onclick="togglePendingPanel()" style="display:none">
+          ⏳ Čeká na vystavení <span class="pending-badge" id="pendingBadgeBtn">0</span>
+        </button>
         <button onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
       </div>
       <div id="listingsWrap" class="listings-wrap"></div>
@@ -916,6 +1024,9 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       </div>
       <div id="addPriceRow">
         <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Cena (Kč)</div>
+        <div id="albumPriceInfo" class="album-price-info" style="display:none">
+          📒 Cena z alba: <strong id="albumPriceVal">—</strong> Kč &nbsp;·&nbsp; <span style="font-size:11px;opacity:.7">Pouze orientační — zadej svou prodejní cenu níže</span>
+        </div>
         <input id="addPrice" class="panel-inp" type="number" placeholder="Např. 450">
       </div>
       <div id="addTradeRow" style="display:none">
@@ -1599,6 +1710,8 @@ function closeAddListing(){
   document.getElementById('addCardUrl').value='';
   resetAiZone();
   resetQrInline();
+  // Pending queue cleanup
+  if(typeof closeAddListing_pendingCleanup === 'function') closeAddListing_pendingCleanup();
 }
 
 // ── AI Photo Recognition ──────────────────────────────────────
@@ -1963,13 +2076,193 @@ async function submitListing(){
   const res = await sbReq('rest/v1/listings','POST',payload,token);
   if(res._err){ alert('Chyba: '+res._err); return; }
   alert('Nabídka zveřejněna!');
+  // Remove from pending queue if came from there
+  if (_pendingFromQueue?._pendingId) {
+    removePendingCard(_pendingFromQueue._pendingId);
+    _pendingFromQueue = null;
+  }
   closeAddListing();
   // Reload
   allListings.unshift(Array.isArray(res)?res[0]:res);
   applyFilters();
 }
 
-// ── Inline QR Code (in photo section) ─────────────────────────
+// ── Pending Queue (Čeká na vystavení) ─────────────────────────
+const PENDING_KEY = 'pkt_pending_listings';
+let _pendingFromQueue = null;   // card being listed from the queue
+let _pendingPanelOpen = false;
+
+function getPendingQueue() {
+  try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); }
+  catch { return []; }
+}
+function savePendingQueue(arr) {
+  localStorage.setItem(PENDING_KEY, JSON.stringify(arr));
+}
+
+/** Add a card to the pending queue (called from album page) */
+window.addToPendingQueue = function(card) {
+  const q = getPendingQueue();
+  if (!q.find(c => c._pendingId === card._pendingId)) {
+    q.push(card);
+    savePendingQueue(q);
+  }
+  updatePendingBadge();
+};
+
+/** Remove one card from queue by _pendingId */
+function removePendingCard(pendingId) {
+  const q = getPendingQueue().filter(c => c._pendingId !== pendingId);
+  savePendingQueue(q);
+  updatePendingBadge();
+  renderPendingList();
+}
+
+/** Update badge counts and show/hide button */
+function updatePendingBadge() {
+  const count = getPendingQueue().length;
+  const btn   = document.getElementById('btnPendingQueue');
+  const b1    = document.getElementById('pendingBadgeBtn');
+  const b2    = document.getElementById('pendingBadgePanel');
+  if (b1) b1.textContent = count;
+  if (b2) b2.textContent = count;
+  if (btn) btn.style.display = count > 0 ? '' : 'none';
+  if (count === 0 && _pendingPanelOpen) togglePendingPanel(false);
+}
+
+function togglePendingPanel(forceOpen) {
+  _pendingPanelOpen = forceOpen !== undefined ? forceOpen : !_pendingPanelOpen;
+  const panel = document.getElementById('pendingPanel');
+  const btn   = document.getElementById('btnPendingQueue');
+  if (!panel) return;
+  if (_pendingPanelOpen) {
+    panel.style.display = '';
+    renderPendingList();
+    if (btn) btn.classList.add('active');
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.classList.remove('active');
+  }
+}
+
+function renderPendingList() {
+  const wrap = document.getElementById('pendingList');
+  if (!wrap) return;
+  const q = getPendingQueue();
+  if (!q.length) {
+    wrap.innerHTML = '<div class="pending-empty">Žádné karty nečekají na vystavení.<br><a href="moje-album.html" style="color:var(--blue)">Označ karty v Moje album →</a></div>';
+    return;
+  }
+  wrap.innerHTML = q.map(card => {
+    const img    = card.images?.small || '';
+    const name   = esc(card.name || '—');
+    const set    = esc(card.set?.name || card.set || '');
+    const num    = card.number ? ' · #' + esc(card.number) : '';
+    const cond   = esc(card.condition || card.card_condition || 'NM');
+    const price  = card.album_price ? card.album_price + ' Kč' : '—';
+    const pid    = esc(card._pendingId || card.id || '');
+    return `<div class="pending-row" onclick="openListingFromQueue(${JSON.stringify(JSON.stringify(card))})">
+      ${img ? `<img class="pending-row-img" src="${esc(img)}" loading="lazy">` : '<div class="pending-row-img"></div>'}
+      <div class="pending-row-info">
+        <div class="pending-row-name">${name}</div>
+        <div class="pending-row-meta">${set}${num}</div>
+      </div>
+      <div class="pending-row-cond">${cond}</div>
+      <div class="pending-row-price">${price}</div>
+      <button class="pending-row-del" title="Odebrat z fronty" onclick="event.stopPropagation();removePendingCard('${pid}')">✕</button>
+    </div>`;
+  }).join('');
+}
+
+/** Open the listing modal pre-filled from a pending queue card */
+function openListingFromQueue(jsonStr) {
+  const card = JSON.parse(jsonStr);
+  _pendingFromQueue = card;
+  if (!token) { alert('Přihlas se pro přidání nabídky.'); return; }
+
+  // Open modal
+  document.getElementById('addModal').style.display = 'flex';
+  resetAiZone();
+  setTimeout(generateInlineQr, 300);
+
+  // Pre-fill card data
+  addCardData = card;
+  document.getElementById('addCardImg').src = card.images?.small || '';
+  document.getElementById('addCardName').textContent = card.name || '';
+  const setName = card.set?.name || card.set || '';
+  const num = card.number ? ' #' + card.number : '';
+  document.getElementById('addCardMeta').textContent = setName + num;
+  document.getElementById('addCardPreview').style.display = 'flex';
+  if (card.id && !card.id.startsWith('search_')) {
+    document.getElementById('addCardUrl').value = card.id;
+  }
+
+  // Pre-fill condition
+  const condSel = document.getElementById('addCond');
+  const cond = card.condition || card.card_condition || 'NM';
+  if (condSel) {
+    for (let opt of condSel.options) { if (opt.value === cond) { opt.selected = true; break; } }
+  }
+
+  // Show album price as info
+  const priceInfo = document.getElementById('albumPriceInfo');
+  const priceVal  = document.getElementById('albumPriceVal');
+  if (card.album_price && priceInfo && priceVal) {
+    priceVal.textContent = card.album_price;
+    priceInfo.style.display = 'flex';
+    // Suggest the price in the input but user can change it
+    document.getElementById('addPrice').value = card.album_price;
+  } else if (priceInfo) {
+    priceInfo.style.display = 'none';
+  }
+}
+
+// After successful listing, remove the card from queue — handled inside submitListing above
+// and closeAddListing below resets queue state too
+
+function closeAddListing_pendingCleanup() {
+  _pendingFromQueue = null;
+  const priceInfo = document.getElementById('albumPriceInfo');
+  if (priceInfo) priceInfo.style.display = 'none';
+}
+
+// Init on load
+document.addEventListener('DOMContentLoaded', function() {
+  updatePendingBadge();
+});
+// Also update badge when localStorage changes (album tab writes to it)
+window.addEventListener('storage', function(e) {
+  if (e.key === PENDING_KEY) {
+    updatePendingBadge();
+    if (_pendingPanelOpen) renderPendingList();
+  }
+});
+
+// ── Handle ?sell=1&cards=... URL from album page ───────────────
+(function checkSellParam() {
+  const p = new URLSearchParams(location.search);
+  if (p.get('sell') !== '1') return;
+  history.replaceState({}, '', location.pathname);
+  // Cards may be passed as JSON in ?cards=...
+  try {
+    const raw = p.get('cards');
+    if (raw) {
+      const cards = JSON.parse(decodeURIComponent(raw));
+      const arr = Array.isArray(cards) ? cards : [cards];
+      const q = getPendingQueue();
+      let added = 0;
+      arr.forEach(card => {
+        if (!card._pendingId) card._pendingId = card.id + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,6);
+        if (!q.find(c => c._pendingId === card._pendingId)) { q.push(card); added++; }
+      });
+      if (added) savePendingQueue(q);
+    }
+  } catch(e) { /* ignore */ }
+  // Open panel after listings load
+  setTimeout(() => { updatePendingBadge(); togglePendingPanel(true); }, 800);
+})();
+
+
 let _qrInlineGenerated = false;
 
 function generateInlineQr() {
