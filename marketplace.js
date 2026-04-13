@@ -1,7 +1,3 @@
-<script src="app.js"></script>
-<script src="notif-bell.js"></script>
-<script src="fake-detector.js"></script>
-<script>
 // SUPABASE_URL a SUPABASE_ANON jsou načteny z app.js
 
 async function sbReq(path, method='GET', body=null, token=null) {
@@ -122,6 +118,27 @@ function clearAdvancedFilter() {
   const badge = document.getElementById('advFilterActiveBadge');
   if(badge) badge.style.display = 'none';
   applyFilters();
+}
+
+function clearAllFilters() {
+  // Typ položek → obě checkboxy zaškrtnuty
+  ['itCards','itSealed'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  currentItemType = 'all';
+  // Typ nabídky
+  ['fSell','fTrade'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  // Cena
+  ['fPriceMin','fPriceMax'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  // Stav karty
+  ['fNM','fLP','fMP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  ['fHP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
+  // Elementy
+  ['fFire','fWater','fGrass','fElec','fPsychic','fDark','fDragon','fOther'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
+  // Vzácnost
+  ['fCommon','fRare','fUltra'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
+  // Vyhledávání
+  const si = document.getElementById('searchInput'); if(si) si.value = '';
+  // Pokročilý filtr
+  clearAdvancedFilter();
 }
 
 async function importFromUrl() {
@@ -1138,12 +1155,26 @@ async function submitListing(){
 let currentItemType = 'all';
 
 function setItemType(type) {
+  // Legacy button-based call — map to checkbox state
+  const cbCards  = document.getElementById('itCards');
+  const cbSealed = document.getElementById('itSealed');
+  if (cbCards && cbSealed) {
+    cbCards.checked  = (type === 'all' || type === 'card');
+    cbSealed.checked = (type === 'all' || type === 'product');
+  }
   currentItemType = type;
-  ['all','card','product'].forEach(t => {
-    const id = t==='all'?'itAll':t==='card'?'itCards':'itSealed';
-    const el = document.getElementById(id);
-    if(el) el.classList.toggle('active', t===type);
-  });
+  applyFilters();
+}
+
+function applyItemTypeCheckboxes() {
+  const cbCards  = document.getElementById('itCards');
+  const cbSealed = document.getElementById('itSealed');
+  const cards  = cbCards  ? cbCards.checked  : true;
+  const sealed = cbSealed ? cbSealed.checked : true;
+  if (cards && sealed)   currentItemType = 'all';
+  else if (cards)        currentItemType = 'card';
+  else if (sealed)       currentItemType = 'product';
+  else                   currentItemType = 'all'; // nothing checked → show all
   applyFilters();
 }
 
@@ -1420,7 +1451,7 @@ function renderPendingList() {
     return;
   }
   wrap.innerHTML = q.map(card => {
-    const img    = card.images?.small || '';
+    const img    = card.apiSmall || card.imageUrl || card.api_image_url || card.images?.small || '';
     const name   = esc(card.name || '—');
     const set    = esc(card.set?.name || (typeof card.set === 'string' ? card.set : '') || '');
     const num    = card.number ? ' · #' + esc(card.number) : '';
@@ -2168,3 +2199,4 @@ async function sendTradeAlbumOffer() {
   if (res._err) { alert('Chyba: ' + res._err); return; }
   alert('✅ Nabídka výměny odeslána!');
   tradeAlbumQueuedIds.clear();
+}

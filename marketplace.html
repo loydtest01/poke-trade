@@ -56,11 +56,8 @@
   <aside class="sidebar">
     <div class="sb-section">
       <span class="sb-label">Typ položek</span>
-      <div class="item-type-row" style="margin-top:2px">
-        <button class="item-type-btn active" id="itAll"     onclick="setItemType('all')">Vše</button>
-        <button class="item-type-btn"         id="itCards"  onclick="setItemType('card')">🃏 Karty</button>
-        <button class="item-type-btn"         id="itSealed" onclick="setItemType('product')">📦 Sealed</button>
-      </div>
+      <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"> 🃏 Karty</label>
+      <label class="filter-opt"><input type="checkbox" id="itSealed" checked onchange="applyItemTypeCheckboxes()"> 📦 Sealed</label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -116,6 +113,10 @@
           <div class="album-picker-item" style="color:var(--text3);font-size:11px;pointer-events:none">⏳ Načítám alba...</div>
         </div>
       </div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <button onclick="clearAllFilters()" style="width:100%;padding:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(255,80,80,0.12)';this.style.color='#ff6060'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='var(--text3)'">✕ Vše vymazat</button>
     </div>
   </aside>
 
