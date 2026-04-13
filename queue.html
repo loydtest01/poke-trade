@@ -1909,52 +1909,102 @@ async function resolveCardUrl(url) {
 
   // ── cardmarket.com ─────────────────────────────────────────
   // Formáty:
-  //   .../Singles/Time-Gazer/Hisuian-Lilligant-V-V1-s10D007
+  //   .../Singles/Time-Gazer/Hisuian-Lilligant-V-V1-s10D007      ← JP sety
   //   .../Singles/Sword-Shield-Astral-Radiance/Hisuian-Lilligant-V-014
   //   .../Singles/Crown-Zenith-Galarian-Gallery/Pikachu-GG55-Secret
   } else if (/cardmarket\.com/i.test(url)) {
     const match = url.match(/\/Singles\/([^/]+)\/([^/?#]+)/i);
     if (match) {
-      const rawSlug = match[2]; // např. "Hisuian-Lilligant-V-V1-s10D007"
+      const setSlug  = match[1]; // např. "Time-Gazer"
+      const rawSlug  = match[2]; // např. "Hisuian-Lilligant-V-V1-s10D007"
+
+      // ── Detekce JP setu ─────────────────────────────────────
+      // JP set poznáme: slug setu nebo čísla karty obsahuje JP kód (s10D, sv1S, …)
+      const isJpSlug  = /[_-][a-z]{1,3}\d+[A-Z]\d{3,4}(?:[_-]|$)/i.test(rawSlug);
+      const isJpSet   = /^(Time-Gazer|Space-Juggler|Lost-Abyss|Dark-Phantasma|Incandescent-Arcana|Paradigm-Trigger|VSTAR-Universe|Clay-Burst|Snow-Hazard|Ruler-of-the-Black-Flame|Raging-Surf|Ancient-Roar|Future-Flash|Wild-Force|Cyber-Judge|Mask-of-Change|Night-Wanderer|Stellar-Miracle|Paradise-Dragona|Terastal-Fest)/i.test(setSlug);
+      const isJp = isJpSlug || isJpSet;
 
       // ── Extrakce čísla karty ────────────────────────────────
       // Formát 1: JP sety — s10D007, s10P003, sv1S001 ...
       const jpSetNum = rawSlug.match(/[_-]([a-z]{1,3}\d+[A-Z]?)(\d{3,4})(?:[_-]|$)/i);
       // Formát 2: Galarian Gallery, Trainer Gallery — GG55, TG01, ...
-      const ggNum    = rawSlug.match(/[_-]([A-Z]{1,3}\d+)(?:-[A-Za-z]+)?(?:[_-]|$)/);
+      const ggNum    = rawSlug.match(/[_-]([A-Z]{2}\d+)(?:-[A-Za-z]+)?(?:[_-]|$)/);
       // Formát 3: prostě číslo — 014, 197, 185
       const plainNum = rawSlug.match(/[_-](\d{2,3})(?:[_-]|$)/);
 
+      // Pro JP sety NEpoužíváme číslo pro EN search — JP a EN čísla se liší!
+      // (např. JP Time Gazer #007 ≠ EN Astral Radiance #014)
       let extractedNum = '';
-      if (jpSetNum)   extractedNum = jpSetNum[2].replace(/^0+/, '') || jpSetNum[2]; // "007" → "7"
-      else if (ggNum) extractedNum = ggNum[1];
-      else if (plainNum) extractedNum = plainNum[1].replace(/^0+/, '') || plainNum[1];
+      if (!isJp) {
+        if (jpSetNum)      extractedNum = jpSetNum[2].replace(/^0+/, '') || jpSetNum[2];
+        else if (ggNum)    extractedNum = ggNum[1];
+        else if (plainNum) extractedNum = plainNum[1].replace(/^0+/, '') || plainNum[1];
+      } else if (ggNum) {
+        // I u JP: Gallery kódy (GG55, TG01) jsou sdílené s EN → použít
+        extractedNum = ggNum[1];
+      }
+
+      // ── Extrakce varianty ze slugu (V1/V2=Full Art, SR=Secret, CHR, ...) ──
+      const variantMatch = rawSlug.match(/[_-](V1|V2|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|RR|PR|K)(?:[_-]|$)/i);
+      const cmVariant    = variantMatch ? variantMatch[1].toUpperCase() : '';
+      // Mapování CM variantových kódů na pokemontcg.io rarita/subtype klíčová slova
+      const variantRarityMap = {
+        'V1':  ['Full Art', 'Illustration Rare'],
+        'V2':  ['Special Illustration Rare', 'Alt Art'],
+        'SR':  ['Secret Rare', 'Rainbow Rare', 'Gold'],
+        'CHR': ['Character Rare', 'Illustration Rare'],
+        'HR':  ['Hyper Rare', 'Rainbow Rare'],
+        'SAR': ['Special Illustration Rare'],
+        'CSR': ['Character Super Rare'],
+        'RR':  ['Double Rare'],
+        'AR':  ['Illustration Rare'],
+        'UR':  ['Ultra Rare', 'Secret Rare'],
+      };
+      const preferredRarities = variantRarityMap[cmVariant] || [];
 
       // ── Extrakce jména karty ze slugu ──────────────────────
       // Odstraníme variantu (V1, V2, SR, CHR, Secret...) a set+číslo ze konce
       let namePart = rawSlug
         .replace(/[_-]([a-z]{1,3}\d+[A-Z]?\d{3,4})$/i, '')  // JP set+číslo: -s10D007
-        .replace(/[_-](V\d|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|Full|Special|Alt)$/i, '') // varianty
+        .replace(/[_-](V\d|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|Full|Special|Alt|RR|PR|K)$/i, '') // varianty
         .replace(/-/g, ' ')
         .trim();
 
-      // Sestavíme dotaz: jméno (max 4 slova) + číslo
       const nameWords = namePart.split(' ').slice(0, 4).join(' ');
-      const numQuery  = extractedNum ? `+number:${extractedNum}` : '';
-      const apiUrl    = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"${numQuery}&pageSize=8&orderBy=-set.releaseDate`;
 
-      const res = await fetch(apiUrl).then(r => r.json()).catch(() => null);
-      let candidates = res?.data || [];
+      // ── Vyhledávání v pokemontcg.io ────────────────────────
+      let candidates = [];
 
-      // Pokud nenajdeme s číslem, zkusíme jen jméno
-      if (!candidates.length && nameWords) {
-        const fallbackUrl = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=8&orderBy=-set.releaseDate`;
-        const r2 = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
-        candidates = r2?.data || [];
+      // Pokud máme číslo (non-JP nebo gallery), zkusíme s ním
+      if (extractedNum) {
+        const url1 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"+number:${extractedNum}&pageSize=10&orderBy=-set.releaseDate`;
+        const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
+        candidates = r1?.data || [];
       }
 
-      const c = (extractedNum && candidates.find(x => String(x.number) === String(extractedNum)))
-                || candidates[0];
+      // Vždy také hledáme jen podle jména (potřebujeme pro JP + výběr varianty)
+      if (!candidates.length || isJp) {
+        const url2 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=20&orderBy=-set.releaseDate`;
+        const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
+        const byName = r2?.data || [];
+        if (!candidates.length) candidates = byName;
+        else candidates = [...candidates, ...byName.filter(x => !candidates.find(y => y.id === x.id))];
+      }
+
+      // ── Výběr nejlepšího kandidáta ─────────────────────────
+      let c = null;
+      if (candidates.length) {
+        // 1. Přesná shoda čísla (non-JP)
+        if (extractedNum && !isJp) {
+          c = candidates.find(x => String(x.number) === String(extractedNum));
+        }
+        // 2. Shoda varianty (Full Art, Secret, ...) — prioritizuj preferované rarity
+        if (!c && preferredRarities.length) {
+          c = candidates.find(x => preferredRarities.some(r => x.rarity?.includes(r)));
+        }
+        // 3. Fallback: první výsledek (obvykle nejnovější set)
+        if (!c) c = candidates[0];
+      }
 
       if (c) {
         result = {
@@ -1962,18 +2012,21 @@ async function resolveCardUrl(url) {
           name:     c.name,
           set:      c.set?.name,
           number:   c.number,
+          rarity:   c.rarity || '',
           imageUrl: c.images?.small,
           apiSmall: c.images?.small,
           apiLarge: c.images?.large,
-          cardmarketUrl: url,  // ulož původní CM odkaz
+          cardmarketUrl: url,  // ← vždy ulož původní CM odkaz pro ceny
           sourceUrl: url,
+          isJpSource: isJp,   // příznak: karta je z JP setu
         };
       } else {
-        // Karta nenalezena v pokemontcg.io — ulož alespoň CM odkaz
+        // Karta nenalezena v pokemontcg.io — ulož alespoň CM odkaz + jméno z URL
         result = {
           sourceUrl: url,
           cardmarketUrl: url,
-          name: namePart,  // alespoň jméno z URL
+          name: namePart,
+          isJpSource: isJp,
         };
       }
     }
