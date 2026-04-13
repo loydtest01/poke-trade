@@ -749,7 +749,7 @@ body::after {
       <div class="field">
         <label for="loginPassword">Heslo</label>
         <div class="pw-wrap">
-          <input type="password" id="loginPassword" name="password" placeholder="••••••••" autocomplete="off" required>
+          <input type="password" id="loginPassword" name="password" placeholder="••••••••" autocomplete="current-password" required>
           <button class="pw-eye" onclick="togglePw('loginPassword',this)" type="button">👁</button>
         </div>
       </div>
@@ -1942,11 +1942,8 @@ function updateResult(id, field, value) {
 
 function getMobileUrl() {
   if (!currentUser?.id) return '';
-  let url = `${MOBILE_BASE}?u=${encodeURIComponent(currentUser.id)}`;
-  // Pass Groq key so mobile can do AI recognition
-  const gk = getGroqKey();
-  if (gk) url += `&gk=${encodeURIComponent(gk)}`;
-  return url;
+  // Pouze user ID – Groq klíč si mobilní app stáhne sama ze serveru po přihlášení
+  return `${MOBILE_BASE}?u=${encodeURIComponent(currentUser.id)}`;
 }
 
 function renderQr(containerId, size) {
