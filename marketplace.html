@@ -708,6 +708,46 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .item-type-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; border-color: rgba(255,255,255,0.2); }
 .item-type-btn.active { background: rgba(245,200,66,0.15); color: #f5c842; border-color: rgba(245,200,66,0.45); }
 
+/* ── Modal: Karta / Produkt tabs ─────────────────────────── */
+.listing-tab {
+  flex: 1; padding: 9px 0; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(240,236,228,0.55);
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.listing-tab:hover { background: rgba(255,255,255,0.08); color: #f0ece4; }
+.listing-tab.active { background: rgba(245,200,66,0.14); color: #f5c842; border-color: rgba(245,200,66,0.4); }
+
+/* ── Modal: Typ produktu (Booster, ETB…) ─────────────────── */
+.prod-type-btn {
+  padding: 8px 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(240,236,228,0.6);
+  font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s;
+  font-family: inherit; text-align: center; line-height: 1.4;
+}
+.prod-type-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; border-color: rgba(255,255,255,0.2); }
+.prod-type-btn.active { background: rgba(245,200,66,0.14); color: #f5c842; border-color: rgba(245,200,66,0.4); }
+
+/* ── Modal: Jazyk (EN, CZ, JP…) ──────────────────────────── */
+.lang-btn {
+  padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(240,236,228,0.6);
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+  font-family: inherit; white-space: nowrap;
+}
+.lang-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; border-color: rgba(255,255,255,0.2); }
+.lang-btn.active { background: rgba(245,200,66,0.14); color: #f5c842; border-color: rgba(245,200,66,0.4); }
+
+/* ── Modal: Stav obalu (Sealed / Poškozený / Otevřený) ───── */
+.seal-btn {
+  padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04); color: rgba(240,236,228,0.6);
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+  font-family: inherit; white-space: nowrap;
+}
+.seal-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; border-color: rgba(255,255,255,0.2); }
+.seal-btn.active { background: rgba(245,200,66,0.14); color: #f5c842; border-color: rgba(245,200,66,0.4); }
+
 /* ── Pending queue panel ────────────────────────────────────── */
 #pendingPanel {
   display: none;
