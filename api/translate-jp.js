@@ -4,8 +4,12 @@
  * Přeloží japonský název Pokémon karty na anglický ekvivalent.
  * Volá Groq API server-side (obchází CORS problém přímého volání z prohlížeče).
  *
+ * Priorita klíče:
+ *   1. Uživatelův vlastní Groq klíč (user_api_keys v Supabase)
+ *   2. Systémový klíč z GROQ_API_KEY env proměnné (Vercel)
+ *
  * Body: { jpName, category, hp, token }
- *   token = Supabase access token (pro ověření uživatele + získání Groq klíče)
+ *   token = Supabase access token (pro ověření uživatele)
  *
  * Odpověď: { enName } nebo { error }
  */
@@ -30,7 +34,7 @@ export default async function handler(req, res) {
   if (!jpName) return res.status(400).json({ error: 'Chybí jpName' });
   if (!token)  return res.status(401).json({ error: 'Chybí token' });
 
-  // ── 1. Ověř token + získej Groq klíč ze Supabase ───────────
+  // ── 1. Ověř token + zkus získat uživatelův Groq klíč ze Supabase ───
   let groqKey = null;
   try {
     const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
@@ -51,12 +55,16 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Chyba ověření' });
   }
 
+  // ── 2. Fallback na systémový klíč z Vercel env ─────────────────────
   if (!groqKey) {
-    // Groq klíč není nastaven – vrátíme null, klient použije fallback
+    groqKey = process.env.GROQ_API_KEY || null;
+  }
+
+  if (!groqKey) {
     return res.status(200).json({ enName: null, reason: 'no_groq_key' });
   }
 
-  // ── 2. Zavolej Groq pro překlad ────────────────────────────
+  // ── 3. Zavolej Groq pro překlad ─────────────────────────────────────
   const prompt = [
     'You are a Pokémon TCG expert. Translate the Japanese card name to its official English name.',
     `Japanese name: ${jpName}`,
@@ -93,7 +101,6 @@ export default async function handler(req, res) {
 
     const groqData = await groqRes.json();
     const raw = groqData?.choices?.[0]?.message?.content?.trim() || '';
-    // Odstraň uvozovky a vezmi první řádek
     const enName = raw.replace(/^["'「」『』]|["'「」『』]$/g, '').split('\n')[0].trim();
 
     return res.status(200).json({ enName: enName || null });
