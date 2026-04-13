@@ -568,7 +568,6 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     </div>
     <div class="head-actions">
       <select id="globalAlbumSel" class="album-sel" onchange="onGlobalAlbumChange(this)">
-        <option value="" style="background:#0e0c14;color:#f0ece4;">— Zařadit bez alba —</option>
         <option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>
       </select>
       <div class="new-album-wrap" id="globalNewAlbumWrap">
@@ -597,7 +596,6 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <div id="bulkBar">
   <span class="bulk-count" id="bulkCount">0 vybráno</span>
   <select id="bulkAlbumSel">
-    <option value="" style="background:#0e0c14;color:#f0ece4;">— Bez alba —</option>
   </select>
   <button class="btn-bulk-assign" onclick="bulkAssignSelected()">✅ Zařadit vybrané</button>
   <button class="btn-bulk-cancel" onclick="clearBulkSelection()">✕ Zrušit</button>
@@ -684,6 +682,7 @@ function _getGroqKey() {
 let userId = null;
 let token  = null;
 let albums = [];
+let defaultAlbumId = null;
 // cardGroups[key] = { key, batchId, cardIndex, rows[], photos:[], aiResult, backAi, timestamp, comment }
 let cardGroups = [];
 
@@ -744,14 +743,44 @@ async function loadAlbums() {
     const rows = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&order=name.asc&select=id,name,icon,card_ids`);
     if (!Array.isArray(rows)) return;
     albums = rows.map(a => ({ ...a, cardIds: a.card_ids || [] }));
+
+    // Album s nejvíce kartičkami = výchozí
+    const best = albums.reduce((a, b) => (b.cardIds.length > a.cardIds.length ? b : a), albums[0] || null);
+    defaultAlbumId = best?.id || null;
+
     const globalSel = document.getElementById('globalAlbumSel');
     rows.forEach(a => {
       const cnt = (a.card_ids || []).length;
       const label = `${a.icon||'📁'} ${a.name}${cnt ? ' ('+cnt+')' : ''}`;
       const o = new Option(label, a.id);
+      o.style.background = '#0e0c14';
+      o.style.color = '#f0ece4';
       globalSel.appendChild(o);
     });
-  } catch {}
+    if (defaultAlbumId) globalSel.value = defaultAlbumId;
+
+    // Jednorázová oprava sirotků (kartičky bez alba)
+    await fixOrphanCards();
+  } catch(e) { console.warn('[loadAlbums]', e); }
+}
+
+// ── Oprava kartiček bez alba (spustí se jednou při načtení) ───
+async function fixOrphanCards() {
+  if (!defaultAlbumId || !albums.length) return;
+  try {
+    const allCards = await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&select=local_id`);
+    if (!Array.isArray(allCards) || !allCards.length) return;
+    const allInAlbums = new Set(albums.flatMap(a => a.cardIds));
+    const orphans = allCards.map(c => String(c.local_id)).filter(id => !allInAlbums.has(id));
+    if (!orphans.length) return;
+    const bestAlbum = albums.find(a => a.id === defaultAlbumId);
+    const merged = [...new Set([...(bestAlbum?.cardIds || []), ...orphans])];
+    await sbReq(`rest/v1/user_albums?id=eq.${defaultAlbumId}`, 'PATCH', {
+      card_ids: merged, updated_at: new Date().toISOString()
+    });
+    if (bestAlbum) { bestAlbum.cardIds = merged; bestAlbum.card_ids = merged; }
+    console.log(`[fixOrphanCards] Přesunuto ${orphans.length} kartiček bez alba → ${bestAlbum?.name}`);
+  } catch(e) { console.warn('[fixOrphanCards]', e); }
 }
 
 // ── Load queue ────────────────────────────────────────────────
@@ -1058,8 +1087,8 @@ function buildGroupEl(g, gi) {
   }
 
   // Build album options for this group
-  const albumOpts = `<option value="" style="background:#0e0c14;color:#f0ece4;">— Bez alba —</option><option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>` +
-    albums.map(a => `<option value="${a.id}" style="background:#0e0c14;color:#f0ece4;">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
+  const albumOpts = `<option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>` +
+    albums.map(a => `<option value="${a.id}" ${a.id===defaultAlbumId?'selected':''} style="background:#0e0c14;color:#f0ece4;">${esc(a.icon||'📁')} ${esc(a.name)}</option>`).join('');
 
   el.innerHTML = `
     <!-- Header -->
@@ -1259,7 +1288,7 @@ async function ensureAlbum(albumId, newAlbumName) {
 async function assignGroup(gi) {
   const g = cardGroups[gi];
   if (!g) return;
-  const rawAlbumId = document.getElementById(`albumSel-${gi}`)?.value || null;
+  const rawAlbumId = document.getElementById(`albumSel-${gi}`)?.value || defaultAlbumId;
   const newName    = document.getElementById(`newAlbumInp-${gi}`)?.value || '';
   const albumId    = await ensureAlbum(rawAlbumId, newName);
   await doAssign([g], albumId);
@@ -1268,7 +1297,7 @@ async function assignGroup(gi) {
 // ── Assign all ────────────────────────────────────────────────
 async function assignAll() {
   if (!cardGroups.length) return;
-  const rawAlbumId = document.getElementById('globalAlbumSel')?.value || null;
+  const rawAlbumId = document.getElementById('globalAlbumSel')?.value || defaultAlbumId;
   const newName    = document.getElementById('globalNewAlbumInp')?.value || '';
   const albumId    = await ensureAlbum(rawAlbumId, newName);
   const btn = document.getElementById('assignAllBtn');
@@ -1474,7 +1503,7 @@ function updateBulkBar() {
 
 async function bulkAssignSelected() {
   if (!selectedGroups.size) return;
-  const albumId = document.getElementById('bulkAlbumSel')?.value || null;
+  const albumId = document.getElementById('bulkAlbumSel')?.value || defaultAlbumId;
   const groups  = [...selectedGroups].map(gi => cardGroups[gi]).filter(Boolean);
   clearBulkSelection();
   await doAssign(groups, albumId || null);
