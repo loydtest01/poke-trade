@@ -347,7 +347,7 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
   if (!shareId) return; // lokální režim
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
   if (!token || !myId) { showOnlineError('Pro zobrazení sdíleného alba se musíš přihlásit. <a href="login.html" style="color:#f5c842">Přihlásit se →</a>'); return; }
 
   // Načti sdílení ze Supabase
@@ -450,7 +450,7 @@ async function startOnlineCompare() {
   btn.textContent = 'Načítám…';
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   // Načti karty z vybraného alba
   const albumRes = await fetch(
@@ -508,7 +508,8 @@ async function openLocalAlbumPicker(num) {
   const token = getToken()
     || (window.getValidToken ? await window.getValidToken() : null);
   const myId = localStorage.getItem('sb_user_id')
-    || localStorage.getItem('sb_uid');
+    || localStorage.getItem('sb_uid')
+    || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   if (!token || !myId) {
     document.getElementById('localPickerList').innerHTML =
@@ -570,7 +571,7 @@ async function confirmLocalAlbum() {
   btn.disabled = true; btn.textContent = 'Načítám…';
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   try {
     const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);

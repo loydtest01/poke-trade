@@ -389,7 +389,8 @@ let myAlbums = [];
 // ── Inicializace ──────────────────────────────────────────────────
 async function init() {
   const token = localStorage.getItem('sb_token');
-  const userId = localStorage.getItem('sb_user_id');
+  const _sbU = (function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  const userId = localStorage.getItem('sb_user_id') || (_sbU && _sbU.id) || null;
   if (!token || !userId) { location.href = 'login.html'; return; }
 
   ME = { id: userId };

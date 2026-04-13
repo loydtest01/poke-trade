@@ -44,7 +44,7 @@
   function getToken() {
     return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null;
   }
-  function getUid() { return localStorage.getItem('sb_user_id') || null; }
+  function getUid() { return localStorage.getItem('sb_user_id') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})() || null; }
   function getSbUrl()  { return typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : null; }
   function getSbAnon() { return typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : null; }
 
