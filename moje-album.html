@@ -2933,7 +2933,10 @@ function pushToPendingQueue(cards) {
   try {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
     cards.forEach(card => {
-      if (!q.find(c => c._pendingId === card._pendingId)) q.push(card);
+      // Deduplikace: nekopírovat pokud stejný _pendingId nebo stejné card id
+      const alreadyById = card.id && q.find(x => String(x.id) === String(card.id));
+      const alreadyByPid = card._pendingId && q.find(x => x._pendingId === card._pendingId);
+      if (!alreadyById && !alreadyByPid) q.push(card);
     });
     localStorage.setItem(PENDING_KEY, JSON.stringify(q));
   } catch(e) { console.error('[pendingQueue]', e); }
@@ -3535,6 +3538,62 @@ async function syncObchodAlbum() {
   saveAlbumsLocal();
   await saveAlbumsToServer();
   renderAlbumList();
+
+  // ── Zrekonciluj pending frontu ─────────────────────────────────
+  // Karty s for_sell=true mohou chybět ve frontě po přihlášení na novém zařízení
+  // nebo po vymazání localStorage. Přidáme chybějící karty automaticky.
+  reconcilePendingQueue();
+}
+
+/**
+ * Zkontroluje localStorage frontu "Čeká na vystavení" a doplní
+ * všechny karty s for_sell=true, které tam ještě nejsou (porovnání dle id).
+ */
+function reconcilePendingQueue() {
+  try {
+    const PENDING_KEY = 'pkt_pending_listings';
+    const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    // Sada id karet, které už jsou ve frontě
+    const queuedIds = new Set(q.map(x => String(x.id || x._pendingId || '')));
+
+    const missing = allCards.filter(c => {
+      if (!c.for_sell) return false;
+      const cid = String(c.id || '');
+      return cid && !queuedIds.has(cid);
+    });
+
+    if (!missing.length) return;
+
+    const toAdd = missing.map(c => {
+      const cd = c.card_data || {};
+      return {
+        _pendingId: String(c.id) + '_sync_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        id:         cd.id         || c.id         || '',
+        name:       cd.name       || c.name       || '',
+        set:        { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
+        number:     cd.number     || '',
+        hp:         cd.hp         || '',
+        types:      cd.types      || [],
+        supertype:  cd.supertype  || '',
+        images:     cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
+        rarity:     cd.rarity     || '',
+        cardmarket: cd.cardmarket || null,
+        album_price: c.price_czk  || null,
+        condition:  cd.condition  || c.condition  || 'NM',
+        photoUrl:   null,
+        _fromSync:  true, // označení, že přišlo ze sync (ne přes foto-picker)
+      };
+    });
+
+    toAdd.forEach(card => {
+      if (!q.find(x => String(x.id) === String(card.id))) q.push(card);
+    });
+    localStorage.setItem(PENDING_KEY, JSON.stringify(q));
+
+    console.log(`[reconcilePending] Doplněno ${toAdd.length} karet do fronty Čeká na vystavení`);
+  } catch(e) {
+    console.warn('[reconcilePending]', e);
+  }
 }
 
 /**
