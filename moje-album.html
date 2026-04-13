@@ -583,6 +583,37 @@ body { background: #06040c; overflow-x: hidden; }
   align-items: center; justify-content: center; padding: 20px;
 }
 #cardDetailModal.open { display: flex; }
+/* ── Prev / Next navigace ────────────────────────────────── */
+.cd-nav-btn {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  z-index: 610; background: rgba(245,200,66,0.12);
+  border: 1.5px solid rgba(245,200,66,0.35);
+  color: #f5c842; font-size: 26px; line-height: 1;
+  width: 48px; height: 72px; border-radius: 12px;
+  cursor: pointer; display: none;
+  align-items: center; justify-content: center;
+  transition: background .15s, border-color .15s, transform .15s;
+  font-family: inherit;
+}
+.cd-nav-btn:hover {
+  background: rgba(245,200,66,0.25);
+  border-color: rgba(245,200,66,0.7);
+}
+.cd-nav-prev { left: 12px; }
+.cd-nav-next { right: 12px; }
+.cd-nav-btn:active { transform: translateY(-50%) scale(0.93); }
+#cardDetailModal.open .cd-nav-btn { display: flex; }
+.cd-nav-btn:disabled { opacity: 0.2; cursor: default; pointer-events: none; }
+/* counter badge */
+.cd-nav-counter {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  z-index: 610; background: rgba(0,0,0,0.6);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; padding: 4px 14px;
+  font-size: 12px; color: rgba(240,236,228,0.55);
+  display: none; pointer-events: none;
+}
+#cardDetailModal.open .cd-nav-counter { display: block; }
 .cd-box {
   background: #0e0c12; border: 1px solid rgba(255,255,255,0.1);
   border-radius: 20px; width: 100%; max-width: 1080px;
@@ -1399,6 +1430,9 @@ body { background: #06040c; overflow-x: hidden; }
 
     <!-- Card detail modal -->
     <div id="cardDetailModal">
+      <button class="cd-nav-btn cd-nav-prev" id="cdNavPrev" onclick="navigateCard(-1)" title="Předchozí karta (←)">&#8592;</button>
+      <button class="cd-nav-btn cd-nav-next" id="cdNavNext" onclick="navigateCard(1)" title="Další karta (→)">&#8594;</button>
+      <div class="cd-nav-counter" id="cdNavCounter"></div>
       <div class="cd-box" style="position:relative">
         <button class="cd-close" onclick="closeCardDetail()">✕</button>
         <div class="cd-left">
@@ -1654,8 +1688,14 @@ let editingAlbumId = null;
   // Obnov uložený view mode po načtení dat (musí být až po render())
   const savedMode = localStorage.getItem('pkc_view_mode') || 'grid';
   if (savedMode === 'book') setViewMode('book');
-  // Keyboard shortcut: Escape closes card detail
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCardDetail(); });
+  // Keyboard shortcut: Escape closes card detail, arrows navigate
+  document.addEventListener('keydown', e => {
+    const isOpen = document.getElementById('cardDetailModal').classList.contains('open');
+    if (e.key === 'Escape') { closeCardDetail(); return; }
+    if (!isOpen) return;
+    if (e.key === 'ArrowLeft')  { navigateCard(-1); return; }
+    if (e.key === 'ArrowRight') { navigateCard(1);  return; }
+  });
   // Po načtení dat synchronizuj album "Výměna" a "Obchod" (tiše, bez čekání)
   syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
   syncObchodAlbum().catch(e => console.warn('[obchod init]', e));
@@ -1835,6 +1875,7 @@ function render() {
     return true;
   });
   filtered = sortCards(filtered);
+  _detailList = filtered; // store for prev/next navigation
 
   // Stat chips
   const fChip = document.getElementById('filteredChip');
@@ -2047,6 +2088,7 @@ function cardClick(id) {
 
 // ── Card detail ───────────────────────────────────────────────────
 let _detailCard = null;
+let _detailList = []; // current filtered/sorted list for prev/next navigation
 
 function buildCardmarketUrl(c) {
   // 1. Přímý URL uložený z pokemontcg API
@@ -2183,6 +2225,7 @@ function openCardDetail(c) {
 
   // Načti reálné fotky z user_card_photos
   loadCardRealPhotos(c.id || c.local_id);
+  _updateNavButtons();
 }
 
 function closeCardDetail() {
@@ -2192,6 +2235,28 @@ function closeCardDetail() {
   document.getElementById('cdPhotosPanelList').innerHTML =
     '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px 4px;opacity:.5">Žádné fotky</div>';
   _detailCard = null;
+}
+
+function _updateNavButtons() {
+  const list = _detailList;
+  const idx = list.findIndex(x => String(x.id) === String(_detailCard?.id));
+  const prev = document.getElementById('cdNavPrev');
+  const next = document.getElementById('cdNavNext');
+  const counter = document.getElementById('cdNavCounter');
+  if (prev) prev.disabled = (idx <= 0);
+  if (next) next.disabled = (idx < 0 || idx >= list.length - 1);
+  if (counter && list.length > 0 && idx >= 0) {
+    counter.textContent = `${idx + 1} / ${list.length}`;
+  }
+}
+
+function navigateCard(dir) {
+  const list = _detailList;
+  if (!list.length || !_detailCard) return;
+  const idx = list.findIndex(x => String(x.id) === String(_detailCard.id));
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  openCardDetail(list[newIdx]);
 }
 
 // ── Reálné fotky ke kartě ───────────────────────────────────────
