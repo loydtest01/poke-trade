@@ -1563,13 +1563,16 @@ async function tcgSearch(gi, autoMode = false) {
 
   const ai = g.aiResult || {};
   // Sestavíme query z dostupných AI parametrů
+  // Detekce japonského názvu (kana/kanji) — pokemontcg.io zná jen anglické názvy
+  const isJpName = ai.name && /[\u3000-\u9fff\uff00-\uffef]/.test(ai.name);
+
   const parts = [];
-  if (ai.name)   parts.push(`name:"${ai.name}"`);
-  if (ai.set)    parts.push(`set.name:"${ai.set}"`);
+  if (ai.name && !isJpName) parts.push(`name:"${ai.name}"`);  // japonský název přeskočíme
+  if (ai.set  && !isJpName) parts.push(`set.name:"${ai.set}"`);
   if (ai.number) parts.push(`number:${String(ai.number).split('/')[0]}`);
 
   // Pokud nemáme vůbec nic, hledáme jen podle jména (i prázdného)
-  const query = parts.length ? parts.join(' ') : (ai.name || '');
+  const query = parts.length ? parts.join(' ') : ((!isJpName && ai.name) || '');
 
   btn.disabled = true;
   statusEl.className = 'cg-search-status';
@@ -1602,7 +1605,6 @@ async function tcgSearch(gi, autoMode = false) {
 
     if (!cards.length && ai.name) {
       // Poslední fallback: volné vyhledávání (bez uvozovek)
-      // Pro JP karty zkusíme i filtr jazyka
       const namePart = ai.name.split(' ')[0]; // jen první slovo
       const jpFilter = (g?.aiResult?.lang === 'JP') ? '+regulationMark:*' : '';
       _lastQuery = `name:${namePart}*${jpFilter}`;
@@ -1612,9 +1614,22 @@ async function tcgSearch(gi, autoMode = false) {
       totalCount = r3?.totalCount || cards.length;
     }
 
+    // ── JP karta s japonským názvem — extra fallback přes číslo ──
+    // pokemontcg.io nezná japonské názvy, zkusíme hledat jen dle čísla série
+    if (!cards.length && g?.aiResult?.lang === 'JP' && ai.number) {
+      const num = String(ai.number).split('/')[0]; // "007/067" → "007"
+      const url4 = `https://api.pokemontcg.io/v2/cards?q=number:${encodeURIComponent(num)}&pageSize=20&orderBy=-set.releaseDate`;
+      const r4 = await fetch(url4).then(r => r.json()).catch(() => null);
+      cards = r4?.data || [];
+      totalCount = r4?.totalCount || cards.length;
+    }
+
     if (!cards.length) {
       statusEl.className = 'cg-search-status err';
-      statusEl.textContent = '❌ Nic nenalezeno – uprav název nebo sérii v AI výsledcích';
+      statusEl.innerHTML = '❌ Karta nenalezena v databázi' +
+        (g?.aiResult?.lang === 'JP'
+          ? ' — japonské exkluzivní sety nejsou vždy indexovány. <br>Vlož odkaz z <strong>Cardmarket</strong> do pole níže.'
+          : ' — uprav název nebo sérii v AI výsledcích');
       btn.disabled = false;
       return;
     }
@@ -1893,20 +1908,54 @@ async function resolveCardUrl(url) {
     }
 
   // ── cardmarket.com ─────────────────────────────────────────
-  // Formát: https://www.cardmarket.com/en/Pokemon/Products/Singles/Sword-Shield-Crown-Zenith-Galarian-Gallery/Pikachu-GG55-Secret
+  // Formáty:
+  //   .../Singles/Time-Gazer/Hisuian-Lilligant-V-V1-s10D007
+  //   .../Singles/Sword-Shield-Astral-Radiance/Hisuian-Lilligant-V-014
+  //   .../Singles/Crown-Zenith-Galarian-Gallery/Pikachu-GG55-Secret
   } else if (/cardmarket\.com/i.test(url)) {
     const match = url.match(/\/Singles\/([^/]+)\/([^/?#]+)/i);
     if (match) {
-      const setSlug  = match[1].replace(/-/g, ' ');
-      const cardSlug = match[2].replace(/-/g, ' ');
-      // Vytáhneme číslo karty ze slugu (např. GG55, 185, 001)
-      const numMatch = match[2].match(/[-]?([\w\d]+)(?:-Secret|-Rainbow|-Full|-Art|-Special)?$/i);
-      const num = numMatch ? numMatch[1] : '';
-      const apiUrl = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(cardSlug.split('-')[0])}"&pageSize=5`;
+      const rawSlug = match[2]; // např. "Hisuian-Lilligant-V-V1-s10D007"
+
+      // ── Extrakce čísla karty ────────────────────────────────
+      // Formát 1: JP sety — s10D007, s10P003, sv1S001 ...
+      const jpSetNum = rawSlug.match(/[_-]([a-z]{1,3}\d+[A-Z]?)(\d{3,4})(?:[_-]|$)/i);
+      // Formát 2: Galarian Gallery, Trainer Gallery — GG55, TG01, ...
+      const ggNum    = rawSlug.match(/[_-]([A-Z]{1,3}\d+)(?:-[A-Za-z]+)?(?:[_-]|$)/);
+      // Formát 3: prostě číslo — 014, 197, 185
+      const plainNum = rawSlug.match(/[_-](\d{2,3})(?:[_-]|$)/);
+
+      let extractedNum = '';
+      if (jpSetNum)   extractedNum = jpSetNum[2].replace(/^0+/, '') || jpSetNum[2]; // "007" → "7"
+      else if (ggNum) extractedNum = ggNum[1];
+      else if (plainNum) extractedNum = plainNum[1].replace(/^0+/, '') || plainNum[1];
+
+      // ── Extrakce jména karty ze slugu ──────────────────────
+      // Odstraníme variantu (V1, V2, SR, CHR, Secret...) a set+číslo ze konce
+      let namePart = rawSlug
+        .replace(/[_-]([a-z]{1,3}\d+[A-Z]?\d{3,4})$/i, '')  // JP set+číslo: -s10D007
+        .replace(/[_-](V\d|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|Full|Special|Alt)$/i, '') // varianty
+        .replace(/-/g, ' ')
+        .trim();
+
+      // Sestavíme dotaz: jméno (max 4 slova) + číslo
+      const nameWords = namePart.split(' ').slice(0, 4).join(' ');
+      const numQuery  = extractedNum ? `+number:${extractedNum}` : '';
+      const apiUrl    = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"${numQuery}&pageSize=8&orderBy=-set.releaseDate`;
+
       const res = await fetch(apiUrl).then(r => r.json()).catch(() => null);
-      const candidates = res?.data || [];
-      // Najdi nejlepší shodu dle čísla nebo jména
-      const c = candidates.find(x => x.number === num) || candidates[0];
+      let candidates = res?.data || [];
+
+      // Pokud nenajdeme s číslem, zkusíme jen jméno
+      if (!candidates.length && nameWords) {
+        const fallbackUrl = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=8&orderBy=-set.releaseDate`;
+        const r2 = await fetch(fallbackUrl).then(r => r.json()).catch(() => null);
+        candidates = r2?.data || [];
+      }
+
+      const c = (extractedNum && candidates.find(x => String(x.number) === String(extractedNum)))
+                || candidates[0];
+
       if (c) {
         result = {
           apiId:    c.id,
@@ -1916,10 +1965,16 @@ async function resolveCardUrl(url) {
           imageUrl: c.images?.small,
           apiSmall: c.images?.small,
           apiLarge: c.images?.large,
+          cardmarketUrl: url,  // ulož původní CM odkaz
           sourceUrl: url,
         };
       } else {
-        result = { sourceUrl: url };
+        // Karta nenalezena v pokemontcg.io — ulož alespoň CM odkaz
+        result = {
+          sourceUrl: url,
+          cardmarketUrl: url,
+          name: namePart,  // alespoň jméno z URL
+        };
       }
     }
 
