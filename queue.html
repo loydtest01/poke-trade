@@ -1586,7 +1586,7 @@ async function tcgSearch(gi, autoMode = false) {
     let _lastQuery = '';
 
     if (parts.length >= 2) {
-      // Přesný dotaz: jméno + set nebo jméno + číslo
+      // Přesný dotaz: jméno + set nebo jméno + číslo (pouze EN název)
       _lastQuery = parts.join(' ');
       const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
       const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
@@ -1594,8 +1594,8 @@ async function tcgSearch(gi, autoMode = false) {
       totalCount = r1?.totalCount || cards.length;
     }
 
-    if (!cards.length && ai.name) {
-      // Fallback: jen jméno
+    // Fallback: jen jméno — POUZE pokud není japonský název (JP znaky způsobují 400)
+    if (!cards.length && ai.name && !isJpName) {
       _lastQuery = `name:"${ai.name}"`;
       const url2 = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
       const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
@@ -1603,21 +1603,44 @@ async function tcgSearch(gi, autoMode = false) {
       totalCount = r2?.totalCount || cards.length;
     }
 
-    if (!cards.length && ai.name) {
-      // Poslední fallback: volné vyhledávání (bez uvozovek)
-      const namePart = ai.name.split(' ')[0]; // jen první slovo
-      const jpFilter = (g?.aiResult?.lang === 'JP') ? '+regulationMark:*' : '';
-      _lastQuery = `name:${namePart}*${jpFilter}`;
-      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*${jpFilter}&pageSize=20&orderBy=-set.releaseDate`;
+    // Poslední fallback (non-JP): první slovo jména, bez uvozovek
+    if (!cards.length && ai.name && !isJpName) {
+      const namePart = ai.name.split(' ')[0];
+      _lastQuery = `name:${namePart}*`;
+      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
       const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
       cards = r3?.data || [];
       totalCount = r3?.totalCount || cards.length;
     }
 
-    // ── JP karta s japonským názvem — extra fallback přes číslo ──
-    // pokemontcg.io nezná japonské názvy, zkusíme hledat jen dle čísla série
+    // ── JP karta: přeložíme jméno přes Claude AI, pak znovu hledáme ──────
+    if (!cards.length && isJpName) {
+      statusEl.textContent = '🤖 Překládám japonský název přes AI…';
+      try {
+        const translatedName = await translateJpNameViaAI(ai.name, ai.category, ai.hp);
+        if (translatedName) {
+          g._translatedName = translatedName; // uložíme pro případ potřeby
+          // Zobraz přeložené jméno v UI
+          statusEl.textContent = `🔍 Hledám EN ekvivalent: "${translatedName}"…`;
+          const tUrl = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(translatedName)}"&pageSize=20&orderBy=-set.releaseDate`;
+          const tRes = await fetch(tUrl).then(r => r.json()).catch(() => null);
+          cards = tRes?.data || [];
+          totalCount = tRes?.totalCount || cards.length;
+
+          // Pokud stále nic, zkus bez uvozovek
+          if (!cards.length) {
+            const tUrl2 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(translatedName.split(' ')[0])}*&pageSize=20&orderBy=-set.releaseDate`;
+            const tRes2 = await fetch(tUrl2).then(r => r.json()).catch(() => null);
+            cards = tRes2?.data || [];
+            totalCount = tRes2?.totalCount || cards.length;
+          }
+        }
+      } catch(e) { /* překlad selhal, pokračujeme bez něj */ }
+    }
+
+    // ── JP fallback přes číslo (pokud překlad nic nenašel) ──────────────
     if (!cards.length && g?.aiResult?.lang === 'JP' && ai.number) {
-      const num = String(ai.number).split('/')[0]; // "007/067" → "007"
+      const num = String(ai.number).split('/')[0];
       const url4 = `https://api.pokemontcg.io/v2/cards?q=number:${encodeURIComponent(num)}&pageSize=20&orderBy=-set.releaseDate`;
       const r4 = await fetch(url4).then(r => r.json()).catch(() => null);
       cards = r4?.data || [];
@@ -1834,6 +1857,36 @@ function tcgSelectCard(gi, idx) {
 
 // ── Card URL resolution ───────────────────────────────────────
 // Podporované stránky: pokemontcg.io, cardmarket.com, tcgplayer.com
+
+// ── Překlad japonského názvu přes Claude API ─────────────────
+// Volá se při hledání v databázi, pokud AI vrátila JP znaky
+const _jpTranslateCache = {};
+async function translateJpNameViaAI(jpName, category, hp) {
+  if (!jpName) return null;
+  if (_jpTranslateCache[jpName]) return _jpTranslateCache[jpName];
+  try {
+    const prompt = 'You are a Pokémon TCG expert. Translate this Japanese card name to its official English name.\n'
+      + 'Japanese name: ' + jpName + '\n'
+      + 'Category hint: ' + (category || 'unknown') + '\n'
+      + 'HP hint: ' + (hp || 'unknown') + '\n\n'
+      + 'Reply with ONLY the English card name, nothing else. Example: Hisuian Lilligant V';
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 60,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const raw = data?.content?.[0]?.text?.trim() || '';
+    const translated = raw.replace(/^["'「」『』]|["'「」『』]$/g, '').split('\n')[0].trim();
+    if (translated) _jpTranslateCache[jpName] = translated;
+    return translated || null;
+  } catch(e) { return null; }
+}
 
 const _urlCache = {}; // url → { imageUrl, apiSmall, apiLarge, apiId, name, set, number }
 
@@ -2108,15 +2161,44 @@ async function onCardUrlInput(gi, value) {
         return;
       }
       g.resolvedCard = data;
+
+      // Aktualizuj thumbnail a jméno v hlavičce karty
+      if (data.imageUrl) {
+        const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
+        if (thumb) thumb.src = data.imageUrl;
+      }
+      if (data.name) {
+        const nameEl = document.querySelector(`#group-${gi} .cg-name`);
+        if (nameEl) nameEl.textContent = data.name;
+      }
+
       statusEl.className = 'url-status ok';
-      statusEl.textContent = data.apiId ? '✅ Karta nalezena' : '✅ URL uložena';
+      statusEl.textContent = data.apiId ? '✅ Karta nalezena a spárována' : '✅ URL uložena';
+
+      // ── Bohatý datový panel ───────────────────────────────────
       if (data.imageUrl || data.name) {
+        const jpBadge = data.isJpSource
+          ? `<span style="background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#f87171;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">🇯🇵 JP zdroj</span>`
+          : '';
+        const enBadge = data.apiId
+          ? `<span style="background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:#4ade80;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;">EN databáze ✓</span>`
+          : '';
+        const rows = [
+          data.name   ? `<div class="ai-row"><span class="ai-label">Název</span><span class="ai-val">${esc(data.name)}</span></div>` : '',
+          data.set    ? `<div class="ai-row"><span class="ai-label">Set</span><span class="ai-val">${esc(data.set)}</span></div>` : '',
+          data.number ? `<div class="ai-row"><span class="ai-label">Číslo</span><span class="ai-val hi">${esc(data.number)}</span></div>` : '',
+          data.rarity ? `<div class="ai-row"><span class="ai-label">Rarita</span><span class="ai-val">${esc(data.rarity)}</span></div>` : '',
+          data.hp     ? `<div class="ai-row"><span class="ai-label">HP</span><span class="ai-val hi">${esc(data.hp)}</span></div>` : '',
+        ].filter(Boolean).join('');
         previewEl.innerHTML = `
-          <div class="url-preview">
-            ${data.imageUrl ? `<img src="${data.imageUrl}" alt="">` : ''}
-            <div>
-              <div class="url-card-name">${data.name ? esc(data.name) : '—'}</div>
-              <div class="url-card-sub">${data.set ? esc(data.set) : ''}${data.number ? ' · #'+esc(data.number) : ''}</div>
+          <div style="background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:10px;padding:12px;margin-top:6px;display:flex;gap:12px;align-items:flex-start">
+            ${data.imageUrl
+              ? `<img src="${esc(data.imageUrl)}" alt="" style="width:72px;height:100px;object-fit:contain;border-radius:6px;flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.5)" onerror="this.style.display='none'">`
+              : `<div style="width:72px;height:100px;background:rgba(255,255,255,.04);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🃏</div>`}
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${jpBadge}${enBadge}</div>
+              <div class="ai-grid">${rows}</div>
+              ${data.sourceUrl ? `<div style="margin-top:8px"><a href="${esc(data.sourceUrl)}" target="_blank" style="font-size:10px;color:rgba(240,232,208,.35);text-decoration:none;word-break:break-all">🔗 ${esc(data.sourceUrl.replace(/^https?:\/\//, '').slice(0,60))}${data.sourceUrl.length > 70 ? '…' : ''}</a></div>` : ''}
             </div>
           </div>`;
       }
