@@ -333,6 +333,9 @@ function doLogout() {
 let albumA = null;
 let albumB = null;
 
+// Záložní čtení tokenu — funguje i po refresh session
+function getToken() { return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null; }
+
 // ── ONLINE MODE: načtení sdílení přes URL ?share_id=xxx ───────────
 // Pokud share_id v URL není, lokální drag & drop funguje beze změny.
 let _onlineShare = null; // sdílení načtené ze Supabase
@@ -343,7 +346,7 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
   const shareId = params.get('share_id');
   if (!shareId) return; // lokální režim
 
-  const token = localStorage.getItem('sb_token');
+  const token = getToken();
   const myId  = localStorage.getItem('sb_user_id');
   if (!token || !myId) { location.href = 'login.html'; return; }
 
@@ -446,7 +449,7 @@ async function startOnlineCompare() {
   btn.disabled = true;
   btn.textContent = 'Načítám…';
 
-  const token = localStorage.getItem('sb_token');
+  const token = getToken();
   const myId  = localStorage.getItem('sb_user_id');
 
   // Načti karty z vybraného alba
@@ -500,7 +503,7 @@ async function openLocalAlbumPicker(num) {
     num === 1 ? 'Vybíráš album pro stranu A (levá)' : 'Vybíráš album pro stranu B (pravá)';
   document.getElementById('localAlbumModal').style.display = 'flex';
 
-  const token = localStorage.getItem('sb_token');
+  const token = getToken();
   const myId  = localStorage.getItem('sb_user_id');
   if (!token || !myId) {
     document.getElementById('localPickerList').innerHTML =
@@ -561,7 +564,7 @@ async function confirmLocalAlbum() {
   const btn = document.getElementById('btnLocalPickerGo');
   btn.disabled = true; btn.textContent = 'Načítám…';
 
-  const token = localStorage.getItem('sb_token');
+  const token = getToken();
   const myId  = localStorage.getItem('sb_user_id');
 
   try {

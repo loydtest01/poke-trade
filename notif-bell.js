@@ -1,142 +1,64 @@
 /**
  * notif-bell.js — Notifikační zvoneček pro PokéCards / PokéTrade
- * Automaticky se vloží do .topbar-right na všech stránkách.
- * Závisí na: app.js (SUPABASE_URL, SUPABASE_ANON, VERCEL_URL)
- * Fáze 4
+ * Volá Supabase REST přímo (žádný serverless endpoint = žádná 500 chyba).
+ * Závisí na: app.js (SUPABASE_URL, SUPABASE_ANON)
  */
 (function () {
 
-  // ── CSS ──────────────────────────────────────────────────────────
   const CSS = `
-  .notif-bell-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-    margin-right: 4px;
-  }
-  .notif-bell-btn {
-    position: relative;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 6px 8px;
-    border-radius: 10px;
-    color: rgba(240,236,228,.75);
-    font-size: 17px;
-    line-height: 1;
-    transition: background .15s, color .15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .notif-bell-btn:hover { background: rgba(255,255,255,.08); color: #f0ece4; }
-  .notif-bell-btn.has-unread { color: #f5c842; }
-  .notif-badge {
-    position: absolute;
-    top: 1px; right: 1px;
-    min-width: 16px; height: 16px;
-    background: #f5c842;
-    color: #0d0d1a;
-    font-size: 10px;
-    font-weight: 800;
-    border-radius: 99px;
-    display: flex; align-items: center; justify-content: center;
-    padding: 0 3px;
-    pointer-events: none;
-  }
-  /* Dropdown */
-  .notif-drop {
-    display: none;
-    position: absolute;
-    top: calc(100% + 8px);
-    right: 0;
-    width: 320px;
-    background: #1a1a2e;
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 14px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.55);
-    z-index: 500;
-    overflow: hidden;
-  }
-  .notif-drop.open { display: block; }
-  .notif-drop-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 12px 14px 10px;
-    border-bottom: 1px solid rgba(255,255,255,.08);
-  }
-  .notif-drop-title { font-size: 13px; font-weight: 700; color: #f0ece4; }
-  .notif-read-all-btn {
-    background: none; border: none; cursor: pointer;
-    font-size: 11px; color: rgba(245,200,66,.8);
-    font-family: inherit; padding: 0;
-  }
-  .notif-read-all-btn:hover { color: #f5c842; }
-  .notif-drop-list { max-height: 320px; overflow-y: auto; }
-  .notif-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 11px 14px;
-    border-bottom: 1px solid rgba(255,255,255,.05);
-    cursor: pointer;
-    transition: background .12s;
-    text-decoration: none;
-  }
-  .notif-item:last-child { border-bottom: none; }
-  .notif-item:hover { background: rgba(255,255,255,.04); }
-  .notif-item.unread { background: rgba(245,200,66,.05); }
-  .notif-item.unread:hover { background: rgba(245,200,66,.09); }
-  .notif-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: #f5c842;
-    flex-shrink: 0;
-    margin-top: 5px;
-  }
-  .notif-dot.read { background: transparent; border: 1px solid rgba(255,255,255,.15); }
-  .notif-body { flex: 1; min-width: 0; }
-  .notif-item-title { font-size: 12px; font-weight: 600; color: #f0ece4; margin-bottom: 2px; }
-  .notif-item-body  { font-size: 11px; color: rgba(240,236,228,.5); line-height: 1.4;
-                       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .notif-item-time  { font-size: 10px; color: rgba(240,236,228,.3); margin-top: 3px; }
-  .notif-empty {
-    text-align: center; padding: 28px 14px;
-    font-size: 13px; color: rgba(240,236,228,.35);
-  }
-  .notif-drop-footer {
-    border-top: 1px solid rgba(255,255,255,.08);
-    padding: 9px 14px;
-    text-align: center;
-  }
-  .notif-drop-footer a {
-    font-size: 12px; color: rgba(245,200,66,.75); text-decoration: none;
-  }
-  .notif-drop-footer a:hover { color: #f5c842; }
+  .notif-bell-wrap { position:relative;display:flex;align-items:center;margin-right:4px; }
+  .notif-bell-btn { position:relative;background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;color:rgba(240,236,228,.75);line-height:1;transition:background .15s,color .15s;display:flex;align-items:center;justify-content:center; }
+  .notif-bell-btn:hover { background:rgba(255,255,255,.08);color:#f0ece4; }
+  .notif-bell-btn.has-unread { color:#f5c842; }
+  .notif-badge { position:absolute;top:1px;right:1px;min-width:16px;height:16px;background:#f5c842;color:#0d0d1a;font-size:10px;font-weight:800;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none; }
+  .notif-drop { display:none;position:absolute;top:calc(100% + 8px);right:0;width:320px;background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:500;overflow:hidden; }
+  .notif-drop.open { display:block; }
+  .notif-drop-head { display:flex;align-items:center;justify-content:space-between;padding:12px 14px 10px;border-bottom:1px solid rgba(255,255,255,.08); }
+  .notif-drop-title { font-size:13px;font-weight:700;color:#f0ece4; }
+  .notif-read-all-btn { background:none;border:none;cursor:pointer;font-size:11px;color:rgba(245,200,66,.8);font-family:inherit;padding:0; }
+  .notif-read-all-btn:hover { color:#f5c842; }
+  .notif-drop-list { max-height:320px;overflow-y:auto; }
+  .notif-item { display:flex;align-items:flex-start;gap:10px;padding:11px 14px;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;transition:background .12s; }
+  .notif-item:last-child { border-bottom:none; }
+  .notif-item:hover { background:rgba(255,255,255,.04); }
+  .notif-item.unread { background:rgba(245,200,66,.05); }
+  .notif-item.unread:hover { background:rgba(245,200,66,.09); }
+  .notif-dot { width:7px;height:7px;border-radius:50%;background:#f5c842;flex-shrink:0;margin-top:5px; }
+  .notif-dot.read { background:transparent;border:1px solid rgba(255,255,255,.15); }
+  .notif-body { flex:1;min-width:0; }
+  .notif-item-title { font-size:12px;font-weight:600;color:#f0ece4;margin-bottom:2px; }
+  .notif-item-body { font-size:11px;color:rgba(240,236,228,.5);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+  .notif-item-time { font-size:10px;color:rgba(240,236,228,.3);margin-top:3px; }
+  .notif-empty { text-align:center;padding:28px 14px;font-size:13px;color:rgba(240,236,228,.35); }
+  .notif-drop-footer { border-top:1px solid rgba(255,255,255,.08);padding:9px 14px;text-align:center; }
+  .notif-drop-footer a { font-size:12px;color:rgba(245,200,66,.75);text-decoration:none; }
+  .notif-drop-footer a:hover { color:#f5c842; }
   `;
 
-  // Inject CSS
   const style = document.createElement('style');
   style.textContent = CSS;
   document.head.appendChild(style);
 
-  // ── State ────────────────────────────────────────────────────────
-  let _open = false;
-  let _pollTimer = null;
-  let _lastCount = 0;
+  let _open = false, _lastCount = 0;
 
-  // ── Build HTML ───────────────────────────────────────────────────
+  function getToken() {
+    return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null;
+  }
+  function getUid() { return localStorage.getItem('sb_user_id') || null; }
+  function getSbUrl()  { return typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : null; }
+  function getSbAnon() { return typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : null; }
+
+  function sbH(token) {
+    return { 'apikey': getSbAnon(), 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
   function buildBell() {
     const wrap = document.createElement('div');
-    wrap.className = 'notif-bell-wrap';
-    wrap.id = 'notifBellWrap';
+    wrap.className = 'notif-bell-wrap'; wrap.id = 'notifBellWrap';
     wrap.innerHTML = `
       <button class="notif-bell-btn" id="notifBellBtn" title="Notifikace">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
         <span class="notif-badge" id="notifBadge" style="display:none">0</span>
       </button>
@@ -145,217 +67,123 @@
           <span class="notif-drop-title">🔔 Notifikace</span>
           <button class="notif-read-all-btn" id="notifReadAllBtn">Vše přečteno</button>
         </div>
-        <div class="notif-drop-list" id="notifDropList">
-          <div class="notif-empty">⏳ Načítám…</div>
-        </div>
-        <div class="notif-drop-footer">
-          <a href="share-album.html">Sdílení alb →</a>
-        </div>
-      </div>
-    `;
+        <div class="notif-drop-list" id="notifDropList"><div class="notif-empty">📭 Žádné notifikace</div></div>
+        <div class="notif-drop-footer"><a href="share-album.html">Sdílení alb →</a></div>
+      </div>`;
     return wrap;
   }
 
-  // ── Insert into nav ──────────────────────────────────────────────
   function insertBell() {
-    const token = localStorage.getItem('sb_token');
-    if (!token) return; // nepřihlášen
-
+    if (!getToken() || !getSbUrl() || !getSbAnon()) return;
+    if (document.getElementById('notifBellWrap')) return;
     const topbarRight = document.querySelector('.topbar-right');
-    if (!topbarRight || document.getElementById('notifBellWrap')) return;
-
+    if (!topbarRight) return;
     const wrap = buildBell();
-
-    // Vlož před chat nebo před user-chip
-    const chatWrap = document.getElementById('chatDropWrap');
-    const userChip = document.getElementById('userChip');
-    if (chatWrap) {
-      topbarRight.insertBefore(wrap, chatWrap);
-    } else if (userChip) {
-      topbarRight.insertBefore(wrap, userChip);
-    } else {
-      topbarRight.prepend(wrap);
-    }
-
-    // Event listeners
+    const ref = document.getElementById('chatDropWrap') || document.getElementById('userChip');
+    if (ref) topbarRight.insertBefore(wrap, ref);
+    else topbarRight.prepend(wrap);
     document.getElementById('notifBellBtn').addEventListener('click', toggleDrop);
     document.getElementById('notifReadAllBtn').addEventListener('click', markAllRead);
-    document.addEventListener('click', function (e) {
-      const w = document.getElementById('notifBellWrap');
-      if (w && !w.contains(e.target) && _open) closeDrop();
+    document.addEventListener('click', function(e) {
+      if (_open && !document.getElementById('notifBellWrap').contains(e.target)) closeDrop();
     });
-
-    // Start polling
     fetchCount();
-    _pollTimer = setInterval(fetchCount, 30000);
-
-    // Supabase Realtime (pokud je klient dostupný)
-    initRealtime();
-  }
-
-  // ── API helpers ──────────────────────────────────────────────────
-  function apiHeaders() {
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + localStorage.getItem('sb_token')
-    };
-  }
-
-  function apiBase() {
-    return (typeof VERCEL_URL !== 'undefined' ? VERCEL_URL : '') + '/api/v1';
+    setInterval(fetchCount, 30000);
   }
 
   async function fetchCount() {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return;
     try {
-      const r = await fetch(apiBase() + '/notifications/count', { headers: apiHeaders() });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false&select=id`, { headers: sbH(t) });
       if (!r.ok) return;
       const d = await r.json();
-      updateBadge(d.unread_count || 0);
-    } catch (e) { /* sítová chyba — tiché selhání */ }
+      updateBadge(Array.isArray(d) ? d.length : 0);
+    } catch(e) {}
   }
 
   async function fetchNotifications() {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return [];
     try {
-      const r = await fetch(apiBase() + '/notifications?limit=10', { headers: apiHeaders() });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&order=created_at.desc&limit=10&select=id,title,body,link,read,created_at`, { headers: sbH(t) });
       if (!r.ok) return [];
-      const d = await r.json();
-      return Array.isArray(d) ? d : (d.notifications || []);
+      return await r.json() || [];
     } catch { return []; }
   }
 
   async function markRead(id) {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return;
     try {
-      await fetch(apiBase() + '/notifications/' + id, {
-        method: 'PATCH',
-        headers: apiHeaders()
-      });
-    } catch { /* tichá chyba */ }
+      await fetch(`${url}/rest/v1/notifications?id=eq.${id}&user_id=eq.${uid}`,
+        { method:'PATCH', headers:{...sbH(t),'Prefer':'return=minimal'}, body:JSON.stringify({read:true}) });
+    } catch {}
   }
 
   async function markAllRead() {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return;
     try {
-      await fetch(apiBase() + '/notifications/read-all', {
-        method: 'PATCH',
-        headers: apiHeaders()
-      });
+      await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false`,
+        { method:'PATCH', headers:{...sbH(t),'Prefer':'return=minimal'}, body:JSON.stringify({read:true}) });
       updateBadge(0);
-      renderList([]);   // přerendruje jako vše přečtené
       fetchNotifications().then(renderList);
-    } catch { /* tichá chyba */ }
+    } catch {}
   }
 
-  // ── UI ───────────────────────────────────────────────────────────
   function updateBadge(count) {
     _lastCount = count;
     const badge = document.getElementById('notifBadge');
     const btn   = document.getElementById('notifBellBtn');
     if (!badge || !btn) return;
-    if (count > 0) {
-      badge.style.display = 'flex';
-      badge.textContent = count > 99 ? '99+' : count;
-      btn.classList.add('has-unread');
-    } else {
-      badge.style.display = 'none';
-      btn.classList.remove('has-unread');
-    }
+    if (count > 0) { badge.style.display='flex'; badge.textContent=count>99?'99+':count; btn.classList.add('has-unread'); }
+    else           { badge.style.display='none'; btn.classList.remove('has-unread'); }
   }
 
   function fmtTime(iso) {
     if (!iso) return '';
-    const d = new Date(iso), n = new Date();
-    const diff = n - d;
-    if (diff < 60000)    return 'teď';
-    if (diff < 3600000)  return Math.floor(diff / 60000) + ' min';
-    if (d.toDateString() === n.toDateString()) return d.toLocaleTimeString('cs', { hour: '2-digit', minute: '2-digit' });
-    const yest = new Date(n); yest.setDate(yest.getDate() - 1);
-    if (d.toDateString() === yest.toDateString()) return 'včera';
-    return d.toLocaleDateString('cs', { day: 'numeric', month: 'numeric' });
+    const d=new Date(iso),n=new Date(),diff=n-d;
+    if (diff<60000) return 'teď';
+    if (diff<3600000) return Math.floor(diff/60000)+' min';
+    if (d.toDateString()===n.toDateString()) return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});
+    const y=new Date(n); y.setDate(y.getDate()-1);
+    if (d.toDateString()===y.toDateString()) return 'včera';
+    return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'});
   }
-
-  function esc(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
   function renderList(items) {
     const list = document.getElementById('notifDropList');
     if (!list) return;
-    if (!items.length) {
-      list.innerHTML = '<div class="notif-empty">📭 Žádné notifikace</div>';
-      return;
-    }
-    list.innerHTML = items.map(n => {
-      const unread = !n.read_at;
-      const href   = n.link || '#';
-      return `
-        <div class="notif-item ${unread ? 'unread' : ''}"
-             data-id="${esc(n.id)}" data-href="${esc(href)}"
-             onclick="window._notifClick && window._notifClick(this)">
-          <div class="notif-dot ${unread ? '' : 'read'}"></div>
-          <div class="notif-body">
-            <div class="notif-item-title">${esc(n.title || 'Notifikace')}</div>
-            <div class="notif-item-body">${esc(n.body || '')}</div>
-            <div class="notif-item-time">${fmtTime(n.created_at)}</div>
-          </div>
+    if (!items||!items.length) { list.innerHTML='<div class="notif-empty">📭 Žádné notifikace</div>'; return; }
+    list.innerHTML = items.map(n=>`
+      <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(n.link||'#')}" onclick="window._notifClick&&window._notifClick(this)">
+        <div class="notif-dot ${n.read?'read':''}"></div>
+        <div class="notif-body">
+          <div class="notif-item-title">${esc(n.title||'Notifikace')}</div>
+          <div class="notif-item-body">${esc(n.body||'')}</div>
+          <div class="notif-item-time">${fmtTime(n.created_at)}</div>
         </div>
-      `;
-    }).join('');
-
-    // Global click handler — označí jako přečtenou a přesměruje
-    window._notifClick = async function (el) {
-      const id   = el.dataset.id;
-      const href = el.dataset.href;
-      el.classList.remove('unread');
-      el.querySelector('.notif-dot').classList.add('read');
+      </div>`).join('');
+    window._notifClick = async function(el) {
+      const id=el.dataset.id, href=el.dataset.href;
+      el.classList.remove('unread'); el.querySelector('.notif-dot').classList.add('read');
       await markRead(id);
-      const newCount = Math.max(0, _lastCount - 1);
-      updateBadge(newCount);
-      if (href && href !== '#') { location.href = href; }
+      updateBadge(Math.max(0,_lastCount-1));
+      if (href&&href!=='#') location.href=href;
     };
   }
 
-  function toggleDrop() {
-    _open ? closeDrop() : openDrop();
-  }
-
+  function toggleDrop() { _open ? closeDrop() : openDrop(); }
   function openDrop() {
-    _open = true;
-    document.getElementById('notifDrop')?.classList.add('open');
+    _open=true; document.getElementById('notifDrop')?.classList.add('open');
+    document.getElementById('notifDropList').innerHTML='<div class="notif-empty">⏳ Načítám…</div>';
     fetchNotifications().then(renderList);
   }
+  function closeDrop() { _open=false; document.getElementById('notifDrop')?.classList.remove('open'); }
 
-  function closeDrop() {
-    _open = false;
-    document.getElementById('notifDrop')?.classList.remove('open');
-  }
-
-  // ── Supabase Realtime ────────────────────────────────────────────
-  function initRealtime() {
-    try {
-      // Supabase JS v2 klient musí být dostupný jako window.supabase nebo window._supabaseClient
-      const client = window.supabase || window._supabaseClient;
-      if (!client) return;
-      const userId = localStorage.getItem('sb_user_id');
-      if (!userId) return;
-
-      client
-        .channel('notif_bell_' + userId)
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        }, () => {
-          fetchCount();
-        })
-        .subscribe();
-    } catch (e) { /* Realtime nedostupné — polling postačí */ }
-  }
-
-  // ── Init ─────────────────────────────────────────────────────────
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', insertBell);
-  } else {
-    insertBell();
-  }
+  if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',insertBell);
+  else insertBell();
 
 })();
