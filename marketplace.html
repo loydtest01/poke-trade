@@ -1712,7 +1712,7 @@ function toggleAdvFilter() {
   const panel = document.getElementById('advFilterPanel');
   const btn   = document.getElementById('advFilterBtn');
   const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : '';
+  panel.style.display = isOpen ? 'none' : 'block';
   btn.classList.toggle('active', !isOpen);
 }
 
@@ -3023,7 +3023,7 @@ function togglePendingPanel(forceOpen) {
   const btn   = document.getElementById('btnPendingQueue');
   if (!panel) return;
   if (_pendingPanelOpen) {
-    panel.style.display = '';
+    panel.style.display = 'block';
     renderPendingList();
     if (btn) btn.classList.add('active');
   } else {

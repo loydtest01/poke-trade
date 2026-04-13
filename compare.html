@@ -347,7 +347,7 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
   if (!shareId) return; // lokální režim
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
   if (!token || !myId) { location.href = 'login.html'; return; }
 
   // Načti sdílení ze Supabase
@@ -450,7 +450,7 @@ async function startOnlineCompare() {
   btn.textContent = 'Načítám…';
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
 
   // Načti karty z vybraného alba
   const albumRes = await fetch(
@@ -502,9 +502,14 @@ async function openLocalAlbumPicker(num) {
   document.getElementById('localPickerSubtitle').textContent =
     num === 1 ? 'Vybíráš album pro stranu A (levá)' : 'Vybíráš album pro stranu B (pravá)';
   document.getElementById('localAlbumModal').style.display = 'flex';
+  document.getElementById('localPickerList').innerHTML = '<div class="album-picker-empty">⏳ Načítám alba…</div>';
 
-  const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id');
+  // Zkus získat token a userId ze všech možných klíčů
+  const token = getToken()
+    || (window.getValidToken ? await window.getValidToken() : null);
+  const myId = localStorage.getItem('sb_user_id')
+    || localStorage.getItem('sb_uid');
+
   if (!token || !myId) {
     document.getElementById('localPickerList').innerHTML =
       '<div class="album-picker-empty">❌ Nejsi přihlášen. <a href="login.html" style="color:#f5c842">Přihlásit se</a></div>';
@@ -565,7 +570,7 @@ async function confirmLocalAlbum() {
   btn.disabled = true; btn.textContent = 'Načítám…';
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id');
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
 
   try {
     const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
