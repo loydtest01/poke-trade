@@ -1858,33 +1858,26 @@ function tcgSelectCard(gi, idx) {
 // ── Card URL resolution ───────────────────────────────────────
 // Podporované stránky: pokemontcg.io, cardmarket.com, tcgplayer.com
 
-// ── Překlad japonského názvu přes Claude API ─────────────────
-// Volá se při hledání v databázi, pokud AI vrátila JP znaky
+// ── Překlad japonského názvu přes /api/translate-jp ──────────
+// Groq se volá server-side – obchází CORS blokaci prohlížeče
 const _jpTranslateCache = {};
 async function translateJpNameViaAI(jpName, category, hp) {
   if (!jpName) return null;
   if (_jpTranslateCache[jpName]) return _jpTranslateCache[jpName];
+  const token = (typeof currentToken !== 'undefined' ? currentToken : null)
+             || localStorage.getItem('sb_token');
+  if (!token) return null;
   try {
-    const prompt = 'You are a Pokémon TCG expert. Translate this Japanese card name to its official English name.\n'
-      + 'Japanese name: ' + jpName + '\n'
-      + 'Category hint: ' + (category || 'unknown') + '\n'
-      + 'HP hint: ' + (hp || 'unknown') + '\n\n'
-      + 'Reply with ONLY the English card name, nothing else. Example: Hisuian Lilligant V';
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/translate-jp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 60,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      body: JSON.stringify({ jpName, category: category || '', hp: hp || '', token }),
     });
     if (!res.ok) return null;
     const data = await res.json();
-    const raw = data?.content?.[0]?.text?.trim() || '';
-    const translated = raw.replace(/^["'「」『』]|["'「」『』]$/g, '').split('\n')[0].trim();
-    if (translated) _jpTranslateCache[jpName] = translated;
-    return translated || null;
+    const enName = (data?.enName || '').trim() || null;
+    if (enName) _jpTranslateCache[jpName] = enName;
+    return enName;
   } catch(e) { return null; }
 }
 
@@ -2045,17 +2038,41 @@ async function resolveCardUrl(url) {
       }
 
       // ── Výběr nejlepšího kandidáta ─────────────────────────
+      // Strategie: pro Full Art / Secret varianty vybrat kartu s NEJVYŠŠÍM číslem
+      // (Full Art karty v pokemontcg.io mají vždy vyšší číslo než základní set)
+      const isFullArtVariant = ['V1','V2','SR','CHR','HR','SAR','CSR','UR','AR'].includes(cmVariant);
+      const isStandardVariant = ['RR',''].includes(cmVariant) || !cmVariant;
+
       let c = null;
       if (candidates.length) {
-        // 1. Přesná shoda čísla (non-JP)
+        // 1. Přesná shoda čísla (pouze non-JP, JP čísla se liší od EN)
         if (extractedNum && !isJp) {
           c = candidates.find(x => String(x.number) === String(extractedNum));
         }
-        // 2. Shoda varianty (Full Art, Secret, ...) — prioritizuj preferované rarity
-        if (!c && preferredRarities.length) {
-          c = candidates.find(x => preferredRarities.some(r => x.rarity?.includes(r)));
+
+        // 2. Pro Full Art varianty: vyber kandidáta s NEJVYŠŠÍM číslem
+        //    (Full Art / Secret karty mají čísla nad základní velikost setu)
+        if (!c && isFullArtVariant) {
+          const sorted = [...candidates].sort((a, b) => {
+            const na = parseInt(a.number) || 0;
+            const nb = parseInt(b.number) || 0;
+            return nb - na; // sestupně = nejvyšší číslo první
+          });
+          c = sorted[0];
         }
-        // 3. Fallback: první výsledek (obvykle nejnovější set)
+
+        // 3. Pro standardní varianty: vyber kandidáta s NEJNIŽŠÍM číslem
+        //    (základní verze karty má nižší číslo)
+        if (!c && isStandardVariant) {
+          const sorted = [...candidates].sort((a, b) => {
+            const na = parseInt(a.number) || 9999;
+            const nb = parseInt(b.number) || 9999;
+            return na - nb; // vzestupně = nejnižší číslo první
+          });
+          c = sorted[0];
+        }
+
+        // 4. Absolutní fallback
         if (!c) c = candidates[0];
       }
 
