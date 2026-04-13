@@ -958,30 +958,32 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
             </div>
             <div class="groq-form" id="groqForm">
               <div class="groq-info-box">
-                <strong>🔒 Soukromé – jen ty vidíš svůj klíč</strong><br>
-                API klíč je uložen v databázi s Row-Level Security. Žádný jiný uživatel
-                ani aplikace ho nemůže přečíst. Klíč slouží pouze ke komunikaci s Groq API.
+                <strong>🔒 Soukromé – jen ty vidíš své klíče</strong><br>
+                Klíče jsou uloženy v databázi s Row-Level Security. Můžeš přidat více klíčů
+                z různých Groq účtů — při selhání jednoho se automaticky použije záložní.
                 <a href="https://console.groq.com/keys" target="_blank" rel="noopener">
                   Získat klíč zdarma →
                 </a>
               </div>
-              <label class="groq-label">Groq API klíč</label>
+              <label class="groq-label">Groq API klíče</label>
+              <!-- Seznam uložených klíčů -->
+              <div id="groqKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>
+              <!-- Přidat nový klíč -->
               <div class="groq-key-row">
                 <input
-                  type="password"
+                  type="text"
                   id="groqKeyInput"
                   class="groq-input"
-                  placeholder="gsk_••••••••••••••••••••••••••••••••••••••••••••••••••••••••"
+                  placeholder="gsk_… (vlož nový klíč)"
                   autocomplete="off"
                   spellcheck="false"
                 />
-                <button class="groq-eye-btn" id="groqEyeBtn" type="button" title="Zobrazit/skrýt">👁</button>
+                <button class="btn-groq-save" id="groqAddBtn" type="button" style="white-space:nowrap;padding:10px 14px">+ Přidat</button>
               </div>
               <label class="groq-label" style="margin-top:14px">Model</label>
               <select class="groq-select" id="groqModelSelect"></select>
               <div class="groq-actions">
-                <button class="btn-groq-save" id="groqSaveBtn" type="button">💾 Uložit klíč</button>
-                <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat</button>
+                <button class="btn-groq-delete" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>
               </div>
               <div class="groq-feedback" id="groqFeedback"></div>
             </div>
@@ -1827,10 +1829,7 @@ function profileUpdateLangUI(lang) {
 //  Spustí se po načtení profilu, zobrazí se jen vlastníkovi
 // ═══════════════════════════════════════════════════════════
 (async function initGroqSection() {
-  // Počkej až bude profileUserId naplněn (loadProfile běží async)
   await new Promise(r => setTimeout(r, 300));
-
-  // Zobraz sekci pouze vlastníkovi profilu
   if (!currentUser || !profileUserId || currentUser.id !== profileUserId) return;
 
   // Načti uloženou hranici pro upozornění na drahou kartičku
@@ -1851,9 +1850,9 @@ function profileUpdateLangUI(lang) {
   const dot        = document.getElementById('groqDot');
   const statusTxt  = document.getElementById('groqStatusText');
   const keyInput   = document.getElementById('groqKeyInput');
-  const eyeBtn     = document.getElementById('groqEyeBtn');
+  const keysList   = document.getElementById('groqKeysList');
+  const addBtn     = document.getElementById('groqAddBtn');
   const modelSel   = document.getElementById('groqModelSelect');
-  const saveBtn    = document.getElementById('groqSaveBtn');
   const deleteBtn  = document.getElementById('groqDeleteBtn');
   const feedback   = document.getElementById('groqFeedback');
   const testWrap   = document.getElementById('groqTestWrap');
@@ -1872,57 +1871,110 @@ function profileUpdateLangUI(lang) {
     });
   }
 
-  // ── Načti aktuální stav klíče ze Supabase ─────────────────
+  // ── Pomocné funkce ─────────────────────────────────────────
+  function maskKey(k) {
+    return k.slice(0, 8) + '•'.repeat(Math.min(24, k.length - 8));
+  }
+  function parseKeys(raw) {
+    if (!raw) return [];
+    return raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+  }
+  function renderKeysList(keys) {
+    keysList.innerHTML = '';
+    if (!keys.length) {
+      keysList.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:4px 0">Zatím žádné klíče – přidej první výše</div>';
+      return;
+    }
+    keys.forEach(function(k, i) {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:8px 12px';
+      row.innerHTML =
+        '<span style="font-size:11px;color:var(--text3);min-width:20px;font-weight:700">#' + (i+1) + '</span>' +
+        '<span style="font-family:monospace;font-size:13px;flex:1;color:var(--text)">' + maskKey(k) + '</span>' +
+        '<span style="font-size:10px;color:var(--text3);margin-right:4px">' + (i === 0 ? '🟢 aktivní' : '⏳ záloha') + '</span>' +
+        '<button onclick="removeGroqKey(' + i + ')" style="background:transparent;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px" title="Odebrat">✕</button>';
+      keysList.appendChild(row);
+    });
+  }
+
+  let _groqKeys = [];
+
+  window.removeGroqKey = async function(idx) {
+    if (!confirm('Odebrat klíč #' + (idx+1) + '?')) return;
+    _groqKeys.splice(idx, 1);
+    await saveAllKeys();
+    renderKeysList(_groqKeys);
+    setGroqFeedback(_groqKeys.length ? '✅ Klíč odebrán' : 'Všechny klíče odebrány', 'ok');
+    updateStatus();
+  };
+
+  async function saveAllKeys() {
+    const token = localStorage.getItem('sb_token');
+    const keyStr = _groqKeys.join(',');
+    const existing = await supabaseRequest(
+      'rest/v1/user_api_keys?user_id=eq.' + currentUser.id + '&select=id',
+      'GET', null, token
+    );
+    const hasRow = Array.isArray(existing) && existing.length > 0;
+    const res = await supabaseRequest(
+      hasRow ? 'rest/v1/user_api_keys?user_id=eq.' + currentUser.id : 'rest/v1/user_api_keys',
+      hasRow ? 'PATCH' : 'POST',
+      { user_id: currentUser.id, groq_key: keyStr, groq_model: modelSel.value, groq_enabled: true },
+      token
+    );
+    if (res && res.error) throw new Error(res.error.message || 'Chyba uložení');
+    if (window.GroqClient) await GroqClient.loadKey();
+  }
+
+  function updateStatus() {
+    const n = _groqKeys.length;
+    const groqSub = document.getElementById('accGroqSub');
+    if (n > 0) {
+      dot.className = 'groq-dot active';
+      statusTxt.textContent = 'Groq AI aktivní – ' + n + ' klíč' + (n === 1 ? '' : n < 5 ? 'e' : 'ů');
+      if (groqSub) groqSub.textContent = 'Aktivní (' + n + '×)';
+      deleteBtn.style.display = 'inline-flex';
+      testWrap.style.display  = 'block';
+    } else {
+      dot.className = 'groq-dot';
+      statusTxt.textContent = 'Groq AI není nakonfigurováno';
+      if (groqSub) groqSub.textContent = 'Nekonfigurováno';
+      deleteBtn.style.display = 'none';
+      testWrap.style.display  = 'none';
+    }
+  }
+
+  // ── Načti klíče ze Supabase ────────────────────────────────
   dot.className = 'groq-dot loading';
   statusTxt.textContent = 'Načítám nastavení…';
-
-  let hasKey = false;
   try {
     const token = localStorage.getItem('sb_token');
     const res = await supabaseRequest(
-      `rest/v1/user_api_keys?user_id=eq.${currentUser.id}&select=groq_key,groq_model,groq_enabled`,
+      'rest/v1/user_api_keys?user_id=eq.' + currentUser.id + '&select=groq_key,groq_model,groq_enabled',
       'GET', null, token
     );
     const data = Array.isArray(res) ? res[0] : null;
-
     if (data && data.groq_key) {
-      hasKey = true;
-      keyInput.placeholder = data.groq_key.slice(0, 8) + '•'.repeat(24);
-      keyInput.dataset.saved = '1';
+      _groqKeys = parseKeys(data.groq_key);
       if (data.groq_model) modelSel.value = data.groq_model;
-      deleteBtn.style.display = 'inline-flex';
-      testWrap.style.display  = 'block';
-
-      // Načti klíč do paměti GroqClient
       if (window.GroqClient) await GroqClient.loadKey();
     }
-  } catch (e) {
-    console.warn('[Groq] Chyba načítání:', e);
-  }
+  } catch(e) { console.warn('[Groq] Chyba načítání:', e); }
+  renderKeysList(_groqKeys);
+  updateStatus();
 
-  dot.className   = hasKey ? 'groq-dot active' : 'groq-dot';
-  statusTxt.textContent = hasKey ? 'Groq AI je aktivní ✓' : 'Groq AI není nakonfigurováno';
-  const groqSub = document.getElementById('accGroqSub');
-  if (groqSub) groqSub.textContent = hasKey ? 'Aktivní ✓' : 'Nekonfigurováno';
-
-  // ── Zobrazit/skrýt klíč ────────────────────────────────────
-  eyeBtn.addEventListener('click', () => {
-    const isPwd = keyInput.type === 'password';
-    keyInput.type = isPwd ? 'text' : 'password';
-    eyeBtn.textContent = isPwd ? '🙈' : '👁';
-  });
-
-  // ── Uložit klíč ────────────────────────────────────────────
-  saveBtn.addEventListener('click', async () => {
-    const key   = keyInput.value.trim();
-    const model = modelSel.value;
-
+  // ── Přidat klíč ────────────────────────────────────────────
+  addBtn.addEventListener('click', async () => {
+    const key = keyInput.value.trim();
     if (!key || key.length < 20) {
       setGroqFeedback('Zadej platný Groq API klíč (začíná gsk_…)', 'error'); return;
     }
+    if (_groqKeys.includes(key)) {
+      setGroqFeedback('Tento klíč už je přidán.', 'error'); return;
+    }
 
-    saveBtn.disabled = true;
-    saveBtn.textContent = '⏳ Ukládám…';
+    addBtn.disabled = true;
+    addBtn.textContent = '⏳';
     setGroqFeedback('', '');
 
     try {
@@ -1933,67 +1985,40 @@ function profileUpdateLangUI(lang) {
           return;
         }
       }
-
-      const token = localStorage.getItem('sb_token');
-
-      // Upsert: nejdřív zkus PATCH (update), pokud neexistuje → INSERT
-      const existing = await supabaseRequest(
-        `rest/v1/user_api_keys?user_id=eq.${currentUser.id}&select=id`,
-        'GET', null, token
-      );
-      const hasRow = Array.isArray(existing) && existing.length > 0;
-
-      const res = await supabaseRequest(
-        hasRow
-          ? `rest/v1/user_api_keys?user_id=eq.${currentUser.id}`
-          : 'rest/v1/user_api_keys',
-        hasRow ? 'PATCH' : 'POST',
-        { user_id: currentUser.id, groq_key: key, groq_model: model, groq_enabled: true },
-        token
-      );
-      if (res && res.error) throw new Error(res.error.message || 'Chyba uložení');
-
-      // Načti čerstvý klíč do paměti
-      if (window.GroqClient) await GroqClient.loadKey();
-
-      setGroqFeedback('✅ API klíč byl bezpečně uložen', 'ok');
-      dot.className = 'groq-dot active';
-      statusTxt.textContent = 'Groq AI je aktivní ✓';
-      deleteBtn.style.display = 'inline-flex';
-      testWrap.style.display  = 'block';
+      _groqKeys.push(key);
+      await saveAllKeys();
+      renderKeysList(_groqKeys);
+      updateStatus();
       keyInput.value = '';
-      keyInput.placeholder = key.slice(0, 8) + '•'.repeat(24);
-      keyInput.dataset.saved = '1';
+      setGroqFeedback('✅ Klíč #' + _groqKeys.length + ' přidán', 'ok');
     } catch (e) {
+      _groqKeys.pop();
       setGroqFeedback('❌ Chyba: ' + e.message, 'error');
     } finally {
-      saveBtn.disabled = false;
-      saveBtn.textContent = '💾 Uložit klíč';
+      addBtn.disabled = false;
+      addBtn.textContent = '+ Přidat';
     }
   });
 
-  // ── Smazat klíč ────────────────────────────────────────────
+  // ── Smazat všechny klíče ───────────────────────────────────
   deleteBtn.addEventListener('click', async () => {
-    if (!confirm('Opravdu chceš odebrat Groq API klíč? Groq funkce přestanou fungovat.')) return;
+    if (!confirm('Odebrat všechny Groq klíče? Groq funkce přestanou fungovat.')) return;
     try {
       const token = localStorage.getItem('sb_token');
       await supabaseRequest(
-        `rest/v1/user_api_keys?user_id=eq.${currentUser.id}`,
+        'rest/v1/user_api_keys?user_id=eq.' + currentUser.id,
         'DELETE', null, token
       );
-      setGroqFeedback('Klíč byl odebrán.', 'ok');
-      dot.className = 'groq-dot';
-      statusTxt.textContent = 'Groq AI není nakonfigurováno';
-      keyInput.placeholder = 'gsk_••••••••••••••••••••••••••••••••••••••••••••••••••••••••';
-      keyInput.dataset.saved = '';
-      deleteBtn.style.display = 'none';
-      testWrap.style.display  = 'none';
+      _groqKeys = [];
+      renderKeysList([]);
+      updateStatus();
+      setGroqFeedback('Všechny klíče byly odebrány.', 'ok');
     } catch (e) {
       setGroqFeedback('❌ ' + e.message, 'error');
     }
   });
 
-  // ── Test připojení ──────────────────────────────────────────
+  // ── Test připojení ─────────────────────────────────────────
   testBtn.addEventListener('click', async () => {
     if (!window.GroqClient || !GroqClient.isReady()) {
       await GroqClient.loadKey();
