@@ -1661,8 +1661,45 @@ async function tcgSearch(gi, autoMode = false) {
     const isJP = g2?.aiResult?.lang === 'JP';
 
     if (autoMode && cards.length) {
-      // V auto módu: předvyber nejlepší shodu (první výsledek) ale zobraz celý grid
-      const best = cards[0];
+      // V auto módu: předvyber nejlepší shodu podle AI varianty/rarity
+      const aiVariant = (g2?.aiResult?.variant || '').toLowerCase();
+      const aiRarity  = (g2?.aiResult?.rarity  || '').toLowerCase();
+
+      // Mapování AI variant na preferované rarity v pokemontcg.io
+      const variantRarityKeywords = {
+        'full art':                  ['illustration rare', 'full art', 'ultra rare', 'rare ultra'],
+        'special illustration rare': ['special illustration rare'],
+        'alt art':                   ['special illustration rare', 'alt art'],
+        'rainbow':                   ['rainbow', 'hyper rare', 'rare rainbow'],
+        'gold':                      ['gold', 'rare secret'],
+        'secret':                    ['secret rare', 'rainbow', 'gold', 'rare rainbow', 'rare secret'],
+        'holo':                      ['holo rare'],
+        'reverse holo':              ['reverse holo'],
+      };
+
+      let best = null;
+
+      // 1. Pokus o shodu podle varianty
+      for (const [key, rarities] of Object.entries(variantRarityKeywords)) {
+        if (aiVariant.includes(key) || aiRarity.includes(key)) {
+          best = cards.find(c =>
+            rarities.some(r => (c.rarity || '').toLowerCase().includes(r))
+          );
+          if (best) break;
+        }
+      }
+
+      // 2. Fallback: pokud varianta říká Full Art ale rarity match selhal,
+      //    vyber kartu s nejvyšším číslem (ale ne Rainbow/Hyper Rare)
+      if (!best && (aiVariant.includes('full art') || aiVariant.includes('alt art') || aiVariant.includes('special'))) {
+        const nonRainbow = cards.filter(c => !/rainbow|hyper rare|rare rainbow|rare secret/i.test(c.rarity || ''));
+        const pool = nonRainbow.length ? nonRainbow : cards;
+        best = [...pool].sort((a, b) => (parseInt(b.number)||0) - (parseInt(a.number)||0))[0];
+      }
+
+      // 3. Pokud nic, vezmi první výsledek (původní chování)
+      if (!best) best = cards[0];
+
       g2.resolvedCard = {
         apiId: best.id, name: best.name,
         set: best.set?.name || '', number: best.number || '',
@@ -1995,18 +2032,43 @@ async function resolveCardUrl(url) {
       const cmVariant    = variantMatch ? variantMatch[1].toUpperCase() : '';
       // Mapování CM variantových kódů na pokemontcg.io rarita/subtype klíčová slova
       const variantRarityMap = {
-        'V1':  ['Full Art', 'Illustration Rare'],
+        'V1':  ['Illustration Rare', 'Full Art', 'Ultra Rare', 'Rare Ultra'],
         'V2':  ['Special Illustration Rare', 'Alt Art'],
-        'SR':  ['Secret Rare', 'Rainbow Rare', 'Gold'],
+        'SR':  ['Secret Rare', 'Rainbow Rare', 'Gold', 'Rare Rainbow'],
         'CHR': ['Character Rare', 'Illustration Rare'],
-        'HR':  ['Hyper Rare', 'Rainbow Rare'],
+        'HR':  ['Hyper Rare', 'Rainbow Rare', 'Rare Rainbow'],
         'SAR': ['Special Illustration Rare'],
         'CSR': ['Character Super Rare'],
         'RR':  ['Double Rare'],
         'AR':  ['Illustration Rare'],
-        'UR':  ['Ultra Rare', 'Secret Rare'],
+        'UR':  ['Ultra Rare', 'Secret Rare', 'Rare Ultra'],
       };
       const preferredRarities = variantRarityMap[cmVariant] || [];
+
+      // ── JP set → EN set mapování (pro zúžení výsledků hledání) ──────────
+      const jpToEnSet = {
+        'Time-Gazer':           'Astral Radiance',
+        'Space-Juggler':        'Astral Radiance',
+        'Lost-Abyss':           'Lost Origin',
+        'Dark-Phantasma':       'Silver Tempest',
+        'Incandescent-Arcana':  'Silver Tempest',
+        'Paradigm-Trigger':     'Crown Zenith',
+        'VSTAR-Universe':       'Crown Zenith',
+        'Clay-Burst':           'Scarlet & Violet',
+        'Snow-Hazard':          'Scarlet & Violet',
+        'Ruler-of-the-Black-Flame': 'Obsidian Flames',
+        'Raging-Surf':          'Paradox Rift',
+        'Ancient-Roar':         'Paradox Rift',
+        'Future-Flash':         'Paradox Rift',
+        'Wild-Force':           'Temporal Forces',
+        'Cyber-Judge':          'Temporal Forces',
+        'Mask-of-Change':       'Twilight Masquerade',
+        'Night-Wanderer':       'Shrouded Fable',
+        'Stellar-Miracle':      'Stellar Crown',
+        'Paradise-Dragona':     'Surging Sparks',
+        'Terastal-Fest':        'Surging Sparks',
+      };
+      const enSetForJp = isJp ? (jpToEnSet[setSlug] || '') : '';
 
       // ── Extrakce jména karty ze slugu ──────────────────────
       // Odstraníme variantu (V1, V2, SR, CHR, Secret...) a set+číslo ze konce
@@ -2029,12 +2091,21 @@ async function resolveCardUrl(url) {
       }
 
       // Vždy také hledáme jen podle jména (potřebujeme pro JP + výběr varianty)
+      // Pro JP karty s known EN setem: přidáme set.name filtr pro přesnost
       if (!candidates.length || isJp) {
-        const url2 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=20&orderBy=-set.releaseDate`;
+        let nameQuery = `name:\"${encodeURIComponent(nameWords)}\"`;
+        if (enSetForJp) nameQuery += `+set.name:\"${encodeURIComponent(enSetForJp)}\"`;
+        const url2 = `https://api.pokemontcg.io/v2/cards?q=${nameQuery}&pageSize=20&orderBy=-set.releaseDate`;
         const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
         const byName = r2?.data || [];
-        if (!candidates.length) candidates = byName;
-        else candidates = [...candidates, ...byName.filter(x => !candidates.find(y => y.id === x.id))];
+        // Pokud set-filtrovaný dotaz nic nenajde, zkusíme bez setu (fallback)
+        const fallback = byName.length ? byName : await (async () => {
+          const url3 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=20&orderBy=-set.releaseDate`;
+          const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
+          return r3?.data || [];
+        })();
+        if (!candidates.length) candidates = fallback;
+        else candidates = [...candidates, ...fallback.filter(x => !candidates.find(y => y.id === x.id))];
       }
 
       // ── Výběr nejlepšího kandidáta ─────────────────────────
@@ -2050,29 +2121,31 @@ async function resolveCardUrl(url) {
           c = candidates.find(x => String(x.number) === String(extractedNum));
         }
 
-        // 2. Pro Full Art varianty: vyber kandidáta s NEJVYŠŠÍM číslem
-        //    (Full Art / Secret karty mají čísla nad základní velikost setu)
-        if (!c && isFullArtVariant) {
-          const sorted = [...candidates].sort((a, b) => {
-            const na = parseInt(a.number) || 0;
-            const nb = parseInt(b.number) || 0;
-            return nb - na; // sestupně = nejvyšší číslo první
-          });
-          c = sorted[0];
+        // 2. Shoda podle preferované rarity (nejspolehlivější identifikace varianty)
+        if (!c && preferredRarities.length) {
+          c = candidates.find(x =>
+            preferredRarities.some(r => (x.rarity || '').toLowerCase().includes(r.toLowerCase()))
+          );
         }
 
-        // 3. Pro standardní varianty: vyber kandidáta s NEJNIŽŠÍM číslem
+        // 3. Pro Full Art varianty: vyber kandidáta s NEJVYŠŠÍM číslem
+        //    (Full Art / Secret karty mají čísla nad základní velikost setu)
+        //    Ale VYLOUČÍME Rainbow Rare / Hyper Rare (mají ještě vyšší čísla)
+        if (!c && isFullArtVariant) {
+          const nonRainbow = candidates.filter(x =>
+            !/rainbow|hyper rare|rare rainbow|rare secret/i.test(x.rarity || '')
+          );
+          const pool = nonRainbow.length ? nonRainbow : candidates;
+          c = [...pool].sort((a, b) => (parseInt(b.number)||0) - (parseInt(a.number)||0))[0];
+        }
+
+        // 4. Pro standardní varianty: vyber kandidáta s NEJNIŽŠÍM číslem
         //    (základní verze karty má nižší číslo)
         if (!c && isStandardVariant) {
-          const sorted = [...candidates].sort((a, b) => {
-            const na = parseInt(a.number) || 9999;
-            const nb = parseInt(b.number) || 9999;
-            return na - nb; // vzestupně = nejnižší číslo první
-          });
-          c = sorted[0];
+          c = [...candidates].sort((a, b) => (parseInt(a.number)||9999) - (parseInt(b.number)||9999))[0];
         }
 
-        // 4. Absolutní fallback
+        // 5. Absolutní fallback
         if (!c) c = candidates[0];
       }
 
