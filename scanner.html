@@ -530,6 +530,26 @@ body::after {
 /* ═══════════════════════════════════════════════
    QR BRIDGE PANEL
 ═══════════════════════════════════════════════ */
+/* Side-by-side row */
+.qr-upload-row {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  margin-bottom: 20px;
+}
+.qr-panel-half {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+.upload-zone-half {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0 !important;
+}
+@media (max-width: 620px) {
+  .qr-upload-row { flex-direction: column; }
+}
 .qr-panel {
   display: flex; gap: 24px; align-items: flex-start;
   padding: 24px; margin-bottom: 20px; flex-wrap: wrap;
@@ -761,8 +781,6 @@ body::after {
     <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
   </nav>
   <div class="topbar-right">
-    <!-- QR propoj telefon button -->
-    <button class="topbar-icon-btn" onclick="openQrModal()" title="📱 Propoj telefon – QR kód">📱</button>
     <!-- Settings button -->
     <button class="topbar-icon-btn" onclick="openSettings()" title="⚙️ Nastavení">⚙️</button>
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -794,38 +812,42 @@ body::after {
 
   <main class="app-body">
 
-    <!-- QR Bridge panel (collapses after first use) -->
-    <div id="qrPanel" class="qr-panel glass" style="display:none;">
-      <div class="qr-code-box" id="qrCodeBox"></div>
-      <div class="qr-info">
-        <div class="qr-title">📱 Propoj telefon
-          <span id="realtimeBadge2" class="realtime-badge off"><span class="realtime-dot"></span> Čeká</span>
-        </div>
-        <p class="qr-desc">Naskenuj QR kód telefonem. Odkaz je trvalý — uloži si ho do záložek a příště QR nepotřebuješ.</p>
-        <div class="qr-steps">
-          <div class="qr-step"><span class="qr-step-num">1</span> Otevři kameru telefonu a namiř na QR kód</div>
-          <div class="qr-step"><span class="qr-step-num">2</span> Vyfot kartičky v mobilní aplikaci</div>
-          <div class="qr-step"><span class="qr-step-num">3</span> Fotky se tu zobrazí automaticky</div>
-        </div>
-        <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
-          <button class="btn btn-outline" onclick="copyMobileUrl()" style="font-size:12px; padding:8px 14px;">📋 Kopírovat odkaz</button>
-          <button class="btn btn-ghost" onclick="hideQrPanel()" style="font-size:12px; padding:8px 14px;">Skrýt</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Incoming photos banner -->
     <div id="incomingBanner" class="incoming-banner">
       📲 <span id="incomingText">Přijímám fotky z telefonu...</span>
     </div>
 
-    <!-- Upload zone -->
-    <div class="upload-zone" id="uploadZone">
-      <input type="file" id="fileInput" accept="image/*" multiple
-        onchange="handleFiles(this.files)">
-      <span class="upload-icon">📸</span>
-      <div class="upload-title">Přidej fotky karet</div>
-      <p class="upload-sub">Na mobilu otevře kameru nebo galerii · Na PC vyber soubory<br>Podporuje JPG, PNG, WebP</p>
+    <!-- QR + Upload side-by-side layout -->
+    <div class="qr-upload-row">
+
+      <!-- QR Bridge panel -->
+      <div id="qrPanel" class="qr-panel glass qr-panel-half">
+        <div class="qr-code-box" id="qrCodeBox"></div>
+        <div class="qr-info">
+          <div class="qr-title">📱 Propoj telefon
+            <span id="realtimeBadge2" class="realtime-badge off"><span class="realtime-dot"></span> Čeká</span>
+          </div>
+          <p class="qr-desc">Naskenuj QR kód telefonem. Odkaz je trvalý — uloži si ho do záložek a příště QR nepotřebuješ.</p>
+          <div class="qr-steps">
+            <div class="qr-step"><span class="qr-step-num">1</span> Otevři kameru telefonu a namiř na QR kód</div>
+            <div class="qr-step"><span class="qr-step-num">2</span> Vyfot kartičky v mobilní aplikaci</div>
+            <div class="qr-step"><span class="qr-step-num">3</span> Fotky se tu zobrazí automaticky</div>
+          </div>
+          <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="copyMobileUrl()" style="font-size:12px; padding:8px 14px;">📋 Kopírovat odkaz</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
+      <div class="upload-zone upload-zone-half" id="uploadZone">
+        <input type="file" id="fileInput" accept="image/*" multiple
+          onchange="handleFiles(this.files)">
+        <span class="upload-icon">📸</span>
+        <div class="upload-title">Přidej fotky karet</div>
+        <p class="upload-sub">Na mobilu otevře kameru nebo galerii · Na PC vyber soubory<br>Podporuje JPG, PNG, WebP</p>
+      </div>
+
     </div>
 
     <!-- Action bar (visible when photos exist) -->
@@ -1949,7 +1971,6 @@ function closeQrOutside(e) { if (e.target.id === 'qrModal') closeQrModal(); }
 function hideQrPanel()     { document.getElementById('qrPanel').style.display = 'none'; localStorage.setItem('qrPanelHidden','1'); }
 
 function showQrPanel() {
-  if (localStorage.getItem('qrPanelHidden') === '1') return;  // respektuje volbu uživatele; vždy dostupné přes 📱 v topbaru
   document.getElementById('qrPanel').style.display = 'flex';
   renderQr('qrCodeBox', 140);
 }
