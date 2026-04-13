@@ -1663,7 +1663,7 @@ async function tcgSearch(gi, autoMode = false) {
     const g2 = cardGroups[gi];
     const isJP = g2?.aiResult?.lang === 'JP';
 
-    if (autoMode && cards.length) {
+    if (autoMode && cards.length && !g2._manuallySelected && !g2.resolvedCard) {
       // V auto módu: předvyber nejlepší shodu podle AI varianty/rarity
       const aiVariant = (g2?.aiResult?.variant || '').toLowerCase();
       const aiRarity  = (g2?.aiResult?.rarity  || '').toLowerCase();
@@ -1860,6 +1860,7 @@ function tcgSelectCard(gi, idx) {
 
   // Uložit do skupiny (včetně všech polí)
   g.resolvedCard = cardData;
+  g._manuallySelected = true; // Pojistka: zabrání autoSearchAll přepsat ruční výběr
   g.cardUrl = ''; // URL input není potřeba
 
   // Aktualizovat status

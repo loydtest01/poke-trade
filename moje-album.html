@@ -1196,6 +1196,16 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
+      <span class="sb-label">🔧 Správa dat</span>
+      <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
+        🛠️ Opravit vše automaticky
+      </button>
+      <button class="sb-btn" onclick="resetAllPrices()" id="resetPricesBtn" title="Vymaže uložené Cardmarket URL, apiId a ceny – karty se načtou při příštím otevření">
+        🔄 Reset cen (ruční)
+      </button>
+    </div>
   </aside>
 
   <!-- Main -->
@@ -3115,6 +3125,193 @@ async function syncCardToServer(c) {
     { p_user_id: userId, p_cards: payload }, token);
 }
 
+
+// ── Oprava špatně načtených Cardmarket cen ────────────────────────
+async function resetAllPrices() {
+  if (!allCards.length) return alert('Nejprve načti alba.');
+  const confirmed = confirm(
+    `Opravit Cardmarket ceny pro ${allCards.length} karet?\n\n` +
+    `Tím se vymažou uložené URL, apiId a ceny – při dalším otevření detailu se každá karta znovu načte správně.\n\n` +
+    `Pokračovat?`
+  );
+  if (!confirmed) return;
+
+  const btn = document.getElementById('resetPricesBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Resetuji…'; }
+
+  let done = 0, errors = 0;
+  const BATCH = 10;
+
+  for (let i = 0; i < allCards.length; i += BATCH) {
+    const chunk = allCards.slice(i, i + BATCH);
+    await Promise.all(chunk.map(async c => {
+      try {
+        c.cardmarketUrl   = '';
+        c.pricesFetchedAt = null;
+        c.apiId           = null; // Reset apiId — znovu se najde podle jméno+číslo+série
+        c.pMin   = 0;
+        c.pTrend = 0;
+        c.p30d   = 0;
+        await saveCardUpdates(c);
+        done++;
+      } catch(e) { errors++; console.warn('[resetAllPrices]', c.name, e); }
+    }));
+    if (btn) btn.textContent = `⏳ ${done}/${allCards.length}…`;
+  }
+  saveLocal();
+  if (btn) { btn.disabled = false; btn.textContent = '✅ Hotovo – otevři detaily karet'; }
+  setTimeout(() => { if (btn) btn.textContent = '🔄 Opravit ceny karet'; }, 4000);
+  alert(`✅ Reset dokončen: ${done} karet${errors ? ', ' + errors + ' chyb' : ''}.\n\nCeny se načtou při příštím otevření detailu každé karty.`);
+}
+
+// ── Hromadná automatická oprava všech karet (apiId + ceny) ────────
+let _repairRunning = false;
+
+async function repairAllCards() {
+  if (!allCards.length) return alert('Nejprve načti alba.');
+  if (_repairRunning) return;
+
+  const confirmed = confirm(
+    `Automaticky opravit všech ${allCards.length} karet?\n\n` +
+    `Každá karta se znovu vyhledá na pokemontcg.io (jméno + číslo + série) a načtou se správné ceny z Cardmarket.\n\n` +
+    `Může to trvat několik minut. Pokračovat?`
+  );
+  if (!confirmed) return;
+
+  _repairRunning = true;
+  const btn = document.getElementById('repairAllBtn');
+  if (btn) btn.disabled = true;
+
+  // Vytvoř progress panel
+  let progressEl = document.getElementById('repairProgress');
+  if (!progressEl) {
+    progressEl = document.createElement('div');
+    progressEl.id = 'repairProgress';
+    progressEl.style.cssText = `
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+      background:var(--bg2,#1a1a2e); border:1px solid var(--border,#333);
+      border-radius:12px; padding:16px 24px; z-index:9999;
+      min-width:320px; box-shadow:0 8px 32px rgba(0,0,0,.5);
+      font-family:inherit; color:var(--text,#fff);
+    `;
+    document.body.appendChild(progressEl);
+  }
+
+  const setInfo = txt => { progressEl.innerHTML = txt; };
+
+  let fixed = 0, skipped = 0, failed = 0;
+  const total = allCards.length;
+
+  // Pomocná funkce — validace série
+  function setMatches(cardSetName, expectedSet) {
+    if (!expectedSet) return true;
+    const a = (cardSetName||'').toLowerCase().trim();
+    const b = (expectedSet||'').toLowerCase().trim();
+    if (a === b || a.includes(b) || b.includes(a)) return true;
+    const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').trim();
+    return norm(a) === norm(b);
+  }
+
+  // Zpracovávej po 3 paralelně (šetři API limit)
+  for (let i = 0; i < total; i += 3) {
+    const chunk = allCards.slice(i, i + 3);
+
+    setInfo(`
+      <div style="font-weight:600;margin-bottom:8px">🔧 Automatická oprava karet</div>
+      <div style="margin-bottom:6px">
+        <div style="background:var(--border,#333);border-radius:4px;height:6px;overflow:hidden">
+          <div style="background:#f59e0b;height:100%;width:${Math.round(i/total*100)}%;transition:width .3s"></div>
+        </div>
+      </div>
+      <div style="font-size:13px;color:var(--text2,#aaa)">
+        ${i}/${total} &nbsp;·&nbsp; ✅ ${fixed} opraveno &nbsp;·&nbsp; ⏭️ ${skipped} beze změny &nbsp;·&nbsp; ❌ ${failed} chyb
+      </div>
+      <div style="font-size:12px;color:var(--text3,#666);margin-top:4px">
+        ${chunk.map(c => c.name||'?').join(', ')}…
+      </div>
+    `);
+
+    await Promise.all(chunk.map(async c => {
+      try {
+        const name    = c.name || '';
+        const numRaw  = (c.number || c.num || '').toString().split('/')[0];
+        const numNoZ  = numRaw.replace(/^0+/, '') || numRaw;
+        const set     = c.set || '';
+
+        if (!name) { skipped++; return; }
+
+        // Sestavíme kandidáty — BEZ přímého apiId (ten byl špatný)
+        const cands = [];
+        if (numRaw && set) cands.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numRaw} set.name:"${set}"`)}&pageSize=1`);
+        if (numNoZ !== numRaw && set) cands.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numNoZ} set.name:"${set}"`)}&pageSize=1`);
+        if (numRaw) cands.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numRaw}`)}&pageSize=5`);
+        if (set) cands.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" set.name:"${set}"`)}&pageSize=1`);
+        cands.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}"`)}&pageSize=5`);
+
+        let card = null;
+        for (const url of cands) {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const json = await res.json();
+            const hits = json?.data || (json?.id ? [json] : []);
+            if (!hits.length) continue;
+            const hasSetQ = url.includes('set.name');
+            // Pokud dotaz neobsahuje sérii, hledáme správnou v výsledcích
+            const match = hasSetQ ? hits[0] : hits.find(h => setMatches(h.set?.name, set)) || hits[0];
+            if (match) { card = match; break; }
+          } catch(e) { continue; }
+        }
+
+        if (!card) { failed++; return; }
+
+        const cm = card.cardmarket?.prices || {};
+        const newUrl = card.cardmarket?.url || '';
+        const pMin   = cm.lowPrice   || 0;
+        const pTrend = cm.trendPrice || 0;
+        const p30d   = cm.avg30 || cm.avg7 || 0;
+
+        // Zkontroluj jestli se něco změnilo
+        const changed = (card.id !== c.apiId) || (newUrl !== c.cardmarketUrl) || (pTrend !== c.pTrend);
+
+        // Vždy ulož správné hodnoty
+        c.apiId           = card.id;
+        c.cardmarketUrl   = newUrl;
+        c.pMin            = pMin;
+        c.pTrend          = pTrend;
+        c.p30d            = p30d;
+        c.hp              = card.hp || c.hp || '';
+        c.rarity          = card.rarity || c.rarity || '';
+        c.pricesFetchedAt = new Date().toISOString();
+
+        await saveCardUpdates(c);
+        if (changed) fixed++; else skipped++;
+      } catch(e) {
+        failed++;
+        console.warn('[repairAllCards]', c?.name, e);
+      }
+    }));
+
+    // Krátká pauza mezi dávkami
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  saveLocal();
+  _repairRunning = false;
+  if (btn) btn.disabled = false;
+
+  setInfo(`
+    <div style="font-weight:600;margin-bottom:8px">✅ Oprava dokončena!</div>
+    <div style="font-size:13px;color:var(--text2,#aaa);margin-bottom:12px">
+      ✅ ${fixed} opraveno &nbsp;·&nbsp; ⏭️ ${skipped} beze změny &nbsp;·&nbsp; ❌ ${failed} chyb
+    </div>
+    <button onclick="document.getElementById('repairProgress').remove();render();"
+      style="background:#f59e0b;color:#000;border:none;border-radius:8px;padding:8px 20px;cursor:pointer;font-weight:600">
+      Zavřít a obnovit album
+    </button>
+  `);
+}
+
 // ── Cardmarket ceny ──────────────────────────────────────────────
 function renderPrices(c, el) {
   if (!el) return;
@@ -3161,18 +3358,35 @@ async function fetchLivePrices(c, el) {
       candidates.push(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(apiId)}`);
     }
     if (name) {
-      // 2. jméno + číslo (původní formát)
+      // 2. jméno + číslo + série (nejpřesnější kombinace bez apiId)
+      if (numRaw && set) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numRaw} set.name:"${set}"`)}&pageSize=1`);
+      // 3. jméno + číslo bez leading zeros + série
+      if (numNoZero && numNoZero !== numRaw && set) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numNoZero} set.name:"${set}"`)}&pageSize=1`);
+      // 4. jméno + číslo (původní formát, bez série – fallback)
       if (numRaw) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numRaw}`)}&pageSize=1`);
-      // 3. jméno + číslo bez leading zeros
+      // 5. jméno + číslo bez leading zeros (fallback)
       if (numNoZero && numNoZero !== numRaw) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" number:${numNoZero}`)}&pageSize=1`);
-      // 4. jméno + série
+      // 6. jméno + série
       if (set) candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}" set.name:"${set}"`)}&pageSize=1`);
-      // 5. pouze jméno (nejméně přesné)
+      // 7. pouze jméno (nejméně přesné)
       candidates.push(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`name:"${name}"`)}&pageSize=1`);
     }
     if (!candidates.length) return;
 
-    // Zkusíme postupně každý kandidát dokud nenajdeme kartu
+    // Pomocná funkce: je série karty kompatibilní s očekávanou?
+    function setMatches(cardSetName, expectedSet) {
+      if (!expectedSet) return true; // Pokud nevíme sérii, akceptujeme cokoliv
+      const a = (cardSetName || '').toLowerCase().trim();
+      const b = (expectedSet || '').toLowerCase().trim();
+      if (a === b) return true;
+      // Fuzzy: jeden obsahuje druhý (např. "Pokémon GO" vs "Pokemon GO")
+      if (a.includes(b) || b.includes(a)) return true;
+      // Odstraň diakritiku pro porovnání
+      const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,' ').trim();
+      return normalize(a) === normalize(b);
+    }
+
+    // Zkusíme postupně každý kandidát dokud nenajdeme kartu ze správné série
     let card = null;
     for (const url of candidates) {
       try {
@@ -3180,7 +3394,18 @@ async function fetchLivePrices(c, el) {
         if (!res.ok) continue;
         const json = await res.json();
         const hit  = json?.data ? json.data[0] : (json?.id ? json : null);
-        if (hit) { card = hit; break; }
+        if (!hit) continue;
+        // Kandidáti 1, 4, 5, 7 nemají série v dotazu — validujeme shodu
+        const hasSetInQuery = url.includes('set.name');
+        if (!hasSetInQuery && set) {
+          // Zkontroluj jestli nalezená karta patří do správné série
+          if (!setMatches(hit.set?.name, set)) {
+            console.warn(`[fetchLivePrices] Přeskakuji ${hit.set?.name} #${hit.number} — čekám sérii "${set}"`);
+            continue; // Špatná série — zkus dalšího kandidáta
+          }
+        }
+        card = hit;
+        break;
       } catch(e) { continue; }
     }
 
