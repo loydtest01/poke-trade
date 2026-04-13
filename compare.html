@@ -348,7 +348,7 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
 
   const token = getToken();
   const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid');
-  if (!token || !myId) { location.href = 'login.html'; return; }
+  if (!token || !myId) { showOnlineError('Pro zobrazení sdíleného alba se musíš přihlásit. <a href="login.html" style="color:#f5c842">Přihlásit se →</a>'); return; }
 
   // Načti sdílení ze Supabase
   const res    = await fetch(
@@ -512,7 +512,7 @@ async function openLocalAlbumPicker(num) {
 
   if (!token || !myId) {
     document.getElementById('localPickerList').innerHTML =
-      '<div class="album-picker-empty">❌ Nejsi přihlášen. <a href="login.html" style="color:#f5c842">Přihlásit se</a></div>';
+      '<div class="album-picker-empty">Pro načtení alb se musíš <a href="login.html" style="color:#f5c842">přihlásit</a>.<br><br>Nebo přetáhni karty do polí A / B ručně.</div>';
     return;
   }
 
