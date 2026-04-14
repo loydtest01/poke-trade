@@ -172,7 +172,12 @@ async function importFromUrl() {
       const parts    = url.replace(/\/$/, '').split('/');
       const cardSlug = parts[parts.length - 1];
       const setSlug  = parts[parts.length - 2];
-      name    = cardSlug.replace(/-[0-9]+-[0-9]+$/, '').replace(/-[0-9]+$/, '').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+      let cleanSlug = cardSlug
+        .replace(/[_-][a-z]{1,3}\d+[A-Z]?\d{3,4}$/i, '')  // JP kód: -s10D007
+        .replace(/[_-][A-Za-z]{2,5}\d{2,4}$/i, '')          // EN kód: -CEL005, -PR003
+        .replace(/-\d{2,4}$/, '')                            // čisté číslo: -014
+        .replace(/[_-](V\d+|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|RR|PR|K)$/i, ''); // varianta: -V1
+      name    = cleanSlug.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
       setName = setSlug.replace(/-and-/gi,' & ').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
     }
     if (name || setName) {
