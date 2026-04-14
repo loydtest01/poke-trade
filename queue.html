@@ -3088,6 +3088,13 @@ function confirmCrop() {
     if (photo && photo.side === 'front') {
       const thumb = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
       if (thumb) thumb.src = dataUrl;
+
+      // Aktualizuj také compare panel (Porovnat s databází)
+      const compareImg = document.getElementById(`compareUserImg-${CROP.groupIdx}`);
+      if (compareImg) {
+        compareImg.src = dataUrl;
+        compareImg.style.display = '';
+      }
     }
 
     if (btn) { btn.disabled = false; btn.textContent = '✂️ Oříznout'; }
@@ -3199,6 +3206,13 @@ function resetPhotoTile(gi, pi) {
   if (p.side === 'front') {
     const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
     if (thumb) thumb.src = p.url;
+
+    // Vrať také compare panel
+    const compareImg = document.getElementById(`compareUserImg-${gi}`);
+    if (compareImg) {
+      compareImg.src = p.url;
+      compareImg.style.display = '';
+    }
   }
   toast('Originál obnoven');
 }
