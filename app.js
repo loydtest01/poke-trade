@@ -219,36 +219,30 @@ function getTypeEmoji(type) {
   if (!sCards) return;
 
   try {
-    // Počet karet: celkový součet ze všech kolekcí (user_cards)
-    // Supabase vrací počet řádků v hlavičce Content-Range při Prefer: count=exact
+    // Počet karet: součet skutečných množství (card_data->count nebo card_data->qty)
+    // Každý řádek user_cards může mít quantity > 1 — sečteme, ne jen spočítáme řádky
     const [cardsRes, profilesRes, offersRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/user_cards?select=id`, {
+      fetch(`${SUPABASE_URL}/rest/v1/user_cards?select=card_data`, {
         headers: {
           'apikey': SUPABASE_ANON,
           'Authorization': `Bearer ${SUPABASE_ANON}`,
-          'Prefer': 'count=exact',
-          'Range-Unit': 'items',
-          'Range': '0-0',
         }
       }),
       supabaseRequest('rest/v1/profiles?select=id'),
       supabaseRequest('rest/v1/offers?select=id&status=eq.accepted'),
     ]);
 
-    // Počet karet z Content-Range hlavičky: "0-0/1234" → 1234
+    // Sečti quantity ze všech karet (card_data.count nebo card_data.qty, fallback 1)
     let totalCards = 0;
-    const contentRange = cardsRes.headers.get('Content-Range');
-    if (contentRange) {
-      const parts = contentRange.split('/');
-      totalCards = parseInt(parts[1] || '0', 10) || 0;
-    }
-    // Fallback: zkus spočítat přímo z JSON (pokud Prefer nefunguje)
-    if (!totalCards) {
-      try {
-        const rows = await cardsRes.json();
-        if (Array.isArray(rows)) totalCards = rows.length;
-      } catch {}
-    }
+    try {
+      const rows = await cardsRes.json();
+      if (Array.isArray(rows)) {
+        totalCards = rows.reduce((sum, row) => {
+          const qty = row.card_data?.count || row.card_data?.qty || 1;
+          return sum + (parseInt(qty, 10) || 1);
+        }, 0);
+      }
+    } catch {}
 
     sCards.textContent  = totalCards > 0 ? totalCards.toLocaleString('cs') : '0';
     sUsers.textContent  = Array.isArray(profilesRes) ? profilesRes.length : '–';
