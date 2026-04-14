@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Porovnat alba – PokéTrade</title>
+<title>Porovnat & Sdílet alba – PokéTrade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -11,31 +11,24 @@
 /* ═══ WALLPAPER BACKGROUND ═══ */
 body { background: #06040c !important; overflow-x: hidden; }
 body::before {
-  content: "";
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
-  background-image: url("wallpaper.png");
-  background-size: cover;
-  background-position: center 30%;
-  background-repeat: no-repeat;
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("wallpaper.png"); background-size: cover;
+  background-position: center 30%; background-repeat: no-repeat;
   filter: brightness(0.22) saturate(0.6);
 }
 body::after {
-  content: "";
-  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
     radial-gradient(ellipse 60% 50% at 20% 60%, rgba(255,80,0,0.08) 0%, transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 60%, rgba(30,80,255,0.08) 0%, transparent 70%),
     linear-gradient(to bottom, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.6) 100%);
 }
 
-
-/* ── Unified Top bar ──────────────────────────────────────────────── */
+/* ── Topbar ──────────────────────────────────────────────────────── */
 .app-topbar {
   position: sticky; top: 0; z-index: 200;
-  background: rgba(8,8,12,0.92);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(16px);
-  display: flex; align-items: center;
+  background: rgba(8,8,12,0.92); border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px); display: flex; align-items: center;
   height: 56px; padding: 0 20px; gap: 0;
 }
 .app-logo {
@@ -65,7 +58,24 @@ body::after {
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
 }
+.nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 
+/* ── Page Tab Bar ──────────────────────────────────────────────── */
+.page-tab-bar {
+  position: sticky; top: 56px; z-index: 190;
+  display: flex; gap: 0;
+  background: rgba(6,4,12,0.95); border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(12px); padding: 0 20px;
+}
+.ptab {
+  padding: 11px 20px; font-size: 13px; font-weight: 600;
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: rgba(240,236,228,0.5); cursor: pointer;
+  font-family: 'Unbounded', sans-serif; transition: all .15s;
+  margin-bottom: -1px; letter-spacing: 0.02em;
+}
+.ptab:hover { color: #f0ece4; }
+.ptab.active { color: #f5c842; border-bottom-color: #f5c842; }
 
 /* ── Flat filter system (compare) ─────────────────────────── */
 .cmp-supertype-bar { display:flex; gap:5px; margin-bottom:8px; flex-wrap:wrap; }
@@ -113,25 +123,16 @@ body::after {
 .type-chip:hover  { background:rgba(255,255,255,0.07); color:#f0ece4; }
 .type-chip.active { background:rgba(245,200,66,0.15); border-color:rgba(245,200,66,0.3); color:#f5c842; }
 
-.nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
-
-/* ── Online mode — sdílené album ── */
-/* ── Album picker (online mode) ────────────────────────────────── */
+/* ── Online mode — album picker ────────────────────────────────── */
 .album-picker-panel {
-  display: none;
-  flex-direction: column;
-  gap: 14px;
-  background: rgba(245,200,66,0.05);
-  border: 1px solid rgba(245,200,66,0.2);
-  border-radius: 16px;
-  padding: 22px 24px;
-  margin-bottom: 20px;
+  display: none; flex-direction: column; gap: 14px;
+  background: rgba(245,200,66,0.05); border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 16px; padding: 22px 24px; margin-bottom: 20px;
 }
 .album-picker-panel.visible { display: flex; }
 .album-picker-title {
   font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700;
-  color: #f5c842; letter-spacing: .04em;
-  display: flex; align-items: center; gap: 8px;
+  color: #f5c842; letter-spacing: .04em; display: flex; align-items: center; gap: 8px;
 }
 .album-picker-subtitle { font-size: 13px; color: rgba(240,236,228,0.55); margin-top: -6px; }
 .album-picker-list { display: flex; flex-direction: column; gap: 8px; }
@@ -151,8 +152,7 @@ body::after {
 .album-picker-actions { display: flex; gap: 10px; margin-top: 4px; }
 .btn-compare-go {
   padding: 10px 28px; border-radius: 10px; font-size: 14px; font-weight: 700;
-  background: #f5c842; color: #000; border: none; cursor: pointer; font-family: inherit;
-  transition: all .15s;
+  background: #f5c842; color: #000; border: none; cursor: pointer; font-family: inherit; transition: all .15s;
 }
 .btn-compare-go:hover { background: #ffd84d; transform: translateY(-1px); }
 .btn-compare-go:disabled { opacity: .4; cursor: not-allowed; transform: none; }
@@ -166,25 +166,230 @@ body::after {
 .online-banner.visible { display: flex; }
 .online-banner-text { flex: 1; font-size: 13px; color: rgba(240,236,228,0.75); }
 .online-banner-text strong { color: #f5c842; }
-.online-banner-back { font-size: 12px; color: rgba(240,236,228,0.4); text-decoration: none; }
+.online-banner-back { font-size: 12px; color: rgba(240,236,228,0.4); text-decoration: none; cursor: pointer; }
 .online-banner-back:hover { color: #f5c842; }
 
 /* ── Vodoznak na sdílených kartách ── */
 .cc-watermark {
   position: absolute; inset: 0; pointer-events: none;
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
-  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 6px;
 }
 .cc-watermark span {
   font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.28);
   transform: rotate(-35deg); white-space: nowrap; letter-spacing: 0.04em;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  user-select: none; pointer-events: none;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5); user-select: none; pointer-events: none;
 }
 
+/* ══════════════════════════════════════════════
+   SHARE ALBUM — specifické styly
+   ══════════════════════════════════════════════ */
+
+/* Stránka */
+.share-page { position: relative; z-index: 1; min-height: calc(100vh - 112px); padding: 32px 20px 60px; }
+.container { max-width: 780px; margin: 0 auto; }
+
+.page-header { margin-bottom: 32px; }
+.page-header h1 {
+  font-family: 'Unbounded', sans-serif; font-size: 22px; font-weight: 800;
+  color: #f0ece4; margin: 0 0 6px;
+}
+.page-header p { color: rgba(240,236,228,0.5); font-size: 14px; margin: 0; }
+
+/* Sekce */
+.section {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px; padding: 24px; margin-bottom: 20px;
+}
+.section-title {
+  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 600;
+  color: #f5c842; letter-spacing: 0.04em; margin: 0 0 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+
+/* Příchozí pozvánky */
+.invite-card {
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.18);
+  border-radius: 12px; padding: 16px; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+.invite-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(245,200,66,0.2); color: #f5c842;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px; flex-shrink: 0;
+}
+.invite-info { flex: 1; min-width: 160px; }
+.invite-info strong { color: #f0ece4; font-size: 14px; display: block; margin-bottom: 3px; }
+.invite-info small { color: rgba(240,236,228,0.5); font-size: 12px; }
+.invite-expiry { font-size: 11px; color: rgba(240,236,228,0.35); margin-top: 2px; display: block; }
+.invite-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.btn-accept {
+  padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.btn-accept:hover { background: rgba(245,200,66,0.25); }
+.btn-decline {
+  padding: 8px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,236,228,0.5); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.btn-decline:hover { border-color: rgba(255,80,80,0.3); color: #ff6060; }
+
+/* Formulář */
+.form-label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: rgba(240,236,228,0.5); letter-spacing: 0.05em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.search-wrap { position: relative; margin-bottom: 16px; }
+.search-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 11px 14px; font-size: 14px;
+  color: #f0ece4; font-family: inherit; outline: none; transition: border .15s;
+}
+.search-input::placeholder { color: rgba(240,236,228,0.3); }
+.search-input:focus { border-color: rgba(245,200,66,0.35); }
+.search-results {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 50;
+  background: #12101a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; overflow: hidden; display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.search-results.open { display: block; }
+.search-result-item {
+  display: flex; align-items: center; gap: 12px; padding: 11px 14px;
+  cursor: pointer; transition: background .12s; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.search-result-item:last-child { border-bottom: none; }
+.search-result-item:hover { background: rgba(255,255,255,0.06); }
+.sr-avatar {
+  width: 32px; height: 32px; border-radius: 50%; background: rgba(245,200,66,0.2);
+  color: #f5c842; display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; flex-shrink: 0;
+}
+.sr-name { font-size: 14px; font-weight: 500; color: #f0ece4; }
+.sr-email { font-size: 12px; color: rgba(240,236,228,0.4); }
+.search-hint { padding: 12px 14px; font-size: 13px; color: rgba(240,236,228,0.35); text-align: center; }
+
+/* Vybraný uživatel */
+.selected-user {
+  display: none; align-items: center; gap: 12px;
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 10px; padding: 11px 14px; margin-bottom: 16px;
+}
+.selected-user.visible { display: flex; }
+.selected-user-name { flex: 1; font-size: 14px; font-weight: 500; color: #f5c842; }
+.btn-clear-user {
+  background: none; border: none; color: rgba(240,236,228,0.4);
+  cursor: pointer; font-size: 18px; line-height: 1; padding: 0;
+}
+.btn-clear-user:hover { color: #f0ece4; }
+
+/* Album výběr (share tab) */
+.share-album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.album-pick-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 14px 12px; cursor: pointer; transition: all .15s; text-align: center;
+}
+.album-pick-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14); }
+.album-pick-card.selected { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.35); }
+.album-pick-card-icon { font-size: 22px; margin-bottom: 6px; }
+.album-pick-card-name { font-size: 13px; font-weight: 500; color: #f0ece4; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.album-pick-card-count { font-size: 11px; color: rgba(240,236,228,0.4); }
+
+/* Expirace */
+.expiry-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.exp-btn {
+  padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 600;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(240,236,228,0.65); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.exp-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; }
+.exp-btn.active { background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3); color: #f5c842; }
+
+/* Odeslat */
+.btn-send {
+  width: 100%; padding: 13px; border-radius: 10px; font-size: 15px; font-weight: 700;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: 'Unbounded', sans-serif;
+  transition: all .15s; letter-spacing: 0.02em;
+}
+.btn-send:hover:not(:disabled) { background: rgba(245,200,66,0.25); }
+.btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* Odeslané sdílení */
+.sent-item {
+  display: flex; align-items: center; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sent-item:last-child { border-bottom: none; }
+.sent-avatar {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.08); color: rgba(240,236,228,0.6);
+  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;
+}
+.sent-info { flex: 1; }
+.sent-info strong { font-size: 13px; color: #f0ece4; display: block; }
+.sent-info small { font-size: 11px; color: rgba(240,236,228,0.4); }
+.status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.status-pending  { background: rgba(245,200,66,0.12); color: #f5c842; }
+.status-accepted { background: rgba(40,200,80,0.12);  color: #4fda7a; }
+.status-declined { background: rgba(255,60,60,0.12);  color: #ff6060; }
+.status-expired  { background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.35); }
+
+/* Username modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #12101a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px; padding: 32px; max-width: 400px; width: 90%; text-align: center;
+}
+.modal-box h2 {
+  font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 800;
+  color: #f0ece4; margin: 0 0 10px;
+}
+.modal-box p { color: rgba(240,236,228,0.5); font-size: 14px; margin: 0 0 20px; }
+.modal-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 12px 14px; font-size: 15px;
+  color: #f0ece4; font-family: inherit; outline: none; margin-bottom: 12px; text-align: center;
+}
+.modal-input:focus { border-color: rgba(245,200,66,0.4); }
+.modal-error { font-size: 12px; color: #ff6060; min-height: 18px; margin-bottom: 12px; }
+.btn-modal-save {
+  width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.btn-modal-save:hover { background: rgba(245,200,66,0.25); }
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: #1e1c28; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 12px 20px; font-size: 14px; color: #f0ece4;
+  z-index: 999; transition: transform .3s; white-space: nowrap;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+.toast.ok  { border-color: rgba(80,200,120,0.3); color: #4fda7a; }
+.toast.err { border-color: rgba(255,80,80,0.3); color: #ff6060; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 28px 0; color: rgba(240,236,228,0.3); font-size: 14px; }
+.empty-state .es-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.4; }
 </style>
 </head>
 <body>
+
+<!-- ── TOPBAR ── -->
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
@@ -192,7 +397,8 @@ body::after {
   <nav class="nav-lnks">
     <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
     <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html" class="active"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
+    <a href="compare.html" class="active" id="navCompareLink"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
+    <a href="#" onclick="switchTab('share');return false" id="navShareLink">🔗 Sdílet album</a>
     <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
     <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
     <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
@@ -225,16 +431,42 @@ body::after {
   </div>
 </header>
 
+<!-- ── PAGE TABS ── -->
+<div class="page-tab-bar">
+  <button class="ptab active" id="ptabCompare" onclick="switchTab('compare')">📊 Porovnat alba</button>
+  <button class="ptab" id="ptabShare" onclick="switchTab('share')">🔗 Sdílet album</button>
+</div>
+
+<!-- ── USERNAME MODAL (pro sdílení) ── -->
+<div class="modal-overlay" id="usernameModal">
+  <div class="modal-box">
+    <h2>Nastav přezdívku</h2>
+    <p>Pro sdílení alb potřebuješ přezdívku. Ostatní tě budou hledat podle ní.</p>
+    <input class="modal-input" id="modalUsernameInput" type="text" placeholder="trener123" maxlength="30">
+    <div class="modal-error" id="modalError"></div>
+    <button class="btn-modal-save" onclick="saveUsername()">Uložit přezdívku</button>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════════════════════════════════════
+     TAB: POROVNAT ALBA
+     ══════════════════════════════════════════ -->
+<div id="tabCompare">
 <div class="compare-page">
   <div class="container">
-    <!-- ONLINE MODE BANNER (skrytý při lokálním použití) -->
+
+    <!-- ONLINE MODE BANNER -->
     <div class="online-banner" id="onlineBanner">
       <div class="online-banner-text">
         🔗 Online porovnání — album <strong id="bannerAlbumName"></strong> od <strong id="bannerSender"></strong>
         <span id="bannerExpiry" style="opacity:0.5;font-size:11px;margin-left:8px"></span>
       </div>
-      <a href="share-album.html" class="online-banner-back">← Zpět na sdílení</a>
+      <a onclick="switchTab('share')" class="online-banner-back">← Zpět na sdílení</a>
     </div>
+
     <!-- ALBUM PICKER (online mode) -->
     <div class="album-picker-panel" id="albumPickerPanel">
       <div class="album-picker-title">📂 Vyber své album k porovnání</div>
@@ -244,6 +476,7 @@ body::after {
         <button class="btn-compare-go" id="btnCompareGo" onclick="startOnlineCompare()" disabled>Porovnat alba →</button>
       </div>
     </div>
+
     <div class="compare-header">
       <h1>Porovnat dvě alba</h1>
       <p>Nahraj dvě <code>.pktr</code> zálohy a hned uvidíš průniky a rozdíly.</p>
@@ -318,57 +551,190 @@ body::after {
     </div>
   </div>
 </div>
+</div><!-- /tabCompare -->
+
+<!-- ══════════════════════════════════════════
+     TAB: SDÍLET ALBUM
+     ══════════════════════════════════════════ -->
+<div id="tabShare" style="display:none">
+<div class="share-page">
+  <div class="container">
+
+    <div class="page-header">
+      <h1>Sdílet album</h1>
+      <p>Pošli snapshot svého alba jinému uživateli — ten si pak může vybrat co chce a porovnat to s tebou.</p>
+    </div>
+
+    <!-- PŘÍCHOZÍ POZVÁNKY -->
+    <div class="section" id="incomingSection">
+      <div class="section-title">📬 Příchozí pozvánky</div>
+      <div id="incomingList">
+        <div class="empty-state"><div class="es-icon">📭</div>Žádné čekající pozvánky</div>
+      </div>
+    </div>
+
+    <!-- ODESLAT SDÍLENÍ -->
+    <div class="section" id="sendSection">
+      <div class="section-title">📤 Sdílet moje album</div>
+
+      <label class="form-label">1. Najdi uživatele (přezdívka nebo email)</label>
+      <div class="search-wrap">
+        <input class="search-input" id="userSearch" type="text" placeholder="Hledat přezdívku nebo email…" autocomplete="off" oninput="onSearchInput()">
+        <div class="search-results" id="searchResults">
+          <div class="search-hint">Zadej alespoň 2 znaky…</div>
+        </div>
+      </div>
+      <div class="selected-user" id="selectedUserRow">
+        <div class="sr-avatar" id="selAvatar"></div>
+        <div class="selected-user-name" id="selName"></div>
+        <button class="btn-clear-user" onclick="clearSelectedUser()" title="Zrušit výběr">×</button>
+      </div>
+
+      <label class="form-label">2. Vyber album ke sdílení</label>
+      <div class="share-album-grid" id="albumGrid">
+        <div class="empty-state" style="grid-column:1/-1;padding:16px 0">Načítám alba…</div>
+      </div>
+
+      <label class="form-label">3. Jak dlouho bude sdílení platné?</label>
+      <div class="expiry-row">
+        <button class="exp-btn" data-hours="6"  onclick="setExpiry(this)">6 hodin</button>
+        <button class="exp-btn active" data-hours="24" onclick="setExpiry(this)">24 hodin</button>
+        <button class="exp-btn" data-hours="72" onclick="setExpiry(this)">3 dny</button>
+        <button class="exp-btn" data-hours="168" onclick="setExpiry(this)">7 dní</button>
+      </div>
+
+      <button class="btn-send" id="sendBtn" onclick="sendShare()" disabled>
+        Odeslat sdílení →
+      </button>
+    </div>
+
+    <!-- ODESLANÉ SDÍLENÍ -->
+    <div class="section" id="sentSection">
+      <div class="section-title">📮 Odeslaná sdílení</div>
+      <div id="sentList">
+        <div class="empty-state"><div class="es-icon">📮</div>Zatím jsi nikomu nic neposlal</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div><!-- /tabShare -->
+
+<!-- ── LOCAL ALBUM PICKER MODAL ── -->
+<div id="localAlbumModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:16px;font-weight:700;color:#f0ece4">📂 Vyber album</div>
+        <div id="localPickerSubtitle" style="font-size:12px;color:rgba(240,236,228,.5);margin-top:3px">Vybíráš album pro stranu A</div>
+      </div>
+      <button onclick="closeLocalAlbumPicker()" style="background:none;border:none;color:rgba(240,236,228,.5);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+    <div id="localPickerList" class="album-picker-list" style="overflow-y:auto;max-height:360px;padding-right:4px">
+      <div class="album-picker-empty">⏳ Načítám alba…</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-compare-go" id="btnLocalPickerGo" onclick="confirmLocalAlbum()" disabled style="flex:1">Použít toto album →</button>
+      <button onclick="closeLocalAlbumPicker()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#f0ece4;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:13px">Zrušit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FAKE DETECTOR MODAL ── -->
+<div id="cmpFakeModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c12;border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:480px;padding:24px;position:relative;max-height:90vh;overflow-y:auto">
+    <button onclick="document.getElementById('cmpFakeModal').style.display='none'" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:rgba(240,232,208,.6);font-size:16px;padding:4px 10px;cursor:pointer">✕</button>
+    <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;color:#f0ece4;margin-bottom:4px">🔍 Detekce falzum</div>
+    <div id="cmpFakeCardName" style="font-size:11px;color:var(--text3);margin-bottom:14px"></div>
+    <div id="cmpFakeResult"><div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ AI analyzuje kartu…</div></div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 <script src="notif-bell.js"></script>
 <script src="fake-detector.js"></script>
-<script>
 
+<script>
+/* ═══════════════════════════════════════════
+   SDÍLENÉ HELPERY
+   ═══════════════════════════════════════════ */
 function doLogout() {
-  ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(function(k){localStorage.removeItem(k)});
+  ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(k => localStorage.removeItem(k));
   location.href = 'login.html';
 }
+function esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function toast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast${type ? ' ' + type : ''} show`;
+  setTimeout(() => el.classList.remove('show'), 3200);
+}
 </script>
+
 <script>
+/* ═══════════════════════════════════════════
+   TAB SWITCHING
+   ═══════════════════════════════════════════ */
+let _shareTabInited = false;
+
+function switchTab(tab) {
+  const isCompare = tab === 'compare';
+  document.getElementById('tabCompare').style.display  = isCompare ? '' : 'none';
+  document.getElementById('tabShare').style.display    = isCompare ? 'none' : '';
+  document.getElementById('ptabCompare').classList.toggle('active', isCompare);
+  document.getElementById('ptabShare').classList.toggle('active', !isCompare);
+  document.getElementById('navCompareLink').classList.toggle('active', isCompare);
+  document.getElementById('navShareLink').classList.toggle('active', !isCompare);
+  if (!isCompare && !_shareTabInited) {
+    _shareTabInited = true;
+    initShareTab();
+  }
+}
+
+// Zkontroluj URL param při načtení
+(function() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('tab') === 'share') switchTab('share');
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════
+   COMPARE — hlavní logika
+   ═══════════════════════════════════════════ */
 let albumA = null;
 let albumB = null;
 
-// Záložní čtení tokenu — funguje i po refresh session
 function getToken() { return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null; }
 
-// ── ONLINE MODE: načtení sdílení přes URL ?share_id=xxx ───────────
-// Pokud share_id v URL není, lokální drag & drop funguje beze změny.
-let _onlineShare = null; // sdílení načtené ze Supabase
-let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
+// ── ONLINE MODE: načtení sdílení přes URL ?share_id=xxx ──────────
+let _onlineShare    = null;
+let _selectedAlbumId = null;
 
 (async function initOnlineMode() {
   const params  = new URLSearchParams(location.search);
   const shareId = params.get('share_id');
-  if (!shareId) return; // lokální režim
+  if (!shareId) return;
 
   const token = getToken();
   const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
   if (!token || !myId) { showOnlineError('Pro zobrazení sdíleného alba se musíš přihlásit. <a href="login.html" style="color:#f5c842">Přihlásit se →</a>'); return; }
 
-  // Načti sdílení ze Supabase
   const res    = await fetch(
     `${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}&select=id,sender_id,sender_username,album_name,cards_snapshot,status,expires_at`,
     { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
   );
   const shares = await res.json();
-  if (!shares || !shares[0]) {
-    showOnlineError('Sdílení nebylo nalezeno nebo již neexistuje.'); return;
-  }
+  if (!shares || !shares[0]) { showOnlineError('Sdílení nebylo nalezeno nebo již neexistuje.'); return; }
   const share = shares[0];
 
   if (share.status === 'expired' || new Date(share.expires_at) < new Date()) {
     showOnlineError('Toto sdílení již vypršelo. Požádej odesílatele o nové sdílení.'); return;
   }
-  if (share.status === 'declined') {
-    showOnlineError('Toto sdílení bylo odmítnuto.'); return;
-  }
+  if (share.status === 'declined') { showOnlineError('Toto sdílení bylo odmítnuto.'); return; }
   if (share.status !== 'accepted' && share.sender_id !== myId) {
-    // Automaticky akceptuj pokud ještě nebylo
     await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -377,8 +743,6 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
   }
 
   _onlineShare = share;
-
-  // Zobraz banner
   document.getElementById('bannerAlbumName').textContent = share.album_name;
   document.getElementById('bannerSender').textContent    = '@' + share.sender_username;
   const diff = new Date(share.expires_at) - Date.now();
@@ -386,22 +750,16 @@ let _selectedAlbumId = null; // id alba které uživatel vybral v pickeru
   document.getElementById('bannerExpiry').textContent    = `(vyprší za ${h < 24 ? h + ' hod' : Math.floor(h/24) + ' dní'})`;
   document.getElementById('onlineBanner').classList.add('visible');
 
-  // Skryj drag & drop — v online režimu nepotřebujeme
-  document.getElementById('drop1').style.display = 'none';
-  document.getElementById('drop2').style.display = 'none';
-  document.querySelector('.compare-vs') && (document.querySelector('.compare-vs').style.display = 'none');
   document.querySelector('.compare-upload-row').style.display = 'none';
-  document.querySelector('.compare-header').style.display = 'none';
+  document.querySelector('.compare-header').style.display     = 'none';
 
-  // Zobraz album picker — načti moje alba
   document.getElementById('albumPickerPanel').classList.add('visible');
   await loadMyAlbumsForPicker(token, myId);
 })();
 
 function showOnlineError(msg) {
   document.getElementById('albumPickerPanel').classList.add('visible');
-  document.getElementById('albumPickerList').innerHTML =
-    `<div class="album-picker-empty">❌ ${msg}</div>`;
+  document.getElementById('albumPickerList').innerHTML = `<div class="album-picker-empty">❌ ${msg}</div>`;
 }
 
 async function loadMyAlbumsForPicker(token, myId) {
@@ -411,12 +769,10 @@ async function loadMyAlbumsForPicker(token, myId) {
   );
   const albums = await r.json();
   const list   = document.getElementById('albumPickerList');
-
   if (!albums || albums.length === 0) {
     list.innerHTML = `<div class="album-picker-empty">Nemáš žádná alba. Nejdřív si vytvoř album v sekci Moje alba.</div>`;
     return;
   }
-
   list.innerHTML = albums.map(a => `
     <div class="album-pick-item" id="pick-${a.id}" onclick="pickAlbum('${a.id}', this)">
       <div class="album-pick-icon">📁</div>
@@ -427,32 +783,25 @@ async function loadMyAlbumsForPicker(token, myId) {
       <div class="album-pick-check"></div>
     </div>
   `).join('');
-
-  // Předvyber první
   const first = albums[0];
   pickAlbum(first.id, document.getElementById('pick-'+first.id));
 }
 
 function pickAlbum(albumId, el) {
   document.querySelectorAll('.album-pick-item').forEach(i => i.classList.remove('selected'));
-  if (el) {
-    el.classList.add('selected');
-    el.querySelector('.album-pick-check').textContent = '✓';
-  }
+  if (el) { el.classList.add('selected'); el.querySelector('.album-pick-check').textContent = '✓'; }
   _selectedAlbumId = albumId;
   document.getElementById('btnCompareGo').disabled = false;
 }
 
 async function startOnlineCompare() {
   if (!_onlineShare || !_selectedAlbumId) return;
-  const btn   = document.getElementById('btnCompareGo');
-  btn.disabled = true;
-  btn.textContent = 'Načítám…';
+  const btn = document.getElementById('btnCompareGo');
+  btn.disabled = true; btn.textContent = 'Načítám…';
 
   const token = getToken();
   const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
-  // Načti karty z vybraného alba
   const albumRes = await fetch(
     `${SUPABASE_URL}/rest/v1/user_albums?id=eq.${_selectedAlbumId}&user_id=eq.${myId}&select=id,name,card_ids`,
     { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
@@ -475,7 +824,6 @@ async function startOnlineCompare() {
     myCards = (cardsData || []).map(c => c.card_data);
   }
 
-  // Karty ze sdílení dostanou vodoznak
   const sharedCards = (_onlineShare.cards_snapshot || []).map(c => ({
     ...c, _fromShare: true, _senderUsername: _onlineShare.sender_username
   }));
@@ -483,16 +831,14 @@ async function startOnlineCompare() {
   albumA = { name: myAlbum.name, cards: myCards };
   albumB = { name: `${_onlineShare.album_name} (@${_onlineShare.sender_username})`, cards: sharedCards };
 
-  // Skryj picker, zobraz výsledky
   document.getElementById('albumPickerPanel').style.display = 'none';
   btn.textContent = 'Porovnat alba →';
   runCompare();
 }
-// ── KONEC ONLINE MODE ─────────────────────────────────────────────
 
-// ── LOCAL ALBUM PICKER — výběr alba ze Supabase bez share linku ──
-let _localPickerTarget = 1;
-let _localPickerAlbums = [];
+// ── LOCAL ALBUM PICKER ─────────────────────────────────────────────
+let _localPickerTarget     = 1;
+let _localPickerAlbums     = [];
 let _localPickerSelectedId = null;
 
 async function openLocalAlbumPicker(num) {
@@ -504,11 +850,8 @@ async function openLocalAlbumPicker(num) {
   document.getElementById('localAlbumModal').style.display = 'flex';
   document.getElementById('localPickerList').innerHTML = '<div class="album-picker-empty">⏳ Načítám alba…</div>';
 
-  // Zkus získat token a userId ze všech možných klíčů
-  const token = getToken()
-    || (window.getValidToken ? await window.getValidToken() : null);
-  const myId = localStorage.getItem('sb_user_id')
-    || localStorage.getItem('sb_uid')
+  const token = getToken() || (window.getValidToken ? await window.getValidToken() : null);
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid')
     || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   if (!token || !myId) {
@@ -525,8 +868,7 @@ async function openLocalAlbumPicker(num) {
       );
       _localPickerAlbums = await r.json() || [];
     } catch(e) {
-      document.getElementById('localPickerList').innerHTML =
-        '<div class="album-picker-empty">❌ Chyba načítání. Zkus znovu.</div>';
+      document.getElementById('localPickerList').innerHTML = '<div class="album-picker-empty">❌ Chyba načítání. Zkus znovu.</div>';
       return;
     }
   }
@@ -571,7 +913,8 @@ async function confirmLocalAlbum() {
   btn.disabled = true; btn.textContent = 'Načítám…';
 
   const token = getToken();
-  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid') || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
+  const myId  = localStorage.getItem('sb_user_id') || localStorage.getItem('sb_uid')
+    || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   try {
     const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
@@ -602,7 +945,6 @@ async function confirmLocalAlbum() {
     btn.disabled = false; btn.textContent = 'Použít toto album →';
   }
 }
-// ── KONEC LOCAL ALBUM PICKER ──────────────────────────────────────
 
 async function handleDrop(e, num) {
   e.preventDefault();
@@ -617,19 +959,15 @@ async function handleFile(e, num) {
 
 async function parseAlbum(file, num) {
   document.getElementById('label' + num).textContent = '⏳ Čtu soubor...';
-
   try {
-    const buffer  = await file.arrayBuffer();
+    const buffer   = await file.arrayBuffer();
     const zipFiles = await readZip(buffer);
     const payload  = JSON.parse(new TextDecoder().decode(zipFiles['data.json']));
     const cards    = payload.cards || [];
-
     if (num === 1) albumA = { name: file.name.replace(/\.(pktr|pkte)$/,''), cards };
     else           albumB = { name: file.name.replace(/\.(pktr|pkte)$/,''), cards };
-
     document.getElementById('label' + num).textContent = `✅ ${cards.length} karet`;
     document.getElementById('drop' + num).classList.add('loaded');
-
     if (albumA && albumB) runCompare();
   } catch(err) {
     document.getElementById('label' + num).textContent = '❌ Chyba';
@@ -638,10 +976,8 @@ async function parseAlbum(file, num) {
 }
 
 function runCompare() {
-  const idsA = new Set(albumA.cards.map(c => String(c.tcgId || c.apiId || c.id)));
-  const idsB = new Set(albumB.cards.map(c => String(c.tcgId || c.apiId || c.id)));
-
-  // Fallback: match by name if no api ID
+  const idsA   = new Set(albumA.cards.map(c => String(c.tcgId || c.apiId || c.id)));
+  const idsB   = new Set(albumB.cards.map(c => String(c.tcgId || c.apiId || c.id)));
   const namesA = new Set(albumA.cards.map(c => normalizeCardName(c)));
   const namesB = new Set(albumB.cards.map(c => normalizeCardName(c)));
 
@@ -657,7 +993,6 @@ function runCompare() {
     <div class="cstat yellow"><span>${only2.length}</span><small>Jen ${albumB.name}</small></div>
     <div class="cstat gray"><span>${albumA.cards.length + albumB.cards.length}</span><small>Celkem karet</small></div>
   `;
-
   document.getElementById('compareResults').style.display = '';
   showTab('both', document.querySelector('.ct-tab'));
   initCmpFilters();
@@ -667,7 +1002,7 @@ function normalizeCardName(c) {
   return (c.name || '').toLowerCase().replace(/\s+/g,'').substring(0,20);
 }
 
-// ── Compare filter state ──────────────────────────────────────
+// ── Compare filter state ───────────────────────────────────────
 let _cmpSupertype    = '';
 let _cmpActiveRarity = '';
 let _cmpActiveType   = '';
@@ -686,9 +1021,7 @@ const CMP_TYPE_LABELS = {
   psychic:'Psychic', darkness:'Dark', dragon:'Dragon', metal:'Metal',
   fighting:'Fighting', fairy:'Fairy', colorless:'Colorless', normal:'Normal',
 };
-const CMP_TRAINER_LABELS = {
-  Stadium:'Stadium', Supporter:'Supporter', Item:'Item', Tool:'Tool',
-};
+const CMP_TRAINER_LABELS = { Stadium:'Stadium', Supporter:'Supporter', Item:'Item', Tool:'Tool' };
 
 const CMP_FLAT_DEFS = {
   pokemon: [
@@ -700,11 +1033,10 @@ const CMP_FLAT_DEFS = {
     { key:'subtype', label:'📋 Subtype', getVal:()=>_cmpTrainerSub,   getLabel:()=>CMP_TRAINER_LABELS[_cmpTrainerSub]||_cmpTrainerSub },
   ],
   energy: [
-    { key:'rarity',     label:'🌟 Rarity',      getVal:()=>_cmpActiveRarity, getLabel:()=>CMP_RARITY_LABELS[_cmpActiveRarity]||_cmpActiveRarity },
-    { key:'energytype', label:'⚡ Energy TYPE',  getVal:()=>_cmpActiveType,   getLabel:()=>CMP_TYPE_LABELS[_cmpActiveType]||_cmpActiveType },
+    { key:'rarity',     label:'🌟 Rarity',     getVal:()=>_cmpActiveRarity, getLabel:()=>CMP_RARITY_LABELS[_cmpActiveRarity]||_cmpActiveRarity },
+    { key:'energytype', label:'⚡ Energy TYPE', getVal:()=>_cmpActiveType,   getLabel:()=>CMP_TYPE_LABELS[_cmpActiveType]||_cmpActiveType },
   ],
 };
-
 const CMP_FLAT_CHIPS = {
   rarity_pokemon: [
     {l:'Vše',fn:()=>cmpSetRarity('')}, {l:'⚪ Common',fn:()=>cmpSetRarity('common')},
@@ -806,7 +1138,6 @@ function cmpRenderChips() {
     const isActive = i===0 ? !active : ch.fn.toString().includes(`'${active}'`);
     return `<button class="type-chip${isActive?' active':''}" onclick="cmpChipClick(${i},this)">${ch.l}</button>`;
   }).join('');
-  // Store chip fns for click handler
   window._cmpCurrentChips = chips;
   row.classList.add('open');
 }
@@ -829,20 +1160,13 @@ function cmpUpdateFilters() {
 }
 
 function cmpSetSupertype(st) {
-  _cmpSupertype = st;
-  _cmpActiveRarity = '';
-  _cmpActiveType   = '';
-  _cmpTrainerSub   = '';
-  _cmpOpenPanel    = '';
+  _cmpSupertype = st; _cmpActiveRarity = ''; _cmpActiveType = ''; _cmpTrainerSub = ''; _cmpOpenPanel = '';
   document.querySelectorAll('.cmp-supertype-bar .st-btn').forEach(b => {
     const fn = b.getAttribute('onclick')||'';
     b.classList.toggle('active', fn.includes(`'${st}'`) || (st===''&&fn.includes("''")));
   });
-  cmpRenderFilterBtns();
-  cmpRenderChips();
-  cmpRerender();
+  cmpRenderFilterBtns(); cmpRenderChips(); cmpRerender();
 }
-
 function cmpSetRarity(r)  { _cmpActiveRarity = r; cmpUpdateFilters(); }
 function cmpSetType(t)    { _cmpActiveType   = t; cmpUpdateFilters(); }
 function cmpSetSub(s)     { _cmpTrainerSub   = s; cmpUpdateFilters(); }
@@ -861,17 +1185,17 @@ function cmpMatchRarity(c) {
   if (!_cmpActiveRarity) return true;
   const cr = (c.rarity||'').toLowerCase();
   const r  = _cmpActiveRarity;
-  if (r==='common')    return cr.includes('common');
-  if (r==='uncommon')  return cr.includes('uncommon');
-  if (r==='rare')      return cr.includes('rare')&&!cr.includes('ultra')&&!cr.includes('secret')&&!cr.includes('holo');
-  if (r==='holo')      return cr.includes('holo');
-  if (r==='ultra')     return cr.includes('ultra')||cr.includes('illustration')||cr.includes('vmax')||cr.includes('vstar')||cr.includes(' ex')||cr.includes(' gx')||cr.includes(' v ');
-  if (r==='secret')    return cr.includes('secret')||cr.includes('hyper')||cr.includes('special art');
-  if (r==='fullart')   return cr.includes('full')||cr.includes('illustration');
-  if (r==='gold')      return cr.includes('gold')||cr.includes('hyper');
-  if (r==='promo')     return cr.includes('promo');
-  if (r==='basic_energy')     return cr.includes('common')||cr===''||cr.includes('basic');
-  if (r==='special_energy')   return cr.includes('uncommon')||cr.includes('special');
+  if (r==='common')          return cr.includes('common');
+  if (r==='uncommon')        return cr.includes('uncommon');
+  if (r==='rare')            return cr.includes('rare')&&!cr.includes('ultra')&&!cr.includes('secret')&&!cr.includes('holo');
+  if (r==='holo')            return cr.includes('holo');
+  if (r==='ultra')           return cr.includes('ultra')||cr.includes('illustration')||cr.includes('vmax')||cr.includes('vstar')||cr.includes(' ex')||cr.includes(' gx')||cr.includes(' v ');
+  if (r==='secret')          return cr.includes('secret')||cr.includes('hyper')||cr.includes('special art');
+  if (r==='fullart')         return cr.includes('full')||cr.includes('illustration');
+  if (r==='gold')            return cr.includes('gold')||cr.includes('hyper');
+  if (r==='promo')           return cr.includes('promo');
+  if (r==='basic_energy')    return cr.includes('common')||cr===''||cr.includes('basic');
+  if (r==='special_energy')  return cr.includes('uncommon')||cr.includes('special');
   if (r==='collector_energy') return cr.includes('rare')||cr.includes('holo')||cr.includes('ultra');
   return true;
 }
@@ -889,9 +1213,7 @@ function cmpMatchSub(c) {
 }
 
 function cmpApplyFilters(cards) {
-  return cards.filter(c =>
-    cmpMatchSupertype(c) && cmpMatchRarity(c) && cmpMatchType(c) && cmpMatchSub(c)
-  );
+  return cards.filter(c => cmpMatchSupertype(c) && cmpMatchRarity(c) && cmpMatchType(c) && cmpMatchSub(c));
 }
 
 function cmpUpdateCounts(rawCards) {
@@ -920,14 +1242,9 @@ function showTab(key, btn) {
 
 function renderCompareCards(cards, key) {
   const grid = document.getElementById('compareGrid');
-  if (!cards.length) {
-    grid.innerHTML = '<p class="empty-state">Žádné karty v této kategorii</p>';
-    return;
-  }
-
+  if (!cards.length) { grid.innerHTML = '<p class="empty-state">Žádné karty v této kategorii</p>'; return; }
   const colorMap = { both: 'green', only1: 'blue', only2: 'yellow', all: '' };
   const color = colorMap[key] || '';
-
   grid.innerHTML = cards.slice(0, 200).map((card) => {
     const img = card.images?.small || card.apiSmall || '';
     const cardJson = encodeURIComponent(JSON.stringify({name:card.name,set:card.set,number:card.number||card.num,hp:card.hp,rarity:card.rarity}));
@@ -946,15 +1263,379 @@ function renderCompareCards(cards, key) {
       </div>
     `;
   }).join('');
-
   if (cards.length > 200) {
     grid.innerHTML += `<div class="compare-more">Zobrazeno 200 z ${cards.length} karet</div>`;
   }
 }
 
-// Init filters after compare loads
-function initCmpFilters() {
-  cmpRenderFilterBtns();
+function initCmpFilters() { cmpRenderFilterBtns(); }
+</script>
+
+<script>
+/* ═══════════════════════════════════════════
+   SHARE ALBUM — logika
+   ═══════════════════════════════════════════ */
+let ME               = null;
+let selectedUser     = null;
+let selectedAlbumId  = null;
+let selectedAlbumData = null;
+let expiryHours      = 24;
+let searchTimeout    = null;
+let myShareAlbums    = [];
+
+// ── Supabase helpers ──────────────────────────────────────────────
+async function sbGet(path) {
+  const token = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+    });
+    return await r.json();
+  } catch { return null; }
+}
+
+async function sbPost(path, body) {
+  const token = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(body)
+    });
+    return await r.json();
+  } catch { return null; }
+}
+
+// ── Inicializace share tabu ───────────────────────────────────────
+async function initShareTab() {
+  const token  = localStorage.getItem('sb_token');
+  const _sbU   = (function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  const userId = localStorage.getItem('sb_user_id') || (_sbU && _sbU.id) || null;
+
+  if (!token || !userId) {
+    document.getElementById('incomingSection').innerHTML =
+      '<div class="section"><div class="section-title">🔒 Přihlášení</div><p style="color:rgba(240,236,228,0.5);font-size:14px">Pro sdílení alb se musíš <a href="login.html" style="color:#f5c842">přihlásit →</a></p></div>';
+    document.getElementById('sendSection').style.display  = 'none';
+    document.getElementById('sentSection').style.display  = 'none';
+    return;
+  }
+
+  ME = { id: userId };
+  const profile = await sbGet(`rest/v1/profiles?id=eq.${userId}&select=id,username,email`);
+  if (profile && profile[0]) ME.username = profile[0].username;
+
+  if (!ME.username) {
+    document.getElementById('usernameModal').classList.add('open');
+    return;
+  }
+  await Promise.all([loadShareMyAlbums(), loadIncoming(), loadSent()]);
+}
+
+// ── Username ──────────────────────────────────────────────────────
+async function saveUsername() {
+  const val = document.getElementById('modalUsernameInput').value.trim();
+  const err = document.getElementById('modalError');
+  if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(val)) {
+    err.textContent = 'Přezdívka musí mít 3–30 znaků (písmena, číslice, _, .)';
+    return;
+  }
+  const check = await sbGet(`rest/v1/profiles?username=eq.${encodeURIComponent(val)}&select=id`);
+  if (check && check.length > 0) { err.textContent = 'Tato přezdívka je již obsazena.'; return; }
+
+  const token = localStorage.getItem('sb_token');
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${ME.id}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: val })
+  });
+  if (r.ok) {
+    ME.username = val;
+    document.getElementById('usernameModal').classList.remove('open');
+    document.getElementById('userName').textContent = val;
+    document.getElementById('userAvatar').textContent = val[0].toUpperCase();
+    await Promise.all([loadShareMyAlbums(), loadIncoming(), loadSent()]);
+    toast('Přezdívka uložena!', 'ok');
+  } else {
+    err.textContent = 'Chyba při ukládání, zkus to znovu.';
+  }
+}
+
+// ── Načítání alb (share tab) ──────────────────────────────────────
+async function loadShareMyAlbums() {
+  const data = await sbGet(`rest/v1/user_albums?user_id=eq.${ME.id}&select=id,name,icon,color,card_ids&order=created_at.desc`);
+  myShareAlbums = data || [];
+  const grid = document.getElementById('albumGrid');
+  if (!myShareAlbums.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:16px 0">Nemáš žádná alba. Nejdříve si vytvoř album v sekci Moje alba.</div>';
+    return;
+  }
+  grid.innerHTML = myShareAlbums.map(a => `
+    <div class="album-pick-card" id="ap-${a.id}" onclick="selectShareAlbum('${a.id}')">
+      <div class="album-pick-card-icon">${a.icon || '📁'}</div>
+      <div class="album-pick-card-name">${esc(a.name)}</div>
+      <div class="album-pick-card-count">${(a.card_ids||[]).length} karet</div>
+    </div>
+  `).join('');
+}
+
+async function selectShareAlbum(albumId) {
+  document.querySelectorAll('.album-pick-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById('ap-' + albumId)?.classList.add('selected');
+  const album = myShareAlbums.find(a => a.id === albumId);
+  if (!album) return;
+  selectedAlbumId = albumId;
+  if (album.card_ids && album.card_ids.length > 0) {
+    const cardIds = album.card_ids.map(id => `"${id}"`).join(',');
+    const cards = await sbGet(`rest/v1/user_cards?user_id=eq.${ME.id}&local_id=in.(${cardIds})&select=local_id,card_data`);
+    selectedAlbumData = {
+      name: album.name,
+      card_ids: album.card_ids,
+      cards: (cards || []).map(c => ({ ...c.card_data, _localId: c.local_id }))
+    };
+  } else {
+    selectedAlbumData = { name: album.name, card_ids: [], cards: [] };
+  }
+  checkSendBtn();
+}
+
+// ── Vyhledávání uživatelů ─────────────────────────────────────────
+function onSearchInput() {
+  clearTimeout(searchTimeout);
+  const q = document.getElementById('userSearch').value.trim();
+  if (q.length < 2) {
+    document.getElementById('searchResults').innerHTML = '<div class="search-hint">Zadej alespoň 2 znaky…</div>';
+    document.getElementById('searchResults').classList.remove('open');
+    return;
+  }
+  searchTimeout = setTimeout(() => searchUsers(q), 320);
+}
+
+async function searchUsers(q) {
+  const res = document.getElementById('searchResults');
+  res.innerHTML = '<div class="search-hint">Hledám…</div>';
+  res.classList.add('open');
+  const enc = encodeURIComponent(q);
+
+  let data = await sbGet(
+    `rest/v1/user_search?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url,email_hint&limit=8`
+  );
+  if (!data || data.code === '42P01' || (data.message && data.message.includes('does not exist'))) {
+    data = await sbGet(
+      `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${ME.id}&select=id,username,email&limit=8`
+    );
+    if (Array.isArray(data)) {
+      data = data.map(u => ({
+        ...u,
+        email_hint: u.email ? u.email.substring(0,2) + '***@' + u.email.split('@')[1] : null,
+        email: undefined
+      }));
+    }
+  }
+
+  if (!Array.isArray(data) || !data.length) {
+    res.innerHTML = '<div class="search-hint">Žádný uživatel nenalezen. Zkontroluj přezdívku.</div>';
+    return;
+  }
+
+  res.innerHTML = data.map(u => {
+    const initial = (u.username || '?')[0].toUpperCase();
+    const avatarHtml = u.avatar_url
+      ? `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${initial}'">`
+      : initial;
+    return `
+      <div class="search-result-item" onclick="selectUser(${JSON.stringify(JSON.stringify({id:u.id, username:u.username, avatar_url:u.avatar_url||null}))})">
+        <div class="sr-avatar">${avatarHtml}</div>
+        <div>
+          <div class="sr-name">@${esc(u.username || '—')}</div>
+          ${u.email_hint ? `<div class="sr-email">${esc(u.email_hint)}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function selectUser(jsonStr) {
+  const u = JSON.parse(jsonStr);
+  selectedUser = u;
+  document.getElementById('userSearch').value = '';
+  document.getElementById('searchResults').classList.remove('open');
+  const avatarEl = document.getElementById('selAvatar');
+  if (u.avatar_url) {
+    avatarEl.innerHTML = `<img src="${esc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.parentElement.textContent='${(u.username||'?')[0].toUpperCase()}'">`;
+  } else {
+    avatarEl.textContent = (u.username || '?')[0].toUpperCase();
+  }
+  document.getElementById('selName').textContent = `@${u.username}`;
+  document.getElementById('selectedUserRow').classList.add('visible');
+  checkSendBtn();
+}
+
+function clearSelectedUser() {
+  selectedUser = null;
+  document.getElementById('selectedUserRow').classList.remove('visible');
+  document.getElementById('userSearch').value = '';
+  checkSendBtn();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-wrap')) {
+    const sr = document.getElementById('searchResults');
+    if (sr) sr.classList.remove('open');
+  }
+});
+
+// ── Expirace ──────────────────────────────────────────────────────
+function setExpiry(btn) {
+  document.querySelectorAll('.exp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  expiryHours = parseInt(btn.dataset.hours);
+}
+
+// ── Odeslání ──────────────────────────────────────────────────────
+function checkSendBtn() {
+  const ok = selectedUser && selectedAlbumId && selectedAlbumData;
+  document.getElementById('sendBtn').disabled = !ok;
+}
+
+async function sendShare() {
+  if (!selectedUser || !selectedAlbumId || !selectedAlbumData) return;
+  const btn = document.getElementById('sendBtn');
+  btn.disabled = true; btn.textContent = 'Odesílám…';
+
+  const expiresAt = new Date(Date.now() + expiryHours * 3600 * 1000).toISOString();
+
+  const existing = await sbGet(
+    `rest/v1/album_shares?sender_id=eq.${ME.id}&receiver_id=eq.${selectedUser.id}&album_id=eq.${selectedAlbumId}&status=eq.pending&select=id`
+  );
+  if (existing && existing.length > 0) {
+    toast('Toto album jsi tomuto uživateli již sdílel a čeká na přijetí.', 'err');
+    btn.disabled = false; btn.textContent = 'Odeslat sdílení →';
+    return;
+  }
+
+  const shareData = {
+    sender_id: ME.id, receiver_id: selectedUser.id,
+    sender_username: ME.username, album_id: selectedAlbumId,
+    album_name: selectedAlbumData.name, cards_snapshot: selectedAlbumData.cards,
+    status: 'pending', expires_at: expiresAt
+  };
+
+  const result = await sbPost('rest/v1/album_shares', shareData);
+
+  if (result && !result.message) {
+    const shareId = Array.isArray(result) ? result[0]?.id : result?.id;
+    await sbPost('rest/v1/notifications', {
+      user_id: selectedUser.id, type: 'album_share_invite',
+      title: `@${ME.username} s tebou sdílí album`,
+      body: `Album: ${selectedAlbumData.name} — ${selectedAlbumData.cards.length} karet. Platí ${expiryHours < 24 ? expiryHours + ' hodin' : (expiryHours/24) + ' dní'}.`,
+      link: `compare.html?tab=share`,
+      metadata: { share_id: shareId, sender_username: ME.username, album_name: selectedAlbumData.name }
+    });
+    toast('✅ Sdílení odesláno! Uživatel dostane pozvánku.', 'ok');
+    clearSelectedUser();
+    selectedAlbumId = null; selectedAlbumData = null;
+    document.querySelectorAll('.album-pick-card').forEach(el => el.classList.remove('selected'));
+    checkSendBtn();
+    btn.textContent = 'Odeslat sdílení →';
+    await loadSent();
+  } else {
+    toast('Chyba při odesílání, zkus to znovu.', 'err');
+    btn.disabled = false; btn.textContent = 'Odeslat sdílení →';
+  }
+}
+
+// ── Příchozí pozvánky ─────────────────────────────────────────────
+async function loadIncoming() {
+  const data = await sbGet(
+    `rest/v1/album_shares?receiver_id=eq.${ME.id}&status=eq.pending&select=id,sender_username,album_name,cards_snapshot,expires_at,created_at&order=created_at.desc`
+  );
+  const list = document.getElementById('incomingList');
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div>Žádné čekající pozvánky</div>';
+    return;
+  }
+  list.innerHTML = data.map(s => `
+    <div class="invite-card" id="invite-${s.id}">
+      <div class="invite-avatar">${s.sender_username[0].toUpperCase()}</div>
+      <div class="invite-info">
+        <strong>@${esc(s.sender_username)} sdílí album</strong>
+        <small>📁 ${esc(s.album_name)} — ${(s.cards_snapshot||[]).length} karet</small>
+        <span class="invite-expiry">⏱ Vyprší ${formatExpiry(s.expires_at)}</span>
+      </div>
+      <div class="invite-btns">
+        <button class="btn-accept" onclick="acceptShare('${s.id}')">Přijmout & Porovnat</button>
+        <button class="btn-decline" onclick="declineShare('${s.id}')">Odmítnout</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function acceptShare(shareId) {
+  const token = localStorage.getItem('sb_token');
+  await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'accepted', accepted_at: new Date().toISOString() })
+  });
+  // Přepni na compare tab s share_id v URL (přesměruje beze změny stránky)
+  history.pushState({}, '', `compare.html?share_id=${shareId}`);
+  switchTab('compare');
+  // Znovu spustit online mode s novým share_id
+  location.href = `compare.html?share_id=${shareId}`;
+}
+
+async function declineShare(shareId) {
+  const token = localStorage.getItem('sb_token');
+  await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'declined' })
+  });
+  document.getElementById(`invite-${shareId}`)?.remove();
+  const list = document.getElementById('incomingList');
+  if (!list.querySelector('.invite-card')) {
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">📭</div>Žádné čekající pozvánky</div>';
+  }
+  toast('Pozvánka odmítnuta.', '');
+}
+
+// ── Odeslané ──────────────────────────────────────────────────────
+async function loadSent() {
+  const data = await sbGet(
+    `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at&order=created_at.desc&limit=20`
+  );
+  const list = document.getElementById('sentList');
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="empty-state"><div class="es-icon">📮</div>Zatím jsi nikomu nic neposlal</div>';
+    return;
+  }
+  const ids = [...new Set(data.map(s => s.receiver_id))];
+  const profiles = await sbGet(`rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username`);
+  const profileMap = Object.fromEntries((profiles||[]).map(p => [p.id, p.username]));
+  const statusLabel = { pending: 'Čeká', accepted: 'Přijato', declined: 'Odmítnuto', expired: 'Expirováno' };
+  list.innerHTML = data.map(s => `
+    <div class="sent-item">
+      <div class="sent-avatar">${(profileMap[s.receiver_id]||'?')[0].toUpperCase()}</div>
+      <div class="sent-info">
+        <strong>@${esc(profileMap[s.receiver_id] || s.receiver_id.substring(0,8))} — ${esc(s.album_name)}</strong>
+        <small>${formatDate(s.created_at)} · ${s.status === 'pending' ? 'Vyprší ' + formatExpiry(s.expires_at) : ''}</small>
+      </div>
+      <span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>
+    </div>
+  `).join('');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────
+function formatExpiry(iso) {
+  const diff = new Date(iso) - Date.now();
+  if (diff < 0) return 'expirováno';
+  const h = Math.floor(diff / 3600000);
+  if (h < 24) return `za ${h} hod`;
+  return `za ${Math.floor(h/24)} dní`;
+}
+
+function formatDate(iso) {
+  return new Date(iso).toLocaleDateString('cs-CZ', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
 }
 </script>
 
@@ -969,7 +1650,7 @@ function initCmpFilters() {
   var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
   if(!tk||!su||!su.id)return;
   var uid=su.id,convs=[],prevUn=0,dropO=false;
-  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function escL(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
   function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
   async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
   window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
@@ -983,9 +1664,9 @@ function initCmpFilters() {
       var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
       var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
       return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
-        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
-        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
-        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +'<div class="cdrop-avatar">'+escL(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+escL(partner)+'</div><div class="cdrop-time">'+escL(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+escL(msg)+'</div>'
         +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
         +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
     }).join('');
@@ -1015,6 +1696,7 @@ function initCmpFilters() {
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
 </script>
+
 <script>
 /* ── Unified Header Auth Init ── */
 (function initHeaderAuth(){
@@ -1022,25 +1704,24 @@ function initCmpFilters() {
   if (!u) {
     try {
       var raw = localStorage.getItem('sb_user');
-      var tk = localStorage.getItem('sb_token');
+      var tk  = localStorage.getItem('sb_token');
       if (raw && tk) u = JSON.parse(raw);
     } catch(e){}
   }
-  var chip = document.getElementById('userChip');
-  var name = document.getElementById('userName');
-  var avatar = document.getElementById('userAvatar');
+  var chip      = document.getElementById('userChip');
+  var name      = document.getElementById('userName');
+  var avatar    = document.getElementById('userAvatar');
   var loginLink = document.getElementById('loginLink');
   var logoutBtn = document.getElementById('logoutBtn');
-  var profileBtn = document.getElementById('profileBtn');
+  var profileBtn= document.getElementById('profileBtn');
   if (u && u.id) {
     var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
-    if (chip) chip.style.display = '';
-    if (name) name.textContent = uname;
-    if (avatar) avatar.textContent = (uname[0]||'?').toUpperCase();
+    if (chip)      chip.style.display = '';
+    if (name)      name.textContent   = uname;
+    if (avatar)    avatar.textContent = (uname[0]||'?').toUpperCase();
     if (loginLink) loginLink.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = '';
     if (profileBtn) profileBtn.style.display = '';
-    // Load profile avatar
     (async function(){
       try {
         var SBU = typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
@@ -1058,7 +1739,7 @@ function initCmpFilters() {
       } catch(e){}
     })();
   } else {
-    if (chip) chip.style.display = 'none';
+    if (chip)      chip.style.display = 'none';
     if (loginLink) loginLink.style.display = '';
     if (logoutBtn) logoutBtn.style.display = 'none';
     if (profileBtn) profileBtn.style.display = 'none';
@@ -1066,37 +1747,8 @@ function initCmpFilters() {
 })();
 </script>
 
-<!-- Fake detector modal pro compare -->
-<!-- ── LOCAL ALBUM PICKER MODAL ─────────────────────────────── -->
-<div id="localAlbumModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:18px;padding:24px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="font-size:16px;font-weight:700;color:#f0ece4">📂 Vyber album</div>
-        <div id="localPickerSubtitle" style="font-size:12px;color:rgba(240,236,228,.5);margin-top:3px">Vybíráš album pro stranu A</div>
-      </div>
-      <button onclick="closeLocalAlbumPicker()" style="background:none;border:none;color:rgba(240,236,228,.5);font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
-    </div>
-    <div id="localPickerList" class="album-picker-list" style="overflow-y:auto;max-height:360px;padding-right:4px">
-      <div class="album-picker-empty">⏳ Načítám alba…</div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:4px">
-      <button class="btn-compare-go" id="btnLocalPickerGo" onclick="confirmLocalAlbum()" disabled style="flex:1">Použít toto album →</button>
-      <button onclick="closeLocalAlbumPicker()" style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#f0ece4;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:13px">Zrušit</button>
-    </div>
-  </div>
-</div>
-
-<div id="cmpFakeModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0e0c12;border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:480px;padding:24px;position:relative;max-height:90vh;overflow-y:auto">
-    <button onclick="document.getElementById('cmpFakeModal').style.display='none'" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:rgba(240,232,208,.6);font-size:16px;padding:4px 10px;cursor:pointer">✕</button>
-    <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;color:#f0ece4;margin-bottom:4px">🔍 Detekce falzum</div>
-    <div id="cmpFakeCardName" style="font-size:11px;color:var(--text3);margin-bottom:14px"></div>
-    <div id="cmpFakeResult"><div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ AI analyzuje kartu…</div></div>
-  </div>
-</div>
-
 <script>
+/* ── Fake detector modal ── */
 async function cmpFakeCheck(imgUrl, cardJson) {
   const modal    = document.getElementById('cmpFakeModal');
   const resultEl = document.getElementById('cmpFakeResult');
@@ -1121,12 +1773,12 @@ document.addEventListener('click', e => {
 </script>
 
 <script>
-document.addEventListener('DOMContentLoaded',function(){
-  try{
-    var av=localStorage.getItem('pkc_avatar_local');
-    var el=document.getElementById('userAvatar');
-    if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
-  }catch(e){}
+document.addEventListener('DOMContentLoaded', function(){
+  try {
+    var av = localStorage.getItem('pkc_avatar_local');
+    var el = document.getElementById('userAvatar');
+    if (av && el) { el.textContent=''; el.style.backgroundImage='url('+av+')'; el.style.backgroundSize='cover'; el.style.backgroundPosition='center'; }
+  } catch(e){}
 });
 </script>
 </body>
