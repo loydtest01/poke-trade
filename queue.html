@@ -737,25 +737,49 @@ let cardGroups = [];
   await loadQueue();
 })();
 
-// ── Supabase helper ───────────────────────────────────────────
+// ── Supabase helper (s token refresh z app.js) ───────────────
 async function sbReq(path, method = 'GET', body = null) {
   const isStorage = path.startsWith('storage/');
-  const headers = {
+  // Vždy čerstvý token přes getValidToken() z app.js
+  const tok = (window.getValidToken ? await window.getValidToken() : null) || token || SUPABASE_ANON;
+  // Aktualizuj globální proměnnou pro ostatní volání
+  if (tok && tok !== SUPABASE_ANON) token = tok;
+
+  const _headers = (t) => ({
     'Content-Type': 'application/json',
     'apikey':        SUPABASE_ANON,
-    'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
+    'Authorization': 'Bearer ' + t,
     ...(!isStorage && ['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
-  };
-  const res = await fetch(`${SUPABASE_URL}/${path}`, {
-    method, headers, body: body ? JSON.stringify(body) : undefined
   });
-  if (!res.ok) {
-    if (res.status === 401) doLogout();
+
+  try {
+    let res = await fetch(`${SUPABASE_URL}/${path}`, {
+      method, headers: _headers(tok), body: body ? JSON.stringify(body) : undefined
+    });
+
+    // 401 → zkus refresh a retry (místo okamžitého odhlášení)
+    if (res.status === 401 && window.getValidToken) {
+      const newTok = await window.getValidToken();
+      if (newTok && newTok !== tok) {
+        token = newTok;
+        res = await fetch(`${SUPABASE_URL}/${path}`, {
+          method, headers: _headers(newTok), body: body ? JSON.stringify(body) : undefined
+        });
+      }
+    }
+
+    if (!res.ok) {
+      // Až po retry odhlásit pokud stále 401
+      if (res.status === 401) doLogout();
+      return null;
+    }
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('json')) return res.json();
+    return null;
+  } catch (e) {
+    console.error('[sbReq]', e);
     return null;
   }
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('json')) return res.json();
-  return null;
 }
 
 // ── Load albums ───────────────────────────────────────────────
@@ -862,10 +886,12 @@ async function loadQueue() {
     cardGroups = Object.values(groups);
 
     // Načti public URLs pro fotky (bucket card-photo je public)
+    // Pokud public URL nefunguje, zkusíme signed URL jako fallback
     for (const g of cardGroups) {
       for (const row of g.rows) {
         try {
-          // Přímá public URL – funguje pro public bucket bez nutnosti signed URL
+          if (!row.storage_path) continue; // Přeskoč řádky bez storage_path
+          // Přímá public URL
           const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
           const meta = row.metadata || {};
           g.photos.push({
@@ -1050,15 +1076,18 @@ function buildGroupEl(g, gi) {
 
   // Build photos HTML
   const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', back: '🔄 Zadní' };
-  const photosHtml = g.photos.map((p, pi) =>
-    `<div class="photo-tile" id="tile-${gi}-${pi}">
+  const photosHtml = g.photos.map((p, pi) => {
+    const imgSrc = p.croppedUrl || p.url || '';
+    const sp = (p.storagePath || '').replace(/'/g, "\\'");
+    return `<div class="photo-tile" id="tile-${gi}-${pi}">
       <div class="photo-tile-img-wrap">
         <div class="img-spinner" id="spinner-${gi}-${pi}"></div>
-        <img src="${p.croppedUrl || p.url}" alt="${p.side}" loading="lazy"
+        <img src="${imgSrc}" alt="${p.side}" loading="lazy"
+          data-storage-path="${esc(p.storagePath||'')}"
           style="opacity:0;transition:opacity .3s"
           onload="this.style.opacity=1;var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';"
-          onerror="var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';this.style.opacity=1;"
-          onclick="openLightbox('${p.croppedUrl || p.url}')">
+          onerror="var s=document.getElementById('spinner-${gi}-${pi}');if(s)s.style.display='none';trySignedUrl(this,'${sp}')"
+          onclick="openLightbox(this.src)">
       </div>
       <div class="pt-label">${sideLabels[p.side] || p.side}${p.detailIndex ? ' '+p.detailIndex : ''}</div>
       <div style="display:flex;gap:4px;margin-top:4px;justify-content:center">
@@ -1069,8 +1098,8 @@ function buildGroupEl(g, gi) {
         ${p.croppedUrl ? `<button onclick="resetPhotoTile(${gi},${pi})" title="Obnovit originál"
           style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">↺</button>` : ''}
       </div>
-    </div>`
-  ).join('');
+    </div>`;
+  }).join('');
 
   // AI info rows
   // Pro JP/ZH/KO karty zobrazit nameEN jako editovatelné pole
@@ -1139,7 +1168,8 @@ function buildGroupEl(g, gi) {
         onclick="event.stopPropagation()"
         onchange="toggleGroupSelect(${gi}, this)">
       ${frontPhoto
-        ? `<img class="cg-thumb" src="${frontPhoto.url}" alt="" loading="lazy">`
+        ? `<img class="cg-thumb" src="${frontPhoto.url}" alt="" loading="lazy"
+            onerror="trySignedUrl(this,'${(frontPhoto.storagePath||'').replace(/'/g,"\\'")}')">`
         : `<div class="cg-thumb-placeholder">🃏</div>`}
       <div class="cg-meta">
         <div class="cg-name">${esc(name)}</div>
@@ -1192,7 +1222,7 @@ function buildGroupEl(g, gi) {
         <div class="compare-side">
           <label>📷 Tvoje fotka</label>
           <img src="${(frontPhoto?.croppedUrl||frontPhoto?.url)||''}" alt="" id="compareUserImg-${gi}"
-               onerror="this.style.display='none'">
+               onerror="trySignedUrl(this,'${(frontPhoto?.storagePath||'').replace(/'/g,"\\'")}')">
         </div>
         <div class="compare-side">
           <label>🗃 Databáze</label>
@@ -3219,6 +3249,38 @@ function resetPhotoTile(gi, pi) {
     }
   }
   toast('Originál obnoven');
+}
+
+// ── Signed URL fallback (když public URL nefunguje) ──────────
+async function trySignedUrl(imgEl, storagePath) {
+  if (!storagePath || imgEl._triedSigned) return;
+  imgEl._triedSigned = true;
+  try {
+    // Zkus signed URL přes Supabase Storage API
+    const tok = (window.getValidToken ? await window.getValidToken() : null) || token || SUPABASE_ANON;
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/card-photo/${storagePath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + tok,
+      },
+      body: JSON.stringify({ expiresIn: 3600 }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.signedURL) {
+        imgEl.src = SUPABASE_URL + data.signedURL;
+        imgEl.style.opacity = '1';
+        return;
+      }
+    }
+  } catch(e) { console.warn('[trySignedUrl]', e); }
+  // Pokud i signed URL selže, zobraz placeholder
+  imgEl.style.opacity = '1';
+  imgEl.alt = '⚠️ Obrázek nelze načíst';
+  imgEl.style.objectFit = 'contain';
+  imgEl.style.background = 'rgba(255,255,255,0.04)';
 }
 
 // ── Lightbox ──────────────────────────────────────────────────
