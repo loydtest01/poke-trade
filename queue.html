@@ -655,12 +655,12 @@ const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
 const GROQ_PROMPT = `You are a Pokémon Trading Card Game expert. The user sends a photo of a Pokémon card.
 The card can be in ANY language: EN, JP, ZH, KO, DE, FR.
 
-TASK: Read EXACT text from card. DO NOT translate.
+TASK: Read EXACT text from card. For non-English cards also provide the official English name.
 
 Respond ONLY as JSON (no other text):
 {
-  "name": "exact name from card",
-  "nameOrig": "exact name from card (same)",
+  "name": "exact name as printed on card (original language)",
+  "nameEN": "official English name of this Pokemon/card — REQUIRED for JP/ZH/KO cards, same as name for EN cards",
   "set": "set name or code as printed",
   "number": "card number e.g. 007/067",
   "type": "Pokemon type from icon: Fire/Water/Grass/Lightning/Psychic/Darkness/Dragon/Metal/Fighting/Fairy/Colorless",
@@ -1069,8 +1069,12 @@ function buildGroupEl(g, gi) {
   ).join('');
 
   // AI info rows
+  // Pro JP/ZH/KO karty zobrazit nameEN jako editovatelné pole
+  const isNonEnLang = ai.lang && ai.lang !== 'EN';
+  const nameEnVal = ai.nameEN || (isNonEnLang ? '' : (ai.name || ''));
+
   const aiRows = [
-    ['Název',    ai.name],
+    ['Název (orig.)', ai.name],
     ['Série',    ai.set],
     ['Číslo',    ai.number],
     ['Typ',      ai.type],
@@ -1081,6 +1085,20 @@ function buildGroupEl(g, gi) {
   ].filter(([,v]) => v).map(([l,v]) =>
     `<div class="ai-row"><span class="lbl">${l}</span><span class="val">${esc(String(v))}</span></div>`
   ).join('');
+
+  // Editovatelný EN název – vždy zobrazen (i pro EN karty)
+  const nameEnRow = `
+    <div class="ai-row ai-row-en-name" style="margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">
+      <span class="lbl" style="color:rgba(245,200,66,.7)">🔤 EN název</span>
+      <input
+        id="nameEN-${gi}"
+        type="text"
+        value="${esc(nameEnVal)}"
+        placeholder="Anglický název karty…"
+        oninput="updateNameEN(${gi}, this.value)"
+        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#f0ece4;font-size:12px;padding:3px 7px;width:100%;font-family:inherit;outline:none"
+      >
+    </div>`;
 
   const confPct = ai.confidence
     ? (typeof ai.confidence === 'number'
@@ -1189,7 +1207,7 @@ function buildGroupEl(g, gi) {
               🔄 Znovu AI
             </button>
           </div>
-          <div class="ai-grid">${aiRows}</div>
+          <div class="ai-grid">${aiRows}${nameEnRow}</div>
           ${ai.conditionNotes ? `<div style="margin-top:8px;font-size:12px;color:rgba(240,232,208,.5)">📝 ${esc(ai.conditionNotes)}</div>` : ''}
           ${ai.notes ? `<div style="margin-top:4px;font-size:12px;color:rgba(240,232,208,.4)">💬 ${esc(ai.notes)}</div>` : ''}
           ${confPct !== null ? `<div class="ai-conf">Konfidence: ${confPct}%</div>` : ''}
@@ -1616,6 +1634,16 @@ async function autoSearchAll() {
   }
 }
 
+// ── Ruční editace EN názvu ───────────────────────────────────
+function updateNameEN(gi, value) {
+  if (!cardGroups[gi]) return;
+  if (!cardGroups[gi].aiResult) cardGroups[gi].aiResult = {};
+  cardGroups[gi].aiResult.nameEN = value.trim();
+  // Reset případného předchozího výsledku aby nové vyhledávání proběhlo čerstvě
+  cardGroups[gi].resolvedCard = null;
+  cardGroups[gi]._manuallySelected = false;
+}
+
 // ── TCG databázové vyhledávání ────────────────────────────────
 // Uživatel klikne "Vyhledat" → najdeme karty dle AI parametrů
 // → zobrazíme grid s obrázky → uživatel klikne na správnou → uložíme
@@ -1650,17 +1678,16 @@ async function tcgSearch(gi, autoMode = false) {
   if (!btn || !statusEl || !gridEl) return;
 
   const ai = g.aiResult || {};
-  // Sestavíme query z dostupných AI parametrů
-  // Detekce japonského názvu (kana/kanji) — pokemontcg.io zná jen anglické názvy
+
+  // Detekce ne-anglického názvu (kana/kanji nebo lang != EN)
   const isJpName = ai.name && /[\u3000-\u9fff\uff00-\uffef]/.test(ai.name);
+  const isNonEn  = isJpName || (ai.lang && ai.lang !== 'EN');
 
-  const parts = [];
-  if (ai.name && !isJpName) parts.push(`name:"${ai.name}"`);  // japonský název přeskočíme
-  if (ai.set  && !isJpName) parts.push(`set.name:"${ai.set}"`);
-  if (ai.number) parts.push(`number:${String(ai.number).split('/')[0]}`);
+  // Anglický název: preferujeme ai.nameEN (z AI nebo ruční editace), fallback ai.name pro EN karty
+  const enName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
 
-  // Pokud nemáme vůbec nic, hledáme jen podle jména (i prázdného)
-  const query = parts.length ? parts.join(' ') : ((!isJpName && ai.name) || '');
+  // Číslo karty – odstraníme část za lomítkem (007/067 → 007)
+  const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
 
   btn.disabled = true;
   statusEl.className = 'cg-search-status';
@@ -1668,74 +1695,124 @@ async function tcgSearch(gi, autoMode = false) {
   gridEl.innerHTML = '';
 
   try {
-    // Zkusíme nejprve přesný dotaz, pak postupně uvolňujeme
     let cards = [];
     let totalCount = 0;
     let _lastQuery = '';
 
-    if (parts.length >= 2) {
-      // Přesný dotaz: jméno + set nebo jméno + číslo (pouze EN název)
-      _lastQuery = parts.join(' ');
-      const url1 = `/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
-      const r1 = await _tcgFetch(url1);
-      cards = r1?.data || [];
-      totalCount = r1?.totalCount || cards.length;
-    }
+    // ══════════════════════════════════════════════════════════════
+    // STRATEGIE HLEDÁNÍ
+    //
+    // Pro JP/non-EN karty:
+    //   1. číslo + nameEN  (nejpřesnější kombinace)
+    //   2. samotné číslo   (čísla jsou sdílená u mnoha setů)
+    //   3. nameEN          (pokud máme přeložené jméno)
+    //   4. první slovo nameEN*  (wildcard fallback)
+    //
+    // Pro EN karty (původní logika):
+    //   1. name + set.name + number  (přesný dotaz)
+    //   2. name                      (jen jméno)
+    //   3. první slovo name*         (wildcard)
+    // ══════════════════════════════════════════════════════════════
 
-    // Fallback: jen jméno — POUZE pokud není japonský název (JP znaky způsobují 400)
-    if (!cards.length && ai.name && !isJpName) {
-      _lastQuery = `name:"${ai.name}"`;
-      const url2 = `/api/tcg?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
-      const r2 = await _tcgFetch(url2);
-      cards = r2?.data || [];
-      totalCount = r2?.totalCount || cards.length;
-    }
+    if (isNonEn) {
+      // ── JP / non-EN karta ─────────────────────────────────────
 
-    // Poslední fallback (non-JP): první slovo jména, bez uvozovek
-    if (!cards.length && ai.name && !isJpName) {
-      const namePart = ai.name.split(' ')[0];
-      _lastQuery = `name:${namePart}*`;
-      const url3 = `/api/tcg?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
-      const r3 = await _tcgFetch(url3);
-      cards = r3?.data || [];
-      totalCount = r3?.totalCount || cards.length;
-    }
+      // Krok 1: číslo + nameEN (nejlepší shoda)
+      if (cardNumber && enName) {
+        _lastQuery = `name:"${enName}" number:${cardNumber}`;
+        statusEl.textContent = `🔍 Hledám: ${enName} #${cardNumber}…`;
+        const r1 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r1?.data || [];
+        totalCount = r1?.totalCount || cards.length;
+      }
 
-    // ── JP karta: přeložíme jméno přes Claude AI, pak znovu hledáme ──────
-    if (!cards.length && isJpName) {
-      statusEl.textContent = '🤖 Překládám japonský název přes AI…';
-      try {
-        const translatedName = await translateJpNameViaAI(ai.name, ai.category, ai.hp);
-        if (translatedName) {
-          g._translatedName = translatedName; // uložíme pro případ potřeby
-          // Zobraz přeložené jméno v UI
-          statusEl.textContent = `🔍 Hledám EN ekvivalent: "${translatedName}"…`;
-          _lastQuery = `name:"${translatedName}"`;
-          const tUrl = `/api/tcg?q=name:"${encodeURIComponent(translatedName)}"&pageSize=20&orderBy=-set.releaseDate`;
-          const tRes = await fetch(tUrl).then(r => r.json()).catch(() => null);
-          cards = tRes?.data || [];
-          totalCount = tRes?.totalCount || cards.length;
-
-          // Pokud stále nic, zkus bez uvozovek
-          if (!cards.length) {
-            _lastQuery = `name:${translatedName.split(' ')[0]}*`;
-            const tUrl2 = `/api/tcg?q=name:${encodeURIComponent(translatedName.split(' ')[0])}*&pageSize=20&orderBy=-set.releaseDate`;
-            const tRes2 = await fetch(tUrl2).then(r => r.json()).catch(() => null);
-            cards = tRes2?.data || [];
-            totalCount = tRes2?.totalCount || cards.length;
-          }
+      // Krok 2: samotné číslo (pokud krok 1 nic nedal nebo nemáme nameEN)
+      if (!cards.length && cardNumber) {
+        _lastQuery = `number:${cardNumber}`;
+        statusEl.textContent = `🔍 Hledám podle čísla: #${cardNumber}…`;
+        const r2 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r2?.data || [];
+        totalCount = r2?.totalCount || cards.length;
+        // Pokud máme nameEN, vyfiltrujeme výsledky – ponecháme jen shody jménem
+        if (cards.length && enName) {
+          const enLower = enName.toLowerCase().split(' ')[0];
+          const filtered = cards.filter(c => c.name.toLowerCase().includes(enLower));
+          if (filtered.length) { cards = filtered; totalCount = filtered.length; }
         }
-      } catch(e) { /* překlad selhal, pokračujeme bez něj */ }
-    }
+      }
 
-    // ── JP fallback přes číslo (pokud překlad nic nenašel) ──────────────
-    if (!cards.length && g?.aiResult?.lang === 'JP' && ai.number) {
-      const num = String(ai.number).split('/')[0];
-      _lastQuery = `number:${num}`;
-      const url4 = `/api/tcg?q=number:${encodeURIComponent(num)}&pageSize=20&orderBy=-set.releaseDate`;
-      const r4 = await fetch(url4).then(r => r.json()).catch(() => null);
-      cards = r4?.data || [];
-      totalCount = r4?.totalCount || cards.length;
+      // Krok 3: nameEN bez čísla
+      if (!cards.length && enName) {
+        _lastQuery = `name:"${enName}"`;
+        statusEl.textContent = `🔍 Hledám: ${enName}…`;
+        const r3 = await _tcgFetch(`/api/tcg?q=name:"${encodeURIComponent(enName)}"&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r3?.data || [];
+        totalCount = r3?.totalCount || cards.length;
+      }
+
+      // Krok 4: wildcard na první slovo nameEN
+      if (!cards.length && enName) {
+        const firstWord = enName.split(' ')[0];
+        _lastQuery = `name:${firstWord}*`;
+        statusEl.textContent = `🔍 Zkouším: ${firstWord}*…`;
+        const r4 = await _tcgFetch(`/api/tcg?q=name:${encodeURIComponent(firstWord)}*&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r4?.data || [];
+        totalCount = r4?.totalCount || cards.length;
+      }
+
+      // Krok 5: pokud stále nic a nameEN chybí, zkus přeložit přes API
+      if (!cards.length && !enName && isJpName) {
+        statusEl.textContent = '🤖 Překládám japonský název přes AI…';
+        try {
+          const translated = await translateJpNameViaAI(ai.name, ai.category, ai.hp);
+          if (translated) {
+            g.aiResult.nameEN = translated;
+            // Aktualizuj input v UI
+            const inp = document.getElementById(`nameEN-${gi}`);
+            if (inp) inp.value = translated;
+            // Zkus znovu krok 1–3 s přeloženým jménem
+            _lastQuery = `name:"${translated}"`;
+            if (cardNumber) _lastQuery += ` number:${cardNumber}`;
+            statusEl.textContent = `🔍 Hledám: ${translated}${cardNumber ? ' #'+cardNumber : ''}…`;
+            const rt = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+            cards = rt?.data || [];
+            totalCount = rt?.totalCount || cards.length;
+          }
+        } catch(e) { /* překlad selhal */ }
+      }
+
+    } else {
+      // ── EN karta – původní logika ─────────────────────────────
+
+      const parts = [];
+      if (enName) parts.push(`name:"${enName}"`);
+      if (ai.set)  parts.push(`set.name:"${ai.set}"`);
+      if (cardNumber) parts.push(`number:${cardNumber}`);
+
+      // Krok 1: přesný dotaz (name + set + číslo)
+      if (parts.length >= 2) {
+        _lastQuery = parts.join(' ');
+        const r1 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r1?.data || [];
+        totalCount = r1?.totalCount || cards.length;
+      }
+
+      // Krok 2: jen jméno
+      if (!cards.length && enName) {
+        _lastQuery = `name:"${enName}"`;
+        const r2 = await _tcgFetch(`/api/tcg?q=name:"${encodeURIComponent(enName)}"&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r2?.data || [];
+        totalCount = r2?.totalCount || cards.length;
+      }
+
+      // Krok 3: wildcard na první slovo
+      if (!cards.length && enName) {
+        const namePart = enName.split(' ')[0];
+        _lastQuery = `name:${namePart}*`;
+        const r3 = await _tcgFetch(`/api/tcg?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r3?.data || [];
+        totalCount = r3?.totalCount || cards.length;
+      }
     }
 
     if (!cards.length) {
