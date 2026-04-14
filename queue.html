@@ -678,6 +678,23 @@ function _getGroqKey() {
   return localStorage.getItem('groqApiKey') || '';
 }
 
+async function _syncGroqKeyFromSupabase() {
+  if (_getGroqKey()) return; // už máme lokálně
+  try {
+    if (!token || !userId) return;
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${userId}&select=groq_key,groq_model,groq_enabled`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token } }
+    );
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
+      localStorage.setItem('groqApiKey', rows[0].groq_key);
+      if (rows[0].groq_model) localStorage.setItem('groqModel', rows[0].groq_model);
+      console.log('[queue] Groq klíč synchronizován ze Supabase');
+    }
+  } catch (e) { console.warn('[queue] Sync Groq klíče selhal:', e); }
+}
+
 /* ── Auth ──────────────────────────────────────────────────────── */
 let userId = null;
 let token  = null;
@@ -927,9 +944,12 @@ async function retryAi(gi) {
   const btn = document.getElementById(`retryAiBtn-${gi}`);
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Analyzuji…'; }
 
+  // Zkus načíst klíč ze Supabase pokud ho nemáme lokálně
+  await _syncGroqKeyFromSupabase();
+
   const key = _getGroqKey();
   if (!key) {
-    toast('❌ Groq API klíč není nastaven – přihlas se ve skeneru a nastav klíč', 'error');
+    toast('❌ Groq API klíč není nastaven – nastav ho v <a href="/profile.html" style="color:#f5c842">Profilu</a>', 'error');
     if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
     return;
   }
@@ -974,7 +994,7 @@ async function retryAi(gi) {
 
     if (!groqRes.ok) {
       const err = await groqRes.json().catch(() => ({}));
-      throw new Error(err?.error?.message || 'HTTP ' + groqRes.status);
+      throw new Error(err?.error?.message || err?.error || 'HTTP ' + groqRes.status);
     }
 
     const data    = await groqRes.json();
@@ -2733,59 +2753,69 @@ function cancelCrop() {
 function confirmCrop() {
   const img = CROP.img;
   if (!img) return;
-  const c = CROP.corners;
 
-  const outW = Math.round((Math.hypot(c[1].x-c[0].x, c[1].y-c[0].y) +
-                           Math.hypot(c[2].x-c[3].x, c[2].y-c[3].y)) / 2);
-  const outH = Math.round((Math.hypot(c[3].x-c[0].x, c[3].y-c[0].y) +
-                           Math.hypot(c[2].x-c[1].x, c[2].y-c[1].y)) / 2);
+  // Okamžitě disable tlačítko a uvolni UI vlákno před výpočtem (INP fix)
+  const btn = document.querySelector('.btn-crop-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Ořezávám…'; }
 
-  const dst = [{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+  // Odložit na příští frame – warp (64×64 mřížka) je výpočetně náročný
+  requestAnimationFrame(() => setTimeout(() => {
+    const c = CROP.corners;
 
-  let dataUrl;
-  try {
-    const out = _perspectiveWarp(img, c, dst, outW, outH);
-    dataUrl = out.toDataURL('image/jpeg', 0.93);
-  } catch(err) {
-    toast('Ořez nelze uložit – CORS omezení', 'err');
-    cancelCrop();
-    return;
-  }
+    const outW = Math.round((Math.hypot(c[1].x-c[0].x, c[1].y-c[0].y) +
+                             Math.hypot(c[2].x-c[3].x, c[2].y-c[3].y)) / 2);
+    const outH = Math.round((Math.hypot(c[3].x-c[0].x, c[3].y-c[0].y) +
+                             Math.hypot(c[2].x-c[1].x, c[2].y-c[1].y)) / 2);
 
-  const g = cardGroups[CROP.groupIdx];
-  const p = g.photos[CROP.photoIdx];
-  p.croppedUrl = dataUrl;
+    const dst = [{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
 
-  const tile = document.getElementById(`tile-${CROP.groupIdx}-${CROP.photoIdx}`);
-  if (tile) {
-    const tileImg = tile.querySelector('img');
-    if (tileImg) {
-      tileImg.src = dataUrl;
-      // Bug #2 fix: aktualizuj i onclick pro lightbox
-      const escaped = dataUrl.replace(/'/g, "\'");
-      tileImg.setAttribute('onclick', `openLightbox('${escaped}')`);
+    let dataUrl;
+    try {
+      const out = _perspectiveWarp(img, c, dst, outW, outH);
+      dataUrl = out.toDataURL('image/jpeg', 0.93);
+    } catch(err) {
+      toast('Ořez nelze uložit – CORS omezení', 'err');
+      cancelCrop();
+      if (btn) { btn.disabled = false; btn.textContent = '✂️ Oříznout'; }
+      return;
     }
-    tile.classList.add('has-crop');
-    const btns = tile.querySelector('div:last-child');
-    if (btns) btns.innerHTML =
-      `<button onclick="openCrop(${CROP.groupIdx},${CROP.photoIdx})"
-        style="background:rgba(245,200,66,.18);border:1px solid rgba(245,200,66,.4);color:#f5c842;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">
-        ✂️ Upravit
-      </button>
-      <button onclick="resetPhotoTile(${CROP.groupIdx},${CROP.photoIdx})" title="Obnovit original"
-        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">&#x21BA;</button>`;
-  }
 
-  // Aktualizuj thumbnail v hlavičce skupiny (cg-thumb) pokud jde o přední foto
-  const group = cardGroups[CROP.groupIdx];
-  const photo = group?.photos[CROP.photoIdx];
-  if (photo && photo.side === 'front') {
-    const thumb = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
-    if (thumb) thumb.src = dataUrl;
-  }
+    const g = cardGroups[CROP.groupIdx];
+    const p = g.photos[CROP.photoIdx];
+    p.croppedUrl = dataUrl;
 
-  cancelCrop();
-  toast('✅ Perspektivní ořez uložen', 'success');
+    const tile = document.getElementById(`tile-${CROP.groupIdx}-${CROP.photoIdx}`);
+    if (tile) {
+      const tileImg = tile.querySelector('img');
+      if (tileImg) {
+        tileImg.src = dataUrl;
+        // Bug #2 fix: aktualizuj i onclick pro lightbox
+        const escaped = dataUrl.replace(/'/g, "\'");
+        tileImg.setAttribute('onclick', `openLightbox('${escaped}')`);
+      }
+      tile.classList.add('has-crop');
+      const btns = tile.querySelector('div:last-child');
+      if (btns) btns.innerHTML =
+        `<button onclick="openCrop(${CROP.groupIdx},${CROP.photoIdx})"
+          style="background:rgba(245,200,66,.18);border:1px solid rgba(245,200,66,.4);color:#f5c842;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">
+          ✂️ Upravit
+        </button>
+        <button onclick="resetPhotoTile(${CROP.groupIdx},${CROP.photoIdx})" title="Obnovit original"
+          style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">&#x21BA;</button>`;
+    }
+
+    // Aktualizuj thumbnail v hlavičce skupiny (cg-thumb) pokud jde o přední foto
+    const group = cardGroups[CROP.groupIdx];
+    const photo = group?.photos[CROP.photoIdx];
+    if (photo && photo.side === 'front') {
+      const thumb = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
+      if (thumb) thumb.src = dataUrl;
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = '✂️ Oříznout'; }
+    cancelCrop();
+    toast('✅ Perspektivní ořez uložen', 'success');
+  }, 0));
 }
 
 // Perspektivní warp pomocí mrize trojuhelniku
