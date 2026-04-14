@@ -1936,12 +1936,7 @@ function profileUpdateLangUI(lang) {
   await new Promise(r => setTimeout(r, 300));
   if (!currentUser || !profileUserId || currentUser.id !== profileUserId) return;
 
-  // Načti uloženou hranici pro upozornění na drahou kartičku
-  const savedThreshold = localStorage.getItem('pkc_exp_threshold');
-  const threshInp = document.getElementById('expThresholdInp');
-  if (threshInp && savedThreshold !== null) threshInp.value = savedThreshold;
-
-  // Načti uloženou hranici a aktualizuj subtitle
+  // Načti uloženou hranici pro upozornění na drahou kartičku a aktualizuj subtitle
   const savedThreshold = localStorage.getItem('pkc_exp_threshold');
   const threshInp = document.getElementById('expThresholdInp');
   if (threshInp && savedThreshold !== null) threshInp.value = savedThreshold;
@@ -2247,6 +2242,7 @@ function doLogout() {
   var avatar = document.getElementById('userAvatar');
   var loginLink = document.getElementById('loginLink');
   var logoutBtn = document.getElementById('logoutBtn');
+  var profileBtn = document.getElementById('profileBtn');
   if (u && u.id) {
     var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
     if (chip) chip.style.display = '';
