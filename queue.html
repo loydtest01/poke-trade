@@ -1583,14 +1583,36 @@ function toggleCompare(gi) {
 
 // ── Auto-search po načtení queue ─────────────────────────────
 // Spustí se pro každou skupinu s AI daty na pozadí
+// Globální zámek – zabraňuje paralelnímu běhu více instancí najednou
+let _autoSearchRunning = false;
+let _autoSearchScheduled = false;
+
 async function autoSearchAll() {
-  const groups = cardGroups.filter(g => g.aiResult?.name && !g.resolvedCard);
-  for (let i = 0; i < groups.length; i++) {
-    const gi = cardGroups.indexOf(groups[i]);
-    if (gi === -1) continue;
-    // Rate limiting: 300ms mezi požadavky
-    if (i > 0) await new Promise(r => setTimeout(r, 320));
-    await tcgSearch(gi, true); // true = autoMode
+  // Pokud už běží, naplánuj jednu rerun po dokončení a konec
+  if (_autoSearchRunning) {
+    _autoSearchScheduled = true;
+    return;
+  }
+  _autoSearchRunning = true;
+  _autoSearchScheduled = false;
+  try {
+    const groups = cardGroups.filter(g => g.aiResult?.name && !g.resolvedCard && !g._manuallySelected);
+    for (let i = 0; i < groups.length; i++) {
+      const gi = cardGroups.indexOf(groups[i]);
+      if (gi === -1) continue;
+      // Přeskočit skupiny, které mezitím dostaly výsledek nebo ruční výběr
+      if (cardGroups[gi]?.resolvedCard || cardGroups[gi]?._manuallySelected) continue;
+      // Rate limiting: 500ms mezi požadavky (bezpečný limit pro free tier pokemontcg.io)
+      if (i > 0) await new Promise(r => setTimeout(r, 500));
+      await tcgSearch(gi, true); // true = autoMode
+    }
+  } finally {
+    _autoSearchRunning = false;
+    // Pokud přišel nový požadavek zatím co jsme běželi, spusť znovu
+    if (_autoSearchScheduled) {
+      _autoSearchScheduled = false;
+      setTimeout(autoSearchAll, 200);
+    }
   }
 }
 
@@ -1600,6 +1622,23 @@ async function autoSearchAll() {
 
 // Stav stránkování per skupina: { query, page, totalCount, cards }
 const _tcgPageState = {};
+
+// Fetch s automatickým retry na 429 (exponential backoff)
+async function _tcgFetch(url, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const r = await fetch(url).catch(() => null);
+    if (!r) return null;
+    if (r.status === 429) {
+      const wait = 1000 * Math.pow(2, attempt); // 1s, 2s, 4s
+      console.warn(`[tcgFetch] 429 – čekám ${wait}ms před dalším pokusem (${attempt+1}/${retries})`);
+      await new Promise(res => setTimeout(res, wait));
+      continue;
+    }
+    return r.json().catch(() => null);
+  }
+  console.error('[tcgFetch] Opakovaný 429, vzdávám se:', url);
+  return null;
+}
 
 async function tcgSearch(gi, autoMode = false) {
   const g = cardGroups[gi];
@@ -1638,7 +1677,7 @@ async function tcgSearch(gi, autoMode = false) {
       // Přesný dotaz: jméno + set nebo jméno + číslo (pouze EN název)
       _lastQuery = parts.join(' ');
       const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
-      const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
+      const r1 = await _tcgFetch(url1);
       cards = r1?.data || [];
       totalCount = r1?.totalCount || cards.length;
     }
@@ -1647,7 +1686,7 @@ async function tcgSearch(gi, autoMode = false) {
     if (!cards.length && ai.name && !isJpName) {
       _lastQuery = `name:"${ai.name}"`;
       const url2 = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
-      const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
+      const r2 = await _tcgFetch(url2);
       cards = r2?.data || [];
       totalCount = r2?.totalCount || cards.length;
     }
@@ -1657,7 +1696,7 @@ async function tcgSearch(gi, autoMode = false) {
       const namePart = ai.name.split(' ')[0];
       _lastQuery = `name:${namePart}*`;
       const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
-      const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
+      const r3 = await _tcgFetch(url3);
       cards = r3?.data || [];
       totalCount = r3?.totalCount || cards.length;
     }
@@ -1989,7 +2028,7 @@ async function resolveCardUrl(url) {
 
   if (ptcgCard) {
     const cardId = ptcgCard[1];
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards/${cardId}`).then(r => r.json()).catch(() => null);
+    const res = await _tcgFetch(`https://api.pokemontcg.io/v2/cards/${cardId}`);
     const c = res?.data;
     if (c) {
       const cm = c.cardmarket?.prices || {};
