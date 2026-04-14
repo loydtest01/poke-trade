@@ -1,37 +1,33 @@
 /**
  * api/tcg.js – Proxy pro api.pokemontcg.io (řeší CORS)
  *
- * Použití:
- *   Místo: https://api.pokemontcg.io/v2/cards?q=name:"Pikachu"
- *   Volej: /api/tcg?q=name:"Pikachu"
- *          /api/tcg?id=swsh12pt5-4          ← konkrétní karta
- *          /api/tcg?path=sets               ← jiné endpointy
+ * Použití z frontendu:
+ *   /api/tcg?q=name:"Pikachu"&pageSize=20
+ *   /api/tcg?id=swsh12pt5-4
  */
 
-const CORS_HEADERS = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-};
-
 export default async function handler(req, res) {
+  // CORS headers
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
   if (req.method === 'OPTIONS') {
-    return res.status(200).set(CORS_HEADERS).end();
+    return res.status(200).end();
   }
 
   try {
-    const { id, path, ...rest } = req.query;
+    const { id, path: endpoint, ...rest } = req.query;
 
-    // Sestav URL na pokemontcg.io
     let tcgUrl;
     if (id) {
-      // /api/tcg?id=swsh12pt5-4  →  /v2/cards/swsh12pt5-4
+      // /api/tcg?id=swsh12pt5-4  →  GET /v2/cards/swsh12pt5-4
       tcgUrl = `https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`;
     } else {
-      // /api/tcg?q=name:"Pikachu"&pageSize=20  →  /v2/cards?q=...
-      const endpoint = path || 'cards';
+      // /api/tcg?q=name:"Pikachu"&pageSize=20  →  GET /v2/cards?q=...
+      const ep = endpoint || 'cards';
       const params = new URLSearchParams(rest).toString();
-      tcgUrl = `https://api.pokemontcg.io/v2/${endpoint}${params ? '?' + params : ''}`;
+      tcgUrl = `https://api.pokemontcg.io/v2/${ep}${params ? '?' + params : ''}`;
     }
 
     const upstream = await fetch(tcgUrl, {
@@ -40,15 +36,11 @@ export default async function handler(req, res) {
 
     const data = await upstream.json();
 
-    return res
-      .status(upstream.status)
-      .set({ ...CORS_HEADERS, 'Content-Type': 'application/json', 'Cache-Control': 's-maxage=300' })
-      .json(data);
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Cache-Control', 's-maxage=300');
+    return res.status(upstream.status).json(data);
 
   } catch (err) {
-    return res
-      .status(502)
-      .set(CORS_HEADERS)
-      .json({ error: true, message: 'TCG API proxy chyba: ' + err.message });
+    return res.status(502).json({ error: true, message: 'TCG proxy chyba: ' + err.message });
   }
 }
