@@ -287,29 +287,14 @@ body {
 .pkshow-stage.auras-on::before { animation: pkAuraPulse 2.4s ease-in-out infinite 0.4s; }
 .pkshow-stage.auras-on::after  { animation: pkAuraPulse 2.4s ease-in-out infinite 1.2s; }
 
-/* Card subtle float while active – každá karta má vlastní keyframes */
-@keyframes pkFloatPikachu {
-  0%   { transform: translateY(0px) rotate(-1deg); }
-  30%  { transform: translateY(-10px) rotate(0.5deg); }
-  65%  { transform: translateY(-4px) rotate(-0.8deg); }
-  100% { transform: translateY(0px) rotate(-1deg); }
+/* Card subtle float while active – každá karta jiná rychlost a delay */
+@keyframes pkFloat {
+  0%,100% { transform: translateY(0px); }
+  50%     { transform: translateY(-8px); }
 }
-@keyframes pkFloatMewtwo {
-  0%   { transform: translateY(0px) rotate(1deg); }
-  40%  { transform: translateY(-13px) rotate(-0.5deg); }
-  70%  { transform: translateY(-5px) rotate(1.2deg); }
-  100% { transform: translateY(0px) rotate(1deg); }
-}
-@keyframes pkFloatCharizard {
-  0%   { transform: translateY(0px) rotate(0.5deg); }
-  25%  { transform: translateY(-7px) rotate(-1deg); }
-  55%  { transform: translateY(-12px) rotate(0.3deg); }
-  80%  { transform: translateY(-3px) rotate(0.8deg); }
-  100% { transform: translateY(0px) rotate(0.5deg); }
-}
-.pkshow-card.active.pkcard-pikachu  { animation: pkFloatPikachu  3.6s ease-in-out infinite; }
-.pkshow-card.active.pkcard-mewtwo   { animation: pkFloatMewtwo   4.9s ease-in-out infinite; }
-.pkshow-card.active.pkcard-charizard{ animation: pkFloatCharizard 4.1s ease-in-out infinite; }
+.pkshow-card.active.pkcard-pikachu  { animation: pkFloat 3.2s ease-in-out infinite 0.0s; }
+.pkshow-card.active.pkcard-mewtwo   { animation: pkFloat 4.7s ease-in-out infinite 0.6s; }
+.pkshow-card.active.pkcard-charizard{ animation: pkFloat 3.9s ease-in-out infinite 1.8s; }
 
 .nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 
