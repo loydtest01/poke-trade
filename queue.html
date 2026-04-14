@@ -648,6 +648,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 <script src="app.js"></script>
 <script src="notif-bell.js"></script>
+<script src="fake-detector.js"></script>
 <script>
 /* ── Groq – retry AI ────────────────────────────────────────── */
 const GROQ_PROXY = '/api/groq';
@@ -1183,6 +1184,9 @@ function buildGroupEl(g, gi) {
       <!-- Side-by-side compare -->
       <button class="cg-compare-btn" id="compareBtn-${gi}" onclick="toggleCompare(${gi})">
         📊 Porovnat s databází
+      </button>
+      <button class="cg-compare-btn" style="border-color:rgba(245,158,11,.25);color:#f59e0b;background:rgba(245,158,11,.06);margin-top:4px" onclick="queueFakeCheck(${gi})">
+        🤖 Zkontrolovat falzum (AI)
       </button>
       <div class="cg-compare-panel" id="comparePanel-${gi}">
         <div class="compare-side">
@@ -3223,6 +3227,29 @@ function openLightbox(url) {
   document.getElementById('lightbox').classList.add('open');
 }
 function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+// ── Fake Detector integrace ──────────────────────────────────
+function queueFakeCheck(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const ai = g.aiResult || {};
+  const frontPhoto = g.photos?.find(p => p.side === 'front');
+  const imgSrc = frontPhoto?.croppedUrl || frontPhoto?.url || '';
+  const rc = g.resolvedCard || {};
+
+  const cardInfo = {
+    name:     rc.name || ai.name || '',
+    set:      rc.set || ai.set || '',
+    number:   rc.number || ai.number || '',
+    hp:       rc.hp || ai.hp || '',
+    rarity:   rc.rarity || ai.rarity || '',
+    apiSmall: rc.apiSmall || '',
+    apiLarge: rc.apiLarge || '',
+    apiId:    rc.apiId || '',
+  };
+
+  FakeDetector.openModal(imgSrc || null, cardInfo);
+}
 
 // ── Logout ────────────────────────────────────────────────────
 function doLogout() {

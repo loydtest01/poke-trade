@@ -640,15 +640,7 @@ body::after {
   </div>
 </div>
 
-<!-- ── FAKE DETECTOR MODAL ── -->
-<div id="cmpFakeModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0e0c12;border:1px solid rgba(255,255,255,.1);border-radius:20px;width:100%;max-width:480px;padding:24px;position:relative;max-height:90vh;overflow-y:auto">
-    <button onclick="document.getElementById('cmpFakeModal').style.display='none'" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,.08);border:none;border-radius:8px;color:rgba(240,232,208,.6);font-size:16px;padding:4px 10px;cursor:pointer">✕</button>
-    <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;color:#f0ece4;margin-bottom:4px">🔍 Detekce falzum</div>
-    <div id="cmpFakeCardName" style="font-size:11px;color:var(--text3);margin-bottom:14px"></div>
-    <div id="cmpFakeResult"><div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ AI analyzuje kartu…</div></div>
-  </div>
-</div>
+<!-- Fake Detector now uses universal FakeDetector.openModal() -->
 
 <script src="app.js"></script>
 <script src="notif-bell.js"></script>
@@ -1748,28 +1740,12 @@ function formatDate(iso) {
 </script>
 
 <script>
-/* ── Fake detector modal ── */
-async function cmpFakeCheck(imgUrl, cardJson) {
-  const modal    = document.getElementById('cmpFakeModal');
-  const resultEl = document.getElementById('cmpFakeResult');
-  const nameEl   = document.getElementById('cmpFakeCardName');
+/* ── Fake detector – nyní přes univerzální FakeDetector modal ── */
+function cmpFakeCheck(imgUrl, cardJson) {
   let cardInfo = {};
   try { cardInfo = JSON.parse(decodeURIComponent(cardJson)); } catch {}
-  nameEl.textContent = [cardInfo.name, cardInfo.set, cardInfo.number ? '#'+cardInfo.number : ''].filter(Boolean).join(' · ');
-  resultEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">⏳ AI analyzuje kartu…</div>';
-  modal.style.display = 'flex';
-  try {
-    if (typeof FakeDetector === 'undefined') throw new Error('fake-detector.js není načten');
-    const result = await FakeDetector.analyze(imgUrl, cardInfo);
-    FakeDetector.renderResult(result, resultEl);
-  } catch(e) {
-    resultEl.innerHTML = `<div style="font-size:12px;color:#f87171;padding:8px 0">❌ ${String(e.message||e)}</div>`;
-  }
+  FakeDetector.openModal(imgUrl || null, cardInfo);
 }
-document.addEventListener('click', e => {
-  const modal = document.getElementById('cmpFakeModal');
-  if (modal && e.target === modal) modal.style.display = 'none';
-});
 </script>
 
 <script>

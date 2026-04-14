@@ -1605,6 +1605,35 @@ body { background: #06040c; overflow-x: hidden; }
 <script src="notif-bell.js"></script>
 <script src="fake-detector.js"></script>
 <script>
+// ── Fake Detector integrace pro Moje Album ───────────────────
+function cdRunFakeCheck() {
+  if (typeof _detailCard === 'undefined' || !_detailCard) return;
+  const c = _detailCard;
+  const img = c.images?.large || c.images?.small || c.apiSmall || c.apiLarge || c.imageUrl || '';
+  const cardInfo = {
+    name: c.name || '', set: c.set || '', number: c.number || c.num || '',
+    hp: c.hp || '', rarity: c.rarity || '',
+    apiSmall: c.apiSmall || c.images?.small || '',
+    apiLarge: c.apiLarge || c.images?.large || '',
+    apiId: c.apiId || c.tcgId || '',
+  };
+  FakeDetector.openModal(img || null, cardInfo);
+}
+function cdFakeFileSelected(input) {
+  const file = input?.files?.[0];
+  if (!file) return;
+  const c = (typeof _detailCard !== 'undefined' && _detailCard) ? _detailCard : {};
+  FakeDetector.openModalWithFile(file, {
+    name: c.name || '', set: c.set || '', number: c.number || c.num || '',
+    hp: c.hp || '', rarity: c.rarity || '',
+    apiSmall: c.apiSmall || c.images?.small || '',
+    apiLarge: c.apiLarge || c.images?.large || '',
+    apiId: c.apiId || c.tcgId || '',
+  });
+  input.value = '';
+}
+</script>
+<script>
 // ══════════════════════════════════════════════════════════════════
 //  STAV
 // ══════════════════════════════════════════════════════════════════
