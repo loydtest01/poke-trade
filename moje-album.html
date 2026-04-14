@@ -1681,7 +1681,6 @@ let editingAlbumId = null;
 
   await Promise.all([loadCards(), loadAlbums()]);
   await loadAllCardPhotos();
-  console.log('[Photos] allCardPhotosMap keys:', Object.keys(allCardPhotosMap).length, Object.keys(allCardPhotosMap));
   renderAlbumList();
   render();
   renderFlatFilterBtns();
@@ -5092,6 +5091,10 @@ function setViewMode(mode) {
     bookCurrentPage = 0;
     renderBookView();
     initBookSize();
+  } else {
+    // Přepnutí na mřížku — znovu renderuj aby se načetly lazy obrázky
+    // (lazy img se nenačítají v display:none kontejneru)
+    render();
   }
 }
 
@@ -5158,19 +5161,28 @@ function renderBookView() {
 
   function renderBookCard(c) {
     if (!c) return '<div class="book-card-empty" onclick="openSlotMenu(event)"></div>';
-    const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
-    const emoji = typeEmoji(c.types?.[0] || c.type || '');
-    return `<div class="book-card" onclick="cardClick('${esc(c.id)}')">
-      ${img
-        ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy">`
-        : `<div class="book-card-placeholder">
-             <div class="emoji">${emoji}</div>
-             <div class="name">${esc(c.name||'?')}</div>
-             <div class="set">${esc(c.set||'')}</div>
-           </div>`}
+    const localId   = String(c.id || c.local_id || '');
+    const photos    = allCardPhotosMap[localId] || [];
+    const realPhoto = photos.find(p => p.side === 'front') || photos[0];
+    const apiImg    = c.images?.small || c.apiSmall || c.imageUrl || '';
+    const emoji     = typeEmoji(c.types?.[0] || c.type || '');
+
+    const imgEl = realPhoto
+      ? `<img src="${esc(realPhoto.url)}" alt="${esc(c.name||'')}" loading="eager" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`
+      : (apiImg
+          ? `<img src="${esc(apiImg)}" alt="${esc(c.name||'')}" loading="eager">`
+          : `<div class="book-card-placeholder">
+               <div class="emoji">${emoji}</div>
+               <div class="name">${esc(c.name||'?')}</div>
+               <div class="set">${esc(c.set||'')}</div>
+             </div>`);
+
+    return `<div class="book-card${realPhoto ? ' card-has-photo' : ''}" onclick="cardClick('${esc(c.id)}')">
+      ${imgEl}
       <div class="card-badges">
         ${c.for_trade ? '<span class="badge-pill badge-trade">🔄</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">💰</span>'  : ''}
+        ${realPhoto   ? '<span class="badge-pill" style="background:rgba(0,200,100,.25);color:#4ade80;font-size:8px;">📷</span>' : ''}
       </div>
       <div class="card-footer">
         <div class="card-name">${esc(c.name||'?')}</div>
