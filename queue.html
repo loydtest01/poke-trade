@@ -1676,7 +1676,7 @@ async function tcgSearch(gi, autoMode = false) {
     if (parts.length >= 2) {
       // Přesný dotaz: jméno + set nebo jméno + číslo (pouze EN název)
       _lastQuery = parts.join(' ');
-      const url1 = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
+      const url1 = `/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`;
       const r1 = await _tcgFetch(url1);
       cards = r1?.data || [];
       totalCount = r1?.totalCount || cards.length;
@@ -1685,7 +1685,7 @@ async function tcgSearch(gi, autoMode = false) {
     // Fallback: jen jméno — POUZE pokud není japonský název (JP znaky způsobují 400)
     if (!cards.length && ai.name && !isJpName) {
       _lastQuery = `name:"${ai.name}"`;
-      const url2 = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
+      const url2 = `/api/tcg?q=name:"${encodeURIComponent(ai.name)}"&pageSize=20&orderBy=-set.releaseDate`;
       const r2 = await _tcgFetch(url2);
       cards = r2?.data || [];
       totalCount = r2?.totalCount || cards.length;
@@ -1695,7 +1695,7 @@ async function tcgSearch(gi, autoMode = false) {
     if (!cards.length && ai.name && !isJpName) {
       const namePart = ai.name.split(' ')[0];
       _lastQuery = `name:${namePart}*`;
-      const url3 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
+      const url3 = `/api/tcg?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`;
       const r3 = await _tcgFetch(url3);
       cards = r3?.data || [];
       totalCount = r3?.totalCount || cards.length;
@@ -1711,7 +1711,7 @@ async function tcgSearch(gi, autoMode = false) {
           // Zobraz přeložené jméno v UI
           statusEl.textContent = `🔍 Hledám EN ekvivalent: "${translatedName}"…`;
           _lastQuery = `name:"${translatedName}"`;
-          const tUrl = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(translatedName)}"&pageSize=20&orderBy=-set.releaseDate`;
+          const tUrl = `/api/tcg?q=name:"${encodeURIComponent(translatedName)}"&pageSize=20&orderBy=-set.releaseDate`;
           const tRes = await fetch(tUrl).then(r => r.json()).catch(() => null);
           cards = tRes?.data || [];
           totalCount = tRes?.totalCount || cards.length;
@@ -1719,7 +1719,7 @@ async function tcgSearch(gi, autoMode = false) {
           // Pokud stále nic, zkus bez uvozovek
           if (!cards.length) {
             _lastQuery = `name:${translatedName.split(' ')[0]}*`;
-            const tUrl2 = `https://api.pokemontcg.io/v2/cards?q=name:${encodeURIComponent(translatedName.split(' ')[0])}*&pageSize=20&orderBy=-set.releaseDate`;
+            const tUrl2 = `/api/tcg?q=name:${encodeURIComponent(translatedName.split(' ')[0])}*&pageSize=20&orderBy=-set.releaseDate`;
             const tRes2 = await fetch(tUrl2).then(r => r.json()).catch(() => null);
             cards = tRes2?.data || [];
             totalCount = tRes2?.totalCount || cards.length;
@@ -1732,7 +1732,7 @@ async function tcgSearch(gi, autoMode = false) {
     if (!cards.length && g?.aiResult?.lang === 'JP' && ai.number) {
       const num = String(ai.number).split('/')[0];
       _lastQuery = `number:${num}`;
-      const url4 = `https://api.pokemontcg.io/v2/cards?q=number:${encodeURIComponent(num)}&pageSize=20&orderBy=-set.releaseDate`;
+      const url4 = `/api/tcg?q=number:${encodeURIComponent(num)}&pageSize=20&orderBy=-set.releaseDate`;
       const r4 = await fetch(url4).then(r => r.json()).catch(() => null);
       cards = r4?.data || [];
       totalCount = r4?.totalCount || cards.length;
@@ -1870,7 +1870,7 @@ async function loadMoreTcg(gi) {
 
   try {
     const q = Array.isArray(state.query) ? state.query.join(' ') : (state.query || '');
-    const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&page=${state.page}&orderBy=-set.releaseDate`;
+    const url = `/api/tcg?q=${encodeURIComponent(q)}&pageSize=20&page=${state.page}&orderBy=-set.releaseDate`;
     const res = await fetch(url).then(r => r.json()).catch(() => null);
     const newCards = res?.data || [];
 
@@ -2028,7 +2028,7 @@ async function resolveCardUrl(url) {
 
   if (ptcgCard) {
     const cardId = ptcgCard[1];
-    const res = await _tcgFetch(`https://api.pokemontcg.io/v2/cards/${cardId}`);
+    const res = await _tcgFetch(`/api/tcg?id=${cardId}`);
     const c = res?.data;
     if (c) {
       const cm = c.cardmarket?.prices || {};
@@ -2054,7 +2054,7 @@ async function resolveCardUrl(url) {
   } else if (ptcgImg) {
     const setId = ptcgImg[1];
     const num   = ptcgImg[2].replace(/_hires$/, '');
-    const apiUrl = `https://api.pokemontcg.io/v2/cards?q=set.id:${setId}+number:${num}&pageSize=1`;
+    const apiUrl = `/api/tcg?q=set.id:${setId}+number:${num}&pageSize=1`;
     const res = await fetch(apiUrl).then(r => r.json()).catch(() => null);
     const c = res?.data?.[0];
     if (c) {
@@ -2182,7 +2182,7 @@ async function resolveCardUrl(url) {
 
       // Pokud máme číslo (non-JP nebo gallery), zkusíme s ním
       if (extractedNum) {
-        const url1 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"+number:${extractedNum}&pageSize=10&orderBy=-set.releaseDate`;
+        const url1 = `/api/tcg?q=name:\"${encodeURIComponent(nameWords)}\"+number:${extractedNum}&pageSize=10&orderBy=-set.releaseDate`;
         const r1 = await fetch(url1).then(r => r.json()).catch(() => null);
         candidates = r1?.data || [];
       }
@@ -2192,12 +2192,12 @@ async function resolveCardUrl(url) {
       if (!candidates.length || isJp) {
         let nameQuery = `name:\"${encodeURIComponent(nameWords)}\"`;
         if (enSetForJp) nameQuery += `+set.name:\"${encodeURIComponent(enSetForJp)}\"`;
-        const url2 = `https://api.pokemontcg.io/v2/cards?q=${nameQuery}&pageSize=20&orderBy=-set.releaseDate`;
+        const url2 = `/api/tcg?q=${nameQuery}&pageSize=20&orderBy=-set.releaseDate`;
         const r2 = await fetch(url2).then(r => r.json()).catch(() => null);
         const byName = r2?.data || [];
         // Pokud set-filtrovaný dotaz nic nenajde, zkusíme bez setu (fallback)
         const fallback = byName.length ? byName : await (async () => {
-          const url3 = `https://api.pokemontcg.io/v2/cards?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=20&orderBy=-set.releaseDate`;
+          const url3 = `/api/tcg?q=name:\"${encodeURIComponent(nameWords)}\"&pageSize=20&orderBy=-set.releaseDate`;
           const r3 = await fetch(url3).then(r => r.json()).catch(() => null);
           return r3?.data || [];
         })();
@@ -2279,7 +2279,7 @@ async function resolveCardUrl(url) {
     if (slugMatch) {
       const slug = slugMatch[1].replace(/-/g, ' ');
       const words = slug.split(' ').slice(0, 3).join(' ');
-      const apiUrl = `https://api.pokemontcg.io/v2/cards?q=name:"${encodeURIComponent(words)}"&pageSize=1`;
+      const apiUrl = `/api/tcg?q=name:"${encodeURIComponent(words)}"&pageSize=1`;
       const res = await fetch(apiUrl).then(r => r.json()).catch(() => null);
       const c = res?.data?.[0];
       if (c) {
