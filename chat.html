@@ -610,6 +610,189 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 
+/* ═══ SIDEBAR TABS ═══ */
+.conv-tabs {
+  display: flex; gap: 4px; margin-top: 10px;
+}
+.conv-tab {
+  flex: 1; padding: 6px 0; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: transparent; color: var(--text3);
+  cursor: pointer; transition: all .15s; font-family: inherit; text-align: center;
+}
+.conv-tab:hover { background: rgba(255,255,255,0.05); color: var(--text2); }
+.conv-tab.active { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+
+/* ═══ POKEBOT ITEM ═══ */
+.bot-conv-item {
+  display: flex; gap: 10px; padding: 12px 16px; cursor: pointer;
+  transition: background .12s; border-bottom: 1px solid rgba(245,200,66,0.08);
+  background: rgba(245,200,66,0.03); position: relative;
+}
+.bot-conv-item:hover { background: rgba(245,200,66,0.07); }
+.bot-conv-item.active { background: rgba(245,200,66,0.1); }
+.bot-avatar {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(245,200,66,0.3), rgba(74,158,255,0.3));
+  border: 1px solid rgba(245,200,66,0.4);
+  display: flex; align-items: center; justify-content: center; font-size: 20px;
+}
+.bot-badge {
+  font-size: 9px; font-weight: 800; background: linear-gradient(90deg, #f5c842, #74b4ff);
+  color: #000; border-radius: 4px; padding: 2px 5px; letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* ═══ BOT CHAT ═══ */
+.bot-header-badge {
+  padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 800;
+  background: linear-gradient(90deg,rgba(245,200,66,0.2),rgba(74,158,255,0.2));
+  border: 1px solid rgba(245,200,66,0.3); color: var(--yellow); letter-spacing: .04em;
+}
+.bot-msg-bubble {
+  max-width: 80%; padding: 10px 14px; border-radius: 14px;
+  font-size: 13.5px; line-height: 1.6; word-break: break-word;
+  background: linear-gradient(135deg,rgba(245,200,66,0.08),rgba(74,158,255,0.05));
+  border: 1px solid rgba(245,200,66,0.15); color: var(--text2);
+  border-bottom-left-radius: 4px;
+}
+.bot-msg-bubble strong { color: var(--yellow); font-weight: 700; }
+.bot-typing {
+  display: flex; gap: 4px; align-items: center; padding: 12px 0 4px 6px;
+}
+.bot-typing span {
+  width: 7px; height: 7px; border-radius: 50%; background: rgba(245,200,66,0.5);
+  animation: botBounce 1.2s ease-in-out infinite;
+}
+.bot-typing span:nth-child(2) { animation-delay: .2s; }
+.bot-typing span:nth-child(3) { animation-delay: .4s; }
+@keyframes botBounce { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-5px);opacity:1} }
+.bot-quick-chips {
+  display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 20px 4px;
+}
+.bot-chip {
+  padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  border: 1px solid rgba(245,200,66,0.25); background: rgba(245,200,66,0.06);
+  color: rgba(240,236,228,0.7); cursor: pointer; transition: all .12s; font-family: inherit;
+}
+.bot-chip:hover { background: rgba(245,200,66,0.14); color: var(--yellow); border-color: rgba(245,200,66,0.4); }
+
+/* ═══ CLIENTS PANEL ═══ */
+.clients-panel {
+  display: none; flex-direction: column; flex: 1; overflow: hidden;
+}
+.clients-panel.active { display: flex; }
+.clients-search-wrap { padding: 8px 12px; }
+.clients-search {
+  width: 100%; padding: 8px 12px 8px 34px; border-radius: 9px;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.05);
+  color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
+}
+.clients-search:focus { border-color: rgba(245,200,66,0.4); }
+.clients-search-inner { position: relative; }
+.clients-search-inner::before { content:'🔍'; position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:13px; pointer-events:none; }
+.clients-list { flex: 1; overflow-y: auto; padding: 4px 0; }
+.clients-list::-webkit-scrollbar { width: 4px; }
+.clients-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.client-item {
+  padding: 10px 14px; border-bottom: 1px solid rgba(255,255,255,0.03);
+  cursor: pointer; transition: background .12s;
+}
+.client-item:hover { background: rgba(255,255,255,0.04); }
+.client-item-top {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 6px;
+}
+.client-av {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: var(--yellow); overflow: hidden;
+}
+.client-av img { width: 100%; height: 100%; object-fit: cover; }
+.client-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.client-email { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.client-listings-row {
+  display: flex; gap: 5px; flex-wrap: wrap; padding-left: 44px;
+}
+.client-listing-tag {
+  font-size: 10px; padding: 2px 8px; border-radius: 5px;
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  color: var(--text3); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 130px;
+}
+.client-listing-price {
+  font-size: 10px; padding: 2px 7px; border-radius: 5px;
+  background: rgba(74,222,128,0.08); border: 1px solid rgba(74,222,128,0.2);
+  color: var(--green); white-space: nowrap;
+}
+.client-write-btn {
+  margin-left: auto; padding: 4px 10px; border-radius: 7px; font-size: 11px; font-weight: 700;
+  background: rgba(245,200,66,0.1); border: 1px solid rgba(245,200,66,0.25);
+  color: var(--yellow); cursor: pointer; font-family: inherit; transition: all .12s;
+  flex-shrink: 0; white-space: nowrap;
+}
+.client-write-btn:hover { background: rgba(245,200,66,0.2); }
+.clients-empty {
+  text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px;
+}
+.clients-loading { text-align: center; padding: 20px; color: var(--text3); font-size: 12px; }
+
+/* ═══ FAKE DETECTOR ═══ */
+.fake-modal-box {
+  background: #0e0c14; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 18px; width: 100%; max-width: 520px; max-height: 88vh;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.fake-drop-zone {
+  margin: 16px; border: 2px dashed rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 32px 20px; text-align: center;
+  cursor: pointer; transition: all .2s; position: relative; overflow: hidden;
+}
+.fake-drop-zone:hover, .fake-drop-zone.dragover {
+  border-color: rgba(245,200,66,0.5); background: rgba(245,200,66,0.04);
+}
+.fake-drop-icon { font-size: 40px; margin-bottom: 10px; opacity: 0.6; }
+.fake-drop-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.fake-drop-sub { font-size: 12px; color: var(--text3); margin-bottom: 16px; }
+.fake-drop-btn {
+  padding: 8px 20px; border-radius: 9px; font-size: 13px; font-weight: 700;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: var(--yellow); cursor: pointer; font-family: inherit; transition: all .12s;
+}
+.fake-drop-btn:hover { background: rgba(245,200,66,0.25); }
+.fake-file-input { display: none; }
+.fake-preview-wrap { margin: 0 16px 10px; display: none; }
+.fake-preview-img {
+  width: 100%; max-height: 200px; object-fit: contain; border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.fake-card-form {
+  margin: 0 16px 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+}
+.fake-card-input {
+  padding: 7px 10px; border-radius: 8px; font-size: 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; outline: none;
+}
+.fake-card-input:focus { border-color: rgba(245,200,66,0.4); }
+.fake-card-input::placeholder { color: var(--text3); }
+.fake-analyze-btn {
+  margin: 0 16px 12px; width: calc(100% - 32px); padding: 11px; border-radius: 10px;
+  font-size: 14px; font-weight: 800; border: none; cursor: pointer; font-family: inherit;
+  background: linear-gradient(90deg, rgba(245,200,66,0.25), rgba(74,158,255,0.2));
+  color: var(--text); transition: all .15s; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+}
+.fake-analyze-btn:hover:not(:disabled) { background: linear-gradient(90deg, rgba(245,200,66,0.4), rgba(74,158,255,0.3)); }
+.fake-analyze-btn:disabled { opacity: .4; cursor: not-allowed; }
+.fake-result-area { margin: 0 16px 16px; overflow-y: auto; }
+.btn-fake-detector {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid rgba(245,200,66,0.2); background: rgba(245,200,66,0.06);
+  color: var(--yellow); font-size: 16px; cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-fake-detector:hover { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.12); }
+
 </style>
 </head>
 <body>
@@ -660,17 +843,53 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   <!-- LEFT: Conversations -->
   <aside class="conv-sidebar">
     <div class="conv-header">
-      <h2>💬 Zprávy</h2>
-      <button class="btn-new-conv" onclick="openNewConvModal()" title="Nová konverzace">＋</button>
-      <div class="conv-search-wrap">
-        <input class="conv-search" id="convSearch" type="text" placeholder="Hledat konverzaci..." oninput="filterConversations()">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h2 style="margin:0">💬 Zprávy</h2>
+        <button class="btn-new-conv" onclick="openNewConvModal()" title="Nová konverzace">＋</button>
+      </div>
+      <div class="conv-tabs">
+        <button class="conv-tab active" id="tabConvs" onclick="switchTab('convs')">💬 Konverzace</button>
+        <button class="conv-tab" id="tabClients" onclick="switchTab('clients')">👥 Klienti</button>
       </div>
     </div>
-    <div class="conv-list" id="convList">
-      <div class="conv-empty" id="convEmpty">
-        <div class="conv-empty-icon">💬</div>
-        <h3>Žádné konverzace</h3>
-        <p style="font-size:12px">Napiš prodejci z marketplace<br>a zahaj konverzaci!</p>
+
+    <!-- Conversations panel -->
+    <div id="panelConvs" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+      <div style="padding:8px 12px 0">
+        <div class="conv-search-wrap">
+          <input class="conv-search" id="convSearch" type="text" placeholder="Hledat konverzaci..." oninput="filterConversations()">
+        </div>
+      </div>
+      <!-- PokéBot special item -->
+      <div class="bot-conv-item" id="botConvItem" onclick="openBotConversation()">
+        <div class="bot-avatar">🤖</div>
+        <div class="conv-info">
+          <div class="conv-name" style="display:flex;align-items:center;gap:6px">
+            PokéBot AI <span class="bot-badge">GROQ</span>
+          </div>
+          <div class="conv-last-msg">Ceny karet · Tipy na obchod · Fake detektor</div>
+        </div>
+      </div>
+      <div class="conv-list" id="convList">
+        <div class="conv-empty" id="convEmpty">
+          <div class="conv-empty-icon">💬</div>
+          <h3>Žádné konverzace</h3>
+          <p style="font-size:12px">Napiš prodejci z marketplace<br>a zahaj konverzaci!</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Clients panel -->
+    <div class="clients-panel" id="panelClients">
+      <div class="clients-search-wrap">
+        <div class="clients-search-inner">
+          <input class="clients-search" id="clientsSearch" type="text"
+            placeholder="Hledat přezdívkou nebo emailem…"
+            oninput="onClientsSearch()" autocomplete="off">
+        </div>
+      </div>
+      <div class="clients-list" id="clientsList">
+        <div class="clients-empty">Zadej přezdívku nebo email<br>pro vyhledání uživatele</div>
       </div>
     </div>
   </aside>
@@ -711,8 +930,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <div class="chat-input-area" id="chatInputArea" style="display:none">
       <div class="attach-bar" id="attachBar"></div>
       <div class="chat-input-row">
-        <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace">
+        <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace" id="btnAttachListing">
           🃏
+        </button>
+        <button class="btn-fake-detector" onclick="openFakeDetectorModal()" title="🔍 Detekovat falzum karty" id="btnFakeDetect" style="display:none">
+          📷
         </button>
         <textarea class="chat-textarea" id="chatInput" placeholder="Napište zprávu..." rows="1"
           oninput="autoGrow(this)" onkeydown="handleInputKey(event)"></textarea>
@@ -765,6 +987,47 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         Připojit (<span id="pickerCount">0</span>)
       </button>
     </div>
+  </div>
+</div>
+
+<!-- ═══ FAKE DETECTOR MODAL ═══ -->
+<div class="modal-overlay" id="fakeDetectorModal" onclick="if(event.target===this)closeFakeDetectorModal()">
+  <div class="fake-modal-box">
+    <div class="modal-head">
+      <h3>📷 Detektor Falzifikátů</h3>
+      <button class="modal-close" onclick="closeFakeDetectorModal()">✕</button>
+    </div>
+    <!-- Drop zone -->
+    <div class="fake-drop-zone" id="fakeDropZone"
+      onclick="document.getElementById('fakeFileInput').click()"
+      ondragover="fakeDragOver(event)" ondragleave="fakeDragLeave(event)" ondrop="fakeDrop(event)">
+      <div class="fake-drop-icon">🃏</div>
+      <div class="fake-drop-title">Nahraj foto karty</div>
+      <div class="fake-drop-sub">Přetáhni sem nebo klikni pro výběr souboru</div>
+      <button class="fake-drop-btn" onclick="event.stopPropagation();document.getElementById('fakeFileInput').click()">Vybrat soubor</button>
+      <input type="file" id="fakeFileInput" class="fake-file-input" accept="image/*" onchange="fakeFileSelected(this)">
+    </div>
+    <!-- Preview -->
+    <div class="fake-preview-wrap" id="fakePreviewWrap">
+      <img id="fakePreviewImg" class="fake-preview-img" src="" alt="Preview karty">
+      <div style="text-align:center;margin-top:6px">
+        <button onclick="resetFakeDetector()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-family:inherit">Změnit foto</button>
+      </div>
+    </div>
+    <!-- Optional card info -->
+    <div class="fake-card-form" id="fakeCardForm" style="display:none">
+      <input class="fake-card-input" id="fakeCardName" placeholder="Název karty (např. Charizard)" style="grid-column:1/-1">
+      <input class="fake-card-input" id="fakeCardSet" placeholder="Set (např. Obsidian Flames)">
+      <input class="fake-card-input" id="fakeCardNumber" placeholder="Číslo (např. 125/197)">
+      <input class="fake-card-input" id="fakeCardHp" placeholder="HP (např. 330)">
+      <input class="fake-card-input" id="fakeCardRarity" placeholder="Raritu (např. Special Art)">
+    </div>
+    <!-- Analyze button -->
+    <button class="fake-analyze-btn" id="fakeAnalyzeBtn" disabled onclick="runFakeAnalysis()">
+      <span id="fakeBtnIcon">📷</span> <span id="fakeBtnText">Nejprve nahraj foto karty</span>
+    </button>
+    <!-- Result -->
+    <div class="fake-result-area" id="fakeResultArea"></div>
   </div>
 </div>
 
@@ -965,7 +1228,20 @@ function selectConversation(convId) {
 }
 
 async function openConversation(conv) {
+  isBotMode = false;
   activeConvId = conv.id;
+
+  // Reset bot UI
+  document.getElementById('botConvItem').classList.remove('active');
+  document.getElementById('btnFakeDetect').style.display = 'none';
+  document.getElementById('btnAttachListing').style.display = '';
+  document.getElementById('chatInput').placeholder = 'Napište zprávu...';
+  const hBadge = document.getElementById('botHeaderBadge');
+  if (hBadge) hBadge.style.display = 'none';
+  const vpBtn = document.getElementById('btnViewProfile');
+  if (vpBtn) vpBtn.style.display = '';
+  document.getElementById('chatAvatar').style.fontSize = '';
+
   const isUser1 = conv.user1_id === userId;
   activePartner = {
     id: isUser1 ? conv.user2_id : conv.user1_id,
@@ -1173,6 +1449,16 @@ async function handleShareInvite(shareId, action, btn) {
 async function sendMessage() {
   const inp = document.getElementById('chatInput');
   const text = inp.value.trim();
+
+  // Route to bot if in bot mode
+  if (isBotMode) {
+    if (!text) return;
+    inp.value = '';
+    autoGrow(inp);
+    await sendBotMessage(text);
+    return;
+  }
+
   if (!text && !attachedListings.length) return;
   if (!activeConvId || !token) return;
 
@@ -1670,6 +1956,508 @@ function showToast(msg, type='') {
   el.className = `toast${type?' '+type:''} show`;
   setTimeout(() => el.classList.remove('show'), 3500);
 }
+
+// ═══════════════════════════════════════════════════════════════
+// NOVÉ FUNKCE: SIDEBAR TABS
+// ═══════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  const isConvs = tab === 'convs';
+  document.getElementById('tabConvs').classList.toggle('active', isConvs);
+  document.getElementById('tabClients').classList.toggle('active', !isConvs);
+  document.getElementById('panelConvs').style.display = isConvs ? 'flex' : 'none';
+  document.getElementById('panelConvs').style.flexDirection = 'column';
+  document.getElementById('panelConvs').style.flex = '1';
+  document.getElementById('panelConvs').style.overflow = 'hidden';
+  const cp = document.getElementById('panelClients');
+  cp.style.display = !isConvs ? 'flex' : 'none';
+  cp.style.flexDirection = !isConvs ? 'column' : '';
+  cp.style.flex = !isConvs ? '1' : '';
+  cp.style.overflow = !isConvs ? 'hidden' : '';
+  if (!isConvs) setTimeout(() => document.getElementById('clientsSearch').focus(), 80);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLIENTS FINDER
+// ═══════════════════════════════════════════════════════════════
+let _clientsTimeout = null;
+
+function onClientsSearch() {
+  clearTimeout(_clientsTimeout);
+  const q = document.getElementById('clientsSearch').value.trim();
+  if (q.length < 2) {
+    document.getElementById('clientsList').innerHTML = '<div class="clients-empty">Zadej alespoň 2 znaky…</div>';
+    return;
+  }
+  document.getElementById('clientsList').innerHTML = '<div class="clients-loading">🔍 Hledám…</div>';
+  _clientsTimeout = setTimeout(() => findClients(q), 320);
+}
+
+async function findClients(q) {
+  const enc = encodeURIComponent(q);
+
+  // 1. Search profiles by username OR email_hint
+  let profiles = [];
+  try {
+    let res = await sb(
+      `rest/v1/user_search?username=ilike.*${enc}*&id=neq.${userId}&select=id,username,avatar_url,email_hint&limit=12`,
+      'GET', null, token
+    );
+    if (!Array.isArray(res) || res.code) {
+      res = await sb(
+        `rest/v1/profiles?username=ilike.*${enc}*&id=neq.${userId}&select=id,username,avatar_url&limit=12`,
+        'GET', null, token
+      );
+    }
+    profiles = Array.isArray(res) ? res : [];
+  } catch(e) {}
+
+  // 2. For each profile, load their marketplace listings
+  const listEl = document.getElementById('clientsList');
+  if (!profiles.length) {
+    listEl.innerHTML = '<div class="clients-empty">Žádný uživatel nenalezen.<br><span style="font-size:11px;opacity:.5">Zkus jinou přezdívku.</span></div>';
+    return;
+  }
+
+  // Fetch listings for found users in one query
+  const uids = profiles.map(p => p.id).join(',');
+  let listings = [];
+  try {
+    const lRes = await sb(
+      `rest/v1/listings?seller_id=in.(${uids})&status=eq.active&select=seller_id,title,card_name,price_czk&order=created_at.desc&limit=60`,
+      'GET', null, token
+    );
+    listings = Array.isArray(lRes) ? lRes : [];
+  } catch(e) {}
+
+  // Group listings by seller
+  const listingsByUser = {};
+  listings.forEach(l => {
+    if (!listingsByUser[l.seller_id]) listingsByUser[l.seller_id] = [];
+    listingsByUser[l.seller_id].push(l);
+  });
+
+  listEl.innerHTML = profiles.map(u => {
+    const ini = (u.username||'?')[0].toUpperCase();
+    const avatarHtml = u.avatar_url
+      ? `<img src="${esc(u.avatar_url)}" onerror="this.parentElement.textContent='${ini}'">`
+      : ini;
+    const userListings = listingsByUser[u.id] || [];
+    const listingTags = userListings.slice(0, 3).map(l => {
+      const name = (l.title || l.card_name || 'Nabídka').slice(0, 22);
+      const price = l.price_czk ? `<span class="client-listing-price">${l.price_czk.toLocaleString('cs')} Kč</span>` : '';
+      return `<span class="client-listing-tag" title="${esc(l.title||l.card_name||'')}">${esc(name)}</span>${price}`;
+    }).join('');
+    const moreCount = userListings.length > 3 ? `<span style="font-size:10px;color:var(--text3)">+${userListings.length - 3} dalších</span>` : '';
+
+    return `
+      <div class="client-item">
+        <div class="client-item-top">
+          <div class="client-av">${avatarHtml}</div>
+          <div style="flex:1;min-width:0">
+            <div class="client-name">@${esc(u.username)}</div>
+            ${u.email_hint ? `<div class="client-email">${esc(u.email_hint)}</div>` : ''}
+            ${userListings.length ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${userListings.length} aktivních nabídek</div>` : '<div style="font-size:10px;color:var(--text3);margin-top:1px">Žádné nabídky</div>'}
+          </div>
+          <button class="client-write-btn" onclick="startConvFromClients('${u.id}','${esc(u.username)}')">✉️ Napsat</button>
+        </div>
+        ${listingTags ? `<div class="client-listings-row">${listingTags}${moreCount}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function startConvFromClients(partnerId, partnerUsername) {
+  switchTab('convs');
+  await startConvWithUser(partnerId, partnerUsername);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POKEBOT (GROQ)
+// ═══════════════════════════════════════════════════════════════
+const GROQ_API_KEY = 'VLOZ_SVUJ_GROQ_API_KLIC_ZDE'; // <-- doplň svůj Groq API klíč
+const GROQ_MODEL   = 'llama-3.3-70b-versatile';
+
+let isBotMode     = false;
+let botHistory    = []; // {role, content}[]
+
+const BOT_SYSTEM = `Jsi PokéBot – AI asistent pro PokéTrade marketplace, českou platformu pro obchodování s Pokémon TCG kartami.
+
+Specializuješ se na:
+- Odhady tržní ceny karet (podle setu, čísla, raritě, stavu a aktuálních trendů)
+- Tipy na výhodné obchody a vyjednávání cen
+- Informace o sadách, expanzích, vzácných kartách
+- Hodnocení nabídek – zda je cena fér, nad nebo pod tržní hodnotou
+- Základní rady jak poznat falzifikát (doporučuj použít tlačítko 📷 Fake detektor)
+
+Pravidla:
+- Odpovídej VŽDY česky
+- Buď stručný, přátelský a přesný – max 3-4 věty pokud není potřeba více
+- Používej emoji přirozeně (🃏 💰 📈 ✅)
+- Pokud nevíš přesnou cenu, dej reálný odhad s odůvodněním
+- Nikdy nevymýšlej fake informace`;
+
+const BOT_QUICK_PROMPTS = [
+  '💰 Kolik stojí Charizard ex?',
+  '📈 Jaké karty teď rostou?',
+  '🔍 Jak poznám falzifikát?',
+  '🤝 Jak vyjednat lepší cenu?',
+  '⭐ Nejcennější karty 2025?',
+  '🎴 Co je Special Illustration Rare?',
+];
+
+function openBotConversation() {
+  isBotMode = true;
+  activeConvId = null;
+  activePartner = null;
+
+  // Highlight bot item
+  document.querySelectorAll('.conv-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('botConvItem').classList.add('active');
+
+  // Show chat UI
+  document.getElementById('chatEmpty').style.display = 'none';
+  document.getElementById('chatHeader').style.display = '';
+  document.getElementById('chatMessages').style.display = '';
+  document.getElementById('chatInputArea').style.display = '';
+  document.getElementById('blockedBanner').classList.remove('visible');
+  document.getElementById('chatWrap').classList.add('conv-open');
+
+  // Show fake detector button, hide listing attach
+  document.getElementById('btnFakeDetect').style.display = '';
+  document.getElementById('btnAttachListing').style.display = 'none';
+
+  // Set header
+  document.getElementById('chatAvatar').textContent = '🤖';
+  document.getElementById('chatAvatar').style.fontSize = '20px';
+  document.getElementById('chatPartnerName').textContent = 'PokéBot AI';
+  document.getElementById('chatHeaderSub').textContent = 'Powered by Groq · Llama 3.3 70B';
+  document.getElementById('btnViewProfile').style.display = 'none';
+
+  // Add GROQ badge to header
+  let hBadge = document.getElementById('botHeaderBadge');
+  if (!hBadge) {
+    hBadge = document.createElement('span');
+    hBadge.id = 'botHeaderBadge';
+    hBadge.className = 'bot-header-badge';
+    hBadge.textContent = 'AI · GROQ';
+    document.getElementById('chatHeader').querySelector('.chat-header-actions').prepend(hBadge);
+  }
+  hBadge.style.display = '';
+
+  // Update placeholder
+  document.getElementById('chatInput').placeholder = 'Zeptej se PokéBota...';
+
+  // Render bot messages
+  renderBotMessages();
+
+  // Show welcome if no history
+  if (!botHistory.length) {
+    showBotWelcome();
+  }
+}
+
+function showBotWelcome() {
+  const container = document.getElementById('chatMessages');
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:flex-start;padding:12px 0 4px">
+      <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🤖</div>
+        <div class="bot-msg-bubble">
+          Ahoj! Jsem <strong>PokéBot</strong> – tvůj AI průvodce světem Pokémon TCG 🃏<br><br>
+          Pomůžu ti s <strong>cenami karet</strong>, tipy na obchod nebo jak poznat falzifikát. Zkus mě něco zeptat, nebo klikni na jedno z témat níže:
+          <div class="msg-time" style="margin-top:4px">teď</div>
+        </div>
+      </div>
+    </div>`;
+
+  // Quick chips
+  const chipsWrap = document.createElement('div');
+  chipsWrap.className = 'bot-quick-chips';
+  chipsWrap.innerHTML = BOT_QUICK_PROMPTS.map(p =>
+    `<button class="bot-chip" onclick="sendBotQuick(${JSON.stringify(p)})">${p}</button>`
+  ).join('');
+  container.appendChild(chipsWrap);
+  container.scrollTop = container.scrollHeight;
+}
+
+function sendBotQuick(text) {
+  document.getElementById('chatInput').value = text;
+  sendMessage();
+}
+
+function renderBotMessages() {
+  const container = document.getElementById('chatMessages');
+  if (!botHistory.length) return;
+
+  let html = '';
+  botHistory.forEach(m => {
+    const isMe = m.role === 'user';
+    const time = new Date().toLocaleTimeString('cs', {hour:'2-digit',minute:'2-digit'});
+    if (isMe) {
+      html += `<div class="msg-row me"><div class="msg-bubble">${esc(m.content)}<div class="msg-time">${time}</div></div></div>`;
+    } else {
+      const formatted = m.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g,'<br>');
+      html += `
+        <div class="msg-row them" style="align-items:flex-start;gap:8px">
+          <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
+          <div class="bot-msg-bubble">${formatted}<div class="msg-time" style="text-align:left">${time}</div></div>
+        </div>`;
+    }
+  });
+  container.innerHTML = html;
+  container.scrollTop = container.scrollHeight;
+}
+
+async function sendBotMessage(text) {
+  if (!text.trim()) return;
+  botHistory.push({ role: 'user', content: text });
+  renderBotMessages();
+
+  // Show typing indicator
+  const container = document.getElementById('chatMessages');
+  const typingEl = document.createElement('div');
+  typingEl.className = 'msg-row them';
+  typingEl.style.gap = '8px';
+  typingEl.style.alignItems = 'flex-start';
+  typingEl.innerHTML = `
+    <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
+    <div class="bot-msg-bubble" style="padding:14px 16px"><div class="bot-typing"><span></span><span></span><span></span></div></div>`;
+  container.appendChild(typingEl);
+  container.scrollTop = container.scrollHeight;
+
+  // Disable send
+  const btn = document.getElementById('btnSend');
+  btn.disabled = true;
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        max_tokens: 512,
+        messages: [
+          { role: 'system', content: BOT_SYSTEM },
+          ...botHistory.slice(-12) // keep context window manageable
+        ]
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Groq API chyba');
+
+    const reply = data.choices?.[0]?.message?.content || 'Omlouvám se, nepodařilo se mi odpovědět.';
+    botHistory.push({ role: 'assistant', content: reply });
+
+  } catch(e) {
+    const errMsg = e.message.includes('401') || e.message.includes('Incorrect API key')
+      ? '❌ Neplatný Groq API klíč. Nastav GROQ_API_KEY v chat.html.'
+      : '❌ Chyba: ' + e.message;
+    botHistory.push({ role: 'assistant', content: errMsg });
+  }
+
+  typingEl.remove();
+  renderBotMessages();
+  btn.disabled = false;
+
+  // Add quick chips after bot reply if few messages
+  if (botHistory.length <= 4) {
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'bot-quick-chips';
+    chipsWrap.innerHTML = BOT_QUICK_PROMPTS.slice(2).map(p =>
+      `<button class="bot-chip" onclick="sendBotQuick(${JSON.stringify(p)})">${p}</button>`
+    ).join('');
+    container.appendChild(chipsWrap);
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FAKE DETECTOR
+// ═══════════════════════════════════════════════════════════════
+let _fakeImageBase64 = null;
+let _fakeImageMime   = null;
+
+function openFakeDetectorModal() {
+  document.getElementById('fakeDetectorModal').classList.add('open');
+  resetFakeDetector();
+}
+
+function closeFakeDetectorModal() {
+  document.getElementById('fakeDetectorModal').classList.remove('open');
+}
+
+function resetFakeDetector() {
+  _fakeImageBase64 = null;
+  _fakeImageMime   = null;
+  document.getElementById('fakeDropZone').style.display = '';
+  document.getElementById('fakePreviewWrap').style.display = 'none';
+  document.getElementById('fakeCardForm').style.display = 'none';
+  document.getElementById('fakeAnalyzeBtn').disabled = true;
+  document.getElementById('fakeBtnText').textContent = 'Nejprve nahraj foto karty';
+  document.getElementById('fakeBtnIcon').textContent = '📷';
+  document.getElementById('fakeResultArea').innerHTML = '';
+  document.getElementById('fakeFileInput').value = '';
+}
+
+function fakeDragOver(e) {
+  e.preventDefault();
+  document.getElementById('fakeDropZone').classList.add('dragover');
+}
+function fakeDragLeave(e) {
+  document.getElementById('fakeDropZone').classList.remove('dragover');
+}
+function fakeDrop(e) {
+  e.preventDefault();
+  document.getElementById('fakeDropZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) processFakeFile(file);
+}
+
+function fakeFileSelected(input) {
+  const file = input.files[0];
+  if (file) processFakeFile(file);
+}
+
+function processFakeFile(file) {
+  _fakeImageMime = file.type || 'image/jpeg';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    _fakeImageBase64 = dataUrl.split(',')[1];
+
+    // Show preview
+    document.getElementById('fakeDropZone').style.display = 'none';
+    document.getElementById('fakePreviewImg').src = dataUrl;
+    document.getElementById('fakePreviewWrap').style.display = '';
+    document.getElementById('fakeCardForm').style.display = 'grid';
+    document.getElementById('fakeAnalyzeBtn').disabled = false;
+    document.getElementById('fakeBtnText').textContent = 'Analyzovat kartu pomocí Claude AI';
+    document.getElementById('fakeBtnIcon').textContent = '🔍';
+    document.getElementById('fakeResultArea').innerHTML = '';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function runFakeAnalysis() {
+  if (!_fakeImageBase64) return;
+
+  const btn = document.getElementById('fakeAnalyzeBtn');
+  btn.disabled = true;
+  document.getElementById('fakeBtnIcon').textContent = '⏳';
+  document.getElementById('fakeBtnText').textContent = 'Claude AI analyzuje kartu…';
+  document.getElementById('fakeResultArea').innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3);font-size:13px">🤖 Analyzuji – může to trvat 5-15 sekund…</div>';
+
+  const cardInfo = {
+    name:   document.getElementById('fakeCardName').value.trim() || null,
+    set:    document.getElementById('fakeCardSet').value.trim()  || null,
+    number: document.getElementById('fakeCardNumber').value.trim() || null,
+    hp:     document.getElementById('fakeCardHp').value.trim()   || null,
+    rarity: document.getElementById('fakeCardRarity').value.trim() || null,
+  };
+  const hasInfo = Object.values(cardInfo).some(Boolean);
+
+  try {
+    // Use Claude directly (same as fake-detector.js pattern)
+    const prompt = buildFakePrompt(hasInfo ? cardInfo : null);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: _fakeImageMime, data: _fakeImageBase64 } },
+            { type: 'text',  text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'HTTP ' + response.status);
+    }
+
+    const data    = await response.json();
+    const rawText = data.content?.map(b => b.text || '').join('') || '{}';
+    const clean   = rawText.replace(/```json|```/g, '').trim();
+    const result  = JSON.parse(clean);
+
+    result.verdict    = ['real','fake','suspicious','unknown'].includes(result.verdict) ? result.verdict : 'unknown';
+    result.score      = Math.max(0, Math.min(100, parseInt(result.score) || 50));
+    result.confidence = ['high','med','low'].includes(result.confidence) ? result.confidence : 'low';
+    result.flags      = Array.isArray(result.flags) ? result.flags : [];
+
+    renderFakeResult(result);
+
+  } catch(e) {
+    document.getElementById('fakeResultArea').innerHTML = `
+      <div style="padding:14px;border-radius:10px;border:1px solid rgba(248,113,113,.3);background:rgba(248,113,113,.07);color:#f87171;font-size:13px">
+        ❌ Chyba analýzy: ${esc(e.message)}
+      </div>`;
+  }
+
+  btn.disabled = false;
+  document.getElementById('fakeBtnIcon').textContent = '🔍';
+  document.getElementById('fakeBtnText').textContent = 'Analyzovat znovu';
+}
+
+function buildFakePrompt(cardInfo) {
+  const hint = cardInfo
+    ? `Karta by měla být: ${cardInfo.name||'?'}${cardInfo.set?' · '+cardInfo.set:''}${cardInfo.number?' #'+cardInfo.number:''}${cardInfo.hp?' · '+cardInfo.hp+' HP':''}${cardInfo.rarity?' · '+cardInfo.rarity:''}.`
+    : '';
+  return `You are an expert Pokémon TCG card authenticator.\n${hint}\n\nExamine this card for authenticity. Check fonts, HP plausibility, attack damage, border, energy icons, rarity symbol, print quality, holo pattern, copyright line.\n\nRespond ONLY with JSON (no markdown):\n{"verdict":"real|fake|suspicious|unknown","score":0-100,"confidence":"high|med|low","summary":"1-2 sentence verdict in Czech","flags":[{"label":"...","severity":"ok|warn|fail","detail":"..."}]}\n\nInclude 4-8 flags. verdict: real≥75, suspicious 40-74, fake<40.`;
+}
+
+function renderFakeResult(result) {
+  const vCfg = {
+    real:       { emoji:'✅', label:'Pravá karta',   color:'#22c55e', bg:'rgba(34,197,94,.1)',   border:'rgba(34,197,94,.3)' },
+    fake:       { emoji:'❌', label:'FALZUM',         color:'#f87171', bg:'rgba(248,113,113,.1)', border:'rgba(248,113,113,.4)' },
+    suspicious: { emoji:'⚠️', label:'Podezřelá',     color:'#f59e0b', bg:'rgba(245,158,11,.1)',  border:'rgba(245,158,11,.3)' },
+    unknown:    { emoji:'❓', label:'Nelze určit',   color:'#94a3b8', bg:'rgba(148,163,184,.1)', border:'rgba(148,163,184,.2)' },
+  };
+  const v = vCfg[result.verdict] || vCfg.unknown;
+  const conf = {high:'Vysoká',med:'Střední',low:'Nízká'}[result.confidence] || '';
+  const sevIcon  = {ok:'✓',warn:'⚠',fail:'✗'};
+  const sevColor = {ok:'#22c55e',warn:'#f59e0b',fail:'#f87171'};
+
+  const flagsHtml = result.flags.map(f => `
+    <div style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04)">
+      <span style="color:${sevColor[f.severity]||'#94a3b8'};font-size:12px;flex-shrink:0;font-weight:700">${sevIcon[f.severity]||'?'}</span>
+      <div>
+        <div style="font-size:12px;color:rgba(240,232,208,.8);font-weight:600">${esc(f.label||'')}</div>
+        ${f.detail?`<div style="font-size:11px;color:rgba(240,232,208,.4);margin-top:1px">${esc(f.detail)}</div>`:''}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('fakeResultArea').innerHTML = `
+    <div style="border:1px solid ${v.border};background:${v.bg};border-radius:12px;padding:14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:24px">${v.emoji}</span>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:800;color:${v.color};font-family:'Unbounded',sans-serif">${v.label}</div>
+          <div style="font-size:11px;color:rgba(240,232,208,.45);margin-top:2px">Spolehlivost: ${conf}</div>
+        </div>
+      </div>
+      <div style="margin:10px 0 4px;font-size:10px;color:rgba(240,232,208,.4);letter-spacing:.06em;text-transform:uppercase">Skóre pravosti</div>
+      <div style="background:rgba(255,255,255,.07);border-radius:8px;height:8px;overflow:hidden">
+        <div style="height:100%;width:${result.score}%;background:${v.color};border-radius:8px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:rgba(240,232,208,.4);margin-top:3px">
+        <span>Falzum</span><span style="color:${v.color};font-weight:700">${result.score}/100</span><span>Pravá</span>
+      </div>
+      ${result.summary?`<div style="font-size:12px;color:rgba(240,232,208,.7);margin:10px 0 8px;line-height:1.5">${esc(result.summary)}</div>`:''}
+      <div style="margin-top:8px">${flagsHtml}</div>
+      <div style="font-size:10px;color:rgba(240,232,208,.25);margin-top:10px;text-align:right">🤖 Claude AI · Vždy ověř fyzicky</div>
+    </div>`;
+}
+
+
 </script>
 <script>
 /* ── Chat Dropdown + Notifikace ── */
