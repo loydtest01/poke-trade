@@ -1456,7 +1456,7 @@ function renderPendingList() {
     return;
   }
   wrap.innerHTML = q.map(card => {
-    const img    = card.apiSmall || card.imageUrl || card.api_image_url || card.images?.small || '';
+    const img    = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || '';
     const name   = esc(card.name || '—');
     const set    = esc(card.set?.name || (typeof card.set === 'string' ? card.set : '') || '');
     const num    = card.number ? ' · #' + esc(card.number) : '';
@@ -1490,7 +1490,7 @@ function openListingFromQueue(jsonStr) {
 
   // Pre-fill card data
   addCardData = card;
-  document.getElementById('addCardImg').src = card.images?.small || '';
+  document.getElementById('addCardImg').src = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || '';
   document.getElementById('addCardName').textContent = card.name || '';
   const setName = card.set?.name || (typeof card.set === 'string' ? card.set : '') || '';
   const num = card.number ? ' #' + card.number : '';
