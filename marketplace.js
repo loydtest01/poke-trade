@@ -2437,3 +2437,427 @@ async function sendTradeAlbumOffer() {
   document.getElementById('tradeAlbumPicker').style.display = 'none';
   tradeAlbumPickerOpen = false;
 }
+
+// ══════════════════════════════════════════════════════════════
+// POPTÁVKY – DEMAND SYSTEM
+// ══════════════════════════════════════════════════════════════
+
+let marketMode = 'offer'; // 'offer' | 'demand'
+let allDemands = [], filteredDemands = [];
+let demandCardData = null;
+let currentDemandId = null;
+let demandsLoaded = false;
+
+// ── Mode switcher ─────────────────────────────────────────────
+function setMarketMode(mode) {
+  marketMode = mode;
+  const isOffer  = mode === 'offer';
+  const isDemand = mode === 'demand';
+
+  document.getElementById('mmtOffer').classList.toggle('active', isOffer);
+  document.getElementById('mmtDemand').classList.toggle('active', isDemand);
+
+  document.getElementById('listView').style.display      = isOffer  ? '' : 'none';
+  document.getElementById('demandsView').style.display   = isDemand ? '' : 'none';
+  document.getElementById('detailView').style.display    = 'none';
+
+  document.getElementById('btnAddOffer').style.display   = isOffer  ? '' : 'none';
+  document.getElementById('btnAddDemand').style.display  = isDemand ? '' : 'none';
+  document.getElementById('btnPendingQueue').style.display = isOffer ? '' : 'none';
+
+  // Sidebar filters that don't apply to demands
+  ['fSell','fTrade','fNM','fLP','fMP','fHP'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.closest('.filter-opt').style.opacity = isDemand ? '0.35' : '1';
+  });
+
+  if (isDemand && !demandsLoaded) {
+    loadDemands();
+  } else if (isDemand) {
+    applyDemandFilters();
+  }
+}
+
+// ── Load demands ──────────────────────────────────────────────
+async function loadDemands() {
+  document.getElementById('demandsWrap').innerHTML =
+    Array(4).fill('<div class="skeleton-row" style="height:100px;margin-bottom:10px"></div>').join('');
+  const res = await sbReq('rest/v1/demands?status=eq.active&select=*&order=created_at.desc&limit=100');
+  if (!Array.isArray(res) || res._err) {
+    document.getElementById('demandsWrap').innerHTML =
+      '<div class="empty-state"><div class="icon">⚠️</div><h3>Chyba načítání poptávek</h3><p>Zkus obnovit stránku</p></div>';
+    return;
+  }
+  allDemands = res;
+  demandsLoaded = true;
+  applyDemandFilters();
+}
+
+// ── Apply demand filters ──────────────────────────────────────
+function applyDemandFilters() {
+  const q    = (document.getElementById('demandSearch')?.value || '').toLowerCase().trim();
+  const sort = document.getElementById('demandSortSel')?.value || 'newest';
+
+  let list = allDemands.filter(d => {
+    if (!q) return true;
+    const name = (d.card_name || d.title || '').toLowerCase();
+    const user = (d.username || '').toLowerCase();
+    const set  = (d.card_set || '').toLowerCase();
+    return name.includes(q) || user.includes(q) || set.includes(q);
+  });
+
+  list.sort((a, b) => {
+    if (sort === 'price_desc') return (b.max_price_czk || 0) - (a.max_price_czk || 0);
+    if (sort === 'price_asc')  return (a.max_price_czk || 0) - (b.max_price_czk || 0);
+    if (sort === 'responses')  return (b.response_count || 0) - (a.response_count || 0);
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
+  filteredDemands = list;
+  document.getElementById('demandCountInfo').textContent = `${list.length} poptávek`;
+  renderDemands(list);
+}
+
+// ── Render demands ────────────────────────────────────────────
+function renderDemands(list) {
+  const wrap = document.getElementById('demandsWrap');
+  if (!list.length) {
+    wrap.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <h3>Žádné poptávky</h3>
+        <p>Buď první, kdo zadá co hledá!</p>
+      </div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map(d => {
+    const img      = d.api_image_url || '';
+    const name     = esc(d.card_name || d.title || 'Neznámá karta');
+    const setInfo  = d.card_set ? `<span class="demand-set">${esc(d.card_set)}${d.card_number ? ' · #' + esc(d.card_number) : ''}</span>` : '';
+    const price    = d.max_price_czk ? `<span class="demand-max-price">Max ${d.max_price_czk.toLocaleString('cs-CZ')} Kč</span>` : '<span class="demand-max-price-any">Dohodou</span>';
+    const cond     = d.min_condition || 'NM';
+    const condMap  = { NM: '🟢', LP: '🟡', MP: '🟠', HP: '🔴', D: '⚫' };
+    const condDot  = condMap[cond] || '🟢';
+    const tradeTag = d.accept_trade ? '<span class="demand-tag trade-tag">🔄 Výměna OK</span>' : '';
+    const respCnt  = d.response_count || 0;
+    const isOwn    = userId && d.user_id === userId;
+    const ago      = timeAgo(d.created_at);
+    const notes    = d.notes ? `<div class="demand-notes">"${esc(d.notes)}"</div>` : '';
+
+    return `
+    <div class="demand-card" onclick="openDemandDetail('${d.id}')">
+      <div class="demand-card-img-wrap">
+        ${img
+          ? `<img src="${esc(img)}" class="demand-card-img" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="demand-card-placeholder">🔍</div>`}
+        <div class="demand-card-overlay">Hledám</div>
+      </div>
+      <div class="demand-card-body">
+        <div class="demand-card-top">
+          <div class="demand-card-name">${name}</div>
+          ${setInfo}
+        </div>
+        ${notes}
+        <div class="demand-card-tags">
+          ${tradeTag}
+          <span class="demand-tag cond-tag">${condDot} Min. ${cond}</span>
+          ${d.card_type ? `<span class="demand-tag type-tag">${esc(d.card_type)}</span>` : ''}
+        </div>
+        <div class="demand-card-footer">
+          <div class="demand-card-price">${price}</div>
+          <div class="demand-card-meta">
+            <span class="demand-user">@${esc(d.username)}</span>
+            <span class="demand-dot">·</span>
+            <span class="demand-ago">${ago}</span>
+            ${respCnt > 0 ? `<span class="demand-dot">·</span><span class="demand-resp-cnt">${respCnt} reakcí</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <div class="demand-card-actions" onclick="event.stopPropagation()">
+        ${isOwn
+          ? `<button class="btn-demand-own" onclick="deleteDemand('${d.id}')">🗑️ Smazat</button>`
+          : `<button class="btn-demand-respond" onclick="openDemandRespond('${d.id}','${name.replace(/'/g,"\\'")}')" ${!token ? 'title="Přihlaš se"' : ''}>✉️ Nabídnout kartu</button>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── Detail / expanded view for demand ────────────────────────
+function openDemandDetail(id) {
+  // For now scroll to and highlight – a full detail page can be added later
+  // Focus response button
+  const card = document.querySelector(`[onclick*="openDemandDetail('${id}')"]`);
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── Open / close demand respond ───────────────────────────────
+async function openDemandRespond(demandId, cardName) {
+  if (!token) { alert('Přihlaš se pro reakci na poptávku.'); return; }
+  currentDemandId = demandId;
+  document.getElementById('drModalCardName').textContent = `Poptávka: ${cardName}`;
+  document.getElementById('drPrice').value = '';
+  document.getElementById('drMessage').value = '';
+  document.getElementById('drCond').selectedIndex = 0;
+
+  // Load my active listings for this card (or all)
+  const pickWrap = document.getElementById('drMyListingsPick');
+  pickWrap.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px">⏳ Načítám tvé nabídky...</div>';
+  document.getElementById('demandRespondModal').style.display = 'flex';
+
+  const res = await sbReq(`rest/v1/listings?user_id=eq.${userId}&status=eq.active&select=id,card_name,card_set,price_czk,card_condition&order=created_at.desc&limit=20`, 'GET', null, token);
+  if (Array.isArray(res) && res.length) {
+    pickWrap.innerHTML = res.map(l => `
+      <label class="dr-listing-pick-item">
+        <input type="radio" name="drLinkedListing" value="${l.id}" style="accent-color:#22d3ee">
+        <span class="dr-listing-label">
+          <strong>${esc(l.card_name||'—')}</strong>
+          ${l.card_set ? `<span style="color:var(--text3)"> · ${esc(l.card_set)}</span>` : ''}
+          ${l.price_czk ? `<span class="dr-listing-price">${l.price_czk.toLocaleString('cs-CZ')} Kč</span>` : ''}
+        </span>
+      </label>`).join('');
+  } else {
+    pickWrap.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px">Nemáš žádné aktivní nabídky – zadej cenu ručně níže.</div>';
+  }
+}
+
+function closeDemandRespond() {
+  document.getElementById('demandRespondModal').style.display = 'none';
+  currentDemandId = null;
+}
+
+async function submitDemandResponse() {
+  if (!token) { alert('Přihlaš se.'); return; }
+  if (!currentDemandId) return;
+
+  const price   = parseInt(document.getElementById('drPrice').value) || null;
+  const cond    = document.getElementById('drCond').value;
+  const message = document.getElementById('drMessage').value.trim() || null;
+  const picked  = document.querySelector('input[name="drLinkedListing"]:checked');
+  const listingId = picked ? picked.value : null;
+
+  const payload = {
+    demand_id:    currentDemandId,
+    user_id:      userId,
+    username:     username,
+    listing_id:   listingId,
+    price_czk:    price,
+    card_condition: cond,
+    message:      message,
+    status:       'pending',
+  };
+
+  const res = await sbReq('rest/v1/demand_responses', 'POST', payload, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+
+  // Bump response count locally
+  const d = allDemands.find(x => x.id === currentDemandId);
+  if (d) d.response_count = (d.response_count || 0) + 1;
+
+  alert('✅ Tvá nabídka byla odeslána hledači!');
+  closeDemandRespond();
+  applyDemandFilters();
+}
+
+// ── Open / close demand creation ─────────────────────────────
+function openAddDemand() {
+  if (!token) { alert('Přihlaš se pro přidání poptávky.'); return; }
+  document.getElementById('addDemandModal').style.display = 'flex';
+  document.getElementById('demandCardUrl').value = '';
+  document.getElementById('demandMaxPrice').value = '';
+  document.getElementById('demandNotes').value = '';
+  document.getElementById('demandAcceptTrade').checked = false;
+  document.getElementById('demandMinCond').selectedIndex = 0;
+  clearDemandCard();
+}
+
+function closeAddDemand() {
+  document.getElementById('addDemandModal').style.display = 'none';
+  demandCardData = null;
+}
+
+function clearDemandCard() {
+  demandCardData = null;
+  document.getElementById('demandCardPreview').style.display = 'none';
+  document.getElementById('demandCardImg').src = '';
+  document.getElementById('demandCardName').textContent = '';
+  document.getElementById('demandCardMeta').textContent = '';
+}
+
+async function fetchCardForDemand() {
+  const url = document.getElementById('demandCardUrl').value.trim();
+  if (!url) return;
+  const q      = `name:"${url}"`;
+  const apiUrl = url.includes('pokemontcg.io')
+    ? url
+    : `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
+  try {
+    const res  = await fetch(apiUrl);
+    const json = await res.json();
+    const card = json?.data?.[0] || json;
+    if (!card?.name) { alert('Karta nenalezena.'); return; }
+    applyDemandCard(card);
+  } catch(e) { alert('Chyba: ' + e.message); }
+}
+
+function applyDemandCard(card) {
+  demandCardData = card;
+  document.getElementById('demandCardImg').src  = card.images?.small || '';
+  document.getElementById('demandCardName').textContent = card.name;
+  document.getElementById('demandCardMeta').textContent =
+    (card.set?.name || '') + (card.number ? ' #' + card.number : '');
+  document.getElementById('demandCardPreview').style.display = 'flex';
+}
+
+async function submitDemand() {
+  if (!token) { alert('Přihlaš se.'); return; }
+  const card     = demandCardData;
+  const maxPrice = parseInt(document.getElementById('demandMaxPrice').value) || null;
+  const minCond  = document.getElementById('demandMinCond').value;
+  const notes    = document.getElementById('demandNotes').value.trim() || null;
+  const trade    = document.getElementById('demandAcceptTrade').checked;
+
+  if (!card) { alert('Vyber kartu, kterou hledáš.'); return; }
+
+  const payload = {
+    user_id:       userId,
+    username:      username,
+    card_name:     card.name,
+    card_set:      card.set?.name || '',
+    card_number:   card.number || '',
+    card_type:     card.types?.[0] || '',
+    card_rarity:   card.rarity || '',
+    api_image_url: card.images?.large || card.images?.small || '',
+    cards_data:    [card],
+    max_price_czk: maxPrice,
+    min_condition: minCond,
+    accept_trade:  trade,
+    notes:         notes,
+    status:        'active',
+    response_count: 0,
+  };
+
+  const res = await sbReq('rest/v1/demands', 'POST', payload, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+
+  alert('✅ Poptávka zveřejněna!');
+  closeAddDemand();
+  const newDemand = Array.isArray(res) ? res[0] : res;
+  if (newDemand) allDemands.unshift(newDemand);
+  demandsLoaded = true;
+  applyDemandFilters();
+}
+
+async function deleteDemand(id) {
+  if (!token) return;
+  if (!confirm('Opravdu smazat tuto poptávku?')) return;
+  const res = await sbReq(`rest/v1/demands?id=eq.${id}`, 'DELETE', null, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+  allDemands = allDemands.filter(d => d.id !== id);
+  applyDemandFilters();
+}
+
+// ── AI photo scan for demand modal ───────────────────────────
+function handleDemandAiDrop(e) {
+  e.preventDefault();
+  document.getElementById('demandAiDropZone').classList.remove('drag-over');
+  const file = e.dataTransfer.files?.[0];
+  if (file && file.type.startsWith('image/')) handleDemandAiPhoto(file);
+}
+
+async function handleDemandAiPhoto(file) {
+  if (!file) return;
+  const zone = document.getElementById('demandAiDropZone');
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    const base64  = ev.target.result.split(',')[1];
+    const mime    = file.type || 'image/jpeg';
+    const imgSrc  = ev.target.result;
+    zone.innerHTML = `
+      <div style="position:relative;width:100%;display:flex;align-items:center;justify-content:center;min-height:90px">
+        <img src="${imgSrc}" style="max-height:90px;max-width:100%;border-radius:9px;object-fit:contain;opacity:0.45">
+        <div class="ai-scanning-overlay" style="border-radius:9px">
+          <div class="ai-scanner-line"></div>
+          <div class="ai-scanning-text">🤖 AI identifikuje...</div>
+        </div>
+      </div>`;
+    try {
+      const aiResult = await callClaudeVision(base64, mime);
+      if (aiResult?.name) {
+        const q   = `name:"${aiResult.name}"${aiResult.setName ? ` set.name:"${aiResult.setName}"` : ''}`;
+        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+        const json = await res.json();
+        const card = json?.data?.[0];
+        if (card) {
+          applyDemandCard(card);
+          zone.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:8px">
+            <img src="${esc(card.images?.small||imgSrc)}" style="height:60px;border-radius:6px;object-fit:contain">
+            <div>
+              <div style="font-size:13px;font-weight:700;color:#22d3ee">✅ ${esc(card.name)}</div>
+              <div style="font-size:11px;color:var(--text3)">${esc(card.set?.name||'')}${card.number?' · #'+card.number:''}</div>
+              <button onclick="document.getElementById('demandAiPhotoInput').click()" style="font-size:10px;color:var(--text3);background:none;border:1px solid var(--border);border-radius:5px;padding:2px 8px;cursor:pointer;margin-top:4px">📸 Znovu</button>
+            </div>
+          </div>`;
+          return;
+        }
+      }
+      // Fallback: show manual hint
+      zone.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--text3);text-align:center">
+        ❓ AI nenašla kartu – zkus hledat ručně<br>
+        <button onclick="document.getElementById('demandAiPhotoInput').click()" style="margin-top:6px;font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">📸 Zkusit znovu</button>
+      </div>`;
+    } catch (err) {
+      zone.innerHTML = `<div style="padding:10px;font-size:12px;color:var(--red);text-align:center">AI chyba: ${esc(err.message)}</div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Card search for demand ────────────────────────────────────
+// Extend the existing openCardSearch to support 'demand' mode
+const _origOpenCardSearch = typeof openCardSearch === 'function' ? openCardSearch : null;
+function openCardSearch(mode) {
+  window._cardSearchMode = mode;
+  document.getElementById('cardSearchModal').style.display = 'flex';
+  document.getElementById('csbResults').innerHTML =
+    '<div class="csb-empty">Zadej název Pokémona nebo sérii a stiskni Hledat.</div>';
+}
+
+// Patch pickCard to also handle demand mode
+const _origPickCard = typeof pickCard === 'function' ? pickCard : null;
+const _origCsbPickCard = window.csbPickCard;
+
+// Override csbPickCard to handle demand mode
+window.csbPickCard = function(cardId) {
+  const mode = window._cardSearchMode || 'listing';
+  if (!window._csbCardCache) window._csbCardCache = {};
+  const card = window._csbCardCache[cardId];
+  if (!card) return;
+
+  if (mode === 'demand') {
+    applyDemandCard(card);
+    closeCardSearch();
+  } else if (mode === 'listing') {
+    applyAiCard(card, null, 'high');
+    closeCardSearch();
+  } else if (mode === 'trade') {
+    // existing trade behavior
+    if (_origCsbPickCard) _origCsbPickCard(cardId);
+    else closeCardSearch();
+  } else {
+    if (_origCsbPickCard) _origCsbPickCard(cardId);
+    else closeCardSearch();
+  }
+};
+
+// ── Helper: time ago ──────────────────────────────────────────
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60)   return 'před chvílí';
+  if (diff < 3600) return `před ${Math.floor(diff/60)} min`;
+  if (diff < 86400)return `před ${Math.floor(diff/3600)} h`;
+  if (diff < 604800) return `před ${Math.floor(diff/86400)} dny`;
+  return new Date(dateStr).toLocaleDateString('cs-CZ');
+}
+

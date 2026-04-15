@@ -140,6 +140,12 @@
 
     <!-- LIST VIEW -->
     <div id="listView">
+      <!-- MODE TABS: Nabídky / Poptávky -->
+      <div class="market-mode-tabs">
+        <button class="mmt-btn active" id="mmtOffer" onclick="setMarketMode('offer')">🏷️ Nabídky</button>
+        <button class="mmt-btn" id="mmtDemand" onclick="setMarketMode('demand')">🔍 Poptávky</button>
+      </div>
+
       <div class="market-toolbar">
         <div class="search-wrap">
           <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()" style="padding-right:42px">
@@ -151,7 +157,7 @@
           <option value="price_desc">Cena: nejvyšší</option>
           <option value="offers">Nejvíce nabídek</option>
         </select>
-        <div class="view-toggle">
+        <div class="view-toggle" id="viewToggleBtns">
           <button class="vt-btn act" id="vtList" onclick="setViewMode('list')">☰ Seznam</button>
           <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')">⊞ Mřížka</button>
         </div>
@@ -159,7 +165,8 @@
         <button id="btnPendingQueue" class="btn-pending empty" onclick="togglePendingPanel()">
           ⏳ Čeká na vystavení <span class="pending-badge" id="pendingBadgeBtn">0</span>
         </button>
-        <button onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
+        <button id="btnAddOffer" onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
+        <button id="btnAddDemand" onclick="openAddDemand()" style="display:none;padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">🔍 Přidat poptávku</button>
       </div>
       <!-- ADVANCED FILTER PANEL -->
       <div id="advFilterPanel" class="adv-filter-panel" style="display:none">
@@ -242,6 +249,21 @@
       </div>
 
       <div id="listingsWrap" class="listings-wrap"></div>
+
+      <!-- DEMANDS VIEW -->
+      <div id="demandsView" style="display:none">
+        <div class="demand-search-wrap">
+          <input type="text" id="demandSearch" placeholder="Hledat poptávku, kartu, uživatele..." oninput="applyDemandFilters()" class="panel-inp" style="flex:1;font-size:14px">
+          <select class="sort-sel" id="demandSortSel" onchange="applyDemandFilters()">
+            <option value="newest">Nejnovější</option>
+            <option value="price_desc">Nejvyšší cena</option>
+            <option value="price_asc">Nejnižší cena</option>
+            <option value="responses">Nejvíce reakcí</option>
+          </select>
+          <span class="count-info" id="demandCountInfo">0 poptávek</span>
+        </div>
+        <div id="demandsWrap" class="demands-wrap"></div>
+      </div>
     </div>
 
     <!-- DETAIL VIEW -->
@@ -616,6 +638,146 @@
     <div class="csb-hint">Data z pokemontcg.io · Klikni na kartu pro výběr</div>
   </div><!-- /card-search-box -->
 </div><!-- /cardSearchModal -->
+
+<!-- ADD DEMAND MODAL -->
+<div id="addDemandModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0a0c14;border:1px solid rgba(34,211,238,0.2);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 0 60px rgba(34,211,238,0.12)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#22d3ee">🔍 Nová poptávka</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">Řekni ostatním, jakou kartu hledáš</div>
+      </div>
+      <button onclick="closeAddDemand()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:13px">
+      <!-- Karta -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Karta, kterou hledám</div>
+        <div style="display:flex;gap:8px">
+          <input id="demandCardUrl" class="panel-inp" placeholder="Název nebo URL z pokemontcg.io..." style="flex:1">
+          <button onclick="fetchCardForDemand()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(34,211,238,0.18);color:#22d3ee;font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
+          <button onclick="openCardSearch('demand')" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700">🔍 Hledat</button>
+        </div>
+        <div id="demandCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.15);border-radius:8px;padding:8px">
+          <img id="demandCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
+          <div>
+            <div id="demandCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
+            <div id="demandCardMeta" style="font-size:11px;color:var(--text3)"></div>
+          </div>
+          <button onclick="clearDemandCard()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+        </div>
+      </div>
+
+      <!-- Maximální cena -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Maximální cena (Kč) <span style="font-weight:400;text-transform:none;letter-spacing:0">(nepovinné)</span></div>
+        <input id="demandMaxPrice" class="panel-inp" type="number" placeholder="Např. 500 — kolik jsi ochoten zaplatit?">
+      </div>
+
+      <!-- Minimální stav -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Minimální přijatelný stav</div>
+        <select id="demandMinCond" class="sort-sel" style="width:100%">
+          <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – Nová / Mint</option>
+          <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná</option>
+          <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná</option>
+          <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná</option>
+        </select>
+      </div>
+
+      <!-- Přijímám výměnu -->
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 12px">
+        <input type="checkbox" id="demandAcceptTrade" style="width:16px;height:16px;accent-color:#22d3ee">
+        <div>
+          <div style="font-size:13px;font-weight:600">🔄 Přijímám i výměnu</div>
+          <div style="font-size:11px;color:var(--text3)">Ostatní ti mohou navrhnout výměnu, nejen prodej</div>
+        </div>
+      </div>
+
+      <!-- Poznámka -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Poznámka (nepovinné)</div>
+        <textarea id="demandNotes" class="panel-textarea" style="height:80px" placeholder="Preferuji CZ verzi, zajímá mě pouze full art, hledám urgentně..."></textarea>
+      </div>
+
+      <!-- AI SCAN ZONE -->
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka karty</div>
+          <div style="display:flex;align-items:center;gap:4px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);border-radius:20px;padding:2px 9px">
+            <span style="font-size:9px;font-weight:800;color:#22d3ee;letter-spacing:.06em">AI SCAN</span>
+          </div>
+          <span style="font-size:11px;color:var(--text3)">(nepovinné – AI rozezná kartu)</span>
+        </div>
+        <div id="demandAiDropZone" class="ai-drop-zone demand-drop-zone" onclick="document.getElementById('demandAiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDemandAiDrop(event)" style="min-height:100px">
+          <input type="file" id="demandAiPhotoInput" accept="image/*" style="display:none" onchange="handleDemandAiPhoto(this.files[0])">
+          <div id="demandAiDropContent">
+            <div class="ai-drop-icon" style="font-size:20px">📸</div>
+            <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber foto hledané karty</div>
+            <div class="ai-drop-hint" style="font-size:11px">AI automaticky vyplní název a sérii</div>
+          </div>
+        </div>
+      </div>
+
+      <button onclick="submitDemand()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
+        🔍 Zveřejnit poptávku
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DEMAND RESPONSE MODAL -->
+<div id="demandRespondModal" style="display:none;position:fixed;inset:0;z-index:510;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0a0c14;border:1px solid rgba(34,211,238,0.25);border-radius:18px;width:100%;max-width:480px;max-height:88vh;overflow-y:auto;padding:24px;box-shadow:0 0 60px rgba(34,211,238,0.15)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:15px;font-weight:800;color:#fff">Reagovat na poptávku</div>
+        <div id="drModalCardName" style="font-size:12px;color:#22d3ee;margin-top:3px"></div>
+      </div>
+      <button onclick="closeDemandRespond()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <!-- Odkaz na listing -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Propojit s existující nabídkou (nepovinné)</div>
+        <div style="font-size:12px;color:var(--text3);background:rgba(255,255,255,0.04);border-radius:8px;padding:8px 10px;line-height:1.5">
+          Máš tuto kartu v nabídkách? Vyber ji níže — nebo zadej cenu/zprávu bez propojení.
+        </div>
+        <div id="drMyListingsPick" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;max-height:140px;overflow-y:auto"></div>
+      </div>
+
+      <!-- Cena -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Vaše cena (Kč)</div>
+        <input id="drPrice" class="panel-inp" type="number" placeholder="Kolik chcete za kartu?">
+      </div>
+
+      <!-- Stav karty -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Stav vaší karty</div>
+        <select id="drCond" class="sort-sel" style="width:100%">
+          <option value="NM" style="background:#0e0c14">NM – Nová / Mint</option>
+          <option value="LP" style="background:#0e0c14">LP – Lehce hraná</option>
+          <option value="MP" style="background:#0e0c14">MP – Středně hraná</option>
+          <option value="HP" style="background:#0e0c14">HP – Hodně hraná</option>
+          <option value="D"  style="background:#0e0c14">D – Poškozená</option>
+        </select>
+      </div>
+
+      <!-- Zpráva -->
+      <div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Zpráva hledači (nepovinné)</div>
+        <textarea id="drMessage" class="panel-textarea" style="height:80px" placeholder="Máš ji v NM stavu, dostaneš ji do 2 dnů..."></textarea>
+      </div>
+
+      <button onclick="submitDemandResponse()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">
+        ✉️ Odeslat nabídku hledači
+      </button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 <script src="notif-bell.js"></script>
