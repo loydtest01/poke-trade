@@ -3937,7 +3937,7 @@ Respond ONLY as JSON:
 
     const res = await fetch(GROQ_PROXY || '/api/groq', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Groq-Key': groqKey },
       body: JSON.stringify({ ...body, token: tok }),
     });
 
