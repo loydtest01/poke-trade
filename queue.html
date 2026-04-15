@@ -3807,7 +3807,7 @@ async function communityUploadFile(gi, input) {
     const cardId = rc.apiId || `${(rc.set||'').replace(/\s/g,'-')}-${rc.number||'unknown'}`;
     const lang = ai.lang || 'XX';
     const ext = file.name.split('.').pop() || 'jpg';
-    const storagePath = `community-cards/${cardId}_${lang}.${ext}`;
+    const storagePath = `${userId}/community-cards/${cardId}_${lang}.${ext}`;
 
     // Stejný pattern jako fungující _uploadCroppedPhoto:
     // reuse base64 (už vypočítáno výše), extrahuj mime a převeď na Uint8Array
@@ -3938,7 +3938,7 @@ Respond ONLY as JSON:
     const res = await fetch(GROQ_PROXY || '/api/groq', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Groq-Key': groqKey },
-      body: JSON.stringify({ ...body, token: tok }),
+      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
