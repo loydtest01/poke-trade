@@ -2077,36 +2077,34 @@ async function tcgSearch(gi, autoMode = false) {
       }
 
       // ── FÁZE 1b: TCGdex vícejazyčný překlad (DE, FR, JP, …) ──
-      // Hledej kartičku v TCGdex ve zdrojovém jazyce → získáme spolehlivý EN název
-      if (!resolvedEnName && ai.name && ai.lang) {
-        statusEl.textContent = `🌐 Překládám přes TCGdex (${ai.lang})…`;
+      // Hledej kartičku v TCGdex ve zdrojovém jazyce → získáme spolehlivý EN název + obrázek
+      if (ai.name && ai.lang && ai.lang !== 'EN') {
+        statusEl.textContent = `🌐 Hledám obrázek v TCGdex (${ai.lang})…`;
         const translated = await _tcgDexTranslateByLang(ai.name, ai.lang, ai.hp);
-        if (translated?.enName) {
-          resolvedEnName = translated.enName;
-          g.aiResult.nameEN = resolvedEnName;
-          const inp = document.getElementById(`nameEN-${gi}`);
-          if (inp) inp.value = resolvedEnName;
+        if (translated) {
           // Ulož obrázek v originálním jazyce (JP/DE/FR…) pro zobrazení v albu
           if (translated.origImage) g._origImage = translated.origImage;
           if (translated.origImageSmall) g._origImageSmall = translated.origImageSmall;
-          // Přidej EN kartu do výsledků pokud máme kompletní data
-          if (translated.enCard) {
-            tcgDexCards = [translated.enCard, ...tcgDexCards];
+          // Pokud nemáme EN název nebo je jiný, oprav ho
+          if (translated.enName) {
+            if (!resolvedEnName) {
+              resolvedEnName = translated.enName;
+              g.aiResult.nameEN = resolvedEnName;
+              const inp = document.getElementById(`nameEN-${gi}`);
+              if (inp) inp.value = resolvedEnName;
+            } else if (translated.enName.toLowerCase() !== resolvedEnName.toLowerCase()) {
+              console.log(`[TCGdex-i18n] nameEN opraveno: "${resolvedEnName}" → "${translated.enName}"`);
+              resolvedEnName = translated.enName;
+              g.aiResult.nameEN = resolvedEnName;
+              const inp = document.getElementById(`nameEN-${gi}`);
+              if (inp) inp.value = resolvedEnName;
+            }
           }
-        }
-      }
-      // Pokud AI dal nameEN, zkusíme ho ověřit/opravit přes TCGdex multilingual
-      if (resolvedEnName && ai.lang && ai.name && !tcgDexCards.length) {
-        const verified = await _tcgDexTranslateByLang(ai.name, ai.lang, ai.hp);
-        if (verified?.enName && verified.enName.toLowerCase() !== resolvedEnName.toLowerCase()) {
-          console.log(`[TCGdex-i18n] AI nameEN opraveno: "${resolvedEnName}" → "${verified.enName}"`);
-          resolvedEnName = verified.enName;
-          g.aiResult.nameEN = resolvedEnName;
-          const inp = document.getElementById(`nameEN-${gi}`);
-          if (inp) inp.value = resolvedEnName;
-          if (verified.enCard) tcgDexCards = [verified.enCard];
-          if (verified.origImage) g._origImage = verified.origImage;
-          if (verified.origImageSmall) g._origImageSmall = verified.origImageSmall;
+          // Přidej EN kartu do výsledků
+          if (translated.enCard && !tcgDexCards.length) {
+            tcgDexCards = [translated.enCard];
+          }
+          console.log(`[TCGdex-i18n] Obrázek: ${g._origImageSmall ? '✅' : '❌'}, EN název: ${resolvedEnName || '❌'}`);
         }
       }
 
@@ -2272,22 +2270,32 @@ async function tcgSearch(gi, autoMode = false) {
       // Normalizace – TCGdex i pokemontcg.io mají různé struktury
       const bestImg = best.apiSmall || best.images?.small || '';
       const bestImgL = best.apiLarge || best.images?.large || '';
+      // Pro non-EN karty: preferuj obrázek v originálním jazyce (JP/DE/FR)
+      const origImg = g2._origImageSmall || g2._origImage || '';
+      const origImgL = g2._origImage || '';
+      const displayImg = origImg || bestImg;
+      const displayImgL = origImgL || bestImgL;
       g2.resolvedCard = {
         _source:   best._source || 'pokemontcg',
         apiId:     best.apiId || best.id || '',
         name:      best.name || '',
         set:       best.set?.name || best.set || '',
         number:    best.number || best.localId || '',
-        imageUrl:  bestImg, apiSmall: bestImg, apiLarge: bestImgL,
+        imageUrl:  displayImg, apiSmall: displayImg, apiLarge: displayImgL,
+        enImageUrl: origImg ? bestImg : '',  // EN obrázek pro referenci
         hp:        String(best.hp || ''),
         types:     best.types || [],
         supertype: best.supertype || best.category || '',
         rarity:    best.rarity || '',
         sourceUrl: best.sourceUrl || '',
+        pMin:      best.cardmarket?.prices?.lowPrice || best.pMin || 0,
+        pTrend:    best.cardmarket?.prices?.trendPrice || best.pTrend || 0,
+        p30d:      best.cardmarket?.prices?.avg30 || best.p30d || 0,
+        cardmarketUrl: best.cardmarket?.url || best.cardmarketUrl || '',
       };
       // Aktualizuj header thumb + name pokud je lepší než placeholder
       const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
-      if (thumb && bestImg) thumb.src = bestImg;
+      if (thumb && displayImg) thumb.src = displayImg;
       const nameEl = document.querySelector(`#group-${gi} .cg-name`);
       if (nameEl && best.name) nameEl.textContent = best.name;
     }
@@ -2456,6 +2464,13 @@ function tcgSelectCard(gi, idx) {
   cardEl.classList.add('selected');
 
   // Uložit do skupiny (včetně všech polí)
+  // Pro non-EN karty: přepsat obrázek na originální jazykovou verzi pokud máme
+  if (g._origImage || g._origImageSmall) {
+    cardData.enImageUrl = cardData.apiSmall || '';
+    cardData.imageUrl  = g._origImageSmall || g._origImage || cardData.imageUrl;
+    cardData.apiSmall  = g._origImageSmall || g._origImage || cardData.apiSmall;
+    cardData.apiLarge  = g._origImage || cardData.apiLarge;
+  }
   g.resolvedCard = cardData;
   g._manuallySelected = true; // Pojistka: zabrání autoSearchAll přepsat ruční výběr
   g.cardUrl = ''; // URL input není potřeba
