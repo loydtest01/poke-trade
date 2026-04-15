@@ -1447,6 +1447,34 @@ function togglePendingPanel(forceOpen) {
   }
 }
 
+// Global map used by renderPendingList so onclick can pass only the ID (avoids HTML-attr escaping issues)
+const _pendingCardMap = {};
+
+function _getPendingImg(card) {
+  // Try all known image field names
+  const direct = card.images?.small || card.images?.large
+    || card.apiSmall || card.apiLarge
+    || card.imageUrl || card.image_url
+    || card.api_image_url
+    || card.image || card.img
+    || card.smallImage || card.cardImage
+    || card.thumbnail || card.photo
+    || card.tcgImage || card.tcg_image
+    || card.imgUrl || card.imgSmall || card.imgLarge
+    || card.cardImg || card.cardUrl
+    || '';
+  if (direct) return direct;
+  // Fallback: construct pokemontcg.io URL from card ID (e.g. "bw6-113" → set "bw6", number "113")
+  const cid = card.id || card.tcgId || card.apiId || card.card_id || '';
+  if (cid && /^[a-zA-Z0-9]+-\d/.test(cid)) {
+    const parts = cid.split('-');
+    const setCode = parts[0];
+    const num = parts.slice(1).join('-');
+    return `https://images.pokemontcg.io/${setCode}/${num}.png`;
+  }
+  return '';
+}
+
 function renderPendingList() {
   const wrap = document.getElementById('pendingList');
   if (!wrap) return;
@@ -1455,19 +1483,28 @@ function renderPendingList() {
     wrap.innerHTML = '<div class="pending-empty">Žádné karty nečekají na vystavení.<br><a href="moje-album.html" style="color:var(--blue)">Označ karty v Moje album →</a></div>';
     return;
   }
-  wrap.innerHTML = q.map(card => {
-    // DEBUG – zobrazí klíče karty v konzoli aby bylo vidět pod jakým polem je obrázek
-    console.log('[PendingQueue] card keys:', Object.keys(card), '| images:', card.images, '| apiSmall:', card.apiSmall, '| imageUrl:', card.imageUrl);
-    const img    = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || card.image || card.img || card.smallImage || card.cardImage || '';
 
+  // Store cards in global map keyed by _pendingId so onclick can reference by ID (safe, no JSON-in-HTML)
+  q.forEach(card => {
+    const key = card._pendingId || card.id || String(Math.random());
+    if (!card._pendingId) card._pendingId = key;
+    _pendingCardMap[key] = card;
+  });
+
+  wrap.innerHTML = q.map(card => {
+    const img    = _getPendingImg(card);
     const name   = esc(card.name || '—');
     const set    = esc(card.set?.name || (typeof card.set === 'string' ? card.set : '') || '');
     const num    = card.number ? ' · #' + esc(card.number) : '';
     const cond   = esc(card.condition || card.card_condition || 'NM');
     const price  = card.album_price ? card.album_price + ' Kč' : '—';
-    const pid    = esc(card._pendingId || card.id || '');
-    return `<div class="pending-row" onclick="openListingFromQueue(${JSON.stringify(JSON.stringify(card))})">
-      ${img ? `<img class="pending-row-img" src="${esc(img)}" loading="lazy">` : '<div class="pending-row-img"></div>'}
+    const pid    = esc(card._pendingId || '');
+
+    return `<div class="pending-row" onclick="openListingFromQueue(${JSON.stringify(pid)})">
+      ${img
+        ? `<img class="pending-row-img" src="${esc(img)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        : ''}
+      <div class="pending-row-img pending-row-img-placeholder" style="${img ? 'display:none' : 'display:flex'};align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.2)">🃏</div>
       <div class="pending-row-info">
         <div class="pending-row-name">${name}</div>
         <div class="pending-row-meta">${set}${num}</div>
@@ -1480,8 +1517,10 @@ function renderPendingList() {
 }
 
 /** Open the listing modal pre-filled from a pending queue card */
-function openListingFromQueue(jsonStr) {
-  const card = JSON.parse(jsonStr);
+function openListingFromQueue(pendingId) {
+  // Look up card from the global map populated by renderPendingList
+  const card = _pendingCardMap[pendingId];
+  if (!card) { console.error('[openListingFromQueue] card not found for id:', pendingId); return; }
   _pendingFromQueue = card;
   if (!token) { alert('Přihlas se pro přidání nabídky.'); return; }
 
@@ -1493,7 +1532,7 @@ function openListingFromQueue(jsonStr) {
 
   // Pre-fill card data
   addCardData = card;
-  document.getElementById('addCardImg').src = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || '';
+  document.getElementById('addCardImg').src = _getPendingImg(card);
   document.getElementById('addCardName').textContent = card.name || '';
   const setName = card.set?.name || (typeof card.set === 'string' ? card.set : '') || '';
   const num = card.number ? ' #' + card.number : '';
