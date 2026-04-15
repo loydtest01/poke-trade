@@ -1456,7 +1456,10 @@ function renderPendingList() {
     return;
   }
   wrap.innerHTML = q.map(card => {
-    const img    = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || '';
+    // DEBUG – zobrazí klíče karty v konzoli aby bylo vidět pod jakým polem je obrázek
+    console.log('[PendingQueue] card keys:', Object.keys(card), '| images:', card.images, '| apiSmall:', card.apiSmall, '| imageUrl:', card.imageUrl);
+    const img    = card.images?.small || card.images?.large || card.apiSmall || card.imageUrl || card.api_image_url || card.image || card.img || card.smallImage || card.cardImage || '';
+
     const name   = esc(card.name || '—');
     const set    = esc(card.set?.name || (typeof card.set === 'string' ? card.set : '') || '');
     const num    = card.number ? ' · #' + esc(card.number) : '';
