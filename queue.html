@@ -3809,20 +3809,28 @@ async function communityUploadFile(gi, input) {
     const ext = file.name.split('.').pop() || 'jpg';
     const storagePath = `community-cards/${cardId}_${lang}.${ext}`;
 
-    const tok = (window.getValidToken ? await window.getValidToken() : null) || token || SUPABASE_ANON;
-    const arrayBuffer = await file.arrayBuffer();
+    // Stejný pattern jako fungující _uploadCroppedPhoto:
+    // reuse base64 (už vypočítáno výše), extrahuj mime a převeď na Uint8Array
+    const b64match = base64.match(/^data:([^;]+);base64,(.+)$/);
+    const mime   = b64match ? b64match[1] : (file.type || 'image/jpeg');
+    const buffer = b64match
+      ? Uint8Array.from(atob(b64match[2]), c => c.charCodeAt(0))
+      : new Uint8Array(await file.arrayBuffer());
+
     const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`, {
       method: 'POST',
       headers: {
-        'apikey': SUPABASE_ANON,
-        'Authorization': 'Bearer ' + tok,
-        'Content-Type': file.type || 'image/jpeg',
-        'x-upsert': 'true',
+        'apikey':        SUPABASE_ANON,
+        'Authorization': 'Bearer ' + token,
+        'Content-Type':  mime,
+        'x-upsert':      'true',
       },
-      body: arrayBuffer,
+      body: buffer,
     });
 
     if (!uploadRes.ok) {
+      const errBody = await uploadRes.text().catch(() => '');
+      console.error('[communityUpload] Supabase response:', uploadRes.status, errBody);
       throw new Error('Upload selhal: ' + uploadRes.status);
     }
 
