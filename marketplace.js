@@ -1465,8 +1465,10 @@ function _getPendingImg(card) {
     || '';
   if (direct) return direct;
   // Fallback: construct pokemontcg.io URL from card ID (e.g. "bw6-113" → set "bw6", number "113")
+  // But skip UUID-style IDs (local_id from Supabase) which look like "6a465759-4495-4c46-aef6-889fe8bd609f"
   const cid = card.id || card.tcgId || card.apiId || card.card_id || '';
-  if (cid && /^[a-zA-Z0-9]+-\d/.test(cid)) {
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid);
+  if (cid && !isUUID && /^[a-zA-Z0-9]+-\d/.test(cid)) {
     const parts = cid.split('-');
     const setCode = parts[0];
     const num = parts.slice(1).join('-');
@@ -1500,7 +1502,7 @@ function renderPendingList() {
     const price  = card.album_price ? card.album_price + ' Kč' : '—';
     const pid    = esc(card._pendingId || '');
 
-    return `<div class="pending-row" onclick="openListingFromQueue(${JSON.stringify(pid)})">
+    return `<div class="pending-row" onclick="openListingFromQueue('${pid}')">
       ${img
         ? `<img class="pending-row-img" src="${esc(img)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
         : ''}
