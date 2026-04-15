@@ -2542,12 +2542,20 @@ function tcgSelectCard(gi, idx) {
   cardEl.classList.add('selected');
 
   // Uložit do skupiny (včetně všech polí)
-  // Pro non-EN karty: přepsat obrázek na originální jazykovou verzi pokud máme
-  if (g._origImage || g._origImageSmall) {
+  // Pro non-EN karty: přepsat obrázek na originální jazykovou verzi POUZE pokud uživatel
+  // vybírá stejnou kartu jakou AI rozpoznala (stejné apiId). Ruční výběr jiné karty
+  // nesmí dostat obrázek původní naskenované karty → vždy použij obrázek vybrané karty.
+  const originalApiId = g.resolvedCard?.apiId || '';
+  const isSameCard = originalApiId && originalApiId === cardData.apiId;
+  if (isSameCard && (g._origImage || g._origImageSmall)) {
     cardData.enImageUrl = cardData.apiSmall || '';
     cardData.imageUrl  = g._origImageSmall || g._origImage || cardData.imageUrl;
     cardData.apiSmall  = g._origImageSmall || g._origImage || cardData.apiSmall;
     cardData.apiLarge  = g._origImage || cardData.apiLarge;
+  } else if (!isSameCard) {
+    // Uživatel vybral jinou kartu – zahoď starý orig obrázek, ať nekontaminuje nový výběr
+    g._origImage      = null;
+    g._origImageSmall = null;
   }
   g.resolvedCard = cardData;
   g._manuallySelected = true; // Pojistka: zabrání autoSearchAll přepsat ruční výběr
