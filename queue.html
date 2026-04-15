@@ -3809,16 +3809,17 @@ async function communityUploadFile(gi, input) {
     const ext = file.name.split('.').pop() || 'jpg';
     const storagePath = `community-cards/${cardId}_${lang}.${ext}`;
 
-    const tok = (window.getValidToken ? await window.getValidToken() : null) || token;
+    const tok = (window.getValidToken ? await window.getValidToken() : null) || token || SUPABASE_ANON;
+    const arrayBuffer = await file.arrayBuffer();
     const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`, {
       method: 'POST',
       headers: {
         'apikey': SUPABASE_ANON,
         'Authorization': 'Bearer ' + tok,
-        'Content-Type': file.type,
+        'Content-Type': file.type || 'image/jpeg',
         'x-upsert': 'true',
       },
-      body: file,
+      body: arrayBuffer,
     });
 
     if (!uploadRes.ok) {
