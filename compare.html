@@ -390,19 +390,13 @@ body::after {
 <body>
 
 <!-- ── TOPBAR ── -->
+<script>window.TOPBAR_ACTIVE = 'compare';</script>
+<script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
-    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
-    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html" class="active" id="navCompareLink"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
-    <a href="#" onclick="switchTab('share');return false" id="navShareLink">🔗 Sdílet album</a>
-    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
-    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
-  </nav>
+  <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">

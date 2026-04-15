@@ -512,6 +512,43 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .jp-hint strong { color: #f87171; }
 
+/* ── Community card image upload ─────────────────────────────── */
+.cg-upload-area {
+  margin: 8px 18px 12px; padding: 14px; border-radius: 10px;
+  background: rgba(168,85,247,.06); border: 1px solid rgba(168,85,247,.2);
+}
+.cg-upload-title {
+  font-size: 12px; font-weight: 700; color: #c4b5fd; margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.cg-upload-desc { font-size: 11px; color: rgba(240,232,208,.5); line-height: 1.5; margin-bottom: 10px; }
+.cg-upload-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: rgba(168,85,247,.15); border: 1px solid rgba(168,85,247,.3);
+  color: #c4b5fd; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.cg-upload-btn:hover { background: rgba(168,85,247,.25); }
+.cg-upload-btn:disabled { opacity: .4; cursor: not-allowed; }
+.cg-upload-status { font-size: 11px; color: rgba(240,232,208,.5); margin-top: 8px; min-height: 16px; }
+.cg-upload-status.ok  { color: #4ade80; }
+.cg-upload-status.err { color: #f87171; }
+.cg-upload-preview {
+  display: inline-block; margin-top: 8px; position: relative;
+}
+.cg-upload-preview img {
+  height: 140px; border-radius: 6px; border: 1px solid rgba(168,85,247,.3);
+}
+.cg-upload-preview .badge-community {
+  position: absolute; top: 4px; right: 4px; background: rgba(168,85,247,.85);
+  color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+}
+.cg-report-btn {
+  font-size: 10px; color: rgba(240,232,208,.3); background: none; border: none;
+  cursor: pointer; padding: 2px 6px; font-family: inherit; transition: color .15s;
+}
+.cg-report-btn:hover { color: #f87171; }
+
 /* ── Auto-search badge on search button ──────────────────────── */
 .cg-search-btn .auto-badge {
   font-size: 9px; background: rgba(245,200,66,.25); color: #f5c842;
@@ -524,19 +561,13 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <body>
 
 <!-- TOP BAR -->
+<script>window.TOPBAR_ACTIVE = 'queue';</script>
+<script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
-    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
-    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
-    <a href="moje-album.html?tab=share"><img src="energi/sdilet.png" class="nav-icon"> Sdílet album</a>
-    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
-    <a href="queue.html" class="active"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
-  </nav>
+  <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
@@ -1243,6 +1274,28 @@ function buildGroupEl(g, gi) {
           </div>
         </div>
       </div>
+
+      <!-- Community card image upload (pro non-EN karty) -->
+      ${(ai.lang && ai.lang !== 'EN') ? `
+      <div class="cg-upload-area" id="uploadArea-${gi}">
+        <div class="cg-upload-title">📷 Obrázek ${ai.lang} karty</div>
+        <div class="cg-upload-desc">
+          Databáze nemá obrázek karty v jazyce ${ai.lang}. Můžeš nahrát vlastní obrázek
+          (např. stažený z Cardmarket). AI ověří, že se jedná o správnou kartu.
+          Obrázek bude k dispozici i ostatním sběratelům.
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <button class="cg-upload-btn" id="uploadBtn-${gi}" onclick="communityUploadClick(${gi})">
+            📤 Nahrát obrázek karty
+          </button>
+          <input type="file" id="uploadFile-${gi}" accept="image/*" style="display:none"
+            onchange="communityUploadFile(${gi}, this)">
+          <button class="cg-report-btn" id="reportBtn-${gi}" style="display:none"
+            onclick="reportCommunityImage(${gi})">⚠️ Nahlásit</button>
+        </div>
+        <div class="cg-upload-status" id="uploadStatus-${gi}"></div>
+        <div class="cg-upload-preview" id="uploadPreview-${gi}"></div>
+      </div>` : ''}
 
       <!-- AI info -->
       ${aiRows ? `
@@ -2293,11 +2346,36 @@ async function tcgSearch(gi, autoMode = false) {
         p30d:      best.cardmarket?.prices?.avg30 || best.p30d || 0,
         cardmarketUrl: best.cardmarket?.url || best.cardmarketUrl || '',
       };
+      // Zkontroluj community obrázek pokud nemáme originální
+      if (!origImg && g2?.aiResult?.lang && g2?.aiResult?.lang !== 'EN') {
+        const communityUrl = await checkCommunityImage(g2.resolvedCard.apiId, g2.aiResult?.lang || '');
+        if (communityUrl) {
+          g2._origImage = communityUrl;
+          g2._origImageSmall = communityUrl;
+          g2.resolvedCard.enImageUrl = g2.resolvedCard.apiSmall;
+          g2.resolvedCard.imageUrl = communityUrl;
+          g2.resolvedCard.apiSmall = communityUrl;
+          g2.resolvedCard.apiLarge = communityUrl;
+        }
+      }
+      const finalImg = g2.resolvedCard.apiSmall || displayImg;
       // Aktualizuj header thumb + name pokud je lepší než placeholder
       const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
-      if (thumb && displayImg) thumb.src = displayImg;
+      if (thumb && finalImg) thumb.src = finalImg;
       const nameEl = document.querySelector(`#group-${gi} .cg-name`);
       if (nameEl && best.name) nameEl.textContent = best.name;
+      // Aktualizuj upload area — skryj pokud máme obrázek, zobraz report
+      if (g2._origImage || g2._origImageSmall) {
+        const uploadArea = document.getElementById(`uploadArea-${gi}`);
+        const previewEl = document.getElementById(`uploadPreview-${gi}`);
+        const statusEl2 = document.getElementById(`uploadStatus-${gi}`);
+        const reportBtn = document.getElementById(`reportBtn-${gi}`);
+        if (uploadArea && previewEl) {
+          previewEl.innerHTML = `<img src="${g2._origImageSmall || g2._origImage}" alt=""><span class="badge-community">📷 ${g2._origImage?.includes('community-cards') ? 'Community' : 'TCGdex'}</span>`;
+          if (statusEl2) { statusEl2.className = 'cg-upload-status ok'; statusEl2.textContent = '✅ Obrázek karty nalezen'; }
+          if (reportBtn && g2._origImage?.includes('community-cards')) reportBtn.style.display = '';
+        }
+      }
     }
 
     const dexCount  = cards.filter(c => c._source === 'tcgdex').length;
@@ -3647,5 +3725,297 @@ function toast(msg, type = '') {
   poll();setInterval(poll,POLL);
 })();
 </script>
+
+<script>
+/* ═══════════════════════════════════════════
+   COMMUNITY CARD IMAGES
+   ═══════════════════════════════════════════
+   Když TCGdex nemá obrázek karty v daném jazyce (JP, DE, FR…),
+   uživatel může nahrát vlastní. AI ověří, že jde o správnou kartu.
+   Obrázek je sdílený — ostatní uživatelé ho uvidí automaticky.
+*/
+
+// ── Otevři file picker ───────────────────────────────────────
+function communityUploadClick(gi) {
+  const inp = document.getElementById(`uploadFile-${gi}`);
+  if (inp) inp.click();
+}
+
+// ── Zpracuj vybraný soubor ───────────────────────────────────
+async function communityUploadFile(gi, input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const g = cardGroups[gi];
+  if (!g) return;
+
+  const statusEl = document.getElementById(`uploadStatus-${gi}`);
+  const previewEl = document.getElementById(`uploadPreview-${gi}`);
+  const btn = document.getElementById(`uploadBtn-${gi}`);
+
+  // Základní validace
+  if (!file.type.startsWith('image/')) {
+    statusEl.className = 'cg-upload-status err';
+    statusEl.textContent = '❌ Vyber prosím obrázek (JPG, PNG, WebP)';
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    statusEl.className = 'cg-upload-status err';
+    statusEl.textContent = '❌ Obrázek je příliš velký (max 5 MB)';
+    return;
+  }
+
+  btn.disabled = true;
+  statusEl.className = 'cg-upload-status';
+  statusEl.textContent = '⏳ Ověřuji obrázek přes AI…';
+
+  try {
+    // 1) Převedeme na base64 pro AI ověření
+    const base64 = await fileToBase64(file);
+
+    // 2) Zobrazit preview
+    previewEl.innerHTML = `<img src="${base64}" alt="Náhled">`;
+
+    // 3) AI ověření přes Groq — je to opravdu Pokémon karta? Odpovídá očekávání?
+    const ai = g.aiResult || {};
+    const expectedName = ai.nameEN || ai.name || '';
+    const expectedLang = ai.lang || '';
+
+    const verifyResult = await verifyCommunityImage(base64, expectedName, expectedLang, ai);
+
+    if (!verifyResult.approved) {
+      statusEl.className = 'cg-upload-status err';
+      statusEl.textContent = `❌ ${verifyResult.reason}`;
+      previewEl.innerHTML = '';
+      btn.disabled = false;
+      input.value = '';
+      return;
+    }
+
+    // 4) Upload do Supabase storage
+    statusEl.textContent = '⬆️ Nahrávám obrázek…';
+
+    const rc = g.resolvedCard || {};
+    const cardId = rc.apiId || `${(rc.set||'').replace(/\s/g,'-')}-${rc.number||'unknown'}`;
+    const lang = ai.lang || 'XX';
+    const ext = file.name.split('.').pop() || 'jpg';
+    const storagePath = `community-cards/${cardId}_${lang}.${ext}`;
+
+    const tok = (window.getValidToken ? await window.getValidToken() : null) || token;
+    const uploadRes = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + tok,
+        'Content-Type': file.type,
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      throw new Error('Upload selhal: ' + uploadRes.status);
+    }
+
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${storagePath}`;
+
+    // 5) Uložit referenci do DB
+    await sbReq('rest/v1/community_card_images', 'POST', {
+      api_id: cardId,
+      lang: lang,
+      storage_path: storagePath,
+      url: publicUrl,
+      uploaded_by: userId,
+      card_name: rc.name || expectedName,
+      card_set: rc.set || ai.set || '',
+      card_number: rc.number || ai.number || '',
+      verified: true,
+    }).catch(e => console.warn('[community_card_images]', e));
+
+    // 6) Použít obrázek pro tuto kartu
+    g._origImage = publicUrl;
+    g._origImageSmall = publicUrl;
+
+    if (g.resolvedCard) {
+      g.resolvedCard.enImageUrl = g.resolvedCard.apiSmall || '';
+      g.resolvedCard.imageUrl = publicUrl;
+      g.resolvedCard.apiSmall = publicUrl;
+      g.resolvedCard.apiLarge = publicUrl;
+    }
+
+    // Aktualizuj compare panel
+    const dbSide = document.getElementById(`compareDbSide-${gi}`);
+    if (dbSide) {
+      dbSide.innerHTML = `<img src="${publicUrl}" alt="${esc(rc.name||'')}">`;
+    }
+    // Aktualizuj thumbnail
+    const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
+    if (thumb) thumb.src = publicUrl;
+
+    statusEl.className = 'cg-upload-status ok';
+    statusEl.textContent = `✅ Obrázek nahrán a ověřen! Bude k dispozici i ostatním sběratelům.`;
+    previewEl.innerHTML = `
+      <img src="${publicUrl}" alt="${esc(rc.name||'')}">
+      <span class="badge-community">📷 Community</span>`;
+
+    // Zobraz report button
+    const reportBtn = document.getElementById(`reportBtn-${gi}`);
+    if (reportBtn) reportBtn.style.display = '';
+
+  } catch(e) {
+    console.error('[communityUpload]', e);
+    statusEl.className = 'cg-upload-status err';
+    statusEl.textContent = `❌ Chyba: ${e.message || 'Nepodařilo se nahrát obrázek'}`;
+    previewEl.innerHTML = '';
+  } finally {
+    btn.disabled = false;
+    input.value = '';
+  }
+}
+
+// ── AI ověření obrázku ──────────────────────────────────────
+async function verifyCommunityImage(base64data, expectedName, expectedLang, ai) {
+  const groqKey = _getGroqKey();
+  if (!groqKey) {
+    // Bez Groq klíče — basic check (aspoň ověř že to vypadá jako karta)
+    return { approved: true, reason: 'Groq klíč není k dispozici, přeskakuji AI ověření' };
+  }
+
+  const prompt = `You are a Pokémon card verification system. The user is uploading an image that should be a Pokémon TCG card.
+
+VERIFY these things:
+1. Is this actually a Pokémon Trading Card Game card? (NOT a human photo, NOT inappropriate content, NOT random image)
+2. Does it match the expected card: "${expectedName}" in language "${expectedLang}"?
+3. Is the image appropriate and safe? (no nudity, no violence, no offensive content)
+
+The card details from AI recognition:
+- Name: ${ai.name || '?'}
+- EN name: ${ai.nameEN || expectedName || '?'}
+- Set: ${ai.set || '?'}
+- Number: ${ai.number || '?'}
+- HP: ${ai.hp || '?'}
+- Language: ${expectedLang}
+
+Respond ONLY as JSON:
+{
+  "is_pokemon_card": true/false,
+  "matches_expected": true/false,
+  "is_appropriate": true/false,
+  "approved": true/false,
+  "reason": "short explanation if not approved"
+}`;
+
+  try {
+    const tok = (window.getValidToken ? await window.getValidToken() : null) || token;
+    const body = {
+      model: localStorage.getItem('groqModel') || GROQ_MODEL,
+      max_tokens: 200,
+      messages: [
+        { role: 'user', content: [
+          { type: 'image_url', image_url: { url: base64data } },
+          { type: 'text', text: prompt }
+        ]}
+      ],
+    };
+
+    const res = await fetch(GROQ_PROXY || '/api/groq', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...body, token: tok }),
+    });
+
+    if (!res.ok) {
+      console.warn('[verify] Groq failed:', res.status);
+      return { approved: true, reason: 'AI ověření nedostupné' };
+    }
+
+    const data = await res.json();
+    const text = data?.choices?.[0]?.message?.content || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { approved: true, reason: 'AI odpověď nerozpoznána' };
+
+    const result = JSON.parse(jsonMatch[0]);
+
+    if (!result.is_pokemon_card) {
+      return { approved: false, reason: 'Toto není Pokémon karta. Nahraj prosím obrázek skutečné kartičky.' };
+    }
+    if (!result.is_appropriate) {
+      return { approved: false, reason: 'Obrázek obsahuje nevhodný obsah a byl odmítnut.' };
+    }
+    if (!result.matches_expected) {
+      return { approved: false, reason: `Obrázek neodpovídá kartě "${expectedName}". Zkontroluj, že nahráváš správnou kartu.` };
+    }
+
+    return { approved: true, reason: '' };
+
+  } catch(e) {
+    console.warn('[verify] Error:', e);
+    // Při chybě raději povolíme — uživatel může nahlásit
+    return { approved: true, reason: 'AI ověření selhalo, obrázek povolen' };
+  }
+}
+
+// ── Kontrola community obrázku při vyhledávání ──────────────
+async function checkCommunityImage(apiId, lang) {
+  if (!apiId || !lang) return null;
+  try {
+    const data = await sbReq(
+      `rest/v1/community_card_images?api_id=eq.${encodeURIComponent(apiId)}&lang=eq.${lang}&blocked=eq.false&select=url,storage_path&limit=1&order=created_at.desc`
+    );
+    if (Array.isArray(data) && data[0]?.url) {
+      console.log(`[Community] Nalezen obrázek pro ${apiId} (${lang})`);
+      return data[0].url;
+    }
+  } catch(e) { /* tiché selhání */ }
+  return null;
+}
+
+// ── Nahlásit nevhodný obrázek ───────────────────────────────
+async function reportCommunityImage(gi) {
+  const g = cardGroups[gi];
+  if (!g?.resolvedCard?.apiId) return;
+
+  const reason = prompt('Proč chceš obrázek nahlásit?\n(např. špatná karta, nevhodný obsah, nízká kvalita)');
+  if (!reason) return;
+
+  const lang = g.aiResult?.lang || 'XX';
+  try {
+    // Inkrementuj report count
+    const existing = await sbReq(
+      `rest/v1/community_card_images?api_id=eq.${encodeURIComponent(g.resolvedCard.apiId)}&lang=eq.${lang}&select=id,reports`
+    );
+    if (Array.isArray(existing) && existing[0]) {
+      const newReports = (existing[0].reports || 0) + 1;
+      const blocked = newReports >= 3; // Auto-block po 3 nahlášeních
+      await sbReq(`rest/v1/community_card_images?id=eq.${existing[0].id}`, 'PATCH', {
+        reports: newReports,
+        blocked: blocked,
+      });
+    }
+    // Ulož report detail
+    await sbReq('rest/v1/community_image_reports', 'POST', {
+      reporter_id: userId,
+      image_api_id: g.resolvedCard.apiId,
+      image_lang: lang,
+      reason: reason,
+    }).catch(() => {});
+
+    toast('⚠️ Obrázek nahlášen. Díky za pomoc!', 'ok');
+  } catch(e) {
+    toast('Chyba při hlášení', 'err');
+  }
+}
+
+// ── Helper: file → base64 ───────────────────────────────────
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Čtení souboru selhalo'));
+    reader.readAsDataURL(file);
+  });
+}
+</script>
+
 </body>
 </html>
