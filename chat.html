@@ -216,10 +216,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 /* Messages */
 .chat-messages {
-  flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 3px;
+  flex: 1; overflow-y: auto; padding: 16px 20px 8px; display: flex; flex-direction: column; gap: 3px;
+  /* Hidden scrollbar but still scrollable */
+  scrollbar-width: none; -ms-overflow-style: none;
 }
-.chat-messages::-webkit-scrollbar { width: 5px; }
-.chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.chat-messages::-webkit-scrollbar { display: none; }
 
 .msg-date-sep {
   text-align: center; font-size: 11px; color: var(--text3);
@@ -793,6 +794,15 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .btn-fake-detector:hover { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.12); }
 
+.btn-qr-code {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid rgba(116,180,255,0.2); background: rgba(116,180,255,0.06);
+  color: var(--blue); cursor: pointer; transition: all .12s;
+  display: none; align-items: center; justify-content: center;
+}
+.btn-qr-code:hover { border-color: rgba(116,180,255,0.4); background: rgba(116,180,255,0.12); }
+.btn-qr-code.show { display: flex; }
+
 </style>
 </head>
 <body>
@@ -860,12 +870,14 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <input class="conv-search" id="convSearch" type="text" placeholder="Hledat konverzaci..." oninput="filterConversations()">
         </div>
       </div>
-      <!-- PokéBot special item -->
+      <!-- NeoNet special item -->
       <div class="bot-conv-item" id="botConvItem" onclick="openBotConversation()">
-        <div class="bot-avatar">🤖</div>
+        <div class="bot-avatar" style="overflow:hidden;padding:0">
+          <img src="neonet-bot.png" alt="NeoNet" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.parentElement.textContent='🤖'">
+        </div>
         <div class="conv-info">
           <div class="conv-name" style="display:flex;align-items:center;gap:6px">
-            PokéBot AI <span class="bot-badge">GROQ</span>
+            NeoNet AI <span class="bot-badge">GROQ</span>
           </div>
           <div class="conv-last-msg">Ceny karet · Tipy na obchod · Fake detektor</div>
         </div>
@@ -933,8 +945,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace" id="btnAttachListing">
           🃏
         </button>
-        <button class="btn-fake-detector" onclick="openFakeDetectorModal()" title="🔍 Detekovat falzum karty" id="btnFakeDetect" style="display:none">
-          📷
+        <button class="btn-qr-code" onclick="openQrModal()" title="📱 Zobrazit QR kód" id="btnQrCode">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3" rx=".5"/><rect x="18" y="14" width="3" height="3" rx=".5"/><rect x="14" y="18" width="3" height="3" rx=".5"/><rect x="18" y="18" width="3" height="3" rx=".5"/></svg>
+        </button>
+        <button class="btn-fake-detector" onclick="openFakeDetectorModal()" title="🔍 Detektor falzifikátů" id="btnFakeDetect" style="display:none">
+          🔍
         </button>
         <textarea class="chat-textarea" id="chatInput" placeholder="Napište zprávu..." rows="1"
           oninput="autoGrow(this)" onkeydown="handleInputKey(event)"></textarea>
@@ -990,22 +1005,48 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   </div>
 </div>
 
-<!-- ═══ FAKE DETECTOR MODAL ═══ -->
+<!-- ═══ QR KÓD MODAL ═══ -->
+<div class="modal-overlay" id="qrModal" onclick="if(event.target===this)closeQrModal()">
+  <div class="modal-box" style="max-width:340px;text-align:center">
+    <div class="modal-head">
+      <h3>📱 Můj QR kód</h3>
+      <button class="modal-close" onclick="closeQrModal()">✕</button>
+    </div>
+    <div style="padding:20px 0 10px">
+      <div id="qrCodeCanvas" style="display:inline-block;padding:12px;background:#fff;border-radius:12px;line-height:0"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:12px">Naskenuj pro zobrazení mého profilu</div>
+      <div id="qrUrlLabel" style="font-size:11px;color:var(--text3);margin-top:4px;word-break:break-all;padding:0 20px"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ FAKE DETECTOR MODAL (enhanced) ═══ -->
 <div class="modal-overlay" id="fakeDetectorModal" onclick="if(event.target===this)closeFakeDetectorModal()">
   <div class="fake-modal-box">
     <div class="modal-head">
-      <h3>📷 Detektor Falzifikátů</h3>
+      <h3>🔍 Detektor Falzifikátů</h3>
       <button class="modal-close" onclick="closeFakeDetectorModal()">✕</button>
     </div>
-    <!-- Drop zone -->
-    <div class="fake-drop-zone" id="fakeDropZone"
-      onclick="document.getElementById('fakeFileInput').click()"
-      ondragover="fakeDragOver(event)" ondragleave="fakeDragLeave(event)" ondrop="fakeDrop(event)">
+    <!-- Drop zone with source buttons -->
+    <div class="fake-drop-zone" id="fakeDropZone">
       <div class="fake-drop-icon">🃏</div>
       <div class="fake-drop-title">Nahraj foto karty</div>
-      <div class="fake-drop-sub">Přetáhni sem nebo klikni pro výběr souboru</div>
-      <button class="fake-drop-btn" onclick="event.stopPropagation();document.getElementById('fakeFileInput').click()">Vybrat soubor</button>
+      <div class="fake-drop-sub">Vyber zdroj fotky nebo přetáhni sem</div>
+      <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
+        <button class="fake-drop-btn" onclick="event.stopPropagation();document.getElementById('fakeFileInput').click()">
+          🖼️ Soubor
+        </button>
+        <button class="fake-drop-btn" onclick="event.stopPropagation();document.getElementById('fakeCameraInput').click()">
+          📷 Fotoaparát
+        </button>
+        <button class="fake-drop-btn" onclick="event.stopPropagation();openAlbumPickerForFake()">
+          📚 Z alba
+        </button>
+      </div>
+      <div ondragover="fakeDragOver(event)" ondragleave="fakeDragLeave(event)" ondrop="fakeDrop(event)"
+           style="position:absolute;inset:0;cursor:pointer" onclick="document.getElementById('fakeFileInput').click()"></div>
       <input type="file" id="fakeFileInput" class="fake-file-input" accept="image/*" onchange="fakeFileSelected(this)">
+      <input type="file" id="fakeCameraInput" class="fake-file-input" accept="image/*" capture="environment" onchange="fakeFileSelected(this)">
     </div>
     <!-- Preview -->
     <div class="fake-preview-wrap" id="fakePreviewWrap">
@@ -1024,16 +1065,35 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     </div>
     <!-- Analyze button -->
     <button class="fake-analyze-btn" id="fakeAnalyzeBtn" disabled onclick="runFakeAnalysis()">
-      <span id="fakeBtnIcon">📷</span> <span id="fakeBtnText">Nejprve nahraj foto karty</span>
+      <span id="fakeBtnIcon">🔍</span> <span id="fakeBtnText">Nejprve nahraj foto karty</span>
     </button>
     <!-- Result -->
     <div class="fake-result-area" id="fakeResultArea"></div>
   </div>
 </div>
 
+<!-- ═══ ALBUM PICKER PRO FAKE DETECTOR ═══ -->
+<div class="modal-overlay" id="albumPickerModal" onclick="if(event.target===this)closeAlbumPicker()" style="z-index:600">
+  <div class="modal-box" style="max-width:520px;max-height:85vh;display:flex;flex-direction:column;overflow:hidden">
+    <div class="modal-head">
+      <h3 id="albumPickerTitle">📚 Vybrat z alba</h3>
+      <button class="modal-close" onclick="closeAlbumPicker()">✕</button>
+    </div>
+    <div id="albumPickerContent" style="flex:1;overflow-y:auto;padding:12px 16px 16px">
+      <div style="color:var(--text3);text-align:center;padding:30px">Načítám alba…</div>
+    </div>
+    <div class="modal-footer" id="albumPickerFooter" style="display:none">
+      <button class="btn-modal-cancel" onclick="closeAlbumPicker()">Zrušit</button>
+      <button class="btn-modal-confirm" id="albumPickerConfirmBtn" onclick="confirmAlbumCardPhoto()">Vložit do chatu</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <!-- ═══ SCRIPTS ═══ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="groq-client.js"></script>
 <script src="app.js"></script>
 <script src="notif-bell.js"></script>
 <script>
@@ -1235,12 +1295,18 @@ async function openConversation(conv) {
   document.getElementById('botConvItem').classList.remove('active');
   document.getElementById('btnFakeDetect').style.display = 'none';
   document.getElementById('btnAttachListing').style.display = '';
+  document.getElementById('btnQrCode').classList.add('show');
   document.getElementById('chatInput').placeholder = 'Napište zprávu...';
   const hBadge = document.getElementById('botHeaderBadge');
   if (hBadge) hBadge.style.display = 'none';
   const vpBtn = document.getElementById('btnViewProfile');
   if (vpBtn) vpBtn.style.display = '';
-  document.getElementById('chatAvatar').style.fontSize = '';
+  // Reset avatar
+  const avatarEl = document.getElementById('chatAvatar');
+  avatarEl.innerHTML = '';
+  avatarEl.style.overflow = '';
+  avatarEl.style.padding = '';
+  avatarEl.style.fontSize = '';
 
   const isUser1 = conv.user1_id === userId;
   activePartner = {
@@ -1256,7 +1322,9 @@ async function openConversation(conv) {
 
   // Header
   const initial = (activePartner.username||'?')[0].toUpperCase();
-  document.getElementById('chatAvatar').textContent = initial;
+  const avatarEl2 = document.getElementById('chatAvatar');
+  avatarEl2.innerHTML = '';
+  avatarEl2.textContent = initial;
   document.getElementById('chatPartnerName').textContent = activePartner.username;
   document.getElementById('chatHeaderSub').textContent = 'Klikni na jméno pro zobrazení profilu';
   document.getElementById('btnViewProfile').href = `profile.html?user=${activePartner.id}`;
@@ -1513,6 +1581,9 @@ async function sendMessage() {
   const idx = messages.findIndex(m => m.id === tempMsg.id);
   if (idx >= 0 && Array.isArray(res)) messages[idx] = res[0];
   renderMessages();
+  // Scroll to bottom after send
+  const mc = document.getElementById('chatMessages');
+  if (mc) mc.scrollTop = mc.scrollHeight;
 
   // Refresh conversation list
   loadConversations();
@@ -2121,15 +2192,27 @@ function openBotConversation() {
   document.getElementById('blockedBanner').classList.remove('visible');
   document.getElementById('chatWrap').classList.add('conv-open');
 
-  // Show fake detector button, hide listing attach
+  // Show fake detector button, hide listing attach + QR
   document.getElementById('btnFakeDetect').style.display = '';
   document.getElementById('btnAttachListing').style.display = 'none';
+  document.getElementById('btnQrCode').classList.remove('show');
 
-  // Set header
-  document.getElementById('chatAvatar').textContent = '🤖';
-  document.getElementById('chatAvatar').style.fontSize = '20px';
-  document.getElementById('chatPartnerName').textContent = 'PokéBot AI';
-  document.getElementById('chatHeaderSub').textContent = 'Powered by Groq · Llama 3.3 70B';
+  // Set header – NeoNet avatar photo
+  const avatarEl = document.getElementById('chatAvatar');
+  avatarEl.style.fontSize = '';
+  avatarEl.style.overflow = 'hidden';
+  avatarEl.style.padding = '0';
+  avatarEl.innerHTML = `<img src="neonet-bot.png" alt="NeoNet" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='🤖';this.parentElement.style.fontSize='20px'">`;
+  document.getElementById('chatPartnerName').textContent = 'NeoNet AI';
+
+  // Determine model label from GroqClient
+  const modelId = (typeof GroqClient !== 'undefined' && GroqClient.isLoaded())
+    ? GroqClient.getModel()
+    : GROQ_MODEL;
+  const modelLabel = (typeof GroqClient !== 'undefined')
+    ? (GroqClient.MODELS.find(m => m.id === modelId)?.label || modelId).replace(/\(.*\)/,'').trim()
+    : 'Llama 3.3 70B';
+  document.getElementById('chatHeaderSub').textContent = `Powered by Groq · ${modelLabel}`;
   document.getElementById('btnViewProfile').style.display = 'none';
 
   // Add GROQ badge to header
@@ -2144,7 +2227,7 @@ function openBotConversation() {
   hBadge.style.display = '';
 
   // Update placeholder
-  document.getElementById('chatInput').placeholder = 'Zeptej se PokéBota...';
+  document.getElementById('chatInput').placeholder = 'Zeptej se NeoNeta...';
 
   // Render bot messages
   renderBotMessages();
@@ -2160,9 +2243,11 @@ function showBotWelcome() {
   container.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:flex-start;padding:12px 0 4px">
       <div style="display:flex;gap:10px;align-items:flex-start">
-        <div style="width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🤖</div>
+        <div style="width:34px;height:34px;border-radius:10px;overflow:hidden;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+          <img src="neonet-bot.png" alt="NeoNet" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='🤖'">
+        </div>
         <div class="bot-msg-bubble">
-          Ahoj! Jsem <strong>PokéBot</strong> – tvůj AI průvodce světem Pokémon TCG 🃏<br><br>
+          Ahoj! Jsem <strong>NeoNet</strong> – tvůj AI průvodce světem Pokémon TCG 🃏<br><br>
           Pomůžu ti s <strong>cenami karet</strong>, tipy na obchod nebo jak poznat falzifikát. Zkus mě něco zeptat, nebo klikni na jedno z témat níže:
           <div class="msg-time" style="margin-top:4px">teď</div>
         </div>
@@ -2198,7 +2283,9 @@ function renderBotMessages() {
       const formatted = m.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g,'<br>');
       html += `
         <div class="msg-row them" style="align-items:flex-start;gap:8px">
-          <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
+          <div style="width:30px;height:30px;border-radius:9px;overflow:hidden;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">
+            <img src="neonet-bot.png" alt="NeoNet" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='🤖'">
+          </div>
           <div class="bot-msg-bubble">${formatted}<div class="msg-time" style="text-align:left">${time}</div></div>
         </div>`;
     }
@@ -2219,7 +2306,9 @@ async function sendBotMessage(text) {
   typingEl.style.gap = '8px';
   typingEl.style.alignItems = 'flex-start';
   typingEl.innerHTML = `
-    <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
+    <div style="width:30px;height:30px;border-radius:9px;overflow:hidden;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">
+      <img src="neonet-bot.png" alt="NeoNet" style="width:100%;height:100%;object-fit:cover" onerror="this.parentElement.textContent='🤖'">
+    </div>
     <div class="bot-msg-bubble" style="padding:14px 16px"><div class="bot-typing"><span></span><span></span><span></span></div></div>`;
   container.appendChild(typingEl);
   container.scrollTop = container.scrollHeight;
@@ -2229,31 +2318,40 @@ async function sendBotMessage(text) {
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        max_tokens: 512,
-        messages: [
-          { role: 'system', content: BOT_SYSTEM },
-          ...botHistory.slice(-12) // keep context window manageable
-        ]
-      })
-    });
+    const msgs = [
+      { role: 'system', content: BOT_SYSTEM },
+      ...botHistory.slice(-12)
+    ];
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'Groq API chyba');
+    let reply = '';
 
-    const reply = data.choices?.[0]?.message?.content || 'Omlouvám se, nepodařilo se mi odpovědět.';
+    // Try GroqClient first (loads key from Supabase)
+    if (typeof GroqClient !== 'undefined' && GroqClient.isReady()) {
+      reply = await GroqClient.chat(msgs, { max_tokens: 512 });
+    } else {
+      // Fallback: direct API with hardcoded key
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          max_tokens: 512,
+          messages: msgs,
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Groq API chyba');
+      reply = data.choices?.[0]?.message?.content || 'Omlouvám se, nepodařilo se mi odpovědět.';
+    }
+
     botHistory.push({ role: 'assistant', content: reply });
 
   } catch(e) {
-    const errMsg = e.message.includes('401') || e.message.includes('Incorrect API key')
-      ? '❌ Neplatný Groq API klíč. Nastav GROQ_API_KEY v chat.html.'
+    const errMsg = (e.message.includes('401') || e.message.includes('Incorrect API key') || e.message.includes('Invalid API key') || e.message.includes('nakonfigurováno'))
+      ? '❌ Groq API klíč není nastaven. Přidej jej v nastavení profilu.'
       : '❌ Chyba: ' + e.message;
     botHistory.push({ role: 'assistant', content: errMsg });
   }
@@ -2272,6 +2370,267 @@ async function sendBotMessage(text) {
     container.appendChild(chipsWrap);
     container.scrollTop = container.scrollHeight;
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GROQ CLIENT INIT (nahraje klíč ze Supabase po přihlášení)
+// ═══════════════════════════════════════════════════════════════
+(function initGroqClient() {
+  if (typeof GroqClient === 'undefined') return;
+  // Wait for auth to settle then load key
+  const tryLoad = async () => {
+    const tk = localStorage.getItem('sb_token');
+    if (!tk) return;
+    await GroqClient.loadKey();
+    if (GroqClient.isReady()) {
+      console.log('[Chat] GroqClient ready, model:', GroqClient.getModel());
+    }
+  };
+  // Try immediately + retry after 1s (app.js may still be initializing)
+  tryLoad();
+  setTimeout(tryLoad, 1000);
+})();
+
+// ═══════════════════════════════════════════════════════════════
+// QR KÓD MODAL
+// ═══════════════════════════════════════════════════════════════
+let _qrGenerated = false;
+
+function openQrModal() {
+  document.getElementById('qrModal').classList.add('open');
+  if (_qrGenerated) return;
+  _qrGenerated = true;
+
+  const canvas = document.getElementById('qrCodeCanvas');
+  canvas.innerHTML = '';
+
+  // Build profile URL for current user
+  const profileUrl = `${location.origin}${location.pathname.replace('chat.html','profile.html')}?user=${userId}`;
+  document.getElementById('qrUrlLabel').textContent = profileUrl;
+
+  try {
+    new QRCode(canvas, {
+      text: profileUrl,
+      width: 200,
+      height: 200,
+      colorDark: '#000000',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } catch(e) {
+    canvas.innerHTML = `<div style="width:200px;height:200px;display:flex;align-items:center;justify-content:center;color:#888;font-size:12px">QR kód není dostupný</div>`;
+  }
+}
+
+function closeQrModal() {
+  document.getElementById('qrModal').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ALBUM PICKER PRO FAKE DETECTOR
+// ═══════════════════════════════════════════════════════════════
+let _albumPickerMode = 'fake'; // 'fake' = pro detektor falzifikátů
+let _albumPickerCards = [];
+let _albumPickerAlbums = [];
+let _albumPickerSelectedCard = null;
+let _albumPickerSelectedPhoto = null;
+
+async function openAlbumPickerForFake() {
+  _albumPickerMode = 'fake';
+  _albumPickerSelectedCard = null;
+  _albumPickerSelectedPhoto = null;
+  document.getElementById('albumPickerTitle').textContent = '📚 Vybrat kartu z alba';
+  document.getElementById('albumPickerFooter').style.display = 'none';
+  document.getElementById('albumPickerModal').classList.add('open');
+  await loadAlbumPickerData();
+  renderAlbumPickerAlbums();
+}
+
+async function loadAlbumPickerData() {
+  const content = document.getElementById('albumPickerContent');
+  content.innerHTML = '<div style="color:var(--text3);text-align:center;padding:30px">Načítám alba…</div>';
+  try {
+    const tk = localStorage.getItem('sb_token');
+    const uid = userId;
+
+    // Load albums
+    const albumsRes = await sb(
+      `rest/v1/user_albums?user_id=eq.${uid}&select=id,name,color,icon,card_ids&order=name.asc`,
+      'GET', null, tk
+    );
+    _albumPickerAlbums = Array.isArray(albumsRes) ? albumsRes : [];
+
+    // Load cards with photos
+    const photosRes = await sb(
+      `rest/v1/user_card_photos?user_id=eq.${uid}&order=created_at.asc&limit=500`,
+      'GET', null, tk
+    );
+    const photos = Array.isArray(photosRes) ? photosRes : [];
+
+    // Load cards
+    const cardsRes = await sb(
+      `rest/v1/user_cards?user_id=eq.${uid}&select=local_id,card_data&order=updated_at.desc&limit=500`,
+      'GET', null, tk
+    );
+    _albumPickerCards = Array.isArray(cardsRes) ? cardsRes.map(r => ({
+      ...r.card_data,
+      id: r.local_id,
+      photos: photos.filter(p => String(p.user_card_local_id) === String(r.local_id))
+    })).filter(c => c.photos && c.photos.length > 0) : [];
+
+  } catch(e) {
+    console.error('[AlbumPicker]', e);
+    _albumPickerCards = [];
+    _albumPickerAlbums = [];
+  }
+}
+
+function renderAlbumPickerAlbums() {
+  const content = document.getElementById('albumPickerContent');
+  if (!_albumPickerAlbums.length && !_albumPickerCards.length) {
+    content.innerHTML = '<div style="color:var(--text3);text-align:center;padding:30px">Žádné karty s fotkami nenalezeny.<br><small style="font-size:11px;opacity:.6">Nejprve přidej fotky do alb.</small></div>';
+    return;
+  }
+
+  // Show "Všechny karty s fotkou" + albums with photos
+  let html = `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Vyber album nebo kartu s fotkou</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+      <div class="album-pick-item" onclick="renderAlbumPickerCards(null)" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;transition:all .12s;background:rgba(255,255,255,.03)">
+        <div style="font-size:22px;margin-bottom:4px">🃏</div>
+        <div style="font-size:11px;font-weight:600;color:var(--text)">Všechny karty</div>
+        <div style="font-size:10px;color:var(--text3)">${_albumPickerCards.length} s fotkou</div>
+      </div>
+      ${_albumPickerAlbums.map(a => {
+        const cardIds = a.card_ids || [];
+        const count = _albumPickerCards.filter(c => cardIds.includes(c.id) || cardIds.includes(String(c.id))).length;
+        if (count === 0) return '';
+        return `
+          <div class="album-pick-item" onclick="renderAlbumPickerCards('${a.id}')" style="cursor:pointer;border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;transition:all .12s;background:rgba(255,255,255,.03)">
+            <div style="font-size:22px;margin-bottom:4px">${a.icon||'📁'}</div>
+            <div style="font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name||'Album')}</div>
+            <div style="font-size:10px;color:var(--text3)">${count} s fotkou</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  content.innerHTML = html;
+  // Hover style
+  content.querySelectorAll('.album-pick-item').forEach(el => {
+    el.addEventListener('mouseenter', () => { el.style.background='rgba(255,255,255,.07)'; el.style.borderColor='rgba(255,255,255,.18)'; });
+    el.addEventListener('mouseleave', () => { el.style.background='rgba(255,255,255,.03)'; el.style.borderColor='rgba(255,255,255,.08)'; });
+  });
+}
+
+function renderAlbumPickerCards(albumId) {
+  const content = document.getElementById('albumPickerContent');
+  let cards = _albumPickerCards;
+  if (albumId) {
+    const album = _albumPickerAlbums.find(a => a.id === albumId);
+    const ids = (album?.card_ids || []).map(String);
+    cards = cards.filter(c => ids.includes(String(c.id)));
+  }
+
+  if (!cards.length) {
+    content.innerHTML = `<button onclick="renderAlbumPickerAlbums()" style="background:transparent;border:none;color:var(--text3);cursor:pointer;font-family:inherit;font-size:13px;margin-bottom:12px">← Zpět</button><div style="color:var(--text3);text-align:center;padding:20px">Žádné karty s fotkami</div>`;
+    return;
+  }
+
+  let html = `<button onclick="renderAlbumPickerAlbums()" style="background:transparent;border:none;color:var(--blue);cursor:pointer;font-family:inherit;font-size:12px;margin-bottom:10px;padding:0">← Zpět na alba</button>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">`;
+
+  cards.forEach(c => {
+    const img = c.photos[0]?.url || c.images?.small || c.apiSmall || c.imageUrl || '';
+    html += `
+      <div onclick="openAlbumCardPhotos('${c.id}')" style="cursor:pointer;border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:all .12s;background:rgba(255,255,255,.03)"
+           onmouseenter="this.style.borderColor='rgba(245,200,66,.4)'" onmouseleave="this.style.borderColor='rgba(255,255,255,.08)'">
+        ${img ? `<img src="${esc(img)}" style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block">` : `<div style="width:100%;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;font-size:24px;background:rgba(255,255,255,.03)">🃏</div>`}
+        <div style="padding:4px 5px">
+          <div style="font-size:10px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'?')}</div>
+          <div style="font-size:9px;color:var(--text3)">${c.photos.length} foto</div>
+        </div>
+      </div>`;
+  });
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+function openAlbumCardPhotos(cardId) {
+  const card = _albumPickerCards.find(c => String(c.id) === String(cardId));
+  if (!card || !card.photos.length) return;
+
+  _albumPickerSelectedCard = card;
+  _albumPickerSelectedPhoto = card.photos[0];
+
+  const content = document.getElementById('albumPickerContent');
+  const sideLabels = {front:'Přední',back:'Zadní',detail:'Detail',name:'Název'};
+
+  let html = `<button onclick="renderAlbumPickerCards(null)" style="background:transparent;border:none;color:var(--blue);cursor:pointer;font-family:inherit;font-size:12px;margin-bottom:10px;padding:0">← Zpět na karty</button>
+    <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">${esc(card.name||'?')}</div>
+    <div id="apMainPhotoWrap" style="text-align:center;margin-bottom:12px">
+      <img id="apMainPhoto" src="${esc(card.photos[0].url)}" style="max-height:220px;border-radius:10px;border:2px solid rgba(245,200,66,.4);cursor:pointer" onclick="">
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+      ${card.photos.map((p, i) => `
+        <img src="${esc(p.url)}" onclick="selectAlbumPhoto('${cardId}',${i})"
+          style="width:60px;height:80px;object-fit:cover;border-radius:6px;cursor:pointer;border:2px solid ${i===0?'var(--yellow)':'var(--border)'}"
+          id="apThumb_${i}">
+      `).join('')}
+    </div>`;
+  content.innerHTML = html;
+
+  document.getElementById('albumPickerFooter').style.display = '';
+}
+
+function selectAlbumPhoto(cardId, idx) {
+  const card = _albumPickerCards.find(c => String(c.id) === String(cardId));
+  if (!card) return;
+  _albumPickerSelectedPhoto = card.photos[idx];
+  document.getElementById('apMainPhoto').src = card.photos[idx].url;
+  card.photos.forEach((_, i) => {
+    const t = document.getElementById(`apThumb_${i}`);
+    if (t) t.style.borderColor = i === idx ? 'var(--yellow)' : 'var(--border)';
+  });
+}
+
+async function confirmAlbumCardPhoto() {
+  if (!_albumPickerSelectedPhoto) return;
+  closeAlbumPicker();
+
+  if (_albumPickerMode === 'fake') {
+    // Load image as base64 for fake detector
+    try {
+      const resp = await fetch(_albumPickerSelectedPhoto.url);
+      const blob = await resp.blob();
+      const reader = new FileReader();
+      reader.onload = e => {
+        const dataUrl = e.target.result;
+        _fakeImageBase64 = dataUrl.split(',')[1];
+        _fakeImageMime = blob.type || 'image/jpeg';
+        document.getElementById('fakeDropZone').style.display = 'none';
+        document.getElementById('fakePreviewImg').src = dataUrl;
+        document.getElementById('fakePreviewWrap').style.display = '';
+        document.getElementById('fakeCardForm').style.display = 'grid';
+        document.getElementById('fakeAnalyzeBtn').disabled = false;
+        document.getElementById('fakeBtnText').textContent = 'Analyzovat kartu pomocí AI';
+        document.getElementById('fakeBtnIcon').textContent = '🔍';
+        if (_albumPickerSelectedCard?.name) {
+          document.getElementById('fakeCardName').value = _albumPickerSelectedCard.name || '';
+          document.getElementById('fakeCardSet').value  = _albumPickerSelectedCard.set  || '';
+          document.getElementById('fakeCardNumber').value = _albumPickerSelectedCard.number || '';
+          document.getElementById('fakeCardHp').value   = _albumPickerSelectedCard.hp   || '';
+          document.getElementById('fakeCardRarity').value = _albumPickerSelectedCard.rarity || '';
+        }
+      };
+      reader.readAsDataURL(blob);
+    } catch(e) {
+      showToast('❌ Nepodařilo se načíst foto: ' + e.message, 'error');
+    }
+  }
+}
+
+function closeAlbumPicker() {
+  document.getElementById('albumPickerModal').classList.remove('open');
 }
 
 // ═══════════════════════════════════════════════════════════════

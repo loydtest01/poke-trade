@@ -2204,4 +2204,6 @@ async function sendTradeAlbumOffer() {
   if (res._err) { alert('Chyba: ' + res._err); return; }
   alert('✅ Nabídka výměny odeslána!');
   tradeAlbumQueuedIds.clear();
+  document.getElementById('tradeAlbumPicker').style.display = 'none';
+  tradeAlbumPickerOpen = false;
 }

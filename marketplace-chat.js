@@ -1,10 +1,3 @@
-  document.getElementById('tradeAlbumPicker').style.display = 'none';
-  tradeAlbumPickerOpen = false;
-}
-
-</script>
-
-<script>
 /* ── Chat Dropdown + Notifikace ── */
 (function(){
   'use strict';
@@ -60,39 +53,3 @@
   poll();setInterval(poll,POLL);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
-
-// ── Marketplace fake detektor ─────────────────────────────────
-async function mktRunFakeCheck() {
-  const btn      = document.getElementById('mktFakeBtn');
-  const resultEl = document.getElementById('mktFakeResult');
-  if (!btn || !resultEl) return;
-
-  // Najdi aktuálně zobrazený obrázek v galerii
-  const mainImg = document.getElementById('mainGalleryImg');
-  const imgSrc  = mainImg?.src || '';
-
-  if (!imgSrc) {
-    resultEl.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:6px 0">Karta nemá fotku pro analýzu.</div>';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.textContent = '\u23f3 Analyzuji\u2026';
-  resultEl.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px 0">\u23f3 AI analyzuje kartu\u2026</div>';
-
-  const l = currentListing;
-  const first = (l?.cards_data||[])[0]||{};
-  const cardInfo = {
-    name:   l?.card_name   || first.name   || '',
-    set:    l?.card_set    || first.set    || '',
-    number: l?.card_number || first.number || first.num || '',
-    hp:     first.hp       || l?.card_hp   || '',
-    rarity: first.rarity   || l?.card_rarity || '',
-  };
-
-  try {
-    if (typeof FakeDetector === 'undefined') throw new Error('fake-detector.js není načten');
-    const result = await FakeDetector.analyze(imgSrc, cardInfo);
-    FakeDetector.renderResult(result, resultEl);
-  } catch(e) {
-    resultEl.innerHTML = `<div style="font-size:12px;color:#f87171;padding:8px 0">\u274c ${e.message}</div>`;

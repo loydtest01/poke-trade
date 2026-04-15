@@ -1227,6 +1227,13 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
+      <span class="sb-label">🔗 Sdílení</span>
+      <button class="sb-btn" onclick="openSharePanel()" style="background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.2);color:var(--yellow)">
+        🔗 Sdílet album
+      </button>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section">
       <span class="sb-label">🔧 Správa dat</span>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
         🛠️ Opravit vše automaticky
@@ -5884,6 +5891,616 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
     </div>
   </div>
 </div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SDÍLET ALBUM — CSS
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+.share-panel-overlay {
+  display: none; position: fixed; inset: 0; z-index: 800;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(7px);
+  align-items: flex-start; justify-content: center;
+  padding: 24px 16px 40px; overflow-y: auto;
+}
+.share-panel-overlay.open { display: flex; }
+.share-panel-box {
+  background: rgba(12,10,20,0.98); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px; width: 100%; max-width: 700px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  overflow: hidden; margin: auto; position: relative;
+}
+.share-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.share-panel-title {
+  font-family: 'Unbounded', sans-serif; font-size: 15px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 8px;
+}
+.share-panel-close {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; color: rgba(240,236,228,0.5); cursor: pointer;
+  font-size: 16px; padding: 5px 10px; line-height: 1; transition: all .15s;
+}
+.share-panel-close:hover { background: rgba(255,255,255,0.12); color: #f0ece4; }
+.share-panel-body { padding: 24px; }
+.sp-section {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px; padding: 20px; margin-bottom: 16px;
+}
+.sp-section-title {
+  font-family: 'Unbounded', sans-serif; font-size: 12px; font-weight: 600;
+  color: #f5c842; letter-spacing: 0.05em; margin: 0 0 16px;
+  display: flex; align-items: center; gap: 7px;
+}
+.sp-form-label {
+  display: block; font-size: 11.5px; font-weight: 600;
+  color: rgba(240,236,228,0.5); letter-spacing: 0.05em;
+  text-transform: uppercase; margin-bottom: 8px;
+}
+.sp-search-wrap { position: relative; margin-bottom: 14px; }
+.sp-search-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 10px 14px; font-size: 13px;
+  color: #f0ece4; font-family: inherit; outline: none; transition: border .15s;
+}
+.sp-search-input::placeholder { color: rgba(240,236,228,0.3); }
+.sp-search-input:focus { border-color: rgba(245,200,66,0.35); }
+.sp-search-results {
+  position: absolute; top: calc(100% + 5px); left: 0; right: 0; z-index: 50;
+  background: #12101a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; overflow: hidden; display: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.sp-search-results.open { display: block; }
+.sp-result-item {
+  display: flex; align-items: center; gap: 11px; padding: 10px 14px;
+  cursor: pointer; transition: background .12s; border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.sp-result-item:last-child { border-bottom: none; }
+.sp-result-item:hover { background: rgba(255,255,255,0.06); }
+.sp-sr-avatar {
+  width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(245,200,66,0.2); color: #f5c842;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; flex-shrink: 0; overflow: hidden;
+}
+.sp-sr-name { font-size: 13px; font-weight: 500; color: #f0ece4; }
+.sp-sr-email { font-size: 11px; color: rgba(240,236,228,0.4); }
+.sp-search-hint { padding: 10px 14px; font-size: 12px; color: rgba(240,236,228,0.35); text-align: center; }
+.sp-selected-user {
+  display: none; align-items: center; gap: 11px;
+  background: rgba(245,200,66,0.06); border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 9px; padding: 10px 14px; margin-bottom: 14px;
+}
+.sp-selected-user.visible { display: flex; }
+.sp-selected-user-name { flex: 1; font-size: 13px; font-weight: 500; color: #f5c842; }
+.sp-clear-user { background: none; border: none; color: rgba(240,236,228,0.4); cursor: pointer; font-size: 17px; line-height: 1; }
+.sp-clear-user:hover { color: #f0ece4; }
+.sp-album-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr)); gap: 9px; margin-bottom: 14px; }
+.sp-album-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 12px 10px; cursor: pointer; transition: all .15s; text-align: center;
+}
+.sp-album-card:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.14); }
+.sp-album-card.selected { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.35); }
+.sp-album-card-icon { font-size: 20px; margin-bottom: 5px; }
+.sp-album-card-name { font-size: 12px; font-weight: 500; color: #f0ece4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+.sp-album-card-count { font-size: 11px; color: rgba(240,236,228,0.4); }
+.sp-expiry-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 16px; }
+.sp-exp-btn {
+  padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(240,236,228,0.65); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.sp-exp-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; }
+.sp-exp-btn.active { background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3); color: #f5c842; }
+.sp-btn-send {
+  width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: 'Unbounded', sans-serif;
+  transition: all .15s; letter-spacing: 0.02em;
+}
+.sp-btn-send:hover:not(:disabled) { background: rgba(245,200,66,0.25); }
+.sp-btn-send:disabled { opacity: 0.35; cursor: not-allowed; }
+.sp-invite-card {
+  background: rgba(245,200,66,0.05); border: 1px solid rgba(245,200,66,0.16);
+  border-radius: 11px; padding: 14px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.sp-invite-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(245,200,66,0.2); color: #f5c842;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; flex-shrink: 0;
+}
+.sp-invite-info { flex: 1; min-width: 140px; }
+.sp-invite-info strong { color: #f0ece4; font-size: 13px; display: block; margin-bottom: 2px; }
+.sp-invite-info small { color: rgba(240,236,228,0.5); font-size: 11px; }
+.sp-invite-expiry { font-size: 10.5px; color: rgba(240,236,228,0.3); margin-top: 2px; display: block; }
+.sp-invite-btns { display: flex; gap: 7px; flex-shrink: 0; }
+.sp-btn-accept {
+  padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.sp-btn-accept:hover { background: rgba(245,200,66,0.25); }
+.sp-btn-decline {
+  padding: 7px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+  background: transparent; border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,236,228,0.5); cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.sp-btn-decline:hover { border-color: rgba(255,80,80,0.3); color: #ff6060; }
+.sp-sent-item {
+  display: flex; align-items: center; gap: 11px; padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sp-sent-item:last-child { border-bottom: none; }
+.sp-sent-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,255,255,0.08); color: rgba(240,236,228,0.6);
+  display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800;
+}
+.sp-sent-info { flex: 1; }
+.sp-sent-info strong { font-size: 12px; color: #f0ece4; display: block; }
+.sp-sent-info small { font-size: 11px; color: rgba(240,236,228,0.4); }
+.sp-status-badge { padding: 3px 9px; border-radius: 20px; font-size: 10.5px; font-weight: 700; flex-shrink: 0; }
+.sp-status-pending  { background: rgba(245,200,66,0.12); color: #f5c842; }
+.sp-status-accepted { background: rgba(40,200,80,0.12);  color: #4fda7a; }
+.sp-status-declined { background: rgba(255,60,60,0.12);  color: #ff6060; }
+.sp-status-expired  { background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.35); }
+.sp-empty-state { text-align: center; padding: 22px 0; color: rgba(240,236,228,0.3); font-size: 13px; }
+.sp-empty-icon { font-size: 28px; margin-bottom: 6px; opacity: 0.4; }
+/* Username modal */
+.sp-username-modal {
+  display: none; position: absolute; inset: 0; z-index: 10;
+  background: rgba(0,0,0,0.82); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center; border-radius: 20px;
+}
+.sp-username-modal.open { display: flex; }
+.sp-username-box {
+  background: #12101a; border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 16px; padding: 28px 24px; max-width: 360px; width: 90%; text-align: center;
+}
+.sp-username-box h2 {
+  font-family: 'Unbounded', sans-serif; font-size: 16px; font-weight: 800;
+  color: #f0ece4; margin: 0 0 8px;
+}
+.sp-username-box p { color: rgba(240,236,228,0.5); font-size: 13px; margin: 0 0 18px; }
+.sp-username-input {
+  width: 100%; box-sizing: border-box;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 11px 14px; font-size: 14px;
+  color: #f0ece4; font-family: inherit; outline: none; margin-bottom: 10px; text-align: center;
+}
+.sp-username-input:focus { border-color: rgba(245,200,66,0.4); }
+.sp-username-error { font-size: 11.5px; color: #ff6060; min-height: 16px; margin-bottom: 10px; }
+.sp-username-save {
+  width: 100%; padding: 11px; border-radius: 9px; font-size: 13px; font-weight: 700;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: #f5c842; cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.sp-username-save:hover { background: rgba(245,200,66,0.25); }
+</style>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SDÍLET ALBUM — HTML
+     ══════════════════════════════════════════════════════════════ -->
+<div class="share-panel-overlay" id="sharePanelOverlay" onclick="if(event.target===this)closeSharePanel()">
+  <div class="share-panel-box">
+
+    <!-- Username modal -->
+    <div class="sp-username-modal" id="spUsernameModal">
+      <div class="sp-username-box">
+        <h2>👤 Nastav přezdívku</h2>
+        <p>Pro sdílení alb potřebuješ přezdívku. Ostatní tě uvidí pod tímto jménem.</p>
+        <input class="sp-username-input" id="spUsernameInput" placeholder="Tvoje přezdívka…" maxlength="30"
+               onkeydown="if(event.key==='Enter')spSaveUsername()">
+        <div class="sp-username-error" id="spUsernameError"></div>
+        <button class="sp-username-save" onclick="spSaveUsername()">Uložit přezdívku</button>
+      </div>
+    </div>
+
+    <div class="share-panel-head">
+      <div class="share-panel-title">🔗 Sdílet album</div>
+      <button class="share-panel-close" onclick="closeSharePanel()">✕</button>
+    </div>
+
+    <div class="share-panel-body">
+
+      <!-- Příchozí pozvánky -->
+      <div class="sp-section" id="spIncomingSection">
+        <div class="sp-section-title">📬 Příchozí pozvánky</div>
+        <div id="spIncomingList">
+          <div class="sp-empty-state"><div class="sp-empty-icon">📭</div>Žádné čekající pozvánky</div>
+        </div>
+      </div>
+
+      <!-- Odeslat sdílení -->
+      <div class="sp-section" id="spSendSection">
+        <div class="sp-section-title">📤 Sdílet moje album</div>
+
+        <label class="sp-form-label">1. Najdi uživatele (přezdívka nebo email)</label>
+        <div class="sp-search-wrap">
+          <input class="sp-search-input" id="spUserSearch" type="text"
+                 placeholder="Hledat přezdívku nebo email…" autocomplete="off" oninput="spOnSearchInput()">
+          <div class="sp-search-results" id="spSearchResults">
+            <div class="sp-search-hint">Zadej alespoň 2 znaky…</div>
+          </div>
+        </div>
+        <div class="sp-selected-user" id="spSelectedUserRow">
+          <div class="sp-sr-avatar" id="spSelAvatar"></div>
+          <div class="sp-selected-user-name" id="spSelName"></div>
+          <button class="sp-clear-user" onclick="spClearSelectedUser()" title="Zrušit výběr">×</button>
+        </div>
+
+        <label class="sp-form-label">2. Vyber album ke sdílení</label>
+        <div class="sp-album-grid" id="spAlbumGrid">
+          <div class="sp-empty-state" style="grid-column:1/-1;padding:12px 0">Načítám alba…</div>
+        </div>
+
+        <label class="sp-form-label">3. Jak dlouho bude sdílení platné?</label>
+        <div class="sp-expiry-row">
+          <button class="sp-exp-btn" data-hours="6"   onclick="spSetExpiry(this)">6 hodin</button>
+          <button class="sp-exp-btn active" data-hours="24"  onclick="spSetExpiry(this)">24 hodin</button>
+          <button class="sp-exp-btn" data-hours="72"  onclick="spSetExpiry(this)">3 dny</button>
+          <button class="sp-exp-btn" data-hours="168" onclick="spSetExpiry(this)">7 dní</button>
+        </div>
+
+        <button class="sp-btn-send" id="spSendBtn" onclick="spSendShare()" disabled>
+          Odeslat sdílení →
+        </button>
+      </div>
+
+      <!-- Odeslané -->
+      <div class="sp-section" id="spSentSection">
+        <div class="sp-section-title">📮 Odeslaná sdílení</div>
+        <div id="spSentList">
+          <div class="sp-empty-state"><div class="sp-empty-icon">📮</div>Zatím jsi nikomu nic neposlal</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SDÍLET ALBUM — JS
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+let SP_ME             = null;
+let spSelectedUser    = null;
+let spSelectedAlbumId = null;
+let spSelectedAlbumData = null;
+let spExpiryHours     = 24;
+let spSearchTimeout   = null;
+let spMyShareAlbums   = [];
+
+/* helpers */
+async function spSbGet(path) {
+  const tk = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' }
+    });
+    return await r.json();
+  } catch { return null; }
+}
+async function spSbPost(path, body) {
+  const tk = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+      body: JSON.stringify(body)
+    });
+    return await r.json();
+  } catch { return null; }
+}
+function spEsc(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function spToast(msg, type) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'spToastEl'; el.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;background:rgba(20,16,28,.95);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:13px 18px;font-size:13px;color:#f0ece4;transition:all .3s;transform:translateY(80px);opacity:0'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.style.borderColor = type === 'ok' ? 'rgba(74,222,128,0.3)' : type === 'err' ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.12)';
+  el.style.transform = 'translateY(0)'; el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.transform = 'translateY(80px)'; el.style.opacity = '0'; }, 3200);
+}
+function spFmtExpiry(iso) {
+  const diff = new Date(iso) - Date.now();
+  if (diff < 0) return 'expirováno';
+  const h = Math.floor(diff / 3600000);
+  return h < 24 ? `za ${h} hod` : `za ${Math.floor(h/24)} dní`;
+}
+function spFmtDate(iso) {
+  return new Date(iso).toLocaleDateString('cs-CZ', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+
+/* open / close */
+async function openSharePanel() {
+  document.getElementById('sharePanelOverlay').classList.add('open');
+  await spInit();
+}
+function closeSharePanel() {
+  document.getElementById('sharePanelOverlay').classList.remove('open');
+}
+
+/* init */
+async function spInit() {
+  const tk  = localStorage.getItem('sb_token');
+  const sbU = (()=>{ try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; } })();
+  const uid = localStorage.getItem('sb_user_id') || (sbU && sbU.id) || null;
+
+  if (!tk || !uid) {
+    document.getElementById('spIncomingSection').innerHTML =
+      '<div class="sp-section-title">🔒 Přihlášení</div><p style="color:rgba(240,236,228,.5);font-size:13px">Pro sdílení se musíš <a href="login.html" style="color:#f5c842">přihlásit →</a></p>';
+    document.getElementById('spSendSection').style.display = 'none';
+    document.getElementById('spSentSection').style.display = 'none';
+    return;
+  }
+
+  SP_ME = { id: uid };
+  const profile = await spSbGet(`rest/v1/profiles?id=eq.${uid}&select=id,username`);
+  if (profile && profile[0]) SP_ME.username = profile[0].username;
+
+  if (!SP_ME.username) {
+    document.getElementById('spUsernameModal').classList.add('open');
+    return;
+  }
+
+  await Promise.all([spLoadMyAlbums(), spLoadIncoming(), spLoadSent()]);
+}
+
+/* username */
+async function spSaveUsername() {
+  const val = document.getElementById('spUsernameInput').value.trim();
+  const err = document.getElementById('spUsernameError');
+  err.textContent = '';
+  if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(val)) {
+    err.textContent = 'Přezdívka musí mít 3–30 znaků (písmena, číslice, _, .)';
+    return;
+  }
+  const check = await spSbGet(`rest/v1/profiles?username=eq.${encodeURIComponent(val)}&select=id`);
+  if (check && check.length > 0) { err.textContent = 'Tato přezdívka je již obsazena.'; return; }
+  const tk = localStorage.getItem('sb_token');
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${SP_ME.id}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: val })
+  });
+  if (r.ok) {
+    SP_ME.username = val;
+    document.getElementById('spUsernameModal').classList.remove('open');
+    await Promise.all([spLoadMyAlbums(), spLoadIncoming(), spLoadSent()]);
+    spToast('Přezdívka uložena!', 'ok');
+  } else {
+    err.textContent = 'Chyba při ukládání, zkus to znovu.';
+  }
+}
+
+/* albums */
+async function spLoadMyAlbums() {
+  const data = await spSbGet(`rest/v1/user_albums?user_id=eq.${SP_ME.id}&select=id,name,icon,color,card_ids&order=created_at.desc`);
+  spMyShareAlbums = data || [];
+  const grid = document.getElementById('spAlbumGrid');
+  if (!spMyShareAlbums.length) {
+    grid.innerHTML = '<div class="sp-empty-state" style="grid-column:1/-1">Nemáš žádná alba. Vytvoř si album v postranním panelu.</div>';
+    return;
+  }
+  grid.innerHTML = spMyShareAlbums.map(a => `
+    <div class="sp-album-card" id="spAp-${a.id}" onclick="spSelectAlbum('${a.id}')">
+      <div class="sp-album-card-icon">${a.icon || '📁'}</div>
+      <div class="sp-album-card-name">${spEsc(a.name)}</div>
+      <div class="sp-album-card-count">${(a.card_ids||[]).length} karet</div>
+    </div>`).join('');
+}
+
+async function spSelectAlbum(albumId) {
+  document.querySelectorAll('.sp-album-card').forEach(el => el.classList.remove('selected'));
+  document.getElementById('spAp-' + albumId)?.classList.add('selected');
+  const album = spMyShareAlbums.find(a => a.id === albumId);
+  if (!album) return;
+  spSelectedAlbumId = albumId;
+  if (album.card_ids && album.card_ids.length > 0) {
+    const ids = album.card_ids.map(id => `"${id}"`).join(',');
+    const cards = await spSbGet(`rest/v1/user_cards?user_id=eq.${SP_ME.id}&local_id=in.(${ids})&select=local_id,card_data`);
+    spSelectedAlbumData = {
+      name: album.name, card_ids: album.card_ids,
+      cards: (cards||[]).map(c => ({ ...c.card_data, _localId: c.local_id }))
+    };
+  } else {
+    spSelectedAlbumData = { name: album.name, card_ids: [], cards: [] };
+  }
+  spCheckSendBtn();
+}
+
+/* user search */
+function spOnSearchInput() {
+  clearTimeout(spSearchTimeout);
+  const q = document.getElementById('spUserSearch').value.trim();
+  const res = document.getElementById('spSearchResults');
+  if (q.length < 2) {
+    res.innerHTML = '<div class="sp-search-hint">Zadej alespoň 2 znaky…</div>';
+    res.classList.remove('open');
+    return;
+  }
+  spSearchTimeout = setTimeout(() => spSearchUsers(q), 320);
+}
+
+async function spSearchUsers(q) {
+  const res = document.getElementById('spSearchResults');
+  res.innerHTML = '<div class="sp-search-hint">Hledám…</div>';
+  res.classList.add('open');
+  const enc = encodeURIComponent(q);
+  let data = await spSbGet(`rest/v1/user_search?username=ilike.*${enc}*&id=neq.${SP_ME.id}&select=id,username,avatar_url,email_hint&limit=8`);
+  if (!data || data.code === '42P01' || (data.message && data.message.includes('does not exist'))) {
+    data = await spSbGet(`rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${SP_ME.id}&select=id,username,email&limit=8`);
+    if (Array.isArray(data)) data = data.map(u => ({ ...u, email_hint: u.email ? u.email.slice(0,2)+'***@'+u.email.split('@')[1] : null, email: undefined }));
+  }
+  if (!Array.isArray(data) || !data.length) {
+    res.innerHTML = '<div class="sp-search-hint">Žádný uživatel nenalezen.</div>';
+    return;
+  }
+  res.innerHTML = data.map(u => {
+    const init = (u.username||'?')[0].toUpperCase();
+    const av = u.avatar_url ? `<img src="${spEsc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.parentElement.textContent='${init}'">` : init;
+    return `<div class="sp-result-item" onclick="spSelectUser(${JSON.stringify(JSON.stringify({id:u.id,username:u.username,avatar_url:u.avatar_url||null}))})">
+      <div class="sp-sr-avatar">${av}</div>
+      <div><div class="sp-sr-name">@${spEsc(u.username||'—')}</div>${u.email_hint?`<div class="sp-sr-email">${spEsc(u.email_hint)}</div>`:''}</div>
+    </div>`;
+  }).join('');
+}
+
+function spSelectUser(jsonStr) {
+  const u = JSON.parse(jsonStr);
+  spSelectedUser = u;
+  document.getElementById('spUserSearch').value = '';
+  document.getElementById('spSearchResults').classList.remove('open');
+  const av = document.getElementById('spSelAvatar');
+  av.innerHTML = u.avatar_url ? `<img src="${spEsc(u.avatar_url)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%" onerror="this.textContent='${(u.username||'?')[0].toUpperCase()}'">` : (u.username||'?')[0].toUpperCase();
+  document.getElementById('spSelName').textContent = `@${u.username}`;
+  document.getElementById('spSelectedUserRow').classList.add('visible');
+  spCheckSendBtn();
+}
+
+function spClearSelectedUser() {
+  spSelectedUser = null;
+  document.getElementById('spSelectedUserRow').classList.remove('visible');
+  document.getElementById('spUserSearch').value = '';
+  spCheckSendBtn();
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.sp-search-wrap')) document.getElementById('spSearchResults')?.classList.remove('open');
+});
+
+/* expiry */
+function spSetExpiry(btn) {
+  document.querySelectorAll('.sp-exp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  spExpiryHours = parseInt(btn.dataset.hours);
+}
+
+/* send */
+function spCheckSendBtn() {
+  document.getElementById('spSendBtn').disabled = !(spSelectedUser && spSelectedAlbumId && spSelectedAlbumData);
+}
+
+async function spSendShare() {
+  if (!spSelectedUser || !spSelectedAlbumId || !spSelectedAlbumData) return;
+  const btn = document.getElementById('spSendBtn');
+  btn.disabled = true; btn.textContent = 'Odesílám…';
+
+  const existing = await spSbGet(`rest/v1/album_shares?sender_id=eq.${SP_ME.id}&receiver_id=eq.${spSelectedUser.id}&album_id=eq.${spSelectedAlbumId}&status=eq.pending&select=id`);
+  if (existing && existing.length > 0) {
+    spToast('Toto album jsi tomuto uživateli již sdílel a čeká na přijetí.', 'err');
+    btn.disabled = false; btn.textContent = 'Odeslat sdílení →'; return;
+  }
+
+  const expiresAt = new Date(Date.now() + spExpiryHours * 3600000).toISOString();
+  const result = await spSbPost('rest/v1/album_shares', {
+    sender_id: SP_ME.id, receiver_id: spSelectedUser.id,
+    sender_username: SP_ME.username, album_id: spSelectedAlbumId,
+    album_name: spSelectedAlbumData.name, cards_snapshot: spSelectedAlbumData.cards,
+    status: 'pending', expires_at: expiresAt
+  });
+
+  if (result && !result.message) {
+    const shareId = Array.isArray(result) ? result[0]?.id : result?.id;
+    await spSbPost('rest/v1/notifications', {
+      user_id: spSelectedUser.id, type: 'album_share_invite',
+      title: `@${SP_ME.username} s tebou sdílí album`,
+      body: `Album: ${spSelectedAlbumData.name} — ${spSelectedAlbumData.cards.length} karet. Platí ${spExpiryHours < 24 ? spExpiryHours + ' hodin' : spExpiryHours/24 + ' dní'}.`,
+      link: 'compare.html?tab=share',
+      metadata: { share_id: shareId, sender_username: SP_ME.username, album_name: spSelectedAlbumData.name }
+    });
+    spToast('✅ Sdílení odesláno!', 'ok');
+    spClearSelectedUser();
+    spSelectedAlbumId = null; spSelectedAlbumData = null;
+    document.querySelectorAll('.sp-album-card').forEach(el => el.classList.remove('selected'));
+    spCheckSendBtn();
+    btn.textContent = 'Odeslat sdílení →';
+    await spLoadSent();
+  } else {
+    spToast('Chyba při odesílání, zkus to znovu.', 'err');
+    btn.disabled = false; btn.textContent = 'Odeslat sdílení →';
+  }
+}
+
+/* incoming */
+async function spLoadIncoming() {
+  const data = await spSbGet(`rest/v1/album_shares?receiver_id=eq.${SP_ME.id}&status=eq.pending&select=id,sender_username,album_name,cards_snapshot,expires_at,created_at&order=created_at.desc`);
+  const list = document.getElementById('spIncomingList');
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="sp-empty-state"><div class="sp-empty-icon">📭</div>Žádné čekající pozvánky</div>';
+    return;
+  }
+  list.innerHTML = data.map(s => `
+    <div class="sp-invite-card" id="spInvite-${s.id}">
+      <div class="sp-invite-avatar">${s.sender_username[0].toUpperCase()}</div>
+      <div class="sp-invite-info">
+        <strong>@${spEsc(s.sender_username)} sdílí album</strong>
+        <small>📁 ${spEsc(s.album_name)} — ${(s.cards_snapshot||[]).length} karet</small>
+        <span class="sp-invite-expiry">⏱ Vyprší ${spFmtExpiry(s.expires_at)}</span>
+      </div>
+      <div class="sp-invite-btns">
+        <button class="sp-btn-accept" onclick="spAcceptShare('${s.id}')">Přijmout &amp; Porovnat</button>
+        <button class="sp-btn-decline" onclick="spDeclineShare('${s.id}')">Odmítnout</button>
+      </div>
+    </div>`).join('');
+}
+
+async function spAcceptShare(shareId) {
+  const tk = localStorage.getItem('sb_token');
+  await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'accepted', accepted_at: new Date().toISOString() })
+  });
+  location.href = `compare.html?share_id=${shareId}`;
+}
+
+async function spDeclineShare(shareId) {
+  const tk = localStorage.getItem('sb_token');
+  await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${tk}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: 'declined' })
+  });
+  document.getElementById(`spInvite-${shareId}`)?.remove();
+  const list = document.getElementById('spIncomingList');
+  if (!list.querySelector('.sp-invite-card'))
+    list.innerHTML = '<div class="sp-empty-state"><div class="sp-empty-icon">📭</div>Žádné čekající pozvánky</div>';
+  spToast('Pozvánka odmítnuta.');
+}
+
+/* sent */
+async function spLoadSent() {
+  const data = await spSbGet(`rest/v1/album_shares?sender_id=eq.${SP_ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at&order=created_at.desc&limit=20`);
+  const list = document.getElementById('spSentList');
+  if (!data || !data.length) {
+    list.innerHTML = '<div class="sp-empty-state"><div class="sp-empty-icon">📮</div>Zatím jsi nikomu nic neposlal</div>';
+    return;
+  }
+  const ids = [...new Set(data.map(s => s.receiver_id))];
+  const profiles = await spSbGet(`rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username`);
+  const pm = Object.fromEntries((profiles||[]).map(p => [p.id, p.username]));
+  const sl = { pending:'Čeká', accepted:'Přijato', declined:'Odmítnuto', expired:'Expirováno' };
+  list.innerHTML = data.map(s => `
+    <div class="sp-sent-item">
+      <div class="sp-sent-avatar">${(pm[s.receiver_id]||'?')[0].toUpperCase()}</div>
+      <div class="sp-sent-info">
+        <strong>@${spEsc(pm[s.receiver_id]||s.receiver_id.slice(0,8))} — ${spEsc(s.album_name)}</strong>
+        <small>${spFmtDate(s.created_at)}${s.status==='pending' ? ' · Vyprší ' + spFmtExpiry(s.expires_at) : ''}</small>
+      </div>
+      <span class="sp-status-badge sp-status-${s.status}">${sl[s.status]||s.status}</span>
+    </div>`).join('');
+}
+</script>
 
 </body>
 </html>
