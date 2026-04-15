@@ -838,14 +838,17 @@ async function handleAiPhoto(file){
     const fill = document.getElementById('aiScanFill');
     const stat = document.getElementById('aiScanStatus');
     prog.style.display='';
-    fill.style.width='15%';
+    fill.style.width='10%';
     stat.textContent='Analyzuji obraz...';
 
     try {
-      // Step 1: Claude AI vision
-      fill.style.width='35%';
-      stat.textContent='AI rozpoznává kartu...';
-      const aiResult = await callClaudeVision(aiPhotoBase64, aiPhotoMime);
+      // Step 1: Claude AI vision – card identification + condition in parallel
+      fill.style.width='25%';
+      stat.textContent='AI rozpoznává kartu a hodnotí stav...';
+      const [aiResult, condResult] = await Promise.all([
+        callClaudeVision(aiPhotoBase64, aiPhotoMime),
+        callClaudeCondition(aiPhotoBase64, aiPhotoMime),
+      ]);
 
       fill.style.width='60%';
       stat.textContent='Hledám v databázi pokemontcg.io...';
@@ -856,6 +859,18 @@ async function handleAiPhoto(file){
       fill.style.width='90%';
       stat.textContent='Zpracovávám výsledky...';
 
+      // Apply AI condition grading to the dropdown
+      if (condResult?.grade) {
+        const condSel = document.getElementById('addCond');
+        if (condSel) {
+          for (let opt of condSel.options) {
+            if (opt.value === condResult.grade) { opt.selected = true; break; }
+          }
+        }
+        // Store condition result for display
+        window._lastCondResult = condResult;
+      }
+
       await new Promise(r=>setTimeout(r,300));
       fill.style.width='100%';
       prog.style.display='none';
@@ -863,14 +878,14 @@ async function handleAiPhoto(file){
 
       if(!candidates.length){
         // Nothing found – show manual fallback
-        showAiFailure(zone, imgSrc, aiResult);
+        showAiFailure(zone, imgSrc, aiResult, condResult);
       } else if(candidates.length === 1 || (aiResult.confidence === 'high' && candidates.length <= 2)){
         // Auto-select best match
         applyAiCard(candidates[0], imgSrc, aiResult.confidence || 'med');
-        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med');
+        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med', condResult);
       } else {
         // Multiple candidates – show picker
-        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med');
+        showAiSuccess(zone, imgSrc, candidates[0], aiResult.confidence || 'med', condResult);
         openAiPick(candidates, aiResult, imgSrc);
       }
     } catch(err){
@@ -880,6 +895,61 @@ async function handleAiPhoto(file){
     }
   };
   reader.readAsDataURL(file);
+}
+
+/** Call Claude to assess physical condition of the card in the photo */
+async function callClaudeCondition(base64, mimeType) {
+  const prompt = `You are a Pokémon TCG card grading expert. Carefully inspect this card photo and assess its physical condition.
+
+Look for:
+- Surface scratches or scuffs on the front
+- Whitening on edges and corners
+- Centering (how well-centered the artwork is)
+- Creases or bends
+- Print defects or damage
+- Overall wear level
+
+Respond ONLY with a JSON object, no explanation:
+{
+  "grade": "NM",
+  "label": "NM – Nová / Mint",
+  "confidence": "high|med|low",
+  "issues": ["list of specific issues found, empty if none"],
+  "summary": "Stručný popis stavu v češtině (1-2 věty)"
+}
+
+Grade scale:
+- NM (Near Mint): No visible wear, possibly only very light handling marks
+- LP (Lightly Played): Minor edge/corner wear, light surface scratches, good centering
+- MP (Moderately Played): Visible edge whitening, surface scratches, possible slight crease
+- HP (Heavily Played): Heavy wear, significant scratches, creases, poor centering  
+- D (Damaged): Tears, deep creases, water damage, unplayable condition
+
+If photo quality is too poor to assess, return {"grade":"NM","confidence":"low","issues":[],"summary":"Foto není dostatečně kvalitní pro hodnocení stavu."}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    const raw = data.content?.map(b=>b.text||'').join('') || '{}';
+    try {
+      const clean = raw.replace(/```json|```/g,'').trim();
+      return JSON.parse(clean);
+    } catch { return null; }
+  } catch { return null; }
 }
 
 async function callClaudeVision(base64, mimeType){
@@ -979,23 +1049,48 @@ function applyAiCard(card, photoSrc, confidence){
   document.getElementById('addCardPreview').style.display='flex';
 }
 
-function showAiSuccess(zone, photoSrc, card, confidence){
+function showAiSuccess(zone, photoSrc, card, confidence, condResult){
   const confClass = confidence==='high'?'high':confidence==='med'?'med':'low';
   const confLabel = confidence==='high'?'✓ Vysoká jistota':confidence==='med'?'~ Střední jistota':'? Nízká jistota';
+
+  // Build condition badge
+  let condHtml = '';
+  if (condResult?.grade) {
+    const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+    const col = condColors[condResult.grade] || '#9ca3af';
+    const condConf = condResult.confidence === 'high' ? '' : condResult.confidence === 'med' ? ' ~' : ' ?';
+    condHtml = `
+      <div style="margin-top:5px;padding:5px 8px;background:rgba(255,255,255,0.05);border-radius:7px;border-left:3px solid ${col}">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:11px;font-weight:700;color:${col}">🔍 AI stav: ${esc(condResult.grade)}${condConf}</span>
+          <span style="font-size:10px;color:rgba(255,255,255,0.45)">${esc(condResult.label||'')}</span>
+        </div>
+        ${condResult.summary ? `<div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:2px">${esc(condResult.summary)}</div>` : ''}
+        ${condResult.issues?.length ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px">⚠ ${condResult.issues.map(esc).join(' · ')}</div>` : ''}
+      </div>`;
+  }
+
   zone.innerHTML = `
     <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div class="ai-preview-wrap" onclick="event.stopPropagation()">
       <img class="ai-preview-img" src="${esc(card.images?.small||photoSrc)}" onerror="this.src='${esc(photoSrc)}'">
-      <div class="ai-preview-info">
+      <div class="ai-preview-info" style="flex:1">
         <div class="ai-preview-name">${esc(card.name)}</div>
         <div class="ai-preview-meta">${esc(card.set?.name||'')}${card.number?' · #'+esc(card.number):''}${card.rarity?' · '+esc(card.rarity):''}</div>
         <div class="ai-preview-conf ${confClass}">${confLabel}</div>
+        ${condHtml}
       </div>
       <button class="ai-preview-change" onclick="document.getElementById('aiPhotoInput').click()">📸 Změnit</button>
     </div>`;
 }
 
-function showAiFailure(zone, photoSrc, aiResult){
+function showAiFailure(zone, photoSrc, aiResult, condResult){
+  let condHtml = '';
+  if (condResult?.grade) {
+    const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
+    const col = condColors[condResult.grade] || '#9ca3af';
+    condHtml = `<div style="margin-top:5px;padding:4px 8px;background:rgba(255,255,255,0.05);border-radius:7px;border-left:3px solid ${col};font-size:10px;color:${col}">🔍 AI stav: ${esc(condResult.grade)} — ${esc(condResult.summary||'')}</div>`;
+  }
   zone.innerHTML = `
     <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div class="ai-preview-wrap" onclick="event.stopPropagation()">
@@ -1003,6 +1098,7 @@ function showAiFailure(zone, photoSrc, aiResult){
       <div class="ai-preview-info">
         <div class="ai-preview-name" style="color:var(--text3)">Karta nenalezena v databázi</div>
         <div class="ai-preview-meta">${aiResult.name ? 'AI odhaduje: '+esc(aiResult.name) : 'Zkus lepší foto nebo ruční hledání'}</div>
+        ${condHtml}
         <div style="display:flex;gap:6px;margin-top:6px">
           <button onclick="openCardSearch('listing')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(245,200,66,0.3);background:transparent;color:var(--yellow);cursor:pointer">🔍 Hledat ručně</button>
           <button onclick="document.getElementById('aiPhotoInput').click()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">📸 Znovu</button>
@@ -1067,7 +1163,7 @@ function pickAiCandidate(cardId){
   applyAiCard(c, aiPickPhoto, 'high');
   // Also update drop zone
   const zone = document.getElementById('aiDropZone');
-  if(zone) showAiSuccess(zone, aiPickPhoto, c, 'high');
+  if(zone) showAiSuccess(zone, aiPickPhoto, c, 'high', window._lastCondResult || null);
   closeAiPick();
 }
 
@@ -1532,14 +1628,25 @@ function openListingFromQueue(pendingId) {
   resetAiZone();
   setTimeout(generateInlineQr, 300);
 
-  // Pre-fill card data
+  // Pre-fill basic card data immediately
   addCardData = card;
-  document.getElementById('addCardImg').src = _getPendingImg(card);
-  document.getElementById('addCardName').textContent = card.name || '';
+  const imgEl   = document.getElementById('addCardImg');
+  const nameEl  = document.getElementById('addCardName');
+  const metaEl  = document.getElementById('addCardMeta');
+  const preview = document.getElementById('addCardPreview');
+
+  const existingImg = _getPendingImg(card);
+  imgEl.src = existingImg || '';
+  imgEl.onerror = () => { imgEl.style.display = 'none'; };
+  imgEl.onload  = () => { imgEl.style.display = ''; };
+  if (!existingImg) imgEl.style.display = 'none';
+
+  nameEl.textContent = card.name || '';
   const setName = card.set?.name || (typeof card.set === 'string' ? card.set : '') || '';
   const num = card.number ? ' #' + card.number : '';
-  document.getElementById('addCardMeta').textContent = setName + num;
-  document.getElementById('addCardPreview').style.display = 'flex';
+  metaEl.textContent = setName + num || 'Načítám data…';
+  preview.style.display = 'flex';
+
   if (card.id && !card.id.startsWith('search_')) {
     document.getElementById('addCardUrl').value = card.id;
   }
@@ -1557,10 +1664,89 @@ function openListingFromQueue(pendingId) {
   if (card.album_price && priceInfo && priceVal) {
     priceVal.textContent = card.album_price;
     priceInfo.style.display = 'flex';
-    // Suggest the price in the input but user can change it
     document.getElementById('addPrice').value = card.album_price;
   } else if (priceInfo) {
     priceInfo.style.display = 'none';
+  }
+
+  // Auto-fetch full TCG data if image or complete info is missing
+  const needsFetch = !existingImg || !card.hp || !card.types?.length || !card.rarity;
+  if (needsFetch && card.name) {
+    _autoFetchFullCardData(card);
+  }
+}
+
+/** Fetch complete card data from pokemontcg.io and update the modal */
+async function _autoFetchFullCardData(pendingCard) {
+  const nameEl = document.getElementById('addCardName');
+  const metaEl = document.getElementById('addCardMeta');
+  const imgEl  = document.getElementById('addCardImg');
+
+  try {
+    // Build the best query we can from available fields
+    const name   = pendingCard.name || '';
+    const number = pendingCard.number || '';
+    const setName = pendingCard.set?.name || (typeof pendingCard.set === 'string' ? pendingCard.set : '') || '';
+    const tcgApiId = pendingCard.tcgId || pendingCard.apiId || pendingCard.tcg_id || '';
+
+    let card = null;
+
+    // 1. Try exact TCG API id first (e.g. "sv3pt5-197")
+    if (tcgApiId && !tcgApiId.includes('-') === false && !/^[0-9a-f]{8}-/.test(tcgApiId)) {
+      try {
+        const r = await fetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(tcgApiId)}`);
+        const j = await r.json();
+        if (j?.data?.name) card = j.data;
+      } catch {}
+    }
+
+    // 2. Try name + number + set
+    if (!card && name) {
+      const queries = [];
+      if (number && setName) queries.push(`name:"${name}" number:"${number}" set.name:"${setName}"`);
+      if (number)            queries.push(`name:"${name}" number:"${number}"`);
+      if (setName)           queries.push(`name:"${name}" set.name:"${setName}"`);
+      queries.push(`name:"${name}"`);
+
+      for (const q of queries) {
+        try {
+          const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1&orderBy=-set.releaseDate`);
+          const j = await r.json();
+          if (j?.data?.[0]?.name) { card = j.data[0]; break; }
+        } catch {}
+      }
+    }
+
+    if (!card) return;
+
+    // Update addCardData with full TCG data, keep pending-specific fields
+    addCardData = { ...pendingCard, ...card, _pendingId: pendingCard._pendingId, _userPhoto: pendingCard._userPhoto };
+
+    // Update preview image
+    const img = card.images?.large || card.images?.small || '';
+    if (img) {
+      imgEl.style.display = '';
+      imgEl.src = img;
+    }
+
+    // Update name + meta with full info
+    if (nameEl) nameEl.textContent = card.name || pendingCard.name || '';
+    if (metaEl) {
+      const parts = [
+        card.set?.name || '',
+        card.number ? '#' + card.number : '',
+        card.rarity || '',
+        card.hp ? card.hp + ' HP' : '',
+      ].filter(Boolean);
+      metaEl.textContent = parts.join(' · ');
+    }
+
+    // Also update addCardUrl for reference
+    const urlEl = document.getElementById('addCardUrl');
+    if (urlEl && card.id) urlEl.value = card.id;
+
+  } catch (err) {
+    console.warn('[_autoFetchFullCardData] failed:', err);
   }
 }
 
