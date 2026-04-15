@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sdílet album – PokéTrade</title>
+<script>window.TOPBAR_ACTIVE = 'share';</script>
+<script src="topbar.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
@@ -274,15 +276,7 @@ body::after {
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
-    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
-    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
-    <a href="share-album.html" src="energi/sdilet_album.png" class="nav-icon"> Sdílet album</a>
-    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
-    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
-  </nav>
+  <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
     <a href="profile.html" class="user-chip" id="userChip" style="display:none">
       <div class="user-avatar" id="userAvatar">?</div>
