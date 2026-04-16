@@ -2460,36 +2460,116 @@ function renderFakeResult(result) {
 
 </script>
 <script>
-/* ── Chat Dropdown + Notifikace ── */
-(function(){
+/* ── Chat Dropdown (chat.html) ────────────────────────────────────
+   Reuse dat z hlavního scriptu – conversations + userId jsou
+   dostupné globálně. Vlastní fetch není potřeba.
+   ──────────────────────────────────────────────────────────────── */
+(function () {
   'use strict';
-  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
-  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
-  var tk=localStorage.getItem('sb_token');
-  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
-  if(!tk||!su||!su.id)return;
-  var uid=su.id,convs=[],dropO=false;
-  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
-  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
-  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
-  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
-  function renderDrop(){
-    var list=document.getElementById('chatDropList');if(!list)return;
-    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
-    list.innerHTML=convs.slice(0,8).map(function(c){
-      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
-      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
-      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
-      return '<a class="cdrop-item'+(un>0?' unread':'')+'\" href="chat.html?conv='+c.id+'">'
-        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
-        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
-        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
-        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+  var dropO = false;
+
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  function fmtT(iso) {
+    if (!iso) return '';
+    var d = new Date(iso), n = new Date(), df = n - d;
+    if (df < 60000)   return 'teď';
+    if (df < 3600000) return Math.floor(df / 60000) + ' min';
+    if (d.toDateString() === n.toDateString())
+      return d.toLocaleTimeString('cs', { hour: '2-digit', minute: '2-digit' });
+    var y = new Date(n); y.setDate(y.getDate() - 1);
+    if (d.toDateString() === y.toDateString()) return 'včera';
+    return d.toLocaleDateString('cs', { day: 'numeric', month: 'numeric' });
+  }
+
+  function renderDrop() {
+    var list = document.getElementById('chatDropList');
+    if (!list) return;
+
+    // Použij conversations ze stránky (dostupné globálně)
+    var convs = (typeof conversations !== 'undefined') ? conversations : [];
+    var uid   = (typeof userId !== 'undefined') ? userId : null;
+    if (!uid) return;
+
+    if (!convs.length) {
+      list.innerHTML = '<div class="chat-drop-empty">'
+        + '<div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>'
+        + '<div>Žádné zprávy</div></div>';
+      return;
+    }
+
+    list.innerHTML = convs.slice(0, 8).map(function (c) {
+      var isU1    = c.user1_id === uid;
+      var partner = isU1 ? c.user2_username : c.user1_username;
+      var un      = isU1 ? (c.unread_user1 || 0) : (c.unread_user2 || 0);
+      var ini     = (partner || '?')[0].toUpperCase();
+      var msg     = c.last_message_text || 'Nová konverzace';
+      var tm      = fmtT(c.last_message_at);
+      var hasL    = msg.indexOf('📎') >= 0 || msg.indexOf('Nabídka') >= 0;
+      var active  = (typeof activeConvId !== 'undefined') && c.id === activeConvId;
+
+      return '<a class="cdrop-item' + (un > 0 ? ' unread' : '') + (active ? ' active' : '') + '"'
+        + ' href="chat.html?conv=' + c.id + '"'
+        + ' onclick="event.preventDefault();selectConversation(\'' + c.id + '\');closeChatDrop();">'
+        + '<div class="cdrop-avatar">' + esc(ini) + '</div>'
+        + '<div class="cdrop-info">'
+          + '<div class="cdrop-top">'
+            + '<div class="cdrop-name">' + esc(partner) + '</div>'
+            + '<div class="cdrop-time">' + esc(tm) + '</div>'
+          + '</div>'
+          + '<div class="cdrop-msg">' + esc(msg) + '</div>'
+          + (hasL ? '<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>' : '')
+        + '</div>'
+        + (un > 0 ? '<div class="cdrop-unread-dot"></div>' : '')
+        + '</a>';
     }).join('');
   }
-  async function loadConvs(){convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15')}
-  loadConvs();
+
+  window.toggleChatDrop = function () {
+    var dr = document.getElementById('chatDrop');
+    if (!dr) return;
+    dropO = !dropO;
+    dr.classList.toggle('open', dropO);
+    if (dropO) renderDrop();
+  };
+
+  window.closeChatDrop = function () {
+    dropO = false;
+    var dr = document.getElementById('chatDrop');
+    if (dr) dr.classList.remove('open');
+  };
+
+  // Zavři kliknutím mimo dropdown
+  document.addEventListener('click', function (e) {
+    var w = document.getElementById('chatDropWrap');
+    if (w && !w.contains(e.target) && dropO) {
+      dropO = false;
+      var dr = document.getElementById('chatDrop');
+      if (dr) dr.classList.remove('open');
+    }
+  });
+
+  // Aktualizuj dropdown pokaždé, když se obnoví konverzace
+  // (renderConversations() je voláno z hlavního scriptu po každém poll)
+  var _origRender = window.renderConversations;
+  if (typeof _origRender === 'function') {
+    window.renderConversations = function () {
+      _origRender.apply(this, arguments);
+      if (dropO) renderDrop();
+    };
+  } else {
+    // renderConversations ještě není definována – patch po načtení
+    document.addEventListener('DOMContentLoaded', function () {
+      var _r = window.renderConversations;
+      if (typeof _r === 'function') {
+        window.renderConversations = function () {
+          _r.apply(this, arguments);
+          if (dropO) renderDrop();
+        };
+      }
+    });
+  }
+
 })();
 </script>
 </body>
