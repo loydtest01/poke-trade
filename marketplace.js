@@ -61,6 +61,7 @@ async function loadMyCards(){
 // ── State ─────────────────────────────────────────────────────
 let allListings=[], filteredListings=[], currentListing=null;
 let viewMode='list', addType='sell', addCardData=null;
+let salePhotos=[];
 let tradeViewMode='img', selectedTradeIds=new Set();
 
 // ── Load listings ─────────────────────────────────────────────
@@ -771,13 +772,19 @@ function closeAddListing(){
   document.getElementById('addCardUrl').value='';
   resetAiZone();
   resetQrInline();
+  // Reset sale photos
+  salePhotos = [];
+  renderSalePhotos();
+  // Hide official card thumb
+  const ow = document.getElementById('officialCardWrap');
+  if(ow) ow.style.display = 'none';
   // Reset product form
   selectedProdType='booster'; selectedProdLang='EN'; selectedSealCond='sealed';
   selectedProdSet=null; prodPhotos=[];
   const pi = document.getElementById('prodSetInput'); if(pi) pi.value='';
   const ps = document.getElementById('prodSetSelected'); if(ps) ps.style.display='none';
   const pr = document.getElementById('prodSetResults'); if(pr) pr.style.display='none';
-  const strip = document.getElementById('prodPhotoStrip'); if(strip) strip.innerHTML='';
+  const strip = document.getElementById('prodSalePhotosStrip'); if(strip) renderProdPhotoStrip();
   const pc = document.getElementById('prodPhotoContent'); if(pc) pc.style.display='';
   // Pending queue cleanup
   if(typeof closeAddListing_pendingCleanup === 'function') closeAddListing_pendingCleanup();
@@ -1040,13 +1047,8 @@ async function searchPokemonTcg(aiResult){
 }
 
 function applyAiCard(card, photoSrc, confidence){
-  addCardData = card;
-  // Also store user photo
-  addCardData._userPhoto = photoSrc;
-  document.getElementById('addCardImg').src   = card.images?.small || photoSrc;
-  document.getElementById('addCardName').textContent = card.name;
-  document.getElementById('addCardMeta').textContent = (card.set?.name||'')+(card.number?' · #'+card.number:'')+(card.rarity?' · '+card.rarity:'');
-  document.getElementById('addCardPreview').style.display='flex';
+  applyCardToListing(card);
+  if(addCardData) addCardData._userPhoto = photoSrc;
 }
 
 function showAiSuccess(zone, photoSrc, card, confidence, condResult){
@@ -1174,6 +1176,37 @@ function closeAiPick(){
 async function fetchCardForListing(){
   const url=document.getElementById('addCardUrl').value.trim();
   if(!url) return;
+
+  // ── Cardmarket URL ────────────────────────────────────────────
+  if(url.includes('cardmarket.com')){
+    const parts = url.replace(/\/$/, '').split('/');
+    const cardSlug = parts[parts.length - 1];
+    const setSlug  = parts[parts.length - 2];
+    let cleanSlug = cardSlug
+      .replace(/[_-][a-z]{1,3}\d+[A-Z]?\d{3,4}$/i, '')
+      .replace(/[_-][A-Za-z]{2,5}\d{2,4}$/i, '')
+      .replace(/-\d{2,4}$/, '')
+      .replace(/[_-](V\d+|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|RR|PR|K)$/i, '');
+    const name    = cleanSlug.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    const setName = setSlug.replace(/-and-/gi,' & ').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    // Search pokemontcg.io with parsed name
+    try {
+      const q = `name:"${name}"` + (setName ? ` set.name:"${setName}"` : '');
+      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`);
+      const json = await res.json();
+      const card = json?.data?.[0];
+      if(card){ applyCardToListing(card); return; }
+      // Fallback without set
+      const res2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:"'+name+'"')}&pageSize=1`);
+      const json2 = await res2.json();
+      const card2 = json2?.data?.[0];
+      if(card2){ applyCardToListing(card2); return; }
+    } catch(e){}
+    alert('Karta z Cardmarket URL nenalezena v pokemontcg.io databázi.');
+    return;
+  }
+
+  // ── pokemontcg.io URL or name ────────────────────────────────
   const q=`name:"${url}"`;
   const apiUrl=url.includes('pokemontcg.io')
     ? url
@@ -1183,12 +1216,51 @@ async function fetchCardForListing(){
     const json = await res.json();
     const card = json?.data?.[0] || json;
     if(!card?.name) { alert('Karta nenalezena.'); return; }
-    addCardData=card;
-    document.getElementById('addCardImg').src   = card.images?.small||'';
-    document.getElementById('addCardName').textContent = card.name;
-    document.getElementById('addCardMeta').textContent = (card.set?.name||'')+(card.number?' #'+card.number:'');
-    document.getElementById('addCardPreview').style.display='flex';
+    applyCardToListing(card);
   } catch(e){ alert('Chyba načítání: '+e.message); }
+}
+
+function applyCardToListing(card, fromAlbum) {
+  addCardData = card;
+  const large = card.images?.large || card.apiLarge || '';
+  const small = card.images?.small || card.apiSmall || card.imageUrl || '';
+  document.getElementById('addCardImg').src = small;
+  document.getElementById('addCardName').textContent = card.name;
+  document.getElementById('addCardMeta').textContent = (card.set?.name||card.set||'')+(card.number?' #'+card.number:'');
+  document.getElementById('addCardPreview').style.display='flex';
+  // Store large for hover zoom
+  const largeEl = document.getElementById('addCardLargeImg');
+  if(largeEl) largeEl.src = large || small;
+  // Official card thumb for sale photos section
+  const ot = document.getElementById('officialCardThumb');
+  const ow = document.getElementById('officialCardWrap');
+  if(ot && small){ ot.src = small; }
+  if(ow){ ow.style.display = small ? '' : 'none'; }
+  // Album badge
+  const badge = document.getElementById('addCardAlbumBadge');
+  if(badge) badge.style.display = fromAlbum ? 'inline-flex' : 'none';
+  // Auto-fill condition from album card
+  if(fromAlbum && card.condition){
+    const condSel = document.getElementById('addCond');
+    if(condSel){ for(let o of condSel.options) if(o.value===card.condition){o.selected=true;break;} }
+  }
+  // Auto-fill price from album
+  if(fromAlbum && card.price_czk){
+    const priceInp = document.getElementById('addPrice');
+    if(priceInp) priceInp.value = card.price_czk;
+    const albumInfo = document.getElementById('albumPriceInfo');
+    const albumVal  = document.getElementById('albumPriceVal');
+    if(albumInfo && albumVal){ albumVal.textContent = card.price_czk; albumInfo.style.display=''; }
+  }
+}
+
+function clearAddCard() {
+  addCardData = null;
+  document.getElementById('addCardPreview').style.display = 'none';
+  document.getElementById('addCardImg').src = '';
+  document.getElementById('addCardUrl').value = '';
+  const ow = document.getElementById('officialCardWrap');
+  if(ow) ow.style.display = 'none';
 }
 
 function setAddType(type){
@@ -1223,7 +1295,7 @@ async function submitListing(){
     title:          card?.name || 'Nabídka',
     cards_data:     [cardData],
     card_name:      card?.name||'',
-    card_set:       card?.set?.name||'',
+    card_set:       card?.set?.name||card?.set||'',
     card_number:    card?.number||'',
     card_hp:        card?.hp||'',
     card_type:      card?.types?.[0]||'',
@@ -1236,6 +1308,12 @@ async function submitListing(){
     trade_wants:    wants,
     description:    desc,
     status:         'active',
+    // Sale photos: store as base64 data URLs (croppedUrl takes priority)
+    user_photos:    salePhotos.length ? salePhotos.map(p => ({
+      src: p.croppedUrl || p.src,
+      mime: p.mime,
+      cropped: !!p.croppedUrl
+    })) : undefined,
   };
 
   const res = await sbReq('rest/v1/listings','POST',payload,token);
@@ -1413,14 +1491,26 @@ function handleProdPhotoDrop(e) {
 }
 
 function renderProdPhotoStrip() {
-  const strip = document.getElementById('prodPhotoStrip');
-  if(!strip) return;
-  strip.innerHTML = prodPhotos.map((p,i) =>
-    `<div style="position:relative">
-      <img class="photo-thumb" src="${p.src}">
-      <button onclick="removeProdPhoto(${i})" style="position:absolute;top:-4px;right:-4px;background:rgba(248,113,113,0.9);border:none;border-radius:50%;width:16px;height:16px;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">✕</button>
-    </div>`).join('');
-  document.getElementById('prodPhotoContent').style.display = prodPhotos.length ? 'none' : '';
+  const strip = document.getElementById('prodSalePhotosStrip');
+  if (!strip) return;
+  // Find the add tile (always keep it)
+  let html = '';
+  prodPhotos.forEach((p, i) => {
+    const src = p.croppedUrl || p.src;
+    html += `<div class="sale-photo-tile" id="prodTile-${i}">
+      <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
+      <div class="sale-photo-actions">
+        <button onclick="openProdCrop(${i})" class="spt-crop-btn" title="Oříznout">✂️</button>
+        <button onclick="removeProdPhoto(${i})" class="spt-del-btn" title="Smazat">✕</button>
+      </div>
+      ${p.croppedUrl ? '<div class="spt-cropped-badge">✂️</div>' : ''}
+    </div>`;
+  });
+  html += `<div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
+    <div style="font-size:22px">➕</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+  </div>`;
+  strip.innerHTML = html;
 }
 
 function removeProdPhoto(idx) {
@@ -1801,12 +1891,17 @@ let _qrInlineGenerated = false;
 function generateInlineQr() {
   const container = document.getElementById('qrInlineCanvas');
   if (!container) return;
-  if (_qrInlineGenerated) return; // already generated
-  _qrInlineGenerated = true;
 
   const base = window.location.origin + window.location.pathname;
   const url  = base + '?newlisting=1&mode=camera';
   window._qrInlineUrl = url;
+
+  if (_qrInlineGenerated) {
+    // Already generated → open fullscreen
+    openQrFull();
+    return;
+  }
+  _qrInlineGenerated = true;
 
   container.innerHTML = '';
   container.style.width  = '90px';
@@ -1821,11 +1916,39 @@ function generateInlineQr() {
     const copyBtn = document.getElementById('qrCopyBtn');
     if (copyBtn) copyBtn.style.display = '';
     const panel = document.getElementById('qrInlinePanel');
-    if (panel) { panel.style.borderColor='rgba(116,180,255,0.35)'; panel.style.cursor='default'; }
+    if (panel) {
+      panel.style.borderColor='rgba(116,180,255,0.35)';
+      panel.style.cursor='pointer';
+      panel.title = 'Klikni pro zvětšení QR';
+    }
+    // Replace onclick to open fullscreen
+    if (panel) panel.onclick = function(){ openQrFull(); };
   } else {
     container.innerHTML = '<div style="color:#f87171;font-size:9px;text-align:center;padding:8px">QR knihovna<br>se načítá…</div>';
     setTimeout(() => { _qrInlineGenerated = false; generateInlineQr(); }, 1500);
   }
+}
+
+function openQrFull() {
+  const url = window._qrInlineUrl;
+  if (!url) return;
+  const modal = document.getElementById('qrFullModal');
+  const canvas = document.getElementById('qrFullCanvas');
+  if (!modal || !canvas) return;
+  canvas.innerHTML = '';
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(canvas, {
+      text: url, width: 240, height: 240,
+      colorDark: '#000000', colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  }
+  modal.style.display = 'flex';
+}
+
+function closeQrFull() {
+  const modal = document.getElementById('qrFullModal');
+  if (modal) modal.style.display = 'none';
 }
 
 function copyInlineQrUrl() {
@@ -1844,7 +1967,11 @@ function resetQrInline() {
   const copyBtn = document.getElementById('qrCopyBtn');
   if (copyBtn) copyBtn.style.display = 'none';
   const panel = document.getElementById('qrInlinePanel');
-  if (panel) { panel.style.borderColor=''; panel.style.cursor='pointer'; }
+  if (panel) {
+    panel.style.borderColor='';
+    panel.style.cursor='pointer';
+    panel.onclick = function(){ generateInlineQr(); };
+  }
   window._qrInlineUrl = null;
 }
 
@@ -1978,12 +2105,7 @@ function selectSearchCard(jsonStr){
 function useSearchCard(jsonStr){
   const c = JSON.parse(jsonStr);
   if(cardSearchMode === 'listing'){
-    // Naplní formulář pro novou nabídku
-    addCardData = c;
-    document.getElementById('addCardImg').src  = c.images?.small||'';
-    document.getElementById('addCardName').textContent = c.name;
-    document.getElementById('addCardMeta').textContent = (c.set?.name||'')+(c.number?' #'+c.number:'');
-    document.getElementById('addCardPreview').style.display='flex';
+    applyCardToListing(c);
     document.getElementById('addCardUrl').value = c.id;
     closeCardSearch();
   } else {
@@ -2859,5 +2981,507 @@ function timeAgo(dateStr) {
   if (diff < 86400)return `před ${Math.floor(diff/3600)} h`;
   if (diff < 604800) return `před ${Math.floor(diff/86400)} dny`;
   return new Date(dateStr).toLocaleDateString('cs-CZ');
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// MKT LIGHTBOX
+// ══════════════════════════════════════════════════════════════
+function openMktLightbox(src) {
+  const modal = document.getElementById('mktLightbox');
+  const img   = document.getElementById('mktLightboxImg');
+  if (!modal || !img) return;
+  img.src = src;
+  modal.style.display = 'flex';
+}
+function closeMktLightbox() {
+  const modal = document.getElementById('mktLightbox');
+  if (modal) modal.style.display = 'none';
+}
+function openCardImgZoom(smallSrc, largeSrc) {
+  openMktLightbox(largeSrc || smallSrc);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeMktLightbox(); closeQrFull(); cancelMktCrop(); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// SALE PHOTOS (card listing) – with lightbox + crop
+// ══════════════════════════════════════════════════════════════
+
+function handleSalePhotos(files) {
+  if (!files || !files.length) return;
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      salePhotos.push({ src: ev.target.result, base64: ev.target.result.split(',')[1], mime: file.type });
+      renderSalePhotos();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleSalePhotoDrop(e) {
+  e.preventDefault();
+  if (e.dataTransfer?.files) handleSalePhotos(e.dataTransfer.files);
+}
+
+function removeSalePhoto(idx) {
+  salePhotos.splice(idx, 1);
+  renderSalePhotos();
+}
+
+function renderSalePhotos() {
+  const strip = document.getElementById('salePhotosStrip');
+  if (!strip) return;
+  let html = '';
+  salePhotos.forEach((p, i) => {
+    const src = p.croppedUrl || p.src;
+    html += `<div class="sale-photo-tile" id="saleTile-${i}">
+      <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
+      <div class="sale-photo-actions">
+        <button onclick="openSaleCrop(${i})" class="spt-crop-btn" title="Oříznout">✂️</button>
+        <button onclick="removeSalePhoto(${i})" class="spt-del-btn" title="Smazat">✕</button>
+      </div>
+      ${p.croppedUrl ? '<div class="spt-cropped-badge">✂️</div>' : ''}
+    </div>`;
+  });
+  html += `<div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
+    <div style="font-size:22px">➕</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+  </div>`;
+  strip.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════
+// MKT CROP ENGINE  (ported from queue.html)
+// ══════════════════════════════════════════════════════════════
+const MKT_CROP = {
+  img: null, mode: 'loupe', drag: null, dragPos: null, scale: 1,
+  corners: [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
+  targetArr: null,  // salePhotos | prodPhotos
+  targetIdx: null,
+};
+const MKT_HANDLE_R = 22;
+
+function setMktCropMode(mode) {
+  MKT_CROP.mode = mode;
+  const lb = document.getElementById('mktModeLoupeBtn');
+  const pb = document.getElementById('mktModePreciseBtn');
+  const hint = document.getElementById('mktCropModeHint');
+  if (mode === 'loupe') {
+    lb.style.background='rgba(245,200,66,0.25)'; lb.style.color='#f5c842';
+    pb.style.background='transparent'; pb.style.color='rgba(255,255,255,0.45)';
+    hint.textContent='Přetáhni roh – lupa ukáže přesnou pozici';
+  } else {
+    pb.style.background='rgba(245,200,66,0.25)'; pb.style.color='#f5c842';
+    lb.style.background='transparent'; lb.style.color='rgba(255,255,255,0.45)';
+    hint.textContent='Rohové zarážky – přesné přichycení';
+  }
+  _mktDrawCrop();
+}
+
+function openSaleCrop(idx) { _openMktCrop(salePhotos, idx); }
+function openProdCrop(idx)  { _openMktCrop(prodPhotos, idx); }
+
+function _openMktCrop(arr, idx) {
+  const p = arr[idx];
+  const src = p.src; // always use original
+  const load = (cors) => {
+    const img = new Image();
+    if (cors) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      MKT_CROP.img = img;
+      MKT_CROP.targetArr = arr;
+      MKT_CROP.targetIdx = idx;
+      _mktInitCorners(img.naturalWidth, img.naturalHeight);
+      _mktSetupCanvas();
+      const modal = document.getElementById('mktCropModal');
+      if (modal) modal.style.display = 'flex';
+    };
+    img.onerror = () => cors ? load(false) : alert('Nelze načíst obrázek');
+    img.src = src;
+  };
+  load(true);
+}
+
+function _mktInitCorners(iw, ih) {
+  const m = Math.min(iw, ih) * 0.06;
+  MKT_CROP.corners = [
+    {x:m, y:m}, {x:iw-m, y:m}, {x:iw-m, y:ih-m}, {x:m, y:ih-m}
+  ];
+}
+
+function _mktSetupCanvas() {
+  const canvas = document.getElementById('mktCropCanvas');
+  const img = MKT_CROP.img;
+  const maxW = Math.min(window.innerWidth - 24, 920);
+  const maxH = window.innerHeight - 150;
+  const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+  MKT_CROP.scale = scale;
+  const pw = Math.round(img.naturalWidth  * scale);
+  const ph = Math.round(img.naturalHeight * scale);
+  canvas.width = pw; canvas.height = ph;
+  canvas.style.width = pw + 'px'; canvas.style.height = ph + 'px';
+  canvas.removeEventListener('pointerdown', _mktOnCropDown);
+  canvas.addEventListener('pointerdown', _mktOnCropDown);
+  _mktDrawCrop();
+}
+
+function _mktDrawCrop() {
+  const canvas = document.getElementById('mktCropCanvas');
+  if (!canvas || !MKT_CROP.img) return;
+  const ctx = canvas.getContext('2d');
+  const s = MKT_CROP.scale;
+  const { img, corners, mode } = MKT_CROP;
+  const pts = corners.map(c => ({x: c.x*s, y: c.y*s}));
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.globalCompositeOperation='destination-out';
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  ctx.save();
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.clip();
+  ctx.drawImage(img,0,0,canvas.width,canvas.height);
+  ctx.restore();
+
+  ctx.save();
+  ctx.strokeStyle='#f5c842'; ctx.lineWidth=2;
+  ctx.setLineDash([6,4]);
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+
+  if (mode==='loupe') {
+    pts.forEach((p,i) => {
+      ctx.save();
+      ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=8;
+      ctx.beginPath(); ctx.arc(p.x,p.y,MKT_HANDLE_R,0,Math.PI*2);
+      ctx.fillStyle='rgba(10,8,6,0.65)'; ctx.fill();
+      ctx.strokeStyle='#f5c842'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.restore();
+      ctx.save(); ctx.strokeStyle='#f5c842'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(p.x-3,p.y-3,7,0,Math.PI*2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(p.x+2,p.y+2); ctx.lineTo(p.x+9,p.y+9); ctx.stroke();
+      ctx.restore();
+    });
+    if (MKT_CROP.drag !== null && MKT_CROP.dragPos) {
+      _mktDrawLoupe(ctx, canvas, MKT_CROP.dragPos, pts[MKT_CROP.drag]);
+    }
+  } else {
+    const ARM=20, T=3;
+    const dirs=[{ax:1,ay:0,bx:0,by:1},{ax:-1,ay:0,bx:0,by:1},{ax:-1,ay:0,bx:0,by:-1},{ax:1,ay:0,bx:0,by:-1}];
+    pts.forEach((p,i) => {
+      const d=dirs[i];
+      ctx.save(); ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=T+3; ctx.lineCap='square';
+      ctx.beginPath(); ctx.moveTo(p.x+d.ax*ARM,p.y+d.ay*ARM); ctx.lineTo(p.x,p.y); ctx.lineTo(p.x+d.bx*ARM,p.y+d.by*ARM); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.strokeStyle='#f5c842'; ctx.lineWidth=T; ctx.lineCap='square';
+      ctx.beginPath(); ctx.moveTo(p.x+d.ax*ARM,p.y+d.ay*ARM); ctx.lineTo(p.x,p.y); ctx.lineTo(p.x+d.bx*ARM,p.y+d.by*ARM); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='#f5c842'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+    });
+  }
+}
+
+function _mktDrawLoupe(ctx, canvas, dragPos, cornerPt) {
+  const img=MKT_CROP.img, s=MKT_CROP.scale;
+  const LOUPE_R=70, ZOOM=3.5;
+  let lx=cornerPt.x, ly=cornerPt.y-LOUPE_R-20;
+  if(ly<LOUPE_R+10) ly=cornerPt.y+LOUPE_R+20;
+  lx=Math.max(LOUPE_R+5,Math.min(canvas.width-LOUPE_R-5,lx));
+  const srcW=(LOUPE_R*2)/(s*ZOOM), srcH=(LOUPE_R*2)/(s*ZOOM);
+  const srcX=(cornerPt.x/s)-srcW/2, srcY=(cornerPt.y/s)-srcH/2;
+  ctx.save(); ctx.beginPath(); ctx.arc(lx,ly,LOUPE_R,0,Math.PI*2); ctx.clip();
+  ctx.fillStyle='#111'; ctx.fillRect(lx-LOUPE_R,ly-LOUPE_R,LOUPE_R*2,LOUPE_R*2);
+  ctx.drawImage(img,srcX,srcY,srcW,srcH,lx-LOUPE_R,ly-LOUPE_R,LOUPE_R*2,LOUPE_R*2);
+  ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(lx,ly,LOUPE_R,0,Math.PI*2); ctx.clip();
+  ctx.strokeStyle='rgba(245,200,66,0.75)'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(lx-LOUPE_R,ly); ctx.lineTo(lx+LOUPE_R,ly);
+  ctx.moveTo(lx,ly-LOUPE_R); ctx.lineTo(lx,ly+LOUPE_R); ctx.stroke();
+  ctx.fillStyle='#f5c842'; ctx.beginPath(); ctx.arc(lx,ly,2.5,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.arc(lx,ly,LOUPE_R,0,Math.PI*2);
+  ctx.strokeStyle='#f5c842'; ctx.lineWidth=2; ctx.stroke(); ctx.restore();
+}
+
+function _mktOnCropDown(e) {
+  e.preventDefault();
+  const canvas = document.getElementById('mktCropCanvas');
+  const r = canvas.getBoundingClientRect();
+  const cl = e.touches ? e.touches[0] : e;
+  const pos = {
+    x: (cl.clientX-r.left)*(canvas.width/r.width),
+    y: (cl.clientY-r.top)*(canvas.height/r.height)
+  };
+  const s = MKT_CROP.scale;
+  const hitR = MKT_CROP.mode==='precise' ? 28 : MKT_HANDLE_R*2.5;
+  let best=-1, bestD=hitR;
+  MKT_CROP.corners.forEach((c,i) => {
+    const dx=c.x*s-pos.x, dy=c.y*s-pos.y, d=Math.sqrt(dx*dx+dy*dy);
+    if(d<bestD){ bestD=d; best=i; }
+  });
+  if(best<0) return;
+  MKT_CROP.drag=best; MKT_CROP.dragPos=pos;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.addEventListener('pointermove', _mktOnCropMove);
+  canvas.addEventListener('pointerup',   _mktOnCropUp);
+}
+function _mktOnCropMove(e) {
+  e.preventDefault();
+  if(MKT_CROP.drag===null) return;
+  const canvas=document.getElementById('mktCropCanvas');
+  const r=canvas.getBoundingClientRect();
+  const cl=e.touches?e.touches[0]:e;
+  const pos={x:(cl.clientX-r.left)*(canvas.width/r.width),y:(cl.clientY-r.top)*(canvas.height/r.height)};
+  const s=MKT_CROP.scale;
+  const iw=MKT_CROP.img.naturalWidth, ih=MKT_CROP.img.naturalHeight;
+  MKT_CROP.corners[MKT_CROP.drag]={x:Math.max(0,Math.min(iw,pos.x/s)),y:Math.max(0,Math.min(ih,pos.y/s))};
+  MKT_CROP.dragPos=pos; _mktDrawCrop();
+}
+function _mktOnCropUp() {
+  MKT_CROP.drag=null; MKT_CROP.dragPos=null;
+  const canvas=document.getElementById('mktCropCanvas');
+  canvas.removeEventListener('pointermove',_mktOnCropMove);
+  canvas.removeEventListener('pointerup',_mktOnCropUp);
+  _mktDrawCrop();
+}
+function resetMktCrop() { _mktInitCorners(MKT_CROP.img.naturalWidth,MKT_CROP.img.naturalHeight); _mktDrawCrop(); }
+function cancelMktCrop() {
+  const m=document.getElementById('mktCropModal');
+  if(m){ m.style.display='none'; }
+  MKT_CROP.img=null;
+}
+function confirmMktCrop() {
+  const img=MKT_CROP.img; if(!img) return;
+  const btn=document.getElementById('mktCropConfirmBtn');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Ořezávám…'; }
+  requestAnimationFrame(()=>setTimeout(()=>{
+    const c=MKT_CROP.corners;
+    const outW=Math.round((Math.hypot(c[1].x-c[0].x,c[1].y-c[0].y)+Math.hypot(c[2].x-c[3].x,c[2].y-c[3].y))/2);
+    const outH=Math.round((Math.hypot(c[3].x-c[0].x,c[3].y-c[0].y)+Math.hypot(c[2].x-c[1].x,c[2].y-c[1].y))/2);
+    const dst=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+    let dataUrl;
+    try { dataUrl=_mktPerspectiveWarp(img,c,dst,outW,outH).toDataURL('image/jpeg',0.93); }
+    catch(err){ alert('Ořez selhal – CORS omezení'); cancelMktCrop(); if(btn){btn.disabled=false;btn.textContent='✂️ Oříznout';} return; }
+    const arr=MKT_CROP.targetArr, idx=MKT_CROP.targetIdx;
+    if(arr&&idx!=null){ arr[idx].croppedUrl=dataUrl; }
+    // Re-render
+    if(arr===salePhotos) renderSalePhotos();
+    else if(arr===prodPhotos) renderProdPhotoStrip();
+    if(btn){btn.disabled=false;btn.textContent='✂️ Oříznout';}
+    cancelMktCrop();
+  },0));
+}
+
+function _mktPerspectiveWarp(img,src,dst,outW,outH){
+  const out=document.createElement('canvas'); out.width=outW; out.height=outH;
+  const ctx=out.getContext('2d');
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  const G=64;
+  for(let gy=0;gy<G;gy++) for(let gx=0;gx<G;gx++){
+    const u0=gx/G,v0=gy/G,u1=(gx+1)/G,v1=(gy+1)/G;
+    const s00=_mktBilerp(src,u0,v0),s10=_mktBilerp(src,u1,v0),s11=_mktBilerp(src,u1,v1),s01=_mktBilerp(src,u0,v1);
+    const d00=_mktBilerp(dst,u0,v0),d10=_mktBilerp(dst,u1,v0),d11=_mktBilerp(dst,u1,v1),d01=_mktBilerp(dst,u0,v1);
+    _mktDrawTri(ctx,img,s00,s10,s01,d00,d10,d01,img.naturalWidth,img.naturalHeight);
+    _mktDrawTri(ctx,img,s10,s11,s01,d10,d11,d01,img.naturalWidth,img.naturalHeight);
+  }
+  return out;
+}
+function _mktBilerp(pts,u,v){return{x:pts[0].x*(1-u)*(1-v)+pts[1].x*u*(1-v)+pts[2].x*u*v+pts[3].x*(1-u)*v,y:pts[0].y*(1-u)*(1-v)+pts[1].y*u*(1-v)+pts[2].y*u*v+pts[3].y*(1-u)*v};}
+function _mktMat3inv(m){const[[a,b,c],[d,e,f],[g,h,k]]=m;const det=a*(e*k-f*h)-b*(d*k-f*g)+c*(d*h-e*g);if(Math.abs(det)<1e-9)return null;return[[(e*k-f*h)/det,(c*h-b*k)/det,(b*f-c*e)/det],[(f*g-d*k)/det,(a*k-c*g)/det,(c*d-a*f)/det],[(d*h-e*g)/det,(b*g-a*h)/det,(a*e-b*d)/det]];}
+function _mktDrawTri(ctx,img,s0,s1,s2,d0,d1,d2,iw,ih){
+  const S=[[s0.x,s0.y,1],[s1.x,s1.y,1],[s2.x,s2.y,1]];
+  const inv=_mktMat3inv(S); if(!inv)return;
+  const mv=(col)=>[inv[0][0]*col[0]+inv[0][1]*col[1]+inv[0][2]*col[2],inv[1][0]*col[0]+inv[1][1]*col[1]+inv[1][2]*col[2],inv[2][0]*col[0]+inv[2][1]*col[1]+inv[2][2]*col[2]];
+  const[a,c,e]=mv([d0.x,d1.x,d2.x]);const[b,df,f]=mv([d0.y,d1.y,d2.y]);
+  const OVERLAP=0.5,cx=(d0.x+d1.x+d2.x)/3,cy=(d0.y+d1.y+d2.y)/3;
+  const exp=p=>{const dx=p.x-cx,dy=p.y-cy;const L=Math.sqrt(dx*dx+dy*dy)||1;return{x:p.x+dx/L*OVERLAP,y:p.y+dy/L*OVERLAP};};
+  const ep0=exp(d0),ep1=exp(d1),ep2=exp(d2);
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(ep0.x,ep0.y);ctx.lineTo(ep1.x,ep1.y);ctx.lineTo(ep2.x,ep2.y);ctx.closePath();ctx.clip();
+  ctx.transform(a,b,c,df,e,f);
+  ctx.drawImage(img,0,0,iw,ih);
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════════════
+// ALBUM PICKER (pre-fill card from user's album)
+// ══════════════════════════════════════════════════════════════
+let _albumPickerCards = [];
+
+async function openAlbumPicker() {
+  if (!token) { alert('Přihlas se pro přístup k albu.'); return; }
+  const modal = document.getElementById('albumPickerModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.getElementById('albumPickerSearch').value = '';
+
+  if (_albumPickerCards.length) { renderAlbumPickerGrid(_albumPickerCards); return; }
+
+  document.getElementById('albumPickerGrid').innerHTML =
+    '<div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:30px 0">⏳ Načítám karty z alba...</div>';
+
+  const res = await sbReq(
+    `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk&order=updated_at.desc&limit=200`,
+    'GET', null, token
+  );
+  if (!Array.isArray(res) || res._err) {
+    document.getElementById('albumPickerGrid').innerHTML =
+      '<div style="grid-column:1/-1;text-align:center;color:var(--red);font-size:13px;padding:20px">Chyba načítání alba.</div>';
+    return;
+  }
+  _albumPickerCards = res.map(r => {
+    const d = r.card_data || {};
+    return { ...d, id: r.local_id, price_czk: r.price_czk, for_trade: r.for_trade };
+  });
+  renderAlbumPickerGrid(_albumPickerCards);
+}
+
+function filterAlbumPickerCards() {
+  const q = (document.getElementById('albumPickerSearch')?.value || '').toLowerCase();
+  const filtered = q ? _albumPickerCards.filter(c =>
+    (c.name||'').toLowerCase().includes(q) || (c.set||'').toLowerCase().includes(q)
+  ) : _albumPickerCards;
+  renderAlbumPickerGrid(filtered);
+}
+
+function renderAlbumPickerGrid(cards) {
+  const grid = document.getElementById('albumPickerGrid');
+  if (!grid) return;
+  if (!cards.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:20px">Žádné karty nenalezeny.</div>';
+    return;
+  }
+  grid.innerHTML = cards.slice(0, 120).map((c, i) => {
+    const img = c.images?.small || c.apiSmall || c.imageUrl || '';
+    const cond = c.condition || c.cond || 'NM';
+    const condColor = {NM:'#4ade80',LP:'#a3e635',MP:'#facc15',HP:'#fb923c',D:'#f87171'}[cond]||'#9ca3af';
+    return `<div class="album-picker-card" onclick="pickAlbumCard(${i})" title="${esc(c.name||'')} · ${esc(c.set||'')}">
+      ${img
+        ? `<img src="${esc(img)}" class="apc-img" loading="lazy">`
+        : `<div class="apc-img-placeholder">🃏</div>`}
+      <div class="apc-name">${esc(c.name||'?')}</div>
+      <div class="apc-meta">${esc(c.set||'')} ${c.number?'#'+esc(c.number):''}</div>
+      <div class="apc-cond" style="color:${condColor}">${cond}</div>
+      ${c.price_czk ? `<div class="apc-price">${c.price_czk} Kč</div>` : ''}
+    </div>`;
+  }).join('');
+  // Store filtered order for click lookup
+  grid._filteredCards = cards;
+}
+
+function pickAlbumCard(gridIdx) {
+  const grid = document.getElementById('albumPickerGrid');
+  const arr = grid._filteredCards || _albumPickerCards;
+  const c = arr[gridIdx];
+  if (!c) return;
+  // Build a card object compatible with applyCardToListing
+  const cardObj = {
+    name: c.name || '',
+    number: c.number || c.num || '',
+    set: { name: c.set || '' },
+    types: c.types || [],
+    rarity: c.rarity || '',
+    hp: c.hp || '',
+    images: { small: c.images?.small||c.apiSmall||c.imageUrl||'', large: c.images?.large||c.apiLarge||'' },
+    cardmarket: { prices: { trendPrice: c.pTrend||null, lowPrice: c.pMin||null }, url: c.cardmarketUrl||'' },
+    supertype: c.supertype || '',
+    // Pass-through album-specific fields
+    condition: c.condition || c.cond || 'NM',
+    price_czk: c.price_czk || null,
+  };
+  applyCardToListing(cardObj, true);
+  closeAlbumPicker();
+}
+
+function closeAlbumPicker() {
+  const m = document.getElementById('albumPickerModal');
+  if (m) m.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════════
+// CARDMARKET IMPORT FOR SEALED PRODUCTS
+// ══════════════════════════════════════════════════════════════
+async function importProdFromCardmarket() {
+  const url = (document.getElementById('prodCmUrl')?.value || '').trim();
+  if (!url) { alert('Zadej Cardmarket URL produktu.'); return; }
+  if (!url.includes('cardmarket.com')) { alert('Prosím vlož URL z cardmarket.com'); return; }
+
+  const parts = url.replace(/\/$/, '').split('/');
+  // CM URL pattern: .../Pokemon/Products/Singles/<set-slug>/<product-slug>
+  // or .../Pokemon/Products/<category>/<set-slug>/<product-slug>
+  const productSlug = parts[parts.length - 1];
+  const setSlug     = parts[parts.length - 2];
+
+  // Clean slug → human readable
+  const setName = setSlug
+    .replace(/-and-/gi,' & ')
+    .replace(/-/g,' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  // Fill set search input and trigger search
+  const setInp = document.getElementById('prodSetInput');
+  if (setInp) {
+    setInp.value = setName;
+    await searchProdSet();
+  }
+
+  // Also try to extract product name for title
+  const cleanProd = productSlug
+    .replace(/-\d{4}$/, '')
+    .replace(/-/g,' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  const desc = document.getElementById('prodDesc');
+  if (desc && !desc.value) {
+    desc.placeholder = `${cleanProd} · Importováno z Cardmarket`;
+  }
+
+  // Show quick feedback
+  const btn = event?.target || document.activeElement;
+  if (btn) {
+    const orig = btn.textContent;
+    btn.textContent = '✅ Importováno';
+    btn.style.background = 'rgba(74,222,128,0.2)';
+    btn.style.color = '#4ade80';
+    setTimeout(() => { btn.textContent = orig; btn.style.background=''; btn.style.color=''; }, 2200);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// Card search also for card listing (pass-through for demand mode, already handled above)
+// ══════════════════════════════════════════════════════════════
+// Patch searchCards to also search Cardmarket via pokemontcg.io
+// (already done by pokemontcg.io, but add CM URL parse to csbName)
+const _origSearchCards = searchCards;
+async function searchCards() {
+  const nameInp = document.getElementById('csbName');
+  const val = (nameInp?.value || '').trim();
+  // If it looks like a Cardmarket URL, parse it first
+  if (val.includes('cardmarket.com')) {
+    const parts = val.replace(/\/$/, '').split('/');
+    const cardSlug = parts[parts.length - 1];
+    let cleanSlug = cardSlug
+      .replace(/[_-][a-z]{1,3}\d+[A-Z]?\d{3,4}$/i,'')
+      .replace(/[_-][A-Za-z]{2,5}\d{2,4}$/i,'')
+      .replace(/-\d{2,4}$/,'')
+      .replace(/[_-](V\d+|SR|CHR|HR|UR|CSR|SAR|AR|Secret|Rainbow|RR|PR|K)$/i,'');
+    const name = cleanSlug.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    const setSlug = parts[parts.length-2];
+    const set = setSlug.replace(/-and-/gi,' & ').replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+    if (nameInp) nameInp.value = name;
+    const setInp = document.getElementById('csbSet');
+    if (setInp && set) setInp.value = set;
+  }
+  return _origSearchCards();
 }
 

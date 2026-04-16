@@ -12,13 +12,18 @@
 </head>
 <body>
 
-<script>window.TOPBAR_ACTIVE = 'marketplace';</script>
-<script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks" id="mainNav"></nav>
+  <nav class="nav-lnks">
+    <a href="marketplace.html" class="active"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
+    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
+    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
+    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
+    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
+    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
+  </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
@@ -388,18 +393,26 @@
     <!-- CARD FORM -->
     <div id="cardListingForm" style="display:flex;flex-direction:column;gap:12px">
       <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Pokemontcg.io URL nebo název karty</div>
-        <div style="display:flex;gap:8px">
-          <input id="addCardUrl" class="panel-inp" placeholder="https://pokemontcg.io/... nebo Charizard V" style="flex:1">
-          <button onclick="fetchCardForListing()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
-          <button onclick="openCardSearch('listing')" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700">🔍 Hledat</button>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">pokemontcg.io · Cardmarket URL nebo název</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <input id="addCardUrl" class="panel-inp" placeholder="pokemontcg.io/... · cardmarket.com/... · Charizard V" style="flex:1;min-width:0">
+          <button onclick="fetchCardForListing()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">Načíst</button>
+          <button onclick="openCardSearch('listing')" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">🔍 Hledat</button>
+          <button onclick="openAlbumPicker()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(74,222,128,0.15);color:#4ade80;font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">📒 Z alba</button>
         </div>
-        <div id="addCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px">
-          <img id="addCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
-          <div>
+        <div id="addCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px;position:relative">
+          <div class="card-preview-hover-wrap">
+            <img id="addCardImg" class="card-preview-thumb" style="width:44px;height:60px;border-radius:5px;object-fit:cover;cursor:zoom-in" src="" onclick="openCardImgZoom(this.src, document.getElementById('addCardLargeImg')?.src)">
+            <div class="card-preview-zoom-overlay" id="cardZoomOverlay">
+              <img id="addCardLargeImg" src="" class="card-zoom-large">
+            </div>
+          </div>
+          <div style="flex:1;min-width:0">
             <div id="addCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
             <div id="addCardMeta" style="font-size:11px;color:var(--text3)"></div>
+            <div id="addCardAlbumBadge" style="display:none;margin-top:4px;font-size:10px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:12px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px">📒 Z alba</div>
           </div>
+          <button onclick="clearAddCard()" style="position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button>
         </div>
       </div>
       <div>
@@ -438,7 +451,7 @@
       <!-- AI SCAN ZONE – split layout -->
       <div>
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka karty</div>
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka pro rozpoznání</div>
           <div style="display:flex;align-items:center;gap:4px;background:rgba(116,180,255,0.12);border:1px solid rgba(116,180,255,0.25);border-radius:20px;padding:2px 9px">
             <span style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em">AI SCAN</span>
           </div>
@@ -454,7 +467,7 @@
               <div class="ai-drop-hint" style="font-size:11px">AI rozezná kartu</div>
             </div>
           </div>
-          <!-- RIGHT: QR code for mobile -->
+          <!-- RIGHT: QR code for mobile – click opens fullscreen -->
           <div id="qrInlinePanel" style="border:1px dashed rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px;cursor:pointer;min-height:120px;transition:border-color .15s" onclick="generateInlineQr()" title="Klikni pro vygenerování QR kódu">
             <div id="qrInlineCanvas" style="background:#fff;border-radius:8px;padding:8px;display:flex;align-items:center;justify-content:center;width:90px;height:90px">
               <div style="font-size:22px">📱</div>
@@ -472,6 +485,36 @@
         </div>
       </div>
 
+      <!-- FOTKY K PRODEJI – s lightboxem a ořezem -->
+      <div id="salePhotosSection">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky k prodeji</div>
+          <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:12px;padding:2px 8px">Klikni na foto → zvětšit · ✂️ → oříznout</span>
+        </div>
+        <!-- Main layout: left = official API card (hover zoom), right = user sale photos -->
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
+          <!-- LEFT: official API image with hover zoom -->
+          <div class="listing-official-card-wrap" id="officialCardWrap" style="display:none">
+            <div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">Ofic. obrázek</div>
+            <div class="card-hover-zoom-wrap" onclick="openMktLightbox(document.getElementById('officialCardThumb').src)">
+              <img id="officialCardThumb" class="official-card-thumb" src="">
+              <div class="card-hover-zoom-label">🔍 Zvětšit</div>
+            </div>
+          </div>
+          <!-- RIGHT: user sale photos strip -->
+          <div>
+            <div class="sale-photos-strip" id="salePhotosStrip">
+              <!-- Add photo tile -->
+              <div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
+                <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
+                <div style="font-size:22px">➕</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+              </div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:5px">Reálné fotky karty – kupující uvidí jak karta skutečně vypadá</div>
+          </div>
+        </div>
+      </div>
       <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
         Zveřejnit nabídku
       </button>
@@ -498,7 +541,11 @@
 
       <!-- Série / Set vyhledávání -->
       <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série / Set</div>
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série / Set <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">· nebo vlož Cardmarket URL</span></div>
+        <div style="display:flex;gap:8px;margin-bottom:6px">
+          <input id="prodCmUrl" class="panel-inp" placeholder="https://www.cardmarket.com/en/Pokemon/Products/..." style="flex:1;font-size:12px">
+          <button onclick="importProdFromCardmarket()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:12px;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap">CM Import</button>
+        </div>
         <div style="display:flex;gap:8px">
           <input id="prodSetInput" class="panel-inp" placeholder="Scarlet & Violet 151..." style="flex:1" oninput="prodSetInputChange()">
           <button onclick="searchProdSet()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700;font-family:inherit">Hledat</button>
@@ -563,18 +610,19 @@
 
       <!-- Fotky produktu -->
       <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky produktu</div>
-          <span style="font-size:10px;color:var(--text3);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);padding:2px 8px;border-radius:20px;color:#fbbf24">Doporučeny 2+ fotky pečetě</span>
-        </div>
-        <div class="photo-multi-zone" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault()" ondrop="handleProdPhotoDrop(event)">
-          <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
-          <div id="prodPhotoContent">
-            <div style="font-size:24px;margin-bottom:6px">📸</div>
-            <div style="font-size:13px;font-weight:600;color:var(--text2)">Přetáhni nebo vyber fotky</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:3px">JPEG, PNG – více fotek najednou</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky produktu</div>
+            <span style="font-size:10px;color:var(--text3);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);padding:2px 8px;border-radius:20px;color:#fbbf24">2+ doporučeny</span>
           </div>
-          <div class="photo-preview-strip" id="prodPhotoStrip"></div>
+          <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:12px;padding:2px 8px">Klikni → zvětšit · ✂️ → oříznout</span>
+        </div>
+        <div class="sale-photos-strip" id="prodSalePhotosStrip">
+          <div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
+            <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
+            <div style="font-size:22px">➕</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+          </div>
         </div>
       </div>
 
@@ -806,6 +854,57 @@ function mktRunFakeCheck() {
 </script>
 <script src="marketplace.js"></script>
 <script src="marketplace-chat.js"></script>
+
+<!-- QR FULLSCREEN MODAL -->
+<div id="qrFullModal" style="display:none;position:fixed;inset:0;z-index:9900;background:rgba(0,0,0,0.95);backdrop-filter:blur(12px);align-items:center;justify-content:center;flex-direction:column;gap:20px" onclick="closeQrFull()">
+  <div style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;color:rgba(255,255,255,0.7)">Naskenuj telefonem</div>
+  <div id="qrFullCanvas" style="background:#fff;border-radius:16px;padding:18px;box-shadow:0 0 80px rgba(255,255,255,0.15)"></div>
+  <div style="font-size:12px;color:rgba(255,255,255,0.45)">Klikni kamkoliv pro zavření</div>
+  <button id="qrFullCopyBtn" onclick="event.stopPropagation();copyInlineQrUrl()" style="padding:8px 20px;border-radius:8px;border:1px solid rgba(116,180,255,0.35);background:rgba(116,180,255,0.12);color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📋 Kopírovat odkaz</button>
+</div>
+
+<!-- LISTING LIGHTBOX (fotky v nabídce) -->
+<div id="mktLightbox" style="display:none;position:fixed;inset:0;z-index:9800;background:rgba(0,0,0,0.95);align-items:center;justify-content:center" onclick="closeMktLightbox()">
+  <button onclick="closeMktLightbox()" style="position:absolute;top:16px;right:20px;background:none;border:none;color:rgba(255,255,255,0.5);font-size:28px;cursor:pointer;line-height:1">✕</button>
+  <img id="mktLightboxImg" src="" style="max-width:94vw;max-height:92vh;border-radius:10px;object-fit:contain;box-shadow:0 0 60px rgba(0,0,0,0.8)">
+</div>
+
+<!-- CROP MODAL (from queue.html) -->
+<div id="mktCropModal" style="display:none;position:fixed;inset:0;z-index:9500;background:#000;flex-direction:column;align-items:center;justify-content:center">
+  <div class="crop-top-bar" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(0,0,0,0.7);border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0">
+    <span style="font-size:14px;font-weight:700;color:#fff">✂️ Oříznout foto</span>
+    <div style="display:flex;gap:8px">
+      <button id="mktModeLoupeBtn" onclick="setMktCropMode('loupe')" style="background:rgba(245,200,66,0.25);border:1px solid rgba(245,200,66,0.4);color:#f5c842;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">🔍 Lupa</button>
+      <button id="mktModePreciseBtn" onclick="setMktCropMode('precise')" style="background:transparent;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.45);border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:inherit">📐 Přesný</button>
+    </div>
+    <span id="mktCropModeHint" style="font-size:11px;color:rgba(255,255,255,0.4)">Přetáhni roh – lupa ukáže přesnou pozici</span>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden;width:100%">
+    <canvas id="mktCropCanvas" style="display:block;touch-action:none;cursor:crosshair;border-radius:4px"></canvas>
+  </div>
+  <div style="width:100%;display:flex;align-items:center;justify-content:center;gap:12px;padding:12px 16px;background:rgba(0,0,0,0.7);border-top:1px solid rgba(255,255,255,0.08);flex-shrink:0">
+    <button onclick="cancelMktCrop()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.7);border-radius:9px;padding:11px 24px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">Zrušit</button>
+    <button onclick="resetMktCrop()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.45);border-radius:9px;padding:11px 16px;font-size:13px;cursor:pointer;font-family:inherit">↺ Reset</button>
+    <button id="mktCropConfirmBtn" onclick="confirmMktCrop()" style="background:linear-gradient(135deg,#f5c842,#ff8c00);color:#000;border:none;border-radius:9px;padding:11px 28px;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">✂️ Oříznout</button>
+  </div>
+</div>
+
+<!-- ALBUM PICKER MODAL -->
+<div id="albumPickerModal" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
+  <div style="background:#0e0c14;border:1px solid rgba(74,222,128,0.2);border-radius:18px;width:100%;max-width:520px;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 50px rgba(74,222,128,0.1)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0">
+      <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:#4ade80">📒 Vybrat z alba</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="albumPickerSearch" class="panel-inp" placeholder="Hledat..." style="width:180px;font-size:12px;padding:6px 10px" oninput="filterAlbumPickerCards()">
+        <button onclick="closeAlbumPicker()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer">✕</button>
+      </div>
+    </div>
+    <div id="albumPickerGrid" style="overflow-y:auto;flex:1;padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px">
+      <div style="grid-column:1/-1;text-align:center;color:var(--text3);font-size:13px;padding:30px 0">⏳ Načítám karty z alba...</div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </body>
 </html>
