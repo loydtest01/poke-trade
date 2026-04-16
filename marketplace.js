@@ -1642,7 +1642,8 @@ const _pendingCardMap = {};
 
 function _getPendingImg(card) {
   // Try all known image field names
-  const direct = card.images?.small || card.images?.large
+  const direct = card._userPhoto                           // ← fotka z alba má přednost
+    || card.images?.small || card.images?.large
     || card.apiSmall || card.apiLarge
     || card.imageUrl || card.image_url
     || card.api_image_url
@@ -1741,6 +1742,12 @@ function openListingFromQueue(pendingId) {
   metaEl.textContent = setName + num || 'Načítám data…';
   preview.style.display = 'flex';
 
+  // Nastavit official card thumb (obrázek v sekci "Fotky k prodeji")
+  const ot = document.getElementById('officialCardThumb');
+  const ow = document.getElementById('officialCardWrap');
+  if (ot && existingImg) { ot.src = existingImg; }
+  if (ow) { ow.style.display = existingImg ? '' : 'none'; }
+
   if (card.id && !card.id.startsWith('search_')) {
     document.getElementById('addCardUrl').value = card.id;
   }
@@ -1751,6 +1758,22 @@ function openListingFromQueue(pendingId) {
   if (condSel) {
     for (let opt of condSel.options) { if (opt.value === cond) { opt.selected = true; break; } }
   }
+
+  // Předplnit salePhotos fotkami z alba (pokud existují)
+  salePhotos = [];
+  const albumPhotos = card._userPhotos || (card._userPhoto ? [card._userPhoto] : []);
+  if (albumPhotos.length) {
+    albumPhotos.forEach(src => {
+      if (typeof src === 'string' && src.startsWith('data:')) {
+        const parts2 = src.split(',');
+        const mime = parts2[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
+        salePhotos.push({ src, base64: parts2[1] || '', mime });
+      } else if (typeof src === 'object' && src && src.src) {
+        salePhotos.push(src);
+      }
+    });
+  }
+  renderSalePhotos();
 
   // Show album price as info
   const priceInfo = document.getElementById('albumPriceInfo');
@@ -1821,6 +1844,11 @@ async function _autoFetchFullCardData(pendingCard) {
     if (img) {
       imgEl.style.display = '';
       imgEl.src = img;
+      // Také updatovat officialCardWrap v sekci "Fotky k prodeji"
+      const ot2 = document.getElementById('officialCardThumb');
+      const ow2 = document.getElementById('officialCardWrap');
+      if (ot2) { ot2.src = img; }
+      if (ow2) { ow2.style.display = ''; }
     }
 
     // Update name + meta with full info
