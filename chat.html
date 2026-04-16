@@ -248,6 +248,13 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .msg-row.me .msg-bubble {
   background: rgba(74,158,255,0.16); color: #b8d4f8;
   border-bottom-right-radius: 4px;
+  transition: background .15s;
+}
+.msg-row.me .msg-bubble:hover {
+  background: rgba(74,158,255,0.24);
+}
+.msg-row.me .msg-bubble:active {
+  background: rgba(74,158,255,0.30);
 }
 .msg-time {
   font-size: 10px; color: rgba(255,255,255,0.25); margin-top: 3px;
@@ -965,9 +972,12 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <!-- ═══ KONVERZACE KONTEXTOVÉ MENU ═══ -->
 <div class="conv-ctx-menu" id="convCtxMenu">
   <button class="ctx-item" onclick="ctxViewProfile()">👤 Zobrazit profil</button>
-  <button class="ctx-item" onclick="ctxBlockUser()">🚫 Zablokovat uživatele</button>
+  <button class="ctx-item" id="ctxBlockBtn" onclick="ctxBlockUser()">🚫 Zablokovat uživatele</button>
   <div class="ctx-sep"></div>
+  <button class="ctx-item" onclick="ctxClearMessages()">🧹 Vymazat historii zpráv</button>
   <button class="ctx-item danger" onclick="ctxDeleteConv()">🗑 Smazat konverzaci</button>
+  <div class="ctx-sep"></div>
+  <button class="ctx-item danger" onclick="ctxWipeUser()">💀 Zablokovat a smazat vše</button>
 </div>
 
 <!-- ═══ LISTING PICKER MODAL ═══ -->
@@ -1117,7 +1127,7 @@ let pollTimer = null;
 
 // ═══ INIT ═══
 async function init() {
-  await Promise.all([loadConversations(), loadBlockedUsers()]);
+  await Promise.all([loadConversations(), loadBlockedUsers(), loadGroqKeyFromDB()]);
 
   // Check URL params: ?with=USER_ID&listing=LISTING_ID
   const params = new URLSearchParams(location.search);
@@ -1395,10 +1405,10 @@ function renderMessages() {
 
     html += `
       <div class="msg-row ${isMe?'me':'them'}">
-        <div class="msg-bubble">
-          ${m.text ? esc(m.text) : ''}
+        <div class="msg-bubble"${isMe ? ` oncontextmenu="openMsgCtx(event,'${m.id}')" style="cursor:context-menu"` : ''}>
+          ${m.text ? `<span class="msg-text-content" id="mtxt-${m.id}">${esc(m.text)}</span>` : ''}
           ${listingsHtml}
-          <div class="msg-time">${esc(time)}${isMe && m.is_read ? ' ✓✓' : ''}</div>
+          <div class="msg-time">${esc(time)}${isMe && m.is_read ? ' ✓✓' : ''}${m._edited ? ' <span style="font-size:10px;opacity:.5">(upraveno)</span>' : ''}</div>
         </div>
       </div>`;
   });
@@ -1818,17 +1828,144 @@ async function ctxDeleteConv() {
   await deleteConversation(_ctxConvId);
 }
 
+// ── Vymazat historii zpráv (jen u sebe, přes hidden flag) ───────
+async function ctxClearMessages() {
+  closeConvCtxMenu();
+  if (!_ctxConvId) return;
+  const conv = conversations.find(c => c.id === _ctxConvId);
+  const partner = conv ? (conv.user1_id === userId ? conv.user2_username : conv.user1_username) : '?';
+  if (!confirm(`Vymazat všechny zprávy v konverzaci s @${partner}?\n\nZprávy zmizí jen u tebe, druhý uživatel je stále uvidí.`)) return;
+
+  const isUser1 = conv && conv.user1_id === userId;
+  const field   = isUser1 ? 'cleared_at_user1' : 'cleared_at_user2';
+
+  const r = await sb(`rest/v1/conversations?id=eq.${_ctxConvId}`, 'PATCH',
+    { [field]: new Date().toISOString() }, token);
+  if (r._err) { showToast('❌ Chyba: ' + r._err, 'error'); return; }
+
+  if (activeConvId === _ctxConvId) {
+    messages = [];
+    renderMessages();
+  }
+  showToast('🧹 Historie zpráv vymazána.', '');
+}
+
+// ── Zablokovat + smazat vše ─────────────────────────────────────
+async function ctxWipeUser() {
+  closeConvCtxMenu();
+  if (!_ctxPartnerId || !_ctxConvId) return;
+  if (!confirm(`Zablokovat @${_ctxPartnerName} a smazat konverzaci?\n\nTato akce je nevratná.`)) return;
+
+  // 1) block
+  await blockUser(_ctxPartnerId, _ctxPartnerName);
+  // 2) delete conv
+  await deleteConversation(_ctxConvId);
+  showToast(`🚫 @${_ctxPartnerName} zablokován a konverzace smazána.`, 'error');
+}
+
+// ═══ ZPRÁVA — KONTEXTOVÉ MENU (pravý klik) ═════════════════════
+let _ctxMsgId = null;
+
+function openMsgCtx(e, msgId) {
+  e.preventDefault();
+  _ctxMsgId = msgId;
+  const menu = document.getElementById('msgCtxMenu');
+
+  menu.innerHTML = `
+    <button onclick="startEditMsg('${msgId}')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:transparent;border:none;color:#f0ece4;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;border-radius:7px;text-align:left" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='transparent'">✏️ Upravit zprávu</button>
+    <button onclick="deleteMsg('${msgId}')" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:transparent;border:none;color:#f87171;font-family:'DM Sans',sans-serif;font-size:13px;cursor:pointer;border-radius:7px;text-align:left" onmouseover="this.style.background='rgba(248,113,113,0.1)'" onmouseout="this.style.background='transparent'">🗑 Smazat zprávu</button>
+  `;
+
+  const x = Math.min(e.clientX, window.innerWidth - 190);
+  const y = Math.min(e.clientY, window.innerHeight - 100);
+  menu.style.left = x + 'px';
+  menu.style.top  = y + 'px';
+  menu.style.display = 'block';
+
+  setTimeout(() => document.addEventListener('click', closeMsgCtx, { once: true }), 10);
+}
+
+function closeMsgCtx() {
+  document.getElementById('msgCtxMenu').style.display = 'none';
+}
+
+// ── Edit zprávy ──────────────────────────────────────────────────
+function startEditMsg(msgId) {
+  closeMsgCtx();
+  const msg = messages.find(m => m.id === msgId);
+  if (!msg) return;
+  _ctxMsgId = msgId;
+  document.getElementById('editMsgText').value = msg.text || '';
+  document.getElementById('editMsgModal').classList.add('open');
+  setTimeout(() => document.getElementById('editMsgText').focus(), 80);
+}
+
+function closeEditMsg() {
+  document.getElementById('editMsgModal').classList.remove('open');
+  _ctxMsgId = null;
+}
+
+async function saveEditMsg() {
+  const newText = document.getElementById('editMsgText').value.trim();
+  if (!newText) { showToast('❌ Zpráva nemůže být prázdná', 'error'); return; }
+  if (!_ctxMsgId || !token) return;
+
+  const btn = document.querySelector('#editMsgModal .btn-modal-confirm');
+  btn.disabled = true; btn.textContent = 'Ukládám…';
+
+  const r = await sb(`rest/v1/chat_messages?id=eq.${_ctxMsgId}&sender_id=eq.${userId}`,
+    'PATCH', { text: newText, edited_at: new Date().toISOString() }, token);
+
+  btn.disabled = false; btn.innerHTML = '💾 Uložit';
+
+  if (r._err) { showToast('❌ Chyba: ' + r._err, 'error'); return; }
+
+  // Optimistic update
+  const idx = messages.findIndex(m => m.id === _ctxMsgId);
+  if (idx >= 0) { messages[idx].text = newText; messages[idx]._edited = true; }
+  closeEditMsg();
+  renderMessages();
+  showToast('✅ Zpráva upravena.', '');
+}
+
+// ── Smazat zprávu ────────────────────────────────────────────────
+async function deleteMsg(msgId) {
+  closeMsgCtx();
+  if (!msgId || !token) return;
+  if (!confirm('Smazat tuto zprávu?')) return;
+
+  const r = await sb(`rest/v1/chat_messages?id=eq.${msgId}&sender_id=eq.${userId}`,
+    'DELETE', null, token);
+  if (r && r._err) { showToast('❌ Chyba: ' + r._err, 'error'); return; }
+
+  messages = messages.filter(m => m.id !== msgId);
+  renderMessages();
+  showToast('🗑 Zpráva smazána.', '');
+}
+
 // Kebab menu z chat headeru (aktivní konverzace)
 function openConvMenu(e) {
+  // V bot módu — odkaz na profil pro nastavení Groq
+  if (isBotMode) {
+    openGroqSettings();
+    return;
+  }
+
   if (!activePartner || !activeConvId) return;
   const isBlocked = blockedUsers.has(activePartner.id);
 
   // Dynamicky nastavíme text blokace
-  const menu = document.getElementById('convCtxMenu');
-  const blockBtn = menu.querySelector('.ctx-item:nth-child(2)');
-  blockBtn.textContent = isBlocked ? '✅ Odblokovat uživatele' : '🚫 Zablokovat uživatele';
-  blockBtn.onclick = isBlocked ? () => { closeConvCtxMenu(); unblockPartner(); } : ctxBlockUser;
+  const menu    = document.getElementById('convCtxMenu');
+  const blockBtn = document.getElementById('ctxBlockBtn');
+  if (blockBtn) {
+    blockBtn.textContent = isBlocked ? '✅ Odblokovat uživatele' : '🚫 Zablokovat uživatele';
+    blockBtn.onclick = isBlocked ? () => { closeConvCtxMenu(); unblockPartner(); } : ctxBlockUser;
+  }
 
+  // Nastav globální ctx proměnné a otevři menu
+  _ctxConvId      = activeConvId;
+  _ctxPartnerId   = activePartner.id;
+  _ctxPartnerName = activePartner.username;
   openConvCtxMenu(e, activeConvId, activePartner.id, activePartner.username);
 }
 
@@ -2070,11 +2207,37 @@ async function startConvFromClients(partnerId, partnerUsername) {
   await startConvWithUser(partnerId, partnerUsername);
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ═══ GROQ NASTAVENÍ ═══════════════════════════════════════════
+// Klíč se načítá ze Supabase (user_api_keys), nastav ho v Profilu → Nastavení
+let _groqApiKey = '';
+
+async function loadGroqKeyFromDB() {
+  if (!userId || !token) return;
+  try {
+    const res = await sb(
+      `rest/v1/user_api_keys?user_id=eq.${userId}&select=groq_key,groq_model`,
+      'GET', null, token
+    );
+    if (Array.isArray(res) && res[0]?.groq_key) {
+      const keys = res[0].groq_key.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      _groqApiKey = keys[0] || '';
+      if (res[0].groq_model) window._groqModel = res[0].groq_model;
+    }
+  } catch(e) { console.warn('[Groq] Chyba načítání klíče:', e); }
+}
+
+function getGroqKey() { return _groqApiKey; }
+
+function openGroqSettings() {
+  // Klíče se spravují v Profilu → Nastavení AI (Groq)
+  if (confirm('Groq API klíč se nastavuje v Profilu.\n\nPřejít do Nastavení?')) {
+    window.open('profile.html', '_blank');
+  }
+}
+
 // POKEBOT (GROQ)
 // ═══════════════════════════════════════════════════════════════
-const GROQ_API_KEY = 'VLOZ_SVUJ_GROQ_API_KLIC_ZDE'; // <-- doplň svůj Groq API klíč
-const GROQ_MODEL   = 'llama-3.3-70b-versatile';
+const GROQ_MODEL = () => window._groqModel || 'llama-3.3-70b-versatile';
 
 let isBotMode     = false;
 let botHistory    = []; // {role, content}[]
@@ -2209,6 +2372,14 @@ function renderBotMessages() {
 
 async function sendBotMessage(text) {
   if (!text.trim()) return;
+
+  // Zkontroluj API klíč před odesláním
+  if (!getGroqKey()) {
+    openGroqSettings();
+    showToast('⚙️ Nejdřív nastav Groq API klíč!', 'error');
+    return;
+  }
+
   botHistory.push({ role: 'user', content: text });
   renderBotMessages();
 
@@ -2233,10 +2404,10 @@ async function sendBotMessage(text) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${getGroqKey()}`,
       },
       body: JSON.stringify({
-        model: GROQ_MODEL,
+        model: GROQ_MODEL(),
         max_tokens: 512,
         messages: [
           { role: 'system', content: BOT_SYSTEM },
@@ -2459,6 +2630,34 @@ function renderFakeResult(result) {
 
 
 </script>
+<!-- ═══ EDIT ZPRÁVY MODAL ═══ -->
+<div class="modal-overlay" id="editMsgModal" onclick="if(event.target===this)closeEditMsg()" style="z-index:600">
+  <div class="modal-box" style="max-width:420px;padding:22px">
+    <div class="modal-head" style="margin-bottom:14px">
+      <h3 style="font-family:'Unbounded',sans-serif;font-size:13px;font-weight:700;color:#f0ece4">✏️ Upravit zprávu</h3>
+      <button class="modal-close" onclick="closeEditMsg()">✕</button>
+    </div>
+    <textarea id="editMsgText" rows="4"
+      style="width:100%;padding:10px 13px;border-radius:10px;border:1px solid rgba(255,255,255,0.12);
+             background:rgba(255,255,255,0.05);color:#f0ece4;font-family:'DM Sans',sans-serif;
+             font-size:13.5px;resize:none;outline:none;box-sizing:border-box;line-height:1.5"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();saveEditMsg();}"></textarea>
+    <div style="font-size:11px;color:rgba(240,236,228,.3);margin:8px 0 14px">Shift+Enter pro nový řádek · Enter pro uložení</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn-modal-cancel" onclick="closeEditMsg()">Zrušit</button>
+      <button class="btn-modal-confirm" onclick="saveEditMsg()" style="display:flex;align-items:center;gap:6px">💾 Uložit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ZPRÁVA KONTEXTOVÉ MENU ═══ -->
+<div id="msgCtxMenu" style="
+  position:fixed;z-index:700;display:none;
+  background:#1a1625;border:1px solid rgba(255,255,255,0.12);
+  border-radius:10px;padding:6px;min-width:170px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.6);">
+</div>
+
 <script>
 /* ── Chat Dropdown (chat.html) ────────────────────────────────────
    Reuse dat z hlavního scriptu – conversations + userId jsou
