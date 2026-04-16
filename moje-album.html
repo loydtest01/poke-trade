@@ -1702,6 +1702,13 @@ body { background: #06040c; overflow-x: hidden; }
           </div>
           <div class="cd-actions" id="cdActions"></div>
 
+          <!-- EDIT BUTTON -->
+          <div style="margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:10px">
+            <button onclick="openCardEdit()" style="width:100%;padding:8px 0;border-radius:9px;border:1px solid rgba(116,180,255,0.3);background:rgba(74,158,255,0.08);color:var(--blue);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px" onmouseover="this.style.background='rgba(74,158,255,0.18)'" onmouseout="this.style.background='rgba(74,158,255,0.08)'">
+              ✏️ Upravit informace o kartě
+            </button>
+          </div>
+
 <!-- Falzum detektor -->
           <div id="cdFakeSection" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
             <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">
@@ -6264,6 +6271,400 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
     if (alertVal && savedThreshold) alertVal.textContent = savedThreshold;
   });
 })();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     CARD EDIT MODAL
+═══════════════════════════════════════════════════════════ -->
+<div id="cardEditModal" style="display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:16px">
+  <div style="background:#0e0c14;border:1px solid rgba(116,180,255,0.22);border-radius:20px;width:100%;max-width:560px;max-height:92vh;overflow-y:auto;display:flex;flex-direction:column">
+
+    <!-- Header -->
+    <div style="padding:18px 22px 14px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:12px;position:sticky;top:0;background:#0e0c14;border-radius:20px 20px 0 0;z-index:10;flex-shrink:0">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(74,158,255,0.12);border:1px solid rgba(74,158,255,0.3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">✏️</div>
+      <div>
+        <div style="font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:#fff">Editace karty</div>
+        <div style="font-size:11px;color:rgba(116,180,255,0.7)" id="ceSubtitle">—</div>
+      </div>
+      <button onclick="closeCardEdit()" style="margin-left:auto;background:none;border:none;color:rgba(255,255,255,0.35);font-size:20px;cursor:pointer;line-height:1;padding:4px 8px">✕</button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:20px 22px;display:flex;flex-direction:column;gap:16px">
+
+      <!-- Card API image preview -->
+      <div style="display:flex;gap:14px;align-items:flex-start">
+        <div id="ceImgPreview" style="width:80px;height:110px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px">🃏</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div>
+            <label class="ce-label">🔗 API obrázek (URL – malý)</label>
+            <input class="ce-inp" id="ceApiSmall" placeholder="https://images.pokemontcg.io/..." oninput="ceUpdateImgPreview()">
+          </div>
+          <div>
+            <label class="ce-label">🔗 API obrázek (URL – velký)</label>
+            <input class="ce-inp" id="ceApiLarge" placeholder="https://images.pokemontcg.io/...">
+          </div>
+        </div>
+      </div>
+
+      <!-- Jméno + Cardmarket odkaz -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="ce-label">Název karty</label>
+          <input class="ce-inp" id="ceName" placeholder="Charizard ex">
+        </div>
+        <div>
+          <label class="ce-label">
+            🛒 Odkaz na Cardmarket
+            <span id="ceCmLinkStatus" style="font-size:10px;margin-left:4px"></span>
+          </label>
+          <div style="display:flex;gap:5px">
+            <input class="ce-inp" id="ceCmUrl" placeholder="https://www.cardmarket.com/..." style="flex:1;min-width:0">
+            <a id="ceCmLinkBtn" href="#" target="_blank" rel="noopener" style="padding:6px 9px;border-radius:7px;border:1px solid rgba(116,180,255,0.3);background:rgba(74,158,255,0.08);color:var(--blue);font-size:12px;text-decoration:none;display:flex;align-items:center;flex-shrink:0;transition:background .15s" title="Otevřít odkaz" onclick="return ceCmLinkGo(event)">↗</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Série + číslo -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+        <div>
+          <label class="ce-label">Série / Set</label>
+          <input class="ce-inp" id="ceSet" placeholder="Scarlet & Violet – Stellar Crown">
+        </div>
+        <div>
+          <label class="ce-label">Číslo karty</label>
+          <input class="ce-inp" id="ceNumber" placeholder="025/198">
+        </div>
+      </div>
+
+      <!-- HP + Typ + Supertyp -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div>
+          <label class="ce-label">HP</label>
+          <input class="ce-inp" id="ceHp" type="number" placeholder="230">
+        </div>
+        <div>
+          <label class="ce-label">Typ / Element</label>
+          <select class="ce-inp ce-select" id="ceType">
+            <option value="">— nezadán —</option>
+            <option value="Fire">🔥 Fire</option>
+            <option value="Water">💧 Water</option>
+            <option value="Grass">🌿 Grass</option>
+            <option value="Lightning">⚡ Lightning</option>
+            <option value="Psychic">🔮 Psychic</option>
+            <option value="Fighting">👊 Fighting</option>
+            <option value="Darkness">🌑 Darkness</option>
+            <option value="Metal">⚙️ Metal</option>
+            <option value="Dragon">🐉 Dragon</option>
+            <option value="Colorless">⭐ Colorless</option>
+            <option value="Fairy">🌸 Fairy</option>
+          </select>
+        </div>
+        <div>
+          <label class="ce-label">Supertyp</label>
+          <select class="ce-inp ce-select" id="ceSupertype">
+            <option value="">— nezadán —</option>
+            <option value="Pokémon">🃏 Pokémon</option>
+            <option value="Trainer">🎴 Trainer</option>
+            <option value="Energy">⚡ Energy</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Vzácnost + Jazyk + Stav -->
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
+        <div>
+          <label class="ce-label">Vzácnost</label>
+          <input class="ce-inp" id="ceRarity" placeholder="Illustration Rare, Ultra Rare…">
+        </div>
+        <div>
+          <label class="ce-label">Jazyk</label>
+          <select class="ce-inp ce-select" id="ceLang">
+            <option value="">—</option>
+            <option value="EN">🇬🇧 EN</option>
+            <option value="CZ">🇨🇿 CZ</option>
+            <option value="JP">🇯🇵 JP</option>
+            <option value="DE">🇩🇪 DE</option>
+            <option value="FR">🇫🇷 FR</option>
+            <option value="IT">🇮🇹 IT</option>
+            <option value="KO">🇰🇷 KO</option>
+          </select>
+        </div>
+        <div>
+          <label class="ce-label">Stav karty</label>
+          <select class="ce-inp ce-select" id="ceCondition">
+            <option value="NM">NM – Mint</option>
+            <option value="LP">LP – Lehce hraná</option>
+            <option value="MP">MP – Středně</option>
+            <option value="HP">HP – Hodně</option>
+            <option value="D">D – Poškozená</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Cena + počet -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label class="ce-label">Moje cena (Kč)</label>
+          <input class="ce-inp" id="cePriceCzk" type="number" placeholder="0" min="0">
+        </div>
+        <div>
+          <label class="ce-label">Počet kusů</label>
+          <input class="ce-inp" id="ceQty" type="number" placeholder="1" min="1" value="1">
+        </div>
+      </div>
+
+      <!-- Poznámka -->
+      <div>
+        <label class="ce-label">Poznámka / popis</label>
+        <textarea class="ce-inp" id="ceNote" rows="3" placeholder="Vlastní popis, varianta, odkud pochází…" style="resize:vertical;line-height:1.5"></textarea>
+      </div>
+
+      <!-- K výměně / k prodeji -->
+      <div style="display:flex;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border-radius:9px;border:1px solid rgba(74,158,255,0.2);background:rgba(74,158,255,0.06);flex:1;font-size:12px;font-weight:600;color:var(--blue)">
+          <input type="checkbox" id="ceForTrade" style="accent-color:var(--blue);width:15px;height:15px"> 🔄 K výměně
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 14px;border-radius:9px;border:1px solid rgba(74,222,128,0.2);background:rgba(74,222,128,0.06);flex:1;font-size:12px;font-weight:600;color:#4ade80">
+          <input type="checkbox" id="ceForSell" style="accent-color:#4ade80;width:15px;height:15px"> 💰 K prodeji
+        </label>
+      </div>
+
+      <!-- Cardmarket ceny (pouze info) -->
+      <div id="ceCmPricesInfo" style="display:none;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08)">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Ceny z Cardmarket (jen pro přehled)</div>
+        <div id="ceCmPricesGrid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:11px"></div>
+      </div>
+
+    </div><!-- /body -->
+
+    <!-- Footer -->
+    <div style="padding:14px 22px;border-top:1px solid rgba(255,255,255,0.07);display:flex;gap:8px;align-items:center;position:sticky;bottom:0;background:#0e0c14;border-radius:0 0 20px 20px;flex-shrink:0">
+      <span id="ceSaveStatus" style="font-size:11px;min-width:80px;transition:color .3s"></span>
+      <button onclick="closeCardEdit()" style="padding:9px 16px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.4);font-size:13px;cursor:pointer;font-family:inherit">Zrušit</button>
+      <button onclick="saveCardEdit()" style="flex:1;padding:10px 0;border-radius:9px;border:none;background:linear-gradient(135deg,var(--yellow,#f5c842),#ff8c00);color:#000;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+        💾 Uložit změny
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<style>
+.ce-label {
+  display: block;
+  font-size: 10px;
+  color: var(--text3, rgba(240,236,228,.45));
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin-bottom: 5px;
+  font-weight: 600;
+}
+.ce-inp {
+  width: 100%;
+  box-sizing: border-box;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: #f0ece4;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s;
+}
+.ce-inp:focus { border-color: rgba(116,180,255,0.5); }
+.ce-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(240,236,228,0.3)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+.ce-select option { background: #0e0c14; color: #f0ece4; }
+</style>
+
+<script>
+// ── Card Edit Modal ───────────────────────────────────────────
+let _editCard = null;
+
+function openCardEdit() {
+  if (!_detailCard) return;
+  _editCard = _detailCard;
+  const c = _editCard;
+
+  document.getElementById('ceSubtitle').textContent = c.name || '—';
+
+  // Image preview
+  ceUpdateImgPreviewFromCard(c);
+
+  // Fields
+  document.getElementById('ceApiSmall').value   = c.apiSmall || c.images?.small || '';
+  document.getElementById('ceApiLarge').value   = c.apiLarge || c.images?.large || '';
+  document.getElementById('ceName').value        = c.name || '';
+  document.getElementById('ceCmUrl').value       = c.cardmarketUrl || buildCardmarketUrl(c) || '';
+  document.getElementById('ceSet').value         = c.set || '';
+  document.getElementById('ceNumber').value      = c.number || c.num || '';
+  document.getElementById('ceHp').value          = c.hp || '';
+  document.getElementById('ceRarity').value      = c.rarity || '';
+  document.getElementById('ceLang').value        = c.lang || '';
+  document.getElementById('ceNote').value        = c.note || '';
+  document.getElementById('cePriceCzk').value    = c.price_czk || '';
+  document.getElementById('ceQty').value         = c.count || c.qty || 1;
+  document.getElementById('ceForTrade').checked  = !!c.for_trade;
+  document.getElementById('ceForSell').checked   = !!c.for_sell;
+
+  // Type select — match first type
+  const firstType = (c.types && c.types[0]) || c.type || '';
+  const typeEl = document.getElementById('ceType');
+  let typeMatched = false;
+  for (let opt of typeEl.options) {
+    if (opt.value.toLowerCase() === firstType.toLowerCase()) { opt.selected = true; typeMatched = true; break; }
+  }
+  if (!typeMatched) typeEl.value = '';
+
+  // Supertype
+  const stEl = document.getElementById('ceSupertype');
+  const stVal = c.supertype || c.category || '';
+  let stMatched = false;
+  for (let opt of stEl.options) {
+    if (opt.value.toLowerCase() === stVal.toLowerCase()) { opt.selected = true; stMatched = true; break; }
+  }
+  if (!stMatched) stEl.value = '';
+
+  // Condition
+  const condVal = c.condition || c.cond || 'NM';
+  const condEl = document.getElementById('ceCondition');
+  for (let opt of condEl.options) { if (opt.value === condVal) { opt.selected = true; break; } }
+
+  // CM prices info
+  const priceGrid = document.getElementById('ceCmPricesGrid');
+  const priceInfo = document.getElementById('ceCmPricesInfo');
+  const prices = [
+    ['Trend', c.pTrend],
+    ['Min', c.pMin],
+    ['30d avg', c.p30d],
+  ].filter(([,v]) => v);
+  if (prices.length) {
+    priceInfo.style.display = '';
+    priceGrid.innerHTML = prices.map(([label, val]) =>
+      `<div style="text-align:center;padding:6px 8px;border-radius:7px;background:rgba(74,222,128,0.06);border:1px solid rgba(74,222,128,0.12)">
+        <div style="font-size:9px;color:var(--text3)">${label}</div>
+        <div style="font-weight:700;color:#4ade80">${Number(val).toFixed(2)} €</div>
+      </div>`
+    ).join('');
+  } else {
+    priceInfo.style.display = 'none';
+  }
+
+  document.getElementById('ceSaveStatus').textContent = '';
+  document.getElementById('cardEditModal').style.display = 'flex';
+}
+
+function ceUpdateImgPreview() {
+  const url = document.getElementById('ceApiSmall').value.trim();
+  const wrap = document.getElementById('ceImgPreview');
+  if (url) {
+    wrap.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.parentElement.innerHTML='❌'">`;
+  } else {
+    wrap.innerHTML = '🃏';
+  }
+}
+
+function ceUpdateImgPreviewFromCard(c) {
+  const url = c.apiSmall || c.images?.small || c.imageUrl || '';
+  const wrap = document.getElementById('ceImgPreview');
+  if (url) {
+    wrap.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block">`;
+  } else {
+    wrap.innerHTML = '🃏';
+  }
+}
+
+function ceCmLinkGo(event) {
+  const url = document.getElementById('ceCmUrl').value.trim();
+  if (!url || url === '#') { event.preventDefault(); return false; }
+  window.open(url, '_blank', 'noopener');
+  event.preventDefault();
+  return false;
+}
+
+function closeCardEdit() {
+  document.getElementById('cardEditModal').style.display = 'none';
+  _editCard = null;
+}
+
+async function saveCardEdit() {
+  if (!_editCard) return;
+  const c = _editCard;
+
+  const statusEl = document.getElementById('ceSaveStatus');
+  statusEl.textContent = '⏳ Ukládám…';
+  statusEl.style.color = 'var(--text3)';
+
+  // Read all fields
+  const newName     = document.getElementById('ceName').value.trim();
+  const newCmUrl    = document.getElementById('ceCmUrl').value.trim();
+  const newApiSmall = document.getElementById('ceApiSmall').value.trim();
+  const newApiLarge = document.getElementById('ceApiLarge').value.trim();
+  const newSet      = document.getElementById('ceSet').value.trim();
+  const newNumber   = document.getElementById('ceNumber').value.trim();
+  const newHp       = document.getElementById('ceHp').value.trim();
+  const newType     = document.getElementById('ceType').value;
+  const newSupertype= document.getElementById('ceSupertype').value;
+  const newRarity   = document.getElementById('ceRarity').value.trim();
+  const newLang     = document.getElementById('ceLang').value;
+  const newCondition= document.getElementById('ceCondition').value;
+  const newNote     = document.getElementById('ceNote').value.trim();
+  const newPrice    = parseFloat(document.getElementById('cePriceCzk').value) || null;
+  const newQty      = parseInt(document.getElementById('ceQty').value) || 1;
+  const newForTrade = document.getElementById('ceForTrade').checked;
+  const newForSell  = document.getElementById('ceForSell').checked;
+
+  // Apply to card object
+  if (newName)      c.name      = newName;
+  if (newCmUrl)     c.cardmarketUrl = newCmUrl;
+  if (newApiSmall)  { c.apiSmall = newApiSmall; if (!c.images) c.images = {}; c.images.small = newApiSmall; }
+  if (newApiLarge)  { c.apiLarge = newApiLarge; if (!c.images) c.images = {}; c.images.large = newApiLarge; }
+  if (newSet)       c.set       = newSet;
+  if (newNumber)    { c.number  = newNumber; c.num = newNumber; }
+  if (newHp)        c.hp        = newHp;
+  if (newType)      { c.type    = newType; c.types = [newType]; }
+  if (newSupertype) { c.supertype = newSupertype; c.category = newSupertype.toLowerCase(); }
+  if (newRarity)    c.rarity    = newRarity;
+  if (newLang)      c.lang      = newLang;
+  c.condition   = newCondition;
+  c.cond        = newCondition;
+  c.note        = newNote;
+  c.price_czk   = newPrice;
+  c.count       = newQty;
+  c.qty         = newQty;
+  c.for_trade   = newForTrade;
+  c.for_sell    = newForSell;
+  c.updated_at  = new Date().toISOString();
+
+  // Persist
+  const idx = allCards.findIndex(x => String(x.id) === String(c.id));
+  if (idx >= 0) Object.assign(allCards[idx], c);
+  saveLocal();
+
+  try {
+    await saveCardUpdates(c);
+    if (typeof syncCardToServer === 'function') syncCardToServer(c).catch(() => null);
+    statusEl.textContent = '✅ Uloženo';
+    statusEl.style.color = '#4ade80';
+    setTimeout(() => {
+      closeCardEdit();
+      // Refresh detail view with updated card
+      openCardDetail(c);
+      render();
+    }, 700);
+  } catch(e) {
+    statusEl.textContent = '❌ Chyba uložení';
+    statusEl.style.color = '#f87171';
+  }
+}
 </script>
 
 </body>
