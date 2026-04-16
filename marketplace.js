@@ -222,6 +222,10 @@ function updateSidebarCounts(baseListings) {
 
 // ── Filters + Sort ────────────────────────────────────────────
 function applyFilters(){
+  // Also update demands if in demand mode
+  if (typeof marketMode !== 'undefined' && marketMode === 'demand' && typeof applyDemandFilters === 'function') {
+    applyDemandFilters();
+  }
   const q       = (document.getElementById('searchInput').value||'').toLowerCase();
   const fSell   = document.getElementById('fSell').checked;
   const fTrade  = document.getElementById('fTrade').checked;
@@ -2617,15 +2621,34 @@ async function loadDemands() {
 
 // ── Apply demand filters ──────────────────────────────────────
 function applyDemandFilters() {
-  const q    = (document.getElementById('demandSearch')?.value || '').toLowerCase().trim();
+  // Use both demand-specific search AND main toolbar search
+  const dq   = (document.getElementById('demandSearch')?.value || '').toLowerCase().trim();
+  const mq   = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  const q    = dq || mq;
   const sort = document.getElementById('demandSortSel')?.value || 'newest';
 
+  // Sidebar condition filters
+  const condChecks = {
+    NM: document.getElementById('fNM')?.checked ?? true,
+    LP: document.getElementById('fLP')?.checked ?? true,
+    MP: document.getElementById('fMP')?.checked ?? true,
+    HP: document.getElementById('fHP')?.checked || false,
+    D:  document.getElementById('fHP')?.checked || false,
+  };
+
   let list = allDemands.filter(d => {
-    if (!q) return true;
-    const name = (d.card_name || d.title || '').toLowerCase();
-    const user = (d.username || '').toLowerCase();
-    const set  = (d.card_set || '').toLowerCase();
-    return name.includes(q) || user.includes(q) || set.includes(q);
+    // Text filter
+    if (q) {
+      const name = (d.card_name || d.title || '').toLowerCase();
+      const user = (d.username || '').toLowerCase();
+      const set  = (d.card_set || '').toLowerCase();
+      const notes = (d.notes || '').toLowerCase();
+      if (!name.includes(q) && !user.includes(q) && !set.includes(q) && !notes.includes(q)) return false;
+    }
+    // Condition filter (min_condition)
+    const mc = d.min_condition || 'NM';
+    if (!condChecks[mc]) return false;
+    return true;
   });
 
   list.sort((a, b) => {
@@ -2666,14 +2689,25 @@ function renderDemands(list) {
     const isOwn    = userId && d.user_id === userId;
     const ago      = timeAgo(d.created_at);
     const notes    = d.notes ? `<div class="demand-notes">"${esc(d.notes)}"</div>` : '';
+    const sealedTag = d.item_type === 'sealed' ? `<span class="demand-tag" style="background:rgba(168,85,247,0.15);color:#a855f7;border:1px solid rgba(168,85,247,0.25)">📦 Sealed${d.product_type ? ' · ' + esc(d.product_type) : ''}</span>` : '';
+    const locTag   = d.location ? `<span class="demand-tag" style="background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border)">📍 ${esc(d.location)}</span>` : '';
+    const delTags  = [];
+    if (d.delivery_post) delTags.push('📬');
+    if (d.delivery_personal) delTags.push('🤝');
+    const delStr   = delTags.length ? `<span class="demand-tag" style="background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border)">${delTags.join(' ')}</span>` : '';
+    // Trade cards previews
+    const tc = d.trade_cards || [];
+    const tradeImgs = tc.length ? `<div style="display:flex;gap:3px;margin-top:5px">${tc.slice(0,4).map(c =>
+      c.imgSmall ? `<img src="${esc(c.imgSmall)}" style="width:28px;height:38px;border-radius:4px;object-fit:cover;border:1px solid rgba(255,255,255,0.1)" title="${esc(c.name)}" loading="lazy">` : ''
+    ).join('')}${tc.length > 4 ? `<span style="font-size:10px;color:var(--text3);align-self:center">+${tc.length-4}</span>` : ''}</div>` : '';
 
     return `
     <div class="demand-card" onclick="openDemandDetail('${d.id}')">
       <div class="demand-card-img-wrap">
         ${img
           ? `<img src="${esc(img)}" class="demand-card-img" loading="lazy" onerror="this.style.display='none'">`
-          : `<div class="demand-card-placeholder">🔍</div>`}
-        <div class="demand-card-overlay">Hledám</div>
+          : `<div class="demand-card-placeholder">${d.item_type === 'sealed' ? '📦' : '🔍'}</div>`}
+        <div class="demand-card-overlay">${d.item_type === 'sealed' ? 'Hledám sealed' : 'Hledám'}</div>
       </div>
       <div class="demand-card-body">
         <div class="demand-card-top">
@@ -2681,10 +2715,13 @@ function renderDemands(list) {
           ${setInfo}
         </div>
         ${notes}
+        ${tradeImgs}
         <div class="demand-card-tags">
+          ${sealedTag}
           ${tradeTag}
           <span class="demand-tag cond-tag">${condDot} Min. ${cond}</span>
           ${d.card_type ? `<span class="demand-tag type-tag">${esc(d.card_type)}</span>` : ''}
+          ${locTag}${delStr}
         </div>
         <div class="demand-card-footer">
           <div class="demand-card-price">${price}</div>
@@ -3485,3 +3522,538 @@ async function searchCards() {
   return _origSearchCards();
 }
 
+
+// ══════════════════════════════════════════════════════════════
+// FULL-SCREEN MODAL ENHANCEMENTS
+// ══════════════════════════════════════════════════════════════
+
+// ── ESC key handler ──────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const addModal = document.getElementById('addModal');
+    const demModal = document.getElementById('addDemandModal');
+    if (addModal && addModal.style.display !== 'none') {
+      closeAddListing();
+    } else if (demModal && demModal.style.display !== 'none') {
+      closeAddDemand();
+    }
+  }
+});
+
+// ── submitCurrentListing — routes to card or sealed ──────────
+function submitCurrentListing() {
+  if (currentListingTab === 'product') {
+    submitProductListing();
+  } else {
+    submitListing();
+  }
+}
+
+// ── Trade Card URL Management ────────────────────────────────
+let offerTradeCards = [];
+let demandTradeCards = [];
+
+async function addTradeCardUrl(mode) {
+  const inputId = mode === 'offer' ? 'addTradeCardUrl' : 'demTradeCardUrl';
+  const wrapId  = mode === 'offer' ? 'addTradeCardsWrap' : 'demTradeCardsWrap';
+  const arr     = mode === 'offer' ? offerTradeCards : demandTradeCards;
+  const input   = document.getElementById(inputId);
+  const url     = (input?.value || '').trim();
+  if (!url) return;
+
+  const wrap = document.getElementById(wrapId);
+  // Show loading placeholder
+  const loadDiv = document.createElement('div');
+  loadDiv.className = 'trade-url-card-loading';
+  loadDiv.textContent = '⏳';
+  wrap.appendChild(loadDiv);
+  input.value = '';
+
+  try {
+    let card = null;
+    if (url.includes('pokemontcg.io')) {
+      // Direct API URL or pokemontcg.io page
+      let apiUrl = url;
+      if (!url.includes('/v2/cards/')) {
+        // Convert page URL to API — extract card ID from path
+        const m = url.match(/cards\/([^/?#]+)/);
+        if (m) apiUrl = 'https://api.pokemontcg.io/v2/cards/' + m[1];
+      }
+      const res = await fetch(apiUrl);
+      const json = await res.json();
+      card = json?.data || json;
+    } else if (url.includes('cardmarket.com')) {
+      // Try searching by name extracted from URL
+      const parts = url.split('/');
+      const rawName = parts[parts.length - 1]?.replace(/-/g, ' ') || '';
+      const q = `name:"${rawName}"`;
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+      const json = await res.json();
+      card = json?.data?.[0] || null;
+    } else {
+      // Treat as name search
+      const q = `name:"${url}"`;
+      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+      const json = await res.json();
+      card = json?.data?.[0] || null;
+    }
+
+    if (!card || !card.name) {
+      alert('Karta nenalezena. Zkus jiný URL nebo název.');
+      loadDiv.remove();
+      return;
+    }
+
+    const entry = {
+      id: card.id || Date.now(),
+      name: card.name,
+      set: card.set?.name || '',
+      number: card.number || '',
+      imgSmall: card.images?.small || '',
+      imgLarge: card.images?.large || '',
+      cardData: card,
+    };
+    arr.push(entry);
+    loadDiv.remove();
+    renderTradeUrlCards(mode);
+  } catch(e) {
+    console.error('[addTradeCardUrl]', e);
+    alert('Chyba načítání: ' + e.message);
+    loadDiv.remove();
+  }
+}
+
+function removeTradeCard(mode, idx) {
+  const arr = mode === 'offer' ? offerTradeCards : demandTradeCards;
+  arr.splice(idx, 1);
+  renderTradeUrlCards(mode);
+}
+
+function renderTradeUrlCards(mode) {
+  const arr    = mode === 'offer' ? offerTradeCards : demandTradeCards;
+  const wrapId = mode === 'offer' ? 'addTradeCardsWrap' : 'demTradeCardsWrap';
+  const wrap   = document.getElementById(wrapId);
+  if (!wrap) return;
+
+  wrap.innerHTML = arr.map((c, i) => `
+    <div class="trade-url-card" title="${esc(c.name)} · ${esc(c.set)}">
+      ${c.imgSmall
+        ? `<img src="${esc(c.imgSmall)}" alt="${esc(c.name)}" loading="lazy">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:20px">🃏</div>`}
+      <button class="tuc-del" onclick="event.stopPropagation();removeTradeCard('${mode}',${i})">✕</button>
+      <div class="tuc-name">${esc(c.name)}</div>
+    </div>
+  `).join('');
+}
+
+// ── Demand Tab: Card vs Sealed ───────────────────────────────
+let currentDemandTab = 'card';
+
+function setDemandTab(tab) {
+  currentDemandTab = tab;
+  const tabCard   = document.getElementById('demTabCard');
+  const tabSealed = document.getElementById('demTabSealed');
+  const secCard   = document.getElementById('demCardSection');
+  const secSealed = document.getElementById('demSealedSection');
+  const condLabel = document.getElementById('demCondLabel');
+
+  if (tabCard)   tabCard.classList.toggle('active', tab === 'card');
+  if (tabSealed) tabSealed.classList.toggle('active', tab === 'sealed');
+  if (secCard)   secCard.style.display   = tab === 'card'   ? '' : 'none';
+  if (secSealed) secSealed.style.display = tab === 'sealed' ? '' : 'none';
+  if (condLabel) condLabel.textContent   = tab === 'card'
+    ? 'Požadovaný stav karty (minimum)'
+    : 'Požadovaný stav obalu';
+}
+
+// ── Demand Type: Buy / Trade / Both ──────────────────────────
+let demandType = 'buy';
+
+function setDemandType(type) {
+  demandType = type;
+  const btnBuy   = document.getElementById('demTypeBuy');
+  const btnTrade = document.getElementById('demTypeTrade');
+  const btnBoth  = document.getElementById('demTypeBoth');
+  const priceRow = document.getElementById('demPriceRow');
+  const tradeRow = document.getElementById('demTradeRow');
+
+  [btnBuy, btnTrade, btnBoth].forEach(b => b && b.classList.remove('act'));
+  if (type === 'buy')   { btnBuy?.classList.add('act'); }
+  if (type === 'trade') { btnTrade?.classList.add('act'); }
+  if (type === 'both')  { btnBoth?.classList.add('act'); }
+
+  if (priceRow) priceRow.style.display = (type === 'trade') ? 'none' : '';
+  if (tradeRow) tradeRow.style.display = (type === 'buy')   ? 'none' : '';
+}
+
+// ── Demand Sealed product type/lang/cond ─────────────────────
+let demProdType = 'booster';
+let demProdLang = 'EN';
+let demSealCond = 'sealed';
+
+function setDemProdType(type) {
+  demProdType = type;
+  document.querySelectorAll('[id^="dpt_"]').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('dpt_' + type);
+  if (el) el.classList.add('active');
+}
+function setDemLang(lang) {
+  demProdLang = lang;
+  document.querySelectorAll('[id^="dlang"]').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('dlang' + lang);
+  if (el) el.classList.add('active');
+}
+function setDemSealCond(cond) {
+  demSealCond = cond;
+  document.querySelectorAll('[id^="dseal"]').forEach(b => b.classList.remove('active'));
+  const el = document.getElementById('dseal' + cond.charAt(0).toUpperCase() + cond.slice(1));
+  if (el) el.classList.add('active');
+}
+
+// ── Save Draft (Uložit rozdělanou) ───────────────────────────
+function saveDraftListing() {
+  if (!token) { alert('Přihlaš se.'); return; }
+
+  const card = addCardData;
+  const draft = {
+    _pendingId: 'draft_' + Date.now(),
+    _isDraft: true,
+    _draftType: currentListingTab, // 'card' or 'product'
+    name: card?.name || document.getElementById('prodSetInput')?.value || 'Rozdělaná nabídka',
+    set: card?.set || (typeof card?.set === 'string' ? card.set : undefined),
+    number: card?.number || '',
+    images: card?.images || null,
+    condition: document.getElementById('addCond')?.value || 'NM',
+    album_price: parseInt(document.getElementById('addPrice')?.value) || null,
+    _addType: addType,
+    _description: document.getElementById('addDesc')?.value || '',
+    _tradeWants: document.getElementById('addTradeWants')?.value || '',
+    _tradeCards: offerTradeCards.slice(),
+    _location: document.getElementById('addLocation')?.value || '',
+    _deliveryPost: document.getElementById('addDeliveryPost')?.checked ?? true,
+    _deliveryPersonal: document.getElementById('addDeliveryPersonal')?.checked ?? false,
+    _cardData: card,
+    // Sealed fields
+    _prodType: selectedProdType,
+    _prodLang: selectedProdLang,
+    _sealCond: selectedSealCond,
+    _prodPrice: document.getElementById('prodPrice')?.value || '',
+    _prodDesc: document.getElementById('prodDesc')?.value || '',
+    _prodLocation: document.getElementById('addProdLocation')?.value || '',
+  };
+
+  // Add to pending queue
+  const q = getPendingQueue();
+  q.push(draft);
+  savePendingQueue(q);
+  updatePendingBadge();
+
+  alert('💾 Rozpracovaná nabídka uložena do „Čeká na vystavení".');
+  closeAddListing();
+}
+
+function saveDraftDemand() {
+  if (!token) { alert('Přihlaš se.'); return; }
+
+  const card = demandCardData;
+  const draft = {
+    _pendingId: 'demdraft_' + Date.now(),
+    _isDemandDraft: true,
+    _demandTab: currentDemandTab,
+    _demandType: demandType,
+    name: card?.name || document.getElementById('demProdSet')?.value || 'Rozdělaná poptávka',
+    images: card?.images || null,
+    _cardData: card,
+    _maxPrice: document.getElementById('demandMaxPrice')?.value || '',
+    _minCond: document.getElementById('demandMinCond')?.value || 'NM',
+    _notes: document.getElementById('demandNotes')?.value || '',
+    _tradeCards: demandTradeCards.slice(),
+    _location: document.getElementById('demLocation')?.value || '',
+    _deliveryPost: document.getElementById('demDeliveryPost')?.checked ?? true,
+    _deliveryPersonal: document.getElementById('demDeliveryPersonal')?.checked ?? false,
+    // Sealed fields
+    _prodType: demProdType,
+    _prodLang: demProdLang,
+    _sealCond: demSealCond,
+    _prodSet: document.getElementById('demProdSet')?.value || '',
+  };
+
+  const q = getPendingQueue();
+  q.push(draft);
+  savePendingQueue(q);
+  updatePendingBadge();
+
+  alert('💾 Rozpracovaná poptávka uložena do „Čeká na vystavení".');
+  closeAddDemand();
+}
+
+// ── Updated openAddDemand ────────────────────────────────────
+// Override the old one
+window.openAddDemand = function() {
+  if (!token) { alert('Přihlaš se pro přidání poptávky.'); return; }
+  document.getElementById('addDemandModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  // Reset form
+  document.getElementById('demandCardUrl').value = '';
+  document.getElementById('demandMaxPrice').value = '';
+  document.getElementById('demandNotes').value = '';
+  const locEl = document.getElementById('demLocation');
+  if (locEl) locEl.value = localStorage.getItem('mkt_location') || '';
+  clearDemandCard();
+  demandTradeCards = [];
+  renderTradeUrlCards('demand');
+  setDemandType('buy');
+  setDemandTab('card');
+};
+
+// ── Updated closeAddDemand ───────────────────────────────────
+window.closeAddDemand = function() {
+  document.getElementById('addDemandModal').style.display = 'none';
+  document.body.style.overflow = '';
+  demandCardData = null;
+  demandTradeCards = [];
+};
+
+// ── Updated openAddListing ───────────────────────────────────
+window.openAddListing = function() {
+  if (!token) { alert('Přihlas se pro přidání nabídky.'); return; }
+  document.getElementById('addModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setListingTab('card');
+  resetAiZone();
+  offerTradeCards = [];
+  renderTradeUrlCards('offer');
+  // Pre-fill location from memory
+  const locEl = document.getElementById('addLocation');
+  if (locEl) locEl.value = localStorage.getItem('mkt_location') || '';
+  setTimeout(generateInlineQr, 300);
+};
+
+// ── Updated closeAddListing ──────────────────────────────────
+// closeAddListing override below
+window.closeAddListing = function() {
+  document.getElementById('addModal').style.display = 'none';
+  document.body.style.overflow = '';
+  addCardData = null;
+  offerTradeCards = [];
+  document.getElementById('addCardPreview').style.display = 'none';
+  document.getElementById('addCardUrl').value = '';
+  resetAiZone();
+  resetQrInline();
+  salePhotos = [];
+  renderSalePhotos();
+  const ow = document.getElementById('officialCardWrap');
+  if (ow) ow.style.display = 'none';
+  // Reset product form
+  selectedProdType = 'booster'; selectedProdLang = 'EN'; selectedSealCond = 'sealed';
+  selectedProdSet = null; prodPhotos = [];
+  const pi = document.getElementById('prodSetInput'); if (pi) pi.value = '';
+  const ps = document.getElementById('prodSetSelected'); if (ps) ps.style.display = 'none';
+  const pr = document.getElementById('prodSetResults'); if (pr) pr.style.display = 'none';
+  const strip = document.getElementById('prodSalePhotosStrip');
+  if (strip && typeof renderProdPhotoStrip === 'function') renderProdPhotoStrip();
+  if (typeof closeAddListing_pendingCleanup === 'function') closeAddListing_pendingCleanup();
+};
+
+// ── Updated submitListing — include new fields ───────────────
+// _origSubmitListing override below
+window.submitListing = async function() {
+  if (!token) { alert('Přihlas se.'); return; }
+  const price = parseInt(document.getElementById('addPrice').value) || null;
+  const desc  = document.getElementById('addDesc').value.trim() || null;
+  const cond  = document.getElementById('addCond').value;
+  const wants = document.getElementById('addTradeWants').value.trim() || null;
+  const card  = addCardData;
+  const loc   = document.getElementById('addLocation')?.value.trim() || null;
+  const dPost = document.getElementById('addDeliveryPost')?.checked ?? true;
+  const dPers = document.getElementById('addDeliveryPersonal')?.checked ?? false;
+
+  // Save location for next time
+  if (loc) localStorage.setItem('mkt_location', loc);
+
+  const cardData = card ? {
+    name: card.name, set: card.set?.name || '', number: card.number || '',
+    hp: card.hp || '', types: card.types || [], supertype: card.supertype || '',
+    images: card.images || null, rarity: card.rarity || '',
+    pTrend: card.cardmarket?.prices?.trendPrice || null,
+    pMin: card.cardmarket?.prices?.lowPrice || null,
+    cardmarketUrl: card.cardmarket?.url || '',
+  } : {};
+
+  const payload = {
+    user_id:        userId,
+    username:       username,
+    title:          card?.name || 'Nabídka',
+    cards_data:     [cardData],
+    card_name:      card?.name || '',
+    card_set:       card?.set?.name || card?.set || '',
+    card_number:    card?.number || '',
+    card_hp:        card?.hp || '',
+    card_type:      card?.types?.[0] || '',
+    card_rarity:    card?.rarity || '',
+    card_condition: cond,
+    api_image_url:  card?.images?.large || card?.images?.small || '',
+    price_czk:      (addType === 'trade') ? null : price,
+    allow_trade:    (addType === 'trade' || addType === 'both'),
+    allow_offer:    true,
+    trade_wants:    wants,
+    trade_cards:    offerTradeCards.length ? offerTradeCards.map(c => ({
+      name: c.name, set: c.set, number: c.number,
+      imgSmall: c.imgSmall, imgLarge: c.imgLarge,
+    })) : null,
+    description:    desc,
+    location:       loc,
+    delivery_post:     dPost,
+    delivery_personal: dPers,
+    status:         'active',
+    user_photos:    salePhotos.length ? salePhotos.map(p => ({
+      src: p.croppedUrl || p.src, mime: p.mime, cropped: !!p.croppedUrl
+    })) : undefined,
+  };
+
+  const res = await sbReq('rest/v1/listings', 'POST', payload, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+  alert('✅ Nabídka zveřejněna!');
+  if (_pendingFromQueue?._pendingId) {
+    removePendingCard(_pendingFromQueue._pendingId);
+    _pendingFromQueue = null;
+  }
+  closeAddListing();
+  allListings.unshift(Array.isArray(res) ? res[0] : res);
+  applyFilters();
+};
+
+// ── Updated submitDemand — include new fields ────────────────
+window.submitDemand = async function() {
+  if (!token) { alert('Přihlaš se.'); return; }
+  const card     = demandCardData;
+  const maxPrice = parseInt(document.getElementById('demandMaxPrice').value) || null;
+  const minCond  = document.getElementById('demandMinCond').value;
+  const notes    = document.getElementById('demandNotes').value.trim() || null;
+  const loc      = document.getElementById('demLocation')?.value.trim() || null;
+  const dPost    = document.getElementById('demDeliveryPost')?.checked ?? true;
+  const dPers    = document.getElementById('demDeliveryPersonal')?.checked ?? false;
+
+  if (loc) localStorage.setItem('mkt_location', loc);
+
+  const isSealed = currentDemandTab === 'sealed';
+
+  if (!isSealed && !card) { alert('Vyber kartu, kterou hledáš.'); return; }
+  if (isSealed && !document.getElementById('demProdSet')?.value.trim()) {
+    alert('Zadej sérii sealed produktu.'); return;
+  }
+
+  const payload = {
+    user_id:       userId,
+    username:      username,
+    card_name:     isSealed ? (document.getElementById('demProdSet')?.value || '') : (card?.name || ''),
+    card_set:      isSealed ? '' : (card?.set?.name || ''),
+    card_number:   isSealed ? '' : (card?.number || ''),
+    card_type:     isSealed ? '' : (card?.types?.[0] || ''),
+    card_rarity:   isSealed ? '' : (card?.rarity || ''),
+    api_image_url: isSealed ? '' : (card?.images?.large || card?.images?.small || ''),
+    cards_data:    isSealed ? null : [card],
+    max_price_czk: maxPrice,
+    min_condition: minCond,
+    accept_trade:  (demandType === 'trade' || demandType === 'both'),
+    demand_type:   demandType,
+    trade_cards:   demandTradeCards.length ? demandTradeCards.map(c => ({
+      name: c.name, set: c.set, number: c.number,
+      imgSmall: c.imgSmall, imgLarge: c.imgLarge,
+    })) : null,
+    notes:         notes,
+    location:      loc,
+    delivery_post:     dPost,
+    delivery_personal: dPers,
+    item_type:     isSealed ? 'sealed' : 'card',
+    product_type:  isSealed ? demProdType : null,
+    product_lang:  isSealed ? demProdLang : null,
+    seal_condition: isSealed ? demSealCond : null,
+    status:        'active',
+    response_count: 0,
+  };
+
+  const res = await sbReq('rest/v1/demands', 'POST', payload, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+
+  alert('✅ Poptávka zveřejněna!');
+  closeAddDemand();
+  const newDemand = Array.isArray(res) ? res[0] : res;
+  if (newDemand) allDemands.unshift(newDemand);
+  demandsLoaded = true;
+  applyDemandFilters();
+};
+
+// ── Updated setMarketMode — sidebar works for demands ────────
+// _origSetMarketMode override below
+window.setMarketMode = function(mode) {
+  marketMode = mode;
+  const isOffer  = mode === 'offer';
+  const isDemand = mode === 'demand';
+
+  document.getElementById('mmtOffer').classList.toggle('active', isOffer);
+  document.getElementById('mmtDemand').classList.toggle('active', isDemand);
+
+  // Show/hide list vs demand view — keep listView visible for toolbar
+  document.getElementById('listView').style.display       = '';  // Always visible (has toolbar)
+  document.getElementById('listingsWrap').style.display    = isOffer  ? '' : 'none';
+  document.getElementById('demandsView').style.display     = isDemand ? '' : 'none';
+  document.getElementById('detailView').style.display      = 'none';
+
+  // Toolbar buttons
+  document.getElementById('btnAddOffer').style.display     = isOffer  ? '' : 'none';
+  document.getElementById('btnAddDemand').style.display    = isDemand ? '' : 'none';
+  document.getElementById('btnPendingQueue').style.display = isOffer  ? '' : 'none';
+
+  // Keep sidebar FULLY functional for demands too — just update label
+  const sellLabel = document.getElementById('fSell')?.closest('.filter-opt');
+  const tradeLabel = document.getElementById('fTrade')?.closest('.filter-opt');
+  if (sellLabel) sellLabel.style.opacity = '1';
+  if (tradeLabel) tradeLabel.style.opacity = '1';
+
+  // Show search input for both modes
+  document.getElementById('searchInput').placeholder = isDemand
+    ? 'Hledat poptávku, kartu, uživatele...'
+    : 'Hledat kartu, prodejce, sérii...';
+
+  if (isDemand && !demandsLoaded) {
+    loadDemands();
+  } else if (isDemand) {
+    applyDemandFilters();
+  }
+};
+
+// ── Updated setAddType — show/hide trade cards section ───────
+// _origSetAddType override below
+window.setAddType = function(type) {
+  addType = type;
+  ['addTypeSell','addTypeTrade','addTypeBoth'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('act', id === 'addType' + type.charAt(0).toUpperCase() + type.slice(1));
+  });
+  document.getElementById('addTypeSell').classList.toggle('act', type === 'sell');
+  document.getElementById('addTypeTrade').classList.toggle('act', type === 'trade');
+  document.getElementById('addTypeBoth').classList.toggle('act', type === 'both');
+
+  const priceRow = document.getElementById('addPriceRow');
+  const tradeRow = document.getElementById('addTradeRow');
+  if (priceRow) priceRow.style.display = (type === 'trade') ? 'none' : '';
+  if (tradeRow) tradeRow.style.display = (type === 'sell') ? 'none' : '';
+};
+
+// ── Updated setListingTab for full-screen form ───────────────
+window.setListingTab = function(tab) {
+  currentListingTab = tab;
+  document.getElementById('tabCard').classList.toggle('active', tab === 'card');
+  document.getElementById('tabProduct').classList.toggle('active', tab === 'product');
+  document.getElementById('cardListingForm').style.display    = tab === 'card'    ? '' : 'none';
+  document.getElementById('productListingForm').style.display = tab === 'product' ? '' : 'none';
+};
+
+// ── Listing tab styling ──────────────────────────────────────
+// Make listing-tab class work with fs-tab
+(function(){
+  const style = document.createElement('style');
+  style.textContent = '.listing-tab { display: none !important; }';
+  document.head.appendChild(style);
+})();

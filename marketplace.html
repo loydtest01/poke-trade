@@ -378,259 +378,294 @@
   </main>
 </div>
 
-<!-- ADD LISTING MODAL -->
-<div id="addModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.8);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.1);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#fff">Nová nabídka</div>
-      <button onclick="closeAddListing()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+<!-- ADD LISTING MODAL (full-screen) -->
+<div id="addModal" class="fs-modal" style="display:none">
+  <div class="fs-modal-inner">
+    <!-- HEADER -->
+    <div class="fs-header">
+      <div class="fs-header-left">
+        <div class="fs-title">🏷️ Nová nabídka</div>
+        <div class="fs-subtitle">Vyplň údaje o kartě nebo produktu, který chceš nabídnout</div>
+      </div>
+      <button class="fs-close" onclick="closeAddListing()" title="Zavřít (Esc)">✕</button>
     </div>
-    <!-- Listing type tabs -->
-    <div style="display:flex;gap:6px;background:rgba(255,255,255,0.05);border-radius:10px;padding:4px;margin-bottom:16px">
-      <button class="listing-tab active" id="tabCard" onclick="setListingTab('card')">🃏 Karta</button>
-      <button class="listing-tab" id="tabProduct" onclick="setListingTab('product')">📦 Produkt / Sealed</button>
-    </div>
-    <!-- CARD FORM -->
-    <div id="cardListingForm" style="display:flex;flex-direction:column;gap:12px">
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">pokemontcg.io · Cardmarket URL nebo název</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <input id="addCardUrl" class="panel-inp" placeholder="pokemontcg.io/... · cardmarket.com/... · Charizard V" style="flex:1;min-width:0">
-          <button onclick="fetchCardForListing()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">Načíst</button>
-          <button onclick="openCardSearch('listing')" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">🔍 Hledat</button>
-          <button onclick="openAlbumPicker()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(74,222,128,0.15);color:#4ade80;font-size:13px;cursor:pointer;font-weight:700;white-space:nowrap">📒 Z alba</button>
-        </div>
-        <div id="addCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:8px;position:relative">
-          <div class="card-preview-hover-wrap">
-            <img id="addCardImg" class="card-preview-thumb" style="width:44px;height:60px;border-radius:5px;object-fit:cover;cursor:zoom-in" src="" onclick="openCardImgZoom(this.src, document.getElementById('addCardLargeImg')?.src)">
-            <div class="card-preview-zoom-overlay" id="cardZoomOverlay">
-              <img id="addCardLargeImg" src="" class="card-zoom-large">
-            </div>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div id="addCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
-            <div id="addCardMeta" style="font-size:11px;color:var(--text3)"></div>
-            <div id="addCardAlbumBadge" style="display:none;margin-top:4px;font-size:10px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:12px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px">📒 Z alba</div>
-          </div>
-          <button onclick="clearAddCard()" style="position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button>
-        </div>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Typ nabídky</div>
-        <div style="display:flex;gap:8px">
-          <button class="tv-btn act" id="addTypeSell" onclick="setAddType('sell')">💰 Prodej</button>
-          <button class="tv-btn" id="addTypeTrade" onclick="setAddType('trade')">🔄 Výměna</button>
-          <button class="tv-btn" id="addTypeBoth" onclick="setAddType('both')">Obojí</button>
-        </div>
-      </div>
-      <div id="addPriceRow">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Cena (Kč)</div>
-        <div id="albumPriceInfo" class="album-price-info" style="display:none">
-          📒 Cena z alba: <strong id="albumPriceVal">—</strong> Kč &nbsp;·&nbsp; <span style="font-size:11px;opacity:.7">Pouze orientační — zadej svou prodejní cenu níže</span>
-        </div>
-        <input id="addPrice" class="panel-inp" type="number" placeholder="Např. 450">
-      </div>
-      <div id="addTradeRow" style="display:none">
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Co chcete za výměnu?</div>
-        <input id="addTradeWants" class="panel-inp" placeholder="Např. Charizard ex, silná Psycho karta...">
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Stav karty</div>
-        <select id="addCond" class="sort-sel" style="width:100%">
-          <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – Nová / Mint</option>
-          <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná</option>
-          <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná</option>
-          <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná</option>
-          <option value="D" style="background:#0e0c14;color:#f0ece4;">D – Poškozená</option>
-        </select>
-      </div>
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis (nepovinné)</div>
-        <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav, odkud karta pochází, co přijmete za výměnu..."></textarea>
-      </div>
-      <!-- AI SCAN ZONE – split layout -->
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka pro rozpoznání</div>
-          <div style="display:flex;align-items:center;gap:4px;background:rgba(116,180,255,0.12);border:1px solid rgba(116,180,255,0.25);border-radius:20px;padding:2px 9px">
-            <span style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em">AI SCAN</span>
-          </div>
-        </div>
-        <!-- Two-column split: left = upload, right = QR -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <!-- LEFT: drag & drop / file picker -->
-          <div id="aiDropZone" class="ai-drop-zone" onclick="document.getElementById('aiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleAiDrop(event)" style="min-height:120px">
-            <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
-            <div id="aiDropContent">
-              <div class="ai-drop-icon">📸</div>
-              <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber</div>
-              <div class="ai-drop-hint" style="font-size:11px">AI rozezná kartu</div>
-            </div>
-          </div>
-          <!-- RIGHT: QR code for mobile – click opens fullscreen -->
-          <div id="qrInlinePanel" style="border:1px dashed rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px;cursor:pointer;min-height:120px;transition:border-color .15s" onclick="generateInlineQr()" title="Klikni pro vygenerování QR kódu">
-            <div id="qrInlineCanvas" style="background:#fff;border-radius:8px;padding:8px;display:flex;align-items:center;justify-content:center;width:90px;height:90px">
-              <div style="font-size:22px">📱</div>
-            </div>
-            <div style="font-size:10px;color:var(--text3);text-align:center;line-height:1.4">Skenuj telefonem<br>→ vyfotí kartu kamerou</div>
-            <div id="qrCopyBtn" style="display:none;font-size:10px;color:var(--blue);cursor:pointer;padding:3px 8px;border:1px solid rgba(116,180,255,0.3);border-radius:6px" onclick="event.stopPropagation();copyInlineQrUrl()">📋 Kopírovat odkaz</div>
-          </div>
-        </div>
-        <!-- AI Scan progress -->
-        <div id="aiScanProgress" style="display:none;margin-top:6px">
-          <div class="ai-scan-bar">
-            <div class="ai-scan-fill" id="aiScanFill"></div>
-          </div>
-          <div class="ai-scan-status" id="aiScanStatus">Analyzuji kartu...</div>
-        </div>
-      </div>
 
-      <!-- FOTKY K PRODEJI – s lightboxem a ořezem -->
-      <div id="salePhotosSection">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky k prodeji</div>
-          <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:12px;padding:2px 8px">Klikni na foto → zvětšit · ✂️ → oříznout</span>
-        </div>
-        <!-- Main layout: left = official API card (hover zoom), right = user sale photos -->
-        <div style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
-          <!-- LEFT: official API image with hover zoom -->
-          <div class="listing-official-card-wrap" id="officialCardWrap" style="display:none">
-            <div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">Ofic. obrázek</div>
-            <div class="card-hover-zoom-wrap" onclick="openMktLightbox(document.getElementById('officialCardThumb').src)">
-              <img id="officialCardThumb" class="official-card-thumb" src="">
-              <div class="card-hover-zoom-label">🔍 Zvětšit</div>
+    <!-- TABS: Karta / Sealed -->
+    <div class="fs-tabs">
+      <button class="fs-tab active" id="tabCard" onclick="setListingTab('card')">🃏 Karta</button>
+      <button class="fs-tab" id="tabProduct" onclick="setListingTab('product')">📦 Produkt / Sealed</button>
+    </div>
+
+    <!-- ═══ CARD FORM ═══ -->
+    <div id="cardListingForm" class="fs-body">
+      <div class="fs-grid">
+        <!-- LEFT COLUMN -->
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">📇 Karta</div>
+            <div class="fs-label">pokemontcg.io · Cardmarket URL nebo název</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <input id="addCardUrl" class="panel-inp" placeholder="pokemontcg.io/... · cardmarket.com/... · Charizard V" style="flex:1;min-width:180px">
+              <button onclick="fetchCardForListing()" class="fs-btn-sm gold">Načíst</button>
+              <button onclick="openCardSearch('listing')" class="fs-btn-sm blue">🔍 Hledat</button>
+              <button onclick="openAlbumPicker()" class="fs-btn-sm green">📒 Z alba</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <a href="https://www.pokemontcg.io/" target="_blank" class="fs-ext-link">🌐 pokemontcg.io</a>
+              <a href="https://www.cardmarket.com/cs/Pokemon" target="_blank" class="fs-ext-link">🌐 Cardmarket</a>
+            </div>
+            <div id="addCardPreview" class="fs-card-preview" style="display:none">
+              <div class="card-preview-hover-wrap">
+                <img id="addCardImg" class="card-preview-thumb" style="width:52px;height:72px;border-radius:6px;object-fit:cover;cursor:zoom-in" src="" onclick="openCardImgZoom(this.src, document.getElementById('addCardLargeImg')?.src)">
+                <div class="card-preview-zoom-overlay" id="cardZoomOverlay">
+                  <img id="addCardLargeImg" src="" class="card-zoom-large">
+                </div>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div id="addCardName" style="font-size:14px;font-weight:700;color:var(--text)"></div>
+                <div id="addCardMeta" style="font-size:12px;color:var(--text3)"></div>
+                <div id="addCardAlbumBadge" style="display:none;margin-top:4px;font-size:10px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:12px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px">📒 Z alba</div>
+              </div>
+              <button onclick="clearAddCard()" style="position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button>
             </div>
           </div>
-          <!-- RIGHT: user sale photos strip -->
-          <div>
-            <div class="sale-photos-strip" id="salePhotosStrip">
-              <!-- Add photo tile -->
-              <div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
-                <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
+
+          <div class="fs-section">
+            <div class="fs-section-title">💰 Typ nabídky & cena</div>
+            <div class="fs-label">Typ nabídky</div>
+            <div style="display:flex;gap:8px">
+              <button class="tv-btn act" id="addTypeSell" onclick="setAddType('sell')">💰 Prodej</button>
+              <button class="tv-btn" id="addTypeTrade" onclick="setAddType('trade')">🔄 Výměna</button>
+              <button class="tv-btn" id="addTypeBoth" onclick="setAddType('both')">Obojí</button>
+            </div>
+            <div id="addPriceRow" style="margin-top:10px">
+              <div class="fs-label">Cena (Kč)</div>
+              <div id="albumPriceInfo" class="album-price-info" style="display:none">
+                📒 Cena z alba: <strong id="albumPriceVal">—</strong> Kč &nbsp;·&nbsp; <span style="font-size:11px;opacity:.7">Pouze orientační</span>
+              </div>
+              <input id="addPrice" class="panel-inp" type="number" placeholder="Např. 450" style="width:180px">
+            </div>
+            <div id="addTradeRow" style="display:none;margin-top:10px">
+              <div class="fs-label">Co chcete za výměnu?</div>
+              <input id="addTradeWants" class="panel-inp" placeholder="Volný text — Charizard ex, silná Psycho karta..." style="width:100%">
+              <div style="margin-top:8px">
+                <div class="fs-label">Karty na výměnu (URL)</div>
+                <div id="addTradeCardsWrap" class="trade-url-cards-wrap"></div>
+                <div style="display:flex;gap:6px;margin-top:6px">
+                  <input id="addTradeCardUrl" class="panel-inp" placeholder="URL karty z pokemontcg.io nebo Cardmarket..." style="flex:1">
+                  <button onclick="addTradeCardUrl('offer')" class="fs-btn-sm blue">＋ Přidat</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:4px">
+                  <a href="https://www.pokemontcg.io/" target="_blank" class="fs-ext-link">🌐 pokemontcg.io</a>
+                  <a href="https://www.cardmarket.com/cs/Pokemon" target="_blank" class="fs-ext-link">🌐 Cardmarket</a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📋 Stav & popis</div>
+            <div class="fs-label">Stav karty</div>
+            <select id="addCond" class="sort-sel" style="width:100%">
+              <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – Nová / Mint</option>
+              <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná</option>
+              <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná</option>
+              <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná</option>
+              <option value="D" style="background:#0e0c14;color:#f0ece4;">D – Poškozená</option>
+            </select>
+            <div class="fs-label" style="margin-top:10px">Popis (nepovinné)</div>
+            <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav karty, odkud pochází, co přijmete za výměnu..."></textarea>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">📍 Lokalita & předání</div>
+            <div class="fs-label">Odkud jsem (město / kraj)</div>
+            <input id="addLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
+            <div class="fs-label" style="margin-top:10px">Způsob předání</div>
+            <div style="display:flex;gap:14px">
+              <label class="filter-opt"><input type="checkbox" id="addDeliveryPost" checked> 📬 Poštou</label>
+              <label class="filter-opt"><input type="checkbox" id="addDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📸 Fotky & AI rozpoznání</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <div class="fs-label" style="margin:0">Fotka pro rozpoznání</div>
+              <div style="display:flex;align-items:center;gap:4px;background:rgba(116,180,255,0.12);border:1px solid rgba(116,180,255,0.25);border-radius:20px;padding:2px 9px">
+                <span style="font-size:9px;font-weight:800;color:var(--blue);letter-spacing:.06em">AI SCAN</span>
+              </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div id="aiDropZone" class="ai-drop-zone" onclick="document.getElementById('aiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleAiDrop(event)" style="min-height:110px">
+                <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
+                <div id="aiDropContent">
+                  <div class="ai-drop-icon">📸</div>
+                  <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber</div>
+                  <div class="ai-drop-hint" style="font-size:11px">AI rozezná kartu</div>
+                </div>
+              </div>
+              <div id="qrInlinePanel" style="border:1px dashed rgba(255,255,255,0.12);border-radius:10px;background:rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px;cursor:pointer;min-height:110px;transition:border-color .15s" onclick="generateInlineQr()" title="Klikni pro QR kód">
+                <div id="qrInlineCanvas" style="background:#fff;border-radius:8px;padding:8px;display:flex;align-items:center;justify-content:center;width:80px;height:80px">
+                  <div style="font-size:22px">📱</div>
+                </div>
+                <div style="font-size:10px;color:var(--text3);text-align:center;line-height:1.4">Skenuj telefonem</div>
+                <div id="qrCopyBtn" style="display:none;font-size:10px;color:var(--blue);cursor:pointer;padding:3px 8px;border:1px solid rgba(116,180,255,0.3);border-radius:6px" onclick="event.stopPropagation();copyInlineQrUrl()">📋 Kopírovat odkaz</div>
+              </div>
+            </div>
+            <div id="aiScanProgress" style="display:none;margin-top:6px">
+              <div class="ai-scan-bar"><div class="ai-scan-fill" id="aiScanFill"></div></div>
+              <div class="ai-scan-status" id="aiScanStatus">Analyzuji kartu...</div>
+            </div>
+          </div>
+
+          <div class="fs-section" id="salePhotosSection">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+              <div class="fs-label" style="margin:0">Fotky k prodeji</div>
+              <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:12px;padding:2px 8px">Klikni → zvětšit · ✂️ → oříznout</span>
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start">
+              <div class="listing-official-card-wrap" id="officialCardWrap" style="display:none">
+                <div style="font-size:9px;color:var(--text3);text-align:center;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">Ofic. obrázek</div>
+                <div class="card-hover-zoom-wrap" onclick="openMktLightbox(document.getElementById('officialCardThumb').src)">
+                  <img id="officialCardThumb" class="official-card-thumb" src="">
+                  <div class="card-hover-zoom-label">🔍 Zvětšit</div>
+                </div>
+              </div>
+              <div>
+                <div class="sale-photos-strip" id="salePhotosStrip">
+                  <div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
+                    <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
+                    <div style="font-size:22px">➕</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+                  </div>
+                </div>
+                <div style="font-size:10px;color:var(--text3);margin-top:5px">Reálné fotky karty – kupující uvidí jak karta skutečně vypadá</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /fs-grid -->
+    </div><!-- /cardListingForm -->
+
+    <!-- ═══ PRODUCT / SEALED FORM ═══ -->
+    <div id="productListingForm" class="fs-body" style="display:none">
+      <div class="fs-grid">
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">📦 Typ produktu</div>
+            <div class="prod-type-grid">
+              <button class="prod-type-btn active" id="pt_booster" onclick="setProdType('booster')">✉️<br>Booster</button>
+              <button class="prod-type-btn" id="pt_boosterbox" onclick="setProdType('boosterbox')">📦<br>Booster Box</button>
+              <button class="prod-type-btn" id="pt_etb" onclick="setProdType('etb')">🎁<br>ETB</button>
+              <button class="prod-type-btn" id="pt_tin" onclick="setProdType('tin')">🥫<br>Tin</button>
+              <button class="prod-type-btn" id="pt_blister" onclick="setProdType('blister')">💊<br>Blister</button>
+              <button class="prod-type-btn" id="pt_bundle" onclick="setProdType('bundle')">🗂️<br>Bundle</button>
+              <button class="prod-type-btn" id="pt_deck" onclick="setProdType('deck')">🎴<br>Deck</button>
+              <button class="prod-type-btn" id="pt_other" onclick="setProdType('other')">⋯<br>Jiné</button>
+            </div>
+            <div id="prodTypeHint" style="font-size:11px;color:var(--text3);margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:7px"></div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">🔖 Série / Set</div>
+            <div class="fs-label">Cardmarket URL (nepovinné)</div>
+            <div style="display:flex;gap:8px;margin-bottom:6px">
+              <input id="prodCmUrl" class="panel-inp" placeholder="https://www.cardmarket.com/en/Pokemon/Products/..." style="flex:1;font-size:12px">
+              <button onclick="importProdFromCardmarket()" class="fs-btn-sm gold">CM Import</button>
+            </div>
+            <div class="fs-label">Název série</div>
+            <div style="display:flex;gap:8px">
+              <input id="prodSetInput" class="panel-inp" placeholder="Scarlet & Violet 151..." style="flex:1" oninput="prodSetInputChange()">
+              <button onclick="searchProdSet()" class="fs-btn-sm gold">Hledat</button>
+            </div>
+            <div id="prodSetResults" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto"></div>
+            <div id="prodSetSelected" class="prod-set-selected" style="display:none">
+              <img id="prodSetLogo" class="prod-set-logo" src="" onerror="this.style.display='none'">
+              <div>
+                <div id="prodSetName" style="font-size:13px;font-weight:700;color:var(--text)"></div>
+                <div id="prodSetMeta" style="font-size:11px;color:var(--text3)"></div>
+              </div>
+              <button onclick="clearProdSet()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">🌐 Jazyk & stav</div>
+            <div class="fs-label">Jazyk produktu</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="lang-btn active" id="langEN" onclick="setProdLang('EN')">🇬🇧 EN</button>
+              <button class="lang-btn" id="langCZ" onclick="setProdLang('CZ')">🇨🇿 CZ</button>
+              <button class="lang-btn" id="langJP" onclick="setProdLang('JP')">🇯🇵 JP</button>
+              <button class="lang-btn" id="langDE" onclick="setProdLang('DE')">🇩🇪 DE</button>
+              <button class="lang-btn" id="langFR" onclick="setProdLang('FR')">🇫🇷 FR</button>
+              <button class="lang-btn" id="langIT" onclick="setProdLang('IT')">🇮🇹 IT</button>
+            </div>
+            <div class="fs-label" style="margin-top:10px">Stav obalu</div>
+            <div style="display:flex;gap:7px;flex-wrap:wrap">
+              <button class="seal-btn active" id="sealSealed" onclick="setSealCond('sealed')">🔒 Sealed – nový</button>
+              <button class="seal-btn" id="sealDamaged" onclick="setSealCond('damaged')">⚠️ Poškozený obal</button>
+              <button class="seal-btn" id="sealOpen" onclick="setSealCond('open')">📂 Otevřený</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">💰 Cena & množství</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <div class="fs-label">Cena (Kč)</div>
+                <input id="prodPrice" class="panel-inp" type="number" placeholder="Např. 1 200" style="width:100%">
+              </div>
+              <div>
+                <div class="fs-label">Počet kusů</div>
+                <input id="prodQty" class="panel-inp" type="number" min="1" value="1" placeholder="1" style="width:100%">
+              </div>
+            </div>
+            <div class="fs-label" style="margin-top:10px">EAN / GTIN (nepovinné)</div>
+            <input id="prodEan" class="panel-inp" placeholder="4000116001234" style="width:100%">
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📍 Lokalita & předání</div>
+            <div class="fs-label">Odkud jsem (město / kraj)</div>
+            <input id="addProdLocation" class="panel-inp" placeholder="Např. Praha, Brno..." style="width:100%">
+            <div class="fs-label" style="margin-top:10px">Způsob předání</div>
+            <div style="display:flex;gap:14px">
+              <label class="filter-opt"><input type="checkbox" id="addProdDeliveryPost" checked> 📬 Poštou</label>
+              <label class="filter-opt"><input type="checkbox" id="addProdDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📝 Popis & fotky</div>
+            <div class="fs-label">Popis / poznámka (nepovinné)</div>
+            <textarea id="prodDesc" class="panel-textarea" style="height:70px" placeholder="Stav pečetě, odkud pochází, detail obalu..."></textarea>
+            <div class="fs-label" style="margin-top:10px">Fotky produktu</div>
+            <div class="sale-photos-strip" id="prodSalePhotosStrip">
+              <div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
+                <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
                 <div style="font-size:22px">➕</div>
                 <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
               </div>
             </div>
-            <div style="font-size:10px;color:var(--text3);margin-top:5px">Reálné fotky karty – kupující uvidí jak karta skutečně vypadá</div>
           </div>
         </div>
       </div>
-      <button onclick="submitListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
-        Zveřejnit nabídku
-      </button>
-    </div><!-- /cardListingForm -->
-
-    <!-- PRODUCT / SEALED FORM -->
-    <div id="productListingForm" style="display:none;flex-direction:column;gap:14px">
-
-      <!-- Typ produktu -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px">Typ produktu</div>
-        <div class="prod-type-grid">
-          <button class="prod-type-btn active" id="pt_booster"    onclick="setProdType('booster')">✉️<br>Booster</button>
-          <button class="prod-type-btn"         id="pt_boosterbox" onclick="setProdType('boosterbox')">📦<br>Booster Box</button>
-          <button class="prod-type-btn"         id="pt_etb"        onclick="setProdType('etb')">🎁<br>ETB</button>
-          <button class="prod-type-btn"         id="pt_tin"        onclick="setProdType('tin')">🥫<br>Tin</button>
-          <button class="prod-type-btn"         id="pt_blister"    onclick="setProdType('blister')">💊<br>Blister</button>
-          <button class="prod-type-btn"         id="pt_bundle"     onclick="setProdType('bundle')">🗂️<br>Bundle</button>
-          <button class="prod-type-btn"         id="pt_deck"       onclick="setProdType('deck')">🎴<br>Deck</button>
-          <button class="prod-type-btn"         id="pt_other"      onclick="setProdType('other')">⋯<br>Jiné</button>
-        </div>
-        <div id="prodTypeHint" style="font-size:11px;color:var(--text3);margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.03);border-radius:7px"></div>
-      </div>
-
-      <!-- Série / Set vyhledávání -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Série / Set <span style="font-size:10px;color:var(--text3);text-transform:none;letter-spacing:0">· nebo vlož Cardmarket URL</span></div>
-        <div style="display:flex;gap:8px;margin-bottom:6px">
-          <input id="prodCmUrl" class="panel-inp" placeholder="https://www.cardmarket.com/en/Pokemon/Products/..." style="flex:1;font-size:12px">
-          <button onclick="importProdFromCardmarket()" style="padding:9px 12px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:12px;cursor:pointer;font-weight:700;font-family:inherit;white-space:nowrap">CM Import</button>
-        </div>
-        <div style="display:flex;gap:8px">
-          <input id="prodSetInput" class="panel-inp" placeholder="Scarlet & Violet 151..." style="flex:1" oninput="prodSetInputChange()">
-          <button onclick="searchProdSet()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(245,200,66,0.2);color:var(--yellow);font-size:13px;cursor:pointer;font-weight:700;font-family:inherit">Hledat</button>
-        </div>
-        <div id="prodSetResults" style="display:none;margin-top:8px;max-height:180px;overflow-y:auto"></div>
-        <div id="prodSetSelected" class="prod-set-selected" style="display:none">
-          <img id="prodSetLogo" class="prod-set-logo" src="" onerror="this.style.display='none'">
-          <div>
-            <div id="prodSetName" style="font-size:13px;font-weight:700;color:var(--text)"></div>
-            <div id="prodSetMeta" style="font-size:11px;color:var(--text3)"></div>
-          </div>
-          <button onclick="clearProdSet()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
-        </div>
-      </div>
-
-      <!-- Jazyk -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Jazyk produktu</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="lang-btn active" id="langEN" onclick="setProdLang('EN')">🇬🇧 EN</button>
-          <button class="lang-btn"         id="langCZ" onclick="setProdLang('CZ')">🇨🇿 CZ</button>
-          <button class="lang-btn"         id="langJP" onclick="setProdLang('JP')">🇯🇵 JP</button>
-          <button class="lang-btn"         id="langDE" onclick="setProdLang('DE')">🇩🇪 DE</button>
-          <button class="lang-btn"         id="langFR" onclick="setProdLang('FR')">🇫🇷 FR</button>
-          <button class="lang-btn"         id="langIT" onclick="setProdLang('IT')">🇮🇹 IT</button>
-        </div>
-      </div>
-
-      <!-- Stav obalu -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">Stav obalu</div>
-        <div style="display:flex;gap:7px;flex-wrap:wrap">
-          <button class="seal-btn active" id="sealSealed"  onclick="setSealCond('sealed')">🔒 Sealed – nový</button>
-          <button class="seal-btn"         id="sealDamaged" onclick="setSealCond('damaged')">⚠️ Poškozený obal</button>
-          <button class="seal-btn"         id="sealOpen"    onclick="setSealCond('open')">📂 Otevřený</button>
-        </div>
-      </div>
-
-      <!-- Počet kusů + EAN -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div>
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Počet kusů</div>
-          <input id="prodQty" class="panel-inp" type="number" min="1" value="1" placeholder="1">
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">EAN / GTIN <span style="letter-spacing:0;font-weight:400">(nepovinné)</span></div>
-          <input id="prodEan" class="panel-inp" placeholder="4000116001234">
-        </div>
-      </div>
-
-      <!-- Cena -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Cena (Kč)</div>
-        <input id="prodPrice" class="panel-inp" type="number" placeholder="Např. 1 200">
-      </div>
-
-      <!-- Popis -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Popis / poznámka (nepovinné)</div>
-        <textarea id="prodDesc" class="panel-textarea" style="height:70px" placeholder="Stav pečetě, odkud pochází, detail obalu..."></textarea>
-      </div>
-
-      <!-- Fotky produktu -->
-      <div>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotky produktu</div>
-            <span style="font-size:10px;color:var(--text3);background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);padding:2px 8px;border-radius:20px;color:#fbbf24">2+ doporučeny</span>
-          </div>
-          <span style="font-size:10px;color:var(--text3);background:rgba(255,255,255,0.05);border-radius:12px;padding:2px 8px">Klikni → zvětšit · ✂️ → oříznout</span>
-        </div>
-        <div class="sale-photos-strip" id="prodSalePhotosStrip">
-          <div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
-            <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
-            <div style="font-size:22px">➕</div>
-            <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
-          </div>
-        </div>
-      </div>
-
-      <button onclick="submitProductListing()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
-        📦 Zveřejnit produkt
-      </button>
     </div><!-- /productListingForm -->
 
+    <!-- FOOTER -->
+    <div class="fs-footer">
+      <button onclick="saveDraftListing()" class="fs-btn-draft">💾 Uložit rozdělanou</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeAddListing()" class="fs-btn-cancel">Storno</button>
+        <button onclick="submitCurrentListing()" class="fs-btn-submit offer">🏷️ Vystavit nabídku</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -682,90 +717,162 @@
   </div><!-- /card-search-box -->
 </div><!-- /cardSearchModal -->
 
-<!-- ADD DEMAND MODAL -->
-<div id="addDemandModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px">
-  <div style="background:#0a0c14;border:1px solid rgba(34,211,238,0.2);border-radius:18px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:24px;box-shadow:0 0 60px rgba(34,211,238,0.12)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div>
-        <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#22d3ee">🔍 Nová poptávka</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px">Řekni ostatním, jakou kartu hledáš</div>
+<!-- ADD DEMAND MODAL (full-screen) -->
+<div id="addDemandModal" class="fs-modal demand" style="display:none">
+  <div class="fs-modal-inner">
+    <!-- HEADER -->
+    <div class="fs-header demand">
+      <div class="fs-header-left">
+        <div class="fs-title" style="color:#22d3ee">🔍 Nová poptávka</div>
+        <div class="fs-subtitle">Řekni ostatním, jakou kartu nebo produkt hledáš</div>
       </div>
-      <button onclick="closeAddDemand()" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:4px 8px">✕</button>
+      <button class="fs-close" onclick="closeAddDemand()" title="Zavřít (Esc)">✕</button>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:13px">
-      <!-- Karta -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Karta, kterou hledám</div>
-        <div style="display:flex;gap:8px">
-          <input id="demandCardUrl" class="panel-inp" placeholder="Název nebo URL z pokemontcg.io..." style="flex:1">
-          <button onclick="fetchCardForDemand()" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(34,211,238,0.18);color:#22d3ee;font-size:13px;cursor:pointer;font-weight:700">Načíst</button>
-          <button onclick="openCardSearch('demand')" style="padding:9px 14px;border-radius:8px;border:none;background:rgba(74,158,255,0.15);color:var(--blue);font-size:13px;cursor:pointer;font-weight:700">🔍 Hledat</button>
-        </div>
-        <div id="demandCardPreview" style="margin-top:8px;display:none;gap:10px;align-items:center;background:rgba(34,211,238,0.06);border:1px solid rgba(34,211,238,0.15);border-radius:8px;padding:8px">
-          <img id="demandCardImg" style="width:44px;height:60px;border-radius:5px;object-fit:cover" src="">
-          <div>
-            <div id="demandCardName" style="font-size:13px;font-weight:600;color:var(--text)"></div>
-            <div id="demandCardMeta" style="font-size:11px;color:var(--text3)"></div>
+    <!-- TABS: Karta / Sealed -->
+    <div class="fs-tabs demand">
+      <button class="fs-tab active" id="demTabCard" onclick="setDemandTab('card')">🃏 Karta</button>
+      <button class="fs-tab" id="demTabSealed" onclick="setDemandTab('sealed')">📦 Sealed</button>
+    </div>
+
+    <div class="fs-body">
+      <div class="fs-grid">
+        <!-- LEFT COLUMN -->
+        <div class="fs-col">
+          <!-- Card section (shown for card tab) -->
+          <div class="fs-section" id="demCardSection">
+            <div class="fs-section-title">📇 Karta, kterou hledám</div>
+            <div class="fs-label">pokemontcg.io · Cardmarket URL nebo název</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <input id="demandCardUrl" class="panel-inp" placeholder="pokemontcg.io/... · cardmarket.com/... · název" style="flex:1;min-width:180px">
+              <button onclick="fetchCardForDemand()" class="fs-btn-sm cyan">Načíst</button>
+              <button onclick="openCardSearch('demand')" class="fs-btn-sm blue">🔍 Hledat</button>
+            </div>
+            <div style="display:flex;gap:6px;margin-top:6px">
+              <a href="https://www.pokemontcg.io/" target="_blank" class="fs-ext-link">🌐 pokemontcg.io</a>
+              <a href="https://www.cardmarket.com/cs/Pokemon" target="_blank" class="fs-ext-link">🌐 Cardmarket</a>
+            </div>
+            <div id="demandCardPreview" class="fs-card-preview demand" style="display:none">
+              <img id="demandCardImg" style="width:52px;height:72px;border-radius:6px;object-fit:cover" src="">
+              <div style="flex:1;min-width:0">
+                <div id="demandCardName" style="font-size:14px;font-weight:700;color:var(--text)"></div>
+                <div id="demandCardMeta" style="font-size:12px;color:var(--text3)"></div>
+              </div>
+              <button onclick="clearDemandCard()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
+            </div>
           </div>
-          <button onclick="clearDemandCard()" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px">✕</button>
-        </div>
-      </div>
 
-      <!-- Maximální cena -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Maximální cena (Kč) <span style="font-weight:400;text-transform:none;letter-spacing:0">(nepovinné)</span></div>
-        <input id="demandMaxPrice" class="panel-inp" type="number" placeholder="Např. 500 — kolik jsi ochoten zaplatit?">
-      </div>
-
-      <!-- Minimální stav -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Minimální přijatelný stav</div>
-        <select id="demandMinCond" class="sort-sel" style="width:100%">
-          <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – Nová / Mint</option>
-          <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná</option>
-          <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná</option>
-          <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná</option>
-        </select>
-      </div>
-
-      <!-- Přijímám výměnu -->
-      <div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.04);border-radius:8px;padding:10px 12px">
-        <input type="checkbox" id="demandAcceptTrade" style="width:16px;height:16px;accent-color:#22d3ee">
-        <div>
-          <div style="font-size:13px;font-weight:600">🔄 Přijímám i výměnu</div>
-          <div style="font-size:11px;color:var(--text3)">Ostatní ti mohou navrhnout výměnu, nejen prodej</div>
-        </div>
-      </div>
-
-      <!-- Poznámka -->
-      <div>
-        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Poznámka (nepovinné)</div>
-        <textarea id="demandNotes" class="panel-textarea" style="height:80px" placeholder="Preferuji CZ verzi, zajímá mě pouze full art, hledám urgentně..."></textarea>
-      </div>
-
-      <!-- AI SCAN ZONE -->
-      <div>
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em">Fotka karty</div>
-          <div style="display:flex;align-items:center;gap:4px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);border-radius:20px;padding:2px 9px">
-            <span style="font-size:9px;font-weight:800;color:#22d3ee;letter-spacing:.06em">AI SCAN</span>
+          <!-- Sealed section (shown for sealed tab) -->
+          <div class="fs-section" id="demSealedSection" style="display:none">
+            <div class="fs-section-title">📦 Sealed produkt, který hledám</div>
+            <div class="fs-label">Typ produktu</div>
+            <div class="prod-type-grid">
+              <button class="prod-type-btn active" id="dpt_booster" onclick="setDemProdType('booster')">✉️<br>Booster</button>
+              <button class="prod-type-btn" id="dpt_boosterbox" onclick="setDemProdType('boosterbox')">📦<br>BB</button>
+              <button class="prod-type-btn" id="dpt_etb" onclick="setDemProdType('etb')">🎁<br>ETB</button>
+              <button class="prod-type-btn" id="dpt_tin" onclick="setDemProdType('tin')">🥫<br>Tin</button>
+              <button class="prod-type-btn" id="dpt_blister" onclick="setDemProdType('blister')">💊<br>Blister</button>
+              <button class="prod-type-btn" id="dpt_other" onclick="setDemProdType('other')">⋯<br>Jiné</button>
+            </div>
+            <div class="fs-label" style="margin-top:10px">Série / Set</div>
+            <input id="demProdSet" class="panel-inp" placeholder="Např. Scarlet & Violet 151..." style="width:100%">
+            <div class="fs-label" style="margin-top:10px">Jazyk</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="lang-btn active" id="dlangEN" onclick="setDemLang('EN')">🇬🇧 EN</button>
+              <button class="lang-btn" id="dlangCZ" onclick="setDemLang('CZ')">🇨🇿 CZ</button>
+              <button class="lang-btn" id="dlangJP" onclick="setDemLang('JP')">🇯🇵 JP</button>
+              <button class="lang-btn" id="dlangDE" onclick="setDemLang('DE')">🇩🇪 DE</button>
+            </div>
+            <div class="fs-label" style="margin-top:10px">Stav obalu</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button class="seal-btn active" id="dsealSealed" onclick="setDemSealCond('sealed')">🔒 Sealed</button>
+              <button class="seal-btn" id="dsealDamaged" onclick="setDemSealCond('damaged')">⚠️ Poškozený</button>
+              <button class="seal-btn" id="dsealOpen" onclick="setDemSealCond('open')">📂 Otevřený OK</button>
+            </div>
           </div>
-          <span style="font-size:11px;color:var(--text3)">(nepovinné – AI rozezná kartu)</span>
+
+          <div class="fs-section">
+            <div class="fs-section-title">💰 Typ poptávky & cena</div>
+            <div class="fs-label">Co nabízím</div>
+            <div style="display:flex;gap:8px">
+              <button class="tv-btn act" id="demTypeBuy" onclick="setDemandType('buy')">💰 Koupím</button>
+              <button class="tv-btn" id="demTypeTrade" onclick="setDemandType('trade')">🔄 Vyměním</button>
+              <button class="tv-btn" id="demTypeBoth" onclick="setDemandType('both')">Obojí</button>
+            </div>
+            <div id="demPriceRow" style="margin-top:10px">
+              <div class="fs-label">Maximální cena (Kč)</div>
+              <input id="demandMaxPrice" class="panel-inp" type="number" placeholder="Kolik jsem ochoten zaplatit?" style="width:180px">
+            </div>
+            <div id="demTradeRow" style="display:none;margin-top:10px">
+              <div class="fs-label">Karty které nabízím za výměnu</div>
+              <div id="demTradeCardsWrap" class="trade-url-cards-wrap"></div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <input id="demTradeCardUrl" class="panel-inp" placeholder="URL karty z pokemontcg.io nebo Cardmarket..." style="flex:1">
+                <button onclick="addTradeCardUrl('demand')" class="fs-btn-sm cyan">＋ Přidat</button>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:4px">
+                <a href="https://www.pokemontcg.io/" target="_blank" class="fs-ext-link">🌐 pokemontcg.io</a>
+                <a href="https://www.cardmarket.com/cs/Pokemon" target="_blank" class="fs-ext-link">🌐 Cardmarket</a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div id="demandAiDropZone" class="ai-drop-zone demand-drop-zone" onclick="document.getElementById('demandAiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDemandAiDrop(event)" style="min-height:100px">
-          <input type="file" id="demandAiPhotoInput" accept="image/*" style="display:none" onchange="handleDemandAiPhoto(this.files[0])">
-          <div id="demandAiDropContent">
-            <div class="ai-drop-icon" style="font-size:20px">📸</div>
-            <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber foto hledané karty</div>
-            <div class="ai-drop-hint" style="font-size:11px">AI automaticky vyplní název a sérii</div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">📋 Požadavky</div>
+            <div class="fs-label" id="demCondLabel">Požadovaný stav karty (minimum)</div>
+            <select id="demandMinCond" class="sort-sel" style="width:100%">
+              <option value="D" style="background:#0e0c14;color:#f0ece4;">Jakýkoliv stav</option>
+              <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – Hodně hraná a lepší</option>
+              <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – Středně hraná a lepší</option>
+              <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – Lehce hraná a lepší</option>
+              <option value="NM" style="background:#0e0c14;color:#f0ece4;" selected>NM – Pouze nová / Mint</option>
+            </select>
+            <div class="fs-label" style="margin-top:10px">Poznámka (nepovinné)</div>
+            <textarea id="demandNotes" class="panel-textarea" style="height:80px" placeholder="Preferuji CZ verzi, zajímá mě pouze full art, hledám urgentně..."></textarea>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📍 Lokalita & předání</div>
+            <div class="fs-label">Odkud jsem (město / kraj)</div>
+            <input id="demLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
+            <div class="fs-label" style="margin-top:10px">Způsob předání</div>
+            <div style="display:flex;gap:14px">
+              <label class="filter-opt"><input type="checkbox" id="demDeliveryPost" checked> 📬 Poštou</label>
+              <label class="filter-opt"><input type="checkbox" id="demDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📸 Fotka karty (nepovinné)</div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:4px;background:rgba(34,211,238,0.1);border:1px solid rgba(34,211,238,0.25);border-radius:20px;padding:2px 9px">
+                <span style="font-size:9px;font-weight:800;color:#22d3ee;letter-spacing:.06em">AI SCAN</span>
+              </div>
+              <span style="font-size:11px;color:var(--text3)">AI rozezná kartu z fotky</span>
+            </div>
+            <div id="demandAiDropZone" class="ai-drop-zone demand-drop-zone" onclick="document.getElementById('demandAiPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleDemandAiDrop(event)" style="min-height:100px">
+              <input type="file" id="demandAiPhotoInput" accept="image/*" style="display:none" onchange="handleDemandAiPhoto(this.files[0])">
+              <div id="demandAiDropContent">
+                <div class="ai-drop-icon" style="font-size:20px">📸</div>
+                <div class="ai-drop-title" style="font-size:12px">Přetáhni nebo vyber foto</div>
+                <div class="ai-drop-hint" style="font-size:11px">AI automaticky vyplní název a sérii</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <button onclick="submitDemand()" style="padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:15px;font-weight:800;cursor:pointer;font-family:inherit">
-        🔍 Zveřejnit poptávku
-      </button>
+    <!-- FOOTER -->
+    <div class="fs-footer">
+      <button onclick="saveDraftDemand()" class="fs-btn-draft">💾 Uložit rozdělanou</button>
+      <div style="display:flex;gap:8px">
+        <button onclick="closeAddDemand()" class="fs-btn-cancel">Storno</button>
+        <button onclick="submitDemand()" class="fs-btn-submit demand">🔍 Zveřejnit poptávku</button>
+      </div>
     </div>
   </div>
 </div>
