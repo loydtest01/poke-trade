@@ -801,6 +801,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .btn-fake-detector:hover { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.12); }
 
 </style>
+<style id="embeddedStyle"></style>
 </head>
 <body>
 
@@ -1115,6 +1116,15 @@ let token=null, userId=null, username='';
       } catch(e){}
     })();
     init();
+    // Embedded mode — skrýt topbar a sidebar, přizpůsobit layout
+    if(new URLSearchParams(location.search).get('embedded')==='1'){
+      document.getElementById('embeddedStyle').textContent =
+        'header.app-topbar{display:none!important}' +
+        '.conv-sidebar{display:none!important}' +
+        '.chat-wrap{grid-template-columns:1fr!important}' +
+        'body{background:transparent!important}' +
+        '.chat-area{border-radius:0!important;border:none!important}';
+    }
   } else {
     document.getElementById('convEmpty').innerHTML =
       '<div class="conv-empty-icon">🔒</div><h3>Přihlas se</h3><p style="font-size:12px">Pro přístup ke zprávám se <a href="login.html" style="color:var(--yellow)">přihlas</a>.</p>';
