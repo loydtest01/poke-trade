@@ -196,15 +196,16 @@ async function importFromUrl() {
 }
 
 function updateSidebarCounts(baseListings) {
-  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0 };
+  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0, cards:0, sealed:0 };
   baseListings.forEach(l => {
     if (l.allow_trade === false || l.price_czk > 0) c.sell++;
     if (l.allow_trade === true) c.trade++;
     const cond = l.card_condition || 'NM';
-    if      (cond==='NM')            c.NM++;
-    else if (cond==='LP')            c.LP++;
-    else if (cond==='MP')            c.MP++;
+    if      (cond==='NM')             c.NM++;
+    else if (cond==='LP')             c.LP++;
+    else if (cond==='MP')             c.MP++;
     else if (cond==='HP'||cond==='D') c.HP++;
+    if ((l.listing_type || 'card') === 'product') c.sealed++; else c.cards++;
   });
   const upd = (id, val) => {
     const el = document.getElementById(id);
@@ -212,12 +213,14 @@ function updateSidebarCounts(baseListings) {
     el.textContent = val;
     el.classList.toggle('has-val', val > 0);
   };
-  upd('sbCountSell',  c.sell);
-  upd('sbCountTrade', c.trade);
-  upd('sbCountNM',    c.NM);
-  upd('sbCountLP',    c.LP);
-  upd('sbCountMP',    c.MP);
-  upd('sbCountHP',    c.HP);
+  upd('sbCountSell',   c.sell);
+  upd('sbCountTrade',  c.trade);
+  upd('sbCountNM',     c.NM);
+  upd('sbCountLP',     c.LP);
+  upd('sbCountMP',     c.MP);
+  upd('sbCountHP',     c.HP);
+  upd('sbCountCards',  c.cards);
+  upd('sbCountSealed', c.sealed);
 }
 
 // ── Filters + Sort ────────────────────────────────────────────
