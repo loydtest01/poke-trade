@@ -303,9 +303,10 @@
           <div class="detail-desc" id="dDesc" style="display:none"></div>
           <div class="detail-actions">
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
-            <button class="btn-detail-offer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
+            <button class="btn-detail-offer" id="dBtnOffer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
             <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
-            <button class="btn-detail-msg" onclick="openChat()">✉️ Napsat prodejci</button>
+            <button class="btn-detail-msg" id="dBtnMsg" onclick="openChat()">✉️ Napsat prodejci</button>
+            <button class="btn-detail-delete" id="dBtnDelete" onclick="withdrawListing()" style="display:none;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:10px 18px;cursor:pointer;font-size:13px;font-weight:600">🗑️ Stáhnout nabídku</button>
           </div>
 
           <!-- Offer panel -->
@@ -536,9 +537,9 @@
                 </div>
               </div>
               <div>
-                <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
                 <div class="sale-photos-strip" id="salePhotosStrip">
                   <div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
+                    <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
                     <div style="font-size:22px">➕</div>
                     <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
                   </div>

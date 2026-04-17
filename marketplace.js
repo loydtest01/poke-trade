@@ -485,9 +485,16 @@ async function openDetail(id){
   else descEl.style.display='none';
 
   // Buttons
-  document.getElementById('dBtnBuy').style.display=price>0?'':'none';
+  const isOwner = userId && l.user_id === userId;
+  document.getElementById('dBtnBuy').style.display    = (!isOwner && price>0) ? '' : 'none';
   if(price>0) document.getElementById('dBtnBuy').textContent='Koupit za '+price.toLocaleString('cs')+' Kč';
-  document.getElementById('dBtnTrade').style.display=isTrade?'':'none';
+  document.getElementById('dBtnTrade').style.display  = (!isOwner && isTrade) ? '' : 'none';
+  const dBtnOffer  = document.getElementById('dBtnOffer');
+  const dBtnMsg    = document.getElementById('dBtnMsg');
+  const dBtnDelete = document.getElementById('dBtnDelete');
+  if(dBtnOffer)  dBtnOffer.style.display  = isOwner ? 'none' : '';
+  if(dBtnMsg)    dBtnMsg.style.display    = isOwner ? 'none' : '';
+  if(dBtnDelete) dBtnDelete.style.display = isOwner ? '' : 'none';
 
   // Trade wants - show tags + compute matches
   currentTradeMatches = new Set();
@@ -3108,6 +3115,20 @@ function closeMktLightbox() {
   const modal = document.getElementById('mktLightbox');
   if (modal) modal.style.display = 'none';
 }
+
+async function withdrawListing() {
+  if (!currentListing) return;
+  if (currentListing.user_id !== userId) { alert('Nemáš oprávnění stáhnout tuto nabídku.'); return; }
+  if (!confirm('Opravdu chceš stáhnout tuto nabídku? Bude skryta ze seznamu.')) return;
+  const res = await sbReq(
+    'rest/v1/listings?id=eq.' + currentListing.id,
+    'PATCH', { status: 'withdrawn' }, token
+  );
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+  allListings = allListings.filter(l => l.id !== currentListing.id);
+  showList();
+  applyFilters();
+}
 function openCardImgZoom(smallSrc, largeSrc) {
   openMktLightbox(largeSrc || smallSrc);
 }
@@ -3893,6 +3914,7 @@ window.openAddListing = function() {
   document.getElementById('addModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   setListingTab('card');
+  setAddType('sell');
   resetAiZone();
   offerTradeCards = [];
   renderTradeUrlCards('offer');
