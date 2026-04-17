@@ -2095,9 +2095,10 @@ function closeChatModal() {
 }
 
 // Zavřít modal klikem na pozadí
-document.getElementById('chatIframeModal').addEventListener('click', function(e) {
-  if(e.target === this) closeChatModal();
-});
+(function(){
+  var m = document.getElementById('chatIframeModal');
+  if(m) m.addEventListener('click', function(e){ if(e.target===this) closeChatModal(); });
+})();
 
 // Auto-open listing from chat link (?open=LISTING_ID)
 (function checkOpenParam() {
@@ -2663,7 +2664,7 @@ async function sendTradeAlbumOffer() {
 // POPTÁVKY – DEMAND SYSTEM
 // ══════════════════════════════════════════════════════════════
 
-let marketMode = 'offer'; // 'offer' | 'demand'
+var marketMode = 'offer'; // 'offer' | 'demand'
 let allDemands = [], filteredDemands = [];
 let demandCardData = null;
 let currentDemandId = null;
