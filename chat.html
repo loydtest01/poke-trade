@@ -936,6 +936,14 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <!-- Input area -->
     <div class="chat-input-area" id="chatInputArea" style="display:none">
       <div class="attach-bar" id="attachBar"></div>
+      <!-- Bot image preview strip -->
+      <div id="botImgPreviewBar" style="display:none;padding:6px 12px 0;align-items:center;gap:8px">
+        <div style="position:relative;display:inline-block">
+          <img id="botImgThumb" style="height:52px;width:52px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.15)">
+          <button onclick="clearBotImagePreview()" style="position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:#f87171;border:none;color:#fff;font-size:11px;line-height:1;cursor:pointer">✕</button>
+        </div>
+        <span style="font-size:11px;color:rgba(240,236,228,.4)">Karta připravena k analýze 🃏</span>
+      </div>
       <div class="chat-input-row">
         <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace" id="btnAttachListing">
           🃏
@@ -943,6 +951,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <button class="btn-fake-detector" onclick="openFakeDetectorModal()" title="🔍 Detekovat falzum karty" id="btnFakeDetect" style="display:none">
           📷
         </button>
+        <!-- Nahrát foto karty přímo do bot chatu -->
+        <button id="btnBotImage" onclick="document.getElementById('botImgFileInput').click()" title="Nahrát foto karty" style="display:none;background:rgba(245,200,66,.12);border:none;border-radius:10px;width:36px;height:36px;font-size:18px;cursor:pointer;flex-shrink:0;transition:background .15s" onmouseover="this.style.background='rgba(245,200,66,.22)'" onmouseout="this.style.background='rgba(245,200,66,.12)'">
+          🖼️
+        </button>
+        <input type="file" id="botImgFileInput" accept="image/*" style="display:none" onchange="botImgSelected(this)">
         <textarea class="chat-textarea" id="chatInput" placeholder="Napište zprávu..." rows="1"
           oninput="autoGrow(this)" onkeydown="handleInputKey(event)"></textarea>
         <button class="btn-send" id="btnSend" onclick="sendMessage()" title="Odeslat">
@@ -1245,6 +1258,8 @@ async function openConversation(conv) {
   document.getElementById('botConvItem').classList.remove('active');
   document.getElementById('btnFakeDetect').style.display = 'none';
   document.getElementById('btnAttachListing').style.display = '';
+  document.getElementById('btnBotImage').style.display = 'none';
+  clearBotImagePreview();
   document.getElementById('chatInput').placeholder = 'Napište zprávu...';
   const hBadge = document.getElementById('botHeaderBadge');
   if (hBadge) hBadge.style.display = 'none';
@@ -2241,28 +2256,36 @@ const GROQ_MODEL = () => window._groqModel || 'llama-3.3-70b-versatile';
 
 let isBotMode     = false;
 let botHistory    = []; // {role, content}[]
+let _botImageBase64 = null; // pending image to send
+let _botImageMime   = 'image/jpeg';
 
-const BOT_SYSTEM = `Jsi PokéBot – AI asistent pro PokéTrade marketplace, českou platformu pro obchodování s Pokémon TCG kartami.
+const BOT_SYSTEM = `Jsi PokéBot – AI asistent pro PokéTrade, českou komunitu kde si jednotliví sběratelé a hráči navzájem prodávají a vyměňují Pokémon TCG karty. Každý prodávající je samostatný člověk – nejde o žádný obchod ani tým.
 
 Specializuješ se na:
-- Odhady tržní ceny karet (podle setu, čísla, raritě, stavu a aktuálních trendů)
-- Tipy na výhodné obchody a vyjednávání cen
-- Informace o sadách, expanzích, vzácných kartách
-- Hodnocení nabídek – zda je cena fér, nad nebo pod tržní hodnotou
-- Základní rady jak poznat falzifikát (doporučuj použít tlačítko 📷 Fake detektor)
+- Informace o kartách: sada, číslo, rarita, ilustrátor, datum vydání, tiskové varianty
+- Aktuální tržní ceny – VŽDY uváděj konkrétní ceny z reálných zdrojů:
+  • Cardmarket (cardmarket.com) – evropský trh, ceny v EUR/CZK
+  • TCGPlayer (tcgplayer.com) – americký trh, ceny v USD
+  • eBay dokončené aukce – reálné prodejní ceny
+  • PriceCharting (pricecharting.com) – historické trendy
+  Pokud přesnou aktuální cenu neznáš, řekni to upřímně a odkaž uživatele přímo na tyto weby.
+- Analýza fotek karet – pokud uživatel pošle foto, identifikuj kartu, řekni co na ní vidíš, odhadni stav (NM/LP/MP/HP) a dej odkaz na cenu
+- Detekce falzifikátů – pokud pošle foto, zkontroluj font, HP, okraje, holo, copyright
+- Informace o sadách, expanzích, vzácných kartách a trendech
 
 Pravidla:
 - Odpovídej VŽDY česky
-- Buď stručný, přátelský a přesný – max 3-4 věty pokud není potřeba více
+- Buď stručný a přesný – 2-4 věty pokud není potřeba více
+- NIKDY nevymýšlej ceny – raději řekni "ověř na Cardmarket" než dávej nepřesný odhad
 - Používej emoji přirozeně (🃏 💰 📈 ✅)
-- Pokud nevíš přesnou cenu, dej reálný odhad s odůvodněním
-- Nikdy nevymýšlej fake informace`;
+- Zdůrazni, že ceny na Cardmarket jsou aktuálnější než tvoje znalosti
+- PokéTrade je platforma komunity – každý prodávající nastavuje vlastní ceny`;
 
 const BOT_QUICK_PROMPTS = [
-  '💰 Kolik stojí Charizard ex?',
+  '💰 Kde zjistím cenu karty?',
+  '📸 Pošli foto karty pro analýzu',
   '📈 Jaké karty teď rostou?',
   '🔍 Jak poznám falzifikát?',
-  '🤝 Jak vyjednat lepší cenu?',
   '⭐ Nejcennější karty 2025?',
   '🎴 Co je Special Illustration Rare?',
 ];
@@ -2287,6 +2310,7 @@ function openBotConversation() {
   // Show fake detector button, hide listing attach
   document.getElementById('btnFakeDetect').style.display = '';
   document.getElementById('btnAttachListing').style.display = 'none';
+  document.getElementById('btnBotImage').style.display = '';
 
   // Set header
   document.getElementById('chatAvatar').textContent = '🤖';
@@ -2307,7 +2331,7 @@ function openBotConversation() {
   hBadge.style.display = '';
 
   // Update placeholder
-  document.getElementById('chatInput').placeholder = 'Zeptej se PokéBota...';
+  document.getElementById('chatInput').placeholder = 'Zeptej se PokéBota nebo nahraj 🖼️ foto karty...';
 
   // Render bot messages
   renderBotMessages();
@@ -2356,9 +2380,19 @@ function renderBotMessages() {
     const isMe = m.role === 'user';
     const time = new Date().toLocaleTimeString('cs', {hour:'2-digit',minute:'2-digit'});
     if (isMe) {
-      html += `<div class="msg-row me"><div class="msg-bubble">${esc(m.content)}<div class="msg-time">${time}</div></div></div>`;
+      // content can be string or array (with image)
+      let textPart = '', imgPart = '';
+      if (typeof m.content === 'string') {
+        textPart = esc(m.content);
+      } else if (Array.isArray(m.content)) {
+        m.content.forEach(c => {
+          if (c.type === 'text') textPart = esc(c.text);
+          if (c.type === 'image') imgPart = `<img src="data:${c.source.media_type};base64,${c.source.data}" style="max-width:200px;max-height:200px;border-radius:10px;display:block;margin-bottom:4px">`;
+        });
+      }
+      html += `<div class="msg-row me"><div class="msg-bubble">${imgPart}${textPart}<div class="msg-time">${time}</div></div></div>`;
     } else {
-      const formatted = m.content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g,'<br>');
+      const formatted = (m.content||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
       html += `
         <div class="msg-row them" style="align-items:flex-start;gap:8px">
           <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
@@ -2371,60 +2405,112 @@ function renderBotMessages() {
 }
 
 async function sendBotMessage(text) {
-  if (!text.trim()) return;
+  const hasImage = !!_botImageBase64;
+  if (!text.trim() && !hasImage) return;
 
-  // Zkontroluj API klíč před odesláním
-  if (!getGroqKey()) {
+  if (!getGroqKey() && !hasImage) {
     openGroqSettings();
     showToast('⚙️ Nejdřív nastav Groq API klíč!', 'error');
     return;
   }
 
-  botHistory.push({ role: 'user', content: text });
+  // Build user message — if image, use array content (Claude vision format)
+  let userMsg;
+  if (hasImage) {
+    const parts = [];
+    parts.push({ type: 'image', source: { type: 'base64', media_type: _botImageMime, data: _botImageBase64 } });
+    if (text.trim()) parts.push({ type: 'text', text: text.trim() });
+    else             parts.push({ type: 'text', text: 'Analyzuj tuto kartu: identifikuj ji, řekni informace o ní, zkontroluj jestli vypadá jako pravá karta, a uveď kde zjistit aktuální cenu (Cardmarket, TCGPlayer).' });
+    userMsg = { role: 'user', content: parts };
+  } else {
+    userMsg = { role: 'user', content: text.trim() };
+  }
+
+  // Clear pending image
+  _botImageBase64 = null;
+  _botImageMime   = 'image/jpeg';
+  clearBotImagePreview();
+
+  botHistory.push(userMsg);
   renderBotMessages();
 
   // Show typing indicator
   const container = document.getElementById('chatMessages');
   const typingEl = document.createElement('div');
   typingEl.className = 'msg-row them';
-  typingEl.style.gap = '8px';
-  typingEl.style.alignItems = 'flex-start';
+  typingEl.style.cssText = 'gap:8px;align-items:flex-start';
   typingEl.innerHTML = `
     <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
     <div class="bot-msg-bubble" style="padding:14px 16px"><div class="bot-typing"><span></span><span></span><span></span></div></div>`;
   container.appendChild(typingEl);
   container.scrollTop = container.scrollHeight;
 
-  // Disable send
   const btn = document.getElementById('btnSend');
   btn.disabled = true;
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getGroqKey()}`,
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL(),
-        max_tokens: 512,
-        messages: [
-          { role: 'system', content: BOT_SYSTEM },
-          ...botHistory.slice(-12) // keep context window manageable
-        ]
-      })
-    });
+    let reply;
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || 'Groq API chyba');
+    if (hasImage) {
+      // ── Vision request → Claude API (Groq nemá spolehlivý vision) ──
+      const claudeMessages = botHistory.map(m => {
+        if (typeof m.content === 'string') return { role: m.role, content: m.content };
+        // convert our image format to Claude format
+        return { role: m.role, content: m.content };
+      });
 
-    const reply = data.choices?.[0]?.message?.content || 'Omlouvám se, nepodařilo se mi odpovědět.';
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 700,
+          system: BOT_SYSTEM,
+          messages: claudeMessages.slice(-8)
+        })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(()=>({}));
+        throw new Error(err?.error?.message || 'HTTP ' + res.status);
+      }
+      const data = await res.json();
+      reply = data.content?.map(b => b.text||'').join('') || 'Nepodařilo se analyzovat kartu.';
+
+    } else {
+      // ── Text request → Groq ──────────────────────────────────────
+      // Flatten history to strings only for Groq (no vision)
+      const groqMessages = botHistory.map(m => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content
+          : (Array.isArray(m.content) ? m.content.filter(c=>c.type==='text').map(c=>c.text).join(' ') : String(m.content))
+      }));
+
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getGroqKey()}`,
+        },
+        body: JSON.stringify({
+          model: GROQ_MODEL(),
+          max_tokens: 512,
+          messages: [
+            { role: 'system', content: BOT_SYSTEM },
+            ...groqMessages.slice(-12)
+          ]
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Groq API chyba');
+      reply = data.choices?.[0]?.message?.content || 'Omlouvám se, nepodařilo se mi odpovědět.';
+    }
+
     botHistory.push({ role: 'assistant', content: reply });
 
   } catch(e) {
     const errMsg = e.message.includes('401') || e.message.includes('Incorrect API key')
-      ? '❌ Neplatný Groq API klíč. Nastav GROQ_API_KEY v chat.html.'
+      ? '❌ Neplatný API klíč. Nastav Groq klíč v Profilu → Nastavení.'
       : '❌ Chyba: ' + e.message;
     botHistory.push({ role: 'assistant', content: errMsg });
   }
@@ -2433,7 +2519,6 @@ async function sendBotMessage(text) {
   renderBotMessages();
   btn.disabled = false;
 
-  // Add quick chips after bot reply if few messages
   if (botHistory.length <= 4) {
     const chipsWrap = document.createElement('div');
     chipsWrap.className = 'bot-quick-chips';
@@ -2445,8 +2530,31 @@ async function sendBotMessage(text) {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FAKE DETECTOR
+// ─── Bot image upload helpers ────────────────────────────────────
+function botImgSelected(input) {
+  const file = input.files[0];
+  if (!file || !file.type.startsWith('image/')) return;
+  _botImageMime = file.type;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    _botImageBase64 = e.target.result.split(',')[1];
+    document.getElementById('botImgThumb').src = e.target.result;
+    document.getElementById('botImgPreviewBar').style.display = 'flex';
+    document.getElementById('chatInput').placeholder = 'Napiš dotaz ke kartě, nebo rovnou odešli...';
+    document.getElementById('chatInput').focus();
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function clearBotImagePreview() {
+  _botImageBase64 = null;
+  _botImageMime   = 'image/jpeg';
+  const bar = document.getElementById('botImgPreviewBar');
+  if (bar) bar.style.display = 'none';
+  const inp = document.getElementById('chatInput');
+  if (inp && isBotMode) inp.placeholder = 'Zeptej se PokéBota...';
+}
 // ═══════════════════════════════════════════════════════════════
 let _fakeImageBase64 = null;
 let _fakeImageMime   = null;
@@ -2580,9 +2688,36 @@ async function runFakeAnalysis() {
 
 function buildFakePrompt(cardInfo) {
   const hint = cardInfo
-    ? `Karta by měla být: ${cardInfo.name||'?'}${cardInfo.set?' · '+cardInfo.set:''}${cardInfo.number?' #'+cardInfo.number:''}${cardInfo.hp?' · '+cardInfo.hp+' HP':''}${cardInfo.rarity?' · '+cardInfo.rarity:''}.`
-    : '';
-  return `You are an expert Pokémon TCG card authenticator.\n${hint}\n\nExamine this card for authenticity. Check fonts, HP plausibility, attack damage, border, energy icons, rarity symbol, print quality, holo pattern, copyright line.\n\nRespond ONLY with JSON (no markdown):\n{"verdict":"real|fake|suspicious|unknown","score":0-100,"confidence":"high|med|low","summary":"1-2 sentence verdict in Czech","flags":[{"label":"...","severity":"ok|warn|fail","detail":"..."}]}\n\nInclude 4-8 flags. verdict: real≥75, suspicious 40-74, fake<40.`;
+    ? `Karta by měla být: ${cardInfo.name||'?'}${cardInfo.set?' · Set: '+cardInfo.set:''}${cardInfo.number?' · Číslo: #'+cardInfo.number:''}${cardInfo.hp?' · HP: '+cardInfo.hp:''}${cardInfo.rarity?' · Rarita: '+cardInfo.rarity:''}.`
+    : 'Karta nebyla blíže specifikována – identifikuj ji sám z obrázku.';
+
+  return `You are a world-class Pokémon TCG card authentication expert with 15+ years of experience.
+
+${hint}
+
+CAREFULLY examine the card image for authenticity. Check ALL of the following:
+1. FONT & TEXT – correct Gill Sans/Futura fonts, proper weight, spacing, HP number style
+2. HP VALUE – is it a plausible number for this card/era (e.g. no 999 HP for a basic)?
+3. BORDERS – correct thickness, color, sharpness; check for white border bleed
+4. ENERGY SYMBOLS – correct size, color, positioning
+5. RARITY SYMBOL – correct shape and position (bottom right of card)
+6. HOLO PATTERN – if holo, does the pattern look authentic and match the era/set?
+7. PRINT QUALITY – resolution, pixelation, color saturation, dot pattern under magnification
+8. SET SYMBOL – correct symbol for the claimed set, correct position
+9. COPYRIGHT LINE – correct year, correct Creatures/Game Freak/Nintendo text
+10. CARD TEXTURE – if visible, any unusual texture or lamination
+11. ATTACK DAMAGE – plausible values for the card type and era
+12. OVERALL COMPOSITION – card layout matches official template
+
+Respond ONLY with valid JSON (absolutely no markdown, no backticks, no explanation outside JSON):
+{"verdict":"real|fake|suspicious|unknown","score":0-100,"confidence":"high|med|low","summary":"2-3 sentence verdict in Czech language","flags":[{"label":"...","severity":"ok|warn|fail","detail":"..."}]}
+
+Rules:
+- Include 5-10 flags covering different aspects
+- verdict: real if score≥75, suspicious if 40-74, fake if score<40
+- confidence: high if image is clear and you can see details, med if some parts unclear, low if image too blurry
+- Write summary and flag details in CZECH
+- Be specific – name exact issues found, not just "looks wrong"`;
 }
 
 function renderFakeResult(result) {
