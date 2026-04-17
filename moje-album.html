@@ -2377,7 +2377,11 @@ function buildCardmarketUrl(c) {
   const nameSlug = slugify(c.name);
   const setSlug  = slugify(c.set);
   // Cardmarket vyžaduje v name-slugu i kód setu + číslo (např. Charmander-PFL011)
-  const setCode  = (c.setCode || '').toUpperCase();
+  // Fallback: odvoď setCode z apiId (např. "pfl-11" -> "PFL")
+  const derivedCode = (!c.setCode && c.apiId && c.apiId.includes('-'))
+    ? c.apiId.split('-').slice(0,-1).join('').toUpperCase()
+    : '';
+  const setCode  = (c.setCode || derivedCode || '').toUpperCase();
   const num      = (c.number || c.num || '').toString().split('/')[0];
   const numPad   = num ? num.padStart(3, '0') : '';
   const suffix   = setCode && numPad ? `-${setCode}${numPad}` : '';
@@ -3703,15 +3707,14 @@ async function refreshCardPrices() {
   const c   = _detailCard;
   const btn = document.getElementById('cdRefreshPricesBtn');
   const el  = document.getElementById('cdPrices');
-  // Reset cache aby fetchLivePrices vždy proběhl
+  // Pouze reset timestamp — cardmarketUrl NEZMAZAT
   c.pricesFetchedAt = null;
-  c.cardmarketUrl   = '';
   if (btn) { btn.innerHTML = '⏳'; btn.disabled = true; }
   if (el)  { el.innerHTML  = '<div style="font-size:11px;color:var(--text3);padding:4px 0">Načítám ceny…</div>'; }
   await fetchLivePrices(c, el);
   if (btn) {
-    btn.innerHTML  = '✅ OK';
-    btn.disabled   = false;
+    btn.innerHTML = '✅ OK';
+    btn.disabled  = false;
     setTimeout(() => { btn.innerHTML = '🔄 Refresh'; }, 2500);
   }
 }
@@ -3798,7 +3801,7 @@ async function fetchLivePrices(c, el) {
     c.pMin          = cm.lowPrice   || 0;
     c.pTrend        = cm.trendPrice || 0;
     c.p30d          = cm.avg30 || cm.avg7 || 0;
-    c.cardmarketUrl = card.cardmarket?.url || '';
+    c.cardmarketUrl = card.cardmarket?.url || c.cardmarketUrl || '';
     c.setCode       = card.set?.ptcgoCode || c.setCode || '';
     c.hp            = card.hp || c.hp || '';
     c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
@@ -3819,8 +3822,16 @@ async function fetchLivePrices(c, el) {
     } else {
       // Ceny jsou 0 — ulož timestamp aby se za 7 dní zkusilo znovu
       saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save zero]', e));
+      // I přesto aktualizuj odkaz — URL mohla být opravena
+      const _cmUrl0 = c.cardmarketUrl || buildCardmarketUrl(c);
+      const _link0 = document.querySelector('#cdName a');
+      if (_link0 && _cmUrl0) _link0.href = _cmUrl0;
+      const _hasRealUrl0 = !!c.cardmarketUrl;
       if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
-        Ceny na Cardmarket nejsou k dispozici — <a href="${esc(buildCardmarketUrl(c))}" target="_blank"
+        ${_hasRealUrl0
+          ? 'Ceny zatím nejsou v databázi — '
+          : 'Ceny na Cardmarket nejsou k dispozici — '}
+        <a href="${esc(_cmUrl0)}" target="_blank"
         style="color:var(--yellow)">otevřít Cardmarket ↗</a></div>`;
     }
   } catch(err) {

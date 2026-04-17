@@ -1529,6 +1529,7 @@ async function doAssign(groups, albumId) {
           pTrend:         rc?.pTrend        || 0,
           p30d:           rc?.p30d          || 0,
           cardmarketUrl:  rc?.cardmarketUrl || '',
+          setCode:        rc?.setCode || '',
           pricesFetchedAt: rc?.pricesFetchedAt || null,
           count: qty, qty, tags: [], for_trade: false, for_sell: false,
           backCondition: g.backAi?.condition || null,
@@ -2536,6 +2537,19 @@ function tcgSelectCard(gi, idx) {
   let cardData;
   try { cardData = JSON.parse(cardEl.dataset.card); } catch { return; }
 
+  // Doplň ceny + CM URL + setCode z plného záznamu v _tcgPageState
+  // (cardPayload v data-card ukládá jen zobrazovací data, ceny tam chybí)
+  const _fullCard = _tcgPageState[gi]?.cards?.[idx];
+  if (_fullCard) {
+    const _cm = _fullCard.cardmarket?.prices || {};
+    cardData.pMin            = _cm.lowPrice   || 0;
+    cardData.pTrend          = _cm.trendPrice || 0;
+    cardData.p30d            = _cm.avg30 || _cm.avg7 || 0;
+    cardData.cardmarketUrl   = _fullCard.cardmarket?.url || cardData.cardmarketUrl || '';
+    cardData.setCode         = _fullCard.set?.ptcgoCode || '';
+    cardData.pricesFetchedAt = new Date().toISOString();
+  }
+
   // Zrušit předchozí výběr
   gridEl.querySelectorAll('.cg-search-card').forEach(el => el.classList.remove('selected'));
 
@@ -2666,6 +2680,7 @@ async function resolveCardUrl(url) {
         pTrend:         cm.trendPrice || 0,
         p30d:           cm.avg30 || cm.avg7 || 0,
         cardmarketUrl:  c.cardmarket?.url || '',
+        setCode:        c.set?.ptcgoCode || '',
         pricesFetchedAt: new Date().toISOString(),
       };
     }
@@ -2693,6 +2708,7 @@ async function resolveCardUrl(url) {
         pTrend:         cm.trendPrice || 0,
         p30d:           cm.avg30 || cm.avg7 || 0,
         cardmarketUrl:  c.cardmarket?.url || '',
+        setCode:        c.set?.ptcgoCode || '',
         pricesFetchedAt: new Date().toISOString(),
       };
     } else {
