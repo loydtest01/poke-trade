@@ -2265,23 +2265,23 @@ const BOT_SYSTEM = `Jsi PokéBot – AI asistent pro PokéTrade, českou komunit
 
 Specializuješ se na:
 - Informace o kartách: sada, číslo, rarita, ilustrátor, datum vydání, tiskové varianty
-- Aktuální tržní ceny – VŽDY uváděj konkrétní ceny z reálných zdrojů:
-  • Cardmarket (cardmarket.com) – evropský trh, ceny v EUR/CZK
-  • TCGPlayer (tcgplayer.com) – americký trh, ceny v USD
-  • eBay dokončené aukce – reálné prodejní ceny
-  • PriceCharting (pricecharting.com) – historické trendy
-  Pokud přesnou aktuální cenu neznáš, řekni to upřímně a odkaž uživatele přímo na tyto weby.
-- Analýza fotek karet – pokud uživatel pošle foto, identifikuj kartu, řekni co na ní vidíš, odhadni stav (NM/LP/MP/HP) a dej odkaz na cenu
-- Detekce falzifikátů – pokud pošle foto, zkontroluj font, HP, okraje, holo, copyright
+- Tržní ceny – pokud dostaneš v kontextu data z pokemontcg.io API, VŽDY je uveď konkrétně s poznámkou o zdroji a stáří dat. Trendová cena (trendPrice) je hlavní orientační cena.
+- Analýza fotek karet – pokud uživatel pošle foto, identifikuj kartu, řekni co na ní vidíš, odhadni stav (NM/LP/MP/HP)
+- Detekce falzifikátů – zkontroluj font, HP, okraje, holo, copyright
 - Informace o sadách, expanzích, vzácných kartách a trendech
 
-Pravidla:
+Pravidla pro ceny:
+- Pokud máš v kontextu ceny z API → uveď je KONKRÉTNĚ s datem stažení a zdrojem
+- Pokud ceny v kontextu NEJSOU → řekni "Ceny pro tuto kartu se mi nepodařilo dohledat" a odkaz na cardmarket.com
+- NIKDY neříkej obecně "ověř na Cardmarket" pokud máš reálná data v kontextu
+- Převod EUR→CZK počítej × 25 (orientačně)
+- Zdroj dat: Cardmarket (evropský trh) přes pokemontcg.io API
+
+Ostatní pravidla:
 - Odpovídej VŽDY česky
 - Buď stručný a přesný – 2-4 věty pokud není potřeba více
-- NIKDY nevymýšlej ceny – raději řekni "ověř na Cardmarket" než dávej nepřesný odhad
 - Používej emoji přirozeně (🃏 💰 📈 ✅)
-- Zdůrazni, že ceny na Cardmarket jsou aktuálnější než tvoje znalosti
-- PokéTrade je platforma komunity – každý prodávající nastavuje vlastní ceny`;
+- PokéTrade je platforma komunity – každý prodávající nastavuje vlastní ceny`
 
 const BOT_QUICK_PROMPTS = [
   '💰 Kde zjistím cenu karty?',
@@ -2406,6 +2406,72 @@ function renderBotMessages() {
   container.scrollTop = container.scrollHeight;
 }
 
+
+// ── Automatické dohledávání cen z pokemontcg.io ─────────────
+async function fetchPriceContext(query) {
+  // Detekuj zda jde o dotaz na cenu
+  const priceKeywords = ['cena', 'cenu', 'kolik', 'stojí', 'hodnota', 'hodnotu', 'price', 'worth', 'kolik stojí', 'za kolik', 'trendová', 'cardmarket'];
+  const lower = query.toLowerCase();
+  const isPriceQuery = priceKeywords.some(k => lower.includes(k));
+  if (!isPriceQuery) return null;
+
+  // Extrahuj jméno karty z dotazu (jednoduché heuristiky)
+  const cleaned = query
+    .replace(/jaká je (aktuální )?cena/gi, '')
+    .replace(/kolik (stojí|je|dá)/gi, '')
+    .replace(/cena karty/gi, '')
+    .replace(/cenu karty/gi, '')
+    .replace(/hodnota/gi, '')
+    .replace(/[?!]/g, '')
+    .trim();
+
+  if (cleaned.length < 2) return null;
+
+  try {
+    // Zkus přímé hledání jménem
+    const q = `name:"${cleaned}"`;
+    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5&orderBy=-set.releaseDate`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const cards = data.data || [];
+    if (!cards.length) {
+      // Zkus volnější hledání
+      const res2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + cleaned + '*')}&pageSize=5&orderBy=-set.releaseDate`);
+      if (!res2.ok) return null;
+      const data2 = await res2.json();
+      if (!(data2.data || []).length) return null;
+      cards.push(...data2.data);
+    }
+
+    const now = new Date().toLocaleString('cs-CZ', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+
+    const priceLines = cards.slice(0, 4).map(card => {
+      const cm = card.cardmarket?.prices || {};
+      const trend = cm.trendPrice;
+      const low = cm.lowPrice;
+      const avg30 = cm.avg30;
+      if (!trend && !low) return null;
+      const set = card.set?.name || '?';
+      const num = card.number || '?';
+      const rarity = card.rarity || '';
+      return `• ${card.name} (${set} #${num}${rarity ? ', ' + rarity : ''}): trendová cena ${trend ? trend.toFixed(2) + ' EUR (~' + Math.round(trend * 25) + ' Kč)' : '?'}${low ? ', min. ' + low.toFixed(2) + ' EUR' : ''}${avg30 ? ', průměr 30d ' + avg30.toFixed(2) + ' EUR' : ''}`;
+    }).filter(Boolean);
+
+    if (!priceLines.length) return null;
+
+    return `
+
+[AUTOMATICKY DOHLEDANÉ CENY z pokemontcg.io – staženo ${now}]
+Zdroj: Cardmarket (evropský trh) via pokemontcg.io
+${priceLines.join('
+')}
+[konec dat]`;
+  } catch(e) {
+    console.warn('[priceCtx]', e);
+    return null;
+  }
+}
+
 async function sendBotMessage(text) {
   const hasImage = !!_botImageBase64;
   if (!text.trim() && !hasImage) return;
@@ -2503,6 +2569,11 @@ async function sendBotMessage(text) {
 
     } else {
       // ── Text request → Groq ──────────────────────────────────────
+      // Dohledej ceny pokud jde o cenový dotaz
+      const priceCtx = await fetchPriceContext(text.trim());
+      if (priceCtx) {
+        console.log('[PokéBot] Vkládám cenový kontext z pokemontcg.io');
+      }
       // Flatten history to strings only for Groq (no vision)
       const groqMessages = botHistory.map(m => ({
         role: m.role,
@@ -2520,7 +2591,7 @@ async function sendBotMessage(text) {
           model: GROQ_MODEL(),
           max_tokens: 512,
           messages: [
-            { role: 'system', content: BOT_SYSTEM },
+            { role: 'system', content: BOT_SYSTEM + (priceCtx || '') },
             ...groqMessages.slice(-12)
           ]
         })
