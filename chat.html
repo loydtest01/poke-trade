@@ -1220,12 +1220,14 @@ function renderConversations() {
   const totalUnread = conversations.reduce((s,c) => {
     return s + (c.user1_id === userId ? (c.unread_user1||0) : (c.unread_user2||0));
   }, 0);
-  const badge = document.getElementById('navUnread');
-  if (totalUnread > 0) {
-    badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
+  const badge = document.getElementById('navUnread') || document.getElementById('chatBadge');
+  if (badge) {
+    if (totalUnread > 0) {
+      badge.textContent = totalUnread > 99 ? '99+' : totalUnread;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
   }
 }
 
@@ -2452,21 +2454,44 @@ async function sendBotMessage(text) {
     let reply;
 
     if (hasImage) {
-      // ── Vision request → Claude API (Groq nemá spolehlivý vision) ──
-      const claudeMessages = botHistory.map(m => {
+      // ── Vision request → Groq (llama-4-scout má vision podporu) ──
+      if (!getGroqKey()) {
+        openGroqSettings();
+        showToast('⚙️ Nejdřív nastav Groq API klíč!', 'error');
+        typingEl.remove();
+        btn.disabled = false;
+        return;
+      }
+
+      // Převod botHistory do OpenAI-kompatibilního formátu pro Groq vision
+      const groqVisionMessages = botHistory.map(m => {
         if (typeof m.content === 'string') return { role: m.role, content: m.content };
-        // convert our image format to Claude format
-        return { role: m.role, content: m.content };
+        if (Array.isArray(m.content)) {
+          // Převod Claude image formátu na OpenAI image_url formát
+          const parts = m.content.map(c => {
+            if (c.type === 'image') {
+              return { type: 'image_url', image_url: { url: `data:${c.source.media_type};base64,${c.source.data}` } };
+            }
+            return { type: 'text', text: c.text || '' };
+          });
+          return { role: m.role, content: parts };
+        }
+        return { role: m.role, content: String(m.content) };
       });
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${getGroqKey()}`,
+        },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
           max_tokens: 700,
-          system: BOT_SYSTEM,
-          messages: claudeMessages.slice(-8)
+          messages: [
+            { role: 'system', content: BOT_SYSTEM },
+            ...groqVisionMessages.slice(-8)
+          ]
         })
       });
       if (!res.ok) {
@@ -2474,7 +2499,7 @@ async function sendBotMessage(text) {
         throw new Error(err?.error?.message || 'HTTP ' + res.status);
       }
       const data = await res.json();
-      reply = data.content?.map(b => b.text||'').join('') || 'Nepodařilo se analyzovat kartu.';
+      reply = data.choices?.[0]?.message?.content || 'Nepodařilo se analyzovat kartu.';
 
     } else {
       // ── Text request → Groq ──────────────────────────────────────
