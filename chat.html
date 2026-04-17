@@ -2362,7 +2362,7 @@ function showBotWelcome() {
   const chipsWrap = document.createElement('div');
   chipsWrap.className = 'bot-quick-chips';
   chipsWrap.innerHTML = BOT_QUICK_PROMPTS.map(p =>
-    `<button class="bot-chip" onclick="sendBotQuick(${JSON.stringify(p)})">${p}</button>`
+    `<button class="bot-chip" onclick="sendBotQuick(this.dataset.t)" data-t="${p.replace(/"/g,'&quot;')}">${p}</button>`
   ).join('');
   container.appendChild(chipsWrap);
   container.scrollTop = container.scrollHeight;
@@ -2617,7 +2617,7 @@ async function sendBotMessage(text) {
     const chipsWrap = document.createElement('div');
     chipsWrap.className = 'bot-quick-chips';
     chipsWrap.innerHTML = BOT_QUICK_PROMPTS.slice(2).map(p =>
-      `<button class="bot-chip" onclick="sendBotQuick(${JSON.stringify(p)})">${p}</button>`
+      `<button class="bot-chip" onclick="sendBotQuick(this.dataset.t)" data-t="${p.replace(/"/g,'&quot;')}">${p}</button>`
     ).join('');
     container.appendChild(chipsWrap);
     container.scrollTop = container.scrollHeight;
