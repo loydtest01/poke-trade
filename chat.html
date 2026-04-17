@@ -2459,13 +2459,11 @@ async function fetchPriceContext(query) {
 
     if (!priceLines.length) return null;
 
-    return `
-
-[AUTOMATICKY DOHLEDANÉ CENY z pokemontcg.io – staženo ${now}]
-Zdroj: Cardmarket (evropský trh) via pokemontcg.io
-${priceLines.join('
-')}
-[konec dat]`;
+    const nl = '\n';
+    return nl + nl + '[AUTOMATICKY DOHLEDANÉ CENY z pokemontcg.io – staženo ' + now + ']' + nl
+      + 'Zdroj: Cardmarket (evropský trh) via pokemontcg.io' + nl
+      + priceLines.join(nl) + nl
+      + '[konec dat]';
   } catch(e) {
     console.warn('[priceCtx]', e);
     return null;
