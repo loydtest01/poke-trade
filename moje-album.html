@@ -3820,19 +3820,73 @@ async function fetchLivePrices(c, el) {
         if (link) link.href = c.cardmarketUrl;
       }
     } else {
-      // Ceny jsou 0 — ulož timestamp aby se za 7 dní zkusilo znovu
-      saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save zero]', e));
-      // I přesto aktualizuj odkaz — URL mohla být opravena
+      // Ceny jsou 0 z pokemontcg.io — zkus fallback na Cardmarket CSV endpoint
       const _cmUrl0 = c.cardmarketUrl || buildCardmarketUrl(c);
       const _link0 = document.querySelector('#cdName a');
       if (_link0 && _cmUrl0) _link0.href = _cmUrl0;
-      const _hasRealUrl0 = !!c.cardmarketUrl;
+
       if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
-        ${_hasRealUrl0
-          ? 'Ceny zatím nejsou v databázi — '
-          : 'Ceny na Cardmarket nejsou k dispozici — '}
-        <a href="${esc(_cmUrl0)}" target="_blank"
-        style="color:var(--yellow)">otevřít Cardmarket ↗</a></div>`;
+        ⏳ Hledám ceny na Cardmarket…</div>`;
+
+      // Pokus o načtení z /api/cm-prices (Cardmarket Price Guide CSV)
+      let cmFallbackOk = false;
+      try {
+        const cmParams = new URLSearchParams({ name: c.name || '', set: c.set || '' });
+        const cmRes = await fetch(`/api/cm-prices?${cmParams}`);
+        if (cmRes.ok) {
+          const cmData = await cmRes.json();
+          const trendPrice = cmData.trendPrice || 0;
+          const fromPrice  = cmData.fromPrice  || 0;
+          const avgPrice   = cmData.avgPrice   || 0;
+          if (trendPrice > 0 || fromPrice > 0) {
+            c.pMin   = fromPrice;
+            c.pTrend = trendPrice;
+            c.p30d   = avgPrice || trendPrice;
+            c.pricesFetchedAt = new Date().toISOString();
+            c.priceSource = 'cardmarket-csv';
+            saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices CM fallback save]', e));
+
+            // Renderuj ceny s CM zdrojem
+            const fmt2 = v => (v > 0) ? Number(v).toFixed(2) + ' €' : null;
+            const pMinStr   = fmt2(c.pMin);
+            const pTrendStr = fmt2(c.pTrend);
+            const p30dStr   = fmt2(c.p30d);
+            if (el) el.innerHTML = `
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <div class="cd-row">
+                  <div class="cd-row-label">Nejnižší</div>
+                  <div class="cd-row-val" style="color:#4ade80">${pMinStr||'—'}</div>
+                </div>
+                <div class="cd-row">
+                  <div class="cd-row-label">Trend</div>
+                  <div class="cd-row-val" style="color:var(--yellow)">${pTrendStr||'—'}</div>
+                </div>
+                <div class="cd-row">
+                  <div class="cd-row-label">Průměr 30d</div>
+                  <div class="cd-row-val" style="color:#74b4ff">${p30dStr||'—'}</div>
+                </div>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-top:4px">
+                Zdroj: Cardmarket Price Guide CSV
+              </div>`;
+            cmFallbackOk = true;
+          }
+        }
+      } catch(cmErr) {
+        console.warn('[fetchLivePrices CM fallback]', cmErr);
+      }
+
+      if (!cmFallbackOk) {
+        // Ani CM CSV nemá cenu — zobraz odkaz
+        saveCardUpdates(c).catch(e => console.warn('[fetchLivePrices save zero]', e));
+        const _hasRealUrl0 = !!c.cardmarketUrl;
+        if (el) el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0">
+          ${_hasRealUrl0
+            ? 'Ceny zatím nejsou v databázi — '
+            : 'Ceny na Cardmarket nejsou k dispozici — '}
+          <a href="${esc(_cmUrl0)}" target="_blank"
+          style="color:var(--yellow)">otevřít Cardmarket ↗</a></div>`;
+      }
     }
   } catch(err) {
     console.warn('[fetchLivePrices]', err);
