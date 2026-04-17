@@ -1655,15 +1655,20 @@ function _getPendingImg(card) {
     || card.cardImg || card.cardUrl
     || '';
   if (direct) return direct;
-  // Fallback: construct pokemontcg.io URL from card ID (e.g. "bw6-113" → set "bw6", number "113")
-  // But skip UUID-style IDs (local_id from Supabase) which look like "6a465759-4495-4c46-aef6-889fe8bd609f"
-  const cid = card.id || card.tcgId || card.apiId || card.card_id || '';
-  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid);
-  if (cid && !isUUID && /^[a-zA-Z0-9]+-\d/.test(cid)) {
-    const parts = cid.split('-');
-    const setCode = parts[0];
-    const num = parts.slice(1).join('-');
-    return `https://images.pokemontcg.io/${setCode}/${num}.png`;
+  // Fallback: construct pokemontcg.io URL from TCG ID (e.g. "cel-1" → images.pokemontcg.io/cel/1.png)
+  // DULEZITE: card.id je vzdy Supabase UUID – tcgId/apiId MUSI byt kontrolovany samostatne,
+  // protoze "card.id || card.tcgId" zkratuje na UUID a tcgId by se nikdy nekontrolovalo!
+  const tcgCid = card.tcgId || card.apiId || card.tcg_id || '';
+  if (tcgCid && /^[a-zA-Z0-9]+-[a-zA-Z0-9]/.test(tcgCid)) {
+    const tcgParts = tcgCid.split('-');
+    return `https://images.pokemontcg.io/${tcgParts[0]}/${tcgParts.slice(1).join('-')}.png`;
+  }
+  // Pokud tcgId neni, zkusit card.id jen pokud NENI UUID (stary format dat)
+  const rawId = card.id || card.card_id || '';
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId);
+  if (rawId && !isUUID && /^[a-zA-Z0-9]+-[a-zA-Z0-9]/.test(rawId)) {
+    const rawParts = rawId.split('-');
+    return `https://images.pokemontcg.io/${rawParts[0]}/${rawParts.slice(1).join('-')}.png`;
   }
   return '';
 }
@@ -1694,10 +1699,11 @@ function renderPendingList() {
     const pid    = esc(card._pendingId || '');
 
     return `<div class="pending-row" onclick="openListingFromQueue('${pid}')">
-      ${img
-        ? `<img class="pending-row-img" src="${esc(img)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-        : ''}
-      <div class="pending-row-img pending-row-img-placeholder" style="${img ? 'display:none' : 'display:flex'};align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.2)">🃏</div>
+      <img class="pending-row-img" id="prow-img-${pid}" src="${img ? esc(img) : ''}" loading="lazy"
+        style="${img ? '' : 'display:none'}"
+        onerror="this.style.display='none';document.getElementById('prow-ph-${pid}').style.display='flex'">
+      <div class="pending-row-img pending-row-img-placeholder" id="prow-ph-${pid}"
+        style="${img ? 'display:none' : 'display:flex'};align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.2)">🃏</div>
       <div class="pending-row-info">
         <div class="pending-row-name">${name}</div>
         <div class="pending-row-meta">${set}${num}</div>
@@ -1707,6 +1713,45 @@ function renderPendingList() {
       <button class="pending-row-del" title="Odebrat z fronty" onclick="event.stopPropagation();removePendingCard('${pid}')">✕</button>
     </div>`;
   }).join('');
+
+  // Async: pro karty bez obrázku zkusit dohledat z TCG API podle jména
+  q.forEach(card => {
+    const pid = card._pendingId || '';
+    if (_getPendingImg(card)) return; // má obrázek, skip
+    const name = card.name || '';
+    if (!name) return;
+    const imgEl = document.getElementById('prow-img-' + pid);
+    const phEl  = document.getElementById('prow-ph-'  + pid);
+    if (!imgEl || !phEl) return;
+    // Fetch z TCG API na pozadí
+    const setName = card.set?.name || (typeof card.set === 'string' ? card.set : '') || '';
+    const number  = card.number || '';
+    let q2 = `name:"${name}"`;
+    if (number && setName) q2 = `name:"${name}" number:"${number}" set.name:"${setName}"`;
+    else if (number)       q2 = `name:"${name}" number:"${number}"`;
+    else if (setName)      q2 = `name:"${name}" set.name:"${setName}"`;
+    fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=1`)
+      .then(r => r.json())
+      .then(j => {
+        const c = j?.data?.[0];
+        if (!c) return;
+        const url = c.images?.small || c.images?.large || '';
+        if (!url) return;
+        // Uložit zpět do mapy i do localStorage fronty pro příští render
+        if (_pendingCardMap[pid]) {
+          _pendingCardMap[pid].images = c.images;
+          _pendingCardMap[pid].tcgId  = c.id;
+        }
+        const savedQ = getPendingQueue();
+        const idx = savedQ.findIndex(x => x._pendingId === pid);
+        if (idx !== -1) { savedQ[idx].images = c.images; savedQ[idx].tcgId = c.id; savePendingQueue(savedQ); }
+        // Zobrazit obrázek
+        imgEl.src = url;
+        imgEl.style.display = '';
+        phEl.style.display  = 'none';
+      })
+      .catch(() => {});
+  });
 }
 
 /** Open the listing modal pre-filled from a pending queue card */

@@ -536,9 +536,9 @@
                 </div>
               </div>
               <div>
+                <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
                 <div class="sale-photos-strip" id="salePhotosStrip">
                   <div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
-                    <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
                     <div style="font-size:22px">➕</div>
                     <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
                   </div>
