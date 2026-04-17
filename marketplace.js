@@ -196,7 +196,7 @@ async function importFromUrl() {
 }
 
 function updateSidebarCounts(baseListings) {
-  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0 };
+  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0, cards:0, sealed:0 };
   baseListings.forEach(l => {
     if (l.allow_trade === false || l.price_czk > 0) c.sell++;
     if (l.allow_trade === true) c.trade++;
@@ -205,6 +205,8 @@ function updateSidebarCounts(baseListings) {
     else if (cond==='LP')            c.LP++;
     else if (cond==='MP')            c.MP++;
     else if (cond==='HP'||cond==='D') c.HP++;
+    const ltype = l.listing_type || 'card';
+    if (ltype === 'product') c.sealed++; else c.cards++;
   });
   const upd = (id, val) => {
     const el = document.getElementById(id);
@@ -212,12 +214,14 @@ function updateSidebarCounts(baseListings) {
     el.textContent = val;
     el.classList.toggle('has-val', val > 0);
   };
-  upd('sbCountSell',  c.sell);
-  upd('sbCountTrade', c.trade);
-  upd('sbCountNM',    c.NM);
-  upd('sbCountLP',    c.LP);
-  upd('sbCountMP',    c.MP);
-  upd('sbCountHP',    c.HP);
+  upd('sbCountSell',   c.sell);
+  upd('sbCountTrade',  c.trade);
+  upd('sbCountNM',     c.NM);
+  upd('sbCountLP',     c.LP);
+  upd('sbCountMP',     c.MP);
+  upd('sbCountHP',     c.HP);
+  upd('sbCountCards',  c.cards);
+  upd('sbCountSealed', c.sealed);
 }
 
 // ── Filters + Sort ────────────────────────────────────────────
@@ -382,8 +386,8 @@ function renderListings(){
         </div>
         <div class="listing-tags">
           ${l.listing_type==='product' ? '<span class="tag tag-product">📦 '+esc(l.product_type_label||'Produkt')+'</span>' : ''}
-          ${!isTrade && l.listing_type!=='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
-          ${!isTrade && l.listing_type==='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
+          ${price>0 && l.listing_type!=='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
+          ${price>0 && l.listing_type==='product' ? '<span class="tag tag-sell">Prodej</span>' : ''}
           ${isTrade  ? '<span class="tag tag-trade">Výměna</span>' : ''}
           ${l.listing_type==='product' ? '<span class="tag tag-sealed">'+(l.product_sealed_cond==='sealed'?'🔒 Sealed':l.product_sealed_cond==='damaged'?'⚠️ Poškozený obal':'📂 Otevřený')+'</span>' : ''}
           ${l.listing_type==='product' && l.product_lang ? '<span class="tag tag-lang">'+esc(l.product_lang)+'</span>' : ''}
@@ -393,7 +397,7 @@ function renderListings(){
       <div class="listing-right">
         ${price>0
           ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(price/25).toFixed(0)} €</small></div>`
-          : isTrade ? `<div class="price-trade">Výměna</div>` : `<div class="price-trade" style="color:var(--yellow)">Cena na dotaz</div>`}
+          : `<div class="price-trade">Výměna</div>`}
         <div class="offer-count">${l.offer_count||0} nabídek</div>
         <div class="action-btns">
           ${price>0 ? `<button class="btn-buy" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Koupit</button>` : ''}
@@ -447,25 +451,20 @@ async function openDetail(id){
   document.getElementById('dTitle').textContent=name;
   document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
 
-  // Price — určujeme podle allow_trade, ne jen price_czk
-  const isSell = !isTrade;
-  document.getElementById('dPrice').style.color = '';
+  // Price
   if(price>0){
     document.getElementById('dPrice').textContent=price.toLocaleString('cs')+' Kč';
     document.getElementById('dPriceEur').textContent='~ '+(price/25).toFixed(0)+' €';
     const pt = first.pTrend;
     if(pt>0) document.getElementById('dTrend').innerHTML='Trend: <span>'+Number(pt).toFixed(2)+' €</span>';
-  } else if(isSell){
-    document.getElementById('dPrice').textContent='Prodej – cena na dotaz';
-    document.getElementById('dPriceEur').textContent='';
   } else {
     document.getElementById('dPrice').textContent='Výměna';
     document.getElementById('dPrice').style.color='var(--blue)';
   }
 
-  // Tags — Prodej tag podle allow_trade, ne jen price>0
+  // Tags
   document.getElementById('dTags').innerHTML=`
-    ${isSell?'<span class="tag tag-sell">💰 Prodej</span>':''}
+    ${price>0?'<span class="tag tag-sell">💰 Prodej</span>':''}
     ${isTrade?'<span class="tag tag-trade">🔄 Výměna</span>':''}
     <span class="tag tag-cond">${esc(cond)}</span>
     ${first.rarity?`<span class="tag tag-cond">${esc(first.rarity)}</span>`:''}`;
