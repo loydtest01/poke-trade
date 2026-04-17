@@ -2073,6 +2073,7 @@ async function fetchMissingImages() {
           c.pTrend         = cm.trendPrice || 0;
           c.p30d           = cm.avg30 || cm.avg7 || 0;
           c.cardmarketUrl  = card.cardmarket?.url || '';
+          c.setCode        = card.set?.ptcgoCode || c.setCode || '';
           c.hp             = c.hp || card.hp || '';
           c.rarity         = c.rarity || card.rarity || '';
           c.pricesFetchedAt = new Date().toISOString();
@@ -2358,15 +2359,20 @@ let _detailList = []; // current filtered/sorted list for prev/next navigation
 function buildCardmarketUrl(c) {
   // 1. Přímý URL uložený z pokemontcg API
   if (c.cardmarketUrl) return c.cardmarketUrl;
-  // 2. Sestavení Singles URL: /Singles/{set-slug}/{name-slug}
+  // 2. Sestavení Singles URL: /Singles/{set-slug}/{name-slug}-{SETCODE}{number}
   const slugify = s => (s||'').trim()
     .replace(/['']/g, '')
     .replace(/[^a-zA-Z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   const nameSlug = slugify(c.name);
   const setSlug  = slugify(c.set);
+  // Cardmarket vyžaduje v name-slugu i kód setu + číslo (např. Charmander-PFL011)
+  const setCode  = (c.setCode || '').toUpperCase();
+  const num      = (c.number || c.num || '').toString().split('/')[0];
+  const numPad   = num ? num.padStart(3, '0') : '';
+  const suffix   = setCode && numPad ? `-${setCode}${numPad}` : '';
   if (nameSlug && setSlug) {
-    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}`;
+    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}${suffix}`;
   }
   // 3. Fallback — hledej jen podle jména karty (ne série!)
   return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name||'')}`;
@@ -3124,6 +3130,7 @@ async function cdTcgSelect(idx) {
     pTrend:        cm.trendPrice  || 0,
     p30d:          cm.avg30 || cm.avg7 || 0,
     cardmarketUrl: card.cardmarket?.url || '',
+    setCode:       card.set?.ptcgoCode || '',
   };
   Object.assign(_detailCard, updates);
 
@@ -3764,6 +3771,7 @@ async function fetchLivePrices(c, el) {
     c.pTrend        = cm.trendPrice || 0;
     c.p30d          = cm.avg30 || cm.avg7 || 0;
     c.cardmarketUrl = card.cardmarket?.url || '';
+    c.setCode       = card.set?.ptcgoCode || c.setCode || '';
     c.hp            = card.hp || c.hp || '';
     c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
     if (c.pTrend > 0 || c.pMin > 0) {
@@ -4487,6 +4495,7 @@ function buildCardData(c) {
     hp: c.hp || '', rarity: c.rarity || '',
     pMin: c.pMin || 0, pTrend: c.pTrend || 0, p30d: c.p30d || 0,
     cardmarketUrl: c.cardmarketUrl || '',
+    setCode: c.setCode || '',
     pricesFetchedAt: c.pricesFetchedAt || null,
     photoUrl: c.photoUrl || '', note: c.note || '',
     count: c.count || c.qty || 1, tags: c.tags || [],

@@ -2345,6 +2345,7 @@ async function tcgSearch(gi, autoMode = false) {
         pTrend:    best.cardmarket?.prices?.trendPrice || best.pTrend || 0,
         p30d:      best.cardmarket?.prices?.avg30 || best.p30d || 0,
         cardmarketUrl: best.cardmarket?.url || best.cardmarketUrl || '',
+        setCode:       best.set?.ptcgoCode || '',
       };
       // Zkontroluj community obrázek pokud nemáme originální
       if (!origImg && g2?.aiResult?.lang && g2?.aiResult?.lang !== 'EN') {
