@@ -3310,21 +3310,30 @@ async function confirmListingPhoto() {
 
   // Přidat do fronty "Čeká na vystavení" pro marketplace
   if (_pendingListingType === 'sell' || _pendingListingType === 'both') {
+    // POZN: po načtení z Supabase jsou pole rozsprešená přímo na c (ne v c.card_data),
+    // proto hledáme obrázek i na c přímo.
+    const _imgSmall = cd.apiSmall || c.apiSmall || cd.images?.small || c.images?.small || cd.imageUrl || c.imageUrl || '';
+    const _imgLarge = cd.apiLarge || c.apiLarge || cd.images?.large || c.images?.large || _imgSmall;
+    const _tcgId    = cd.tcgId || cd.apiId || c.tcgId || c.apiId || '';
     const pendingCard = {
-      _pendingId: String(c.id || c.local_id || '') + '_' + Date.now(),
-      id:         cd.id         || c.id         || c.local_id || '',
-      name:       cd.name       || c.name       || '',
-      set:        { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
-      number:     cd.number     || '',
-      hp:         cd.hp         || '',
-      types:      cd.types      || [],
-      supertype:  cd.supertype  || '',
-      images:     cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
-      rarity:     cd.rarity     || '',
-      cardmarket: cd.cardmarket || null,
-      album_price: c.price_czk  || null,
-      condition:  cd.condition  || c.condition  || 'NM',
-      photoUrl:   _selectedListingPhotoUrl || null,
+      _pendingId:  String(c.id || c.local_id || '') + '_' + Date.now(),
+      id:          cd.id         || c.id         || c.local_id || '',
+      name:        cd.name       || c.name       || '',
+      set:         { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || (typeof c.set === 'string' ? c.set : '') || c.set?.name || '' },
+      number:      cd.number     || c.number     || '',
+      hp:          cd.hp         || c.hp         || '',
+      types:       cd.types      || c.types      || [],
+      supertype:   cd.supertype  || c.supertype  || '',
+      images:      _imgSmall ? { small: _imgSmall, large: _imgLarge } : (cd.images || c.images || null),
+      apiSmall:    _imgSmall,
+      apiLarge:    _imgLarge,
+      tcgId:       _tcgId,
+      apiId:       _tcgId,
+      rarity:      cd.rarity     || c.rarity     || '',
+      cardmarket:  cd.cardmarket || c.cardmarket  || null,
+      album_price: c.price_czk   || null,
+      condition:   cd.condition  || c.condition   || c.cond || 'NM',
+      photoUrl:    _selectedListingPhotoUrl || null,
     };
     pushToPendingQueue([pendingCard]);
   }
@@ -4132,23 +4141,31 @@ function reconcilePendingQueue() {
     if (!missing.length) return;
 
     const toAdd = missing.map(c => {
+      // POZN: po načtení z Supabase jsou pole přímo na c (ne v c.card_data)
       const cd = c.card_data || {};
+      const _imgSmall = cd.apiSmall || c.apiSmall || cd.images?.small || c.images?.small || cd.imageUrl || c.imageUrl || '';
+      const _imgLarge = cd.apiLarge || c.apiLarge || cd.images?.large || c.images?.large || _imgSmall;
+      const _tcgId    = cd.tcgId || cd.apiId || c.tcgId || c.apiId || '';
       return {
-        _pendingId: String(c.id) + '_sync_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
-        id:         cd.id         || c.id         || '',
-        name:       cd.name       || c.name       || '',
-        set:        { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
-        number:     cd.number     || '',
-        hp:         cd.hp         || '',
-        types:      cd.types      || [],
-        supertype:  cd.supertype  || '',
-        images:     cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
-        rarity:     cd.rarity     || '',
-        cardmarket: cd.cardmarket || null,
-        album_price: c.price_czk  || null,
-        condition:  cd.condition  || c.condition  || 'NM',
-        photoUrl:   null,
-        _fromSync:  true, // označení, že přišlo ze sync (ne přes foto-picker)
+        _pendingId:  String(c.id) + '_sync_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
+        id:          cd.id         || c.id         || '',
+        name:        cd.name       || c.name       || '',
+        set:         { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || (typeof c.set === 'string' ? c.set : '') || c.set?.name || '' },
+        number:      cd.number     || c.number     || '',
+        hp:          cd.hp         || c.hp         || '',
+        types:       cd.types      || c.types      || [],
+        supertype:   cd.supertype  || c.supertype  || '',
+        images:      _imgSmall ? { small: _imgSmall, large: _imgLarge } : (cd.images || c.images || null),
+        apiSmall:    _imgSmall,
+        apiLarge:    _imgLarge,
+        tcgId:       _tcgId,
+        apiId:       _tcgId,
+        rarity:      cd.rarity     || c.rarity     || '',
+        cardmarket:  cd.cardmarket || c.cardmarket  || null,
+        album_price: c.price_czk   || null,
+        condition:   cd.condition  || c.condition   || c.cond || 'NM',
+        photoUrl:    null,
+        _fromSync:   true,
       };
     });
 
@@ -4213,21 +4230,29 @@ async function _bulkSetSellConfirm(ids, forSell) {
       const pendingCards = ids.map(id => {
         const c  = allCards.find(x => String(x.id) === id);
         if (!c) return null;
+        // POZN: po načtení z Supabase jsou pole přímo na c (ne v c.card_data)
         const cd = c.card_data || {};
+        const _imgSmall = cd.apiSmall || c.apiSmall || cd.images?.small || c.images?.small || cd.imageUrl || c.imageUrl || '';
+        const _imgLarge = cd.apiLarge || c.apiLarge || cd.images?.large || c.images?.large || _imgSmall;
+        const _tcgId    = cd.tcgId || cd.apiId || c.tcgId || c.apiId || '';
         return {
           _pendingId:  String(c.id || id) + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,5),
           id:          cd.id         || c.id         || id,
           name:        cd.name       || c.name       || '',
-          set:         { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || '' },
-          number:      cd.number     || '',
-          hp:          cd.hp         || '',
-          types:       cd.types      || [],
-          supertype:   cd.supertype  || '',
-          images:      cd.images     || (cd.apiSmall ? { small: cd.apiSmall, large: cd.apiSmall } : null),
-          rarity:      cd.rarity     || '',
-          cardmarket:  cd.cardmarket || null,
+          set:         { name: cd.set?.name || (typeof cd.set === 'string' ? cd.set : '') || (typeof c.set === 'string' ? c.set : '') || c.set?.name || '' },
+          number:      cd.number     || c.number     || '',
+          hp:          cd.hp         || c.hp         || '',
+          types:       cd.types      || c.types      || [],
+          supertype:   cd.supertype  || c.supertype  || '',
+          images:      _imgSmall ? { small: _imgSmall, large: _imgLarge } : (cd.images || c.images || null),
+          apiSmall:    _imgSmall,
+          apiLarge:    _imgLarge,
+          tcgId:       _tcgId,
+          apiId:       _tcgId,
+          rarity:      cd.rarity     || c.rarity     || '',
+          cardmarket:  cd.cardmarket || c.cardmarket  || null,
           album_price: c.price_czk   || null,
-          condition:   cd.condition  || c.condition  || 'NM',
+          condition:   cd.condition  || c.condition   || c.cond || 'NM',
         };
       }).filter(Boolean);
       pushToPendingQueue(pendingCards);
@@ -5726,7 +5751,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           border-radius:8px; color:#a78bfa; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
         " onmouseover="this.style.background='rgba(139,92,246,0.2)'" onmouseout="this.style.background='rgba(139,92,246,0.1)'">🤖 AI analýza stavu</button>
-        <button onclick="pgmResetApiKey()" title="Změnit / smazat API klíč" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.35);font-size:11px;padding:5px 9px;cursor:pointer;font-family:inherit;white-space:nowrap" onmouseover="this.style.color='#f87171'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">🔑</button>
         <button onclick="closePhotoGallery()" style="
           background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1);
           border-radius:8px; color:#fff; font-size:16px; padding:4px 11px;
@@ -5933,16 +5957,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   }
   window.pgmCropCancel = pgmCropCancel;
 
-  // ── Reset API klíče ──────────────────────────
-  window.pgmResetApiKey = function() {
-    const cur = localStorage.getItem('anthropic_api_key') ? 'Aktuální klíč: …' + localStorage.getItem('anthropic_api_key').slice(-6) : 'Žádný klíč není uložen';
-    const choice = confirm(cur + '
-
-Kliknout OK = smazat uložený klíč (příště se znovu zeptá)
-Kliknout Storno = nechat beze změny');
-    if (choice) { localStorage.removeItem('anthropic_api_key'); alert('API klíč byl smazán.'); }
-  };
-
   // ── AI analýza stavu karty ──────────────────────────
   window.pgmRunAI = async function() {
     const imgEl    = document.getElementById('pgmMainImg');
@@ -5967,22 +5981,9 @@ Kliknout Storno = nechat beze změny');
       });
       const mime = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
 
-      // Načti API klíč z localStorage, případně vyžádej
-      let _aiKey = localStorage.getItem('anthropic_api_key') || '';
-      if (!_aiKey) {
-        _aiKey = prompt('Pro AI analýzu zadejte Anthropic API klíč (uloží se jen lokálně v prohlížeči):', '') || '';
-        if (_aiKey) localStorage.setItem('anthropic_api_key', _aiKey.trim());
-      }
-      if (!_aiKey) throw new Error('Chybí API klíč – zadejte ho v dialogu');
-
       const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': _aiKey.trim(),
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 1000,
@@ -6382,14 +6383,6 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
             <option value="Dragon">🐉 Dragon</option>
             <option value="Colorless">⭐ Colorless</option>
             <option value="Fairy">🌸 Fairy</option>
-            <option value="Normal">🔘 Normal</option>
-            <option value="Bug">🐛 Bug</option>
-            <option value="Flying">🦅 Flying</option>
-            <option value="Ghost">👻 Ghost</option>
-            <option value="Ground">🪨 Ground</option>
-            <option value="Ice">❄️ Ice</option>
-            <option value="Poison">☠️ Poison</option>
-            <option value="Rock">🪵 Rock</option>
           </select>
         </div>
         <div>
@@ -6407,21 +6400,7 @@ Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřen�
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
         <div>
           <label class="ce-label">Vzácnost</label>
-          <select class="ce-inp ce-select" id="ceRarity">
-            <option value="">— nezadána —</option>
-            <option value="common">⚪ Common</option>
-            <option value="uncommon">🔵 Uncommon</option>
-            <option value="rare">🌟 Rare</option>
-            <option value="holo">✨ Holo Rare</option>
-            <option value="ultra">💎 Ultra Rare</option>
-            <option value="secret">🔴 Secret Rare</option>
-            <option value="fullart">🖼️ Full-Art</option>
-            <option value="gold">🥇 Gold</option>
-            <option value="promo">🎁 Promo</option>
-            <option value="basic_energy">⚡ Basic Energy</option>
-            <option value="special_energy">💠 Special Energy</option>
-            <option value="collector_energy">✨ Collector Energy</option>
-          </select>
+          <input class="ce-inp" id="ceRarity" placeholder="Illustration Rare, Ultra Rare…">
         </div>
         <div>
           <label class="ce-label">Jazyk</label>
@@ -6553,9 +6532,7 @@ function openCardEdit() {
   document.getElementById('ceSet').value         = c.set || '';
   document.getElementById('ceNumber').value      = c.number || c.num || '';
   document.getElementById('ceHp').value          = c.hp || '';
-  // Normalize rarity to dropdown key
-  const _rarRaw = (c.rarity || '').toLowerCase().replace(/[^a-z_]/g,'').replace('holorare','holo').replace('ultrarare','ultra').replace('secretrare','secret').replace('fullart','fullart');
-  document.getElementById('ceRarity').value = _rarRaw || '';
+  document.getElementById('ceRarity').value      = c.rarity || '';
   document.getElementById('ceLang').value        = c.lang || '';
   document.getElementById('ceNote').value        = c.note || '';
   document.getElementById('cePriceCzk').value    = c.price_czk || '';
