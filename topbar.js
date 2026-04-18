@@ -25,8 +25,6 @@
     { href: 'scanner.html',                icon: 'energi/scanner.png',           label: 'Skener',              id: 'scanner'     },
     { href: 'queue.html',                  icon: 'energi/ceka_na_zarazeni.png',  label: 'Čeká na zařazení',   id: 'queue'       },
     { href: 'download.html',               icon: 'energi/ke_stazeni.png',        label: 'Ke stažení',          id: 'download'    },
-    { href: 'marketplace.html?my=1',       icon: 'energi/obchod.png',           label: 'Správa inzerátů',     id: 'my-listings' },
-    { href: 'transactions.html',           icon: 'energi/obchod.png',           label: 'Transakce',            id: 'transactions'},
   ];
 
   function render() {

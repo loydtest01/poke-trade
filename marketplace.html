@@ -139,7 +139,23 @@
       <div class="market-mode-tabs">
         <button class="mmt-btn active" id="mmtOffer" onclick="setMarketMode('offer')">🏷️ Nabídky</button>
         <button class="mmt-btn" id="mmtDemand" onclick="setMarketMode('demand')">🔍 Poptávky</button>
+        <a class="mmt-btn" id="mmtMyListings" href="marketplace.html?my=1">🏪 Správa inzerátů</a>
+        <a class="mmt-btn" id="mmtTransactions" href="transactions.html">💳 Transakce</a>
       </div>
+      <script>
+        // Zvýraznit správnou záložku podle URL
+        (function(){
+          var p = new URLSearchParams(location.search);
+          if(p.get('my')==='1'){
+            document.getElementById('mmtOffer').classList.remove('active');
+            document.getElementById('mmtMyListings').classList.add('active');
+          }
+          if(location.pathname.includes('transactions')){
+            document.getElementById('mmtOffer').classList.remove('active');
+            document.getElementById('mmtTransactions').classList.add('active');
+          }
+        })();
+      </script>
 
       <div class="market-toolbar">
         <div class="search-wrap">
