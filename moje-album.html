@@ -1722,13 +1722,26 @@ body { background: #06040c; overflow-x: hidden; }
 function cdRunFakeCheck() {
   if (typeof _detailCard === 'undefined' || !_detailCard) return;
   const c = _detailCard;
-  const img = c.images?.large || c.images?.small || c.apiSmall || c.apiLarge || c.imageUrl || '';
+
+  // Zkus získat img URL z dat karty, fallback na DOM (stejný přístup jako marketplace)
+  let img = c.images?.large || c.images?.small || c.apiSmall || c.apiLarge || c.imageUrl || '';
+  if (!img) {
+    // Fallback: vezmi src z právě zobrazeného obrázku v detailu karty
+    const domImg = document.querySelector('#cdImgWrap .cd-img') || document.querySelector('#cdImgWrap img');
+    if (domImg?.src && !domImg.src.startsWith('data:') && domImg.src !== location.href) {
+      img = domImg.src;
+    }
+  }
+
   const cardInfo = {
-    name: c.name || '', set: c.set || '', number: c.number || c.num || '',
-    hp: c.hp || '', rarity: c.rarity || '',
+    name:     c.name     || '',
+    set:      c.set      || '',
+    number:   c.number   || c.num || '',
+    hp:       c.hp       || '',
+    rarity:   c.rarity   || '',
     apiSmall: c.apiSmall || c.images?.small || '',
     apiLarge: c.apiLarge || c.images?.large || '',
-    apiId: c.apiId || c.tcgId || '',
+    apiId:    c.apiId    || c.tcgId || '',
   };
   FakeDetector.openModal(img || null, cardInfo);
 }
@@ -5938,59 +5951,80 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.6)">🤖 AI hodnotí stav karty…</span>';
 
     try {
-      // Načti obrázek jako base64
-      const resp = await fetch(imgEl.src);
-      const blob = await resp.blob();
-      const b64  = await new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload  = () => res(reader.result.split(',')[1]);
-        reader.onerror = rej;
-        reader.readAsDataURL(blob);
-      });
-      const mime = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
+      // Načti obrázek jako base64 (stejný přístup jako czlAnalyze v marketplace)
+      let base64Data = null, mediaType = 'image/jpeg';
+      try {
+        const r    = await fetch(imgEl.src);
+        const blob = await r.blob();
+        mediaType  = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
+        base64Data = await new Promise((res, rej) => {
+          const rd = new FileReader();
+          rd.onload  = () => res(rd.result.split(',')[1]);
+          rd.onerror = rej;
+          rd.readAsDataURL(blob);
+        });
+      } catch (_) { /* CORS – pokusíme se bez obrázku */ }
 
-      const aiResp = await fetch('https://api.anthropic.com/v1/messages', {
+      const cardName = _pgmCardName || 'Pokémon karta';
+
+      const systemPrompt = `Jsi expert na grading a hodnocení stavu sběratelských Pokémon karet.
+Hodnotíš karty pro sběratele na českém trhu. Odpovídáš vždy česky, věcně a konkrétně.
+Grading škála: NM (Near Mint – jako nová), LP (Lightly Played – lehce hraná),
+MP (Moderately Played – středně hraná), HP (Heavily Played – hodně hraná), D (Damaged – poškozená).`;
+
+      // Groq/OpenAI formát image_url (stejný jako v marketplace)
+      const groqUserContent = base64Data
+        ? [
+            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+            { type: 'text', text: `Toto je fotografie karty "${cardName}".
+
+Podrobně ohodnoť stav karty z fotografie:
+1. Celkový grading (NM/LP/MP/HP/D) s odůvodněním
+2. Viditelné poškození: škrábance, ohyby, white spotting, vrypy, opotřebení rohů
+3. Stav povrchu (lesk, matnost, stopy dotyků)
+4. Stav rohů a hran
+5. Centrování tisku (symetrie okrajů)
+6. Krátké doporučení – jaký PSA/BGS grade by mohl dostat
+
+Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená nebo neukazuje celou kartu, upozorni na to.` }
+          ]
+        : [{ type: 'text', text: `Karta "${cardName}" – fotografie není dostupná (CORS omezení). Napiš obecný popis jak vypadá karta v NM stavu, na co si dát pozor při koupi. Odpověz česky, 4–5 vět.` }];
+
+      // Získej auth token (stejně jako marketplace)
+      const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
+
+      const resp = await fetch('/api/groq', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
+        },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          messages: [{
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: { type: 'base64', media_type: mime, data: b64 }
-              },
-              {
-                type: 'text',
-                text: `Jsi expert na grading Pokemon Trading Card Game karet. Podrobně ohodnoť stav karty na této fotce.
-
-Struktura hodnocení:
-🏆 **Celkový stav:** [NM / LP / MP / HP / DMG] – krátké zdůvodnění
-📐 **Rohy:** popis stavu
-🔲 **Hrany:** popis stavu  
-✨ **Povrch:** škrábance, otisky prstů, lesk
-🖨️ **Centrování tisku:** symetrie okrajů
-💡 **Celkový dojem a doporučení:** co ovlivňuje cenu, jaký PSA/BGS grade by mohl dostat
-
-Odpověz **česky**, stručně a přehledně. Pokud fotka je špatně zaostřená nebo neukazuje celou kartu, upozorni na to.`
-              }
-            ]
-          }]
-        })
+          model:       'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens:  1000,
+          usage_type:  'search',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: groqUserContent },
+          ],
+        }),
       });
 
-      if (!aiResp.ok) {
-        const err = await aiResp.json().catch(() => ({}));
-        throw new Error(err.error?.message || 'HTTP ' + aiResp.status);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'HTTP ' + resp.status);
       }
 
-      const data = await aiResp.json();
-      const text = (data.content || []).map(c => c.text || '').join('').trim();
-      resultEl.innerHTML = text
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n/g, '<br>');
+      const data = await resp.json();
+      const text = data.choices?.[0]?.message?.content || '';
+
+      if (text) {
+        resultEl.innerHTML = text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+      } else {
+        resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
+      }
 
     } catch (e) {
       resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba AI analýzy: ${e.message}</span>`;
