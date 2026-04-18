@@ -162,129 +162,153 @@
   }
 
   // ══════════════════════════════════════════════════════════════
-  //  PROMPT BUILDER
+  //  OVĚŘENÍ POMOCÍ EXTERNÍCH DATABÁZÍ
   // ══════════════════════════════════════════════════════════════
 
-  function buildPrompt(cardInfo, hasComparison, communityStats) {
-    const hint = cardInfo
-      ? `Analyzovaná karta: ${cardInfo.name || '?'}${cardInfo.set ? ' · sada: ' + cardInfo.set : ''}${cardInfo.number ? ' #' + cardInfo.number : ''}${cardInfo.hp ? ' · ' + cardInfo.hp + ' HP' : ''}${cardInfo.rarity ? ' · vzácnost: ' + cardInfo.rarity : ''}.`
-      : '';
+  /** Načte kompletní data karty z pokemontcg.io */
+  async function _fetchTCGData(cardInfo) {
+    if (!cardInfo) return null;
+    try {
+      // 1. Přímé ID
+      if (cardInfo.apiId || cardInfo.tcgId) {
+        const id = cardInfo.apiId || cardInfo.tcgId;
+        const r = await fetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`);
+        if (r.ok) { const d = await r.json(); return d.data || null; }
+      }
+      // 2. Vyhledání dle jména + čísla + sady
+      const parts = [];
+      if (cardInfo.name)   parts.push(`name:"${cardInfo.name}"`);
+      if (cardInfo.number) parts.push(`number:${cardInfo.number}`);
+      if (cardInfo.set)    parts.push(`set.name:"${cardInfo.set}"`);
+      if (!parts.length) return null;
+      const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=1`);
+      if (!r.ok) return null;
+      const d = await r.json();
+      return d.data?.[0] || null;
+    } catch (e) {
+      console.warn('[FakeDetector] TCG API error:', e);
+      return null;
+    }
+  }
 
-    // Éra
-    let eraHints = '';
-    if (cardInfo?.set) {
-      const s = (cardInfo.set || '').toLowerCase();
-      for (const [era, hints] of Object.entries(KNOWLEDGE_BASE.era_specific)) {
-        const e = era.toLowerCase();
-        if ((s.includes('base')||s.includes('jungle')||s.includes('fossil')) && e.includes('base')) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('sv')||s.includes('scarlet')||s.includes('violet')||s.includes('paldea')) && e.includes('scarlet')) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('swsh')||s.includes('sword')||s.includes('shield')||s.includes('sm')||s.includes('sun')||s.includes('moon')) && (e.includes('sun')||e.includes('sword'))) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('xy')||s.includes('bw')||s.includes('black')||s.includes('white')) && e.includes('b&w')) { eraHints = hints.join('\n- '); break; }
+  /** Načte tržní cenu z CardMarket přes interní proxy */
+  async function _fetchCMPrice(cardInfo) {
+    if (!cardInfo?.name) return null;
+    try {
+      const params = new URLSearchParams({
+        name:   cardInfo.name,
+        set:    cardInfo.set    || '',
+        number: cardInfo.number || '',
+      });
+      const r = await fetch(`/api/cm-prices?${params}`);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) {
+      console.warn('[FakeDetector] CardMarket error:', e);
+      return null;
+    }
+  }
+
+  /** Porovná metadata karty vůči oficiálním datům, vrátí flags + score */
+  function _compareMetadata(cardInfo, tcg) {
+    const flags = [];
+    let score = 100;
+
+    if (!tcg) {
+      flags.push({ label: 'Karta nenalezena v databázi', severity: 'warn', detail: 'Karta nebyla nalezena na pokemontcg.io – může jít o neznámou edici nebo padělané číslo karty.' });
+      score -= 15;
+      return { flags, score };
+    }
+
+    // Existence karty v databázi
+    flags.push({ label: 'Nalezena v pokemontcg.io', severity: 'ok', detail: `Karta existuje v oficiální databázi jako: ${tcg.name} (${tcg.set?.name || ''} #${tcg.number || ''}).` });
+
+    // HP
+    const officialHP = parseInt(tcg.hp) || 0;
+    const listedHP   = parseInt(cardInfo.hp) || 0;
+    if (officialHP && listedHP) {
+      if (officialHP === listedHP) {
+        flags.push({ label: `HP: ${officialHP}`, severity: 'ok', detail: 'HP hodnota souhlasí s oficiálními daty.' });
+      } else {
+        flags.push({ label: `HP nesedí: ${listedHP} vs ${officialHP}`, severity: 'fail', detail: `Inzerát uvádí ${listedHP} HP, ale oficálně je to ${officialHP} HP. Silný znak padělku.` });
+        score -= 30;
       }
     }
 
-    // Komunitní data
-    let communitySection = '';
-    if (communityStats && communityStats.total > 0) {
-      const cs = communityStats;
-      const v = cs.verdicts || {};
-      communitySection = `
-
-COMMUNITY DATA (${cs.total} previous analyses of this card by other users):
-- Average authenticity score: ${cs.avg_score}/100
-- Verdicts: real=${v.real||0}, fake=${v.fake||0}, suspicious=${v.suspicious||0}, unknown=${v.unknown||0}`;
-
-      // Nejčastější flagy od komunity
-      if (cs.common_flags && cs.common_flags.length > 0) {
-        communitySection += '\n- Most common flags from community:';
-        for (const f of cs.common_flags.slice(0, 8)) {
-          communitySection += `\n  · [${f.severity}] ${f.label} (reported ${f.count}x)`;
-        }
+    // Číslo v sadě
+    const officialNum = (tcg.number || '').trim();
+    const listedNum   = (cardInfo.number || '').replace(/^0+/, '').split('/')[0].trim();
+    const officialNumClean = officialNum.replace(/^0+/, '').split('/')[0].trim();
+    if (officialNum && listedNum) {
+      if (officialNumClean.toLowerCase() === listedNum.toLowerCase()) {
+        flags.push({ label: `Číslo: ${tcg.number}`, severity: 'ok', detail: 'Číslo karty v sadě souhlasí.' });
+      } else {
+        flags.push({ label: `Číslo nesedí: ${listedNum} vs ${officialNum}`, severity: 'fail', detail: `Inzerát uvádí číslo ${listedNum}, offciální je ${officialNum}. Může jít o špatně uvedenou verzi nebo padělek.` });
+        score -= 20;
       }
-
-      // Nedávné shrnutí
-      if (cs.recent_summaries && cs.recent_summaries.length > 0) {
-        communitySection += '\n- Recent community summaries:';
-        for (const s of cs.recent_summaries.slice(0, 3)) {
-          communitySection += `\n  · "${s}"`;
-        }
-      }
-
-      communitySection += `\n\nUse this community data to inform your analysis. If the community consistently found this card to be fake/real, give extra weight to that signal. If the community flagged specific issues, check those areas carefully.`;
     }
 
-    // Porovnání
-    const comparisonNote = hasComparison
-      ? `\n\nIMPORTANT: You are receiving TWO images:
-1. FIRST image = the user's photo of the card being checked
-2. SECOND image = the OFFICIAL card image from the Pokémon TCG database
+    // Vzácnost
+    const officialRarity = (tcg.rarity || '').toLowerCase();
+    const listedRarity   = (cardInfo.rarity || '').toLowerCase();
+    if (officialRarity && listedRarity) {
+      if (officialRarity === listedRarity || officialRarity.includes(listedRarity) || listedRarity.includes(officialRarity)) {
+        flags.push({ label: `Vzácnost: ${tcg.rarity}`, severity: 'ok', detail: 'Vzácnost karty odpovídá oficiálním datům.' });
+      } else {
+        flags.push({ label: `Vzácnost nesedí: "${cardInfo.rarity}" vs "${tcg.rarity}"`, severity: 'warn', detail: `Inzerovaná vzácnost neodpovídá. Může jít o alternativní art nebo chybu v popisu.` });
+        score -= 10;
+      }
+    }
 
-Compare them carefully:
-- Does the artwork match exactly? (colors, positioning, details)
-- Is the card layout identical? (borders, text placement, symbol positions)
-- Are there any differences in typography or font weight?
-- Does the holo/foil pattern match what the official version should have?
-- Are energy symbols, HP, and damage values identical?`
-      : '';
+    // Typy Pokémona
+    if (tcg.types?.length) {
+      const officialType = tcg.types.join('/');
+      flags.push({ label: `Typ: ${officialType}`, severity: 'ok', detail: `Pokémon typu ${officialType} – ověřeno v databázi.` });
+    }
 
-    return `You are an expert Pokémon TCG card authenticator. You have been trained on thousands of real and fake cards.
+    // Útok / HP max check (padělky mají nesmyslné HP)
+    if (officialHP > 350) {
+      flags.push({ label: 'Extrémně vysoké HP', severity: 'warn', detail: `HP ${officialHP} je velmi vysoké – ověř, že karta je skutečně z novější éry.` });
+      score -= 5;
+    }
 
-${hint}
-${eraHints ? `\nEra-specific checks for this card:\n- ${eraHints}` : ''}
+    // Ilustrátor
+    if (tcg.artist) {
+      flags.push({ label: `Ilustrátor: ${tcg.artist}`, severity: 'ok', detail: `Na originální kartě by měl být podepsán ilustrátor: ${tcg.artist}.` });
+    }
 
-Known common fake indicators:
-${KNOWLEDGE_BASE.common_fakes.map(f => '- ' + f).join('\n')}
-${communitySection}
-${comparisonNote}
+    // Sada
+    if (tcg.set?.name) {
+      flags.push({ label: `Sada: ${tcg.set.name}`, severity: 'ok', detail: `Karta patří do sady "${tcg.set.name}" (${tcg.set.series || ''}).` });
+    }
 
-Carefully examine this card photo for authenticity. Perform ALL of these checks:
+    return { flags, score: Math.max(0, score), tcg };
+  }
 
-TYPOGRAPHY & TEXT:
-- Font matches official Pokémon TCG fonts (Futura-like for names, specific fonts per era)
-- HP value is plausible for the card's era and type
-- Attack names, damage values and energy costs are consistent with official data
-- Ability/move descriptions use correct official grammar
-- Set number format correct (e.g. 025/198)
+  /** Vyhodnotí podezřelost ceny vůči CardMarket */
+  function _analyzePrice(listingPriceCzk, cmData) {
+    const flags = [];
+    if (!cmData?.found || !listingPriceCzk) return { flags, scoreDelta: 0 };
 
-VISUAL DESIGN:
-- Card border width and color correct for the era/set
-- Type symbols (energy icons) look sharp and correctly colored
-- Rarity symbol (circle/diamond/star) matches claimed rarity
-- Evolution stage banner present and correct
-- Weakness/Resistance/Retreat cost section correct
-- Illustrator credit visible and plausible
+    const cmEur    = cmData.trendPrice || cmData.fromPrice || 0;
+    const czkRate  = 25; // přibližný kurz
+    const cmCzk    = cmEur * czkRate;
 
-PRINT QUALITY:
-- Colors saturated correctly (not too dull, not oversaturated)
-- No visible pixel artifacts, blur or JPEG compression on text
-- Holographic foil pattern (if applicable) matches official patterns
-- Card texture consistent
-- No misalignment between layers
-- Copyright line at bottom (© Nintendo/Creatures/GAME FREAK + year)
+    if (cmCzk <= 0) return { flags, scoreDelta: 0 };
 
-CARD STOCK (if visible):
-- Card thickness normal
-- Edges clean, not rough or home-cut
+    const ratio = listingPriceCzk / cmCzk;
+    const cmLabel = `${cmEur.toFixed(2)} € (CardMarket trend)`;
 
-Respond ONLY with this JSON (no explanation, no markdown fences):
-{
-  "verdict": "real|fake|suspicious|unknown",
-  "score": 0-100,
-  "confidence": "high|med|low",
-  "summary": "2-3 sentence verdict in Czech",
-  "flags": [
-    { "label": "short check name", "severity": "ok|warn|fail", "detail": "Czech explanation" }
-  ],
-  "comparison_notes": "If comparing with official image, note key differences here in Czech. Otherwise empty string."
-}
-
-verdict meanings:
-- real: card appears genuine (score >= 75)
-- suspicious: some red flags but not conclusive (score 40-74)
-- fake: clear indicators of counterfeit (score < 40)
-- unknown: image too blurry/small/partial to assess
-
-Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious red flag.`;
+    if (ratio < 0.25) {
+      flags.push({ label: 'Cena podezřele nízká', severity: 'fail', detail: `Inzerovaná cena ${listingPriceCzk} Kč je jen ${Math.round(ratio*100)} % tržní ceny (${cmLabel}). Tak nízká cena je typická pro padělky.` });
+      return { flags, scoreDelta: -25 };
+    } else if (ratio < 0.5) {
+      flags.push({ label: 'Cena výrazně pod trhem', severity: 'warn', detail: `Cena ${listingPriceCzk} Kč je ${Math.round(ratio*100)} % tržní hodnoty (${cmLabel}). Může jít o výprodej, ale i o padělek.` });
+      return { flags, scoreDelta: -10 };
+    } else {
+      flags.push({ label: `Cena odpovídá trhu`, severity: 'ok', detail: `Cena ${listingPriceCzk} Kč odpovídá tržní ceně ${cmLabel}.` });
+      return { flags, scoreDelta: 0 };
+    }
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -297,10 +321,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       if (cardInfo.apiId || cardInfo.tcgId) {
         const id = cardInfo.apiId || cardInfo.tcgId;
         const resp = await fetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          return data.data?.images?.large || data.data?.images?.small || null;
-        }
+        if (resp.ok) { const data = await resp.json(); return data.data?.images?.large || data.data?.images?.small || null; }
       }
       const parts = [];
       if (cardInfo.name) parts.push(`name:"${cardInfo.name}"`);
@@ -311,154 +332,99 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       if (!resp.ok) return null;
       const data = await resp.json();
       return data.data?.[0]?.images?.large || data.data?.[0]?.images?.small || null;
-    } catch (e) {
-      console.warn('[FakeDetector] Nepodařilo se načíst oficiální obrázek:', e);
-      return null;
-    }
-  }
-
-  async function toBase64(imageSource) {
-    if (!imageSource) throw new Error('Chybí obrázek');
-    if (imageSource instanceof File || imageSource instanceof Blob) {
-      return new Promise((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => {
-          const [header, data] = r.result.split(',');
-          resolve({ base64: data, mimeType: header.match(/data:([^;]+)/)?.[1] || 'image/jpeg' });
-        };
-        r.onerror = reject;
-        r.readAsDataURL(imageSource);
-      });
-    }
-    if (typeof imageSource === 'string') {
-      if (imageSource.startsWith('data:')) {
-        const [header, data] = imageSource.split(',');
-        return { base64: data, mimeType: header.match(/data:([^;]+)/)?.[1] || 'image/jpeg' };
-      }
-      if (imageSource.startsWith('http')) {
-        const resp = await fetch(imageSource);
-        const blob = await resp.blob();
-        return toBase64(blob);
-      }
-    }
-    throw new Error('Nepodporovaný formát obrázku');
+    } catch (e) { return null; }
   }
 
   // ══════════════════════════════════════════════════════════════
-  //  ANALÝZA
+  //  ANALÝZA – data-driven (pokemontcg.io + CardMarket)
   // ══════════════════════════════════════════════════════════════
 
   async function analyze(imageSource, cardInfo) {
     try {
-      // 1. Načti komunitní data paralelně s oficiálním obrázkem
-      const [communityStats, officialImgFromApi] = await Promise.all([
-        getCommunityStats(cardInfo).catch(() => null),
-        cardInfo ? _resolveOfficialImage(cardInfo) : Promise.resolve(null),
+      const [tcgData, cmData, communityStats] = await Promise.allSettled([
+        _fetchTCGData(cardInfo),
+        _fetchCMPrice(cardInfo),
+        getCommunityStats(cardInfo),
       ]);
 
-      const officialImg = officialImgFromApi;
+      const tcg       = tcgData.status === 'fulfilled'  ? tcgData.value  : null;
+      const cm        = cmData.status  === 'fulfilled'   ? cmData.value   : null;
+      const community = communityStats.status === 'fulfilled' ? communityStats.value : null;
 
-      if (officialImg) {
-        return analyzeWithComparison(imageSource, officialImg, cardInfo, communityStats);
-      }
-
-      // Single image
-      const { base64, mimeType } = await toBase64(imageSource);
-      return await _callClaude([
-        { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-        { type: 'text', text: buildPrompt(cardInfo, false, communityStats) }
-      ], cardInfo, communityStats);
+      return _buildResult(cardInfo, tcg, cm, community);
     } catch (e) {
       return _errorResult('Chyba analýzy: ' + e.message);
     }
   }
 
-  /** Resolve official image – z cardInfo nebo z API */
-  async function _resolveOfficialImage(cardInfo) {
-    if (!cardInfo) return null;
-    const direct = cardInfo.apiLarge || cardInfo.apiSmall || cardInfo.officialImage;
-    if (direct) return direct;
-    return fetchOfficialImage(cardInfo);
-  }
-
+  // analyzeWithComparison zachováno pro zpětnou kompatibilitu API
   async function analyzeWithComparison(userImg, officialImg, cardInfo, communityStats) {
-    try {
-      const user = await toBase64(userImg);
-      const official = await toBase64(officialImg);
-      // Pokud nemáme community stats, zkus je načíst
-      if (!communityStats && cardInfo) {
-        communityStats = await getCommunityStats(cardInfo).catch(() => null);
-      }
-      return await _callClaude([
-        { type: 'image', source: { type: 'base64', media_type: user.mimeType, data: user.base64 } },
-        { type: 'image', source: { type: 'base64', media_type: official.mimeType, data: official.base64 } },
-        { type: 'text', text: buildPrompt(cardInfo, true, communityStats) }
-      ], cardInfo, communityStats);
-    } catch (e) {
-      // Fallback na single image
-      console.warn('[FakeDetector] Comparison failed, fallback:', e);
-      try {
-        const user = await toBase64(userImg);
-        return await _callClaude([
-          { type: 'image', source: { type: 'base64', media_type: user.mimeType, data: user.base64 } },
-          { type: 'text', text: buildPrompt(cardInfo, false, communityStats) }
-        ], cardInfo, communityStats);
-      } catch (e2) {
-        return _errorResult('Chyba analýzy: ' + e2.message);
-      }
-    }
+    return analyze(userImg, cardInfo);
   }
 
-  // ══════════════════════════════════════════════════════════════
-  //  CLAUDE API
-  // ══════════════════════════════════════════════════════════════
+  function _buildResult(cardInfo, tcg, cm, community) {
+    const meta  = _compareMetadata(cardInfo, tcg);
+    const price = _analyzePrice(cardInfo?.price_czk, cm);
 
-  async function _callClaude(content, cardInfo, communityStats) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
-        messages: [{ role: 'user', content }]
-      })
-    });
+    let score = meta.score + price.scoreDelta;
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}));
-      throw new Error(err?.error?.message || 'HTTP ' + response.status);
+    // Komunitní data
+    const communityFlags = [];
+    if (community?.total > 0) {
+      const v = community.verdicts || {};
+      const fakeRatio = (v.fake || 0) / community.total;
+      if (fakeRatio > 0.5) {
+        communityFlags.push({ label: `Komunita: ${Math.round(fakeRatio*100)} % označilo jako padělek`, severity: 'fail', detail: `Z ${community.total} analýz komunity označilo ${v.fake} uživatelů tuto kartu jako padělek (průměrné skóre pravosti: ${community.avg_score}/100).` });
+        score = Math.min(score, community.avg_score || score);
+      } else if (fakeRatio > 0.25) {
+        communityFlags.push({ label: `Komunita: ${v.fake || 0}/${community.total} podezřelých`, severity: 'warn', detail: `Část komunity označila tuto kartu jako podezřelou. Průměrné skóre pravosti: ${community.avg_score}/100.` });
+      } else {
+        communityFlags.push({ label: `Komunita: většinou pravá (${community.total} analýz)`, severity: 'ok', detail: `Komunita tuto kartu většinou hodnotí jako pravou. Průměrné skóre: ${community.avg_score}/100.` });
+      }
     }
 
-    const data    = await response.json();
-    const rawText = data.content?.map(b => b.text || '').join('') || '{}';
-    const clean   = rawText.replace(/```json|```/g, '').trim();
+    const allFlags = [...meta.flags, ...price.flags, ...communityFlags];
+    score = Math.max(0, Math.min(100, score));
 
-    let result;
-    try { result = JSON.parse(clean); } catch { throw new Error('AI vrátila neplatnou odpověď'); }
+    const failCount = allFlags.filter(f => f.severity === 'fail').length;
+    const warnCount = allFlags.filter(f => f.severity === 'warn').length;
 
-    // Sanitize
-    result.verdict          = ['real','fake','suspicious','unknown'].includes(result.verdict) ? result.verdict : 'unknown';
-    result.score            = Math.max(0, Math.min(100, parseInt(result.score) || 50));
-    result.confidence       = ['high','med','low'].includes(result.confidence) ? result.confidence : 'low';
-    result.flags            = Array.isArray(result.flags) ? result.flags : [];
-    result.summary          = result.summary || '';
-    result.comparison_notes = result.comparison_notes || '';
-    result.timestamp        = new Date().toISOString();
-    result.cardName         = cardInfo?.name || '';
-    result.cardSet          = cardInfo?.set || '';
+    let verdict, confidence;
+    if (score >= 80 && failCount === 0)       { verdict = 'real';        confidence = 'high'; }
+    else if (score >= 65 && failCount === 0)   { verdict = 'real';        confidence = 'med';  }
+    else if (score >= 50)                      { verdict = 'suspicious';   confidence = warnCount > 2 ? 'med' : 'low'; }
+    else                                       { verdict = 'fake';         confidence = failCount >= 2 ? 'high' : 'med'; }
 
-    // Přidej info o komunitě do výsledku
-    if (communityStats && communityStats.total > 0) {
-      result.communityTotal    = communityStats.total;
-      result.communityAvgScore = communityStats.avg_score;
-    }
+    if (!tcg)                                  { verdict = 'unknown';      confidence = 'low'; }
 
-    // Ulož do Supabase (sdílená komunita) + localStorage (local cache)
+    const sourcesChecked = [
+      'pokemontcg.io' + (tcg ? ' ✓' : ' – nenalezena'),
+      cm?.found ? `CardMarket ✓ (${cm.trendPrice ? cm.trendPrice.toFixed(2) + ' €' : 'cena'})`  : 'CardMarket – nepodporováno',
+      community ? `Komunita (${community.total} analýz)` : 'Komunita – žádná data',
+    ].join(' · ');
+
+    let summary = '';
+    if (verdict === 'real')        summary = `Karta pravděpodobně pravá (skóre ${score}/100). Metadata sedí s oficální databází. ${sourcesChecked}.`;
+    else if (verdict === 'fake')   summary = `Karta vykazuje ${failCount} kritické znaky padělku (skóre ${score}/100). ${failCount > 0 ? 'Doporučujeme nekupovat bez fyzické prohlídky.' : ''} ${sourcesChecked}.`;
+    else if (verdict === 'suspicious') summary = `Karta vykazuje ${warnCount} varovných znaků, nelze jednoznačně určit (skóre ${score}/100). Zkontroluj fyzicky. ${sourcesChecked}.`;
+    else summary = `Kartu se nepodařilo ověřit – nebyla nalezena v pokemontcg.io. ${sourcesChecked}.`;
+
+    const result = {
+      verdict, score, confidence, summary,
+      flags: allFlags,
+      comparison_notes: tcg ? `Ověřeno vůči: ${tcg.name} · ${tcg.set?.name || ''} · #${tcg.number || ''} · ${tcg.rarity || ''}` : 'Karta nenalezena v databázi',
+      timestamp: new Date().toISOString(),
+      cardName: cardInfo?.name || '',
+      cardSet:  cardInfo?.set  || '',
+      communityTotal:    community?.total || 0,
+      communityAvgScore: community?.avg_score || null,
+    };
+
     _saveToSupabase(result, cardInfo);
     _saveToLocalHistory(result);
-
     return result;
   }
+
 
   function _errorResult(msg) {
     return {

@@ -989,14 +989,15 @@ function mktRunFakeCheck() {
 
   // Card info pro porovnání
   const cardInfo = {
-    name:     l.card_name || first.name || l.title || '',
-    set:      l.card_set || first.set || '',
-    number:   l.card_number || first.number || first.num || '',
-    hp:       first.hp || l.card_hp || '',
-    rarity:   first.rarity || l.card_rarity || '',
-    apiSmall: first.apiSmall || first?.images?.small || '',
-    apiLarge: first.apiLarge || first?.images?.large || '',
-    apiId:    first.apiId || first.tcgId || '',
+    name:      l.card_name || first.name || l.title || '',
+    set:       l.card_set || first.set || '',
+    number:    l.card_number || first.number || first.num || '',
+    hp:        first.hp || l.card_hp || '',
+    rarity:    first.rarity || l.card_rarity || '',
+    apiSmall:  first.apiSmall || first?.images?.small || '',
+    apiLarge:  first.apiLarge || first?.images?.large || '',
+    apiId:     first.apiId || first.tcgId || '',
+    price_czk: l.price_czk || 0,
   };
 
   FakeDetector.openModal(imgSrc || null, cardInfo);
