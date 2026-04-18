@@ -4270,10 +4270,19 @@ async function markListingAsSold() {
 async function cancelListing() {
   if (!currentListing) return;
   if (!confirm('Zrušit inzerát? Tato akce je nevratná.')) return;
-  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'DELETE', null, token);
-  if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  const id = currentListing.id;
+  // Zkus DELETE
+  let res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'DELETE', null, token);
+  if (res && res._err) {
+    // Záloha: nastav status na 'sold' (skryje inzerát)
+    res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'PATCH', { status: 'sold' }, token);
+    if (res && res._err) { alert('Chyba při rušení inzerátu: ' + res._err); return; }
+  }
+  // Okamžitě odstraň z lokálního pole a překresli
+  allListings = allListings.filter(l => l.id !== id);
   showMktToast('🗑️ Inzerát byl zrušen.');
-  showList(); loadListings();
+  showList();
+  renderListings();
 }
 
 // Seller potvrdí prodej rezervované karty → vytvoří transakci
