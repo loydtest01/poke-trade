@@ -1574,22 +1574,16 @@ body { background: #06040c; overflow-x: hidden; }
             </button>
           </div>
 
-<!-- Falzum detektor -->
-          <div id="cdFakeSection" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
-            <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">
-              <span data-i18n="fake_detect">🔍 Detekce falzum</span>
-              <button id="cdFakeBtn" onclick="cdRunFakeCheck()" style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:6px;color:#f59e0b;font-size:11px;padding:3px 10px;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(245,158,11,.1)'" data-i18n="check_ai">
-                🤖 Zkontrolovat AI
-              </button>
+<!-- Uložené AI analýzy (fake + stav) -->
+          <div id="cdSavedAnalysis" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
+            <div id="cdSavedFakeWrap" style="display:none;margin-bottom:8px">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">🔍 Detekce falzum</div>
+              <div id="cdSavedFake" style="font-size:11px;color:#fde68a;line-height:1.6;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.18);border-radius:8px;padding:8px 10px;"></div>
             </div>
-            <div id="cdFakeUpload" style="display:none;margin-bottom:10px">
-              <label style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px;border:1px dashed rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(245,158,11,.4)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">
-                <span style="font-size:22px">📷</span>
-                <span style="font-size:12px;color:var(--text3)" data-i18n="upload_photo">Nahraj fotku karty pro AI analýzu</span>
-                <input type="file" accept="image/*" style="display:none" onchange="cdFakeFileSelected(this)">
-              </label>
+            <div id="cdSavedConditionWrap" style="display:none">
+              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">🤖 AI stav karty</div>
+              <div id="cdSavedCondition" style="font-size:11px;color:#e0d7ff;line-height:1.6;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.18);border-radius:8px;padding:8px 10px;max-height:130px;overflow-y:auto;"></div>
             </div>
-            <div id="cdFakeResult"></div>
           </div>
 
                     <!-- TCG hledání + URL -->
@@ -1716,49 +1710,6 @@ body { background: #06040c; overflow-x: hidden; }
 </div>
 
 <script src="app.js"></script>
-<script src="fake-detector.js"></script>
-<script>
-// ── Fake Detector integrace pro Moje Album ───────────────────
-function cdRunFakeCheck() {
-  if (typeof _detailCard === 'undefined' || !_detailCard) return;
-  const c = _detailCard;
-
-  // Zkus získat img URL z dat karty, fallback na DOM (stejný přístup jako marketplace)
-  let img = c.images?.large || c.images?.small || c.apiSmall || c.apiLarge || c.imageUrl || '';
-  if (!img) {
-    // Fallback: vezmi src z právě zobrazeného obrázku v detailu karty
-    const domImg = document.querySelector('#cdImgWrap .cd-img') || document.querySelector('#cdImgWrap img');
-    if (domImg?.src && !domImg.src.startsWith('data:') && domImg.src !== location.href) {
-      img = domImg.src;
-    }
-  }
-
-  const cardInfo = {
-    name:     c.name     || '',
-    set:      c.set      || '',
-    number:   c.number   || c.num || '',
-    hp:       c.hp       || '',
-    rarity:   c.rarity   || '',
-    apiSmall: c.apiSmall || c.images?.small || '',
-    apiLarge: c.apiLarge || c.images?.large || '',
-    apiId:    c.apiId    || c.tcgId || '',
-  };
-  FakeDetector.openModal(img || null, cardInfo);
-}
-function cdFakeFileSelected(input) {
-  const file = input?.files?.[0];
-  if (!file) return;
-  const c = (typeof _detailCard !== 'undefined' && _detailCard) ? _detailCard : {};
-  FakeDetector.openModalWithFile(file, {
-    name: c.name || '', set: c.set || '', number: c.number || c.num || '',
-    hp: c.hp || '', rarity: c.rarity || '',
-    apiSmall: c.apiSmall || c.images?.small || '',
-    apiLarge: c.apiLarge || c.images?.large || '',
-    apiId: c.apiId || c.tcgId || '',
-  });
-  input.value = '';
-}
-</script>
 <script>
 // ══════════════════════════════════════════════════════════════════
 //  STAV
@@ -2378,6 +2329,20 @@ function openCardDetail(c) {
   // Načti reálné fotky z user_card_photos
   loadCardRealPhotos(c.id || c.local_id);
   _updateNavButtons();
+
+  // Uložené AI výsledky
+  const _sfWrap = document.getElementById('cdSavedFakeWrap');
+  const _sfEl   = document.getElementById('cdSavedFake');
+  const _scWrap = document.getElementById('cdSavedConditionWrap');
+  const _scEl   = document.getElementById('cdSavedCondition');
+  if (c.fake_result) {
+    _sfEl.innerHTML = c.fake_result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    _sfWrap.style.display = '';
+  } else { _sfWrap.style.display = 'none'; }
+  if (c.ai_condition) {
+    _scEl.innerHTML = c.ai_condition.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+    _scWrap.style.display = '';
+  } else { _scWrap.style.display = 'none'; }
 }
 
 function closeCardDetail() {
@@ -3084,6 +3049,8 @@ async function saveCardUpdates(c) {
       count: c.count||c.qty||1, tags: c.tags||[],
       for_trade: c.for_trade||false, for_sell: c.for_sell||false,
       price_czk: c.price_czk||null,
+      fake_result: c.fake_result||null,
+      ai_condition: c.ai_condition||null,
     },
     updated_at: new Date().toISOString(),
   };
@@ -5727,6 +5694,11 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           border-radius:8px; color:#f5c842; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
         " onmouseover="this.style.background='rgba(245,200,66,0.2)'" onmouseout="this.style.background='rgba(245,200,66,0.1)'">✂️ Oříznout</button>
+        <button onclick="pgmRunFake()" id="pgmFakeBtn" style="
+          background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3);
+          border-radius:8px; color:#f59e0b; font-size:12px; padding:5px 12px;
+          cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
+        " onmouseover="this.style.background='rgba(245,158,11,0.2)'" onmouseout="this.style.background='rgba(245,158,11,0.1)'">🔍 Detekce falzum</button>
         <button onclick="pgmRunAI()" id="pgmAIBtn" style="
           background:rgba(139,92,246,0.1); border:1px solid rgba(139,92,246,0.3);
           border-radius:8px; color:#a78bfa; font-size:12px; padding:5px 12px;
@@ -5780,6 +5752,14 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           display:none; background:rgba(139,92,246,0.07);
           border:1px solid rgba(139,92,246,0.2); border-radius:10px;
           padding:12px 14px; font-size:12px; color:#e0d7ff; line-height:1.65;
+          max-height:200px; overflow-y:auto; flex-shrink:0;
+        "></div>
+
+        <!-- Fake result -->
+        <div id="pgmFakeResult" style="
+          display:none; background:rgba(245,158,11,0.07);
+          border:1px solid rgba(245,158,11,0.2); border-radius:10px;
+          padding:12px 14px; font-size:12px; color:#fde68a; line-height:1.65;
           max-height:200px; overflow-y:auto; flex-shrink:0;
         "></div>
       </div>
@@ -5836,6 +5816,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     document.getElementById('photoGalleryModal').style.display = 'none';
     pgmCropCancel();
     document.getElementById('pgmAIResult').style.display = 'none';
+    document.getElementById('pgmFakeResult').style.display = 'none';
   };
 
   // ── Grid fotek vpravo ───────────────────────────────
@@ -5951,7 +5932,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.6)">🤖 AI hodnotí stav karty…</span>';
 
     try {
-      // Načti obrázek jako base64 (stejný přístup jako czlAnalyze v marketplace)
       let base64Data = null, mediaType = 'image/jpeg';
       try {
         const r    = await fetch(imgEl.src);
@@ -5963,7 +5943,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           rd.onerror = rej;
           rd.readAsDataURL(blob);
         });
-      } catch (_) { /* CORS – pokusíme se bez obrázku */ }
+      } catch (_) {}
 
       const cardName = _pgmCardName || 'Pokémon karta';
 
@@ -5972,7 +5952,6 @@ Hodnotíš karty pro sběratele na českém trhu. Odpovídáš vždy česky, vě
 Grading škála: NM (Near Mint – jako nová), LP (Lightly Played – lehce hraná),
 MP (Moderately Played – středně hraná), HP (Heavily Played – hodně hraná), D (Damaged – poškozená).`;
 
-      // Groq/OpenAI formát image_url (stejný jako v marketplace)
       const groqUserContent = base64Data
         ? [
             { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
@@ -5990,7 +5969,6 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
           ]
         : [{ type: 'text', text: `Karta "${cardName}" – fotografie není dostupná (CORS omezení). Napiš obecný popis jak vypadá karta v NM stavu, na co si dát pozor při koupi. Odpověz česky, 4–5 vět.` }];
 
-      // Získej auth token (stejně jako marketplace)
       const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
 
       const resp = await fetch('/api/groq', {
@@ -6022,6 +6000,20 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
         resultEl.innerHTML = text
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/\n/g, '<br>');
+        // Ulož ke kartě
+        if (typeof _detailCard !== 'undefined' && _detailCard) {
+          _detailCard.ai_condition = text;
+          const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
+          if (idx >= 0) allCards[idx].ai_condition = text;
+          saveCardUpdates(_detailCard).catch(() => {});
+          // Aktualizuj panel karty
+          const scWrap = document.getElementById('cdSavedConditionWrap');
+          const scEl   = document.getElementById('cdSavedCondition');
+          if (scWrap && scEl) {
+            scEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+            scWrap.style.display = '';
+          }
+        }
       } else {
         resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
       }
@@ -6031,6 +6023,113 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
     }
 
     btn.textContent = '🤖 AI analýza stavu';
+    btn.disabled    = false;
+  };
+
+  // ── Detekce falzum ──────────────────────────────────
+  window.pgmRunFake = async function() {
+    const imgEl    = document.getElementById('pgmMainImg');
+    const btn      = document.getElementById('pgmFakeBtn');
+    const resultEl = document.getElementById('pgmFakeResult');
+    if (!imgEl.src || imgEl.src === location.href) return;
+
+    btn.textContent = '⏳ Analyzuji…';
+    btn.disabled    = true;
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<span style="color:rgba(245,158,11,0.6)">🔍 AI kontroluje pravost karty…</span>';
+
+    try {
+      let base64Data = null, mediaType = 'image/jpeg';
+      try {
+        const r    = await fetch(imgEl.src);
+        const blob = await r.blob();
+        mediaType  = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
+        base64Data = await new Promise((res, rej) => {
+          const rd = new FileReader();
+          rd.onload  = () => res(rd.result.split(',')[1]);
+          rd.onerror = rej;
+          rd.readAsDataURL(blob);
+        });
+      } catch (_) {}
+
+      if (!base64Data) {
+        resultEl.innerHTML = '<span style="color:#f87171">⚠️ Nepodařilo se načíst obrázek pro analýzu.</span>';
+        btn.textContent = '🔍 Detekce falzum';
+        btn.disabled = false;
+        return;
+      }
+
+      const cardName = _pgmCardName || 'Pokémon karta';
+      const systemPrompt = `Jsi expert na detekci falzifikátů sběratelských Pokémon karet.
+Analyzuješ fotografie karet pro sběratele na českém trhu. Odpovídáš vždy česky, věcně a konkrétně.
+Zaměř se na: kvalitu tisku, správnost barev, tloušťku karty (pokud viditelná), holografické efekty,
+textury, fonty, ohraničení, správnost rozvržení textu a symbolů, obecné znaky falzifikátů.`;
+
+      const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
+
+      const resp = await fetch('/api/groq', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
+        },
+        body: JSON.stringify({
+          model:      'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens: 800,
+          usage_type: 'search',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: [
+              { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+              { type: 'text', text: `Toto je fotografie karty "${cardName}".
+
+Zkontroluj pravost této Pokémon karty:
+1. Verdikt: ORIGINÁL / FALZUM / NEJASNÉ (s odůvodněním)
+2. Podezřelé znaky (pokud existují): kvalita tisku, barvy, font, rozvržení, hologram
+3. Co svědčí PRO pravost
+4. Doporučení pro sběratele
+
+Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
+            ]},
+          ],
+        }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'HTTP ' + resp.status);
+      }
+
+      const data = await resp.json();
+      const text = data.choices?.[0]?.message?.content || '';
+
+      if (text) {
+        resultEl.innerHTML = text
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br>');
+        // Ulož ke kartě
+        if (typeof _detailCard !== 'undefined' && _detailCard) {
+          _detailCard.fake_result = text;
+          const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
+          if (idx >= 0) allCards[idx].fake_result = text;
+          saveCardUpdates(_detailCard).catch(() => {});
+          // Aktualizuj panel karty
+          const sfWrap = document.getElementById('cdSavedFakeWrap');
+          const sfEl   = document.getElementById('cdSavedFake');
+          if (sfWrap && sfEl) {
+            sfEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+            sfWrap.style.display = '';
+          }
+        }
+      } else {
+        resultEl.innerHTML = '<span style="color:rgba(245,158,11,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
+      }
+
+    } catch (e) {
+      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba detekce: ${e.message}</span>`;
+    }
+
+    btn.textContent = '🔍 Detekce falzum';
     btn.disabled    = false;
   };
 
