@@ -755,68 +755,113 @@ document.addEventListener('DOMContentLoaded',function(){
 
 <script>
 /* ═══════════════════════════════════════════════════════
-   ADMIN VISITOR COUNTER
-   – záznamy se ukládají do Supabase tabulky site_visits
-   – viditelné jen pro: papez.ondrej@gmail.com
-   – ignoruje IP: 192.168.0.88
+   HERO STATS – karet, sběratelů, výměn
+   Načítá živá čísla ze Supabase
+═══════════════════════════════════════════════════════ */
+(async function loadHeroStats() {
+  var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+  async function getCount(table, filter) {
+    try {
+      var url = SBU + '/rest/v1/' + table + '?' + (filter || '') + '&select=id';
+      var r = await fetch(url, {
+        headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + SBA,
+                   'Prefer': 'count=exact', 'Range': '0-0' }
+      });
+      var cr = r.headers.get('Content-Range');
+      if (cr) { var m = cr.match(/\/(\d+)/); return m ? parseInt(m[1]) : 0; }
+      return 0;
+    } catch(e) { return 0; }
+  }
+
+  var [cards, users, trades] = await Promise.all([
+    // Všechny aktivní inzeráty od všech uživatelů
+    getCount('listings', 'status=eq.active'),
+    // Všichni uživatelé s profilem
+    getCount('profiles', ''),
+    // Dokončené transakce (prodané)
+    getCount('listings', 'status=eq.sold'),
+  ]);
+
+  function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n); }
+  var c = document.getElementById('statCards');
+  var u = document.getElementById('statUsers');
+  var t = document.getElementById('statTrades');
+  if (c) c.textContent = fmt(cards);
+  if (u) u.textContent = fmt(users);
+  if (t) t.textContent = fmt(trades);
+})();
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   NÁVŠTĚVNOST – site_visits tracker
+   – funguje na VŠECH stránkách (stačí přidat tento script)
+   – session deduplicace: 1 návštěva = 1 session
+     (víc stránek v jednom sezení = 1x, nový tab/zavření = nový záznam)
+   – viditelný panel jen pro admina
 ═══════════════════════════════════════════════════════ */
 (async function initVisitorCounter() {
   var SBU  = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
   var SBA  = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
   var ADMIN_EMAIL  = 'papez.ondrej@gmail.com';
-  var EXCLUDED_IP  = '192.168.0.88';
+  var EXCLUDED_IPS = ['192.168.0.88'];
   var TABLE        = 'site_visits';
+  var SESSION_KEY  = 'pkc_visit_recorded'; // sessionStorage klíč
 
-  /* 1. Zjisti přihlášeného uživatele */
+  /* 1. Přihlášený uživatel */
   var u = null;
   try { u = JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch(e) {}
   var userEmail = u && (u.email || (u.user_metadata && u.user_metadata.email) || '');
   var tk = localStorage.getItem('sb_token') || SBA;
 
-  /* 2. Zjisti veřejnou IP návštěvníka */
-  var myIP = null;
-  try {
-    var ipResp = await fetch('https://api.ipify.org?format=json');
-    var ipData = await ipResp.json();
-    myIP = ipData.ip;
-  } catch(e) {}
+  /* 2. Session deduplicace – pokud jsme v téhle session už zaznamenali, přeskoč zápis */
+  var alreadyRecorded = sessionStorage.getItem(SESSION_KEY);
 
-  /* 3. Zaznamenej návštěvu (pokud IP není vyloučená) */
-  if (myIP && myIP !== EXCLUDED_IP) {
+  if (!alreadyRecorded) {
+    /* 3. Zjisti IP */
+    var myIP = null;
     try {
-      await fetch(SBU + '/rest/v1/' + TABLE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SBA,
-          'Authorization': 'Bearer ' + SBA,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          ip: myIP,
-          page: 'index',
-          visited_at: new Date().toISOString()
-        })
-      });
+      var ipResp = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+      myIP = (await ipResp.json()).ip;
     } catch(e) {}
+
+    /* 4. Zaznamenej návštěvu */
+    if (myIP && !EXCLUDED_IPS.includes(myIP)) {
+      try {
+        await fetch(SBU + '/rest/v1/' + TABLE, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SBA,
+            'Authorization': 'Bearer ' + SBA,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            ip:         myIP,
+            page:       location.pathname.replace(/.*\//, '').replace('.html','') || 'index',
+            visited_at: new Date().toISOString()
+          })
+        });
+        /* Označ session jako zaznamenanou – platí do zavření tabu */
+        sessionStorage.setItem(SESSION_KEY, '1');
+      } catch(e) {}
+    }
   }
 
-  /* 4. Zobraz panel POUZE pro admina */
+  /* 5. Zobraz panel POUZE pro admina (jen na index.html kde panel existuje) */
   var panel = document.getElementById('adminVisitorPanel');
   if (!panel || userEmail !== ADMIN_EMAIL) return;
   panel.style.display = 'block';
 
-  /* 5. Pomocná funkce – vrátí počet záznamů podle filtru */
+  /* 6. Pomocná funkce pro počty */
   async function getCount(filter) {
     try {
-      var url = SBU + '/rest/v1/' + TABLE + '?' + filter + '&select=id';
+      var url = SBU + '/rest/v1/' + TABLE + '?' + (filter ? filter + '&' : '') + 'select=id';
       var resp = await fetch(url, {
-        headers: {
-          'apikey': SBA,
-          'Authorization': 'Bearer ' + tk,
-          'Prefer': 'count=exact',
-          'Range': '0-0'
-        }
+        headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tk,
+                   'Prefer': 'count=exact', 'Range': '0-0' }
       });
       var cr = resp.headers.get('Content-Range');
       if (cr) { var m = cr.match(/\/(\d+)/); return m ? parseInt(m[1]) : 0; }
@@ -824,20 +869,25 @@ document.addEventListener('DOMContentLoaded',function(){
     } catch(e) { return '?'; }
   }
 
-  /* 6. Načti statistiky */
-  var now = new Date();
+  /* 7. Unikátní návštěvníci – počítáme unikátní IP (skupiny) */
+  async function getUniqueIPs(filter) {
+    try {
+      var url = SBU + '/rest/v1/' + TABLE + '?' + (filter ? filter + '&' : '') + 'select=ip';
+      var r = await fetch(url, { headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tk } });
+      var rows = await r.json();
+      return new Set((rows || []).map(function(x){ return x.ip; })).size;
+    } catch(e) { return '?'; }
+  }
 
-  var todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
-
-  var weekStart = new Date(now);
-  weekStart.setDate(weekStart.getDate() - 7);
-  weekStart.setHours(0, 0, 0, 0);
+  /* 8. Načti statistiky */
+  var now       = new Date();
+  var todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+  var weekStart  = new Date(now); weekStart.setDate(weekStart.getDate()-7); weekStart.setHours(0,0,0,0);
 
   var [today, week, total] = await Promise.all([
-    getCount('visited_at=gte.' + todayStart.toISOString()),
-    getCount('visited_at=gte.' + weekStart.toISOString()),
-    getCount('')
+    getUniqueIPs('visited_at=gte.' + todayStart.toISOString()),
+    getUniqueIPs('visited_at=gte.' + weekStart.toISOString()),
+    getUniqueIPs(''),
   ]);
 
   document.getElementById('visitorToday').textContent = today;
