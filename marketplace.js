@@ -619,13 +619,13 @@ function buildGallery(l, firstCard){
   const thumbsEl= document.getElementById('galleryThumbs');
 
   if(allImgs.length){
-    mainEl.innerHTML=`<img src="${esc(allImgs[0])}" id="mainGalleryImg" style="width:100%;height:100%;object-fit:contain">`;
+    mainEl.innerHTML=`<img src="${esc(allImgs[0])}" id="mainGalleryImg" style="width:100%;height:100%;object-fit:contain;cursor:zoom-in" onclick="openCardZoom(0)" title="Klikni pro detail se lupou">`;
   } else {
     mainEl.innerHTML=`<div style="text-align:center;color:var(--text3);padding:20px"><div style="font-size:40px;margin-bottom:8px">🃏</div>${esc(firstCard?.name||'?')}</div>`;
   }
 
   thumbsEl.innerHTML = allImgs.map((src,i)=>
-    `<div class="gallery-thumb ${i===0?'act':''}" onclick="setGalleryImg('${esc(src)}',${i})">
+    `<div class="gallery-thumb ${i===0?'act':''}" onclick="setGalleryImg('${esc(src)}',${i})" ondblclick="openCardZoom(${i})" title="2× klik → detail se lupou">
       <img src="${esc(src)}" loading="lazy">
     </div>`
   ).join('') + (allImgs.length===0?'':'');
@@ -3412,19 +3412,6 @@ function openProdCrop(idx)  { _openMktCrop(prodPhotos, idx); }
 function _openMktCrop(arr, idx) {
   const p = arr[idx];
   const src = p.src; // always use original
-
-  // pokemontcg.io CDN does not send CORS headers, so canvas operations fail
-  // when crossOrigin='anonymous' is set. Route those URLs through our proxy.
-  const proxySrc = (url) => {
-    try {
-      const u = new URL(url);
-      if (u.hostname.endsWith('pokemontcg.io')) {
-        return '/api/imgproxy?url=' + encodeURIComponent(url);
-      }
-    } catch {}
-    return url;
-  };
-
   const load = (cors) => {
     const img = new Image();
     if (cors) img.crossOrigin = 'anonymous';
@@ -3438,7 +3425,7 @@ function _openMktCrop(arr, idx) {
       if (modal) modal.style.display = 'flex';
     };
     img.onerror = () => cors ? load(false) : alert('Nelze načíst obrázek');
-    img.src = cors ? proxySrc(src) : src;
+    img.src = src;
   };
   load(true);
 }
@@ -4631,4 +4618,259 @@ async function dispatchListingNotifications(listing) {
     headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}`, 'Prefer': 'return=minimal' },
     body: JSON.stringify(toNotify),
   });
+}
+
+// ══════════════════════════════════════════════════════════════
+//  CARD ZOOM LIGHTBOX WITH LOUPE  (přidáno)
+// ══════════════════════════════════════════════════════════════
+
+let czlImgs = [];         // list of image srcs in current gallery
+let czlIdx  = 0;          // currently shown index
+let czlZoomFactor = 3.5;  // magnification
+
+/* ── Open ──────────────────────────────────────────────────── */
+function openCardZoom(startIdx) {
+  // Collect all gallery images
+  const thumbImgs = Array.from(document.querySelectorAll('.gallery-thumb img'));
+  const mainImg   = document.getElementById('mainGalleryImg');
+
+  if (thumbImgs.length > 0) {
+    czlImgs = thumbImgs.map(t => t.src);
+  } else if (mainImg?.src) {
+    czlImgs = [mainImg.src];
+  } else { return; }
+
+  czlIdx = (startIdx !== undefined) ? Math.max(0, Math.min(startIdx, czlImgs.length - 1)) : 0;
+
+  // Title + meta from detail panel
+  const title = document.getElementById('dTitle')?.textContent || '';
+  const tagsEl= document.getElementById('dTags');
+  document.getElementById('czlTitle').textContent = title;
+  document.getElementById('czlMeta').innerHTML = tagsEl ? tagsEl.innerHTML : '';
+
+  // Nav visibility
+  const multi = czlImgs.length > 1;
+  document.getElementById('czlNavL').style.display = multi ? '' : 'none';
+  document.getElementById('czlNavR').style.display = multi ? '' : 'none';
+
+  // Load existing condition description if any
+  document.getElementById('czlDesc').value = currentListing?.condition_description || '';
+
+  czlLoadImg(czlIdx);
+
+  const lb = document.getElementById('cardZoomLightbox');
+  lb.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCardZoom() {
+  document.getElementById('cardZoomLightbox').style.display = 'none';
+  document.getElementById('czlLoupe').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function czlBgClick(e) {
+  if (e.target === document.getElementById('cardZoomLightbox')) closeCardZoom();
+}
+
+/* ── Image loading ─────────────────────────────────────────── */
+function czlLoadImg(idx) {
+  czlIdx = Math.max(0, Math.min(idx, czlImgs.length - 1));
+  const img = document.getElementById('czlImg');
+  img.style.opacity = 0;
+  img.src = czlImgs[czlIdx];
+  document.getElementById('czlPhotoIdx').textContent = `${czlIdx + 1} / ${czlImgs.length}`;
+  document.getElementById('czlPhotoIdx').style.display = czlImgs.length > 1 ? '' : 'none';
+  czlHideLoupe();
+}
+
+function czlImgLoaded() {
+  document.getElementById('czlImg').style.opacity = 1;
+}
+
+function czlNav(dir) { czlLoadImg(czlIdx + dir); }
+
+/* ── Loupe logic ────────────────────────────────────────────── */
+function czlShowLoupe() {
+  document.getElementById('czlLoupe').style.display = 'block';
+}
+function czlHideLoupe() {
+  document.getElementById('czlLoupe').style.display = 'none';
+}
+
+function czlOnMove(e) {
+  const img   = document.getElementById('czlImg');
+  const loupe = document.getElementById('czlLoupe');
+  const iRect = img.getBoundingClientRect();
+  const LSIZE = 210;
+
+  const relX = e.clientX - iRect.left;
+  const relY = e.clientY - iRect.top;
+
+  // Hide if outside image bounds
+  if (relX < 0 || relY < 0 || relX > iRect.width || relY > iRect.height) {
+    czlHideLoupe(); return;
+  }
+  loupe.style.display = 'block';
+
+  // Position loupe: prefer top-right of cursor, flip if near edge
+  const OX = 28, OY = 28;
+  let lx = e.clientX + OX;
+  let ly = e.clientY + OY;
+  if (lx + LSIZE > window.innerWidth  - 8)  lx = e.clientX - OX - LSIZE;
+  if (ly + LSIZE > window.innerHeight - 8)  ly = e.clientY - OY - LSIZE;
+
+  loupe.style.left = lx + 'px';
+  loupe.style.top  = ly + 'px';
+
+  // Background zoom
+  const z   = czlZoomFactor;
+  const bgX = -(relX * z - LSIZE / 2);
+  const bgY = -(relY * z - LSIZE / 2);
+  loupe.style.backgroundImage    = `url('${img.src}')`;
+  loupe.style.backgroundSize     = `${iRect.width * z}px ${iRect.height * z}px`;
+  loupe.style.backgroundPosition = `${bgX}px ${bgY}px`;
+}
+
+function czlUpdateZoom(val) {
+  czlZoomFactor = parseFloat(val);
+  document.getElementById('czlZoomVal').textContent = czlZoomFactor + '×';
+}
+
+/* ── Keyboard nav ───────────────────────────────────────────── */
+document.addEventListener('keydown', e => {
+  const lb = document.getElementById('cardZoomLightbox');
+  if (!lb || lb.style.display === 'none') return;
+  if (e.key === 'Escape')      { closeCardZoom(); }
+  if (e.key === 'ArrowLeft')   { czlNav(-1); }
+  if (e.key === 'ArrowRight')  { czlNav(1); }
+});
+
+/* ── AI condition analysis ─────────────────────────────────── */
+async function czlAnalyze() {
+  const img     = document.getElementById('czlImg');
+  const btn     = document.getElementById('czlAiBtn');
+  const loading = document.getElementById('czlAiLoading');
+  const textarea= document.getElementById('czlDesc');
+
+  if (!img?.src) return;
+
+  btn.disabled = true;
+  loading.style.display = 'flex';
+  textarea.value = '';
+  textarea.placeholder = '';
+
+  const cardName = document.getElementById('czlTitle')?.textContent || 'Pokémon karta';
+  const condTag  = (currentListing?.condition || '').toUpperCase();
+
+  // Try to fetch image as base64 (works for Supabase/uploaded photos)
+  let base64Data = null, mediaType = 'image/jpeg';
+  try {
+    const r = await fetch(img.src);
+    const blob = await r.blob();
+    mediaType = blob.type || 'image/jpeg';
+    base64Data = await new Promise((res, rej) => {
+      const rd = new FileReader();
+      rd.onload = () => res(rd.result.split(',')[1]);
+      rd.onerror = rej;
+      rd.readAsDataURL(blob);
+    });
+  } catch (_) { /* CORS – pokusíme se bez obrázku */ }
+
+  const systemPrompt = `Jsi expert na grading a hodnocení stavu sběratelských Pokémon karet. 
+Hodnotíš karty pro prodej na českém tržišti. Odpovídáš vždy česky, věcně a konkrétně.
+Grading škála: NM (Near Mint – jako nová), LP (Lightly Played – lehce hraná), 
+MP (Moderately Played – středně hraná), HP (Heavily Played – hodně hraná), D (Damaged – poškozená).`;
+
+  const userMsg = base64Data
+    ? [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64Data } },
+        { type: 'text',  text: `Toto je fotografie karty "${cardName}"${condTag ? ` (inzerována jako ${condTag})` : ''}.
+
+Popiš detailně stav karty z fotografie. Uveď:
+1. Celkový grading (NM/LP/MP/HP/D) s odůvodněním
+2. Viditelné poškození: škrábance, ohyby, white spotting, vrypy, opotřebení rohů
+3. Stav povrchu (lesk, matnost, stopy dotyků)
+4. Stav rohů a hran
+5. Krátké doporučení pro kupujícího
+
+Odpověz přirozeně v 4–6 větách česky. Buď konkrétní – pokud poškození nevidíš, řekni to.` }
+      ]
+    : [
+        { type: 'text', text: `Karta "${cardName}" je inzerována jako ${condTag || 'NM'}. Fotografie není dostupná (CORS omezení). 
+Napiš typický popis stavu karty v gradingu ${condTag || 'NM'} – co kupující může očekávat, na co si dát pozor, jak vypadá karta tohoto stavu obecně. Odpověz v češtině, 4–5 vět.` }
+      ];
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
+      })
+    });
+
+    const data = await resp.json();
+    const text = (data.content || []).find(b => b.type === 'text')?.text || '';
+
+    if (text) {
+      textarea.value = text;
+    } else {
+      textarea.value = 'AI analýza nevrátila výsledek. Zkuste to znovu nebo napište popis ručně.';
+    }
+  } catch (err) {
+    textarea.value = 'Chyba při komunikaci s AI: ' + err.message;
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+    textarea.placeholder = 'Klikni na tlačítko Analyzovat pro AI popis stavu karty…';
+  }
+}
+
+/* ── Save description ──────────────────────────────────────── */
+async function czlSave() {
+  const desc = (document.getElementById('czlDesc')?.value || '').trim();
+  const saveBtn = document.getElementById('czlSaveBtn');
+
+  if (!currentListing?.id) {
+    alert('Nelze uložit – nabídka není načtena.'); return;
+  }
+  if (!token) {
+    alert('Pro uložení popisu se musíš přihlásit.'); return;
+  }
+
+  saveBtn.textContent = '⏳ Ukládám…';
+  saveBtn.disabled = true;
+
+  const res = await sbReq(
+    `rest/v1/listings?id=eq.${currentListing.id}`,
+    'PATCH',
+    { condition_description: desc },
+    token
+  );
+
+  if (res?._err) {
+    alert('Chyba uložení: ' + res._err);
+    saveBtn.textContent = '💾 Uložit popis do nabídky';
+    saveBtn.disabled = false;
+  } else {
+    // Persist locally
+    currentListing.condition_description = desc;
+    // Update visible description in detail panel
+    const descEl = document.getElementById('dDesc');
+    if (descEl) {
+      descEl.textContent = desc;
+      descEl.style.display = desc ? '' : 'none';
+    }
+    saveBtn.textContent = '✅ Uloženo!';
+    saveBtn.style.background = 'rgba(74,222,128,0.18)';
+    setTimeout(() => {
+      saveBtn.textContent = '💾 Uložit popis do nabídky';
+      saveBtn.style.background = '';
+      saveBtn.disabled = false;
+    }, 2200);
+  }
 }

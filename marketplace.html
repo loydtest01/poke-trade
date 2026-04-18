@@ -1058,6 +1058,79 @@ function mktRunFakeCheck() {
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
+<!-- ═══════════════ CARD ZOOM LIGHTBOX WITH LOUPE ═══════════════ -->
+<div id="cardZoomLightbox" onclick="czlBgClick(event)">
+  <button class="czl-close" onclick="closeCardZoom()" title="Zavřít (Esc)">✕</button>
+  <button class="czl-nav czl-nav-l" id="czlNavL" onclick="czlNav(-1)">&#8249;</button>
+  <button class="czl-nav czl-nav-r" id="czlNavR" onclick="czlNav(1)">&#8250;</button>
+
+  <div class="czl-wrap">
+    <!-- ── Left: image + loupe ── -->
+    <div class="czl-img-area" id="czlImgArea"
+         onmousemove="czlOnMove(event)"
+         onmouseleave="czlHideLoupe()"
+         onmouseenter="czlShowLoupe()">
+
+      <div class="czl-photo-idx" id="czlPhotoIdx">1 / 1</div>
+
+      <img id="czlImg" src="" alt=""
+           onload="czlImgLoaded()"
+           style="opacity:0;transition:opacity .2s">
+
+      <div class="czl-loupe" id="czlLoupe">
+        <div class="czl-loupe-cross"></div>
+        <div class="czl-loupe-ring"></div>
+      </div>
+    </div>
+
+    <!-- ── Right: info + AI ── -->
+    <div class="czl-side" id="czlSide">
+      <div class="czl-card-title" id="czlTitle"></div>
+      <div class="czl-meta-tags" id="czlMeta"></div>
+
+      <!-- Zoom slider -->
+      <div class="czl-zoom-row">
+        <span style="font-size:15px">🔍</span>
+        <label>Zvětšení lupy</label>
+        <input class="czl-zoom-slider" type="range" id="czlZoom"
+               min="2" max="7" step="0.5" value="3.5"
+               oninput="czlUpdateZoom(this.value)">
+        <span class="czl-zoom-val" id="czlZoomVal">3.5×</span>
+      </div>
+
+      <!-- AI condition box -->
+      <div class="czl-ai-box">
+        <div class="czl-ai-header">
+          <span class="czl-ai-badge">AI SCAN</span>
+          <span class="czl-ai-lbl">Stav karty – AI analýza</span>
+          <button class="czl-ai-run" id="czlAiBtn" onclick="czlAnalyze()">🤖 Analyzovat</button>
+        </div>
+
+        <div id="czlAiLoading" class="czl-loading" style="display:none">
+          <div class="czl-loading-dot"></div>
+          Analyzuji poškození karty…
+        </div>
+
+        <div>
+          <div class="czl-section-lbl">Popis stavu (upravitelný)</div>
+          <textarea class="czl-textarea" id="czlDesc"
+            placeholder="Klikni na 'Analyzovat' pro AI popis stavu karty, nebo napiš vlastní popis poškození…"></textarea>
+        </div>
+
+        <button class="czl-save-btn" id="czlSaveBtn" onclick="czlSave()">
+          💾 Uložit popis do nabídky
+        </button>
+      </div>
+
+      <div style="font-size:11px;color:rgba(255,255,255,0.18);text-align:center;padding:2px 0;line-height:1.6">
+        Pohyb myší nad kartou → lupa &nbsp;·&nbsp; ← → přepínání fotek &nbsp;·&nbsp; Esc zavřít
+      </div>
+    </div>
+  </div>
+
+  <div class="czl-hint-bar">Klikni mimo pro zavření</div>
+</div>
+
 <!-- ═══ CHAT IFRAME MODAL ═══ -->
 <div id="chatIframeModal" style="
   display:none;position:fixed;inset:0;z-index:9999;
