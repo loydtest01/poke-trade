@@ -1077,9 +1077,9 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 
     <!-- STATS STRIP -->
     <div class="stats-strip">
-      <div class="stat-card">
+      <div class="stat-card" title="Počet unikátních kupujících (každý kupující se počítá jen jednou)">
         <div class="stat-num" id="statSales">0</div>
-        <div class="stat-label">Prodejů</div>
+        <div class="stat-label">Unikátních kupujících</div>
       </div>
       <div class="stat-card">
         <div class="stat-num" id="statSellerScore" style="color:var(--yellow)">–</div>
@@ -1173,7 +1173,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
     <div class="section-title">Komentáře</div>
     <div class="tabs-wrap">
       <button class="tab-btn active" onclick="switchTab('seller')" id="tabSeller">
-        🏷️ O prodejci <span class="tab-count" id="tabSellerCount">0</span>
+        🏷️ O prodejci <span class="tab-count" id="tabSellerCount">0</span><span class="tab-count" id="tabSellerDupCount" style="display:none;background:rgba(251,146,60,0.12);color:var(--orange)" title="Z toho se do skóre nepočítá"></span>
       </button>
       <button class="tab-btn" onclick="switchTab('buyer')" id="tabBuyer">
         🛒 O kupujícím <span class="tab-count" id="tabBuyerCount">0</span>
@@ -1483,6 +1483,23 @@ function renderProfile(p) {
 // ═══════════════════════════════════════════════════════════
 //  NAČTI HODNOCENÍ
 // ═══════════════════════════════════════════════════════════
+// ── Deduplikace hodnocení (Aukro styl) ──────────────────────
+// Pro výpočet skóre a počtu prodejů se počítá jen 1. (nejstarší)
+// hodnocení za každý unikátní pár hodnotící→hodnocený.
+// V seznamu komentářů se zobrazí všechny, ale "duplicitní" jsou označeny.
+function deduplicateByReviewer(reviews) {
+  const seen = new Set();
+  // Seřadit od nejstarší (první = ta co platí)
+  return [...reviews]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .map(r => {
+      const key = r.reviewer_id;
+      if (seen.has(key)) return { ...r, _duplicate: true };
+      seen.add(key);
+      return { ...r, _duplicate: false };
+    });
+}
+
 async function loadReviews() {
   try {
     const data = await supabaseRequest(
@@ -1490,8 +1507,12 @@ async function loadReviews() {
     );
     if (!Array.isArray(data)) return;
 
-    allReviews.seller = data.filter(r => r.reviewer_role === 'buyer');   // kupující hodnotí prodejce
-    allReviews.buyer  = data.filter(r => r.reviewer_role === 'seller');  // prodejce hodnotí kupujícího
+    const sellerRaw = data.filter(r => r.reviewer_role === 'buyer');
+    const buyerRaw  = data.filter(r => r.reviewer_role === 'seller');
+
+    // Deduplikace: přidá příznak _duplicate pro vizuální označení
+    allReviews.seller = deduplicateByReviewer(sellerRaw);
+    allReviews.buyer  = deduplicateByReviewer(buyerRaw);
 
     renderRatingCards();
     renderReviews('seller');
@@ -1504,22 +1525,41 @@ function renderRatingCards() {
   renderRoleStats('seller', allReviews.seller);
   renderRoleStats('buyer',  allReviews.buyer);
 
-  const allPos = [...allReviews.seller, ...allReviews.buyer].filter(r => r.is_positive).length;
-  const allTotal = allReviews.seller.length + allReviews.buyer.length;
-  document.getElementById('statPositive').textContent = allTotal
-    ? `${Math.round(100 * allPos / allTotal)}%` : '–%';
-  document.getElementById('statSales').textContent = allReviews.seller.length;
+  // Pro statistiky používáme jen unikátní hodnocení (bez duplicit)
+  const sellerUniq = allReviews.seller.filter(r => !r._duplicate);
+  const buyerUniq  = allReviews.buyer.filter(r => !r._duplicate);
+  const allUniq    = [...sellerUniq, ...buyerUniq];
+  const allPos     = allUniq.filter(r => r.is_positive).length;
+  document.getElementById('statPositive').textContent = allUniq.length
+    ? `${Math.round(100 * allPos / allUniq.length)}%` : '–%';
+  // Počet prodejů = počet unikátních kupujících (ne duplicitních)
+  document.getElementById('statSales').textContent = sellerUniq.length;
 
   document.getElementById('tabSellerCount').textContent = allReviews.seller.length;
   document.getElementById('tabBuyerCount').textContent  = allReviews.buyer.length;
+
+  // Zobraz počet duplicit (nepočítaných do skóre)
+  const sellerDups = allReviews.seller.filter(r => r._duplicate).length;
+  const sellerDupEl = document.getElementById('tabSellerDupCount');
+  if (sellerDupEl) {
+    if (sellerDups > 0) {
+      sellerDupEl.textContent = `+${sellerDups} ×`;
+      sellerDupEl.title = `${sellerDups} hodnocení od stejného uživatele se nepočítají do skóre`;
+      sellerDupEl.style.display = '';
+    } else {
+      sellerDupEl.style.display = 'none';
+    }
+  }
 }
 
 function renderRoleStats(role, reviews) {
   const prefix = role; // 'seller' | 'buyer'
-  const n = reviews.length;
+  // Pro skóre a histogram používáme jen unikátní hodnocení
+  const uniqueReviews = reviews.filter(r => !r._duplicate);
+  const n = uniqueReviews.length;
   if (n === 0) return;
 
-  const avg = reviews.reduce((s, r) => s + r.stars_overall, 0) / n;
+  const avg = uniqueReviews.reduce((s, r) => s + r.stars_overall, 0) / n;
 
   document.getElementById(`${prefix}BigScore`).textContent = avg.toFixed(1);
   document.getElementById(`${prefix}ScoreCount`).textContent = `${n} hodnocení`;
@@ -1532,7 +1572,7 @@ function renderRoleStats(role, reviews) {
   else document.getElementById('statBuyerScore').textContent = `${avg.toFixed(1)} ★`;
 
   // Histogram
-  const counts = [5,4,3,2,1].map(s => reviews.filter(r => r.stars_overall === s).length);
+  const counts = [5,4,3,2,1].map(s => uniqueReviews.filter(r => r.stars_overall === s).length);
   let histoHtml = '';
   [5,4,3,2,1].forEach((s, i) => {
     const pct = n ? Math.round(100 * counts[i] / n) : 0;
@@ -1547,12 +1587,12 @@ function renderRoleStats(role, reviews) {
 
   // Kategoriální %
   if (role === 'seller') {
-    setBarPct('sellerPctComm',     'sellerBarComm',     avgPct(reviews, 'stars_communication'));
-    setBarPct('sellerPctDelivery', 'sellerBarDelivery', avgPct(reviews, 'stars_delivery_speed'));
-    setBarPct('sellerPctAccuracy', 'sellerBarAccuracy', avgPct(reviews, 'stars_item_accuracy'));
+    setBarPct('sellerPctComm',     'sellerBarComm',     avgPct(uniqueReviews, 'stars_communication'));
+    setBarPct('sellerPctDelivery', 'sellerBarDelivery', avgPct(uniqueReviews, 'stars_delivery_speed'));
+    setBarPct('sellerPctAccuracy', 'sellerBarAccuracy', avgPct(uniqueReviews, 'stars_item_accuracy'));
   } else {
-    setBarPct('buyerPctPayment', 'buyerBarPayment', avgPct(reviews, 'stars_payment_speed'));
-    setBarPct('buyerPctPickup',  'buyerBarPickup',  avgPct(reviews, 'stars_pickup'));
+    setBarPct('buyerPctPayment', 'buyerBarPayment', avgPct(uniqueReviews, 'stars_payment_speed'));
+    setBarPct('buyerPctPickup',  'buyerBarPickup',  avgPct(uniqueReviews, 'stars_pickup'));
   }
 }
 
@@ -1611,8 +1651,12 @@ function renderReviews(tab) {
         <span class="mini-stars">${renderMiniStars(c.val)}</span>
       </span>`).join('');
 
+    const dupBadge = r._duplicate
+      ? `<span class="sentiment neu" title="Tento uživatel již dříve zanechal hodnocení. Do skóre se počítá jen první.">⚠️ Nepočítá se</span>`
+      : '';
+
     return `
-      <div class="review-card" style="animation-delay:${i * 0.06}s">
+      <div class="review-card" style="animation-delay:${i * 0.06}s${r._duplicate ? ';opacity:0.65' : ''}">
         <div class="review-header">
           <div class="review-avatar">${initials}</div>
           <div class="review-meta">
@@ -1621,6 +1665,7 @@ function renderReviews(tab) {
           </div>
           <div class="review-stars">${renderStarsHtml(r.stars_overall)}</div>
           <span class="sentiment ${sentimentClass}">${sentimentLabel}</span>
+          ${dupBadge}
         </div>
         ${r.comment ? `<div class="review-body">${escHtml(r.comment)}</div>` : ''}
         ${catChips ? `<div class="review-cats">${catChips}</div>` : ''}
@@ -1762,8 +1807,28 @@ function updateRevCounter() {
 
 async function submitReview() {
   if (!currentUser) return;
+
+  // Prevence self-hodnocení
+  if (currentUser.id === profileUserId) {
+    showToast('❌ Nemůžeš hodnotit sám sebe.', 'error');
+    return;
+  }
+
   if (!reviewerRole) return showToast('⚠️ Vyber svou roli (kupující/prodávající)', 'error');
   if (!overallStarsVal) return showToast('⚠️ Vyber celkové hodnocení', 'error');
+
+  // Kontrola duplicitního hodnocení (Aukro styl — první hodnocení platí)
+  try {
+    const existing = await supabaseRequest(
+      `rest/v1/reviews?reviewer_id=eq.${currentUser.id}&reviewed_id=eq.${profileUserId}&select=id,created_at`
+    );
+    if (Array.isArray(existing) && existing.length > 0) {
+      const existDate = new Date(existing[0].created_at).toLocaleDateString('cs-CZ');
+      showToast(`⚠️ Tohoto uživatele jsi již hodnotil/a (${existDate}). První hodnocení zůstává v platnosti.`, 'error');
+      closeModal('reviewModal');
+      return;
+    }
+  } catch(e) { /* pokud check selže, pokračuj */ }
 
   const comment = document.getElementById('revComment').value.trim();
   const body = {
