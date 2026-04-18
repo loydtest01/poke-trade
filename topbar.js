@@ -116,7 +116,7 @@
         + '<div class="user-avatar" id="userAvatar">?</div>'
         + '<span id="userName"></span></a>'
         + '<a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>'
-        + '<button id="logoutBtn" onclick="if(typeof doLogout==='function')doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer">'
+        + '<button id="logoutBtn" onclick="if(typeof doLogout===\'function\')doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer">'
         + '<img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>';
       tr.insertAdjacentHTML('beforeend', authHtml);
     }
