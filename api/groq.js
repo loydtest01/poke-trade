@@ -21,19 +21,40 @@
 const GROQ_API      = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_BODY_BYTES = 20 * 1024 * 1024; // 20 MB (base64 obrázky)
 
-const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+const SUPABASE_URL     = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SUPABASE_ANON    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+// Service key – čte tabulku vip_users (RLS obchází). Nastav jako env proměnnou SUPABASE_SERVICE_KEY.
+const SUPABASE_SERVICE = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON;
 
-const VIP_EMAILS = new Set([
-  'adelka.papezova@gmail.com',
-  'james.t.kirk1933@gmail.com',
-  'lasovlas@seznam.cz',
-  'loydtest@gmail.com',
-  'pan.spock30@gmail.com',
-  'pokecards.app.info@gmail.com',
-]);
 const OWNER_EMAIL = 'papez.ondrej@gmail.com';
 const LIMITS = { search: 20, fake: 10 };
+
+// ── Cache VIP emailů (platí 5 minut, aby se nequeroval Supabase při každém volání) ──
+let _vipCache = null;
+let _vipCacheTime = 0;
+const VIP_CACHE_TTL = 5 * 60 * 1000; // 5 minut
+
+async function isVip(email) {
+  if (!email) return false;
+  const now = Date.now();
+  if (!_vipCache || now - _vipCacheTime > VIP_CACHE_TTL) {
+    try {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/vip_users?select=email`, {
+        headers: { 'apikey': SUPABASE_SERVICE, 'Authorization': `Bearer ${SUPABASE_SERVICE}` },
+      });
+      if (r.ok) {
+        const rows = await r.json();
+        _vipCache = new Set((rows || []).map(row => row.email));
+        _vipCacheTime = now;
+        console.log('[api/groq] VIP cache načtena:', _vipCache.size, 'emailů');
+      }
+    } catch(e) {
+      console.error('[api/groq] Chyba načítání VIP cache:', e.message);
+      // Pokud selže → vrať false (neriskujeme odepření přístupu z technické chyby)
+    }
+  }
+  return _vipCache?.has(email) ?? false;
+}
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
@@ -123,7 +144,7 @@ export default async function handler(req, res) {
   }
 
   // VIP nebo owner → bez limitů
-  if (userEmail === OWNER_EMAIL || VIP_EMAILS.has(userEmail)) {
+  if (userEmail === OWNER_EMAIL || await isVip(userEmail)) {
     return proxyToGroq(res, sharedKeys, safeBody);
   }
 
