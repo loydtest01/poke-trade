@@ -379,7 +379,7 @@ function renderListings(){
       <div class="listing-info">
         <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
         <div class="listing-meta">
-          <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
+          <span>Prodejce: <a class="seller-link" href="profile.html?user=${encodeURIComponent(l.user_id||'')}" onclick="event.stopPropagation()">${esc(l.username||'?')}</a>${l._stars ? renderStarsInline(l._stars) : ''}</span>
           ${set?`<span>${esc(set)}</span>`:''}
           <span>${timeAgo(l.created_at)}</span>
         </div>
@@ -448,7 +448,9 @@ async function openDetail(id){
   document.getElementById('detailView').classList.add('show');
   document.getElementById('breadTitle').textContent=name;
   document.getElementById('dTitle').textContent=name;
-  document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  const sellerUrl = `profile.html?user=${encodeURIComponent(l.user_id||'')}`;
+  document.getElementById('dSeller').innerHTML=`Prodejce: <a class="seller-link" href="${sellerUrl}">${esc(l.username||'?')}</a><span id="dSellerStars" class="seller-stars-inline"></span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  loadSellerRating(l.user_id);
 
   // Price
   if(price>0){
@@ -4164,35 +4166,55 @@ window.setListingTab = function(tab) {
   document.head.appendChild(style);
 })();
 
+// ── Seller rating helpers ────────────────────────────────────
+function renderStars(avg, count) {
+  if (!avg || !count) return '<span style="font-size:11px;color:var(--text3)">Bez hodnocení</span>';
+  const full  = Math.round(avg);
+  const stars = '★'.repeat(full) + '☆'.repeat(5 - full);
+  return `<span class="seller-stars">${stars}</span><span class="seller-stars-count">${Number(avg).toFixed(1)} (${count}×)</span>`;
+}
+
+function renderStarsInline(avg) {
+  if (!avg) return '';
+  const full = Math.round(avg);
+  return `<span class="seller-stars-tiny">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span>`;
+}
+
+async function loadSellerRating(sellerId) {
+  if (!sellerId) return;
+  const el = document.getElementById('dSellerStars');
+  if (!el) return;
+  try {
+    const res = await sbReq(`rest/v1/seller_ratings?seller_id=eq.${sellerId}&select=stars`);
+    if (!Array.isArray(res) || res.length === 0) {
+      el.innerHTML = '';
+      return;
+    }
+    const avg = res.reduce((s, r) => s + (r.stars || 0), 0) / res.length;
+    const full = Math.round(avg);
+    el.innerHTML = `<span class="seller-stars-tiny" title="${Number(avg).toFixed(1)} / 5 (${res.length} hodnocení)">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span><span class="seller-stars-count">${Number(avg).toFixed(1)}</span>`;
+  } catch(e) {
+    el.innerHTML = '';
+  }
+}
+
 // ── Správa vlastního inzerátu ────────────────────────────────
 async function markListingAsSold() {
   if (!currentListing) return;
-  if (!confirm('Označit inzerát jako prodaný?\nInzerát zmizí z nabídek a bude označen jako prodaný.')) return;
-  const res = await sbReq(
-    `rest/v1/listings?id=eq.${currentListing.id}`,
-    'PATCH',
-    { status: 'sold' },
-    token
-  );
+  if (!confirm('Označit inzerát jako prodaný?\nInzerát zmizí z nabídek.')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'sold' }, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showToast('✅ Inzerát označen jako prodaný.');
-  showList();
-  loadListings();
+  showList(); loadListings();
 }
 
 async function cancelListing() {
   if (!currentListing) return;
   if (!confirm('Opravdu zrušit inzerát?\nTato akce je nevratná.')) return;
-  const res = await sbReq(
-    `rest/v1/listings?id=eq.${currentListing.id}`,
-    'PATCH',
-    { status: 'cancelled' },
-    token
-  );
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'cancelled' }, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showToast('🗑️ Inzerát byl zrušen.');
-  showList();
-  loadListings();
+  showList(); loadListings();
 }
 
 function showToast(msg) {
