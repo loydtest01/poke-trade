@@ -16,6 +16,21 @@ const API_BASE = 'https://pokemon-trade-ruddy.vercel.app/v1';
 // ─── LOKÁLNÍ STAV ONLINE ÚČTU ────────────────────────────────────────────────
 function getOnlineSession() {
   try {
+    // Primárně čti z nového formátu (login.html, share-album.html, app.js)
+    const token = localStorage.getItem('sb_token');
+    const raw   = localStorage.getItem('sb_user');
+    const user  = raw ? JSON.parse(raw) : null;
+    if (token && user && user.id) {
+      return {
+        token,
+        userId:   user.id,
+        username: user.user_metadata?.username
+                  || localStorage.getItem('sb_username')
+                  || user.email?.split('@')[0]
+                  || ''
+      };
+    }
+    // Fallback na starý klíč (pkc_online_session)
     return JSON.parse(localStorage.getItem('pkc_online_session') || 'null');
   } catch { return null; }
 }

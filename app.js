@@ -92,6 +92,8 @@ function logout() {
         localStorage.setItem('sb_token', d.access_token);
         if (d.refresh_token) localStorage.setItem('sb_refresh_token', d.refresh_token);
         localStorage.setItem('sb_user', JSON.stringify(d.user));
+        // Aktualizuj pkc_online_session při refreshi tokenu
+        try { var _u=d.user; localStorage.setItem('pkc_online_session', JSON.stringify({ token: d.access_token, userId: _u.id, username: (_u.user_metadata&&_u.user_metadata.username)||(_u.email?_u.email.split('@')[0]:'') })); } catch(e) {}
         return d.access_token;
       }
       return null;

@@ -4,7 +4,7 @@
    Módy: 'realtime' | 'hourly' (default) | 'manual'
 ═══════════════════════════════════════════════════════════════════════════ */
 
-import { getOnlineUser } from './online-market.js';
+import { getOnlineUser } from './online-market-NEW.js';
 import { toast } from './ui.js';
 
 // getOnlineSession je privátní v online-market.js – getOnlineUser je její veřejný alias

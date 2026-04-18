@@ -484,6 +484,24 @@ async function loadMyAlbums() {
   if (!ME || !ME.id) return;
   const data = await sbGet(`rest/v1/user_albums?user_id=eq.${ME.id}&select=id,name,icon,color,card_ids&order=created_at.desc`);
   myAlbums = data || [];
+
+  // FALLBACK: pokud Supabase vrátí prázdno, zkus přečíst alba z localStorage
+  // (pkc_albums je formát ukládaný v moje-album.html)
+  if (!myAlbums.length) {
+    try {
+      const local = JSON.parse(localStorage.getItem('pkc_albums') || '[]');
+      if (local.length) {
+        myAlbums = local.map(a => ({
+          id:       a.id,
+          name:     a.name,
+          icon:     a.icon || '📁',
+          color:    a.color || '#4f8ef7',
+          card_ids: a.cardIds || []
+        }));
+      }
+    } catch(e) {}
+  }
+
   const grid = document.getElementById('albumGrid');
   if (!myAlbums.length) {
     grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1;padding:16px 0">Nemáš žádná alba. Nejdříve si vytvoř album v sekci Moje alba.</div>';
@@ -510,7 +528,19 @@ async function selectAlbum(albumId) {
   // Načti plná data karet pro snapshot
   if (album.card_ids && album.card_ids.length > 0) {
     const cardIds = album.card_ids.map(id => `"${id}"`).join(',');
-    const cards = await sbGet(`rest/v1/user_cards?user_id=eq.${ME.id}&local_id=in.(${cardIds})&select=local_id,card_data`);
+    let cards = await sbGet(`rest/v1/user_cards?user_id=eq.${ME.id}&local_id=in.(${cardIds})&select=local_id,card_data`);
+
+    // FALLBACK: pokud nejsou v Supabase, hledej v lokálních kartách (pkc_cards)
+    if (!cards || !cards.length) {
+      try {
+        const localCards = JSON.parse(localStorage.getItem('pkc_cards') || '[]');
+        const ids = new Set(album.card_ids);
+        cards = localCards
+          .filter(c => ids.has(c.localId || c.id))
+          .map(c => ({ local_id: c.localId || c.id, card_data: c }));
+      } catch(e) {}
+    }
+
     selectedAlbumData = {
       name: album.name,
       card_ids: album.card_ids,

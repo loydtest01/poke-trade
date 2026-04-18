@@ -352,6 +352,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     if (res.refresh_token) localStorage.setItem('sb_refresh_token', res.refresh_token);
     localStorage.setItem('sb_user', JSON.stringify(user));
 
+    // Kompatibilita se starším modulem online-market (album-sync.js)
+    localStorage.setItem('pkc_online_session', JSON.stringify({
+      token:    res.access_token,
+      userId:   user.id,
+      username: (user.user_metadata && user.user_metadata.username) || (user.email ? user.email.split('@')[0] : '')
+    }));
+
     // Zaloguj úspěšné přihlášení
     await logSuccessfulLogin(user.id, clientIP);
 
