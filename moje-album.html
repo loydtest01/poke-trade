@@ -4454,7 +4454,7 @@ async function saveNewAlbum() {
   render();
   // Krátce zvýrazni nové album v sidebaru, ale nenastav ho jako aktivní
   setTimeout(() => {
-    const btn = document.querySelector(\`.album-item[onclick*="${album.id}"]\`);
+    const btn = document.querySelector(`.album-item[onclick*="${album.id}"]`);
     if (btn) { btn.style.outline = '2px solid var(--yellow,#f5c842)'; setTimeout(() => { btn.style.outline = ''; }, 1500); }
   }, 50);
 }
