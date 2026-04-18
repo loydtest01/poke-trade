@@ -1079,23 +1079,25 @@ Grade scale:
 If photo quality is too poor to assess, return {"grade":"NM","confidence":"low","issues":[],"summary":"Foto není dostatečně kvalitní pro hodnocení stavu."}`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch('/api/groq', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+                 ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         max_tokens: 300,
+        usage_type: 'search',
         messages: [{
           role: 'user',
           content: [
-            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
             { type: 'text', text: prompt }
           ]
         }]
       })
     });
     const data = await response.json();
-    const raw = data.content?.map(b=>b.text||'').join('') || '{}';
+    const raw = data.choices?.[0]?.message?.content || '{}';
     try {
       const clean = raw.replace(/```json|```/g,'').trim();
       return JSON.parse(clean);
@@ -1128,23 +1130,25 @@ Respond ONLY with a JSON object, no explanation:
 
 If you cannot identify the card at all, return {"confidence":"low","name":"","notes":"reason"}`;
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const response = await fetch('/api/groq', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json',
+               ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       max_tokens: 400,
+      usage_type: 'search',
       messages: [{
         role: 'user',
         content: [
-          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
           { type: 'text', text: prompt }
         ]
       }]
     })
   });
   const data = await response.json();
-  const raw = data.content?.map(b=>b.text||'').join('') || '{}';
+  const raw = data.choices?.[0]?.message?.content || '{}';
   try {
     const clean = raw.replace(/```json|```/g,'').trim();
     return JSON.parse(clean);
@@ -4714,12 +4718,12 @@ function czlOnMove(e) {
   const relX = e.clientX - iRect.left;
   const relY = e.clientY - iRect.top;
 
-  // Hide if outside image bounds + 16px přesah (aby lupa nezmizela hned u okraje)
+  // 16px přesah – lupa zmizí až ~1cm za okrajem fotky
   const EDGE = 16;
   if (relX < -EDGE || relY < -EDGE || relX > iRect.width + EDGE || relY > iRect.height + EDGE) {
     czlHideLoupe(); return;
   }
-  // Clamp rel pozici na skutečnou plochu obrázku pro správný zoom
+  // Clamp – zoom se "zmrazí" na okraji, nevyleze mimo obrázek
   const clampedX = Math.max(0, Math.min(relX, iRect.width));
   const clampedY = Math.max(0, Math.min(relY, iRect.height));
   loupe.style.display = 'block';
@@ -4814,19 +4818,31 @@ Napiš typický popis stavu karty v gradingu ${condTag || 'NM'} – co kupujíc�
       ];
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    // Převod Anthropic image formátu → Groq/OpenAI image_url formát
+    const groqUserContent = base64Data
+      ? [
+          { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
+          { type: 'text', text: userMsg.find?.(m => m.type === 'text')?.text || (typeof userMsg === 'string' ? userMsg : '') }
+        ]
+      : (typeof userMsg === 'string' ? userMsg : userMsg[0]?.text || '');
+
+    const resp = await fetch('/api/groq', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json',
+                 ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userMsg }]
+        usage_type: 'search',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: groqUserContent }
+        ]
       })
     });
 
     const data = await resp.json();
-    const text = (data.content || []).find(b => b.type === 'text')?.text || '';
+    const text = data.choices?.[0]?.message?.content || '';
 
     if (text) {
       textarea.value = text;

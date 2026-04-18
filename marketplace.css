@@ -1901,6 +1901,10 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   border-radius: 18px;
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.06);
+  /* ~1cm přesah – lupa nezmizí hned na okraji fotky */
+  padding: 16px;
+  margin: -16px;
+  box-sizing: content-box;
 }
 .czl-img-area img {
   max-width: 100%; max-height: 100%;
