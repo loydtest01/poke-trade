@@ -1951,8 +1951,13 @@ function openListingFromQueue(pendingId) {
     for (let opt of condSel.options) { if (opt.value === cond) { opt.selected = true; break; } }
   }
 
-  // Předplnit salePhotos fotkami z alba (pokud existují)
+  // Předplnit salePhotos: 1) oficiální obrázek, 2) reálné foto z alba
   salePhotos = [];
+  // Slot 0 — oficiální karta (může se updatovat po auto-fetch)
+  if (existingImg) {
+    salePhotos.push({ src: existingImg, mime: 'image/jpeg', isOfficial: true });
+  }
+  // Slot 1+ — reálné fotky z alba
   const albumPhotos = card._userPhotos || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
   if (albumPhotos.length) {
     albumPhotos.forEach(src => {
@@ -1962,6 +1967,9 @@ function openListingFromQueue(pendingId) {
         salePhotos.push({ src, base64: parts2[1] || '', mime });
       } else if (typeof src === 'object' && src && src.src) {
         salePhotos.push(src);
+      } else if (typeof src === 'string' && src) {
+        // Remote URL (např. Supabase storage)
+        salePhotos.push({ src, mime: 'image/jpeg' });
       }
     });
   }
@@ -2041,6 +2049,13 @@ async function _autoFetchFullCardData(pendingCard) {
       const ow2 = document.getElementById('officialCardWrap');
       if (ot2) { ot2.src = img; }
       if (ow2) { ow2.style.display = ''; }
+      // Aktualizovat nebo přidat oficialní obrázek jako první v salePhotos
+      if (salePhotos.length > 0 && salePhotos[0].isOfficial) {
+        salePhotos[0].src = img;
+      } else if (!salePhotos.some(p => p.isOfficial)) {
+        salePhotos.unshift({ src: img, mime: 'image/jpeg', isOfficial: true });
+      }
+      renderSalePhotos();
     }
 
     // Update name + meta with full info
