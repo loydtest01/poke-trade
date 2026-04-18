@@ -4238,7 +4238,7 @@ async function markListingAsSold() {
 async function cancelListing() {
   if (!currentListing) return;
   if (!confirm('Zrušit inzerát? Tato akce je nevratná.')) return;
-  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'cancelled' }, token);
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'inactive' }, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showMktToast('🗑️ Inzerát byl zrušen.');
   showList(); loadListings();
