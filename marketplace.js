@@ -3348,16 +3348,21 @@ function renderSalePhotos() {
   let html = '';
   salePhotos.forEach((p, i) => {
     const src = p.croppedUrl || p.src;
+    const srcEsc = src.replace(/'/g, "\\'");
     if (p.isOfficial) {
-      // Nemazatelný slot pro oficialní obrázek z API
-      html += `<div class="sale-photo-tile" id="saleTile-${i}" style="position:relative">
-        <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
-        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.65);font-size:8px;color:rgba(255,255,255,0.7);text-align:center;padding:2px 0;border-radius:0 0 7px 7px;pointer-events:none">Ofic. API</div>
+      // Nemazatelný slot – jen lupa, žádný crop ani delete
+      html += `<div class="sale-photo-tile" id="saleTile-${i}" title="Oficialní obrázek z API">
+        <img src="${src}" class="sale-photo-img" style="object-fit:contain" onclick="openMktLightbox('${srcEsc}')">
+        <div class="sale-photo-actions">
+          <button onclick="openMktLightbox('${srcEsc}')" class="spt-zoom-btn" title="Zvětšit">🔍</button>
+        </div>
+        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.72);font-size:8px;color:rgba(255,255,255,0.65);text-align:center;padding:2px 0;letter-spacing:.04em;pointer-events:none">Ofic. API</div>
       </div>`;
     } else {
       html += `<div class="sale-photo-tile" id="saleTile-${i}">
-        <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
+        <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${srcEsc}')">
         <div class="sale-photo-actions">
+          <button onclick="openMktLightbox('${srcEsc}')" class="spt-zoom-btn" title="Zvětšit">🔍</button>
           <button onclick="openSaleCrop(${i})" class="spt-crop-btn" title="Oříznout">✂️</button>
           <button onclick="removeSalePhoto(${i})" class="spt-del-btn" title="Smazat">✕</button>
         </div>
