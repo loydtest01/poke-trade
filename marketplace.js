@@ -1407,6 +1407,13 @@ function setAddType(type){
   });
   document.getElementById('addPriceRow').style.display=(type==='sell'||type==='both')?'':'none';
   document.getElementById('addTradeRow').style.display=(type==='trade'||type==='both')?'':'none';
+  // Label fotek se mění podle typu — sekce je vždy viditelná
+  const photoLabel = document.querySelector('#salePhotosSection .fs-label');
+  if(photoLabel){
+    if(type==='trade') photoLabel.textContent='Fotky k výměně';
+    else if(type==='both') photoLabel.textContent='Fotky k prodeji / výměně';
+    else photoLabel.textContent='Fotky k prodeji';
+  }
 }
 
 async function submitListing(){
@@ -1830,6 +1837,12 @@ function renderPendingList() {
     const cond   = esc(card.condition || card.card_condition || 'NM');
     const price  = card.album_price ? card.album_price + ' Kč' : '—';
     const pid    = esc(card._pendingId || '');
+    const ltype  = card.listing_type || 'sell';
+    const typeBadge = ltype === 'trade'
+      ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(96,165,250,0.15);color:#60a5fa;font-weight:600;white-space:nowrap">🔄 Výměna</span>'
+      : ltype === 'both'
+      ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(167,139,250,0.15);color:#a78bfa;font-weight:600;white-space:nowrap">💰🔄 Obojí</span>'
+      : '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(74,222,128,0.15);color:#4ade80;font-weight:600;white-space:nowrap">💰 Prodej</span>';
 
     return `<div class="pending-row" onclick="openListingFromQueue('${pid}')">
       <img class="pending-row-img" id="prow-img-${pid}" src="${img ? esc(img) : ''}" loading="lazy"
@@ -1842,6 +1855,7 @@ function renderPendingList() {
         <div class="pending-row-meta">${set}${num}</div>
       </div>
       <div class="pending-row-cond">${cond}</div>
+      ${typeBadge}
       <div class="pending-row-price">${price}</div>
       <button class="pending-row-del" title="Odebrat z fronty" onclick="event.stopPropagation();removePendingCard('${pid}')">✕</button>
     </div>`;
@@ -1939,7 +1953,7 @@ function openListingFromQueue(pendingId) {
 
   // Předplnit salePhotos fotkami z alba (pokud existují)
   salePhotos = [];
-  const albumPhotos = card._userPhotos || (card._userPhoto ? [card._userPhoto] : []);
+  const albumPhotos = card._userPhotos || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
   if (albumPhotos.length) {
     albumPhotos.forEach(src => {
       if (typeof src === 'string' && src.startsWith('data:')) {

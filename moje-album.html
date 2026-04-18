@@ -3209,6 +3209,7 @@ async function confirmListingPhoto() {
       album_price: c.price_czk   || null,
       condition:   cd.condition  || c.condition   || c.cond || 'NM',
       photoUrl:    _selectedListingPhotoUrl || null,
+      _userPhoto:  _selectedListingPhotoUrl || null,
       listing_type: _pendingListingType || 'sell',
     };
     pushToPendingQueue([pendingCard]);
