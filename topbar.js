@@ -31,7 +31,7 @@ var PAGES = [
   { href: 'marketplace.html',  icon: 'energi/obchod.png',          label: 'Obchod',            id: 'marketplace' },
   { href: 'moje-album.html',   icon: 'energi/moje alba.png',        label: 'Moje alba',         id: 'moje-album'  },
   { href: 'compare.html',      icon: 'energi/porovnat.png',         label: 'Porovnat alba',     id: 'compare'     },
-  { href: 'compare.html',      icon: 'energi/sdilet.png',           label: 'Sdílet album',      id: 'share', shareTab: true },
+  { href: 'compare.html?tab=share', icon: 'energi/sdilet.png',      label: 'Sdílet album',      id: 'share'  },
   { href: 'scanner.html',      icon: 'energi/scanner.png',          label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'download.html',     icon: 'energi/ke_stazeni.png',       label: 'Ke stažení',        id: 'download'    },
@@ -260,18 +260,10 @@ function renderNav() {
   var nav = document.getElementById('mainNav');
   if (!nav) return;
   var active    = window.TOPBAR_ACTIVE || '';
-  var onCompare = (active === 'compare');
   nav.innerHTML = PAGES.map(function (p) {
     var href  = p.href;
     var extra = '';
     var cls   = (p.id === active) ? ' class="active"' : '';
-    if (p.shareTab) {
-      if (onCompare) {
-        href  = '#';
-        extra = ' onclick="if(typeof switchTab===\'function\')switchTab(\'share\');return false"';
-      }
-      cls = '';
-    }
     return '<a href="' + href + '"' + extra + cls + '>'
          + '<img src="' + p.icon + '" class="nav-icon"> '
          + p.label

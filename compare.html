@@ -60,23 +60,6 @@ body::after {
 }
 .nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 
-/* ── Page Tab Bar ──────────────────────────────────────────────── */
-.page-tab-bar {
-  position: sticky; top: 56px; z-index: 190;
-  display: flex; gap: 0;
-  background: rgba(6,4,12,0.95); border-bottom: 1px solid rgba(255,255,255,0.07);
-  backdrop-filter: blur(12px); padding: 0 20px;
-}
-.ptab {
-  padding: 11px 20px; font-size: 13px; font-weight: 600;
-  background: none; border: none; border-bottom: 2px solid transparent;
-  color: rgba(240,236,228,0.5); cursor: pointer;
-  font-family: 'Unbounded', sans-serif; transition: all .15s;
-  margin-bottom: -1px; letter-spacing: 0.02em;
-}
-.ptab:hover { color: #f0ece4; }
-.ptab.active { color: #f5c842; border-bottom-color: #f5c842; }
-
 /* ── Flat filter system (compare) ─────────────────────────── */
 .cmp-supertype-bar { display:flex; gap:5px; margin-bottom:8px; flex-wrap:wrap; }
 .st-btn {
@@ -390,7 +373,7 @@ body::after {
 <body>
 
 <!-- ── TOPBAR ── -->
-<script>window.TOPBAR_ACTIVE = 'compare';</script>
+<script>window.TOPBAR_ACTIVE = new URLSearchParams(location.search).get('tab') === 'share' ? 'share' : 'compare';</script>
 <script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
@@ -424,12 +407,6 @@ body::after {
     <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
-
-<!-- ── PAGE TABS ── -->
-<div class="page-tab-bar">
-  <button class="ptab active" id="ptabCompare" onclick="switchTab('compare')">📊 Porovnat alba</button>
-  <button class="ptab" id="ptabShare" onclick="switchTab('share')">🔗 Sdílet album</button>
-</div>
 
 <!-- ── USERNAME MODAL (pro sdílení) ── -->
 <div class="modal-overlay" id="usernameModal">
@@ -666,12 +643,8 @@ let _shareTabInited = false;
 
 function switchTab(tab) {
   const isCompare = tab === 'compare';
-  document.getElementById('tabCompare').style.display  = isCompare ? '' : 'none';
-  document.getElementById('tabShare').style.display    = isCompare ? 'none' : '';
-  document.getElementById('ptabCompare').classList.toggle('active', isCompare);
-  document.getElementById('ptabShare').classList.toggle('active', !isCompare);
-  document.getElementById('navCompareLink').classList.toggle('active', isCompare);
-  document.getElementById('navShareLink').classList.toggle('active', !isCompare);
+  document.getElementById('tabCompare').style.display = isCompare ? '' : 'none';
+  document.getElementById('tabShare').style.display   = isCompare ? 'none' : '';
   if (!isCompare && !_shareTabInited) {
     _shareTabInited = true;
     initShareTab();
