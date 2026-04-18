@@ -3412,6 +3412,19 @@ function openProdCrop(idx)  { _openMktCrop(prodPhotos, idx); }
 function _openMktCrop(arr, idx) {
   const p = arr[idx];
   const src = p.src; // always use original
+
+  // pokemontcg.io CDN does not send CORS headers, so canvas operations fail
+  // when crossOrigin='anonymous' is set. Route those URLs through our proxy.
+  const proxySrc = (url) => {
+    try {
+      const u = new URL(url);
+      if (u.hostname.endsWith('pokemontcg.io')) {
+        return '/api/imgproxy?url=' + encodeURIComponent(url);
+      }
+    } catch {}
+    return url;
+  };
+
   const load = (cors) => {
     const img = new Image();
     if (cors) img.crossOrigin = 'anonymous';
@@ -3425,7 +3438,7 @@ function _openMktCrop(arr, idx) {
       if (modal) modal.style.display = 'flex';
     };
     img.onerror = () => cors ? load(false) : alert('Nelze načíst obrázek');
-    img.src = src;
+    img.src = cors ? proxySrc(src) : src;
   };
   load(true);
 }
