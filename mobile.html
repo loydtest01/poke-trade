@@ -576,8 +576,9 @@ let fakeMode     = params.get('fake') === '1';  // ?fake=1 → auto-zapne FAKE m
 
 // ─── Groq key(s) ─────────────────────────────────────────────
 let groqKey = params.get('gk') || null;
-let _groqKeys = [];   // pole klíčů po načtení ze serveru
-let _groqKeyIdx = 0;  // index aktuálně použitého klíče
+let _groqKeys = [];      // pole klíčů po načtení ze serveru
+let _groqKeyIdx = 0;     // index aktuálně použitého klíče
+let useSharedProxy = false; // VIP/běžný uživatel bez osobního klíče → proxy /api/groq
 
 function parseGroqKeys(raw) {
   if (!raw) return [];
@@ -592,6 +593,49 @@ function nextGroqKey() {
   _groqKeyIdx = (_groqKeyIdx + 1) % _groqKeys.length;
   groqKey = _groqKeys[_groqKeyIdx];
   return groqKey;
+}
+
+// ─── groqFetch – centrální helper pro volání Groq AI ──────────
+// Automaticky volí:
+//   • osobní klíč (přímé volání s rotací) nebo
+//   • sdílenou proxy /api/groq  (VIP + běžní uživatelé bez klíče)
+async function groqFetch(bodyObj, signal) {
+  const COMPLETIONS = 'https://api.groq.com/openai/v1/chat/completions';
+  const sig = signal || AbortSignal.timeout(15000);
+
+  if (groqKey) {
+    // Osobní klíče – přímé volání s rotací při 429
+    const keys = _groqKeys.length ? _groqKeys : [groqKey];
+    for (let ki = 0; ki < keys.length; ki++) {
+      const key = keys[(_groqKeyIdx + ki) % keys.length];
+      try {
+        const r = await fetch(COMPLETIONS, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+          body: JSON.stringify(bodyObj),
+          signal: sig,
+        });
+        if (r.ok) { _groqKeyIdx = (_groqKeyIdx + ki) % keys.length; return r; }
+        if (r.status === 429 && ki < keys.length - 1) { continue; }
+        return r; // jiná chyba nebo poslední klíč
+      } catch(e) {
+        if (ki < keys.length - 1) continue;
+        throw e;
+      }
+    }
+  }
+
+  // Sdílená proxy – VIP + běžní uživatelé přihlášení přes token
+  if (useSharedProxy && mobileToken) {
+    return fetch(`${SERVER}/api/groq`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + mobileToken },
+      body: JSON.stringify(bodyObj),
+      signal: sig,
+    });
+  }
+
+  throw new Error('Groq AI není k dispozici – přihlas se nebo přidej vlastní klíč');
 }
 
 // ─── Init ────────────────────────────────────────────────────
@@ -670,6 +714,14 @@ async function loadGroqInBackground() {
     _groqKeys = parseGroqKeys(groqKey);
     if (_groqKeys.length) groqKey = _groqKeys[0];
     dbg('Fallback na URL klíč: ' + _groqKeys.length + ' klíčů');
+    updateStatusChips();
+    return;
+  }
+
+  // Žádný osobní klíč → sdílená proxy (VIP nebo přihlášený uživatel)
+  if (mobileToken) {
+    useSharedProxy = true;
+    dbg('Žádný osobní klíč – AI přes sdílenou proxy /api/groq (VIP nebo běžný účet)');
     updateStatusChips();
   }
 }
@@ -797,11 +849,11 @@ function updateStatusChips() {
   const aiBadge = document.getElementById('chipAI');
   const pcBadge = document.getElementById('chipPC');
   if (aiBadge) {
-    if (groqKey) {
+    if (groqKey || useSharedProxy) {
       aiBadge.style.background  = 'rgba(74,222,128,.15)';
       aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
       aiBadge.style.color       = '#4ade80';
-      aiBadge.textContent       = '🤖 AI ✓';
+      aiBadge.textContent       = useSharedProxy ? '🤖 AI ✓ (sdílená)' : '🤖 AI ✓';
     } else {
       aiBadge.style.background  = 'rgba(248,113,113,.1)';
       aiBadge.style.borderColor = 'rgba(248,113,113,.3)';
@@ -1253,7 +1305,7 @@ async function processFrontPhoto(dataUrl) {
 
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
-  if (groqKey) {
+  if (groqKey || useSharedProxy) {
     aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
     const result = await identifyCard(dataUrl);
     // result je buď {name:..., ...} nebo {_error:...} nebo null
@@ -1377,7 +1429,7 @@ function processJpNamePhoto(dataUrl) {
   toast('🇯🇵 Záběr uložen – čtu název…');
 
   // Spustit extrakci na pozadí
-  if (groqKey) {
+  if (groqKey || useSharedProxy) {
     extractJPNameFromDetail(dataUrl).then(name => {
       if (!name) {
         toast('⚠️ Název se nepodařilo přečíst', '');
@@ -1423,7 +1475,7 @@ function retakeJpNamePhoto() {
 
 // ── Extrakce JP názvu z detailní fotky (na mobilu) ────────────
 async function extractJPNameFromDetail(dataUrl) {
-  if (!groqKey) return null;
+  if (!groqKey && !useSharedProxy) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
   const body = {
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
@@ -1437,11 +1489,7 @@ async function extractJPNameFromDetail(dataUrl) {
     }]
   };
   try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + groqKey },
-      body: JSON.stringify(body)
-    });
+    const resp = await groqFetch(body);
     if (!resp.ok) return null;
     const data = await resp.json();
     const raw = (data.choices?.[0]?.message?.content || '').trim().replace(/^["\'「]|["\'」]$/g, '');
@@ -1630,7 +1678,7 @@ async function processBackPhoto(dataUrl) {
   setPhotoBox(document.getElementById('backPhotoBox'), dataUrl);
   document.getElementById('backNextBtn').style.display = '';
 
-  if (groqKey) {
+  if (groqKey || useSharedProxy) {
     const backAiBox = document.getElementById('backAiBox');
     backAiBox.style.display = '';
     backAiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI kontroluje poškození zadní strany…</div>';
@@ -1889,6 +1937,11 @@ const KNOWN_VISION_MODELS = [
 ];
 async function getVisionModels() {
   if (_visionModelsCache) return _visionModelsCache;
+  // Sdílená proxy – přeskoč volání /models (nevíme klíč), vrať known list
+  if (!groqKey) {
+    _visionModelsCache = [KNOWN_VISION_MODELS[0]];
+    return _visionModelsCache;
+  }
   try {
     const r = await fetch('https://api.groq.com/openai/v1/models', {
       headers: { 'Authorization': 'Bearer ' + groqKey },
@@ -1909,10 +1962,9 @@ async function getVisionModels() {
 // AI – identifikace karty (batch, bez stavu)
 // ══════════════════════════════════════════════
 async function identifyCard(dataUrl) {
-  if (!groqKey) return { _error: 'Chybí Groq API klíč (AI ✗)' };
-  dbg('identifyCard START: _groqKeys=' + _groqKeys.length + ' groqKey=' + (groqKey?.slice(0,8)||'null'));
+  if (!groqKey && !useSharedProxy) return { _error: 'AI není k dispozici – přihlas se' };
+  dbg('identifyCard START: groqKey=' + (groqKey?.slice(0,8)||'null') + ' proxy=' + useSharedProxy);
 
-  // Komprimuj pro Groq – velké fotky z kamery jsou příliš velké
   const compressed = await compressImage(dataUrl, 1200, 0.80);
   const { mt, b64 } = splitDataUrl(compressed);
 
@@ -1928,60 +1980,37 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
   let lastErr = '';
   let lastRaw = '';
 
-  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
-
   for (const model of MODELS) {
-    // Zkus každý klíč pro tento model (rotace při 429)
-    for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
-      const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
-      try {
-        const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentKey },
-          body: JSON.stringify({
-            model, max_tokens: 500, temperature: 0.05,
-            messages: [{ role: 'user', content: [
-              { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
-              { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
-            ]}]
-          }),
-          signal: AbortSignal.timeout(15000)
-        });
+    try {
+      const resp = await groqFetch({
+        model, max_tokens: 500, temperature: 0.05,
+        messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+          { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
+        ]}]
+      });
 
-        if (!resp.ok) {
-          const errBody = await resp.text().catch(() => '');
-          if (resp.status === 429 && ki < keys.length - 1) {
-            // Rate limit – přepni na další klíč
-            lastErr = `klíč ${ki+1}: rate limit, zkouším ${ki+2}…`;
-            continue; // zkus další klíč
-          }
-          if (resp.status === 429 && ki >= keys.length - 1) {
-            lastErr = '⚠️ Limit Groq klíčů vyčerpán – doporučujeme přidat nový klíč v Profilu';
-            break;
-          }
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '');
+        if (resp.status === 429) {
+          lastErr = '⚠️ Limit AI vyčerpán – zkus to za chvíli nebo přidej vlastní klíč';
+        } else {
           lastErr = `${model}: HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
-          break; // jiná chyba – zkus další model
         }
-
-        // Úspěch – zapamatuj si tento klíč jako preferovaný
-        _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
-        const data = await resp.json();
-        lastRaw = data.choices?.[0]?.message?.content || '';
-        const p = parseJson(lastRaw);
-
-        if (p?.name) return p; // úspěch
-
-        lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
-        break; // špatná odpověď – zkus další model
-
-      } catch (e) {
-        lastErr = `${model}: ${e.message || e}`;
-        break;
+        continue; // zkus další model
       }
+
+      const data = await resp.json();
+      lastRaw = data.choices?.[0]?.message?.content || '';
+      const p = parseJson(lastRaw);
+      if (p?.name) return p;
+
+      lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
+    } catch (e) {
+      lastErr = `${model}: ${e.message || e}`;
     }
   }
 
-  // Všechny modely selhaly
   return { _error: lastErr || 'Neznámá chyba', _raw: lastRaw.slice(0, 200) };
 }
 
@@ -1989,9 +2018,8 @@ Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type
 // AI – identifikace + stav karty (galerie)
 // ══════════════════════════════════════════════
 async function identifyCardWithCondition(dataUrl) {
-  if (!groqKey) return null;
+  if (!groqKey && !useSharedProxy) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
   const bodyObj = {
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     max_tokens: 280, temperature: 0.05,
@@ -2011,31 +2039,14 @@ If card is unreadable return: {"name":null}` },
       ]}
     ]
   };
-  // Rotace klíčů při 429
-  for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
-    const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
-    try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + currentKey },
-        body: JSON.stringify(bodyObj),
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!resp.ok) {
-        if (resp.status === 429 && ki < keys.length - 1) {
-          console.warn('[Groq] identifyCardWithCondition: 429 na klíči', ki + 1, '– přepínám…');
-          continue;
-        }
-        return null;
-      }
-      _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
-      const data = await resp.json();
-      const raw  = data.choices?.[0]?.message?.content || '';
-      const p    = parseJson(raw);
-      return p?.name ? p : null;
-    } catch { return null; }
-  }
-  return null;
+  try {
+    const resp = await groqFetch(bodyObj);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const raw  = data.choices?.[0]?.message?.content || '';
+    const p    = parseJson(raw);
+    return p?.name ? p : null;
+  } catch { return null; }
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -2102,9 +2113,8 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // AI – analýza poškození zadní strany
 // ══════════════════════════════════════════════
 async function analyzeBackPhoto(dataUrl) {
-  if (!groqKey) return null;
+  if (!groqKey && !useSharedProxy) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
-  const keys = _groqKeys.length ? _groqKeys : (groqKey ? [groqKey] : []);
   const bodyObj = {
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     max_tokens: 200, temperature: 0.05,
@@ -2121,30 +2131,13 @@ If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez po�
       ]}
     ]
   };
-  // Rotace klíčů při 429
-  for (let ki = 0; ki < Math.max(keys.length, 1); ki++) {
-    const currentKey = keys[(_groqKeyIdx + ki) % Math.max(keys.length, 1)] || groqKey;
-    try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer ' + currentKey },
-        body: JSON.stringify(bodyObj),
-        signal: AbortSignal.timeout(15000)
-      });
-      if (!resp.ok) {
-        if (resp.status === 429 && ki < keys.length - 1) {
-          console.warn('[Groq] analyzeBackPhoto: 429 na klíči', ki + 1, '– přepínám…');
-          continue;
-        }
-        return null;
-      }
-      _groqKeyIdx = (_groqKeyIdx + ki) % Math.max(keys.length, 1);
-      const data = await resp.json();
-      const raw  = data.choices?.[0]?.message?.content || '';
-      return parseJson(raw);
-    } catch { return null; }
-  }
-  return null;
+  try {
+    const resp = await groqFetch(bodyObj);
+    if (!resp.ok) return null;
+    const data = await resp.json();
+    const raw  = data.choices?.[0]?.message?.content || '';
+    return parseJson(raw);
+  } catch { return null; }
 }
 
 // ── Periodická aktualizace stavových čipů ──────────────────
