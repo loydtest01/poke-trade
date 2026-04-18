@@ -5666,8 +5666,39 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 <!-- ═══════════════════════════════════════════════════════════════════
      PHOTO GALLERY MODAL – plný prohlížeč fotek s ořezem a AI analýzou
      ═══════════════════════════════════════════════════════════════════ -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<!-- ══ Perspektivní ořez – CSS ══ -->
+<style>
+#pgmCropModal {
+  display: none; position: fixed; inset: 0; z-index: 1300;
+  background: #000; flex-direction: column; align-items: center; justify-content: center;
+}
+#pgmCropModal.open { display: flex; }
+.pgm-crop-top {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: rgba(0,0,0,0.75);
+  border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; gap: 12px;
+}
+.pgm-crop-top .title { font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; }
+.pgm-crop-canvas-wrap {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 12px; overflow: hidden; width: 100%;
+}
+#pgmCropCanvas {
+  display: block; touch-action: none; cursor: crosshair; border-radius: 4px; max-width: 100%;
+}
+.pgm-crop-bot {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 12px 16px; background: rgba(0,0,0,0.75);
+  border-top: 1px solid rgba(255,255,255,0.08); flex-shrink: 0;
+}
+.pgm-crop-bot button {
+  border-radius: 9px; padding: 11px 24px; font-size: 14px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.pgm-btn-cancel  { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.7); }
+.pgm-btn-reset   { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);  color: rgba(255,255,255,0.45); padding: 11px 16px !important; }
+.pgm-btn-confirm { background: linear-gradient(135deg,#f5c842,#ff8c00); border: none; color: #000; font-weight: 800; }
+</style>
 
 <div id="photoGalleryModal" style="
   display:none; position:fixed; inset:0; z-index:1100;
@@ -5689,7 +5720,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     ">
       <div style="font-weight:700; font-size:15px; color:#fff; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" id="pgmTitle">📷 Fotky karty</div>
       <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-        <button onclick="pgmToggleCrop()" id="pgmCropBtn" style="
+        <button onclick="pgmOpenCrop()" id="pgmCropBtn" style="
           background:rgba(245,200,66,0.1); border:1px solid rgba(245,200,66,0.3);
           border-radius:8px; color:#f5c842; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
@@ -5733,19 +5764,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
         <!-- Info o fotce -->
         <div id="pgmPhotoInfo" style="font-size:11px; color:rgba(240,236,228,0.4); text-align:center; flex-shrink:0;"></div>
 
-        <!-- Tlačítka ořezu -->
-        <div id="pgmCropActions" style="display:none; gap:8px; justify-content:center; flex-shrink:0;">
-          <button onclick="pgmCropConfirm()" style="
-            background:rgba(34,197,94,0.12); border:1px solid rgba(34,197,94,0.35);
-            border-radius:8px; color:#4ade80; font-size:12px; padding:7px 18px;
-            cursor:pointer; font-family:inherit; transition:all .15s;
-          " onmouseover="this.style.background='rgba(34,197,94,0.22)'" onmouseout="this.style.background='rgba(34,197,94,0.12)'">✓ Potvrdit ořez</button>
-          <button onclick="pgmCropCancel()" style="
-            background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
-            border-radius:8px; color:rgba(240,236,228,0.5); font-size:12px; padding:7px 18px;
-            cursor:pointer; font-family:inherit;
-          ">Zrušit</button>
-        </div>
 
         <!-- AI výsledek -->
         <div id="pgmAIResult" style="
@@ -5787,7 +5805,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 
   let _pgmPhotos = [];
   let _pgmIdx    = 0;
-  let _pgmCropper = null;
   let _pgmCardName = '';
 
   const sideLabel = { front:'Přední', back:'Zadní', detail:'Detail', name:'JP název' };
@@ -5814,7 +5831,6 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 
   window.closePhotoGallery = function() {
     document.getElementById('photoGalleryModal').style.display = 'none';
-    pgmCropCancel();
     document.getElementById('pgmAIResult').style.display = 'none';
     document.getElementById('pgmFakeResult').style.display = 'none';
   };
@@ -5849,7 +5865,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   }
 
   window.pgmClickThumb = function(idx) {
-    pgmCropCancel();
+    pgmCancelCrop();
     pgmShowPhoto(idx, true);
   };
 
@@ -5877,47 +5893,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     }
   }
 
-  // ── Ořez ────────────────────────────────────────────
-  window.pgmToggleCrop = function() {
-    if (_pgmCropper) { pgmCropCancel(); return; }
-    const img = document.getElementById('pgmMainImg');
-    _pgmCropper = new Cropper(img, {
-      viewMode: 1,
-      autoCropArea: 0.88,
-      background: false,
-      movable: true,
-      zoomable: true,
-      rotatable: false,
-      scalable: false,
-    });
-    document.getElementById('pgmCropActions').style.display = 'flex';
-    document.getElementById('pgmCropBtn').textContent = '✕ Zrušit ořez';
-    document.getElementById('pgmCropBtn').style.background = 'rgba(248,113,113,0.12)';
-    document.getElementById('pgmCropBtn').style.borderColor = 'rgba(248,113,113,0.35)';
-    document.getElementById('pgmCropBtn').style.color = '#f87171';
-  };
-
-  window.pgmCropConfirm = function() {
-    if (!_pgmCropper) return;
-    const canvas = _pgmCropper.getCroppedCanvas({ maxWidth: 1400, maxHeight: 2000, imageSmoothingQuality: 'high' });
-    const newSrc = canvas.toDataURL('image/jpeg', 0.95);
-    pgmCropCancel();
-    const imgEl = document.getElementById('pgmMainImg');
-    imgEl.style.opacity = '0';
-    imgEl.src = newSrc;
-    imgEl.onload = () => { imgEl.style.opacity = '1'; };
-  };
-
-  function pgmCropCancel() {
-    if (_pgmCropper) { _pgmCropper.destroy(); _pgmCropper = null; }
-    document.getElementById('pgmCropActions').style.display = 'none';
-    const btn = document.getElementById('pgmCropBtn');
-    btn.textContent = '✂️ Oříznout';
-    btn.style.background = 'rgba(245,200,66,0.1)';
-    btn.style.borderColor = 'rgba(245,200,66,0.3)';
-    btn.style.color = '#f5c842';
-  }
-  window.pgmCropCancel = pgmCropCancel;
+  // ── Ořez ── spravuje pgmOpenCrop() v globálním scope níže
 
   // ── AI analýza stavu karty ──────────────────────────
   window.pgmRunAI = async function() {
@@ -6689,6 +6665,376 @@ async function saveCardEdit() {
     statusEl.textContent = '❌ Chyba uložení';
     statusEl.style.color = '#f87171';
   }
+}
+</script>
+
+<!-- ══ Perspektivní ořez – full-screen modal ══ -->
+<div id="pgmCropModal">
+  <div class="pgm-crop-top">
+    <div class="title">✂️ Perspektivní ořez</div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden">
+        <button id="pgmModeLoupeBtn" onclick="pgmSetCropMode('loupe')"
+          style="padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:all .15s;background:rgba(245,200,66,0.25);color:#f5c842;border-right:1px solid rgba(255,255,255,0.1)">
+          🔍 Lupa
+        </button>
+        <button id="pgmModePreciseBtn" onclick="pgmSetCropMode('precise')"
+          style="padding:6px 14px;font-size:12px;font-weight:700;font-family:inherit;border:none;cursor:pointer;transition:all .15s;background:transparent;color:rgba(255,255,255,0.45)">
+          ┘ Přesný
+        </button>
+      </div>
+      <div id="pgmCropModeHint" style="font-size:11px;color:rgba(255,255,255,0.4)">Přetáhni roh – lupa ukáže přesnou pozici</div>
+    </div>
+  </div>
+  <div class="pgm-crop-canvas-wrap">
+    <canvas id="pgmCropCanvas"></canvas>
+  </div>
+  <div class="pgm-crop-bot">
+    <button class="pgm-btn-cancel"  onclick="pgmCancelCrop()">Zrušit</button>
+    <button class="pgm-btn-reset"   onclick="pgmResetCrop()">↺ Reset</button>
+    <button class="pgm-btn-confirm" onclick="pgmConfirmCrop()">✂️ Oříznout</button>
+  </div>
+</div>
+
+<script>
+// ══ Perspektivní ořez pro Photo Gallery ══════════════════════════
+const PGM_CROP = {
+  img: null, corners: [{x:0,y:0},{x:0,y:0},{x:0,y:0},{x:0,y:0}],
+  scale: 1, drag: null, mode: 'loupe', dragPos: null,
+};
+const PGM_HANDLE_R = 22;
+
+function pgmSetCropMode(mode) {
+  PGM_CROP.mode = mode;
+  const lb = document.getElementById('pgmModeLoupeBtn');
+  const pb = document.getElementById('pgmModePreciseBtn');
+  const hint = document.getElementById('pgmCropModeHint');
+  if (mode === 'loupe') {
+    lb.style.background = 'rgba(245,200,66,0.25)'; lb.style.color = '#f5c842';
+    pb.style.background = 'transparent'; pb.style.color = 'rgba(255,255,255,0.45)';
+    hint.textContent = 'Přetáhni roh – lupa ukáže přesnou pozici';
+  } else {
+    pb.style.background = 'rgba(245,200,66,0.25)'; pb.style.color = '#f5c842';
+    lb.style.background = 'transparent'; lb.style.color = 'rgba(255,255,255,0.45)';
+    hint.textContent = 'Rohové zarážky – přesné přichycení bez zbytečných prvků';
+  }
+  _pgmDrawCrop();
+}
+
+window.pgmOpenCrop = function() {
+  const imgEl = document.getElementById('pgmMainImg');
+  if (!imgEl || !imgEl.src || imgEl.src === location.href) return;
+  const src = imgEl.src;
+  const load = (cors) => {
+    const img = new Image();
+    if (cors) img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      PGM_CROP.img = img;
+      _pgmInitCorners(img.naturalWidth, img.naturalHeight);
+      _pgmSetupCanvas();
+      document.getElementById('pgmCropModal').classList.add('open');
+    };
+    img.onerror = () => cors ? load(false) : null;
+    img.src = src;
+  };
+  load(true);
+};
+
+function _pgmInitCorners(iw, ih) {
+  const m = Math.min(iw, ih) * 0.06;
+  PGM_CROP.corners = [
+    {x: m,    y: m},
+    {x: iw-m, y: m},
+    {x: iw-m, y: ih-m},
+    {x: m,    y: ih-m},
+  ];
+}
+
+function _pgmSetupCanvas() {
+  const canvas = document.getElementById('pgmCropCanvas');
+  const img = PGM_CROP.img;
+  const maxW = Math.min(window.innerWidth - 24, 1000);
+  const maxH = window.innerHeight - 160;
+  const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight, 1);
+  PGM_CROP.scale = scale;
+  const pw = Math.round(img.naturalWidth  * scale);
+  const ph = Math.round(img.naturalHeight * scale);
+  canvas.width = pw; canvas.height = ph;
+  canvas.style.width = pw + 'px'; canvas.style.height = ph + 'px';
+  canvas.removeEventListener('pointerdown', _pgmOnCropDown);
+  canvas.addEventListener('pointerdown', _pgmOnCropDown);
+  _pgmDrawCrop();
+}
+
+function _pgmDrawCrop() {
+  const canvas = document.getElementById('pgmCropCanvas');
+  if (!canvas || !PGM_CROP.img) return;
+  const ctx = canvas.getContext('2d');
+  const s = PGM_CROP.scale;
+  const { img, corners, mode } = PGM_CROP;
+  const pts = corners.map(c => ({x: c.x*s, y: c.y*s}));
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  // Dim overlay
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.fill(); ctx.restore();
+
+  // Obrázek uvnitř quadu
+  ctx.save();
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.clip();
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.restore();
+
+  // Obrys
+  ctx.save();
+  ctx.strokeStyle = '#f5c842';
+  ctx.lineWidth = mode === 'precise' ? 1.5 : 2;
+  ctx.setLineDash(mode === 'precise' ? [4,3] : [6,4]);
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.closePath(); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+
+  if (mode === 'loupe') {
+    _pgmDrawLoupeHandles(ctx, pts);
+    if (PGM_CROP.drag !== null && PGM_CROP.dragPos) {
+      _pgmDrawLoupe(ctx, canvas, PGM_CROP.dragPos, pts[PGM_CROP.drag]);
+    }
+  } else {
+    _pgmDrawPreciseHandles(ctx, pts);
+  }
+}
+
+function _pgmDrawLoupeHandles(ctx, pts) {
+  pts.forEach((p) => {
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(p.x, p.y, PGM_HANDLE_R, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(10,8,6,0.65)'; ctx.fill();
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(p.x-3, p.y-3, 7, 0, Math.PI*2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(p.x+2, p.y+2); ctx.lineTo(p.x+9, p.y+9); ctx.stroke();
+    ctx.restore();
+  });
+}
+
+function _pgmDrawLoupe(ctx, canvas, dragPos, cornerPt) {
+  const img = PGM_CROP.img, s = PGM_CROP.scale;
+  const LOUPE_R = 70, LOUPE_ZOOM = 3.5;
+  let lx = cornerPt.x, ly = cornerPt.y - LOUPE_R - 20;
+  if (ly < LOUPE_R + 10) ly = cornerPt.y + LOUPE_R + 20;
+  lx = Math.max(LOUPE_R + 5, Math.min(canvas.width - LOUPE_R - 5, lx));
+  const srcW = (LOUPE_R*2)/(s*LOUPE_ZOOM), srcH = (LOUPE_R*2)/(s*LOUPE_ZOOM);
+  const srcX = (cornerPt.x/s) - srcW/2, srcY = (cornerPt.y/s) - srcH/2;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(lx, ly, LOUPE_R, 0, Math.PI*2); ctx.clip();
+  ctx.fillStyle = '#111'; ctx.fillRect(lx-LOUPE_R, ly-LOUPE_R, LOUPE_R*2, LOUPE_R*2);
+  ctx.drawImage(img, srcX, srcY, srcW, srcH, lx-LOUPE_R, ly-LOUPE_R, LOUPE_R*2, LOUPE_R*2);
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(lx, ly, LOUPE_R, 0, Math.PI*2); ctx.clip();
+  ctx.strokeStyle = 'rgba(245,200,66,0.75)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(lx-LOUPE_R,ly); ctx.lineTo(lx+LOUPE_R,ly);
+  ctx.moveTo(lx,ly-LOUPE_R); ctx.lineTo(lx,ly+LOUPE_R); ctx.stroke();
+  ctx.fillStyle = '#f5c842'; ctx.beginPath(); ctx.arc(lx,ly,2.5,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(lx,ly,LOUPE_R,0,Math.PI*2);
+  ctx.strokeStyle='#f5c842'; ctx.lineWidth=2; ctx.stroke();
+  ctx.beginPath(); ctx.arc(lx-LOUPE_R*0.3,ly-LOUPE_R*0.3,LOUPE_R*0.18,0,Math.PI*2);
+  ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.strokeStyle='rgba(245,200,66,0.4)'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
+  ctx.beginPath();
+  ctx.moveTo(lx, ly + (ly < cornerPt.y ? LOUPE_R : -LOUPE_R));
+  ctx.lineTo(cornerPt.x, cornerPt.y); ctx.stroke(); ctx.restore();
+}
+
+function _pgmDrawPreciseHandles(ctx, pts) {
+  const ARM = 20, T = 3;
+  const dirs = [
+    {ax:1,ay:0,bx:0,by:1}, {ax:-1,ay:0,bx:0,by:1},
+    {ax:-1,ay:0,bx:0,by:-1}, {ax:1,ay:0,bx:0,by:-1},
+  ];
+  pts.forEach((p, i) => {
+    const d = dirs[i];
+    ctx.save(); ctx.strokeStyle='rgba(0,0,0,0.6)'; ctx.lineWidth=T+3; ctx.lineCap='square';
+    ctx.beginPath(); ctx.moveTo(p.x+d.ax*ARM,p.y+d.ay*ARM); ctx.lineTo(p.x,p.y); ctx.lineTo(p.x+d.bx*ARM,p.y+d.by*ARM); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.strokeStyle='#f5c842'; ctx.lineWidth=T; ctx.lineCap='square';
+    ctx.beginPath(); ctx.moveTo(p.x+d.ax*ARM,p.y+d.ay*ARM); ctx.lineTo(p.x,p.y); ctx.lineTo(p.x+d.bx*ARM,p.y+d.by*ARM); ctx.stroke(); ctx.restore();
+    ctx.save(); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#f5c842'; ctx.lineWidth=1.5; ctx.stroke(); ctx.restore();
+  });
+}
+
+function _pgmCanvasXY(canvas, e) {
+  const r = canvas.getBoundingClientRect();
+  const cl = e.touches ? e.touches[0] : e;
+  return {
+    x: (cl.clientX - r.left) * (canvas.width  / r.width),
+    y: (cl.clientY - r.top)  * (canvas.height / r.height),
+  };
+}
+
+function _pgmOnCropDown(e) {
+  e.preventDefault();
+  const canvas = document.getElementById('pgmCropCanvas');
+  const pos = _pgmCanvasXY(canvas, e);
+  const s = PGM_CROP.scale;
+  const hitR = PGM_CROP.mode === 'precise' ? 28 : PGM_HANDLE_R * 2.5;
+  let best = -1, bestD = hitR;
+  PGM_CROP.corners.forEach((c, i) => {
+    const dx = c.x*s - pos.x, dy = c.y*s - pos.y;
+    const d = Math.sqrt(dx*dx+dy*dy);
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  if (best < 0) return;
+  PGM_CROP.drag = best; PGM_CROP.dragPos = pos;
+  canvas.setPointerCapture(e.pointerId);
+  canvas.addEventListener('pointermove', _pgmOnCropMove);
+  canvas.addEventListener('pointerup',   _pgmOnCropUp);
+}
+
+function _pgmOnCropMove(e) {
+  e.preventDefault();
+  if (PGM_CROP.drag === null) return;
+  const canvas = document.getElementById('pgmCropCanvas');
+  const pos = _pgmCanvasXY(canvas, e);
+  const s = PGM_CROP.scale;
+  const iw = PGM_CROP.img.naturalWidth, ih = PGM_CROP.img.naturalHeight;
+  PGM_CROP.corners[PGM_CROP.drag] = {
+    x: Math.max(0, Math.min(iw, pos.x/s)),
+    y: Math.max(0, Math.min(ih, pos.y/s)),
+  };
+  PGM_CROP.dragPos = pos;
+  _pgmDrawCrop();
+}
+
+function _pgmOnCropUp(e) {
+  PGM_CROP.drag = null; PGM_CROP.dragPos = null;
+  const canvas = document.getElementById('pgmCropCanvas');
+  canvas.removeEventListener('pointermove', _pgmOnCropMove);
+  canvas.removeEventListener('pointerup',   _pgmOnCropUp);
+  _pgmDrawCrop();
+}
+
+function pgmResetCrop() {
+  _pgmInitCorners(PGM_CROP.img.naturalWidth, PGM_CROP.img.naturalHeight);
+  _pgmDrawCrop();
+}
+
+function pgmCancelCrop() {
+  document.getElementById('pgmCropModal').classList.remove('open');
+  PGM_CROP.img = null;
+}
+
+function pgmConfirmCrop() {
+  const img = PGM_CROP.img;
+  if (!img) return;
+  const btn = document.querySelector('.pgm-btn-confirm');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Ořezávám…'; }
+
+  requestAnimationFrame(() => setTimeout(() => {
+    const c = PGM_CROP.corners;
+    const outW = Math.round((Math.hypot(c[1].x-c[0].x,c[1].y-c[0].y)+Math.hypot(c[2].x-c[3].x,c[2].y-c[3].y))/2);
+    const outH = Math.round((Math.hypot(c[3].x-c[0].x,c[3].y-c[0].y)+Math.hypot(c[2].x-c[1].x,c[2].y-c[1].y))/2);
+    const dst = [{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+
+    let dataUrl;
+    try {
+      const out = _pgmPerspectiveWarp(img, c, dst, outW, outH);
+      dataUrl = out.toDataURL('image/jpeg', 0.93);
+    } catch(err) {
+      if (btn) { btn.disabled=false; btn.textContent='✂️ Oříznout'; }
+      pgmCancelCrop();
+      return;
+    }
+
+    // Zapiš zpět do galerie
+    const imgEl = document.getElementById('pgmMainImg');
+    if (imgEl) { imgEl.style.opacity='0'; imgEl.src=dataUrl; imgEl.onload=()=>{imgEl.style.opacity='1';}; }
+
+    if (btn) { btn.disabled=false; btn.textContent='✂️ Oříznout'; }
+    pgmCancelCrop();
+  }, 0));
+}
+
+// ── Perspektivní warp (64×64 mřížka trojúhelníků) ──────────────
+function _pgmPerspectiveWarp(img, src, dst, outW, outH) {
+  const out = document.createElement('canvas');
+  out.width = outW; out.height = outH;
+  const ctx = out.getContext('2d');
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  const G = 64;
+  for (let gy=0; gy<G; gy++) {
+    for (let gx=0; gx<G; gx++) {
+      const u0=gx/G,v0=gy/G,u1=(gx+1)/G,v1=(gy+1)/G;
+      const s00=_pgmBilerp(src,u0,v0),s10=_pgmBilerp(src,u1,v0);
+      const s11=_pgmBilerp(src,u1,v1),s01=_pgmBilerp(src,u0,v1);
+      const d00=_pgmBilerp(dst,u0,v0),d10=_pgmBilerp(dst,u1,v0);
+      const d11=_pgmBilerp(dst,u1,v1),d01=_pgmBilerp(dst,u0,v1);
+      _pgmDrawTri(ctx,img,s00,s10,s01,d00,d10,d01,img.naturalWidth,img.naturalHeight);
+      _pgmDrawTri(ctx,img,s10,s11,s01,d10,d11,d01,img.naturalWidth,img.naturalHeight);
+    }
+  }
+  return out;
+}
+
+function _pgmBilerp(pts, u, v) {
+  return {
+    x: pts[0].x*(1-u)*(1-v)+pts[1].x*u*(1-v)+pts[2].x*u*v+pts[3].x*(1-u)*v,
+    y: pts[0].y*(1-u)*(1-v)+pts[1].y*u*(1-v)+pts[2].y*u*v+pts[3].y*(1-u)*v,
+  };
+}
+
+function _pgmMat3inv(m) {
+  const [[a,b,c],[d,e,f],[g,h,k]] = m;
+  const det = a*(e*k-f*h)-b*(d*k-f*g)+c*(d*h-e*g);
+  if (Math.abs(det)<1e-9) return null;
+  return [
+    [(e*k-f*h)/det,(c*h-b*k)/det,(b*f-c*e)/det],
+    [(f*g-d*k)/det,(a*k-c*g)/det,(c*d-a*f)/det],
+    [(d*h-e*g)/det,(b*g-a*h)/det,(a*e-b*d)/det],
+  ];
+}
+
+function _pgmDrawTri(ctx, img, s0,s1,s2, d0,d1,d2, iw, ih) {
+  const S = [[s0.x,s0.y,1],[s1.x,s1.y,1],[s2.x,s2.y,1]];
+  const inv = _pgmMat3inv(S);
+  if (!inv) return;
+  const mv = (col) => [
+    inv[0][0]*col[0]+inv[0][1]*col[1]+inv[0][2]*col[2],
+    inv[1][0]*col[0]+inv[1][1]*col[1]+inv[1][2]*col[2],
+    inv[2][0]*col[0]+inv[2][1]*col[1]+inv[2][2]*col[2],
+  ];
+  const [a,c,e]  = mv([d0.x,d1.x,d2.x]);
+  const [b,df,f] = mv([d0.y,d1.y,d2.y]);
+  const OVERLAP = 0.5;
+  const cx=(d0.x+d1.x+d2.x)/3, cy=(d0.y+d1.y+d2.y)/3;
+  function expand(p) {
+    const dx=p.x-cx, dy=p.y-cy;
+    const len=Math.sqrt(dx*dx+dy*dy)||1;
+    return {x:p.x+(dx/len)*OVERLAP, y:p.y+(dy/len)*OVERLAP};
+  }
+  const e0=expand(d0),e1=expand(d1),e2=expand(d2);
+  ctx.save();
+  ctx.beginPath(); ctx.moveTo(e0.x,e0.y); ctx.lineTo(e1.x,e1.y); ctx.lineTo(e2.x,e2.y);
+  ctx.closePath(); ctx.clip();
+  ctx.transform(a,b,c,df,e,f);
+  ctx.drawImage(img,0,0,iw,ih);
+  ctx.restore();
 }
 </script>
 
