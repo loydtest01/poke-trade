@@ -31,7 +31,7 @@ var PAGES = [
   { href: 'marketplace.html',  icon: 'energi/obchod.png',          label: 'Obchod',            id: 'marketplace' },
   { href: 'moje-album.html',   icon: 'energi/moje alba.png',        label: 'Moje alba',         id: 'moje-album'  },
   { href: 'compare.html',      icon: 'energi/porovnat.png',         label: 'Porovnat alba',     id: 'compare'     },
-  { href: 'compare.html?tab=share', icon: 'energi/sdilet.png',      label: 'Sdílet album',      id: 'share'  },
+  { href: 'share-album.html',       icon: 'energi/sdilet.png',      label: 'Sdílet album',      id: 'share'  },
   { href: 'scanner.html',      icon: 'energi/scanner.png',          label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'download.html',     icon: 'energi/ke_stazeni.png',       label: 'Ke stažení',        id: 'download'    },
