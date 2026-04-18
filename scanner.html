@@ -1330,7 +1330,15 @@ async function syncGroqKeyFromSupabase() {
 /* ═══════════════════════════════════════════════════════
    GROQ KEY
 ═══════════════════════════════════════════════════════ */
-function getGroqKey()   { return localStorage.getItem('groqApiKey') || ''; }
+function getGroqKey() { return localStorage.getItem('groqApiKey') || ''; }
+function getAuthHeaders(usageType = 'search') {
+  const key   = getGroqKey();
+  const token = localStorage.getItem('sb_token') || '';
+  const h = { 'Content-Type': 'application/json' };
+  if (key)   h['X-Groq-Key']    = key;
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return { headers: h, usageType };
+}
 function hasGroqKey()   { return !!getGroqKey(); }
 
 function updateGroqStatusBadge() {
@@ -1593,10 +1601,12 @@ async function callGroq(dataUrl) {
     if (m) { mediaType = m[1]; base64 = dataUrl.slice(m[0].length); }
   }
 
+  const { headers: _scanHeaders, usageType: _scanUT } = getAuthHeaders('search');
   const res = await fetch(GROQ_PROXY, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
+    headers: _scanHeaders,
     body: JSON.stringify({
+      usage_type: 'search',
       model: GROQ_MODEL,
       messages: [{
         role: 'user',
