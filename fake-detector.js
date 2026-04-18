@@ -178,7 +178,7 @@
       // 2. Vyhledání dle jména + čísla + sady
       const parts = [];
       if (cardInfo.name)   parts.push(`name:"${cardInfo.name}"`);
-      if (cardInfo.number) parts.push(`number:${cardInfo.number}`);
+      const _numClean = (cardInfo.number || "").split("/")[0]; if (_numClean) parts.push(`number:${_numClean}`);
       if (cardInfo.set)    parts.push(`set.name:"${cardInfo.set}"`);
       if (!parts.length) return null;
       const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=1`);
@@ -325,7 +325,7 @@
       }
       const parts = [];
       if (cardInfo.name) parts.push(`name:"${cardInfo.name}"`);
-      if (cardInfo.number) parts.push(`number:${cardInfo.number}`);
+      const _numClean = (cardInfo.number || "").split("/")[0]; if (_numClean) parts.push(`number:${_numClean}`);
       if (cardInfo.set) parts.push(`set.name:"${cardInfo.set}"`);
       if (parts.length === 0) return null;
       const resp = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=1`);
