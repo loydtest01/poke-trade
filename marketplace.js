@@ -527,7 +527,8 @@ async function openDetail(id){
 
   // Description
   const descEl=document.getElementById('dDesc');
-  if(l.description){ descEl.textContent=l.description; descEl.style.display=''; }
+  const descText = l.condition_description || l.description || '';
+  if(descText){ descEl.textContent=descText; descEl.style.display=''; }
   else descEl.style.display='none';
 
   // Buttons — owner / buyer / reserved logic
