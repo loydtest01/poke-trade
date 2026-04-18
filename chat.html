@@ -3009,5 +3009,227 @@ function renderFakeResult(result) {
 
 })();
 </script>
+<!-- ═══ FEEDBACK FLOATING BUTTON + MODAL ═══ -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  (function(){
+    // ⚠️ NASTAV SVOJE EMAILJS ÚDAJE (viz instrukce)
+    var EJ_PUBLIC_KEY   = 'TVŮJ_PUBLIC_KEY';   // z EmailJS → Account → API Keys
+    var EJ_SERVICE_ID   = 'TVŮJ_SERVICE_ID';   // z EmailJS → Email Services
+    var EJ_TEMPLATE_ID  = 'TVŮJ_TEMPLATE_ID';  // z EmailJS → Email Templates
+    emailjs.init({ publicKey: EJ_PUBLIC_KEY });
+    window._ejCfg = { svc: EJ_SERVICE_ID, tpl: EJ_TEMPLATE_ID };
+  })();
+</script>
+
+<style>
+/* Floating button */
+#fbBtn {
+  position: fixed; bottom: 24px; right: 24px; z-index: 8000;
+  background: linear-gradient(135deg,#f5c842,#ff8c00);
+  color: #000; border: none; border-radius: 50px;
+  padding: 10px 18px; font-size: 13px; font-weight: 700;
+  font-family: 'DM Sans',sans-serif; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(245,200,66,0.35);
+  display: flex; align-items: center; gap: 7px;
+  transition: transform .15s, box-shadow .15s;
+}
+#fbBtn:hover { transform: translateY(-2px); box-shadow: 0 6px 28px rgba(245,200,66,0.45); }
+#fbBtn svg { width:15px; height:15px; flex-shrink:0; }
+
+/* Modal overlay */
+#fbOverlay {
+  position: fixed; inset: 0; z-index: 9500;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(8px);
+  display: none; align-items: center; justify-content: center; padding: 20px;
+  opacity: 0; transition: opacity .2s;
+}
+#fbOverlay.show { opacity: 1; }
+
+/* Modal box */
+#fbModal {
+  background: rgba(14,12,22,0.98); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px; width: 100%; max-width: 440px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  transform: translateY(16px); transition: transform .2s;
+  overflow: hidden;
+  font-family: 'DM Sans', sans-serif;
+}
+#fbOverlay.show #fbModal { transform: translateY(0); }
+
+.fb-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.fb-head h3 {
+  font-family: 'Unbounded',sans-serif; font-size: 13px; font-weight: 700;
+  color: #f0ece4; display: flex; align-items: center; gap: 8px;
+}
+.fb-close {
+  background: none; border: none; color: rgba(240,236,228,0.35);
+  cursor: pointer; font-size: 20px; line-height: 1; padding: 0;
+  transition: color .15s;
+}
+.fb-close:hover { color: #f0ece4; }
+
+.fb-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+
+.fb-label {
+  font-size: 11px; font-weight: 600; color: rgba(240,236,228,0.45);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+  display: block;
+}
+
+.fb-type-row { display: flex; gap: 8px; }
+.fb-type-btn {
+  flex: 1; padding: 9px 10px; border-radius: 10px; font-size: 12px; font-weight: 600;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: rgba(240,236,228,0.6); cursor: pointer; transition: all .15s;
+  font-family: inherit; text-align: center;
+}
+.fb-type-btn:hover { background: rgba(255,255,255,0.08); color: #f0ece4; }
+.fb-type-btn.sel-improve { background: rgba(74,222,128,0.12); border-color: rgba(74,222,128,0.4); color: #4ade80; }
+.fb-type-btn.sel-bug     { background: rgba(248,113,113,0.12); border-color: rgba(248,113,113,0.4); color: #f87171; }
+
+.fb-input, .fb-textarea {
+  width: 100%; padding: 10px 13px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+  color: #f0ece4; font-family: 'DM Sans',sans-serif; font-size: 13px;
+  outline: none; box-sizing: border-box; transition: border-color .15s;
+}
+.fb-input::placeholder, .fb-textarea::placeholder { color: rgba(240,236,228,0.25); }
+.fb-input:focus, .fb-textarea:focus { border-color: rgba(245,200,66,0.4); }
+.fb-textarea { resize: none; height: 100px; line-height: 1.55; }
+
+.fb-send-btn {
+  width: 100%; padding: 12px; border-radius: 11px; border: none;
+  background: linear-gradient(135deg,#f5c842,#ff8c00);
+  color: #000; font-weight: 700; font-size: 13.5px;
+  font-family: inherit; cursor: pointer; transition: opacity .15s;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+}
+.fb-send-btn:hover { opacity: .88; }
+.fb-send-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+#fbStatus {
+  text-align: center; font-size: 12px; min-height: 18px;
+  color: rgba(240,236,228,0.5); margin-top: -6px;
+}
+#fbStatus.ok  { color: #4ade80; }
+#fbStatus.err { color: #f87171; }
+</style>
+
+<!-- Floating button -->
+<button id="fbBtn" onclick="openFeedback()">
+  <svg viewBox="0 0 20 20" fill="currentColor">
+    <path fill-rule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z" clip-rule="evenodd"/>
+  </svg>
+  Zpětná vazba
+</button>
+
+<!-- Modal -->
+<div id="fbOverlay" onclick="if(event.target===this)closeFeedback()">
+  <div id="fbModal">
+    <div class="fb-head">
+      <h3>💬 Zpětná vazba</h3>
+      <button class="fb-close" onclick="closeFeedback()">✕</button>
+    </div>
+    <div class="fb-body">
+      <div>
+        <span class="fb-label">Typ zprávy</span>
+        <div class="fb-type-row">
+          <button class="fb-type-btn sel-improve" id="fbTypeImprove" onclick="selectFbType('improve')">✨ Návrh na zlepšení</button>
+          <button class="fb-type-btn" id="fbTypeBug" onclick="selectFbType('bug')">🐛 Nahlásit nefunkčnost</button>
+        </div>
+      </div>
+      <div>
+        <span class="fb-label">Tvoje zpráva</span>
+        <textarea id="fbMessage" class="fb-textarea" placeholder="Popiš co by se dalo zlepšit nebo co nefunguje..."></textarea>
+      </div>
+      <div>
+        <span class="fb-label">Přezdívka (volitelné)</span>
+        <input id="fbNick" class="fb-input" type="text" placeholder="Jak ti máme říkat?">
+      </div>
+      <div id="fbStatus"></div>
+      <button class="fb-send-btn" id="fbSendBtn" onclick="sendFeedback()">
+        📤 Odeslat
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var fbType = 'improve';
+
+  window.openFeedback = function() {
+    var ov = document.getElementById('fbOverlay');
+    ov.style.display = 'flex';
+    requestAnimationFrame(function(){ ov.classList.add('show'); });
+    document.getElementById('fbStatus').textContent = '';
+    document.getElementById('fbStatus').className = '';
+  };
+
+  window.closeFeedback = function() {
+    var ov = document.getElementById('fbOverlay');
+    ov.classList.remove('show');
+    setTimeout(function(){ ov.style.display = 'none'; }, 200);
+  };
+
+  window.selectFbType = function(type) {
+    fbType = type;
+    document.getElementById('fbTypeImprove').className = 'fb-type-btn' + (type==='improve' ? ' sel-improve' : '');
+    document.getElementById('fbTypeBug').className     = 'fb-type-btn' + (type==='bug'     ? ' sel-bug'     : '');
+  };
+
+  window.sendFeedback = async function() {
+    var msg  = (document.getElementById('fbMessage').value || '').trim();
+    var nick = (document.getElementById('fbNick').value || '').trim() || 'Anonymní';
+    var st   = document.getElementById('fbStatus');
+    var btn  = document.getElementById('fbSendBtn');
+
+    if (!msg) {
+      st.textContent = '⚠️ Prosím napiš zprávu.';
+      st.className = 'err';
+      return;
+    }
+
+    var cfg = window._ejCfg || {};
+    if (!cfg.svc || cfg.svc === 'TVŮJ_SERVICE_ID') {
+      st.textContent = '⚙️ EmailJS ještě není nakonfigurováno (viz instrukce).';
+      st.className = 'err';
+      return;
+    }
+
+    btn.disabled = true;
+    st.textContent = 'Odesílám...';
+    st.className = '';
+
+    var typeLabel = fbType === 'bug' ? '🐛 Nahlášená nefunkčnost' : '✨ Návrh na zlepšení';
+    var page = window.location.pathname.split('/').pop() || 'neznámá stránka';
+
+    try {
+      await emailjs.send(cfg.svc, cfg.tpl, {
+        fb_type:    typeLabel,
+        fb_message: msg,
+        fb_nick:    nick,
+        fb_page:    page,
+        fb_time:    new Date().toLocaleString('cs')
+      });
+      st.textContent = '✅ Zpráva odeslána, díky!';
+      st.className = 'ok';
+      document.getElementById('fbMessage').value = '';
+      document.getElementById('fbNick').value = '';
+      setTimeout(closeFeedback, 2000);
+    } catch(e) {
+      st.textContent = '❌ Nepodařilo se odeslat. Zkus to znovu.';
+      st.className = 'err';
+    } finally {
+      btn.disabled = false;
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
