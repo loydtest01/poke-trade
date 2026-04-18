@@ -496,7 +496,7 @@ async function openDetail(id){
   // Price
   if(price>0){
     document.getElementById('dPrice').textContent=price.toLocaleString('cs')+' Kč';
-    document.getElementById('dPriceEur').textContent='~ '+(price/25).toFixed(0)+' €';
+    const eurVal = price/25; document.getElementById('dPriceEur').textContent='~ '+(eurVal<1?eurVal.toFixed(2):eurVal<10?eurVal.toFixed(1):eurVal.toFixed(0))+' €';
     const pt = first.pTrend;
     if(pt>0) document.getElementById('dTrend').innerHTML='Trend: <span>'+Number(pt).toFixed(2)+' €</span>';
   } else {
