@@ -4304,3 +4304,68 @@ function showMktToast(msg) {
   clearTimeout(t._timer);
   t._timer = setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
+
+// ── Share modal ────────────────────────────────────────────────
+function getShareUrl() {
+  const id = currentListing?.id;
+  return window.location.origin + window.location.pathname + (id ? '?listing=' + encodeURIComponent(id) : '');
+}
+function getShareText() {
+  const l = currentListing || {};
+  const name = l.card_name || l.title || 'Nabídka';
+  const price = l.price_czk ? l.price_czk.toLocaleString('cs') + ' Kč' : 'Výměna';
+  return `${name} – ${price}`;
+}
+function openShareModal() {
+  const l = currentListing || {};
+  const name = l.card_name || l.title || '';
+  const price = l.price_czk ? l.price_czk.toLocaleString('cs') + ' Kč' : 'Výměna';
+  document.getElementById('shareModalName').textContent = name ? `${name} · ${price}` : '';
+  document.getElementById('btnNativeShare').style.display = navigator.share ? '' : 'none';
+  document.getElementById('copyLinkLabel').textContent = 'Kopírovat odkaz';
+  document.getElementById('btnCopyLink').classList.remove('copied');
+  document.getElementById('shareModal').classList.add('open');
+}
+function closeShareModal(e) {
+  if (e && e.target !== document.getElementById('shareModal')) return;
+  document.getElementById('shareModal').classList.remove('open');
+}
+function shareToFacebook() {
+  window.open('https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(getShareUrl()), '_blank');
+}
+function shareToWhatsApp() {
+  window.open('https://wa.me/?text=' + encodeURIComponent(getShareText() + '\n' + getShareUrl()), '_blank');
+}
+function shareToMessenger() {
+  window.open('https://www.facebook.com/dialog/send?link=' + encodeURIComponent(getShareUrl()) + '&app_id=291494419107518&redirect_uri=' + encodeURIComponent(getShareUrl()), '_blank');
+}
+function shareToX() {
+  window.open('https://x.com/intent/tweet?text=' + encodeURIComponent(getShareText()) + '&url=' + encodeURIComponent(getShareUrl()), '_blank');
+}
+function shareToTelegram() {
+  window.open('https://t.me/share/url?url=' + encodeURIComponent(getShareUrl()) + '&text=' + encodeURIComponent(getShareText()), '_blank');
+}
+function shareByEmail() {
+  window.location.href = 'mailto:?subject=' + encodeURIComponent(getShareText()) + '&body=' + encodeURIComponent(getShareText() + '\n\n' + getShareUrl());
+}
+function shareNative() {
+  if (navigator.share) navigator.share({ title: getShareText(), url: getShareUrl() });
+}
+async function copyShareLink() {
+  const url = getShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    document.getElementById('copyLinkLabel').textContent = '✓ Zkopírováno!';
+    document.getElementById('btnCopyLink').classList.add('copied');
+    setTimeout(() => {
+      document.getElementById('copyLinkLabel').textContent = 'Kopírovat odkaz';
+      document.getElementById('btnCopyLink').classList.remove('copied');
+    }, 2500);
+  } catch {
+    showMktToast('Odkaz: ' + url);
+  }
+}
+// Close modal on Escape key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.getElementById('shareModal')?.classList.remove('open');
+});
