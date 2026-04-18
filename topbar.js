@@ -193,6 +193,62 @@ function injectStyles() {
     .notif-drop-footer { border-top:1px solid rgba(255,255,255,.08);padding:9px 14px;text-align:center; }
     .notif-drop-footer a { font-size:12px;color:rgba(245,200,66,.75);text-decoration:none; }
     .notif-drop-footer a:hover { color:#f5c842; }
+
+    /* ── Notifikační přepínače ── */
+    .notif-pref-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .notif-pref-row:last-child { border-bottom: none; }
+    .notif-pref-label { font-size: 12.5px; color: var(--text2, rgba(240,236,228,0.65)); flex: 1; }
+    .notif-pref-sub { font-size: 11px; color: var(--text3, rgba(240,236,228,0.35)); margin-top: 1px; }
+    .notif-toggle {
+      position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: pointer;
+    }
+    .notif-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .notif-toggle-track {
+      position: absolute; inset: 0; background: rgba(255,255,255,0.1);
+      border-radius: 20px; transition: background .2s;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .notif-toggle input:checked ~ .notif-toggle-track {
+      background: rgba(245,200,66,0.35); border-color: rgba(245,200,66,0.5);
+    }
+    .notif-toggle-thumb {
+      position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+      background: rgba(240,236,228,0.5); border-radius: 50%; transition: all .2s;
+    }
+    .notif-toggle input:checked ~ .notif-toggle-track .notif-toggle-thumb {
+      transform: translateX(16px); background: #f5c842;
+    }
+    .notif-category-row { display: flex; gap: 6px; margin-top: 8px; margin-bottom: 4px; flex-wrap: wrap; }
+    .notif-cat-btn {
+      flex: 1; min-width: 60px; padding: 5px 0; border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: var(--text2, rgba(240,236,228,0.65)); font-size: 11.5px; cursor: pointer;
+      transition: all .15s; font-family: inherit; text-align: center;
+    }
+    .notif-cat-btn.active {
+      background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.35); color: #f5c842; font-weight: 700;
+    }
+    .notif-freq-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+    .notif-freq-btn {
+      flex: 1; padding: 6px 4px; border-radius: 7px;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+      color: var(--text2, rgba(240,236,228,0.65)); font-size: 11px; cursor: pointer;
+      transition: all .15s; font-family: inherit; text-align: center;
+    }
+    .notif-freq-btn.active {
+      background: rgba(245,200,66,0.15); border-color: rgba(245,200,66,0.35); color: #f5c842; font-weight: 700;
+    }
+    .notif-save-btn {
+      width: 100%; margin-top: 12px; padding: 9px; border-radius: 9px;
+      background: linear-gradient(135deg, rgba(245,200,66,0.2) 0%, rgba(255,140,0,0.15) 100%);
+      border: 1px solid rgba(245,200,66,0.3); color: #f5c842; font-weight: 700; font-size: 12px;
+      cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .notif-save-btn:hover { background: linear-gradient(135deg, rgba(245,200,66,0.3) 0%, rgba(255,140,0,0.25) 100%); }
+    .notif-save-feedback { font-size: 11px; text-align: center; min-height: 16px; margin-top: 6px; color: #4ade80; }
   `;
   document.head.appendChild(s);
 }
@@ -313,6 +369,90 @@ var SETTINGS_HTML = [
   '          <div id="expThresholdFeedback" class="price-alert-feedback"></div>',
   '        </div></div>',
   '      </div>',
+  '      <!-- ── 📧 Emailová upozornění ── -->',
+  '      <div class="sdrop-acc-item" id="sdAccNotif">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccNotif\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">📧</span>',
+  '            <div><div class="sdrop-acc-title">Emailová upozornění</div>',
+  '            <div class="sdrop-acc-sub" id="accNotifSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body"><div class="sdrop-acc-inner">',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">🛒 Nové nabídky</div>',
+  '            <div class="notif-pref-sub">Email při nových kartičkách nebo sealech</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npNewListings" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div id="npCategoryWrap" style="padding:4px 0 8px">',
+  '            <div style="font-size:11px;color:rgba(240,236,228,0.35);margin-bottom:5px">Kategorie:</div>',
+  '            <div class="notif-category-row">',
+  '              <button class="notif-cat-btn active" id="npCatAll"    onclick="npSetCat(\'all\')">🃏+📦 Vše</button>',
+  '              <button class="notif-cat-btn"        id="npCatCards"  onclick="npSetCat(\'cards\')">🃏 Kartičky</button>',
+  '              <button class="notif-cat-btn"        id="npCatSealed" onclick="npSetCat(\'sealed\')">📦 Sealed</button>',
+  '            </div>',
+  '          </div>',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">⭐ Cenné karty</div>',
+  '            <div class="notif-pref-sub">Nabídky nad nastavenou cenovou hranici</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npPriceAlert" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">🎯 Wishlist k dispozici</div>',
+  '            <div class="notif-pref-sub">Karta z wishlistu se objevila na trhu</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npWishlist" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">🔄 Nabídky k výměně</div>',
+  '            <div class="notif-pref-sub">Někdo nabízí kartičku k výměně</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npTrade" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">📰 Týdenní přehled</div>',
+  '            <div class="notif-pref-sub">Souhrn nejlepších nabídek každý týden</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npWeekly" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div class="notif-pref-row">',
+  '            <div><div class="notif-pref-label">💬 Nové zprávy</div>',
+  '            <div class="notif-pref-sub">Email při přijaté zprávě (když nejsi online)</div></div>',
+  '            <label class="notif-toggle"><input type="checkbox" id="npMessages" onchange="npSave()">',
+  '            <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '          </div>',
+  '          <div style="margin-top:12px">',
+  '            <div style="font-size:11px;font-weight:600;color:rgba(240,236,228,0.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Frekvence emailů</div>',
+  '            <div class="notif-freq-row">',
+  '              <button class="notif-freq-btn" id="npFreqInstant" onclick="npSetFreq(\'instant\')">⚡ Ihned</button>',
+  '              <button class="notif-freq-btn active" id="npFreqDaily" onclick="npSetFreq(\'daily\')">📅 Denně</button>',
+  '              <button class="notif-freq-btn" id="npFreqWeekly"  onclick="npSetFreq(\'weekly\')">📆 Týdně</button>',
+  '            </div>',
+  '          </div>',
+  '          <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.06)">',
+  '            <div style="font-size:11px;font-weight:600;color:rgba(240,236,228,0.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">In-app notifikace (zvoneček)</div>',
+  '            <div class="notif-pref-row">',
+  '              <div class="notif-pref-label">🔔 Nové nabídky</div>',
+  '              <label class="notif-toggle"><input type="checkbox" id="npInAppListings" onchange="npSave()">',
+  '              <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '            </div>',
+  '            <div class="notif-pref-row">',
+  '              <div class="notif-pref-label">🎯 Wishlist</div>',
+  '              <label class="notif-toggle"><input type="checkbox" id="npInAppWishlist" onchange="npSave()">',
+  '              <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '            </div>',
+  '            <div class="notif-pref-row">',
+  '              <div class="notif-pref-label">💬 Zprávy</div>',
+  '              <label class="notif-toggle"><input type="checkbox" id="npInAppMessages" onchange="npSave()">',
+  '              <span class="notif-toggle-track"><span class="notif-toggle-thumb"></span></span></label>',
+  '            </div>',
+  '          </div>',
+  '          <button class="notif-save-btn" onclick="npSaveToServer()">💾 Uložit nastavení upozornění</button>',
+  '          <div class="notif-save-feedback" id="npSaveFeedback"></div>',
+  '        </div></div>',
+  '      </div>',
+
   '      <div class="sdrop-acc-item">',
   '        <div class="sdrop-acc-header" onclick="window.location.href=\'profile.html\'">',
   '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">🤖</span>',
@@ -613,5 +753,161 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+/* ══════════════════════════════════════════════════════════════
+   8. NOTIFICATION PREFERENCES
+   Ukládá do localStorage (okamžitě) + Supabase profiles (server)
+   ══════════════════════════════════════════════════════════════ */
+var _npCat  = 'all';
+var _npFreq = 'daily';
+var _npSaveTimer = null;
+
+var NP_DEFAULTS = {
+  email_new_listings: true,
+  email_listings_cat: 'all',
+  email_price_alert:  true,
+  email_wishlist:     false,
+  email_trade:        false,
+  email_weekly:       false,
+  email_messages:     false,
+  email_frequency:    'daily',
+  inapp_listings:     true,
+  inapp_wishlist:     true,
+  inapp_messages:     true
+};
+
+function npLoad() {
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('pkc_notif_prefs') || '{}'); } catch(e) {}
+  var p = Object.assign({}, NP_DEFAULTS, saved);
+  _npCat  = p.email_listings_cat || 'all';
+  _npFreq = p.email_frequency    || 'daily';
+  function setChk(id, val) { var el = document.getElementById(id); if (el) el.checked = !!val; }
+  setChk('npNewListings',   p.email_new_listings);
+  setChk('npPriceAlert',    p.email_price_alert);
+  setChk('npWishlist',      p.email_wishlist);
+  setChk('npTrade',         p.email_trade);
+  setChk('npWeekly',        p.email_weekly);
+  setChk('npMessages',      p.email_messages);
+  setChk('npInAppListings', p.inapp_listings);
+  setChk('npInAppWishlist', p.inapp_wishlist);
+  setChk('npInAppMessages', p.inapp_messages);
+  npSetCat(_npCat, true);
+  npSetFreq(_npFreq, true);
+  npUpdateSub(p);
+}
+
+function npGetPrefs() {
+  function chk(id) { var el = document.getElementById(id); return el ? el.checked : false; }
+  return {
+    email_new_listings: chk('npNewListings'),
+    email_listings_cat: _npCat,
+    email_price_alert:  chk('npPriceAlert'),
+    email_wishlist:     chk('npWishlist'),
+    email_trade:        chk('npTrade'),
+    email_weekly:       chk('npWeekly'),
+    email_messages:     chk('npMessages'),
+    email_frequency:    _npFreq,
+    inapp_listings:     chk('npInAppListings'),
+    inapp_wishlist:     chk('npInAppWishlist'),
+    inapp_messages:     chk('npInAppMessages')
+  };
+}
+
+window.npSave = function () {
+  var p = npGetPrefs();
+  localStorage.setItem('pkc_notif_prefs', JSON.stringify(p));
+  npUpdateSub(p);
+  clearTimeout(_npSaveTimer);
+  _npSaveTimer = setTimeout(window.npSaveToServer, 1500);
+};
+
+window.npSaveToServer = function () {
+  var p = npGetPrefs();
+  localStorage.setItem('pkc_notif_prefs', JSON.stringify(p));
+  npUpdateSub(p);
+  var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+  var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+  var tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+  var uid = localStorage.getItem('sb_user_id');
+  var fb  = document.getElementById('npSaveFeedback');
+  if (!tok || !uid || !SBU) {
+    if (fb) { fb.textContent = '⚠️ Přihlas se pro uložení na server'; setTimeout(function(){ fb.textContent=''; }, 3000); }
+    return;
+  }
+  if (fb) fb.textContent = '⏳ Ukládám…';
+  fetch(SBU + '/rest/v1/profiles?id=eq.' + uid, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': 'Bearer ' + tok, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ notification_prefs: p })
+  })
+  .then(function(r) {
+    if (fb) { fb.textContent = r.ok ? '✅ Uloženo' : '❌ Chyba uložení'; setTimeout(function(){ fb.textContent=''; }, 2500); }
+  })
+  .catch(function() { if (fb) { fb.textContent = '❌ Chyba sítě'; setTimeout(function(){ fb.textContent=''; }, 2500); } });
+};
+
+window.npSetCat = function (cat, silent) {
+  _npCat = cat;
+  ['all','cards','sealed'].forEach(function(c) {
+    var btn = document.getElementById('npCat' + c.charAt(0).toUpperCase() + c.slice(1));
+    if (btn) btn.classList.toggle('active', c === cat);
+  });
+  if (!silent) window.npSave();
+};
+
+window.npSetFreq = function (freq, silent) {
+  _npFreq = freq;
+  ['instant','daily','weekly'].forEach(function(f) {
+    var btn = document.getElementById('npFreq' + f.charAt(0).toUpperCase() + f.slice(1));
+    if (btn) btn.classList.toggle('active', f === freq);
+  });
+  if (!silent) window.npSave();
+};
+
+function npUpdateSub(p) {
+  var sub = document.getElementById('accNotifSub');
+  if (!sub) return;
+  var active = [];
+  if (p.email_new_listings) active.push('nabídky');
+  if (p.email_price_alert)  active.push('ceny');
+  if (p.email_wishlist)     active.push('wishlist');
+  if (p.email_weekly)       active.push('digest');
+  sub.textContent = active.length
+    ? active.join(', ') + ' · ' + ({instant:'ihned',daily:'denně',weekly:'týdně'}[p.email_frequency]||'denně')
+    : 'Vypnuto';
+}
+
+/* Načti ze serveru při otevření settings dropdownu */
+var _npOrigToggle = window.toggleSettingsDrop;
+window.toggleSettingsDrop = function() {
+  if (_npOrigToggle) _npOrigToggle();
+  var drop = document.getElementById('settingsDrop');
+  if (drop && drop.classList.contains('open')) { npLoadFromServer(); }
+};
+
+function npLoadFromServer() {
+  var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+  var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+  var tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+  var uid = localStorage.getItem('sb_user_id');
+  if (!tok || !uid || !SBU) return;
+  fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=notification_prefs', {
+    headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tok }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var row = Array.isArray(d) ? d[0] : null;
+    if (row && row.notification_prefs) {
+      localStorage.setItem('pkc_notif_prefs', JSON.stringify(row.notification_prefs));
+      npLoad();
+    }
+  }).catch(function(){});
+}
+
+/* Exportuj prefs pro použití v jiných souborech */
+window.getNotifPrefs = function() {
+  try { return JSON.parse(localStorage.getItem('pkc_notif_prefs') || '{}'); } catch(e) { return {}; }
+};
 
 })();

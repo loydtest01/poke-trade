@@ -11,5 +11,15 @@
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/email-digest?mode=daily",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/email-digest?mode=weekly",
+      "schedule": "0 7 * * 1"
+    }
   ]
 }

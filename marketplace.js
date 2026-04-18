@@ -4206,7 +4206,9 @@ window.submitListing = async function() {
     _pendingFromQueue = null;
   }
   closeAddListing();
-  allListings.unshift(Array.isArray(res) ? res[0] : res);
+  const _newListing = Array.isArray(res) ? res[0] : res;
+  if (_newListing?.id) dispatchListingNotifications(_newListing).catch(() => {});
+  allListings.unshift(_newListing);
   applyFilters();
 };
 
@@ -4549,4 +4551,70 @@ async function quickRelist(id) {
   if (l) { l.status = 'active'; l.reserved_by_user_id = null; l.reserved_by_username = null; }
   showMktToast('↩️ Inzerát znovu vystaven.');
   renderListings();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DISPATCH LISTING NOTIFICATIONS
+   Voláno po každém úspěšném vytvoření nabídky.
+   Vytvoří in-app notifikaci uživatelům dle jejich preferencí.
+   Emailový digest řeší Vercel cron (api/cron/email-digest.js).
+   ══════════════════════════════════════════════════════════════ */
+async function dispatchListingNotifications(listing) {
+  const SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+  const SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+  if (!SBU) return;
+
+  const r = await fetch(
+    `${SBU}/rest/v1/profiles?select=id,notification_prefs&is_banned=eq.false`,
+    { headers: { 'apikey': SBA, 'Authorization': `Bearer ${SBA}` } }
+  );
+  if (!r.ok) return;
+  const profiles = await r.json();
+  if (!Array.isArray(profiles)) return;
+
+  const cat      = listing.listing_category || (listing.listing_type === 'product' ? 'sealed' : 'card');
+  const isSealed = cat === 'sealed';
+  const isTrade  = listing.allow_trade && !listing.allow_offer;
+  const price    = listing.price_eur ? parseFloat(listing.price_eur) : null;
+  const cardName = listing.card_name || listing.title || 'Nová nabídka';
+  const priceStr = listing.price_eur
+    ? `€ ${parseFloat(listing.price_eur).toFixed(2)}`
+    : (listing.price_czk ? `${listing.price_czk} Kč` : isTrade ? 'Výměna' : '—');
+  const notifLink = `${typeof VERCEL_URL !== 'undefined' ? VERCEL_URL : ''}/marketplace.html`;
+
+  const toNotify = [];
+
+  for (const profile of profiles) {
+    if (profile.id === userId) continue;
+    const p = profile.notification_prefs || {};
+    if (p.inapp_listings === false) continue;
+
+    const prefCat = p.email_listings_cat || 'all';
+    if (prefCat === 'cards'  && isSealed)  continue;
+    if (prefCat === 'sealed' && !isSealed) continue;
+    if (isTrade && p.email_trade === false) continue;
+
+    const threshold = parseFloat(p.price_threshold || '0') || 0;
+    const isPricey  = price && threshold > 0 && price >= threshold;
+
+    toNotify.push({
+      user_id:  profile.id,
+      type:     isPricey ? 'price_alert_listing' : 'new_listing',
+      title:    isPricey ? `⭐ Cenná nabídka: ${cardName}` : `🛒 Nová nabídka: ${cardName}`,
+      body:     `${listing.username} nabízí${isTrade ? ' k výměně' : ''} za ${priceStr}`,
+      link:     notifLink,
+      metadata: { listing_id: listing.id, category: cat, price_eur: listing.price_eur, is_trade: isTrade },
+      read:     false,
+    });
+
+    if (toNotify.length >= 50) break;
+  }
+
+  if (!toNotify.length) return;
+
+  await fetch(`${SBU}/rest/v1/notifications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}`, 'Prefer': 'return=minimal' },
+    body: JSON.stringify(toNotify),
+  });
 }
