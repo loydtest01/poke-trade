@@ -90,10 +90,43 @@
     }).join('');
   }
 
+  /** Doplní chybějící prvky do .topbar-right (settings, userChip, login/logout) */
+  function injectTopbarRight() {
+    var tr = document.querySelector('.topbar-right');
+    if (!tr) return;
+
+    // Settings tlačítko — přidat pokud chybí
+    if (!document.getElementById('settingsBtn')) {
+      var settingsWrap = document.createElement('div');
+      settingsWrap.style.cssText = 'position:relative;display:flex;align-items:center';
+      settingsWrap.innerHTML = '<a href="profile.html" class="chat-icon-btn" title="Nastavení & Profil">'
+        + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+        + '<circle cx="12" cy="12" r="3"/>'
+        + '<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'
+        + '</svg></a>';
+      // Vložit před userChip nebo na konec
+      var ref = document.getElementById('userChip') || document.getElementById('loginLink');
+      if (ref) tr.insertBefore(settingsWrap, ref);
+      else tr.appendChild(settingsWrap);
+    }
+
+    // userChip + login + logout — přidat pokud chybí
+    if (!document.getElementById('userChip')) {
+      var authHtml = '<a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">'
+        + '<div class="user-avatar" id="userAvatar">?</div>'
+        + '<span id="userName"></span></a>'
+        + '<a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>'
+        + '<button id="logoutBtn" onclick="if(typeof doLogout==='function')doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;cursor:pointer">'
+        + '<img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>';
+      tr.insertAdjacentHTML('beforeend', authHtml);
+    }
+  }
+
+
   // Spusť hned nebo po DOMContentLoaded
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', render);
+    document.addEventListener('DOMContentLoaded', function(){ render(); injectTopbarRight(); });
   } else {
-    render();
+    render(); injectTopbarRight();
   }
 })();

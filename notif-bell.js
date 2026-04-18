@@ -7,7 +7,7 @@
 
   const CSS = `
   .notif-bell-wrap { position:relative;display:flex;align-items:center;margin-right:4px; }
-  .notif-bell-btn { position:relative;background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:10px;color:rgba(240,236,228,.75);line-height:1;transition:background .15s,color .15s;display:flex;align-items:center;justify-content:center; }
+  .notif-bell-btn { position:relative;cursor:pointer;color:rgba(240,236,228,.75);line-height:1;transition:background .15s,color .15s; }
   .notif-bell-btn:hover { background:rgba(255,255,255,.08);color:#f0ece4; }
   .notif-bell-btn.has-unread { color:#f5c842; }
   .notif-badge { position:absolute;top:1px;right:1px;min-width:16px;height:16px;background:#f5c842;color:#0d0d1a;font-size:10px;font-weight:800;border-radius:99px;display:flex;align-items:center;justify-content:center;padding:0 3px;pointer-events:none; }
@@ -56,7 +56,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'notif-bell-wrap'; wrap.id = 'notifBellWrap';
     wrap.innerHTML = `
-      <button class="notif-bell-btn" id="notifBellBtn" title="Notifikace">
+      <button class="notif-bell-btn chat-icon-btn" id="notifBellBtn" title="Notifikace">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
