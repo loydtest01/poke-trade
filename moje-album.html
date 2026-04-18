@@ -3159,6 +3159,15 @@ function pushToPendingQueue(cards) {
   const PENDING_KEY = 'pkt_pending_listings';
   try {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
+    // Pokud uživatel kartu znovu přidává, odstraň ji z dismissed listu
+    try {
+      let dismissed = JSON.parse(localStorage.getItem('pkt_dismissed_ids') || '[]');
+      const newIds = cards.map(c => String(c.id || '')).filter(Boolean);
+      if (newIds.some(id => dismissed.includes(id))) {
+        dismissed = dismissed.filter(id => !newIds.includes(id));
+        localStorage.setItem('pkt_dismissed_ids', JSON.stringify(dismissed));
+      }
+    } catch {}
     cards.forEach(card => {
       // Deduplikace: nekopírovat pokud stejný _pendingId nebo stejné card id
       const alreadyById = card.id && q.find(x => String(x.id) === String(card.id));
@@ -3209,7 +3218,6 @@ async function confirmListingPhoto() {
       album_price: c.price_czk   || null,
       condition:   cd.condition  || c.condition   || c.cond || 'NM',
       photoUrl:    _selectedListingPhotoUrl || null,
-      _userPhoto:  _selectedListingPhotoUrl || null,
       listing_type: _pendingListingType || 'sell',
     };
     pushToPendingQueue([pendingCard]);
@@ -4088,11 +4096,13 @@ function reconcilePendingQueue() {
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
     // Sada id karet, které už jsou ve frontě
     const queuedIds = new Set(q.map(x => String(x.id || x._pendingId || '')));
+    // Sada id karet, které uživatel záměrně odstranil z fronty v marketplace
+    const dismissedIds = new Set(JSON.parse(localStorage.getItem('pkt_dismissed_ids') || '[]').map(String));
 
     const missing = allCards.filter(c => {
       if (!c.for_sell) return false;
       const cid = String(c.id || '');
-      return cid && !queuedIds.has(cid);
+      return cid && !queuedIds.has(cid) && !dismissedIds.has(cid);
     });
 
     if (!missing.length) return;

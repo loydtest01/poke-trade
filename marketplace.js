@@ -1741,8 +1741,19 @@ window.addToPendingQueue = function(card) {
 
 /** Remove one card from queue by _pendingId */
 function removePendingCard(pendingId) {
-  const q = getPendingQueue().filter(c => c._pendingId !== pendingId);
-  savePendingQueue(q);
+  const q = getPendingQueue();
+  // Zapamatuj si id karty, aby ji reconcilePendingQueue v albu znovu nepřidala
+  const card = q.find(c => c._pendingId === pendingId);
+  if (card?.id) {
+    try {
+      const dismissed = JSON.parse(localStorage.getItem('pkt_dismissed_ids') || '[]');
+      if (!dismissed.includes(String(card.id))) {
+        dismissed.push(String(card.id));
+        localStorage.setItem('pkt_dismissed_ids', JSON.stringify(dismissed));
+      }
+    } catch {}
+  }
+  savePendingQueue(q.filter(c => c._pendingId !== pendingId));
   updatePendingBadge();
   renderPendingList();
 }
