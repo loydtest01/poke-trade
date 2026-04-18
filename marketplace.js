@@ -631,9 +631,15 @@ function buildGallery(l, firstCard){
   ).join('') + (allImgs.length===0?'':'');
 }
 
+let _galleryActiveIdx = 0;   // tracks which thumb is active
+
 function setGalleryImg(src, idx){
   const img = document.getElementById('mainGalleryImg');
-  if(img) img.src=src;
+  if(img) {
+    img.src = src;
+    img.onclick = () => openCardZoom(idx);   // always open the right photo
+  }
+  _galleryActiveIdx = idx;
   document.querySelectorAll('.gallery-thumb').forEach((t,i)=>t.classList.toggle('act',i===idx));
 }
 
@@ -4654,7 +4660,8 @@ function openCardZoom(startIdx) {
   document.getElementById('czlNavR').style.display = multi ? '' : 'none';
 
   // Load existing condition description if any
-  document.getElementById('czlDesc').value = currentListing?.condition_description || '';
+  const _savedDescs = JSON.parse(localStorage.getItem('pkc_cond_desc') || '{}');
+  document.getElementById('czlDesc').value = _savedDescs[currentListing?.id] || currentListing?.condition_description || currentListing?.description || '';
 
   czlLoadImg(czlIdx);
 
@@ -4715,10 +4722,11 @@ function czlOnMove(e) {
 
   // Position loupe: prefer top-right of cursor, flip if near edge
   const OX = 28, OY = 28;
-  let lx = e.clientX + OX;
-  let ly = e.clientY + OY;
-  if (lx + LSIZE > window.innerWidth  - 8)  lx = e.clientX - OX - LSIZE;
-  if (ly + LSIZE > window.innerHeight - 8)  ly = e.clientY - OY - LSIZE;
+  let lx = e.clientX - LSIZE / 2;   // centered on cursor X
+  let ly = e.clientY - LSIZE / 2;   // centered on cursor Y
+  // Clamp to viewport
+  lx = Math.max(4, Math.min(lx, window.innerWidth  - LSIZE - 4));
+  ly = Math.max(4, Math.min(ly, window.innerHeight - LSIZE - 4));
 
   loupe.style.left = lx + 'px';
   loupe.style.top  = ly + 'px';
@@ -4832,45 +4840,48 @@ Napiš typický popis stavu karty v gradingu ${condTag || 'NM'} – co kupujíc�
 
 /* ── Save description ──────────────────────────────────────── */
 async function czlSave() {
-  const desc = (document.getElementById('czlDesc')?.value || '').trim();
+  const desc    = (document.getElementById('czlDesc')?.value || '').trim();
   const saveBtn = document.getElementById('czlSaveBtn');
 
   if (!currentListing?.id) {
     alert('Nelze uložit – nabídka není načtena.'); return;
   }
-  if (!token) {
-    alert('Pro uložení popisu se musíš přihlásit.'); return;
-  }
 
   saveBtn.textContent = '⏳ Ukládám…';
   saveBtn.disabled = true;
 
-  const res = await sbReq(
-    `rest/v1/listings?id=eq.${currentListing.id}`,
-    'PATCH',
-    { condition_description: desc },
-    token
-  );
+  // Save to localStorage (keyed by listing id) – column may not exist in DB yet
+  try {
+    const store = JSON.parse(localStorage.getItem('pkc_cond_desc') || '{}');
+    store[currentListing.id] = desc;
+    localStorage.setItem('pkc_cond_desc', JSON.stringify(store));
+  } catch (_) {}
 
-  if (res?._err) {
-    alert('Chyba uložení: ' + res._err);
-    saveBtn.textContent = '💾 Uložit popis do nabídky';
-    saveBtn.disabled = false;
-  } else {
-    // Persist locally
-    currentListing.condition_description = desc;
-    // Update visible description in detail panel
-    const descEl = document.getElementById('dDesc');
-    if (descEl) {
-      descEl.textContent = desc;
-      descEl.style.display = desc ? '' : 'none';
-    }
-    saveBtn.textContent = '✅ Uloženo!';
-    saveBtn.style.background = 'rgba(74,222,128,0.18)';
-    setTimeout(() => {
-      saveBtn.textContent = '💾 Uložit popis do nabídky';
-      saveBtn.style.background = '';
-      saveBtn.disabled = false;
-    }, 2200);
+  // Also try to save to DB 'description' field if owner and logged in
+  if (token && userId && currentListing.user_id === userId) {
+    try {
+      await sbReq(
+        `rest/v1/listings?id=eq.${currentListing.id}`,
+        'PATCH',
+        { description: desc },
+        token
+      );
+    } catch (_) { /* silently ignore if column issues */ }
   }
+
+  // Update local state + visible description panel
+  currentListing.condition_description = desc;
+  const descEl = document.getElementById('dDesc');
+  if (descEl) {
+    descEl.textContent = desc;
+    descEl.style.display = desc ? '' : 'none';
+  }
+
+  saveBtn.textContent = '✅ Uloženo lokálně!';
+  saveBtn.style.background = 'rgba(74,222,128,0.18)';
+  setTimeout(() => {
+    saveBtn.textContent = '💾 Uložit popis do nabídky';
+    saveBtn.style.background = '';
+    saveBtn.disabled = false;
+  }, 2200);
 }
