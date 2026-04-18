@@ -1589,7 +1589,15 @@ function renderProfile(p) {
   document.title = `${uname} – PokéTrade`;
 
   const initials = uname.slice(0,2).toUpperCase();
-  document.getElementById('heroAvatar').textContent  = initials;
+  const heroEl = document.getElementById('heroAvatar');
+  heroEl.textContent = initials;
+  // Pokud má profilový uživatel vlastní fotku, zobraz ji
+  if (p.avatar_url) {
+    heroEl.textContent = '';
+    heroEl.style.backgroundImage = `url(${p.avatar_url})`;
+    heroEl.style.backgroundSize = 'cover';
+    heroEl.style.backgroundPosition = 'center';
+  }
   document.getElementById('heroUsername').textContent = uname;
 
   // Datum
@@ -3160,15 +3168,26 @@ function setProgress(pct, label) {
   };
 
   function applyAvatar(url){
-    var els=['userAvatar','heroAvatar'];
-    els.forEach(function(id){
-      var el=document.getElementById(id);
-      if(!el)return;
-      el.textContent='';
-      el.style.backgroundImage='url('+url+')';
-      el.style.backgroundSize='cover';
-      el.style.backgroundPosition='center';
-    });
+    // userAvatar = topbar (vždy vlastní uživatel)
+    var topbar=document.getElementById('userAvatar');
+    if(topbar){
+      topbar.textContent='';
+      topbar.style.backgroundImage='url('+url+')';
+      topbar.style.backgroundSize='cover';
+      topbar.style.backgroundPosition='center';
+    }
+    // heroAvatar = profilový hrdina – jen pokud jde o vlastní profil
+    var isOwnProfile = typeof profileUserId!=='undefined' && typeof currentUser!=='undefined'
+      && currentUser && profileUserId === currentUser.id;
+    if(isOwnProfile){
+      var hero=document.getElementById('heroAvatar');
+      if(hero){
+        hero.textContent='';
+        hero.style.backgroundImage='url('+url+')';
+        hero.style.backgroundSize='cover';
+        hero.style.backgroundPosition='center';
+      }
+    }
     // Also persist in localStorage as fallback
     try{localStorage.setItem('pkc_avatar_local',url);}catch(e){}
   }
@@ -3217,15 +3236,26 @@ function setProgress(pct, label) {
     var local=null;
     try{local=localStorage.getItem('pkc_avatar_local');}catch(e){}
     if(local){
-      ['userAvatar','heroAvatar'].forEach(function(id){
-        var el=document.getElementById(id);
-        if(el&&!el.style.backgroundImage){
-          el.textContent='';
-          el.style.backgroundImage='url('+local+')';
-          el.style.backgroundSize='cover';
-          el.style.backgroundPosition='center';
+      // userAvatar (topbar) – vždy
+      var topbar=document.getElementById('userAvatar');
+      if(topbar&&!topbar.style.backgroundImage){
+        topbar.textContent='';
+        topbar.style.backgroundImage='url('+local+')';
+        topbar.style.backgroundSize='cover';
+        topbar.style.backgroundPosition='center';
+      }
+      // heroAvatar – jen na vlastním profilu
+      var isOwnProfile = typeof profileUserId!=='undefined' && typeof currentUser!=='undefined'
+        && currentUser && profileUserId === currentUser.id;
+      if(isOwnProfile){
+        var hero=document.getElementById('heroAvatar');
+        if(hero&&!hero.style.backgroundImage){
+          hero.textContent='';
+          hero.style.backgroundImage='url('+local+')';
+          hero.style.backgroundSize='cover';
+          hero.style.backgroundPosition='center';
         }
-      });
+      }
     }
   });
 })();
