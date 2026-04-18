@@ -1079,28 +1079,23 @@ Grade scale:
 If photo quality is too poor to assess, return {"grade":"NM","confidence":"low","issues":[],"summary":"Foto není dostatečně kvalitní pro hodnocení stavu."}`;
 
   try {
-    const _tok = localStorage.getItem('sb_token') || '';
-    const response = await fetch('/api/groq', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ..._tok ? { 'Authorization': `Bearer ${_tok}` } : {}
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 300,
-        usage_type: 'search',
         messages: [{
           role: 'user',
           content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+            { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
             { type: 'text', text: prompt }
           ]
         }]
       })
     });
     const data = await response.json();
-    const raw = data.choices?.[0]?.message?.content || '{}';
+    const raw = data.content?.map(b=>b.text||'').join('') || '{}';
     try {
       const clean = raw.replace(/```json|```/g,'').trim();
       return JSON.parse(clean);
@@ -1133,28 +1128,23 @@ Respond ONLY with a JSON object, no explanation:
 
 If you cannot identify the card at all, return {"confidence":"low","name":"","notes":"reason"}`;
 
-  const _tok2 = localStorage.getItem('sb_token') || '';
-  const response = await fetch('/api/groq', {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ..._tok2 ? { 'Authorization': `Bearer ${_tok2}` } : {}
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 400,
-      usage_type: 'search',
       messages: [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+          { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
           { type: 'text', text: prompt }
         ]
       }]
     })
   });
   const data = await response.json();
-  const raw = data.choices?.[0]?.message?.content || '{}';
+  const raw = data.content?.map(b=>b.text||'').join('') || '{}';
   try {
     const clean = raw.replace(/```json|```/g,'').trim();
     return JSON.parse(clean);
@@ -4724,10 +4714,14 @@ function czlOnMove(e) {
   const relX = e.clientX - iRect.left;
   const relY = e.clientY - iRect.top;
 
-  // Hide if outside image bounds
-  if (relX < 0 || relY < 0 || relX > iRect.width || relY > iRect.height) {
+  // Hide if outside image bounds + 16px přesah (aby lupa nezmizela hned u okraje)
+  const EDGE = 16;
+  if (relX < -EDGE || relY < -EDGE || relX > iRect.width + EDGE || relY > iRect.height + EDGE) {
     czlHideLoupe(); return;
   }
+  // Clamp rel pozici na skutečnou plochu obrázku pro správný zoom
+  const clampedX = Math.max(0, Math.min(relX, iRect.width));
+  const clampedY = Math.max(0, Math.min(relY, iRect.height));
   loupe.style.display = 'block';
 
   // Position loupe: prefer top-right of cursor, flip if near edge
@@ -4743,8 +4737,8 @@ function czlOnMove(e) {
 
   // Background zoom
   const z   = czlZoomFactor;
-  const bgX = -(relX * z - LSIZE / 2);
-  const bgY = -(relY * z - LSIZE / 2);
+  const bgX = -(clampedX * z - LSIZE / 2);
+  const bgY = -(clampedY * z - LSIZE / 2);
   loupe.style.backgroundImage    = `url('${img.src}')`;
   loupe.style.backgroundSize     = `${iRect.width * z}px ${iRect.height * z}px`;
   loupe.style.backgroundPosition = `${bgX}px ${bgY}px`;
@@ -4820,33 +4814,19 @@ Napiš typický popis stavu karty v gradingu ${condTag || 'NM'} – co kupujíc�
       ];
 
   try {
-    const _tok3 = localStorage.getItem('sb_token') || '';
-    const groqMessages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: base64Data
-        ? [
-            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
-            { type: 'text', text: userMsg.find(m => m.type === 'text')?.text || userMsg }
-          ]
-        : userMsg[0]?.text || userMsg
-      }
-    ];
-    const resp = await fetch('/api/groq', {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ..._tok3 ? { 'Authorization': `Bearer ${_tok3}` } : {}
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        usage_type: 'search',
-        messages: groqMessages
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMsg }]
       })
     });
 
     const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content || '';
+    const text = (data.content || []).find(b => b.type === 'text')?.text || '';
 
     if (text) {
       textarea.value = text;

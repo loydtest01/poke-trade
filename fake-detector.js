@@ -446,23 +446,39 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
   // ══════════════════════════════════════════════════════════════
 
   async function _callClaude(content, cardInfo, communityStats) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Převod z Anthropic formátu na Groq/OpenAI formát
+    const groqContent = content.map(item => {
+      if (item.type === 'image' && item.source?.type === 'base64') {
+        return {
+          type: 'image_url',
+          image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` }
+        };
+      }
+      return item;
+    });
+
+    const token = localStorage.getItem('sb_token') || '';
+    const response = await fetch('/api/groq', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         max_tokens: 800,
-        messages: [{ role: 'user', content }]
+        usage_type: 'fake',
+        messages: [{ role: 'user', content: groqContent }]
       })
     });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
-      throw new Error(err?.error?.message || 'HTTP ' + response.status);
+      throw new Error(err?.error || err?.message || 'HTTP ' + response.status);
     }
 
     const data    = await response.json();
-    const rawText = data.content?.map(b => b.text || '').join('') || '{}';
+    const rawText = data.choices?.[0]?.message?.content || '{}';
     const clean   = rawText.replace(/```json|```/g, '').trim();
 
     let result;
