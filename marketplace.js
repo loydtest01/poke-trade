@@ -6,7 +6,7 @@ async function sbReq(path, method='GET', body=null, token=null) {
     'apikey': SUPABASE_ANON,
     'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
   };
-  if (['POST','PATCH'].includes(method) && !path.startsWith('auth/'))
+  if (['POST','PATCH','DELETE'].includes(method) && !path.startsWith('auth/'))
     headers['Prefer'] = 'return=representation';
   const res  = await fetch(`${SUPABASE_URL}/${path}`, {
     method, headers, body: body ? JSON.stringify(body) : undefined
@@ -4270,7 +4270,7 @@ async function markListingAsSold() {
 async function cancelListing() {
   if (!currentListing) return;
   if (!confirm('Zrušit inzerát? Tato akce je nevratná.')) return;
-  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'inactive' }, token);
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'DELETE', null, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showMktToast('🗑️ Inzerát byl zrušen.');
   showList(); loadListings();
