@@ -1574,18 +1574,6 @@ body { background: #06040c; overflow-x: hidden; }
             </button>
           </div>
 
-<!-- Uložené AI analýzy (fake + stav) -->
-          <div id="cdSavedAnalysis" style="border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;margin-top:2px">
-            <div id="cdSavedFakeWrap" style="display:none;margin-bottom:8px">
-              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">🔍 Detekce falzum</div>
-              <div id="cdSavedFake" style="font-size:11px;color:#fde68a;line-height:1.6;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.18);border-radius:8px;padding:8px 10px;"></div>
-            </div>
-            <div id="cdSavedConditionWrap" style="display:none">
-              <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">🤖 AI stav karty</div>
-              <div id="cdSavedCondition" style="font-size:11px;color:#e0d7ff;line-height:1.6;background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.18);border-radius:8px;padding:8px 10px;max-height:130px;overflow-y:auto;"></div>
-            </div>
-          </div>
-
                     <!-- TCG hledání + URL -->
           <div class="cd-tcg-section">
             <div class="cd-tcg-title">
@@ -2330,19 +2318,6 @@ function openCardDetail(c) {
   loadCardRealPhotos(c.id || c.local_id);
   _updateNavButtons();
 
-  // Uložené AI výsledky
-  const _sfWrap = document.getElementById('cdSavedFakeWrap');
-  const _sfEl   = document.getElementById('cdSavedFake');
-  const _scWrap = document.getElementById('cdSavedConditionWrap');
-  const _scEl   = document.getElementById('cdSavedCondition');
-  if (c.fake_result) {
-    _sfEl.innerHTML = c.fake_result.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-    _sfWrap.style.display = '';
-  } else { _sfWrap.style.display = 'none'; }
-  if (c.ai_condition) {
-    _scEl.innerHTML = c.ai_condition.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-    _scWrap.style.display = '';
-  } else { _scWrap.style.display = 'none'; }
 }
 
 function closeCardDetail() {
@@ -5982,13 +5957,6 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
           const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
           if (idx >= 0) allCards[idx].ai_condition = text;
           saveCardUpdates(_detailCard).catch(() => {});
-          // Aktualizuj panel karty
-          const scWrap = document.getElementById('cdSavedConditionWrap');
-          const scEl   = document.getElementById('cdSavedCondition');
-          if (scWrap && scEl) {
-            scEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-            scWrap.style.display = '';
-          }
         }
       } else {
         resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
@@ -6089,13 +6057,6 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
           const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
           if (idx >= 0) allCards[idx].fake_result = text;
           saveCardUpdates(_detailCard).catch(() => {});
-          // Aktualizuj panel karty
-          const sfWrap = document.getElementById('cdSavedFakeWrap');
-          const sfEl   = document.getElementById('cdSavedFake');
-          if (sfWrap && sfEl) {
-            sfEl.innerHTML = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
-            sfWrap.style.display = '';
-          }
         }
       } else {
         resultEl.innerHTML = '<span style="color:rgba(245,158,11,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
