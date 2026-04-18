@@ -303,9 +303,11 @@
           <div class="detail-meta-grid" id="dMeta"></div>
           <div class="detail-desc" id="dDesc" style="display:none"></div>
           <!-- Banner: rezervováno pro mě -->
-          <div id="reservedForMeBanner" style="display:none;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:10px;padding:10px 14px;font-size:13px;color:#4ade80;margin-bottom:8px">
-            🔒 <strong>Rezervováno pro tebe</strong> — čeká na potvrzení prodejcem.
-            <a href="transactions.html" style="color:#4ade80;text-decoration:underline;margin-left:8px">Moje transakce →</a>
+          <div id="reservedForMeBanner" style="display:none;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:10px;padding:12px 14px;font-size:13px;color:#4ade80;margin-bottom:8px">
+            <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <div>🔒 <strong>Rezervováno pro tebe</strong> — domluv se s prodejcem na předání.</div>
+              <button onclick="openChat()" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(74,222,128,0.4);background:rgba(74,222,128,0.12);color:#4ade80;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">✉️ Napsat prodejci</button>
+            </div>
           </div>
           <div class="detail-actions">
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
@@ -316,9 +318,15 @@
           </div>
           <!-- Owner akce -->
           <div id="ownerActions" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
-            <div id="ownerReservedInfo" style="display:none;font-size:12px;color:#f5c842;padding:6px 10px;background:rgba(245,200,66,0.08);border-radius:8px;border:1px solid rgba(245,200,66,0.2)"></div>
+            <div id="ownerReservedInfo" style="display:none;padding:10px 14px;background:rgba(245,200,66,0.08);border-radius:10px;border:1px solid rgba(245,200,66,0.25)">
+              <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+                <span id="ownerReservedText" style="font-size:13px;color:#f5c842;font-weight:700">🔒 Rezervováno</span>
+                <button onclick="openChat()" style="padding:6px 14px;border-radius:8px;border:1px solid rgba(245,200,66,0.4);background:rgba(245,200,66,0.1);color:#f5c842;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:inherit">✉️ Napsat kupujícímu</button>
+              </div>
+              <div style="font-size:11px;color:rgba(245,200,66,0.6);margin-top:5px">Domluvte se na předání, pak potvrď prodej nebo kartu znovu vystav.</div>
+            </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-              <button id="ownerBtnSold"     class="btn-owner-confirm"  onclick="confirmSale()"       style="display:none">✅ Potvrdit prodej</button>
+              <button id="ownerBtnSold"     class="btn-owner-confirm"  onclick="confirmSale()"       style="display:none">✅ Prodáno</button>
               <button id="ownerBtnRelist"   class="btn-owner-relist"   onclick="relistListing()"     style="display:none">↩️ Vystavit znova</button>
               <button id="ownerBtnMarkSold" class="btn-owner-sold"     onclick="markListingAsSold()" style="display:none">✅ Prodáno</button>
               <button id="ownerBtnCancel"   class="btn-owner-cancel"   onclick="cancelListing()"     style="display:none">🗑️ Zrušit inzerát</button>

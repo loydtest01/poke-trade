@@ -521,7 +521,7 @@ async function openDetail(id){
     document.getElementById('ownerBtnCancel').style.display   = isReserved ? 'none' : '';
     if (isReserved) {
       document.getElementById('ownerReservedInfo').style.display = '';
-      document.getElementById('ownerReservedInfo').textContent = `🔒 Rezervováno pro: ${esc(l.reserved_by_username||'?')}`;
+      document.getElementById('ownerReservedText').textContent = `🔒 Rezervováno pro: ${esc(l.reserved_by_username||'?')}`;
     } else {
       document.getElementById('ownerReservedInfo').style.display = 'none';
     }
@@ -712,12 +712,12 @@ function togglePanel(id){
 
 // ── Actions ───────────────────────────────────────────────────
 async function doBuy(){
-  if(!token){ alert('Pro koupi se přihlas.'); return; }
+  if(!token){ alert('Pro rezervaci se přihlas.'); return; }
   if(!currentListing) return;
   if(userId && currentListing.user_id === userId){ alert('Nemůžeš koupit vlastní inzerát.'); return; }
   const name = currentListing.card_name || 'kartu';
   const priceStr = currentListing.price_czk ? currentListing.price_czk.toLocaleString('cs') + ' Kč' : '';
-  if(!confirm(`Rezervovat ${name}${priceStr?' za '+priceStr:''}?\n\nProdejce obdrží oznámení a potvrdí prodej. Karta bude dočasně skryta pro ostatní.`)) return;
+  if(!confirm(`Rezervovat ${name}${priceStr?' za '+priceStr:''}?\n\nKarta bude skryta pro ostatní. Domluv se s prodejcem na předání — pak prodejce potvrdí prodej nebo kartu znovu vystaví.`)) return;
   const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', {
     status: 'reserved',
     reserved_by_user_id: userId,
@@ -726,11 +726,13 @@ async function doBuy(){
   }, token);
   if(res && res._err){ alert('Chyba rezervace: '+res._err); return; }
   currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
-  showMktToast('🔒 Rezervováno! Prodejce to potvrdí.');
+  showMktToast('🔒 Rezervováno! Napiš prodejci a domluvte se.');
   document.getElementById('dBtnBuy').style.display = 'none';
   document.getElementById('dBtnTrade').style.display = 'none';
-  document.getElementById('reservedForMeBanner').style.display = '';
   document.getElementById('dBtnOffer').style.display = 'none';
+  document.getElementById('reservedForMeBanner').style.display = '';
+  // Automaticky otevři chat
+  setTimeout(() => openChat(), 300);
 }
 
 async function sendOffer(){
@@ -740,6 +742,16 @@ async function sendOffer(){
   const msg   = document.getElementById('offerMsg').value.trim();
   if(!price && !msg){ alert('Zadej cenu nebo zprávu.'); return; }
   const l = currentListing;
+  // Rezervuj kartu
+  const patch = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', {
+    status: 'reserved',
+    reserved_by_user_id: userId,
+    reserved_by_username: username,
+    reserved_at: new Date().toISOString()
+  }, token);
+  if(patch && patch._err){ alert('Chyba rezervace: '+patch._err); return; }
+  currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
+  // Ulož nabídku
   const res = await sbReq('rest/v1/offers','POST',{
     listing_id: l.id,
     seller_id:  l.user_id,
@@ -751,8 +763,13 @@ async function sendOffer(){
     status: 'pending',
   },token);
   if(res._err){ alert('Chyba: '+res._err); return; }
-  alert('Nabídka odeslána!');
   togglePanel('offerPanel');
+  document.getElementById('dBtnBuy').style.display = 'none';
+  document.getElementById('dBtnTrade').style.display = 'none';
+  document.getElementById('dBtnOffer').style.display = 'none';
+  document.getElementById('reservedForMeBanner').style.display = '';
+  showMktToast('💸 Nabídka odeslána! Karta je rezervována.');
+  setTimeout(() => openChat(), 300);
 }
 
 async function sendTrade(){
@@ -761,6 +778,16 @@ async function sendTrade(){
   const selCards = myCards.filter(c=>selectedTradeIds.has(String(c.id)));
   if(!selCards.length){ alert('Vyber alespoň jednu kartu k výměně.'); return; }
   const l=currentListing;
+  // Rezervuj kartu
+  const patch = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', {
+    status: 'reserved',
+    reserved_by_user_id: userId,
+    reserved_by_username: username,
+    reserved_at: new Date().toISOString()
+  }, token);
+  if(patch && patch._err){ alert('Chyba rezervace: '+patch._err); return; }
+  currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
+  // Ulož nabídku výměny
   const res = await sbReq('rest/v1/offers','POST',{
     listing_id: l.id,
     seller_id:  l.user_id,
@@ -773,9 +800,14 @@ async function sendTrade(){
     status: 'pending',
   },token);
   if(res._err){ alert('Chyba: '+res._err); return; }
-  alert('Výměna navržena!');
   togglePanel('tradePanel');
   selectedTradeIds.clear();
+  document.getElementById('dBtnBuy').style.display = 'none';
+  document.getElementById('dBtnTrade').style.display = 'none';
+  document.getElementById('dBtnOffer').style.display = 'none';
+  document.getElementById('reservedForMeBanner').style.display = '';
+  showMktToast('🔄 Výměna navržena! Karta je rezervována.');
+  setTimeout(() => openChat(), 300);
 }
 
 // ── Messages ──────────────────────────────────────────────────
