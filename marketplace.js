@@ -611,7 +611,8 @@ async function openDetail(id){
 
 function buildGallery(l, firstCard){
   const apiImg = l.api_image_url || firstCard?.images?.large || firstCard?.images?.small || firstCard?.imageUrl || firstCard?.apiSmall || '';
-  const photos = []; // would load from listing_photos table in production
+  // Načti reálné fotky prodejce uložené při vystavení
+  const photos = (l.user_photos || []).map(p => (typeof p === 'string' ? p : (p.src || p.croppedUrl || ''))).filter(Boolean);
 
   const allImgs = [apiImg, ...photos].filter(Boolean);
   const mainEl  = document.getElementById('galleryMain');
@@ -1452,8 +1453,8 @@ async function submitListing(){
     trade_wants:    wants,
     description:    desc,
     status:         'active',
-    // Sale photos: store as base64 data URLs (croppedUrl takes priority)
-    user_photos:    salePhotos.length ? salePhotos.map(p => ({
+    // Sale photos: uložit jen reálné fotky (isOfficial=true je už v api_image_url)
+    user_photos:    salePhotos.filter(p => !p.isOfficial).length ? salePhotos.filter(p => !p.isOfficial).map(p => ({
       src: p.croppedUrl || p.src,
       mime: p.mime,
       cropped: !!p.croppedUrl
@@ -1914,6 +1915,10 @@ function openListingFromQueue(pendingId) {
   document.getElementById('addModal').style.display = 'flex';
   resetAiZone();
   setTimeout(generateInlineQr, 300);
+
+  // Nastav typ nabídky dle toho, co bylo vybráno v albu (sell/trade/both)
+  const listingType = card.listing_type || 'sell';
+  setAddType(listingType);
 
   // Pre-fill basic card data immediately
   addCardData = card;
@@ -3326,17 +3331,28 @@ function removeSalePhoto(idx) {
 function renderSalePhotos() {
   const strip = document.getElementById('salePhotosStrip');
   if (!strip) return;
+  // Skrýt officialCardWrap – official obrázek je teď první v stripu
+  const ow = document.getElementById('officialCardWrap');
+  if (ow) ow.style.display = 'none';
   let html = '';
   salePhotos.forEach((p, i) => {
     const src = p.croppedUrl || p.src;
-    html += `<div class="sale-photo-tile" id="saleTile-${i}">
-      <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
-      <div class="sale-photo-actions">
-        <button onclick="openSaleCrop(${i})" class="spt-crop-btn" title="Oříznout">✂️</button>
-        <button onclick="removeSalePhoto(${i})" class="spt-del-btn" title="Smazat">✕</button>
-      </div>
-      ${p.croppedUrl ? '<div class="spt-cropped-badge">✂️</div>' : ''}
-    </div>`;
+    if (p.isOfficial) {
+      // Nemazatelný slot pro oficialní obrázek z API
+      html += `<div class="sale-photo-tile" id="saleTile-${i}" style="position:relative">
+        <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
+        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.65);font-size:8px;color:rgba(255,255,255,0.7);text-align:center;padding:2px 0;border-radius:0 0 7px 7px;pointer-events:none">Ofic. API</div>
+      </div>`;
+    } else {
+      html += `<div class="sale-photo-tile" id="saleTile-${i}">
+        <img src="${src}" class="sale-photo-img" onclick="openMktLightbox('${src.replace(/'/g,"\\'")}')">
+        <div class="sale-photo-actions">
+          <button onclick="openSaleCrop(${i})" class="spt-crop-btn" title="Oříznout">✂️</button>
+          <button onclick="removeSalePhoto(${i})" class="spt-del-btn" title="Smazat">✕</button>
+        </div>
+        ${p.croppedUrl ? '<div class="spt-cropped-badge">✂️</div>' : ''}
+      </div>`;
+    }
   });
   html += `<div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
     <div style="font-size:22px">➕</div>
@@ -4161,7 +4177,7 @@ window.submitListing = async function() {
     delivery_post:     dPost,
     delivery_personal: dPers,
     status:         'active',
-    user_photos:    salePhotos.length ? salePhotos.map(p => ({
+    user_photos:    salePhotos.filter(p => !p.isOfficial).length ? salePhotos.filter(p => !p.isOfficial).map(p => ({
       src: p.croppedUrl || p.src, mime: p.mime, cropped: !!p.croppedUrl
     })) : undefined,
   };
