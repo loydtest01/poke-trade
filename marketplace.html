@@ -303,9 +303,14 @@
           <div class="detail-desc" id="dDesc" style="display:none"></div>
           <div class="detail-actions">
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
-            <button class="btn-detail-offer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
+            <button class="btn-detail-offer" id="dBtnOffer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
             <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
-            <button class="btn-detail-msg" onclick="openChat()">✉️ Napsat prodejci</button>
+            <button class="btn-detail-msg" id="dBtnMsg" onclick="openChat()">✉️ Napsat prodejci</button>
+          </div>
+          <!-- Akce vlastníka inzerátu -->
+          <div id="ownerActions" style="display:none;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button class="btn-owner-sold" onclick="markListingAsSold()">✅ Prodáno</button>
+            <button class="btn-owner-cancel" onclick="cancelListing()">🗑️ Zrušit inzerát</button>
           </div>
 
           <!-- Offer panel -->

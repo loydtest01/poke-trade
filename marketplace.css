@@ -1758,3 +1758,32 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   .fs-title { font-size: 16px; }
   .fs-footer { flex-direction: column; }
 }
+
+/* ── Owner action buttons ───────────────────────────────────── */
+.btn-owner-sold {
+  padding: 10px 20px;
+  border-radius: 9px;
+  border: none;
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s;
+}
+.btn-owner-sold:hover { opacity: .85; }
+
+.btn-owner-cancel {
+  padding: 10px 20px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 80, 80, 0.35);
+  background: rgba(255, 80, 80, 0.08);
+  color: #ff6060;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s;
+}
+.btn-owner-cancel:hover { background: rgba(255, 80, 80, 0.18); }

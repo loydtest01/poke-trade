@@ -492,6 +492,16 @@ async function openDetail(id){
   if(price>0) document.getElementById('dBtnBuy').textContent='Koupit za '+price.toLocaleString('cs')+' Kč';
   document.getElementById('dBtnTrade').style.display=isTrade?'':'none';
 
+  // Owner vs. buyer view
+  const isOwner = !!(userId && l.user_id === userId);
+  document.getElementById('ownerActions').style.display = isOwner ? 'flex' : 'none';
+  document.getElementById('dBtnOffer').style.display  = isOwner ? 'none' : '';
+  document.getElementById('dBtnMsg').style.display    = isOwner ? 'none' : '';
+  if(isOwner){
+    document.getElementById('dBtnBuy').style.display   = 'none';
+    document.getElementById('dBtnTrade').style.display = 'none';
+  }
+
   // Trade wants - show tags + compute matches
   currentTradeMatches = new Set();
   const wantsBox = document.getElementById('tradeWantsBox');
@@ -4153,3 +4163,48 @@ window.setListingTab = function(tab) {
   style.textContent = '.listing-tab { display: none !important; }';
   document.head.appendChild(style);
 })();
+
+// ── Správa vlastního inzerátu ────────────────────────────────
+async function markListingAsSold() {
+  if (!currentListing) return;
+  if (!confirm('Označit inzerát jako prodaný?\nInzerát zmizí z nabídek a bude označen jako prodaný.')) return;
+  const res = await sbReq(
+    `rest/v1/listings?id=eq.${currentListing.id}`,
+    'PATCH',
+    { status: 'sold' },
+    token
+  );
+  if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  showToast('✅ Inzerát označen jako prodaný.');
+  showList();
+  loadListings();
+}
+
+async function cancelListing() {
+  if (!currentListing) return;
+  if (!confirm('Opravdu zrušit inzerát?\nTato akce je nevratná.')) return;
+  const res = await sbReq(
+    `rest/v1/listings?id=eq.${currentListing.id}`,
+    'PATCH',
+    { status: 'cancelled' },
+    token
+  );
+  if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  showToast('🗑️ Inzerát byl zrušen.');
+  showList();
+  loadListings();
+}
+
+function showToast(msg) {
+  let t = document.getElementById('mktToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'mktToast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1e1b2e;border:1px solid rgba(255,255,255,0.15);color:#f0ece4;font-size:13px;font-weight:600;padding:10px 22px;border-radius:10px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+}
