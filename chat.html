@@ -2177,7 +2177,7 @@ async function findClients(q) {
   // 2. For each profile, load their marketplace listings
   const listEl = document.getElementById('clientsList');
   if (!profiles.length) {
-    listEl.innerHTML = '<div class="clients-empty">Žádný uživatel nenalezen.<br><span style="font-size:11px;opacity:.5">Zkus jinou přezdívku.</span></div>';
+    listEl.innerHTML = '<div class="clients-empty">Žádný uživatel nenalezen.<br><span style="font-size:11px;opacity:.5">Zkus přezdívku nebo celý email.</span></div>';
     return;
   }
 
