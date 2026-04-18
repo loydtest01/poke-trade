@@ -4850,22 +4850,17 @@ async function czlSave() {
   saveBtn.textContent = '⏳ Ukládám…';
   saveBtn.disabled = true;
 
-  // Save to localStorage (keyed by listing id) – column may not exist in DB yet
-  try {
-    const store = JSON.parse(localStorage.getItem('pkc_cond_desc') || '{}');
-    store[currentListing.id] = desc;
-    localStorage.setItem('pkc_cond_desc', JSON.stringify(store));
-  } catch (_) {}
-
-  // Also try to save to DB 'description' field if owner and logged in
+  // Save to DB condition_description column if owner and logged in
+  let savedToDb = false;
   if (token && userId && currentListing.user_id === userId) {
     try {
       await sbReq(
         `rest/v1/listings?id=eq.${currentListing.id}`,
         'PATCH',
-        { description: desc },
+        { condition_description: desc },
         token
       );
+      savedToDb = true;
     } catch (_) { /* silently ignore if column issues */ }
   }
 
@@ -4877,7 +4872,7 @@ async function czlSave() {
     descEl.style.display = desc ? '' : 'none';
   }
 
-  saveBtn.textContent = '✅ Uloženo lokálně!';
+  saveBtn.textContent = savedToDb ? '✅ Uloženo do nabídky!' : '✅ Uloženo lokálně!';
   saveBtn.style.background = 'rgba(74,222,128,0.18)';
   setTimeout(() => {
     saveBtn.textContent = '💾 Uložit popis do nabídky';
