@@ -419,7 +419,7 @@ function renderListings(){
       </div>
       <div class="listing-right">
         ${price>0
-          ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(price/25).toFixed(0)} €</small></div>`
+          ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(p25=>(p25<1?p25.toFixed(2):p25<10?p25.toFixed(1):p25.toFixed(0)))(price/25)} €</small></div>`
           : `<div class="price-trade">Výměna</div>`}
         ${MY_LISTINGS_MODE ? `
           <div class="my-listing-status-badge status-${esc(l.status||'active')}">
