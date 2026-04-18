@@ -3330,7 +3330,7 @@ async function confirmListingPhoto() {
   if (c.for_sell)  syncObchodAlbum().catch(()=>null);
 
   // Přidat do fronty "Čeká na vystavení" pro marketplace
-  if (_pendingListingType === 'sell' || _pendingListingType === 'both') {
+  if (_pendingListingType === 'sell' || _pendingListingType === 'trade' || _pendingListingType === 'both') {
     // POZN: po načtení z Supabase jsou pole rozsprešená přímo na c (ne v c.card_data),
     // proto hledáme obrázek i na c přímo.
     const _imgSmall = cd.apiSmall || c.apiSmall || cd.images?.small || c.images?.small || cd.imageUrl || c.imageUrl || '';
