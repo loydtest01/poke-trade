@@ -1432,6 +1432,7 @@ async function submitListing(){
     pTrend: card.cardmarket?.prices?.trendPrice||null,
     pMin:   card.cardmarket?.prices?.lowPrice||null,
     cardmarketUrl: card.cardmarket?.url||'',
+    apiId: card.id||card.apiId||card.tcgId||'',  // pokemontcg.io ID pro přímý lookup
   } : {};
 
   const payload = {

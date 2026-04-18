@@ -996,7 +996,7 @@ function mktRunFakeCheck() {
     rarity:    first.rarity || l.card_rarity || '',
     apiSmall:  first.apiSmall || first?.images?.small || '',
     apiLarge:  first.apiLarge || first?.images?.large || '',
-    apiId:     first.apiId || first.tcgId || '',
+    apiId:     first.apiId || first.tcgId || l.api_card_id || '',
     price_czk: l.price_czk || 0,
   };
 
