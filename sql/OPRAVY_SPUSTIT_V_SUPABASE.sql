@@ -149,3 +149,22 @@ SELECT user_id, COUNT(*) AS pocet_alb
 FROM public.user_albums
 GROUP BY user_id
 LIMIT 10;
+
+
+-- ──────────────────────────────────────────────────────────────────
+-- 6. OPRAVA: Existující uživatelé bez profilu
+--    Pokud handle_new_user byl rozbity, někteří uživatelé nemají
+--    záznam v profiles. Toto je doplní z auth.users.
+-- ──────────────────────────────────────────────────────────────────
+INSERT INTO public.profiles (id, username, email)
+SELECT
+  u.id,
+  COALESCE(u.raw_user_meta_data->>'username', split_part(u.email, '@', 1)) AS username,
+  u.email
+FROM auth.users u
+LEFT JOIN public.profiles p ON p.id = u.id
+WHERE p.id IS NULL   -- pouze uživatelé bez profilu
+ON CONFLICT (id) DO NOTHING;
+
+-- Zkontroluj výsledek:
+SELECT COUNT(*) AS "celkový počet profilů" FROM public.profiles;

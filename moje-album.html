@@ -3850,7 +3850,7 @@ async function saveFirstRunAlbum() {
   saveAlbumsLocal();
   await saveAlbumsToServer();
   closeFirstRun();
-  activeAlbumId = album.id;
+  activeAlbumId = null;  // OPRAVA: nenastav hned jako aktivní (toggle bug)
   renderAlbumList();
   render();
 }
@@ -4447,9 +4447,16 @@ async function saveNewAlbum() {
   saveAlbumsLocal();
   await saveAlbumsToServer();
   closeNewAlbumModal();
-  activeAlbumId = album.id;
+  // OPRAVA: nastavíme album jako aktivní, ale hned zaznamenáme jeho ID jako "nově vytvořené"
+  // aby setAlbum() při prvním kliknutí nepřepnulo na null (toggle bug)
+  activeAlbumId = null;   // reset - aby kliknutí v sidebaru aktivovalo (ne togglelo)
   renderAlbumList();
   render();
+  // Krátce zvýrazni nové album v sidebaru, ale nenastav ho jako aktivní
+  setTimeout(() => {
+    const btn = document.querySelector(\`.album-item[onclick*="${album.id}"]\`);
+    if (btn) { btn.style.outline = '2px solid var(--yellow,#f5c842)'; setTimeout(() => { btn.style.outline = ''; }, 1500); }
+  }, 50);
 }
 
 function renderColorPicker() {

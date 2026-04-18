@@ -389,7 +389,20 @@ async function init() {
   ME = { id: userId };
 
   // Načti profil
-  const profile = await sbGet(`rest/v1/profiles?id=eq.${userId}&select=id,username,email`);
+  let profile = await sbGet(`rest/v1/profiles?id=eq.${userId}&select=id,username,email`);
+
+  // Pokud profil neexistuje (trigger byl rozbity), vytvoř ho
+  if (!profile || !profile[0]) {
+    const sbUserObj = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+    const fallbackUsername = sbUserObj?.user_metadata?.username || sbUserObj?.email?.split('@')[0] || null;
+    await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ id: userId, username: fallbackUsername, email: sbUserObj?.email || null })
+    });
+    profile = await sbGet(`rest/v1/profiles?id=eq.${userId}&select=id,username,email`);
+  }
+
   if (profile && profile[0]) {
     ME.username = profile[0].username;
   }
@@ -460,12 +473,18 @@ async function saveUsername() {
   const check = await sbGet(`rest/v1/profiles?username=eq.${encodeURIComponent(val)}&select=id`);
   if (check && check.length > 0) { err.textContent = 'Tato přezdívka je již obsazena.'; return; }
 
-  // Ulož
+  // Ulož — použij UPSERT místo PATCH, aby fungovalo i když profil ještě neexistuje
   const token = localStorage.getItem('sb_token');
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${ME.id}`, {
-    method: 'PATCH',
-    headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: val })
+  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+  const userEmail = sbUser?.email || null;
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'resolution=merge-duplicates,return=representation'
+    },
+    body: JSON.stringify({ id: ME.id, username: val, email: userEmail })
   });
   if (r.ok) {
     ME.username = val;
@@ -573,18 +592,18 @@ async function searchUsers(q) {
 
   const enc = encodeURIComponent(q);
 
-  // Použij view user_search (RLS bezpečné — neexponuje plný email)
-  // Fallback na profiles pokud view ještě není nasazeno
+  // Zkus view user_search, vždy s fallbackem na profiles
   let data = await sbGet(
     `rest/v1/user_search?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url,email_hint&limit=8`
   );
 
-  // Fallback: pokud view neexistuje nebo vrátí chybu, zkus přímo profiles
-  if (!data || data.code === '42P01' || (data.message && data.message.includes('does not exist'))) {
+  // Fallback: view neexistuje, vrátilo chybu, nebo vrátilo non-array
+  const viewFailed = !data || !Array.isArray(data) || (data.code) || (data.message);
+  if (viewFailed) {
+    // Hledej pouze podle username (email může být null nebo nesdílený)
     data = await sbGet(
-      `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${ME.id}&select=id,username,email&limit=8`
+      `rest/v1/profiles?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url,email&limit=8`
     );
-    // Maskuj emaily z fallbacku
     if (Array.isArray(data)) {
       data = data.map(u => ({
         ...u,
