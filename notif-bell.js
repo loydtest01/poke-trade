@@ -29,6 +29,7 @@
   .notif-item-title { font-size:12px;font-weight:600;color:#f0ece4;margin-bottom:2px; }
   .notif-item-body { font-size:11px;color:rgba(240,236,228,.5);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
   .notif-item-time { font-size:10px;color:rgba(240,236,228,.3);margin-top:3px; }
+  .notif-item-link { font-size:10px;color:rgba(245,200,66,.7);margin-top:2px;font-weight:600; }
   .notif-empty { text-align:center;padding:28px 14px;font-size:13px;color:rgba(240,236,228,.35); }
   .notif-drop-footer { border-top:1px solid rgba(255,255,255,.08);padding:9px 14px;text-align:center; }
   .notif-drop-footer a { font-size:12px;color:rgba(245,200,66,.75);text-decoration:none; }
@@ -153,6 +154,16 @@
   }
   function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+  function notifIcon(title, body) {
+    const t = (title || '').toLowerCase() + ' ' + (body || '').toLowerCase();
+    if (t.includes('zakoupil') || t.includes('prodej') || t.includes('koupil') || t.includes('purchase') || t.includes('sold')) return '🛒';
+    if (t.includes('zpráv') || t.includes('message') || t.includes('chat')) return '💬';
+    if (t.includes('wishlist') || t.includes('wish')) return '⭐';
+    if (t.includes('nabídka') || t.includes('listing') || t.includes('offer')) return '🃏';
+    if (t.includes('výměna') || t.includes('trade')) return '🔄';
+    return '🔔';
+  }
+
   function renderList(items) {
     const list = document.getElementById('notifDropList');
     if (!list) return;
@@ -161,8 +172,9 @@
       <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(n.link||'#')}" onclick="window._notifClick&&window._notifClick(this)">
         <div class="notif-dot ${n.read?'read':''}"></div>
         <div class="notif-body">
-          <div class="notif-item-title">${esc(n.title||'Notifikace')}</div>
+          <div class="notif-item-title">${notifIcon(n.title,n.body)} ${esc(n.title||'Notifikace')}</div>
           <div class="notif-item-body">${esc(n.body||'')}</div>
+          ${n.link && n.link !== '#' ? `<div class="notif-item-link">🔗 Zobrazit →</div>` : ''}
           <div class="notif-item-time">${fmtTime(n.created_at)}</div>
         </div>
       </div>`).join('');
@@ -182,6 +194,9 @@
     fetchNotifications().then(renderList);
   }
   function closeDrop() { _open=false; document.getElementById('notifDrop')?.classList.remove('open'); }
+
+  /* Expose pro volání po přihlášení (scanner.html, mobile.html apod.) */
+  window._notifBellInit = insertBell;
 
   if (document.readyState==='loading') document.addEventListener('DOMContentLoaded',insertBell);
   else insertBell();

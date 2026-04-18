@@ -1243,6 +1243,8 @@ function showMain() {
   loadAlbums();   // načti alba + nastav výchozí
   // Update Groq counter in settings if already open
   setTimeout(updateGroqCounter, 100);
+  // Notifikační zvoneček – vlož (nebo reinicializuj) po přihlášení
+  setTimeout(function(){ if(typeof window._notifBellInit==='function') window._notifBellInit(); }, 80);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -2517,5 +2519,6 @@ async function _savePhotoToCard(p, localId) {
   }
 })();
 </script>
+<script src="notif-bell.js"></script>
 </body>
 </html>
