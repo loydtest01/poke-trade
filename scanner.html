@@ -720,6 +720,22 @@ body::after {
 }
 .topbar-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
 
+
+/* ── Notification settings panel ── */
+.notif-toggle-row { margin-bottom:8px; }
+.notif-toggle-label { display:flex;align-items:center;justify-content:space-between;cursor:pointer;font-size:13px;color:rgba(240,236,228,.8);gap:12px; }
+.notif-switch { position:relative;display:inline-block;width:40px;height:22px;flex-shrink:0; }
+.notif-switch input { opacity:0;width:0;height:0; }
+.notif-slider { position:absolute;inset:0;background:rgba(255,255,255,.12);border-radius:22px;transition:.2s; }
+.notif-slider:before { content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s; }
+.notif-switch input:checked + .notif-slider { background:#f5c842; }
+.notif-switch input:checked + .notif-slider:before { transform:translateX(18px); }
+.notif-freq-btn { background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);border-radius:8px;color:rgba(240,236,228,.7);font-size:12px;padding:7px 13px;cursor:pointer;transition:.15s;font-family:inherit; }
+.notif-freq-btn:hover { background:rgba(255,255,255,.12); }
+.notif-freq-btn.active { background:rgba(245,200,66,.18);border-color:rgba(245,200,66,.5);color:#f5c842;font-weight:700; }
+.notif-snooze-btn { background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.13);border-radius:8px;color:rgba(240,236,228,.7);font-size:12px;padding:7px 13px;cursor:pointer;transition:.15s;font-family:inherit; }
+.notif-snooze-btn:hover { background:rgba(255,255,255,.12); }
+.notif-snooze-off { border-color:rgba(100,200,100,.3);color:rgba(120,220,120,.85); }
 </style>
 </head>
 <body>
@@ -934,6 +950,44 @@ body::after {
       <a href="https://console.groq.com/settings/usage" target="_blank" style="color:var(--gold);">console.groq.com →</a>
     </p>
     <button class="btn btn-outline" onclick="resetGroqCounter()" style="font-size:12px; padding:8px 14px;">🗑 Resetovat počítadlo</button>
+
+    <hr class="section-divider" style="margin:20px 0;">
+
+    <!-- ══ NOTIFIKACE ══ -->
+    <div class="modal-title" style="font-size:13px; margin-bottom:14px;">🔔 Notifikace</div>
+
+    <!-- In-app notifikace -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(240,236,228,.45);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">In-app oznámení</div>
+      <div class="notif-toggle-row"><label class="notif-toggle-label"><span>🃏 Nové nabídky na marketplace</span><span class="notif-switch"><input type="checkbox" id="ntg_listings" onchange="saveNotifPrefs()"><span class="notif-slider"></span></span></label></div>
+      <div class="notif-toggle-row"><label class="notif-toggle-label"><span>⭐ Wishlist k dispozici</span><span class="notif-switch"><input type="checkbox" id="ntg_wishlist" onchange="saveNotifPrefs()"><span class="notif-slider"></span></span></label></div>
+      <div class="notif-toggle-row"><label class="notif-toggle-label"><span>💬 Nové zprávy</span><span class="notif-switch"><input type="checkbox" id="ntg_messages" onchange="saveNotifPrefs()"><span class="notif-slider"></span></span></label></div>
+    </div>
+
+    <!-- Email frekvence -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(240,236,228,.45);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">E-mailový digest</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="notif-freq-btn" id="nf_off"    onclick="setNotifFreq('off')"   >🔕 Vypnuto</button>
+        <button class="notif-freq-btn" id="nf_daily"  onclick="setNotifFreq('daily')" >📅 Denně</button>
+        <button class="notif-freq-btn" id="nf_weekly" onclick="setNotifFreq('weekly')">📆 Týdně</button>
+      </div>
+    </div>
+
+    <!-- Odložit / Ztlumit -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(240,236,228,.45);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Ztlumit in-app oznámení</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="notif-snooze-btn" onclick="snoozeNotifs(1)">⏱ 1 hod</button>
+        <button class="notif-snooze-btn" onclick="snoozeNotifs(8)">☕ 8 hod</button>
+        <button class="notif-snooze-btn" onclick="snoozeNotifs(24)">🌙 Do zítra</button>
+        <button class="notif-snooze-btn notif-snooze-off" onclick="snoozeNotifs(0)">▶ Odmlčet</button>
+      </div>
+      <div id="notifSnoozeStatus" style="font-size:11px;color:rgba(240,236,228,.4);margin-top:8px;display:none;"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveNotifPrefsToSupabase()" style="font-size:12px;padding:8px 18px;">💾 Uložit nastavení</button>
+
   </div>
 </div>
 
@@ -1197,6 +1251,16 @@ async function doLogin() {
     localStorage.setItem('sb_token',   currentToken);
     localStorage.setItem('sb_refresh_token', data.refresh_token || '');
     localStorage.setItem('sb_user',    JSON.stringify(currentUser));
+
+    // Credential Management API – říká prohlížeči "toto heslo je legitimní"
+    // Google/Chrome pak aplikaci neoznačí jako phishing ani nespustí varování
+    if (window.PasswordCredential) {
+      try {
+        const cred = new PasswordCredential({ id: email, password: password });
+        await navigator.credentials.store(cred);
+      } catch(_) {}
+    }
+
     showMain();
 
   } finally {
@@ -1209,6 +1273,97 @@ async function doLogin() {
     btn.disabled = false; btn.textContent = 'Přihlásit se';
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   NOTIFICATION PREFERENCES
+═══════════════════════════════════════════════════════ */
+
+function loadNotifPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem('notif_prefs') || '{}');
+    document.getElementById('ntg_listings').checked  = p.inapp_listings  !== false;
+    document.getElementById('ntg_wishlist').checked  = p.inapp_wishlist  !== false;
+    document.getElementById('ntg_messages').checked  = p.inapp_messages  !== false;
+    setNotifFreqUI(p.email_freq || 'off');
+    // snooze status
+    const snoozed = parseInt(localStorage.getItem('notif_snooze_until') || '0');
+    if (snoozed > Date.now()) {
+      const left = Math.ceil((snoozed - Date.now()) / 3600000);
+      const el = document.getElementById('notifSnoozeStatus');
+      if (el) { el.style.display = 'block'; el.textContent = '🔕 Ztlumeno ještě ' + left + ' hod'; }
+    }
+  } catch(e) {}
+}
+
+function saveNotifPrefs() {
+  const p = getNotifPrefsObj();
+  localStorage.setItem('notif_prefs', JSON.stringify(p));
+}
+
+function getNotifPrefsObj() {
+  return {
+    inapp_listings: document.getElementById('ntg_listings')?.checked !== false,
+    inapp_wishlist: document.getElementById('ntg_wishlist')?.checked !== false,
+    inapp_messages: document.getElementById('ntg_messages')?.checked !== false,
+    email_freq: localStorage.getItem('notif_email_freq') || 'off'
+  };
+}
+
+function setNotifFreq(val) {
+  localStorage.setItem('notif_email_freq', val);
+  setNotifFreqUI(val);
+}
+
+function setNotifFreqUI(val) {
+  ['off','daily','weekly'].forEach(k => {
+    const el = document.getElementById('nf_' + k);
+    if (el) el.classList.toggle('active', k === val);
+  });
+}
+
+function snoozeNotifs(hours) {
+  const el = document.getElementById('notifSnoozeStatus');
+  if (hours === 0) {
+    localStorage.removeItem('notif_snooze_until');
+    if (el) { el.style.display = 'none'; el.textContent = ''; }
+    toast('▶ Oznámení odmlčena', 'info');
+    return;
+  }
+  const until = Date.now() + hours * 3600000;
+  localStorage.setItem('notif_snooze_until', String(until));
+  if (el) {
+    el.style.display = 'block';
+    el.textContent = '🔕 Ztlumeno na ' + hours + ' hod (do ' +
+      new Date(until).toLocaleTimeString('cs', {hour:'2-digit',minute:'2-digit'}) + ')';
+  }
+  toast('🔕 Oznámení ztlumena na ' + hours + ' hod', 'info');
+}
+
+async function saveNotifPrefsToSupabase() {
+  const prefs = getNotifPrefsObj();
+  localStorage.setItem('notif_prefs', JSON.stringify(prefs));
+  if (!currentToken || !currentUser) { toast('💾 Uloženo lokálně', 'success'); return; }
+  try {
+    const uid = currentUser.id;
+    await sbReq(`rest/v1/profiles?id=eq.${uid}`, 'PATCH', { notification_prefs: prefs });
+    toast('💾 Nastavení notifikací uloženo', 'success');
+  } catch(e) {
+    toast('💾 Uloženo lokálně', 'success');
+  }
+}
+
+// Expose for notif-bell.js – check if in-app notifications are active
+window.isNotifActive = function(type) {
+  const snoozed = parseInt(localStorage.getItem('notif_snooze_until') || '0');
+  if (snoozed > Date.now()) return false;
+  try {
+    const p = JSON.parse(localStorage.getItem('notif_prefs') || '{}');
+    if (type === 'listings') return p.inapp_listings !== false;
+    if (type === 'wishlist') return p.inapp_wishlist !== false;
+    if (type === 'messages') return p.inapp_messages !== false;
+  } catch(e) {}
+  return true;
+};
 
 function doLogout() {
   localStorage.removeItem('sb_token');
@@ -1358,6 +1513,7 @@ function openSettings() {
   modal.classList.add('open');
   updateKeyStatusFromStorage();
   updateGroqCounter();
+  loadNotifPrefs();
 }
 
 function updateKeyStatusFromStorage() {
@@ -1962,7 +2118,7 @@ function renderQr(containerId, size) {
   try {
     new QRCode(el, { text: url, width: size, height: size,
       colorDark: '#000', colorLight: '#fff',
-      correctLevel: QRCode.CorrectLevel.M });
+      correctLevel: QRCode.CorrectLevel.L });
   } catch(e) { el.style.fontSize = '9px'; el.textContent = url; }
 }
 
