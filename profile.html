@@ -672,6 +672,82 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 }
 
 
+/* ═══ ZABEZPEČENÍ ÚČTU ═══ */
+.security-section { margin-top: 32px; }
+.security-card {
+  background: rgba(12,10,18,0.80);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 20px 22px;
+  margin-bottom: 12px;
+  transition: border-color .15s;
+}
+.security-card:hover { border-color: rgba(255,255,255,0.14); }
+.security-card-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.security-card-left { display: flex; align-items: center; gap: 12px; }
+.security-card-icon { font-size: 20px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.05); border-radius: 10px; flex-shrink: 0; }
+.security-card-title { font-size: 14px; font-weight: 700; color: var(--text, #f0ece4); }
+.security-card-sub { font-size: 12px; color: var(--text3, rgba(240,236,228,0.35)); margin-top: 2px; }
+.security-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+}
+.security-badge.active { background: rgba(74,222,128,0.12); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+.security-badge.inactive { background: rgba(255,255,255,0.05); color: rgba(240,236,228,0.4); border: 1px solid rgba(255,255,255,0.1); }
+.security-card-body { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,0.07); }
+.security-card-body.hidden { display: none; }
+.sec-input-row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+.sec-input {
+  flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 10px 14px; font-size: 13px;
+  color: var(--text, #f0ece4); outline: none; transition: border-color .2s; font-family: inherit;
+}
+.sec-input:focus { border-color: rgba(245,200,66,0.4); }
+.sec-input::placeholder { color: rgba(240,236,228,0.3); }
+.sec-btn {
+  background: linear-gradient(135deg, var(--yellow, #f5c842) 0%, #ff8c00 100%);
+  color: #0a0608; font-weight: 700; font-size: 13px;
+  border: none; border-radius: 10px; padding: 10px 18px;
+  cursor: pointer; transition: all .2s; font-family: inherit; white-space: nowrap;
+}
+.sec-btn:hover { transform: translateY(-1px); }
+.sec-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.sec-btn-outline {
+  background: transparent; color: var(--text2, rgba(240,236,228,0.65));
+  border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; padding: 9px 16px;
+  font-size: 13px; cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.sec-btn-outline:hover { background: rgba(255,255,255,0.07); color: var(--text, #f0ece4); }
+.sec-btn-danger {
+  background: transparent; color: #f87171;
+  border: 1px solid rgba(248,113,113,0.3); border-radius: 10px; padding: 9px 16px;
+  font-size: 13px; cursor: pointer; transition: all .15s; font-family: inherit;
+}
+.sec-btn-danger:hover { background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.5); }
+.sec-feedback { font-size: 12px; min-height: 18px; margin-top: 8px; line-height: 1.5; }
+.sec-feedback.ok    { color: #4ade80; }
+.sec-feedback.error { color: #f87171; }
+.sec-feedback.info  { color: rgba(116,180,255,0.9); }
+.totp-qr-wrap {
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; padding: 20px; margin-bottom: 14px; text-align: center;
+}
+.totp-qr-wrap img { width: 180px; height: 180px; border-radius: 8px; background: #fff; padding: 6px; }
+.totp-qr-label { font-size: 12px; color: var(--text3, rgba(240,236,228,0.35)); line-height: 1.6; }
+.totp-secret-box {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 8px 12px; margin-bottom: 14px;
+}
+.totp-secret-code { font-family: 'Courier New', monospace; font-size: 13px; color: var(--yellow, #f5c842); letter-spacing: 0.1em; flex: 1; word-break: break-all; }
+.totp-copy-btn { background: none; border: none; cursor: pointer; font-size: 14px; color: var(--text3); padding: 2px 4px; border-radius: 4px; transition: color .15s; }
+.totp-copy-btn:hover { color: var(--yellow, #f5c842); }
+.sec-label { display: block; font-size: 11px; font-weight: 600; color: var(--text3, rgba(240,236,228,0.35)); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.sec-hint { font-size: 12px; color: var(--text3, rgba(240,236,228,0.35)); line-height: 1.6; margin-bottom: 14px; }
+
 /* ═══ SETTINGS ACCORDION ═══ */
 .settings-accordion {
   margin-bottom: 24px;
@@ -1223,6 +1299,89 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
         <p class="empty-state">Žádné nabídky zatím 🕊️</p>
       </div>
     </div>
+
+    <!-- ═══ ZABEZPEČENÍ ÚČTU ═══ -->
+    <div class="security-section">
+      <div class="section-title" style="margin-top:32px">Zabezpečení účtu</div>
+
+      <!-- ZMĚNA EMAILU -->
+      <div class="security-card">
+        <div class="security-card-header">
+          <div class="security-card-left">
+            <div class="security-card-icon">✉️</div>
+            <div>
+              <div class="security-card-title">Emailová adresa</div>
+              <div class="security-card-sub" id="secCurrentEmail">Načítám…</div>
+            </div>
+          </div>
+          <button class="sec-btn-outline" onclick="secToggleEmailForm()">Změnit</button>
+        </div>
+        <div class="security-card-body hidden" id="secEmailBody">
+          <p class="sec-hint">Na nový email přijde potvrzovací odkaz. Změna se provede až po kliknutí na odkaz.</p>
+          <label class="sec-label">Nový email</label>
+          <div class="sec-input-row">
+            <input type="email" id="secNewEmailInp" class="sec-input" placeholder="novy@email.com">
+            <button class="sec-btn" onclick="secChangeEmail()">Odeslat</button>
+          </div>
+          <div class="sec-feedback" id="secEmailFeedback"></div>
+        </div>
+      </div>
+
+      <!-- DVOUFAKTOROVÉ OVĚŘENÍ (TOTP) -->
+      <div class="security-card">
+        <div class="security-card-header">
+          <div class="security-card-left">
+            <div class="security-card-icon">🔐</div>
+            <div>
+              <div class="security-card-title">Dvoufaktorové ověření (2FA)</div>
+              <div class="security-card-sub">Google Authenticator, Authy a jiné TOTP aplikace</div>
+            </div>
+          </div>
+          <span class="security-badge inactive" id="totpBadge">⏳ Načítám</span>
+        </div>
+        <div class="security-card-body" id="secTotpBody">
+
+          <div id="totpStateLoading" style="color:rgba(240,236,228,0.35);font-size:13px">Načítám stav 2FA…</div>
+
+          <!-- Aktivní -->
+          <div id="totpStateActive" style="display:none">
+            <p class="sec-hint">✅ 2FA je aktivní. Při přihlášení budete vyzváni k zadání kódu z vaší autentizační aplikace.</p>
+            <button class="sec-btn-danger" onclick="secDisableTotp()">🗑️ Deaktivovat 2FA</button>
+            <div class="sec-feedback" id="secTotpDisableFeedback"></div>
+          </div>
+
+          <!-- Neaktivní → krok 1 -->
+          <div id="totpStateSetup" style="display:none">
+            <p class="sec-hint">Naskenujte QR kód v aplikaci <strong>Google Authenticator</strong> nebo <strong>Authy</strong>, poté zadejte 6místný kód.</p>
+            <button class="sec-btn-outline" id="totpStartBtn" onclick="secStartTotpSetup()">📱 Zahájit nastavení 2FA</button>
+            <div class="sec-feedback" id="secTotpSetupFeedback"></div>
+          </div>
+
+          <!-- Krok 2: QR + kód -->
+          <div id="totpStateVerify" style="display:none">
+            <div class="totp-qr-wrap">
+              <img id="totpQrImg" src="" alt="QR kód">
+              <div class="totp-qr-label">Naskenujte v Google Authenticator nebo Authy</div>
+            </div>
+            <p class="sec-hint" style="margin-bottom:6px">Nebo zadejte kód manuálně:</p>
+            <div class="totp-secret-box">
+              <span class="totp-secret-code" id="totpSecretText"></span>
+              <button class="totp-copy-btn" onclick="secCopySecret()" title="Kopírovat">📋</button>
+            </div>
+            <label class="sec-label">Ověřovací kód z aplikace</label>
+            <div class="sec-input-row">
+              <input type="text" id="totpCodeInp" class="sec-input" placeholder="123456" maxlength="6" inputmode="numeric" style="letter-spacing:0.2em;font-size:18px;text-align:center">
+              <button class="sec-btn" onclick="secVerifyTotp()">Ověřit a aktivovat</button>
+            </div>
+            <div class="sec-feedback" id="secTotpVerifyFeedback"></div>
+            <button class="sec-btn-outline" style="margin-top:8px;font-size:12px" onclick="secCancelTotpSetup()">Zrušit</button>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /security-section -->
+
   </div>
 
 </div><!-- /page-wrap -->
@@ -1471,7 +1630,7 @@ function renderProfile(p) {
     if (editBtn) editBtn.style.display = 'flex';
     // Zobraz dashboard
     const ds = document.getElementById('dashboardSection');
-    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); }
+    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); if (typeof securityInit === 'function') securityInit(); }
   } else if (currentUser) {
     document.getElementById('btnLeaveReview').style.display = 'inline-flex';
   }
@@ -2221,6 +2380,251 @@ function profileUpdateLangUI(lang) {
     feedback.textContent = msg;
     feedback.className = 'groq-feedback ' + (type || '');
   }
+})();
+
+
+/* ═══════════════════════════════════════════════════════
+   ZABEZPEČENÍ ÚČTU — Změna emailu + TOTP 2FA
+   ═══════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  var _SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+  var _SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+  var _totpFactorId    = null;
+  var _totpChallengeId = null;
+  var _totpSecret      = null;
+
+  function _tok() { return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null; }
+  function _authH() {
+    return { 'Content-Type': 'application/json', 'apikey': _SBA, 'Authorization': 'Bearer ' + _tok() };
+  }
+
+  /* ── Inicializace po načtení profilu ── */
+  window.securityInit = function () {
+    var user = null;
+    try { user = JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch(e) {}
+    var email = user?.email || user?.user_metadata?.email || '';
+    var el = document.getElementById('secCurrentEmail');
+    if (el) el.textContent = email || 'Neznámý email';
+    _loadTotpState();
+  };
+
+  /* ─────────────────────────────────────────
+     ZMĚNA EMAILU
+  ───────────────────────────────────────── */
+  window.secToggleEmailForm = function () {
+    var body = document.getElementById('secEmailBody');
+    if (!body) return;
+    body.classList.toggle('hidden');
+    if (!body.classList.contains('hidden')) {
+      var inp = document.getElementById('secNewEmailInp');
+      if (inp) inp.focus();
+    }
+  };
+
+  window.secChangeEmail = function () {
+    var inp = document.getElementById('secNewEmailInp');
+    var fb  = document.getElementById('secEmailFeedback');
+    var newEmail = inp ? inp.value.trim() : '';
+
+    if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+      _secFb(fb, 'error', '❌ Zadej platný email');
+      return;
+    }
+    var btn = inp.nextElementSibling;
+    if (btn) { btn.disabled = true; btn.textContent = 'Odesílám…'; }
+    _secFb(fb, 'info', '⏳ Odesílám potvrzovací email…');
+
+    fetch(_SBU + '/auth/v1/user', {
+      method: 'PUT',
+      headers: _authH(),
+      body: JSON.stringify({ email: newEmail })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error || d.msg) {
+        _secFb(fb, 'error', '❌ ' + (d.error_description || d.msg || d.error));
+      } else {
+        _secFb(fb, 'ok', '✅ Potvrzovací odkaz odeslán na ' + newEmail + '. Zkontroluj email a klikni na odkaz.');
+        if (inp) inp.value = '';
+      }
+    })
+    .catch(function () { _secFb(fb, 'error', '❌ Chyba sítě'); })
+    .finally(function () { if (btn) { btn.disabled = false; btn.textContent = 'Odeslat'; } });
+  };
+
+  /* ─────────────────────────────────────────
+     TOTP 2FA
+  ───────────────────────────────────────── */
+  function _loadTotpState() {
+    var t = _tok();
+    if (!t) { _totpShowState('setup'); return; }
+
+    fetch(_SBU + '/auth/v1/factors', { headers: _authH() })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var factors = Array.isArray(d) ? d : (d.totp || []);
+      var active = factors.find(function (f) { return f.factor_type === 'totp' && f.status === 'verified'; });
+      if (active) {
+        _totpFactorId = active.id;
+        _totpShowState('active');
+      } else {
+        // Smaž případné neověřené faktory z předchozího pokusu
+        var unverified = factors.filter(function (f) { return f.factor_type === 'totp' && f.status !== 'verified'; });
+        Promise.all(unverified.map(function (f) { return _totpDeleteFactor(f.id); }))
+          .then(function () { _totpShowState('setup'); });
+      }
+    })
+    .catch(function () { _totpShowState('setup'); });
+  }
+
+  function _totpShowState(state) {
+    document.getElementById('totpStateLoading').style.display = 'none';
+    document.getElementById('totpStateActive').style.display  = state === 'active'  ? '' : 'none';
+    document.getElementById('totpStateSetup').style.display   = state === 'setup'   ? '' : 'none';
+    document.getElementById('totpStateVerify').style.display  = state === 'verify'  ? '' : 'none';
+
+    var badge = document.getElementById('totpBadge');
+    if (badge) {
+      if (state === 'active') {
+        badge.className = 'security-badge active';
+        badge.textContent = '✅ Aktivní';
+      } else if (state === 'setup' || state === 'verify') {
+        badge.className = 'security-badge inactive';
+        badge.textContent = '🔓 Neaktivní';
+      } else {
+        badge.className = 'security-badge inactive';
+        badge.textContent = '⏳ Načítám';
+      }
+    }
+  }
+
+  window.secStartTotpSetup = function () {
+    var btn = document.getElementById('totpStartBtn');
+    var fb  = document.getElementById('secTotpSetupFeedback');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Generuji QR kód…'; }
+    _secFb(fb, '', '');
+
+    fetch(_SBU + '/auth/v1/factors', {
+      method: 'POST',
+      headers: _authH(),
+      body: JSON.stringify({ factor_type: 'totp', friendly_name: 'PokéTrade 2FA' })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error || !d.id) {
+        _secFb(fb, 'error', '❌ ' + (d.error_description || d.error || 'Nepodařilo se vygenerovat 2FA'));
+        if (btn) { btn.disabled = false; btn.textContent = '📱 Zahájit nastavení 2FA'; }
+        return;
+      }
+      _totpFactorId = d.id;
+      _totpSecret   = d.totp?.secret || '';
+
+      // QR kód z URI
+      var uri = d.totp?.uri || '';
+      var qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(uri);
+      var img = document.getElementById('totpQrImg');
+      if (img) img.src = qrUrl;
+      var sec = document.getElementById('totpSecretText');
+      if (sec) sec.textContent = _totpSecret;
+
+      _totpShowState('verify');
+      var codeInp = document.getElementById('totpCodeInp');
+      if (codeInp) { codeInp.value = ''; codeInp.focus(); }
+    })
+    .catch(function () {
+      _secFb(fb, 'error', '❌ Chyba sítě');
+      if (btn) { btn.disabled = false; btn.textContent = '📱 Zahájit nastavení 2FA'; }
+    });
+  };
+
+  window.secVerifyTotp = function () {
+    var code = (document.getElementById('totpCodeInp')?.value || '').replace(/\s/g, '');
+    var fb   = document.getElementById('secTotpVerifyFeedback');
+
+    if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+      _secFb(fb, 'error', '❌ Zadej 6místný číselný kód'); return;
+    }
+
+    _secFb(fb, 'info', '⏳ Ověřuji kód…');
+
+    // 1. Vytvoř challenge
+    fetch(_SBU + '/auth/v1/factors/' + _totpFactorId + '/challenge', {
+      method: 'POST', headers: _authH()
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (ch) {
+      if (ch.error || !ch.id) throw new Error(ch.error_description || 'Challenge selhala');
+      _totpChallengeId = ch.id;
+
+      // 2. Ověř kód
+      return fetch(_SBU + '/auth/v1/factors/' + _totpFactorId + '/verify', {
+        method: 'POST',
+        headers: _authH(),
+        body: JSON.stringify({ challenge_id: _totpChallengeId, code: code })
+      });
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d.error) throw new Error(d.error_description || d.error);
+      // Uložení nového tokenu (Supabase vrátí novou session)
+      if (d.access_token) {
+        localStorage.setItem('sb_token', d.access_token);
+        localStorage.setItem('sb_access_token', d.access_token);
+      }
+      _secFb(fb, 'ok', '✅ 2FA aktivováno! Při každém přihlášení budete vyzváni k zadání kódu.');
+      setTimeout(function () { _totpShowState('active'); }, 1800);
+    })
+    .catch(function (e) {
+      _secFb(fb, 'error', '❌ ' + (e.message || 'Neplatný kód'));
+    });
+  };
+
+  window.secCancelTotpSetup = function () {
+    if (_totpFactorId) _totpDeleteFactor(_totpFactorId);
+    _totpFactorId = null; _totpSecret = null; _totpChallengeId = null;
+    _totpShowState('setup');
+  };
+
+  window.secDisableTotp = function () {
+    var fb = document.getElementById('secTotpDisableFeedback');
+    if (!_totpFactorId) { _secFb(fb, 'error', '❌ Factor ID nenalezeno'); return; }
+    if (!confirm('Opravdu chceš deaktivovat 2FA? Tvůj účet bude méně chráněný.')) return;
+    _secFb(fb, 'info', '⏳ Deaktivuji…');
+
+    _totpDeleteFactor(_totpFactorId)
+    .then(function () {
+      _totpFactorId = null;
+      _secFb(fb, 'ok', '✅ 2FA deaktivováno');
+      setTimeout(function () { _totpShowState('setup'); }, 1500);
+    })
+    .catch(function () { _secFb(fb, 'error', '❌ Nepodařilo se deaktivovat'); });
+  };
+
+  function _totpDeleteFactor(id) {
+    return fetch(_SBU + '/auth/v1/factors/' + id, {
+      method: 'DELETE', headers: _authH()
+    }).then(function (r) { return r.ok ? {} : r.json(); });
+  }
+
+  window.secCopySecret = function () {
+    if (_totpSecret) {
+      navigator.clipboard?.writeText(_totpSecret)
+        .then(function () { showToast('Kód zkopírován'); })
+        .catch(function () {});
+    }
+  };
+
+  function _secFb(el, type, msg) {
+    if (!el) return;
+    el.textContent = msg;
+    el.className = 'sec-feedback' + (type ? ' ' + type : '');
+  }
+
+  /* Spustí se když loadProfile() zobrazí dashboard */
+  window.securityInit = window.securityInit;
+
 })();
 
 function doLogout() {
