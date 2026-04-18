@@ -80,6 +80,13 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;back
 .page-title{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:6px}
 .page-subtitle{font-size:13px;color:var(--text3);margin-bottom:28px}
 
+/* Market nav */
+.mmt-row{display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap}
+.mmt-btn{padding:8px 22px;border-radius:9px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.04);color:var(--text3);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .18s;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.mmt-btn:hover{background:rgba(255,255,255,0.08);color:var(--text2)}
+.mmt-btn.active{background:rgba(245,200,66,0.12);border-color:rgba(245,200,66,0.35);color:var(--yellow)}
+.mmt-btn#mmtDemand.active,.mmt-btn#mmtManage.active{background:rgba(34,211,238,0.12);border-color:rgba(34,211,238,0.35);color:#22d3ee}
+
 /* Tabs */
 .tabs-row{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0}
 .tab-btn{padding:10px 20px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;border:none;cursor:pointer;color:var(--text3);background:transparent;font-family:inherit;position:relative;bottom:-1px;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:7px}
@@ -227,6 +234,14 @@ textarea.form-textarea::placeholder{color:rgba(255,255,255,0.2)}
 <div class="page-wrap">
   <div class="page-title">📦 Moje transakce</div>
   <div class="page-subtitle">Přehled koupených a prodaných karet · Hodnoťte zde po dokončení obchodu</div>
+
+  <!-- Navigace mezi sekcemi marketplace -->
+  <div class="mmt-row">
+    <a class="mmt-btn" id="mmtOffer"  href="marketplace.html">🏷️ Nabídky</a>
+    <a class="mmt-btn" id="mmtDemand" href="marketplace.html?mode=demand">🔍 Poptávky</a>
+    <a class="mmt-btn" id="mmtManage" href="marketplace.html?my=1">🏪 Správa inzerátů</a>
+    <a class="mmt-btn active"         href="transactions.html">📦 Transakce</a>
+  </div>
 
   <div class="tabs-row">
     <button class="tab-btn active" id="tabPurchased" onclick="switchTab('purchased')">
