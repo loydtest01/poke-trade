@@ -27,6 +27,39 @@
     { href: 'download.html',               icon: 'energi/ke_stazeni.png',        label: 'Ke stažení',          id: 'download'    },
   ];
 
+  /* ── Inject nav pill styles globally ── */
+  (function injectNavStyle() {
+    if (document.getElementById('topbar-nav-style')) return;
+    var s = document.createElement('style');
+    s.id = 'topbar-nav-style';
+    s.textContent = `
+      .nav-lnks a {
+        background: rgba(255,255,255,0.06) !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
+        border-radius: 8px !important;
+        color: var(--text2, rgba(240,236,228,0.65)) !important;
+        padding: 5px 13px !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        text-decoration: none !important;
+        transition: all .15s !important;
+        display: inline-flex !important;
+        align-items: center !important;
+      }
+      .nav-lnks a:hover {
+        background: rgba(255,255,255,0.11) !important;
+        color: var(--text, #f0ece4) !important;
+        border-color: rgba(255,255,255,0.13) !important;
+      }
+      .nav-lnks a.active {
+        background: rgba(245,200,66,0.15) !important;
+        color: var(--yellow, #f5c842) !important;
+        border-color: rgba(245,200,66,0.25) !important;
+      }
+    `;
+    document.head.appendChild(s);
+  })();
+
   function render() {
     var nav = document.getElementById('mainNav');
     if (!nav) return;
