@@ -204,6 +204,8 @@ textarea.form-textarea::placeholder{color:rgba(255,255,255,0.2)}
   .cat-grid{grid-template-columns:1fr}
 }
 </style>
+  <script>window.TOPBAR_ACTIVE = 'transactions';</script>
+  <script src="topbar.js"></script>
 </head>
 <body>
 
@@ -211,15 +213,7 @@ textarea.form-textarea::placeholder{color:rgba(255,255,255,0.2)}
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
-    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
-    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
-    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
-    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
-    <a href="transactions.html" class="active"><img src="energi/obchod.png" class="nav-icon"> Transakce</a>
-  </nav>
+  <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
     <a href="profile.html" class="user-chip" id="userChip" style="display:none">
       <div class="user-avatar" id="userAvatar">?</div>

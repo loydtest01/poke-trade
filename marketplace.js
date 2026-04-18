@@ -65,16 +65,33 @@ let salePhotos=[];
 let tradeViewMode='img', selectedTradeIds=new Set();
 
 // ── Load listings ─────────────────────────────────────────────
+const MY_LISTINGS_MODE = new URLSearchParams(location.search).get('my') === '1';
+
 (async function loadListings(){
   document.getElementById('listingsWrap').innerHTML =
     Array(5).fill('<div class="skeleton-row"></div>').join('');
-  const res = await sbReq('rest/v1/listings?status=eq.active&select=*&order=created_at.desc&limit=100');
+
+  // Správa inzerátů — načti i reserved/sold vlastní inzeráty
+  let url = MY_LISTINGS_MODE && userId
+    ? `rest/v1/listings?user_id=eq.${userId}&select=*&order=created_at.desc&limit=200`
+    : 'rest/v1/listings?status=eq.active&select=*&order=created_at.desc&limit=100';
+
+  const res = await sbReq(url, 'GET', null, MY_LISTINGS_MODE ? token : null);
   if(!Array.isArray(res) || res._err){
     document.getElementById('listingsWrap').innerHTML =
       '<div class="empty-state"><div class="icon">⚠️</div><h3>Chyba načítání</h3></div>';
     return;
   }
   allListings = res;
+
+  if (MY_LISTINGS_MODE) {
+    // Aktivuj banner
+    const banner = document.getElementById('myListingsBanner');
+    banner.style.display = 'flex';
+    document.getElementById('navMyListings')?.classList.add('active');
+    document.querySelector('a[href="marketplace.html"]')?.classList.remove('active');
+  }
+
   applyFilters();
 })();
 
@@ -355,6 +372,13 @@ function renderListings(){
     wrap.innerHTML='<div class="empty-state"><div class="icon">🔍</div><h3>Žádné nabídky</h3><p>Zkus jiné filtry nebo hledání.</p></div>';
     return;
   }
+
+  // Aktualizuj počet v banneru správy
+  if (MY_LISTINGS_MODE) {
+    const cnt = document.getElementById('myListingsCount');
+    if (cnt) cnt.textContent = `${filteredListings.length} inzerátů`;
+  }
+
   wrap.innerHTML = filteredListings.map(l => {
     const cards = l.cards_data||[];
     const first = cards[0]||{};
@@ -397,12 +421,29 @@ function renderListings(){
         ${price>0
           ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(price/25).toFixed(0)} €</small></div>`
           : `<div class="price-trade">Výměna</div>`}
-        <div class="offer-count">${l.offer_count||0} nabídek</div>
-        <div class="action-btns">
-          ${price>0 ? `<button class="btn-buy" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Koupit</button>` : ''}
-          <button class="btn-offer" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Nabídnout</button>
-          ${isTrade ? `<button class="btn-trade-sm" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Vyměnit</button>` : ''}
-        </div>
+        ${MY_LISTINGS_MODE ? `
+          <div class="my-listing-status-badge status-${esc(l.status||'active')}">
+            ${ l.status==='reserved' ? '🔒 Rezervováno: '+esc(l.reserved_by_username||'?')
+             : l.status==='sold'     ? '✅ Prodáno'
+             : '🟢 Aktivní' }
+          </div>
+          <div class="action-btns" style="flex-direction:column;gap:5px">
+            <button class="btn-offer" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">✏️ Detail</button>
+            ${l.status==='reserved' ? `
+              <button class="btn-trade-sm" style="border-color:rgba(74,222,128,0.4);color:#4ade80" onclick="event.stopPropagation();quickConfirmSale('${esc(l.id)}')">✅ Prodáno</button>
+              <button class="btn-trade-sm" style="border-color:rgba(245,200,66,0.35);color:#f5c842" onclick="event.stopPropagation();quickRelist('${esc(l.id)}')">↩️ Znovu</button>
+            ` : l.status==='active' ? `
+              <button class="btn-trade-sm" style="border-color:rgba(255,80,80,0.35);color:#ff6060" onclick="event.stopPropagation();quickCancel('${esc(l.id)}')">🗑️ Zrušit</button>
+            ` : ''}
+          </div>
+        ` : `
+          <div class="offer-count">${l.offer_count||0} nabídek</div>
+          <div class="action-btns">
+            ${price>0 ? `<button class="btn-buy" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Koupit</button>` : ''}
+            <button class="btn-offer" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Nabídnout</button>
+            ${isTrade ? `<button class="btn-trade-sm" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Vyměnit</button>` : ''}
+          </div>
+        `}
       </div>
     </div>`;
   }).join('');
@@ -4410,3 +4451,41 @@ async function copyShareLink() {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('shareModal')?.classList.remove('open');
 });
+
+// ── Správa inzerátů — rychlé akce ─────────────────────────────
+async function quickCancel(id) {
+  if (!confirm('Zrušit inzerát? Tato akce je nevratná.')) return;
+  let res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'DELETE', null, token);
+  if (res?._err) {
+    res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'PATCH', { status: 'sold' }, token);
+    if (res?._err) { alert('Chyba: ' + res._err); return; }
+  }
+  allListings = allListings.filter(l => l.id !== id);
+  showMktToast('🗑️ Inzerát zrušen.');
+  renderListings();
+}
+
+async function quickConfirmSale(id) {
+  if (!confirm('Označit jako prodáno?')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'PATCH', { status: 'sold' }, token);
+  if (res?._err) { alert('Chyba: ' + res._err); return; }
+  const l = allListings.find(x => x.id === id);
+  if (l) l.status = 'sold';
+  showMktToast('✅ Označeno jako prodáno.');
+  renderListings();
+}
+
+async function quickRelist(id) {
+  if (!confirm('Zrušit rezervaci a vystavit znova?')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'PATCH', {
+    status: 'active',
+    reserved_by_user_id: null,
+    reserved_by_username: null,
+    reserved_at: null,
+  }, token);
+  if (res?._err) { alert('Chyba: ' + res._err); return; }
+  const l = allListings.find(x => x.id === id);
+  if (l) { l.status = 'active'; l.reserved_by_user_id = null; l.reserved_by_username = null; }
+  showMktToast('↩️ Inzerát znovu vystaven.');
+  renderListings();
+}

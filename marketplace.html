@@ -9,6 +9,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="marketplace.css">
+  <script>window.TOPBAR_ACTIVE = 'marketplace';</script>
+  <script src="topbar.js"></script>
 </head>
 <body>
 
@@ -16,15 +18,7 @@
   <a href="index.html" class="app-logo">
     <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
   </a>
-  <nav class="nav-lnks">
-    <a href="marketplace.html" class="active"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
-    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
-    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
-    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
-    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
-    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
-    <a href="transactions.html"><img src="energi/obchod.png" class="nav-icon"> Transakce</a>
-  </nav>
+  <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
@@ -247,6 +241,15 @@
         📚 <strong id="compareBannerLabel">Porovnání s albem</strong>
         <span id="compareBannerCount" style="font-size:11px;opacity:.7"></span>
         <button class="compare-banner-close" onclick="clearAlbumCompare()" title="Zrušit porovnání">✕ Zrušit</button>
+      </div>
+
+      <!-- SPRÁVA INZERÁTŮ banner -->
+      <div id="myListingsBanner" style="display:none;margin-bottom:12px;padding:12px 16px;background:rgba(245,200,66,0.08);border:1px solid rgba(245,200,66,0.25);border-radius:12px;display:none;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <span style="font-size:15px;font-weight:800;color:#f5c842">🏷️ Správa mých inzerátů</span>
+          <span id="myListingsCount" style="font-size:12px;color:rgba(245,200,66,0.6);margin-left:8px"></span>
+        </div>
+        <a href="marketplace.html" style="font-size:12px;color:rgba(245,200,66,0.7);text-decoration:none;border:1px solid rgba(245,200,66,0.25);padding:4px 12px;border-radius:8px">← Zpět na obchod</a>
       </div>
 
       <div id="listingsWrap" class="listings-wrap"></div>
