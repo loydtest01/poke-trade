@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <link rel="icon" type="image/png" href="pokemon.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moje transakce – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+
+  <!--
+  ═══ SUPABASE SQL — spusť jednorázově ═══════════════════════════════
+
+  -- Transakce (potvrzené prodeje)
+  create table if not exists transactions (
+    id                uuid primary key default gen_random_uuid(),
+    listing_id        uuid,
+    seller_id         uuid not null,
+    buyer_id          uuid not null,
+    seller_username   text,
+    buyer_username    text,
+    card_name         text,
+    card_image_url    text,
+    price_czk         int,
+    status            text default 'completed',
+    seller_reviewed   boolean default false,
+    buyer_reviewed    boolean default false,
+    created_at        timestamptz default now()
+  );
+  alter table transactions enable row level security;
+  create policy "Vidí vlastní transakce" on transactions
+    for select using (auth.uid() = seller_id or auth.uid() = buyer_id);
+  create policy "Vytváří vlastník listingu" on transactions
+    for insert with check (auth.uid() = seller_id);
+  create policy "Update vlastník" on transactions
+    for update using (auth.uid() = seller_id or auth.uid() = buyer_id);
+
+  -- Rezervace v listings (přidej sloupce pokud chybí)
+  alter table listings add column if not exists reserved_by_user_id uuid;
+  alter table listings add column if not exists reserved_by_username text;
+  alter table listings add column if not exists reserved_at timestamptz;
+
+  -- transaction_id v reviews (pro vazbu hodnocení ↔ transakce)
+  alter table reviews add column if not exists transaction_id uuid;
+
+  ═══════════════════════════════════════════════════════════════════
+  -->
+
+<style>
+:root {
+  --yellow:#f5c842; --text:#f0ece4; --text2:rgba(240,236,228,0.65);
+  --text3:rgba(240,236,228,0.35); --bg1:rgba(12,10,18,0.88);
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.14);
+  --green:#4ade80; --blue:#74b4ff; --red:#f87171; --orange:#fb923c;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:#06040c;font-family:'DM Sans',sans-serif;color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url('wallpaper.png');background-size:cover;background-position:center 30%;filter:brightness(0.15) saturate(0.4)}
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:linear-gradient(to bottom,rgba(0,0,0,0.55) 0%,rgba(0,0,0,0.05) 50%,rgba(0,0,0,0.6) 100%)}
+
+/* Topbar */
+.app-topbar{position:sticky;top:0;z-index:200;background:rgba(8,4,6,0.82);border-bottom:1px solid rgba(245,200,66,0.12);backdrop-filter:blur(18px);display:flex;align-items:center;height:56px;padding:0 20px;gap:0}
+.app-logo{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px;text-decoration:none;margin-right:28px}
+.app-logo strong{color:var(--yellow)}
+.nav-lnks{display:flex;gap:2px;flex:1}
+.nav-lnks a{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;color:var(--text2);text-decoration:none;transition:all .15s}
+.nav-lnks a:hover{background:rgba(255,255,255,0.07);color:var(--text)}
+.nav-lnks a.active{background:rgba(245,200,66,0.12);color:var(--yellow)}
+.nav-icon{width:22px;height:22px;object-fit:contain;vertical-align:middle;margin-right:4px;mix-blend-mode:screen;filter:brightness(1.3)}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+.user-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 6px;font-size:13px;cursor:pointer;text-decoration:none;color:var(--text)}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:var(--yellow);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0;background-size:cover;background-position:center;overflow:hidden}
+.btn-nav-outline{padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.18);font-size:13px;color:rgba(240,236,228,0.65);text-decoration:none;display:inline-flex;align-items:center;cursor:pointer;background:transparent;font-family:inherit}
+
+/* Layout */
+.page-wrap{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:32px 20px 80px}
+
+/* Page title */
+.page-title{font-family:'Unbounded',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:6px}
+.page-subtitle{font-size:13px;color:var(--text3);margin-bottom:28px}
+
+/* Tabs */
+.tabs-row{display:flex;gap:4px;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:0}
+.tab-btn{padding:10px 20px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;border:none;cursor:pointer;color:var(--text3);background:transparent;font-family:inherit;position:relative;bottom:-1px;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:7px}
+.tab-btn:hover{color:var(--text2)}
+.tab-btn.active{color:var(--yellow);border-bottom-color:var(--yellow)}
+.tab-count{background:rgba(255,255,255,0.08);border-radius:10px;padding:1px 7px;font-size:11px}
+.tab-btn.active .tab-count{background:rgba(245,200,66,0.15);color:var(--yellow)}
+
+/* Cards grid */
+.tx-grid{display:flex;flex-direction:column;gap:14px}
+
+/* Transaction card */
+.tx-card{
+  background:rgba(12,10,18,0.82);border:1px solid var(--border);border-radius:16px;
+  padding:18px 20px;backdrop-filter:blur(18px);display:flex;gap:16px;align-items:flex-start;
+  transition:border-color .2s;animation:fadeUp .3s ease both;
+}
+.tx-card:hover{border-color:var(--border2)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.tx-img-wrap{flex-shrink:0;width:62px;height:86px;border-radius:8px;overflow:hidden;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center}
+.tx-img-wrap img{width:100%;height:100%;object-fit:cover}
+.tx-img-placeholder{font-size:28px;opacity:.4}
+
+.tx-body{flex:1;min-width:0}
+.tx-card-name{font-size:15px;font-weight:700;color:#fff;margin-bottom:4px}
+.tx-meta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.tx-meta-item{font-size:12px;color:var(--text3);display:flex;align-items:center;gap:4px}
+.tx-meta-item strong{color:var(--text2)}
+.tx-price{font-size:13px;font-weight:700;color:var(--yellow)}
+
+/* Status badges */
+.status-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.04em}
+.status-completed{background:rgba(74,222,128,0.1);color:var(--green);border:1px solid rgba(74,222,128,0.2)}
+.status-reserved{background:rgba(245,200,66,0.1);color:var(--yellow);border:1px solid rgba(245,200,66,0.2)}
+.status-pending{background:rgba(116,180,255,0.1);color:var(--blue);border:1px solid rgba(116,180,255,0.2)}
+
+.tx-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btn-rate{padding:8px 16px;border-radius:8px;border:1px solid rgba(245,200,66,0.3);background:rgba(245,200,66,0.08);color:var(--yellow);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-rate:hover{background:rgba(245,200,66,0.18)}
+.btn-rate:disabled{opacity:.4;cursor:not-allowed}
+.btn-rated{padding:8px 16px;border-radius:8px;border:1px solid rgba(74,222,128,0.2);background:rgba(74,222,128,0.06);color:var(--green);font-size:12px;font-weight:600;cursor:default;font-family:inherit}
+.btn-confirm-sale{padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s}
+.btn-confirm-sale:hover{opacity:.85}
+.btn-relist{padding:8px 16px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-relist:hover{background:rgba(255,255,255,0.07)}
+.btn-cancel-tx{padding:8px 16px;border-radius:8px;border:1px solid rgba(248,113,113,0.3);background:rgba(248,113,113,0.06);color:var(--red);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s}
+.btn-cancel-tx:hover{background:rgba(248,113,113,0.14)}
+
+/* Reviewed inline display */
+.tx-review-preview{margin-top:12px;padding:12px 14px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px}
+.tx-review-stars{display:flex;gap:2px;margin-bottom:4px}
+.rv-star{font-size:14px;color:#2d2720}
+.rv-star.filled{color:var(--yellow)}
+.tx-review-text{font-size:12.5px;color:var(--text2);line-height:1.6}
+
+/* Empty state */
+.empty-state{text-align:center;padding:60px 24px;background:rgba(12,10,18,0.6);border:1px dashed var(--border);border-radius:14px}
+.empty-icon{font-size:44px;margin-bottom:14px;opacity:.35}
+.empty-state p{font-size:14px;color:var(--text3);line-height:1.7}
+
+/* Skeleton */
+.skeleton{background:rgba(12,10,18,0.75);border:1px solid var(--border);border-radius:16px;padding:20px;animation:skPulse 1.4s ease infinite}
+@keyframes skPulse{0%,100%{opacity:.6}50%{opacity:.3}}
+.sk-line{height:12px;border-radius:6px;background:rgba(255,255,255,0.07);margin-bottom:8px}
+
+/* ═══ REVIEW MODAL ═══ */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .22s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal-box{background:rgba(10,8,18,0.98);border:1px solid rgba(255,255,255,0.12);border-radius:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.8);transform:translateY(18px) scale(.97);transition:transform .22s}
+.modal-overlay.open .modal-box{transform:translateY(0) scale(1)}
+
+.modal-head{display:flex;align-items:flex-start;gap:14px;padding:24px 24px 0}
+.modal-head-card-img{width:48px;height:67px;border-radius:7px;object-fit:cover;flex-shrink:0;background:rgba(255,255,255,0.05)}
+.modal-head-info{flex:1}
+.modal-title{font-family:'Unbounded',sans-serif;font-size:15px;font-weight:800;color:#fff;margin-bottom:3px}
+.modal-card-name{font-size:13px;color:var(--yellow);font-weight:600}
+.modal-partner{font-size:12px;color:var(--text3);margin-top:2px}
+.modal-close{background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer;padding:0;line-height:1;flex-shrink:0}
+.modal-close:hover{color:var(--text)}
+.modal-body{padding:20px 24px 0}
+.modal-footer{padding:16px 24px 24px;display:flex;gap:10px;justify-content:flex-end}
+
+.form-field{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.form-label{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.08em}
+
+/* Star picker */
+.star-picker{display:flex;gap:5px}
+.star-pick{font-size:30px;cursor:pointer;color:#2d2720;transition:color .1s,transform .1s;user-select:none}
+.star-pick:hover,.star-pick.active{color:var(--yellow);transform:scale(1.15)}
+
+/* Category stars */
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px}
+.cat-item{display:flex;flex-direction:column;gap:5px}
+.cat-label{font-size:11.5px;color:var(--text2)}
+.mini-star-row{display:flex;gap:3px}
+.mini-sp{font-size:18px;cursor:pointer;color:#2d2720;transition:color .1s,transform .1s;user-select:none}
+.mini-sp:hover,.mini-sp.active{color:var(--yellow);transform:scale(1.12)}
+
+textarea.form-textarea{background:rgba(255,255,255,0.05);border:1px solid var(--border2);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;resize:vertical;min-height:90px;transition:border-color .2s}
+textarea.form-textarea:focus{outline:none;border-color:rgba(245,200,66,0.45)}
+textarea.form-textarea::placeholder{color:rgba(255,255,255,0.2)}
+
+.btn-primary{background:linear-gradient(135deg,var(--yellow) 0%,#ff8c00 100%);color:#0a0608;font-weight:700;font-size:13px;border:none;border-radius:10px;padding:10px 22px;cursor:pointer;transition:all .2s;box-shadow:0 4px 16px rgba(255,140,0,0.3)}
+.btn-primary:hover{transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-cancel{background:transparent;border:1px solid var(--border2);color:var(--text2);font-size:13px;border-radius:10px;padding:10px 18px;cursor:pointer;font-family:inherit;transition:all .2s}
+.btn-cancel:hover{background:rgba(255,255,255,0.05)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;z-index:2000;background:rgba(20,16,28,0.97);border:1px solid var(--border2);border-radius:12px;padding:13px 18px;font-size:13.5px;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,0.5);transform:translateY(80px);opacity:0;transition:all .32s cubic-bezier(.34,1.56,.64,1);display:flex;align-items:center;gap:10px;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:rgba(74,222,128,0.35)}
+.toast.error{border-color:rgba(248,113,113,0.35)}
+
+/* Rezervace info box */
+.reserved-box{background:rgba(245,200,66,0.07);border:1px solid rgba(245,200,66,0.2);border-radius:10px;padding:10px 14px;font-size:12.5px;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+@media(max-width:600px){
+  .tx-card{flex-direction:column}
+  .tx-img-wrap{width:100%;height:120px}
+  .cat-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<header class="app-topbar">
+  <a href="index.html" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks">
+    <a href="marketplace.html"><img src="energi/obchod.png" class="nav-icon"> Obchod</a>
+    <a href="moje-album.html"><img src="energi/moje alba.png" class="nav-icon"> Moje alba</a>
+    <a href="compare.html"><img src="energi/porovnat.png" class="nav-icon"> Porovnat alba</a>
+    <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
+    <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
+    <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
+    <a href="transactions.html" class="active"><img src="energi/obchod.png" class="nav-icon"> Transakce</a>
+  </nav>
+  <div class="topbar-right">
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;cursor:pointer">Odhlásit</button>
+  </div>
+</header>
+
+<div class="page-wrap">
+  <div class="page-title">📦 Moje transakce</div>
+  <div class="page-subtitle">Přehled koupených a prodaných karet · Hodnoťte zde po dokončení obchodu</div>
+
+  <div class="tabs-row">
+    <button class="tab-btn active" id="tabPurchased" onclick="switchTab('purchased')">
+      🛒 Koupené <span class="tab-count" id="cntPurchased">0</span>
+    </button>
+    <button class="tab-btn" id="tabSold" onclick="switchTab('sold')">
+      🏷️ Prodané <span class="tab-count" id="cntSold">0</span>
+    </button>
+    <button class="tab-btn" id="tabReserved" onclick="switchTab('reserved')">
+      🔒 Rezervace <span class="tab-count" id="cntReserved">0</span>
+    </button>
+  </div>
+
+  <div id="txContent">
+    <div class="skeleton"><div class="sk-line" style="width:60%"></div><div class="sk-line" style="width:40%"></div></div>
+    <div class="skeleton" style="margin-top:10px"><div class="sk-line" style="width:70%"></div><div class="sk-line" style="width:30%"></div></div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <img id="revCardImg" class="modal-head-card-img" src="" onerror="this.style.display='none'">
+      <div class="modal-head-info">
+        <div class="modal-title">⭐ Zanechat hodnocení</div>
+        <div class="modal-card-name" id="revCardName">Název karty</div>
+        <div class="modal-partner" id="revPartnerLabel"></div>
+      </div>
+      <button class="modal-close" onclick="closeReviewModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- Celkové hvězdičky -->
+      <div class="form-field">
+        <label class="form-label">Celkové hodnocení</label>
+        <div class="star-picker" id="overallStarPicker">
+          <span class="star-pick" onclick="setOverall(1)">★</span>
+          <span class="star-pick" onclick="setOverall(2)">★</span>
+          <span class="star-pick" onclick="setOverall(3)">★</span>
+          <span class="star-pick" onclick="setOverall(4)">★</span>
+          <span class="star-pick" onclick="setOverall(5)">★</span>
+        </div>
+      </div>
+      <!-- Kategoriální hvězdičky (mění se dle role) -->
+      <div class="cat-grid" id="catGrid"></div>
+      <!-- Komentář -->
+      <div class="form-field">
+        <label class="form-label">Komentář <span style="font-weight:400;text-transform:none;font-size:11px">(nepovinné)</span></label>
+        <textarea class="form-textarea" id="revComment" placeholder="Popiš svou zkušenost…" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeReviewModal()">Zrušit</button>
+      <button class="btn-primary" id="btnSubmitRev" onclick="submitReview()">Odeslat hodnocení</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════════════════════════
+const SURL = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+const SANON = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+
+let currentUser = null, userToken = null, uid = null, uname = '';
+
+(function initAuth() {
+  try { currentUser = JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch {}
+  userToken = localStorage.getItem('sb_token');
+  if (currentUser?.id) {
+    uid   = currentUser.id;
+    uname = currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || '?';
+    document.getElementById('userChip').style.display   = '';
+    document.getElementById('loginLink').style.display  = 'none';
+    document.getElementById('logoutBtn').style.display  = '';
+    document.getElementById('userAvatar').textContent   = (uname[0]||'?').toUpperCase();
+    document.getElementById('userName').textContent     = uname;
+    // avatar
+    try {
+      const av = localStorage.getItem('pkc_avatar_local');
+      const el = document.getElementById('userAvatar');
+      if (av && el) { el.textContent=''; el.style.backgroundImage=`url(${av})`; el.style.backgroundSize='cover'; el.style.backgroundPosition='center'; }
+    } catch {}
+  } else {
+    document.getElementById('loginLink').style.display = '';
+    window.location.href = 'login.html';
+  }
+})();
+
+function doLogout() {
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
+  location.href = 'login.html';
+}
+
+async function sbReq(path, method = 'GET', body = null) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey': SANON,
+    'Authorization': 'Bearer ' + (userToken || SANON),
+  };
+  if (['POST','PATCH'].includes(method)) headers['Prefer'] = 'return=representation';
+  const res  = await fetch(`${SURL}/${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const text = await res.text();
+  const data = text ? JSON.parse(text) : {};
+  if (!res.ok) return { _err: data.message || data.error || 'HTTP ' + res.status };
+  return data;
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function timeAgo(iso) {
+  if (!iso) return '';
+  const d = (Date.now() - new Date(iso)) / 1000;
+  if (d < 60) return 'právě teď';
+  if (d < 3600) return Math.floor(d/60) + ' min';
+  if (d < 86400) return Math.floor(d/3600) + ' h';
+  if (d < 604800) return Math.floor(d/86400) + ' d';
+  return new Date(iso).toLocaleDateString('cs-CZ');
+}
+
+// ════════════════════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════════════════════
+let txPurchased = [], txSold = [], reservedBuyer = [], reservedSeller = [];
+let reviewedTxIds = new Set(); // transakce kde jsem již dal hodnocení
+let currentTab = 'purchased';
+
+// Review state
+let revTxId = null, revListingId = null, revRole = null;
+let revOverall = 0, revCatVals = {};
+
+async function loadAll() {
+  if (!uid) return;
+
+  const [bought, sold, resBuyer, resSeller, myReviews] = await Promise.all([
+    sbReq(`rest/v1/transactions?buyer_id=eq.${uid}&order=created_at.desc`),
+    sbReq(`rest/v1/transactions?seller_id=eq.${uid}&order=created_at.desc`),
+    sbReq(`rest/v1/listings?reserved_by_user_id=eq.${uid}&status=eq.reserved&select=*&order=created_at.desc`),
+    sbReq(`rest/v1/listings?user_id=eq.${uid}&status=eq.reserved&select=*&order=created_at.desc`),
+    sbReq(`rest/v1/reviews?reviewer_id=eq.${uid}&select=transaction_id`),
+  ]);
+
+  txPurchased   = Array.isArray(bought)     ? bought     : [];
+  txSold        = Array.isArray(sold)       ? sold       : [];
+  reservedBuyer = Array.isArray(resBuyer)  ? resBuyer   : [];
+  reservedSeller= Array.isArray(resSeller) ? resSeller  : [];
+
+  if (Array.isArray(myReviews)) {
+    myReviews.forEach(r => { if (r.transaction_id) reviewedTxIds.add(r.transaction_id); });
+  }
+
+  updateCounts();
+  renderTab(currentTab);
+}
+
+function updateCounts() {
+  document.getElementById('cntPurchased').textContent = txPurchased.length;
+  document.getElementById('cntSold').textContent      = txSold.length;
+  document.getElementById('cntReserved').textContent  = reservedBuyer.length + reservedSeller.length;
+}
+
+// ════════════════════════════════════════════════════════════
+//  TABS
+// ════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  currentTab = tab;
+  ['purchased','sold','reserved'].forEach(t => {
+    document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+  });
+  renderTab(tab);
+}
+
+function renderTab(tab) {
+  const el = document.getElementById('txContent');
+  if (tab === 'purchased') {
+    el.innerHTML = renderList(txPurchased, 'buyer');
+  } else if (tab === 'sold') {
+    el.innerHTML = renderList(txSold, 'seller');
+  } else {
+    el.innerHTML = renderReserved();
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER COMPLETED TRANSACTIONS
+// ════════════════════════════════════════════════════════════
+function renderList(list, myRole) {
+  if (!list.length) return `<div class="empty-state"><div class="empty-icon">${myRole==='buyer'?'🛒':'🏷️'}</div><p>${myRole==='buyer'?'Zatím jsi nic nekoupil/a.':'Zatím jsi nic neprodal/a.'}<br>Karty koupené přes marketplace se zobrazí zde.</p></div>`;
+
+  return `<div class="tx-grid">${list.map((tx, i) => renderTxCard(tx, myRole, i)).join('')}</div>`;
+}
+
+function renderTxCard(tx, myRole, i) {
+  const otherName = myRole === 'buyer' ? (tx.seller_username || '?') : (tx.buyer_username || '?');
+  const otherProfileUrl = `profile.html?user=${myRole==='buyer' ? tx.seller_id : tx.buyer_id}`;
+  const alreadyReviewed = reviewedTxIds.has(tx.id);
+  const priceStr = tx.price_czk ? tx.price_czk.toLocaleString('cs') + ' Kč' : 'Výměna';
+  const dateStr = tx.created_at ? new Date(tx.created_at).toLocaleDateString('cs-CZ',{day:'numeric',month:'long',year:'numeric'}) : '';
+  const imgSrc = tx.card_image_url || '';
+
+  const roleLabel = myRole === 'buyer' ? 'Koupeno od' : 'Prodáno uživateli';
+
+  return `
+    <div class="tx-card" style="animation-delay:${i*0.05}s">
+      <div class="tx-img-wrap">
+        ${imgSrc
+          ? `<img src="${esc(imgSrc)}" alt="${esc(tx.card_name||'')}" loading="lazy">`
+          : `<div class="tx-img-placeholder">🃏</div>`}
+      </div>
+      <div class="tx-body">
+        <div class="tx-card-name">${esc(tx.card_name||'Karta')}</div>
+        <div class="tx-meta">
+          <div class="tx-meta-item">${roleLabel}: <strong><a href="${otherProfileUrl}" style="color:var(--yellow);text-decoration:none">${esc(otherName)}</a></strong></div>
+          <div class="tx-meta-item tx-price">${esc(priceStr)}</div>
+          ${dateStr ? `<div class="tx-meta-item">📅 ${dateStr}</div>` : ''}
+        </div>
+        <span class="status-badge status-completed">✅ Dokončeno</span>
+        <div class="tx-actions">
+          ${alreadyReviewed
+            ? `<span class="btn-rated">⭐ Hodnoceno</span>`
+            : `<button class="btn-rate" onclick="openReviewModal('${tx.id}','${tx.listing_id||''}','${esc(tx.card_name||'Karta')}','${esc(imgSrc)}','${esc(otherName)}','${myRole==='buyer'?'seller':'buyer'}','${myRole}')">⭐ Ohodnotit</button>`}
+          <a href="marketplace.html?listing=${tx.listing_id||''}" class="btn-relist" style="text-decoration:none;font-size:12px;padding:7px 14px">🃏 Zobrazit inzerát</a>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER RESERVATIONS
+// ════════════════════════════════════════════════════════════
+function renderReserved() {
+  const allEmpty = !reservedBuyer.length && !reservedSeller.length;
+  if (allEmpty) return `<div class="empty-state"><div class="empty-icon">🔒</div><p>Žádné aktivní rezervace.<br>Když klikneš <strong>Koupit</strong> na kartě, rezervace se objeví zde.</p></div>`;
+
+  let html = '<div class="tx-grid">';
+
+  // Jako kupující — čeká na prodejce
+  reservedBuyer.forEach((l, i) => {
+    const imgSrc = l.api_image_url || '';
+    const first = (l.cards_data||[])[0]||{};
+    const cardImg = imgSrc || first?.images?.small || '';
+    const priceStr = l.price_czk ? l.price_czk.toLocaleString('cs') + ' Kč' : 'Výměna';
+    html += `
+      <div class="tx-card" style="animation-delay:${i*0.05}s">
+        <div class="tx-img-wrap">
+          ${cardImg ? `<img src="${esc(cardImg)}" loading="lazy">` : '<div class="tx-img-placeholder">🃏</div>'}
+        </div>
+        <div class="tx-body">
+          <div class="tx-card-name">${esc(l.card_name||first.name||'Karta')}</div>
+          <div class="tx-meta">
+            <div class="tx-meta-item">Prodejce: <strong><a href="profile.html?user=${esc(l.user_id||'')}" style="color:var(--yellow);text-decoration:none">${esc(l.username||'?')}</a></strong></div>
+            <div class="tx-meta-item tx-price">${esc(priceStr)}</div>
+          </div>
+          <span class="status-badge status-reserved">🔒 Čeká na potvrzení prodejce</span>
+          <div class="tx-actions" style="margin-top:12px">
+            <a href="marketplace.html" class="btn-relist" style="text-decoration:none;font-size:12px;padding:7px 14px">← Zpět na obchod</a>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  // Jako prodejce — někdo rezervoval moji kartu
+  reservedSeller.forEach((l, i) => {
+    const imgSrc = l.api_image_url || '';
+    const first = (l.cards_data||[])[0]||{};
+    const cardImg = imgSrc || first?.images?.small || '';
+    const priceStr = l.price_czk ? l.price_czk.toLocaleString('cs') + ' Kč' : 'Výměna';
+    html += `
+      <div class="tx-card" style="animation-delay:${(reservedBuyer.length+i)*0.05}s;border-color:rgba(74,222,128,0.2)">
+        <div class="tx-img-wrap">
+          ${cardImg ? `<img src="${esc(cardImg)}" loading="lazy">` : '<div class="tx-img-placeholder">🃏</div>'}
+        </div>
+        <div class="tx-body">
+          <div class="tx-card-name">${esc(l.card_name||first.name||'Karta')}</div>
+          <div class="tx-meta">
+            <div class="tx-meta-item">Kupující: <strong><a href="profile.html?user=${esc(l.reserved_by_user_id||'')}" style="color:var(--yellow);text-decoration:none">${esc(l.reserved_by_username||'?')}</a></strong></div>
+            <div class="tx-meta-item tx-price">${esc(priceStr)}</div>
+          </div>
+          <span class="status-badge status-pending">⏳ Čeká na tvé potvrzení</span>
+          <div style="margin-top:10px;font-size:12px;color:var(--text3)">Potvrzením vznikne transakce a oba budete moci zanechat hodnocení.</div>
+          <div class="tx-actions">
+            <button class="btn-confirm-sale" onclick="confirmSaleFromList('${l.id}','${esc(l.card_name||first.name||'?')}','${esc(cardImg)}','${esc(l.reserved_by_user_id||'')}','${esc(l.reserved_by_username||'?')}','${l.price_czk||0}')">
+              ✅ Potvrdit prodej
+            </button>
+            <button class="btn-cancel-tx" onclick="relistFromList('${l.id}')">↩️ Vystavit znova</button>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// Potvrdit prodej přímo z transactions stránky
+async function confirmSaleFromList(listingId, cardName, cardImg, buyerId, buyerUsername, priceCzk) {
+  if (!confirm(`Potvrdit prodej karty "${cardName}" pro ${buyerUsername}?`)) return;
+
+  const patchRes = await sbReq(`rest/v1/listings?id=eq.${listingId}`, 'PATCH', { status: 'sold' });
+  if (patchRes._err) { showToast('❌ ' + patchRes._err, 'error'); return; }
+
+  const txRes = await sbReq('rest/v1/transactions', 'POST', {
+    listing_id:      listingId,
+    seller_id:       uid,
+    buyer_id:        buyerId,
+    seller_username: uname,
+    buyer_username:  buyerUsername,
+    card_name:       cardName,
+    card_image_url:  cardImg,
+    price_czk:       parseInt(priceCzk) || null,
+    status:          'completed',
+    seller_reviewed: false,
+    buyer_reviewed:  false,
+  });
+  if (txRes._err) { showToast('⚠️ Transakce se neuložila: ' + txRes._err, 'error'); }
+
+  showToast('✅ Prodej potvrzen! Hodnocení je nyní dostupné.', 'success');
+  await loadAll();
+}
+
+// Vystavit znova (zrušit rezervaci)
+async function relistFromList(listingId) {
+  if (!confirm('Zrušit rezervaci a vystavit kartu znova?')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${listingId}`, 'PATCH', {
+    status: 'active',
+    reserved_by_user_id: null,
+    reserved_by_username: null,
+    reserved_at: null,
+  });
+  if (res._err) { showToast('❌ ' + res._err, 'error'); return; }
+  showToast('↩️ Karta znovu vystavena.', 'success');
+  await loadAll();
+}
+
+// ════════════════════════════════════════════════════════════
+//  REVIEW MODAL
+// ════════════════════════════════════════════════════════════
+// myRole = 'buyer' | 'seller'  (moje role v transakci)
+// ratedRole = role hodnoceného ('seller' | 'buyer')
+function openReviewModal(txId, listingId, cardName, cardImg, partnerName, ratedRole, myRole) {
+  revTxId     = txId;
+  revListingId= listingId;
+  revRole     = myRole; // moje role
+  revOverall  = 0;
+  revCatVals  = {};
+
+  document.getElementById('revCardName').textContent    = cardName;
+  document.getElementById('revPartnerLabel').textContent= (myRole==='buyer' ? 'Hodnotíš prodejce: ' : 'Hodnotíš kupujícího: ') + partnerName;
+  const imgEl = document.getElementById('revCardImg');
+  if (cardImg) { imgEl.src = cardImg; imgEl.style.display = ''; } else imgEl.style.display = 'none';
+
+  // Reset hvězdiček
+  document.querySelectorAll('.star-pick').forEach(s => s.classList.remove('active'));
+
+  // Kategoriální hvězdičky dle role
+  const cats = myRole === 'buyer' ? [
+    { key: 'communication',  label: '💬 Komunikace' },
+    { key: 'delivery_speed', label: '📦 Rychlost dodání' },
+    { key: 'item_accuracy',  label: '🎴 Přesnost stavu karty' },
+  ] : [
+    { key: 'payment_speed', label: '💸 Rychlost platby' },
+    { key: 'pickup',        label: '📬 Převzetí zásilky' },
+  ];
+
+  document.getElementById('catGrid').innerHTML = cats.map(c => `
+    <div class="cat-item">
+      <span class="cat-label">${c.label}</span>
+      <div class="mini-star-row" id="catRow-${c.key}">
+        ${[1,2,3,4,5].map(v => `<span class="mini-sp" onclick="setCat('${c.key}',${v})" data-v="${v}">★</span>`).join('')}
+      </div>
+    </div>`).join('');
+
+  document.getElementById('revComment').value = '';
+  document.getElementById('btnSubmitRev').disabled = false;
+  document.getElementById('reviewModal').classList.add('open');
+}
+
+function closeReviewModal() { document.getElementById('reviewModal').classList.remove('open'); }
+document.getElementById('reviewModal').addEventListener('click', e => { if (e.target === document.getElementById('reviewModal')) closeReviewModal(); });
+
+function setOverall(val) {
+  revOverall = val;
+  document.querySelectorAll('#overallStarPicker .star-pick').forEach((s,i) => s.classList.toggle('active', i < val));
+}
+
+function setCat(key, val) {
+  revCatVals[key] = val;
+  document.querySelectorAll(`#catRow-${key} .mini-sp`).forEach((s,i) => s.classList.toggle('active', i < val));
+}
+
+async function submitReview() {
+  if (!revOverall) { showToast('⚠️ Vyber celkové hodnocení', 'error'); return; }
+
+  const btn = document.getElementById('btnSubmitRev');
+  btn.disabled = true;
+
+  // Zjisti kdo je reviewed (partner v transakci)
+  let tx = null;
+  if (revRole === 'buyer') {
+    tx = txPurchased.find(t => t.id === revTxId);
+  } else {
+    tx = txSold.find(t => t.id === revTxId);
+  }
+  if (!tx) { showToast('❌ Transakce nenalezena', 'error'); btn.disabled = false; return; }
+
+  const reviewedId       = revRole === 'buyer' ? tx.seller_id       : tx.buyer_id;
+  const reviewedUsername = revRole === 'buyer' ? tx.seller_username  : tx.buyer_username;
+  const reviewerRole     = revRole; // 'buyer' nebo 'seller'
+
+  const comment = document.getElementById('revComment').value.trim();
+  const body = {
+    reviewer_id:       uid,
+    reviewed_id:       reviewedId,
+    reviewer_username: uname,
+    reviewed_username: reviewedUsername,
+    reviewer_role:     reviewerRole,
+    stars_overall:     revOverall,
+    comment:           comment || null,
+    listing_id:        revListingId || null,
+    transaction_id:    revTxId,
+    is_positive:       revOverall >= 4,
+    is_neutral:        revOverall === 3,
+    card_name:         tx.card_name || null,
+  };
+
+  if (reviewerRole === 'buyer') {
+    body.stars_communication  = revCatVals.communication  || null;
+    body.stars_delivery_speed = revCatVals.delivery_speed || null;
+    body.stars_item_accuracy  = revCatVals.item_accuracy  || null;
+  } else {
+    body.stars_payment_speed = revCatVals.payment_speed || null;
+    body.stars_pickup        = revCatVals.pickup        || null;
+  }
+
+  const res = await sbReq('rest/v1/reviews', 'POST', body);
+  if (res && res._err) {
+    const msg = (res._err||'').includes('unique') ? 'Tuto transakci jsi již hodnotil/a.' : res._err;
+    showToast('❌ ' + msg, 'error');
+    btn.disabled = false;
+    return;
+  }
+
+  // Označ transakci jako reviewed (pole buyer_reviewed nebo seller_reviewed)
+  const patchField = reviewerRole === 'buyer' ? { buyer_reviewed: true } : { seller_reviewed: true };
+  await sbReq(`rest/v1/transactions?id=eq.${revTxId}`, 'PATCH', patchField);
+
+  reviewedTxIds.add(revTxId);
+  closeReviewModal();
+  showToast('✅ Hodnocení odesláno! Děkujeme.', 'success');
+  renderTab(currentTab);
+  btn.disabled = false;
+}
+
+// ════════════════════════════════════════════════════════════
+//  TOAST
+// ════════════════════════════════════════════════════════════
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `toast${type ? ' '+type : ''} show`;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3500);
+}
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+loadAll();
+</script>
+</body>
+</html>

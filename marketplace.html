@@ -23,6 +23,7 @@
     <a href="scanner.html"><img src="energi/scanner.png" class="nav-icon"> Skener</a>
     <a href="queue.html"><img src="energi/ceka_na_zarazeni.png" class="nav-icon"> Čeká na zařazení</a>
     <a href="download.html"><img src="energi/ke_stazeni.png" class="nav-icon"> Ke stažení</a>
+    <a href="transactions.html"><img src="energi/obchod.png" class="nav-icon"> Transakce</a>
   </nav>
   <div class="topbar-right">
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -301,15 +302,26 @@
           <div class="detail-tags" id="dTags"></div>
           <div class="detail-meta-grid" id="dMeta"></div>
           <div class="detail-desc" id="dDesc" style="display:none"></div>
+          <!-- Banner: rezervováno pro mě -->
+          <div id="reservedForMeBanner" style="display:none;background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.25);border-radius:10px;padding:10px 14px;font-size:13px;color:#4ade80;margin-bottom:8px">
+            🔒 <strong>Rezervováno pro tebe</strong> — čeká na potvrzení prodejcem.
+            <a href="transactions.html" style="color:#4ade80;text-decoration:underline;margin-left:8px">Moje transakce →</a>
+          </div>
           <div class="detail-actions">
             <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
             <button class="btn-detail-offer" id="dBtnOffer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
             <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
             <button class="btn-detail-msg" id="dBtnMsg" onclick="openChat()">✉️ Napsat prodejci</button>
           </div>
-          <div id="ownerActions" style="display:none;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button class="btn-owner-sold" onclick="markListingAsSold()">✅ Prodáno</button>
-            <button class="btn-owner-cancel" onclick="cancelListing()">🗑️ Zrušit inzerát</button>
+          <!-- Owner akce -->
+          <div id="ownerActions" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
+            <div id="ownerReservedInfo" style="display:none;font-size:12px;color:#f5c842;padding:6px 10px;background:rgba(245,200,66,0.08);border-radius:8px;border:1px solid rgba(245,200,66,0.2)"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button id="ownerBtnSold"     class="btn-owner-confirm"  onclick="confirmSale()"       style="display:none">✅ Potvrdit prodej</button>
+              <button id="ownerBtnRelist"   class="btn-owner-relist"   onclick="relistListing()"     style="display:none">↩️ Vystavit znova</button>
+              <button id="ownerBtnMarkSold" class="btn-owner-sold"     onclick="markListingAsSold()" style="display:none">✅ Prodáno</button>
+              <button id="ownerBtnCancel"   class="btn-owner-cancel"   onclick="cancelListing()"     style="display:none">🗑️ Zrušit inzerát</button>
+            </div>
           </div>
 
           <!-- Offer panel -->
