@@ -379,7 +379,7 @@ function renderListings(){
       <div class="listing-info">
         <div class="listing-title">${esc(name)}${num?' · #'+esc(num):''}</div>
         <div class="listing-meta">
-          <span>Prodejce: <b>${esc(l.username||'?')}</b></span>
+          <span>Prodejce: <a class="seller-link" href="profile.html?user=${encodeURIComponent(l.user_id||'')}" onclick="event.stopPropagation()">${esc(l.username||'?')}</a></span>
           ${set?`<span>${esc(set)}</span>`:''}
           <span>${timeAgo(l.created_at)}</span>
         </div>
@@ -448,7 +448,9 @@ async function openDetail(id){
   document.getElementById('detailView').classList.add('show');
   document.getElementById('breadTitle').textContent=name;
   document.getElementById('dTitle').textContent=name;
-  document.getElementById('dSeller').innerHTML=`Prodejce: <span>${esc(l.username||'?')}</span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  const sellerUrl = `profile.html?user=${encodeURIComponent(l.user_id||'')}`;
+  document.getElementById('dSeller').innerHTML=`Prodejce: <a class="seller-link" href="${sellerUrl}">${esc(l.username||'?')}</a><span id="dSellerStars" class="seller-stars-inline"></span> · ${timeAgo(l.created_at)} · ${l.view_count||0} zobrazení`;
+  loadSellerRating(l.user_id);
 
   // Price
   if(price>0){
@@ -492,6 +494,16 @@ async function openDetail(id){
   if(price>0) document.getElementById('dBtnBuy').textContent='Koupit za '+price.toLocaleString('cs')+' Kč';
   document.getElementById('dBtnTrade').style.display=isTrade?'':'none';
 
+  // Owner vs. buyer view
+  const isOwner = !!(userId && l.user_id === userId);
+  document.getElementById('ownerActions').style.display = isOwner ? 'flex' : 'none';
+  document.getElementById('dBtnOffer').style.display  = isOwner ? 'none' : '';
+  document.getElementById('dBtnMsg').style.display    = isOwner ? 'none' : '';
+  if(isOwner){
+    document.getElementById('dBtnBuy').style.display   = 'none';
+    document.getElementById('dBtnTrade').style.display = 'none';
+  }
+
   // Trade wants - show tags + compute matches
   currentTradeMatches = new Set();
   const wantsBox = document.getElementById('tradeWantsBox');
@@ -523,7 +535,6 @@ async function openDetail(id){
   document.getElementById('msgPanel').classList.remove('show');
 
   // Increment view count silently
-  // Počítej zobrazení pouze pro cizí návštěvníky, ne vlastníka inzerátu
   if (!userId || l.user_id !== userId) {
     sbReq(`rest/v1/rpc/increment_view_count`,'POST',{listing_uuid:l.id});
   }
@@ -4159,3 +4170,57 @@ window.setListingTab = function(tab) {
   style.textContent = '.listing-tab { display: none !important; }';
   document.head.appendChild(style);
 })();
+
+
+// ── Seller rating & stars ────────────────────────────────────
+function renderStarsInline(avg) {
+  if (!avg) return '';
+  const full = Math.round(avg);
+  return `<span class="seller-stars-tiny">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span>`;
+}
+
+async function loadSellerRating(sellerId) {
+  if (!sellerId) return;
+  const el = document.getElementById('dSellerStars');
+  if (!el) return;
+  try {
+    const res = await sbReq(`rest/v1/seller_ratings?seller_id=eq.${sellerId}&select=stars`);
+    if (!Array.isArray(res) || res.length === 0) { el.innerHTML = ''; return; }
+    const avg = res.reduce((s, r) => s + (r.stars || 0), 0) / res.length;
+    const full = Math.round(avg);
+    el.innerHTML = `<span class="seller-stars-tiny" title="${Number(avg).toFixed(1)} / 5 (${res.length} hodnocení)">${'★'.repeat(full)}${'☆'.repeat(5-full)}</span><span class="seller-stars-count">${Number(avg).toFixed(1)}</span>`;
+  } catch(e) { el.innerHTML = ''; }
+}
+
+// ── Správa vlastního inzerátu ────────────────────────────────
+async function markListingAsSold() {
+  if (!currentListing) return;
+  if (!confirm('Označit inzerát jako prodaný?\nInzerát zmizí z nabídek.')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'sold' }, token);
+  if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  showMktToast('✅ Inzerát označen jako prodaný.');
+  showList(); loadListings();
+}
+
+async function cancelListing() {
+  if (!currentListing) return;
+  if (!confirm('Opravdu zrušit inzerát?\nTato akce je nevratná.')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'cancelled' }, token);
+  if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  showMktToast('🗑️ Inzerát byl zrušen.');
+  showList(); loadListings();
+}
+
+function showMktToast(msg) {
+  let t = document.getElementById('mktToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'mktToast';
+    t.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#1e1b2e;border:1px solid rgba(255,255,255,0.15);color:#f0ece4;font-size:13px;font-weight:600;padding:10px 22px;border-radius:10px;z-index:9999;pointer-events:none;opacity:0;transition:opacity .2s';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => { t.style.opacity = '0'; }, 2800);
+}

@@ -1759,37 +1759,41 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   .fs-footer { flex-direction: column; }
 }
 
-/* ── Seller link & stars ────────────────────────────────────── */
+/* ── Seller link ─────────────────────────────────────────── */
 .seller-link {
   color: var(--yellow, #f5c842);
   text-decoration: none;
   font-weight: 700;
   transition: opacity .15s;
+  cursor: pointer;
 }
-.seller-link:hover { opacity: .75; text-decoration: underline; }
+.seller-link:hover {
+  opacity: .75;
+  text-decoration: underline;
+}
 
+/* ── Stars inline ────────────────────────────────────────── */
 .seller-stars-inline {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   margin-left: 6px;
+  vertical-align: middle;
 }
-
 .seller-stars-tiny {
   font-size: 12px;
   color: #f5c842;
   letter-spacing: 1px;
   line-height: 1;
 }
-
 .seller-stars-count {
   font-size: 11px;
-  color: rgba(245, 200, 66, 0.75);
+  color: rgba(245,200,66,0.75);
   font-weight: 600;
   margin-left: 2px;
 }
 
-/* ── Owner action buttons ───────────────────────────────────── */
+/* ── Owner action buttons ────────────────────────────────── */
 .btn-owner-sold {
   padding: 10px 20px;
   border-radius: 9px;
@@ -1807,8 +1811,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .btn-owner-cancel {
   padding: 10px 20px;
   border-radius: 9px;
-  border: 1px solid rgba(255, 80, 80, 0.35);
-  background: rgba(255, 80, 80, 0.08);
+  border: 1px solid rgba(255,80,80,0.35);
+  background: rgba(255,80,80,0.08);
   color: #ff6060;
   font-size: 13px;
   font-weight: 700;
@@ -1816,4 +1820,4 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   font-family: inherit;
   transition: background .15s;
 }
-.btn-owner-cancel:hover { background: rgba(255, 80, 80, 0.18); }
+.btn-owner-cancel:hover { background: rgba(255,80,80,0.18); }
