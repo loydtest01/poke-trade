@@ -1095,6 +1095,22 @@ async function sbRpc(fn, params={}) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+// Maskuje email pro zobrazení: "jan.novak@gmail.com" → "ja×××@×××.com"
+// Slouží k ochraně soukromí – zobrazí se jen při hledání podle přezdívky
+function maskEmail(email) {
+  if (!email) return '';
+  const atIdx = email.indexOf('@');
+  if (atIdx < 0) return email.slice(0, 2) + '×××';
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx + 1);
+  const visibleLocal = local.slice(0, Math.min(2, local.length));
+  const maskedLocal = visibleLocal + '×××';
+  const dotIdx = domain.lastIndexOf('.');
+  const tld = dotIdx >= 0 ? domain.slice(dotIdx) : ('.' + domain);
+  const maskedDomain = '×××' + tld;
+  return `${maskedLocal}@${maskedDomain}`;
+}
+
 // ═══ AUTH ═══
 let token=null, userId=null, username='';
 
@@ -2045,7 +2061,7 @@ async function searchNewConvUsers(q) {
     );
     // Normalize: map email→email_hint for uniform rendering
     if (Array.isArray(data)) {
-      data = data.map(u => ({ ...u, email_hint: u.email_hint || (u.email ? u.email.replace(/(.{2}).*@/, '$1…@') : '') }));
+      data = data.map(u => ({ ...u, email_hint: u.email_hint || u.email || '' }));
     }
   }
 
@@ -2066,7 +2082,7 @@ async function searchNewConvUsers(q) {
         <div class="modal-result-avatar">${avatarHtml}</div>
         <div>
           <div class="modal-result-name">@${esc(u.username)}${blocked ? ' 🚫' : ''}</div>
-          ${u.email_hint ? `<div class="modal-result-hint">📧 ${esc(u.email_hint)}</div>` : ''}
+          ${u.email_hint ? `<div class="modal-result-hint">📧 ${esc(maskEmail(u.email_hint))}</div>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -2187,7 +2203,7 @@ async function findClients(q) {
         'GET', null, token
       );
       if (Array.isArray(res)) {
-        res = res.map(u => ({ ...u, email_hint: u.email_hint || (u.email ? u.email.replace(/(.{2}).*@/, '$1…@') : '') }));
+        res = res.map(u => ({ ...u, email_hint: u.email_hint || u.email || '' }));
       }
     }
     profiles = Array.isArray(res) ? res : [];
@@ -2237,7 +2253,7 @@ async function findClients(q) {
           <div class="client-av">${avatarHtml}</div>
           <div style="flex:1;min-width:0">
             <div class="client-name">@${esc(u.username)}</div>
-            ${u.email_hint ? `<div class="client-email">${esc(u.email_hint)}</div>` : ''}
+            ${u.email_hint ? `<div class="client-email">${esc(maskEmail(u.email_hint))}</div>` : ''}
             ${userListings.length ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${userListings.length} aktivních nabídek</div>` : '<div style="font-size:10px;color:var(--text3);margin-top:1px">Žádné nabídky</div>'}
           </div>
           <button class="client-write-btn" onclick="startConvFromClients('${u.id}','${esc(u.username)}')">✉️ Napsat</button>

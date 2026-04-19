@@ -2310,6 +2310,21 @@ function escHtml(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Maskuje email pro zobrazení: "jan.novak@gmail.com" → "ja×××@×××.com"
+function maskEmail(email) {
+  if (!email) return '';
+  const atIdx = email.indexOf('@');
+  if (atIdx < 0) return email.slice(0, 2) + '×××';
+  const local = email.slice(0, atIdx);
+  const domain = email.slice(atIdx + 1);
+  const visibleLocal = local.slice(0, Math.min(2, local.length));
+  const maskedLocal = visibleLocal + '×××';
+  const dotIdx = domain.lastIndexOf('.');
+  const tld = dotIdx >= 0 ? domain.slice(dotIdx) : ('.' + domain);
+  const maskedDomain = '×××' + tld;
+  return `${maskedLocal}@${maskedDomain}`;
+}
+
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ══════════════════════════════════════════════
@@ -2850,7 +2865,7 @@ function renderUserSearchResults(users, q) {
   el.innerHTML = filtered.map(u => {
     const init = (u.username || u.email || '?')[0].toUpperCase();
     const name = escHtml(u.username || u.email || 'Neznámý');
-    const sub  = u.username && u.email ? escHtml(u.email) : '';
+    const sub  = u.username && u.email ? escHtml(maskEmail(u.email)) : '';
     return `<div onclick="startConvWithUser('${u.id}','${escHtml(u.username||u.email||'')}')"
       style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;active-background:var(--card)"
       onmousedown="this.style.background='var(--card)'" onmouseup="this.style.background=''"
