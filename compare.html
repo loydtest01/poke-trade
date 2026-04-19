@@ -141,6 +141,15 @@ body::after {
 .btn-compare-go:hover { background: #ffd84d; transform: translateY(-1px); }
 .btn-compare-go:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 .album-picker-empty { font-size: 13px; color: rgba(240,236,228,0.4); text-align: center; padding: 12px 0; }
+.picker-section-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: rgba(240,236,228,0.35); padding: 10px 2px 6px; margin-top: 4px;
+}
+.album-pick-item.shared-album { border-color: rgba(116,180,255,0.25); }
+.album-pick-item.shared-album:hover { border-color: rgba(116,180,255,0.5); background: rgba(116,180,255,0.07); }
+.album-pick-item.shared-album.selected { background: rgba(116,180,255,0.12); border-color: rgba(116,180,255,0.55); }
+.album-pick-item.shared-album .album-pick-check { border-color: rgba(116,180,255,0.4); }
+.album-pick-item.shared-album.selected .album-pick-check { background: #74b4ff; border-color: #74b4ff; color: #000; }
 
 .online-banner {
   display: none; align-items: center; gap: 10px;
@@ -710,10 +719,13 @@ async function startOnlineCompare() {
 let _localPickerTarget     = 1;
 let _localPickerAlbums     = [];
 let _localPickerSelectedId = null;
+let _localPickerSharedAlbums   = [];   // přijatá sdílení
+let _localPickerSelectedIsShare = false; // je vybraná položka sdílené album?
 
 async function openLocalAlbumPicker(num) {
   _localPickerTarget = num;
   _localPickerSelectedId = null;
+  _localPickerSelectedIsShare = false;
   document.getElementById('btnLocalPickerGo').disabled = true;
   document.getElementById('localPickerSubtitle').textContent =
     num === 1 ? 'Vybíráš album pro stranu A (levá)' : 'Vybíráš album pro stranu B (pravá)';
@@ -730,46 +742,86 @@ async function openLocalAlbumPicker(num) {
     return;
   }
 
-  if (_localPickerAlbums.length === 0) {
-    try {
-      const r = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_albums?user_id=eq.${myId}&select=id,name,card_ids,updated_at&order=updated_at.desc&limit=30`,
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
-      );
-      _localPickerAlbums = await r.json() || [];
-    } catch(e) {
-      document.getElementById('localPickerList').innerHTML = '<div class="album-picker-empty">❌ Chyba načítání. Zkus znovu.</div>';
-      return;
-    }
+  // Načti vlastní alba i přijatá sdílení paralelně
+  const [myRes, sharedRes] = await Promise.all([
+    _localPickerAlbums.length > 0
+      ? Promise.resolve({ ok: true, _cached: true })
+      : fetch(`${SUPABASE_URL}/rest/v1/user_albums?user_id=eq.${myId}&select=id,name,card_ids,updated_at&order=updated_at.desc&limit=30`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }),
+    _localPickerSharedAlbums.length > 0
+      ? Promise.resolve({ ok: true, _cached: true })
+      : fetch(`${SUPABASE_URL}/rest/v1/album_shares?receiver_id=eq.${myId}&status=neq.declined&expires_at=gt.${new Date().toISOString()}&select=id,album_name,sender_username,cards_snapshot,expires_at&order=created_at.desc&limit=20`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } })
+  ]);
+
+  try {
+    if (!myRes._cached)     _localPickerAlbums       = await myRes.json()     || [];
+    if (!sharedRes._cached) _localPickerSharedAlbums = await sharedRes.json() || [];
+  } catch(e) {
+    document.getElementById('localPickerList').innerHTML = '<div class="album-picker-empty">❌ Chyba načítání. Zkus znovu.</div>';
+    return;
   }
+
   renderLocalPickerList();
 }
 
 function renderLocalPickerList() {
   const list = document.getElementById('localPickerList');
-  if (!_localPickerAlbums.length) {
-    list.innerHTML = '<div class="album-picker-empty">Nemáš žádná alba. Vytvoř si album v sekci <a href="moje-album.html" style="color:#f5c842">Moje alba</a>.</div>';
-    return;
+  let html = '';
+
+  // ── Moje alba ──
+  if (_localPickerAlbums.length) {
+    html += `<div class="picker-section-label">📂 Moje alba</div>`;
+    html += _localPickerAlbums.map(a => `
+      <div class="album-pick-item" id="lpick-${a.id}" onclick="pickLocalAlbum('own','${a.id}', this)">
+        <div class="album-pick-icon">📁</div>
+        <div class="album-pick-info">
+          <div class="album-pick-name">${esc(a.name)}</div>
+          <div class="album-pick-meta">${(a.card_ids||[]).length} karet · ${new Date(a.updated_at).toLocaleDateString('cs')}</div>
+        </div>
+        <div class="album-pick-check"></div>
+      </div>`).join('');
+  } else {
+    html += `<div class="album-picker-empty">Nemáš žádná alba. Vytvoř si album v sekci <a href="moje-album.html" style="color:#f5c842">Moje alba</a>.</div>`;
   }
-  list.innerHTML = _localPickerAlbums.map(a => `
-    <div class="album-pick-item" id="lpick-${a.id}" onclick="pickLocalAlbum('${a.id}', this)">
-      <div class="album-pick-icon">📁</div>
-      <div class="album-pick-info">
-        <div class="album-pick-name">${esc(a.name)}</div>
-        <div class="album-pick-meta">${(a.card_ids||[]).length} karet · ${new Date(a.updated_at).toLocaleDateString('cs')}</div>
-      </div>
-      <div class="album-pick-check"></div>
-    </div>
-  `).join('');
+
+  // ── Přijatá sdílení ──
+  if (_localPickerSharedAlbums.length) {
+    html += `<div class="picker-section-label">👤 Přijatá sdílení</div>`;
+    html += _localPickerSharedAlbums.map(s => {
+      const count   = (s.cards_snapshot || []).length;
+      const expires = new Date(s.expires_at);
+      const diff    = expires - Date.now();
+      const expiryTxt = diff < 86400000
+        ? `vyprší za ${Math.max(1, Math.floor(diff/3600000))} hod`
+        : `vyprší za ${Math.floor(diff/86400000)} dní`;
+      return `
+        <div class="album-pick-item shared-album" id="lpick-share-${s.id}" onclick="pickLocalAlbum('share','${s.id}', this)">
+          <div class="album-pick-icon">🤝</div>
+          <div class="album-pick-info">
+            <div class="album-pick-name">${esc(s.album_name)} <span style="font-size:11px;font-weight:400;color:rgba(116,180,255,.8)">od @${esc(s.sender_username)}</span></div>
+            <div class="album-pick-meta">${count} karet · ${expiryTxt}</div>
+          </div>
+          <div class="album-pick-check"></div>
+        </div>`;
+    }).join('');
+  }
+
+  if (!html) {
+    list.innerHTML = '<div class="album-picker-empty">Nemáš žádná alba ani přijatá sdílení.</div>';
+  } else {
+    list.innerHTML = html;
+  }
 }
 
-function pickLocalAlbum(albumId, el) {
+function pickLocalAlbum(type, albumId, el) {
   document.querySelectorAll('#localPickerList .album-pick-item').forEach(i => {
     i.classList.remove('selected');
     i.querySelector('.album-pick-check').textContent = '';
   });
   if (el) { el.classList.add('selected'); el.querySelector('.album-pick-check').textContent = '✓'; }
   _localPickerSelectedId = albumId;
+  _localPickerSelectedIsShare = (type === 'share');
   document.getElementById('btnLocalPickerGo').disabled = false;
 }
 
@@ -787,17 +839,29 @@ async function confirmLocalAlbum() {
     || (function(){try{var u=JSON.parse(localStorage.getItem('sb_user')||'null');return u&&u.id||null}catch(e){return null}})();
 
   try {
-    const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
-    let cards = [];
-    if (albumObj && albumObj.card_ids && albumObj.card_ids.length > 0) {
-      const ids = albumObj.card_ids.map(id => `"${id}"`).join(',');
-      const cardsRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${myId}&local_id=in.(${ids})&select=card_data`,
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
-      );
-      cards = ((await cardsRes.json()) || []).map(c => c.card_data);
+    let albumData;
+
+    if (_localPickerSelectedIsShare) {
+      // ── Sdílené album — použij cards_snapshot přímo ──
+      const share = _localPickerSharedAlbums.find(s => s.id === _localPickerSelectedId);
+      if (!share) throw new Error('Sdílení nenalezeno');
+      const cards = (share.cards_snapshot || []).map(c => ({ ...c, _fromShare: true, _senderUsername: share.sender_username }));
+      albumData = { name: `${esc(share.album_name)} (@${esc(share.sender_username)})`, cards };
+    } else {
+      // ── Vlastní album — načti z user_cards ──
+      const albumObj = _localPickerAlbums.find(a => a.id === _localPickerSelectedId);
+      let cards = [];
+      if (albumObj && albumObj.card_ids && albumObj.card_ids.length > 0) {
+        const ids = albumObj.card_ids.map(id => `"${id}"`).join(',');
+        const cardsRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${myId}&local_id=in.(${ids})&select=card_data`,
+          { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
+        );
+        cards = ((await cardsRes.json()) || []).map(c => c.card_data);
+      }
+      albumData = { name: albumObj ? esc(albumObj.name) : 'Moje album', cards };
     }
-    const albumData = { name: albumObj ? esc(albumObj.name) : 'Moje album', cards };
+
     if (_localPickerTarget === 1) {
       albumA = albumData;
       document.getElementById('drop1').classList.add('loaded');

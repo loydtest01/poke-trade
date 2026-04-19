@@ -377,6 +377,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
             <div class="toggle-thumb"></div>
           </label>
         </div>
+        <div class="notif-row">
+          <div class="notif-icon">📂</div>
+          <div class="notif-label">
+            <div class="notif-name">Sdílení alb</div>
+            <div class="notif-desc">Když ti někdo sdílí album</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifAlbum" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
       </div>
 
       <div class="drawer-section">
@@ -2408,6 +2420,7 @@ function loadNotifSettings() {
   document.getElementById('notifSold').checked     = s.sold;
   document.getElementById('notifTrade').checked    = s.trade;
   document.getElementById('notifDemand').checked   = s.demand;
+  document.getElementById('notifAlbum').checked    = s.album;
 }
 
 function getNotifSettings() {
@@ -2419,8 +2432,9 @@ function getNotifSettings() {
       sold:     s.sold     !== false,
       trade:    s.trade    !== false,
       demand:   s.demand   !== false,
+      album:    s.album    !== false,
     };
-  } catch { return { messages: true, sold: true, trade: true, demand: true }; }
+  } catch { return { messages: true, sold: true, trade: true, demand: true, album: true }; }
 }
 
 function saveNotifSettings() {
@@ -2429,10 +2443,11 @@ function saveNotifSettings() {
     sold:     document.getElementById('notifSold').checked,
     trade:    document.getElementById('notifTrade').checked,
     demand:   document.getElementById('notifDemand').checked,
+    album:    document.getElementById('notifAlbum').checked,
   };
   localStorage.setItem(NOTIF_KEY, JSON.stringify(s));
   // Ask for permission when enabling any notification
-  if ((s.messages || s.sold || s.trade || s.demand) && 'Notification' in window && Notification.permission === 'default') {
+  if ((s.messages || s.sold || s.trade || s.demand || s.album) && 'Notification' in window && Notification.permission === 'default') {
     requestNotifPermission();
   }
 }
@@ -2477,6 +2492,7 @@ function _notifCategory(title, body) {
   if (t.includes('zakoupil') || t.includes('prodej') || t.includes('koupil') || t.includes('sold')) return 'sold';
   if (t.includes('výměna') || t.includes('trade')) return 'trade';
   if (t.includes('poptávk') || t.includes('demand') || t.includes('nabídka') || t.includes('offer')) return 'demand';
+  if (t.includes('album') || t.includes('sdíl') || t.includes('album_share')) return 'album';
   return 'other';
 }
 
@@ -2518,6 +2534,7 @@ async function checkNotifications() {
         (cat === 'sold'     && s.sold)     ||
         (cat === 'trade'    && s.trade)    ||
         (cat === 'demand'   && s.demand)   ||
+        (cat === 'album'    && s.album)    ||
         (cat === 'other')
       );
       if (allowed) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
