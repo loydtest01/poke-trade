@@ -6458,15 +6458,36 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
       // 5. Aktualizuj URL v databázi
       if (!photo.id) throw new Error('Fotka nemá ID – nelze uložit (otevři galerii znovu)');
       if (typeof sbReq === 'function') {
+        // Pokus o PATCH (update URL stávajícího záznamu)
         const patchRes = await sbReq(
           `rest/v1/user_card_photos?id=eq.${photo.id}&user_id=eq.${uid}`,
           'PATCH',
           { url: publicUrl }
         );
-        if (patchRes && patchRes._err) throw new Error('DB update selhal: ' + patchRes._err);
-        // Prázdné pole = RLS zablokoval PATCH nebo ID nesedí
-        if (Array.isArray(patchRes) && patchRes.length === 0) {
-          throw new Error('Záznam nebyl aktualizován – zkontroluj přihlášení nebo ID fotky');
+
+        const patchFailed = patchRes && patchRes._err;
+        const patchEmpty  = Array.isArray(patchRes) && patchRes.length === 0;
+
+        if (patchFailed) throw new Error('DB update selhal: ' + patchRes._err);
+
+        if (patchEmpty) {
+          // Fallback: tabulka pravděpodobně nemá UPDATE RLS policy.
+          // Smažeme starý záznam a vložíme nový s novou URL.
+          await sbReq(
+            `rest/v1/user_card_photos?id=eq.${photo.id}&user_id=eq.${uid}`,
+            'DELETE'
+          );
+          const insertRes = await sbReq('rest/v1/user_card_photos', 'POST', {
+            user_id:             uid,
+            user_card_local_id:  photo.user_card_local_id || null,
+            url:                 publicUrl,
+            side:                photo.side  || 'front',
+            batch_id:            photo.batch_id || null,
+            note:                photo.note  || null,
+          });
+          if (insertRes && insertRes._err) throw new Error('Vložení záznamu selhalo: ' + insertRes._err);
+          // Aktualizuj ID na nový záznam
+          if (Array.isArray(insertRes) && insertRes[0]) photo.id = insertRes[0].id;
         }
       }
 
