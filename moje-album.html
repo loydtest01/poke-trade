@@ -6483,7 +6483,6 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
             url:                 publicUrl,
             side:                photo.side  || 'front',
             batch_id:            photo.batch_id || null,
-            note:                photo.note  || null,
           });
           if (insertRes && insertRes._err) throw new Error('Vložení záznamu selhalo: ' + insertRes._err);
           // Aktualizuj ID na nový záznam
