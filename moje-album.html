@@ -391,46 +391,40 @@ body { background: #06040c; overflow-x: hidden; }
 
 /* ── VÝBĚR KARTY – zlatý komet obíhající rámeček ────────────────── */
 
-/* Základní rámeček karty – tenká zlatá čára (komet do ní splývá) */
-.card-slot.selected {
-  border-color: rgba(245,200,66,0.28) !important;
-  box-shadow: 0 0 10px 2px rgba(245,200,66,0.15);
+/* @property: animujeme start-úhel gradientu — element se NETOČÍ */
+@property --comet-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
 }
 
-/* Komet: svítivá hrana vpředu, za sebou pozvolna splývá s rámečkem */
+/* Statický zlatý rámeček — vždy viditelný */
+.card-slot.selected {
+  border-color: rgba(245,200,66,0.30) !important;
+  box-shadow: 0 0 8px 1px rgba(245,200,66,0.12);
+}
+
+/* Komet na mřížce */
 .card-slot-wrap.selected::before {
   content: '';
   position: absolute;
   inset: -3px;
   border-radius: 14px;
   padding: 3px;
-  /*
-    Gradient jde 0° → 360° (po směru hodinových ručiček).
-    0%–65%  = základní tlumená zlatá (= barva rámečku, "prázdná stopa")
-    65%–80% = začátek ocasu (pozvolné zesvětlení)
-    80%–93% = tělo kometu (výrazná zlatá)
-    93%–98% = hlava / špička (nejvíce svítivá – bílozlatá)
-    98%–100%= skok zpět na tlumenou zlatou (okamžitý přechod za hlavou)
-  */
   background: conic-gradient(
-    from 0deg,
+    from var(--comet-angle),
     rgba(245,200,66,0.22)  0%,
-    rgba(245,200,66,0.22) 65%,
-    rgba(245,200,66,0.38) 75%,
-    rgba(245,200,66,0.68) 85%,
-    #f5c842               93%,
-    #fff8c0               97%,
-    rgba(245,200,66,0.22) 99%,
+    rgba(245,200,66,0.22) 68%,
+    rgba(245,200,66,0.42) 79%,
+    rgba(245,200,66,0.75) 87%,
+    #f5c842               92%,
+    #fffbe0               95%,
+    rgba(245,200,66,0.22) 97%,
     rgba(245,200,66,0.22) 100%
   );
-  /* Maska: zobrazí jen okraj (padding oblast = 3px pruh) */
-  mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  -webkit-mask:
-    linear-gradient(#fff 0 0) content-box,
-    linear-gradient(#fff 0 0);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   animation: sel-comet 2s linear infinite;
   pointer-events: none;
@@ -438,8 +432,7 @@ body { background: #06040c; overflow-x: hidden; }
 }
 
 @keyframes sel-comet {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  to { --comet-angle: 360deg; }
 }
 
 /* Staré sel-ring – skryje se, pokud by zůstalo v DOM */
@@ -593,6 +586,48 @@ body { background: #06040c; overflow-x: hidden; }
   cursor: pointer; transition: transform .15s, box-shadow .15s, border-color .15s;
   min-width: 0;
 }
+
+/* Vybraná karta v albu — statický zlatý rámeček */
+.book-card.selected {
+  border-color: rgba(245,200,66,0.30) !important;
+  box-shadow: 0 0 8px 1px rgba(245,200,66,0.12);
+  overflow: visible;
+}
+/* Komet na book-card — stejný efekt jako v mřížce */
+.book-card.selected::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 11px;
+  padding: 3px;
+  background: conic-gradient(
+    from var(--comet-angle),
+    rgba(245,200,66,0.22)  0%,
+    rgba(245,200,66,0.22) 68%,
+    rgba(245,200,66,0.42) 79%,
+    rgba(245,200,66,0.75) 87%,
+    #f5c842               92%,
+    #fffbe0               95%,
+    rgba(245,200,66,0.22) 97%,
+    rgba(245,200,66,0.22) 100%
+  );
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  animation: sel-comet 2s linear infinite;
+  pointer-events: none;
+  z-index: 6;
+}
+/* Vnitřní obsah zůstane zaklipovaný i když má rodič overflow:visible */
+.book-card.selected > img,
+.book-card.selected > .book-card-placeholder,
+.book-card.selected > .card-footer,
+.book-card.selected > .card-badges,
+.book-card.selected > .card-check {
+  border-radius: 8px;
+  overflow: hidden;
+}
 /* book-grid scales via font-size on parent; gap scales too */
 #bookPages { --book-scale: 1; }
 #bookPages .book-grid { gap: calc(6px * var(--book-scale)); }
@@ -656,42 +691,6 @@ body { background: #06040c; overflow-x: hidden; }
   color: rgba(245,200,66,0.2);
 }
 .book-card-empty::after { content: '+'; }
-
-/* ── VÝBĚR v album/book view — stejný komet jako v mřížce ── */
-.book-card-wrap {
-  position: relative;
-  aspect-ratio: 63/88;
-  isolation: isolate;
-}
-.book-card.selected {
-  border-color: rgba(245,200,66,0.30) !important;
-  box-shadow: 0 0 8px 1px rgba(245,200,66,0.12);
-}
-.book-card-wrap.selected::before {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 12px;
-  padding: 3px;
-  background: conic-gradient(
-    from var(--comet-angle),
-    rgba(245,200,66,0.22)  0%,
-    rgba(245,200,66,0.22) 68%,
-    rgba(245,200,66,0.42) 79%,
-    rgba(245,200,66,0.75) 87%,
-    #f5c842               92%,
-    #fffbe0               95%,
-    rgba(245,200,66,0.22) 97%,
-    rgba(245,200,66,0.22) 100%
-  );
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  animation: sel-comet 2s linear infinite;
-  pointer-events: none;
-  z-index: 6;
-}
 
 @media (max-width: 768px) {
   .book-pages { grid-template-columns: 1fr; }
@@ -5559,8 +5558,7 @@ function renderBookView() {
     const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
     const emoji = typeEmoji(c.types?.[0] || c.type || '');
     const sel   = selectedIds.has(String(c.id));
-    return `<div class="book-card-wrap${sel ? ' selected' : ''}">
-    <div class="book-card${sel ? ' selected' : ''}" onclick="cardClick('${esc(c.id)}')">
+    return `<div class="book-card${sel ? ' selected' : ''}" onclick="cardClick('${esc(c.id)}')">
       ${selectMode ? `<div class="card-check">${sel ? '✓' : ''}</div>` : ''}
       ${img
         ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="eager">`
@@ -5577,7 +5575,6 @@ function renderBookView() {
         <div class="card-name">${esc(c.name||'?')}</div>
         <div class="card-sub">${esc(c.set||'')}${c.number?' #'+esc(c.number):''}</div>
       </div>
-    </div>
     </div>`;
   }
 
