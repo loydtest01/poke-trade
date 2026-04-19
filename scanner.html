@@ -635,7 +635,7 @@ body::after {
 }
 .user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
 .user-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 8px;
   background: var(--yellow, #f5c842); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
@@ -793,9 +793,7 @@ body::after {
   </a>
   <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
-    <!-- Settings button -->
-    <button class="topbar-icon-btn" onclick="openSettings()" title="⚙️ Nastavení">⚙️</button>
-    <div class="chat-dropdown-wrap" id="chatDropWrap">
+        <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span class="chat-badge" id="chatBadge" style="display:none">0</span>

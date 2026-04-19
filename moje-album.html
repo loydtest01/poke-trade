@@ -82,8 +82,8 @@ body { background: #06040c; overflow-x: hidden; }
 }
 .user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
 .user-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
-  background: var(--yellow); color: #000;
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--yellow, #f5c842); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
   background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
@@ -1263,12 +1263,12 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
     </div>
     <!-- 2. Notifikace — notif-bell.js vloží zvoneček automaticky sem -->
-    <!-- Nastavení — injektuje settings-panel.js -->
     <!-- Sync tlačítko -->
     <button class="sync-btn" id="syncBtn" onclick="doSync()">
       <div class="sync-dot" id="syncDot"></div>
       <span id="syncLabel">Sync</span>
     </button>
+    <!-- Nastavení — injektuje settings-panel.js -->
     <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>

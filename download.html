@@ -61,7 +61,7 @@ body::after {
       text-decoration: none; color: #f0ece4; transition: all .15s;
     }
     .user-avatar {
-  width: 30px; height: 30px; border-radius: 50%;
+  width: 30px; height: 30px; border-radius: 8px;
   background: var(--yellow, #f5c842); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
@@ -585,5 +585,36 @@ document.addEventListener('DOMContentLoaded',function(){
 </script>
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
+
+<script>
+/* ── Topbar: zobraz profil / přihlásit se ── */
+(function() {
+  var token = localStorage.getItem('sb_token');
+  var su = (function(){ try{ return JSON.parse(localStorage.getItem('sb_user')||'null'); }catch(e){ return null; } })();
+  var chip  = document.getElementById('userChip');
+  var ll    = document.getElementById('loginLink');
+  var lb    = document.getElementById('logoutBtn');
+  var nm    = document.getElementById('userName');
+  var av    = document.getElementById('userAvatar');
+  if (token && su && su.id) {
+    var username = (su.user_metadata && su.user_metadata.username) || su.email || '';
+    if (nm) nm.textContent = username;
+    if (av) {
+      av.textContent = (username[0] || '?').toUpperCase();
+      try {
+        var img = localStorage.getItem('pkc_avatar_local');
+        if (img) { av.textContent=''; av.style.backgroundImage='url('+img+')'; av.style.backgroundSize='cover'; av.style.backgroundPosition='center'; }
+      } catch(e) {}
+    }
+    if (chip) chip.style.display = '';
+    if (ll)   ll.style.display   = 'none';
+    if (lb)   lb.style.display   = '';
+  } else {
+    if (chip) chip.style.display = 'none';
+    if (ll)   ll.style.display   = '';
+    if (lb)   lb.style.display   = 'none';
+  }
+})();
+</script>
 </body>
 </html>
