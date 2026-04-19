@@ -249,6 +249,32 @@ function injectStyles() {
     }
     .notif-save-btn:hover { background: linear-gradient(135deg, rgba(245,200,66,0.3) 0%, rgba(255,140,0,0.25) 100%); }
     .notif-save-feedback { font-size: 11px; text-align: center; min-height: 16px; margin-top: 6px; color: #4ade80; }
+
+    /* ── Groq AI panel ── */
+    .sdrop-acc-item.open .sdrop-acc-body.sdrop-acc-body-groq { max-height: 900px; }
+    .groq-status { display:flex;align-items:center;gap:9px;font-size:13px;color:rgba(240,236,228,.65);margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.08); }
+    .groq-dot { width:9px;height:9px;border-radius:50%;background:rgba(240,236,228,.35);flex-shrink:0;transition:background .3s; }
+    .groq-dot.active  { background:#4ade80;box-shadow:0 0 8px rgba(74,222,128,.5); }
+    .groq-dot.error   { background:#f87171; }
+    .groq-dot.loading { background:#f5c842;animation:groqPulse .8s infinite; }
+    @keyframes groqPulse { 0%,100%{opacity:1}50%{opacity:.4} }
+    .groq-info-box { background:rgba(116,180,255,.07);border:1px solid rgba(116,180,255,.15);border-radius:10px;padding:12px 14px;font-size:12px;color:rgba(240,236,228,.65);line-height:1.6;margin-bottom:14px; }
+    .groq-info-box a { color:#74b4ff;text-decoration:none; }
+    .groq-info-box a:hover { text-decoration:underline; }
+    .groq-label-sm { display:block;font-size:11px;font-weight:700;color:rgba(240,236,228,.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px; }
+    .groq-key-row { display:flex;gap:8px;align-items:center;margin-bottom:10px; }
+    .groq-inp { flex:1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 12px;font-size:13px;font-family:monospace;color:#f0ece4;outline:none;transition:border-color .2s;min-width:0; }
+    .groq-inp:focus { border-color:rgba(245,200,66,.4); }
+    .groq-inp::placeholder { color:rgba(240,236,228,.35); }
+    .btn-groq-add { background:linear-gradient(135deg,#f5c842 0%,#ff8c00 100%);color:#0a0608;font-weight:700;font-size:12px;border:none;border-radius:10px;padding:9px 14px;cursor:pointer;white-space:nowrap;transition:all .2s;flex-shrink:0; }
+    .btn-groq-add:disabled { opacity:.5;cursor:not-allowed; }
+    .btn-groq-del-all { background:transparent;border:1px solid rgba(248,113,113,.3);color:#f87171;font-size:12px;border-radius:10px;padding:8px 12px;cursor:pointer;transition:all .2s;font-family:inherit; }
+    .btn-groq-del-all:hover { background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.5); }
+    .groq-select-sm { width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 12px;font-size:13px;color:#f0ece4;outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;color-scheme:dark; }
+    .groq-select-sm option { background:#0e0c14;color:#f0ece4; }
+    .groq-fb { margin-top:10px;font-size:12px;min-height:18px;line-height:1.5; }
+    .groq-fb.ok  { color:#4ade80; }
+    .groq-fb.err { color:#f87171; }
   `;
   document.head.appendChild(s);
 }
@@ -445,11 +471,43 @@ var SETTINGS_HTML = [
   '        </div></div>',
   '      </div>',
 
-  '      <div class="sdrop-acc-item">',
-  '        <div class="sdrop-acc-header" onclick="window.location.href=\'profile.html\'">',
+  '      <div class="sdrop-acc-item" id="sdAccGroq">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccGroq\')">',
   '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">🤖</span>',
-  '            <div><div class="sdrop-acc-title">Groq AI</div><div class="sdrop-acc-sub">Nastavit v profilu →</div></div>',
-  '          </div><span class="sdrop-acc-chevron" style="opacity:0.5">›</span>',
+  '            <div><div class="sdrop-acc-title">Groq AI</div><div class="sdrop-acc-sub" id="accGroqSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="groqStatus">',
+  '              <span class="groq-dot loading" id="groqDot"></span>',
+  '              <span id="groqStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>🔒 Soukromé – jen ty vidíš své klíče</strong><br>',
+  '              Klíče jsou uloženy v databázi s Row-Level Security. Můžeš přidat více klíčů',
+  '              z různých Groq účtů — při selhání jednoho se automaticky použije záložní.',
+  '              <a href="https://console.groq.com/keys" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
+  '            </div>',
+  '            <label class="groq-label-sm">Groq API klíče</label>',
+  '            <div id="groqKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="groqKeyInput" class="groq-inp" placeholder="gsk_… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="groqAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <label class="groq-label-sm" style="margin-top:12px">Model</label>',
+  '            <select class="groq-select-sm" id="groqModelSelect">',
+  '              <option value="llama-3.3-70b-versatile">Llama 3.3 70B (text)</option>',
+  '              <option value="llama-3.1-70b-versatile">Llama 3.1 70B</option>',
+  '              <option value="llama-3.1-8b-instant">Llama 3.1 8B (rychlý)</option>',
+  '              <option value="mixtral-8x7b-32768">Mixtral 8×7B</option>',
+  '              <option value="gemma2-9b-it">Gemma 2 9B</option>',
+  '            </select>',
+  '            <div style="margin-top:10px">',
+  '              <button class="btn-groq-del-all" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="groqFeedback"></div>',
+  '          </div>',
   '        </div>',
   '      </div>',
   '    </div>',
@@ -738,6 +796,7 @@ function init() {
   initSettingsValues();
   injectBell();
   injectAuthChip();
+  initGroqPanel();
 }
 
 if (document.readyState === 'loading') {
@@ -901,5 +960,178 @@ function npLoadFromServer() {
 window.getNotifPrefs = function() {
   try { return JSON.parse(localStorage.getItem('pkc_notif_prefs') || '{}'); } catch(e) { return {}; }
 };
+
+/* ══════════════════════════════════════════════════════════════
+   9. GROQ AI — správa klíčů přímo v settings panelu
+   ══════════════════════════════════════════════════════════════ */
+var _groqKeys = [];
+
+async function _groqSbReq(path, method, body) {
+  var url = _getSbUrl(); var anon = _getSbAnon(); var tok = _getToken();
+  if (!url || !anon) return null;
+  var headers = { 'apikey': anon, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+  if (tok) headers['Authorization'] = 'Bearer ' + tok;
+  var opts = { method: method, headers: headers };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    var r = await fetch(url + '/' + path, opts);
+    if (r.status === 204 || r.headers.get('content-length') === '0') return null;
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+function _groqMaskKey(k) {
+  return k.slice(0, 8) + '•'.repeat(Math.min(24, k.length - 8));
+}
+function _groqParseKeys(raw) {
+  if (!raw) return [];
+  return raw.split(',').map(function(k){ return k.trim(); }).filter(function(k){ return k.length > 10; });
+}
+
+function _groqRenderKeys(keys) {
+  var list = document.getElementById('groqKeysList');
+  if (!list) return;
+  if (!keys.length) {
+    list.innerHTML = '<div style="font-size:12px;color:rgba(240,236,228,.35);padding:4px 0">Zatím žádné klíče – přidej první výše</div>';
+    return;
+  }
+  list.innerHTML = keys.map(function(k, i) {
+    return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
+      + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
+      + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _groqMaskKey(k) + '</span>'
+      + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + (i === 0 ? '🟢 aktivní' : '⏳ záloha') + '</span>'
+      + '<button onclick="window._groqRemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
+      + '</div>';
+  }).join('');
+}
+
+function _groqUpdateStatus(keys) {
+  var n = keys.length;
+  var dot    = document.getElementById('groqDot');
+  var txt    = document.getElementById('groqStatusText');
+  var sub    = document.getElementById('accGroqSub');
+  var delBtn = document.getElementById('groqDeleteBtn');
+  if (!dot) return;
+  if (n > 0) {
+    dot.className = 'groq-dot active';
+    if (txt) txt.textContent = 'Groq AI aktivní – ' + n + ' klíč' + (n === 1 ? '' : n < 5 ? 'e' : 'ů');
+    if (sub) sub.textContent = 'Aktivní (' + n + '×)';
+    if (delBtn) delBtn.style.display = '';
+  } else {
+    dot.className = 'groq-dot';
+    if (txt) txt.textContent = 'Groq AI není nakonfigurováno';
+    if (sub) sub.textContent = 'Nekonfigurováno';
+    if (delBtn) delBtn.style.display = 'none';
+  }
+}
+
+function _groqSetFb(msg, type) {
+  var fb = document.getElementById('groqFeedback');
+  if (!fb) return;
+  fb.textContent = msg;
+  fb.className = 'groq-fb' + (type ? ' ' + type : '');
+}
+
+async function _groqSaveAll() {
+  var uid = _getUid();
+  if (!uid) throw new Error('Nepřihlášen');
+  var keyStr = _groqKeys.join(',');
+  var modelSel = document.getElementById('groqModelSelect');
+  var model = modelSel ? modelSel.value : 'llama-3.3-70b-versatile';
+  var existing = await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid + '&select=id', 'GET');
+  var hasRow = Array.isArray(existing) && existing.length > 0;
+  var res = await _groqSbReq(
+    hasRow ? 'rest/v1/user_api_keys?user_id=eq.' + uid : 'rest/v1/user_api_keys',
+    hasRow ? 'PATCH' : 'POST',
+    { user_id: uid, groq_key: keyStr, groq_model: model, groq_enabled: true }
+  );
+  if (res && res.error) throw new Error(res.error.message || 'Chyba uložení');
+  if (window.GroqClient && typeof GroqClient.loadKey === 'function') GroqClient.loadKey();
+}
+
+async function _groqLoad() {
+  var uid = _getUid();
+  var dot = document.getElementById('groqDot');
+  var txt = document.getElementById('groqStatusText');
+  if (!dot) return;
+  dot.className = 'groq-dot loading';
+  if (txt) txt.textContent = 'Načítám nastavení…';
+
+  // Naplň modely z GroqClient pokud je k dispozici
+  var modelSel = document.getElementById('groqModelSelect');
+  if (modelSel && window.GroqClient && typeof GroqClient.getModels === 'function') {
+    modelSel.innerHTML = '';
+    GroqClient.getModels().forEach(function(m) {
+      var opt = document.createElement('option');
+      opt.value = m.id; opt.textContent = m.label;
+      modelSel.appendChild(opt);
+    });
+  }
+
+  if (!uid) { _groqUpdateStatus([]); _groqRenderKeys([]); return; }
+  try {
+    var res = await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid + '&select=groq_key,groq_model', 'GET');
+    var data = Array.isArray(res) ? res[0] : null;
+    if (data && data.groq_key) {
+      _groqKeys = _groqParseKeys(data.groq_key);
+      if (data.groq_model && modelSel) modelSel.value = data.groq_model;
+    } else {
+      _groqKeys = [];
+    }
+  } catch(e) { console.warn('[Groq topbar] Chyba načítání:', e); _groqKeys = []; }
+  _groqRenderKeys(_groqKeys);
+  _groqUpdateStatus(_groqKeys);
+}
+
+window._groqRemoveKey = async function(idx) {
+  if (!confirm('Odebrat klíč #' + (idx+1) + '?')) return;
+  _groqKeys.splice(idx, 1);
+  try {
+    await _groqSaveAll();
+    _groqRenderKeys(_groqKeys);
+    _groqUpdateStatus(_groqKeys);
+    _groqSetFb(_groqKeys.length ? '✅ Klíč odebrán' : 'Všechny klíče odebrány', 'ok');
+  } catch(e) { _groqSetFb('❌ ' + e.message, 'err'); }
+};
+
+function _groqInitEvents() {
+  var addBtn = document.getElementById('groqAddBtn');
+  var delBtn = document.getElementById('groqDeleteBtn');
+  if (addBtn && !addBtn._groqBound) {
+    addBtn._groqBound = true;
+    addBtn.addEventListener('click', async function() {
+      var keyInput = document.getElementById('groqKeyInput');
+      var key = keyInput ? keyInput.value.trim() : '';
+      if (!key || key.length < 20) { _groqSetFb('Zadej platný Groq API klíč (začíná gsk_…)', 'err'); return; }
+      if (_groqKeys.indexOf(key) !== -1) { _groqSetFb('Tento klíč už je přidán.', 'err'); return; }
+      addBtn.disabled = true; addBtn.textContent = '⏳'; _groqSetFb('', '');
+      try {
+        _groqKeys.push(key);
+        await _groqSaveAll();
+        _groqRenderKeys(_groqKeys);
+        _groqUpdateStatus(_groqKeys);
+        if (keyInput) keyInput.value = '';
+        _groqSetFb('✅ Klíč #' + _groqKeys.length + ' přidán', 'ok');
+      } catch(e) { _groqKeys.pop(); _groqSetFb('❌ ' + e.message, 'err'); }
+      finally { addBtn.disabled = false; addBtn.textContent = '+ Přidat'; }
+    });
+  }
+  if (delBtn && !delBtn._groqBound) {
+    delBtn._groqBound = true;
+    delBtn.addEventListener('click', async function() {
+      if (!confirm('Odebrat všechny Groq klíče? Groq funkce přestanou fungovat.')) return;
+      var uid = _getUid(); if (!uid) return;
+      try {
+        await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid, 'DELETE');
+        _groqKeys = []; _groqRenderKeys([]); _groqUpdateStatus([]);
+        _groqSetFb('Všechny klíče byly odebrány.', 'ok');
+      } catch(e) { _groqSetFb('❌ ' + e.message, 'err'); }
+    });
+  }
+}
+
+function initGroqPanel() {
+  _groqLoad().then(function() { _groqInitEvents(); }).catch(function(e) { console.warn('[Groq topbar init]', e); });
+}
 
 })();
