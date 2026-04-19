@@ -48,7 +48,14 @@
 </header>
 
 <div class="page-wrap">
-  <aside class="sidebar">
+  <!-- Overlay pro mobilní sidebar -->
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeMobSidebar()"></div>
+  <!-- Plovoucí tlačítko filtrů (viditelné jen na mobilu) -->
+  <button class="mob-filter-btn" onclick="openMobSidebar()" id="mobFilterBtn">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+    Filtry
+  </button>
+  <aside class="sidebar" id="mainSidebar">
     <div class="sb-section">
       <span class="sb-label">Typ položek</span>
       <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"> 🃏 Karty <span class="sb-count" id="sbCountCards">0</span></label>
@@ -1267,6 +1274,28 @@ function sbToggle(btn) {
   btn.classList.toggle('open', !open);
   if (open) { body.hidden = true; } else { body.hidden = false; }
 }
+
+/* ── Mobilní sidebar (filtry) ── */
+function openMobSidebar() {
+  var s = document.getElementById('mainSidebar');
+  var o = document.getElementById('sidebarOverlay');
+  if (s) s.classList.add('mob-open');
+  if (o) o.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobSidebar() {
+  var s = document.getElementById('mainSidebar');
+  var o = document.getElementById('sidebarOverlay');
+  if (s) s.classList.remove('mob-open');
+  if (o) o.classList.remove('open');
+  document.body.style.overflow = '';
+}
+/* Zavřít sidebar po aplikování filtru na mobilu */
+document.addEventListener('change', function(e) {
+  if (window.innerWidth <= 900 && e.target.closest && e.target.closest('.sidebar')) {
+    setTimeout(closeMobSidebar, 300);
+  }
+});
 </script>
 </body>
 </html>

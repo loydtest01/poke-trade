@@ -275,6 +275,104 @@ function injectStyles() {
     .groq-fb { margin-top:10px;font-size:12px;min-height:18px;line-height:1.5; }
     .groq-fb.ok  { color:#4ade80; }
     .groq-fb.err { color:#f87171; }
+
+    /* ══════════════════════════════════════════════════════════
+       MOBILNÍ MENU (hamburger)
+    ══════════════════════════════════════════════════════════ */
+    .mob-menu-btn {
+      display: none;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 9px;
+      color: rgba(240,236,228,0.8);
+      cursor: pointer;
+      padding: 7px 10px;
+      line-height: 1;
+      font-size: 18px;
+      transition: background .15s;
+      margin-right: 6px;
+      flex-shrink: 0;
+    }
+    .mob-menu-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* Mobilní drawer — překryv */
+    .mob-nav-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9000;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+    }
+    .mob-nav-overlay.open { display: block; }
+
+    /* Mobilní drawer — panel */
+    .mob-nav-drawer {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: min(80vw, 280px);
+      background: #0e0c14;
+      border-right: 1px solid rgba(245,200,66,0.15);
+      z-index: 9001;
+      transform: translateX(-100%);
+      transition: transform .25s cubic-bezier(0.4,0,0.2,1);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .mob-nav-overlay.open .mob-nav-drawer {
+      transform: translateX(0);
+    }
+    .mob-nav-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 16px 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0;
+    }
+    .mob-nav-logo {
+      font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 800;
+      color: #fff; text-decoration: none;
+    }
+    .mob-nav-logo strong { color: #f5c842; }
+    .mob-nav-close {
+      background: transparent; border: none;
+      color: rgba(240,236,228,0.5); font-size: 20px;
+      cursor: pointer; padding: 2px 6px; border-radius: 6px;
+      transition: color .15s;
+    }
+    .mob-nav-close:hover { color: #f0ece4; }
+    .mob-nav-links {
+      flex: 1; overflow-y: auto; padding: 10px 8px;
+    }
+    .mob-nav-links a {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 12px; border-radius: 10px;
+      color: rgba(240,236,228,0.65); text-decoration: none;
+      font-size: 14px; font-weight: 500;
+      transition: all .15s; margin-bottom: 2px;
+      border: 1px solid transparent;
+    }
+    .mob-nav-links a:hover {
+      background: rgba(255,255,255,0.07);
+      color: #f0ece4;
+      border-color: rgba(255,255,255,0.08);
+    }
+    .mob-nav-links a.active {
+      background: rgba(245,200,66,0.12);
+      color: #f5c842;
+      border-color: rgba(245,200,66,0.2);
+    }
+    .mob-nav-links img.nav-icon { width: 18px; height: 18px; opacity: .75; }
+    .mob-nav-links a.active img.nav-icon { opacity: 1; }
+
+    @media (max-width: 768px) {
+      .mob-menu-btn { display: flex !important; align-items: center; justify-content: center; }
+      .nav-lnks { display: none !important; }
+      /* Zmenšení loga na mobilu */
+      .app-logo { font-size: 12px !important; margin-right: 0 !important; }
+      /* Topbar padding */
+      .app-topbar { padding: 0 12px !important; gap: 6px !important; }
+      /* Notif dropdown na celou šířku */
+      .notif-drop { width: calc(100vw - 24px) !important; right: -12px !important; }
+      /* Settings dropdown na celou šířku */
+      .settings-drop { width: calc(100vw - 24px) !important; right: -12px !important; }
+    }
   `;
   document.head.appendChild(s);
 }
@@ -285,16 +383,61 @@ function injectStyles() {
 function renderNav() {
   var nav = document.getElementById('mainNav');
   if (!nav) return;
-  var active    = window.TOPBAR_ACTIVE || '';
+  var active = window.TOPBAR_ACTIVE || '';
+
+  /* ── Desktop nav pills ── */
   nav.innerHTML = PAGES.map(function (p) {
-    var href  = p.href;
-    var extra = '';
-    var cls   = (p.id === active) ? ' class="active"' : '';
-    return '<a href="' + href + '"' + extra + cls + '>'
+    var cls = (p.id === active) ? ' class="active"' : '';
+    return '<a href="' + p.href + '"' + cls + '>'
          + '<img src="' + p.icon + '" class="nav-icon"> '
-         + p.label
-         + '</a>';
+         + p.label + '</a>';
   }).join('');
+
+  /* ── Hamburger tlačítko (vkládá se PŘED nav) ── */
+  if (!document.getElementById('mobMenuBtn')) {
+    var btn = document.createElement('button');
+    btn.id = 'mobMenuBtn';
+    btn.className = 'mob-menu-btn';
+    btn.setAttribute('aria-label', 'Otevřít menu');
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+    btn.onclick = function() { openMobNav(); };
+    nav.parentNode.insertBefore(btn, nav);
+  }
+
+  /* ── Mobilní drawer overlay ── */
+  if (!document.getElementById('mobNavOverlay')) {
+    var linksHtml = PAGES.map(function(p) {
+      var cls = (p.id === active) ? ' active' : '';
+      return '<a href="' + p.href + '" class="' + cls + '">'
+           + '<img src="' + p.icon + '" class="nav-icon"> '
+           + p.label + '</a>';
+    }).join('');
+
+    var overlay = document.createElement('div');
+    overlay.id = 'mobNavOverlay';
+    overlay.className = 'mob-nav-overlay';
+    overlay.innerHTML =
+      '<div class="mob-nav-drawer">'
+    +   '<div class="mob-nav-header">'
+    +     '<a href="index.html" class="mob-nav-logo">Poké<strong>Trade</strong></a>'
+    +     '<button class="mob-nav-close" onclick="closeMobNav()" aria-label="Zavřít">&#x2715;</button>'
+    +   '</div>'
+    +   '<div class="mob-nav-links">' + linksHtml + '</div>'
+    + '</div>';
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeMobNav();
+    });
+    document.body.appendChild(overlay);
+  }
+}
+
+function openMobNav() {
+  var o = document.getElementById('mobNavOverlay');
+  if (o) { o.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
+function closeMobNav() {
+  var o = document.getElementById('mobNavOverlay');
+  if (o) { o.classList.remove('open'); document.body.style.overflow = ''; }
 }
 
 /* ══════════════════════════════════════════════════════════════
