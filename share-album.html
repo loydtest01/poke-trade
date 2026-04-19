@@ -875,9 +875,15 @@ async function cancelShare(shareId, btn) {
 // ── Odeslané ──────────────────────────────────────────────────────
 async function loadSent() {
   if (!ME || !ME.id) return;
-  const data = await sbGet(
+  // Nejdřív zkus s viewed_at, pokud sloupec neexistuje (400), zkus bez něj
+  let data = await sbGet(
     `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at,viewed_at&order=created_at.desc&limit=20`
   );
+  if (!data) {
+    data = await sbGet(
+      `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at&order=created_at.desc&limit=20`
+    );
+  }
   const list = document.getElementById('sentList');
   if (!data || !data.length) {
     list.innerHTML = '<div class="empty-state"><div class="es-icon">📮</div>Zatím jsi nikomu nic neposlal</div>';
