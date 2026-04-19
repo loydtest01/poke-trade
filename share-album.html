@@ -512,9 +512,17 @@ async function sbDelete(path) {
   try {
     const r = await fetch(`${SUPABASE_URL}/${path}`, {
       method: 'DELETE',
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` }
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'   // vrátí smazané záznamy → ověříme že něco bylo smazáno
+      }
     });
-    return r.ok;
+    if (!r.ok) return false;
+    const body = await r.json();
+    // Pokud Supabase vrátí prázdné pole, RLS zablokoval smazání (tiché 204 s 0 řádky)
+    return Array.isArray(body) ? body.length > 0 : true;
   } catch { return false; }
 }
 
@@ -873,12 +881,21 @@ async function cancelShare(shareId, btn) {
 }
 
 // ── Odeslané ──────────────────────────────────────────────────────
+let _sentQueryHasViewedAt = true; // po prvním 400 se přepne na false
+
 async function loadSent() {
   if (!ME || !ME.id) return;
-  // Nejdřív zkus s viewed_at, pokud sloupec neexistuje (400), zkus bez něj
-  let data = await sbGet(
-    `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at,viewed_at&order=created_at.desc&limit=20`
-  );
+
+  let data = null;
+  if (_sentQueryHasViewedAt) {
+    data = await sbGet(
+      `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at,viewed_at&order=created_at.desc&limit=20`
+    );
+    if (!data) {
+      // viewed_at sloupec neexistuje → zapamatuj si to, příště přeskoč
+      _sentQueryHasViewedAt = false;
+    }
+  }
   if (!data) {
     data = await sbGet(
       `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at&order=created_at.desc&limit=20`
