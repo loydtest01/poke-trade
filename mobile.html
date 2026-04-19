@@ -237,25 +237,201 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
   box-shadow: 0 0 8px rgba(239,68,68,.4);
 }
 #chipFake:active { opacity: .75; transform: scale(.93); }
+
+/* ── NEW HEADER ── */
+.hdr-new{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;display:flex;align-items:center;gap:10px;flex-shrink:0;height:52px}
+.hdr-icon-btn{background:none;border:none;color:var(--text);cursor:pointer;padding:8px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;position:relative;flex-shrink:0;transition:background .15s}
+.hdr-icon-btn:active{background:var(--card)}
+.hdr-unread-dot{position:absolute;top:4px;right:4px;min-width:16px;height:16px;background:#ef4444;border-radius:8px;font-size:9px;font-weight:800;color:#fff;display:flex;align-items:center;justify-content:center;padding:0 3px;border:2px solid var(--surface)}
+.hdr-chips{display:flex;flex-direction:column;gap:3px;flex-shrink:0;margin-left:auto}
+
+/* ── SETTINGS DRAWER (left slide-in) ── */
+.drawer-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;opacity:0;pointer-events:none;transition:opacity .25s}
+.drawer-overlay.open{opacity:1;pointer-events:all}
+.settings-drawer{position:fixed;top:0;left:0;bottom:0;width:82vw;max-width:320px;background:var(--surface);border-right:1px solid var(--border);z-index:201;transform:translateX(-100%);transition:transform .28s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column;overflow:hidden}
+.settings-drawer.open{transform:translateX(0)}
+.drawer-head{padding:18px 18px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.drawer-head-title{font-size:16px;font-weight:800;flex:1}
+.drawer-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:4px}
+.drawer-body{flex:1;overflow-y:auto;padding:16px}
+.drawer-section{margin-bottom:20px}
+.drawer-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+.notif-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(46,51,72,.7)}
+.notif-row:last-child{border-bottom:none}
+.notif-icon{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.notif-label{flex:1}
+.notif-name{font-size:13px;font-weight:600}
+.notif-desc{font-size:11px;color:var(--muted);margin-top:1px}
+.toggle{position:relative;width:44px;height:26px;flex-shrink:0;cursor:pointer}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-track{position:absolute;inset:0;background:var(--border);border-radius:13px;transition:background .2s;cursor:pointer}
+.toggle input:checked + .toggle-track{background:var(--accent)}
+.toggle-thumb{position:absolute;top:3px;left:3px;width:20px;height:20px;background:#fff;border-radius:10px;transition:transform .2s;pointer-events:none}
+.toggle input:checked ~ .toggle-thumb{transform:translateX(18px)}
+
+/* ── MESSAGES PANEL (full screen overlay) ── */
+.msgs-panel{position:fixed;inset:0;background:var(--bg);z-index:150;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);display:flex;flex-direction:column}
+.msgs-panel.open{transform:translateY(0)}
+.msgs-head{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:52px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.msgs-back{background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:8px;border-radius:10px}
+.msgs-back:active{background:var(--card)}
+.msgs-head-title{font-size:16px;font-weight:800;flex:1}
+.msgs-body{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.conv-list-mobile{flex:1;overflow-y:auto}
+.conv-item-m{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;position:relative}
+.conv-item-m:active{background:var(--card)}
+.conv-item-m.unread .conv-name-m{color:#fff;font-weight:700}
+.conv-avatar-m{width:42px;height:42px;border-radius:21px;background:var(--card);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;flex-shrink:0}
+.conv-info-m{flex:1;min-width:0}
+.conv-name-m{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-last-m{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.conv-right-m{text-align:right;flex-shrink:0}
+.conv-time-m{font-size:10px;color:var(--muted);margin-bottom:3px}
+.conv-badge-m{background:#ef4444;color:#fff;border-radius:8px;font-size:9px;font-weight:800;min-width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;padding:0 4px}
+.chat-thread{display:flex;flex-direction:column;height:100%}
+.chat-thread-head{background:var(--surface);border-bottom:1px solid var(--border);padding:0 14px;height:50px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+.chat-back-btn{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:6px;border-radius:8px}
+.chat-partner-name{font-size:15px;font-weight:700;flex:1}
+.chat-msgs-m{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:6px}
+.msg-bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:13px;line-height:1.4;word-break:break-word}
+.msg-bubble.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
+.msg-bubble.them{align-self:flex-start;background:var(--card);color:var(--text);border-bottom-left-radius:4px}
+.msg-time-m{font-size:10px;color:var(--muted);margin-top:2px}
+.msg-row-me{display:flex;flex-direction:column;align-items:flex-end}
+.msg-row-them{display:flex;flex-direction:column;align-items:flex-start}
+.msg-date-sep-m{text-align:center;font-size:10px;color:var(--muted);padding:6px 0;font-weight:600}
+.chat-input-m{display:flex;gap:8px;padding:10px 14px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+.chat-input-m textarea{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;padding:9px 12px;resize:none;font-family:inherit;max-height:80px}
+.chat-input-m textarea:focus{outline:none;border-color:var(--accent)}
+.chat-send-btn{background:var(--accent);border:none;border-radius:10px;color:#fff;width:42px;font-size:20px;cursor:pointer;flex-shrink:0}
+.chat-send-btn:active{opacity:.8}
+.msgs-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--muted);text-align:center;gap:8px;padding:40px 20px;font-size:13px}
 </style>
 </head>
 <body>
 <div id="app">
 
-  <!-- DEBUG PANEL – dočasný, smazat po vyřešení -->
-  
+  <!-- Settings drawer overlay -->
+  <div class="drawer-overlay" id="drawerOverlay" onclick="closeSettings()"></div>
 
-  <div class="hdr">
-    <div class="hdr-logo">
-      PhotoBridge <span style="font-size:9px;opacity:0.5;font-weight:400">v2.3</span>
+  <!-- Settings drawer -->
+  <div class="settings-drawer" id="settingsDrawer">
+    <div class="drawer-head">
+      <span style="font-size:22px">⚙️</span>
+      <div class="drawer-head-title">Nastavení</div>
+      <button class="drawer-close" onclick="closeSettings()">✕</button>
     </div>
-    <div class="hdr-progress" id="hdrProg" style="display:none"></div>
-    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
-      <button id="chipFake" onclick="toggleFakeMode()">🃏 FAKE</button>
-      <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
-      <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
-      <button id="chipInstall" onclick="installPWA()" title="Přidat na plochu" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;white-space:nowrap;cursor:pointer;text-align:center">📲 Plocha</button>
+    <div class="drawer-body">
+      <div class="drawer-section">
+        <div class="drawer-section-title">🔔 Notifikace</div>
+        <div id="notifPermRow" style="display:none;background:rgba(79,142,247,.1);border:1px solid rgba(79,142,247,.3);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--accent)">
+          <div style="font-weight:700;margin-bottom:4px">Povolit notifikace?</div>
+          <div style="color:var(--muted);margin-bottom:8px">Pro upozornění musíš nejdříve povolit notifikace v prohlížeči.</div>
+          <button onclick="requestNotifPermission()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer">Povolit notifikace</button>
+        </div>
+        <div class="notif-row">
+          <div class="notif-icon">💬</div>
+          <div class="notif-label">
+            <div class="notif-name">Nové zprávy</div>
+            <div class="notif-desc">Upozornění na příchozí zprávy</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifMessages" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="notif-row">
+          <div class="notif-icon">✅</div>
+          <div class="notif-label">
+            <div class="notif-name">Prodané nabídky</div>
+            <div class="notif-desc">Když někdo koupí tvoji kartu</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifSold" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="notif-row">
+          <div class="notif-icon">🔄</div>
+          <div class="notif-label">
+            <div class="notif-name">Návrhy na výměnu</div>
+            <div class="notif-desc">Nové nabídky k výměně</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifTrade" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div class="notif-row">
+          <div class="notif-icon">📢</div>
+          <div class="notif-label">
+            <div class="notif-name">Reakce na poptávky</div>
+            <div class="notif-desc">Odpovědi na tvoje poptávky</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifDemand" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <div class="drawer-section-title">🤖 AI</div>
+        <div class="notif-row">
+          <div class="notif-icon">🃏</div>
+          <div class="notif-label">
+            <div class="notif-name">FAKE mód</div>
+            <div class="notif-desc">Trénink detekce falzifikátů</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="settingFakeToggle" onchange="toggleFakeFromSettings(this)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Stav AI</div>
+          <div id="chipAI" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
+          <div id="chipPC" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
+        </div>
+      </div>
+
+      <div class="drawer-section">
+        <div class="drawer-section-title">👤 Účet</div>
+        <button onclick="doMobileLogout();closeSettings();" style="width:100%;background:transparent;border:1.5px solid rgba(248,113,113,.4);color:var(--red);border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔓 Odhlásit se</button>
+        <button id="chipInstall" onclick="installPWA()" style="display:none;width:100%;margin-top:8px;background:rgba(59,130,246,.15);border:1.5px solid rgba(59,130,246,.4);color:#60a5fa;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📲 Přidat na plochu</button>
+      </div>
     </div>
+  </div>
+
+  <!-- Messages panel -->
+  <div class="msgs-panel" id="msgsPanel">
+    <div class="msgs-head">
+      <button class="msgs-back" onclick="closeMsgsPanel()">←</button>
+      <div class="msgs-head-title" id="msgsPanelTitle">Zprávy</div>
+    </div>
+    <div class="msgs-body" id="msgsBody">
+      <!-- conversation list or chat thread rendered here -->
+      <div class="msgs-empty" id="msgsEmptyState">
+        <div style="font-size:40px">💬</div>
+        <div>Načítám konverzace…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New header -->
+  <div class="hdr-new">
+    <button class="hdr-icon-btn" onclick="openSettings()" title="Nastavení">⚙️</button>
+    <div style="flex:1"></div>
+    <button id="chipFake" class="hdr-icon-btn" onclick="toggleFakeMode()" style="font-size:13px;font-weight:700;padding:5px 9px;border-radius:10px;border:1px solid rgba(100,116,139,.3);color:#64748b;background:rgba(100,116,139,.1)">🃏 FAKE</button>
+    <button class="hdr-icon-btn" onclick="openMsgsPanel()" title="Zprávy" id="msgsBtnHdr">
+      💬
+      <span class="hdr-unread-dot" id="hdrUnreadDot" style="display:none">0</span>
+    </button>
   </div>
   <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
 
@@ -328,9 +504,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       </div>
       <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:-4px">Galerie: nahrát hotové fotky, AI odhadne stav automaticky.</div>
 
-      <div class="btn-row">
-        <button class="btn btn-secondary" onclick="doMobileLogout()" style="flex:1;border-color:rgba(248,113,113,.35);color:var(--red)">🔓 Odhlásit se</button>
-      </div>
     </div>
 
     <!-- ══ FRONT PHOTO ══ -->
@@ -823,6 +996,7 @@ async function doMobileLogin() {
     showScreen('scSetup');
     updateStatusChips();
     loadGroqInBackground();
+    startNotifPolling();
   } catch(e) {
     errEl.textContent = 'Chyba připojení: ' + e.message; errEl.style.display = '';
     btn.disabled = false; btn.textContent = '→ Přihlásit se';
@@ -878,15 +1052,21 @@ function updateStatusChips() {
 function toggleFakeMode() {
   fakeMode = !fakeMode;
   const btn = document.getElementById('chipFake');
+  const settingToggle = document.getElementById('settingFakeToggle');
   if (fakeMode) {
-    btn.classList.add('fake-on');
     btn.textContent = '🔴 FAKE';
-    toast('🎭 FAKE trénink zapnut — fotky půjdou jako vzory pro AI');
+    btn.style.borderColor = '#ef4444';
+    btn.style.color = '#f87171';
+    btn.style.background = 'rgba(239,68,68,.18)';
+    toast('🎭 FAKE trénink zapnut');
   } else {
-    btn.classList.remove('fake-on');
     btn.textContent = '🃏 FAKE';
-    toast('FAKE trénink vypnut');
+    btn.style.borderColor = 'rgba(100,116,139,.3)';
+    btn.style.color = '#64748b';
+    btn.style.background = 'rgba(100,116,139,.1)';
+    toast('FAKE mód vypnut');
   }
+  if (settingToggle) settingToggle.checked = fakeMode;
 }
 
 function selectCount(n, silent) {
@@ -2140,8 +2320,441 @@ If no damage found: {"condition":"NM","issues":[],"notes":"Zadní strana bez po�
   } catch { return null; }
 }
 
-// ── Periodická aktualizace stavových čipů ──────────────────
-setInterval(updateStatusChips, 15000);
+
+// ══════════════════════════════════════════════
+// SETTINGS DRAWER
+// ══════════════════════════════════════════════
+function openSettings() {
+  document.getElementById('settingsDrawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.add('open');
+  loadNotifSettings();
+  // Sync fake toggle
+  document.getElementById('settingFakeToggle').checked = fakeMode;
+  // Show notif permission row if not granted
+  if ('Notification' in window && Notification.permission === 'default') {
+    document.getElementById('notifPermRow').style.display = '';
+  } else {
+    document.getElementById('notifPermRow').style.display = 'none';
+  }
+}
+function closeSettings() {
+  document.getElementById('settingsDrawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.remove('open');
+}
+function toggleFakeFromSettings(el) {
+  fakeMode = el.checked;
+  const chip = document.getElementById('chipFake');
+  if (fakeMode) {
+    chip.textContent = '🔴 FAKE';
+    chip.style.borderColor = '#ef4444';
+    chip.style.color = '#f87171';
+    chip.style.background = 'rgba(239,68,68,.18)';
+    toast('🎭 FAKE trénink zapnut');
+  } else {
+    chip.textContent = '🃏 FAKE';
+    chip.style.borderColor = 'rgba(100,116,139,.3)';
+    chip.style.color = '#64748b';
+    chip.style.background = 'rgba(100,116,139,.1)';
+    toast('FAKE mód vypnut');
+  }
+}
+
+// ══════════════════════════════════════════════
+// NOTIFICATIONS
+// ══════════════════════════════════════════════
+const NOTIF_KEY = 'pkt_notif_settings';
+
+function loadNotifSettings() {
+  const s = getNotifSettings();
+  document.getElementById('notifMessages').checked = s.messages;
+  document.getElementById('notifSold').checked     = s.sold;
+  document.getElementById('notifTrade').checked    = s.trade;
+  document.getElementById('notifDemand').checked   = s.demand;
+}
+
+function getNotifSettings() {
+  try {
+    const raw = localStorage.getItem(NOTIF_KEY);
+    const s = raw ? JSON.parse(raw) : {};
+    return {
+      messages: s.messages !== false,
+      sold:     s.sold     !== false,
+      trade:    s.trade    !== false,
+      demand:   s.demand   !== false,
+    };
+  } catch { return { messages: true, sold: true, trade: true, demand: true }; }
+}
+
+function saveNotifSettings() {
+  const s = {
+    messages: document.getElementById('notifMessages').checked,
+    sold:     document.getElementById('notifSold').checked,
+    trade:    document.getElementById('notifTrade').checked,
+    demand:   document.getElementById('notifDemand').checked,
+  };
+  localStorage.setItem(NOTIF_KEY, JSON.stringify(s));
+  // Ask for permission when enabling any notification
+  if ((s.messages || s.sold || s.trade || s.demand) && 'Notification' in window && Notification.permission === 'default') {
+    requestNotifPermission();
+  }
+}
+
+async function requestNotifPermission() {
+  if (!('Notification' in window)) { toast('Prohlížeč nepodporuje notifikace'); return; }
+  const result = await Notification.requestPermission();
+  if (result === 'granted') {
+    toast('✅ Notifikace povoleny');
+    document.getElementById('notifPermRow').style.display = 'none';
+  } else {
+    toast('⚠️ Notifikace zamítnuty v nastavení prohlížeče');
+  }
+}
+
+function showPushNotif(title, body, tag) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try { new Notification(title, { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
+  catch(e) { console.warn('[notif]', e); }
+}
+
+// ── Notification polling ─────────────────────────────────────
+// Čte ze stejné tabulky `notifications` jako notif-bell.js na webu.
+// Kategorie notifikace se detekuje z title/body textu — stejná logika.
+let _notifPollTimer = null;
+let _notifSeenIds   = new Set(JSON.parse(localStorage.getItem('pkt_notif_seen') || '[]'));
+
+let _notifUserId = '';
+let _notifUsername = '';
+
+function startNotifPolling() {
+  if (!mobileToken) return;
+  if (_notifPollTimer) clearInterval(_notifPollTimer);
+  checkNotifications();
+  _notifPollTimer = setInterval(checkNotifications, 30000);
+}
+
+// Zjistí kategorii notifikace ze title/body — stejná logika jako notifIcon() v notif-bell.js
+function _notifCategory(title, body) {
+  const t = ((title || '') + ' ' + (body || '')).toLowerCase();
+  if (t.includes('zpráv') || t.includes('message') || t.includes('chat')) return 'messages';
+  if (t.includes('zakoupil') || t.includes('prodej') || t.includes('koupil') || t.includes('sold')) return 'sold';
+  if (t.includes('výměna') || t.includes('trade')) return 'trade';
+  if (t.includes('poptávk') || t.includes('demand') || t.includes('nabídka') || t.includes('offer')) return 'demand';
+  return 'other';
+}
+
+async function checkNotifications() {
+  if (!mobileToken) return;
+
+  // Načti userId pokud ještě nemáme
+  if (!_notifUserId) {
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/user`, {
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
+      });
+      if (r.ok) { const u = await r.json(); _notifUserId = u.id; _notifUsername = u.user_metadata?.username || ''; }
+    } catch { return; }
+  }
+  if (!_notifUserId) return;
+
+  const s = getNotifSettings();
+
+  try {
+    // Stejný dotaz jako notif-bell.js — tabulka notifications, nepřečtené
+    const r = await fetch(
+      `${SB_URL}/rest/v1/notifications?user_id=eq.${_notifUserId}&read=eq.false&order=created_at.desc&limit=20&select=id,title,body,link,created_at`,
+      { headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken } }
+    );
+    if (!r.ok) return;
+    const items = await r.json();
+    if (!Array.isArray(items)) return;
+
+    // Počet nepřečtených → badge na 💬 ikoně
+    updateNotifBadge(items.length);
+
+    // Browser push notifikace jen pro nové (dosud neviděné)
+    const newItems = items.filter(n => !_notifSeenIds.has(n.id));
+    newItems.forEach(n => {
+      const cat = _notifCategory(n.title, n.body);
+      const allowed = (
+        (cat === 'messages' && s.messages) ||
+        (cat === 'sold'     && s.sold)     ||
+        (cat === 'trade'    && s.trade)    ||
+        (cat === 'demand'   && s.demand)   ||
+        (cat === 'other')
+      );
+      if (allowed) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
+      _notifSeenIds.add(n.id);
+    });
+
+    // Persist seenIds (max 200)
+    if (newItems.length > 0) {
+      if (_notifSeenIds.size > 200) {
+        const arr = [..._notifSeenIds];
+        _notifSeenIds = new Set(arr.slice(arr.length - 200));
+      }
+      localStorage.setItem('pkt_notif_seen', JSON.stringify([..._notifSeenIds]));
+    }
+
+    // Aktualizuj unread badge pro zprávy (z chat_messages, pro přesnost)
+    updateMsgsUnreadBadge();
+  } catch(e) { console.warn('[notif poll]', e); }
+}
+
+// Badge pro notif-bell (červená tečka na ikoně zpráv ukazuje všechny notif)
+function updateNotifBadge(count) {
+  const dot = document.getElementById('hdrUnreadDot');
+  if (!dot) return;
+  if (count > 0) {
+    dot.textContent = count > 99 ? '99+' : count;
+    dot.style.display = '';
+  } else {
+    dot.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════════
+// MESSAGES PANEL – chat
+// ══════════════════════════════════════════════
+let _msgsConvs     = [];
+let _msgsActiveId  = null;
+let _msgsPartner   = null;
+let _msgsMessages  = [];
+let _msgsPollTimer = null;
+let _msgsUserId    = '';
+
+function openMsgsPanel() {
+  document.getElementById('msgsPanel').classList.add('open');
+  if (mobileToken) loadMsgsConversations();
+  else renderMsgsEmpty('🔒 Přihlas se pro přístup ke zprávám');
+}
+function closeMsgsPanel() {
+  document.getElementById('msgsPanel').classList.remove('open');
+  if (_msgsPollTimer) { clearInterval(_msgsPollTimer); _msgsPollTimer = null; }
+  _msgsActiveId = null;
+  _msgsPartner  = null;
+}
+
+async function loadMsgsConversations() {
+  if (!mobileToken) return;
+  // Get userId if needed
+  if (!_msgsUserId) {
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/user`, { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} });
+      if (r.ok) { const u = await r.json(); _msgsUserId = u.id; }
+    } catch { renderMsgsEmpty('⚠️ Chyba načítání'); return; }
+  }
+
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/conversations?or=(user1_id.eq.${_msgsUserId},user2_id.eq.${_msgsUserId})&order=last_message_at.desc&limit=50`,
+      { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
+    );
+    if (!r.ok) { renderMsgsEmpty('⚠️ Nepodařilo se načíst zprávy'); return; }
+    _msgsConvs = await r.json();
+    renderMsgsConvList();
+    updateMsgsUnreadBadge();
+  } catch { renderMsgsEmpty('⚠️ Chyba připojení'); }
+}
+
+function renderMsgsEmpty(msg) {
+  const b = document.getElementById('msgsBody');
+  b.innerHTML = `<div class="msgs-empty"><div style="font-size:36px">💬</div><div>${escHtml(msg)}</div></div>`;
+}
+
+function renderMsgsConvList() {
+  const b = document.getElementById('msgsBody');
+  document.getElementById('msgsPanelTitle').textContent = 'Zprávy';
+
+  if (!_msgsConvs.length) {
+    b.innerHTML = `<div class="msgs-empty"><div style="font-size:36px">💬</div><div>Žádné konverzace</div></div>`;
+    return;
+  }
+
+  const items = _msgsConvs.map(c => {
+    const isU1   = c.user1_id === _msgsUserId;
+    const partner = isU1 ? c.user2_username : c.user1_username;
+    const unread  = isU1 ? (c.unread_user1||0) : (c.unread_user2||0);
+    const last    = c.last_message_text || 'Nová konverzace';
+    const time    = formatMsgsTime(c.last_message_at);
+    const init    = (partner||'?')[0].toUpperCase();
+    // skip hidden
+    if ((isU1 && c.hidden_user1) || (!isU1 && c.hidden_user2)) return '';
+    const partnerId = isU1 ? c.user2_id : c.user1_id;
+    return `<div class="conv-item-m ${unread>0?'unread':''}" onclick="openMsgsThread('${c.id}','${escHtml(partner)}','${partnerId}')">
+      <div class="conv-avatar-m">${escHtml(init)}</div>
+      <div class="conv-info-m">
+        <div class="conv-name-m">${escHtml(partner)}</div>
+        <div class="conv-last-m">${escHtml(last)}</div>
+      </div>
+      <div class="conv-right-m">
+        <div class="conv-time-m">${escHtml(time)}</div>
+        ${unread>0?`<div class="conv-badge-m">${unread>99?'99+':unread}</div>`:''}
+      </div>
+    </div>`;
+  }).filter(Boolean).join('');
+
+  b.innerHTML = `<div class="conv-list-mobile">${items || '<div class="msgs-empty"><div>Žádné konverzace</div></div>'}</div>`;
+}
+
+async function openMsgsThread(convId, partnerName, partnerId) {
+  _msgsActiveId = convId;
+  _msgsPartner  = { id: partnerId, name: partnerName };
+  document.getElementById('msgsPanelTitle').textContent = partnerName;
+
+  const b = document.getElementById('msgsBody');
+  b.innerHTML = `<div class="chat-thread">
+    <div class="chat-thread-head">
+      <button class="chat-back-btn" onclick="backToConvList()">←</button>
+      <div class="chat-partner-name">${escHtml(partnerName)}</div>
+    </div>
+    <div class="chat-msgs-m" id="chatMsgsM"></div>
+    <div class="chat-input-m">
+      <textarea id="chatInputM" placeholder="Napsat zprávu…" rows="1"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMobileMsg()}"></textarea>
+      <button class="chat-send-btn" onclick="sendMobileMsg()">↑</button>
+    </div>
+  </div>`;
+
+  await loadMsgsThread();
+
+  // Mark read
+  markConvRead(convId);
+
+  // Poll while thread open
+  if (_msgsPollTimer) clearInterval(_msgsPollTimer);
+  _msgsPollTimer = setInterval(async () => {
+    await loadMsgsThread(true);
+    updateMsgsUnreadBadge();
+  }, 5000);
+}
+
+function backToConvList() {
+  if (_msgsPollTimer) { clearInterval(_msgsPollTimer); _msgsPollTimer = null; }
+  _msgsActiveId = null;
+  _msgsPartner  = null;
+  document.getElementById('msgsPanelTitle').textContent = 'Zprávy';
+  renderMsgsConvList();
+  loadMsgsConversations(); // refresh unread counts
+}
+
+async function loadMsgsThread(silent = false) {
+  if (!_msgsActiveId) return;
+  try {
+    const r = await fetch(
+      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=200`,
+      { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
+    );
+    if (!r.ok) return;
+    const msgs = await r.json();
+    _msgsMessages = Array.isArray(msgs) ? msgs : [];
+    renderMsgsThread(silent);
+  } catch {}
+}
+
+function renderMsgsThread(silent = false) {
+  const el = document.getElementById('chatMsgsM');
+  if (!el) return;
+  const wasAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+
+  let html = '', lastDate = '';
+  _msgsMessages.forEach(m => {
+    const d = new Date(m.created_at);
+    const ds = d.toLocaleDateString('cs', {day:'numeric', month:'long'});
+    if (ds !== lastDate) { html += `<div class="msg-date-sep-m">${ds}</div>`; lastDate = ds; }
+    const isMe = m.sender_id === _msgsUserId;
+    const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
+    const txt = escHtml(m.content || '');
+    html += `<div class="msg-row-${isMe?'me':'them'}">
+      <div class="msg-bubble ${isMe?'me':'them'}">${txt}</div>
+      <div class="msg-time-m">${time}</div>
+    </div>`;
+  });
+  if (!html) html = `<div class="msgs-empty"><div style="font-size:28px">👋</div><div>Začni konverzaci!</div></div>`;
+  el.innerHTML = html;
+  if (!silent || wasAtBottom) el.scrollTop = el.scrollHeight;
+}
+
+async function sendMobileMsg() {
+  const inp = document.getElementById('chatInputM');
+  if (!inp) return;
+  const text = inp.value.trim();
+  if (!text || !_msgsActiveId || !_msgsUserId) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  try {
+    await fetch(`${SB_URL}/rest/v1/chat_messages`, {
+      method: 'POST',
+      headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, content: text, type: 'text' })
+    });
+    // Update last_message_at in conversation
+    await fetch(`${SB_URL}/rest/v1/conversations?id=eq.${_msgsActiveId}`, {
+      method: 'PATCH',
+      headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body: JSON.stringify({ last_message_text: text, last_message_at: new Date().toISOString() })
+    });
+    await loadMsgsThread();
+  } catch { toast('⚠️ Zprávu se nepodařilo odeslat'); }
+}
+
+async function markConvRead(convId) {
+  if (!_msgsUserId) return;
+  try {
+    await fetch(`${SB_URL}/rest/v1/rpc/mark_conversation_read`, {
+      method: 'POST',
+      headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json'},
+      body: JSON.stringify({ p_conversation_id: convId, p_user_id: _msgsUserId })
+    });
+  } catch {}
+}
+
+function updateMsgsUnreadBadge() {
+  // Jen aktualizuje konverzační seznam — badge na ikoně řídí updateNotifBadge()
+  // (notif-bell tabulka je source of truth pro badge)
+  const total = _msgsConvs.reduce((s,c) => {
+    return s + (c.user1_id === _msgsUserId ? (c.unread_user1||0) : (c.unread_user2||0));
+  }, 0);
+  // Badge přepíše notif count pouze pokud notifikační polling není aktivní
+  if (!_notifPollTimer) updateNotifBadge(total);
+}
+
+function formatMsgsTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso), now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'teď';
+  if (diff < 3600000) return Math.floor(diff/60000) + ' min';
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});
+  const yest = new Date(now); yest.setDate(yest.getDate()-1);
+  if (d.toDateString() === yest.toDateString()) return 'včera';
+  return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'});
+}
+
+// Start notification polling after login
+const _origLoadGroq = loadGroqInBackground;
+const _origWindowOnload = window.onload;
+window.onload = function() {
+  if (_origWindowOnload) _origWindowOnload();
+  // Start notif polling if already logged in
+  if (mobileToken) {
+    startNotifPolling();
+    // pre-load userId for messages badge
+    fetch(`${SB_URL}/auth/v1/user`, {headers:{'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken}})
+      .then(r=>r.ok?r.json():null).then(u=>{
+        if(u?.id) { _msgsUserId=u.id; _notifUserId=u.id; }
+      }).catch(()=>{});
+    // Poll conversations for badge
+    setInterval(() => {
+      if (_msgsUserId && !document.getElementById('msgsPanel').classList.contains('open')) {
+        loadMsgsConversations();
+      }
+    }, 60000);
+  }
+};
+
+
 
 // ── PWA Install – tlačítko "Přidat na plochu" ──────────────
 let _installPrompt = null;
