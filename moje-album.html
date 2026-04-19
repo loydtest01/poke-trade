@@ -1870,6 +1870,11 @@ let editingAlbumId = null;
 
   await Promise.all([loadCards(), loadAlbums()]);
   await loadAllCardPhotos();
+  // Jednorázový auto-select: pokud nic není vybráno, vyber první user album
+  if (activeAlbumIds.size === 0) {
+    const firstRegular = allAlbums.find(a => !SPECIAL_ALB_NAMES.includes(a.name));
+    if (firstRegular) activeAlbumIds.add(firstRegular.id);
+  }
   renderAlbumList();
   render();
   renderFlatFilterBtns();
@@ -1943,6 +1948,7 @@ async function loadCards() {
     updateStats();
     setSyncState('syncing', 'Načítám obrázky…');
     await fetchMissingImages();
+    updateStats(); // znovu po načtení cen (p30d)
     setSyncState('ok', 'Synchronizováno');
   } catch(e) {
     setSyncState('', 'Chyba karet'); console.error(e);
@@ -3885,13 +3891,6 @@ function renderAlbumList() {
   const el = document.getElementById('albumList');
   // Skryj speciální alba ze seznamu
   const regular = allAlbums.filter(a => !SPECIAL_NAMES.includes(a.name));
-
-  // Auto-vyber první album pokud nic není vybráno z user alb
-  const hasUserAlbActive = regular.some(a => activeAlbumIds.has(a.id));
-  const hasSpecialActive = [...activeAlbumIds].some(id => allAlbums.find(a=>a.id===id && SPECIAL_NAMES.includes(a.name)));
-  if (!hasUserAlbActive && !hasSpecialActive && regular.length > 0) {
-    activeAlbumIds.add(regular[0].id);
-  }
 
   if (!regular.length) {
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
