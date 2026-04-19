@@ -1819,6 +1819,8 @@ const _pendingCardMap = {};
 function _getPendingImg(card) {
   // Try all known image field names
   const direct = card._userPhoto                           // ← fotka z alba má přednost
+    || (card.allPhotos?.length ? (card.allPhotos.find(p => p.side === 'front') || card.allPhotos[0])?.url : null)
+    || card.photoUrl
     || card.images?.small || card.images?.large
     || card.apiSmall || card.apiLarge
     || card.imageUrl || card.image_url
@@ -2000,8 +2002,12 @@ function openListingFromQueue(pendingId) {
   if (existingImg) {
     salePhotos.push({ src: existingImg, mime: 'image/jpeg', isOfficial: true });
   }
-  // Slot 1+ — reálné fotky z alba
-  const albumPhotos = card._userPhotos || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
+  // Slot 1+ — reálné fotky z alba (allPhotos = celý batch přední+zadní, photoUrl = jen přední)
+  const albumPhotos = card._userPhotos
+    || (card.allPhotos?.length
+        ? card.allPhotos.map(p => (typeof p === 'string' ? p : (p.url || p.croppedUrl || p.src || ''))).filter(Boolean)
+        : null)
+    || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
   if (albumPhotos.length) {
     albumPhotos.forEach(src => {
       if (typeof src === 'string' && src.startsWith('data:')) {
