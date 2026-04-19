@@ -1694,6 +1694,7 @@ function renderProdPhotoStrip() {
     </div>`;
   });
   html += `<div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
+    <input type="file" id="prodPhotoInput" accept="image/*" multiple style="display:none" onchange="handleProdPhotos(this.files)">
     <div style="font-size:22px">➕</div>
     <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
   </div>`;
@@ -3438,6 +3439,7 @@ function renderSalePhotos() {
     }
   });
   html += `<div class="sale-photo-add" onclick="document.getElementById('salePhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleSalePhotoDrop(event)">
+    <input type="file" id="salePhotoInput" accept="image/*" multiple style="display:none" onchange="handleSalePhotos(this.files)">
     <div style="font-size:22px">➕</div>
     <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
   </div>`;
