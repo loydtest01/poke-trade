@@ -2788,13 +2788,16 @@ async function loadMsgsThread(silent = false) {
   if (!_msgsActiveId) return;
   try {
     const r = await fetch(
-      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=200`,
+      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=200&select=*`,
       { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
     );
     if (!r.ok) return;
     const msgs = await r.json();
-    _msgsMessages = Array.isArray(msgs) ? msgs : [];
-    renderMsgsThread(silent);
+    if (Array.isArray(msgs) && msgs.length > 0) {
+      _msgsMessages = msgs;
+      renderMsgsThread(silent);
+    }
+    // Pokud server vrátí prázdné pole, zachováme optimistické zprávy
   } catch {}
 }
 
@@ -2844,7 +2847,7 @@ async function sendMobileMsg() {
     const r = await fetch(`${SB_URL}/rest/v1/chat_messages`, {
       method: 'POST',
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, content: text, message: text, type: 'text' })
+      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, content: text, type: 'text' })
     });
     if (!r.ok) {
       _msgsMessages = _msgsMessages.filter(m => m !== tempMsg);
