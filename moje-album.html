@@ -376,27 +376,28 @@ body { background: #06040c; overflow-x: hidden; }
     rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 60%, transparent 80%);
   mix-blend-mode: screen;
 }
-.card-slot.selected { border-color: rgba(245,200,66,0.55); box-shadow: 0 0 0 1px rgba(245,200,66,0.3), 0 0 14px 3px rgba(245,200,66,0.18); }
+.card-slot.selected { border-color: rgba(245,200,66,0.7); box-shadow: 0 0 0 1px rgba(245,200,66,0.4), 0 0 18px 4px rgba(245,200,66,0.22); }
 
 /* Rotující zlatá čárka */
 .sel-ring {
-  position: absolute; inset: 0; z-index: 9; pointer-events: none;
+  position: absolute; inset: -1px; z-index: 9; pointer-events: none;
   border-radius: 10px; overflow: hidden;
 }
 .sel-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 @keyframes sel-dash-march {
-  to { stroke-dashoffset: -42; }
+  from { stroke-dashoffset: 42; }
+  to   { stroke-dashoffset: 0; }
 }
 .sel-ring rect {
   fill: none;
   stroke: #f5c842;
-  stroke-width: 2.2;
-  stroke-dasharray: 14 7;
+  stroke-width: 2.5;
+  stroke-dasharray: 12 6;
   stroke-dashoffset: 0;
   stroke-linecap: round;
-  animation: sel-dash-march 3.2s linear infinite;
-  filter: drop-shadow(0 0 3px rgba(245,200,66,0.6));
+  animation: sel-dash-march 2.8s linear infinite;
+  filter: drop-shadow(0 0 2.5px rgba(245,200,66,0.55));
 }
 .card-slot.in-album { border-color: rgba(74,158,255,0.4); }
 
@@ -2016,19 +2017,9 @@ function render() {
   document.getElementById('statFiltered').textContent = filtered.length;
   fChip.style.display = (activeAlbumId || activeType || activeRarity || activeTrainerSub || activeSupertype || activeView !== 'all' || q || activeExpFilter) ? '' : 'none';
 
-  // Album header
+  // Album header – skrytý (název alba je vidět v sidebaru)
   const ah = document.getElementById('albumHeader');
-  if (activeAlbumId) {
-    const alb = allAlbums.find(a => a.id === activeAlbumId);
-    if (alb) {
-      ah.style.display = '';
-      document.getElementById('ahIcon').textContent = alb.icon || '📁';
-      document.getElementById('ahName').textContent = alb.name;
-      document.getElementById('ahCnt').textContent  = alb.cardIds.length + ' karet';
-    }
-  } else {
-    ah.style.display = 'none';
-  }
+  if (ah) ah.style.display = 'none';
 
   // Celková hodnota sbírky (Průměr 30d ze všech zobrazených karet)
   const tvBar  = document.getElementById('totalValueBar');
@@ -3929,7 +3920,7 @@ function openAlbumMenu(e, albumId) {
   menu.className = 'album-dropdown';
   menu.id = 'albumContextMenu';
   menu.innerHTML = `
-    <button class="album-dropdown-item" onclick="closeAlbumMenu();startSelectMode()">✏️ Upravit karty</button>
+    <button class="album-dropdown-item" onclick="closeAlbumMenu();startSelectMode()">🗑 Vymazat kartu</button>
     <button class="album-dropdown-item" onclick="closeAlbumMenu();renameCurrentAlbum()">✏️ Přejmenovat</button>
     <div class="album-dropdown-sep"></div>
     <button class="album-dropdown-item danger" onclick="closeAlbumMenu();deleteAlbum('${albumId.replace(/'/g,"\\'")}')">🗑 Vymazat album</button>

@@ -1520,45 +1520,55 @@ async function processFrontPhoto(dataUrl) {
   const guide = box.querySelector('.align-guide');
   if (guide) guide.style.display = 'none';
 
-  cards[currentCard].frontPhoto = dataUrl;
-  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
+  // ── Zachyť index PŘED jakýmkoliv await ──────────────────────
+  const _cardIdx = currentCard;
+  cards[_cardIdx].frontPhoto = dataUrl;
+  if (!cards[_cardIdx].detailPhotos) cards[_cardIdx].detailPhotos = [];
 
-  const aiBox = document.getElementById('aiResultBox');
-  aiBox.style.display = '';
-  if (groqKey || useSharedProxy) {
-    aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
-    const result = await identifyCard(dataUrl);
-    // result je buď {name:..., ...} nebo {_error:...} nebo null
-    cards[currentCard].frontAI = result?.name ? result : null;
-    showAiResult(result);
-    // Japonská karta → zobrazit panel pro záběr názvu
-    const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
-    if (isJP) {
-      if (result) result.lang = 'JP';
-      showJpNamePanel(currentCard);
-    } else {
-      document.getElementById('jpNamePanel').style.display = 'none';
-    }
-  } else {
-    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
-  }
+  // ── Ihned přepni tlačítka a progress – NEZÁVISLE na AI ──────
+  // (uživatel vidí správné tlačítko "Karta 2 →" okamžitě po fotce,
+  //  bez čekání na AI – eliminuje zmatek a chybné kliknutí "Přeskočit")
   document.getElementById('condPanel').style.display = '';
-
-  // Switch button state
   document.getElementById('btnEmpty').style.display = 'none';
   document.getElementById('btnPhoto').style.display = '';
 
   const nextBtn = document.getElementById('frontNextBtn');
   if (totalCards === 1) {
     nextBtn.textContent = 'Pokračovat → zadní';
-  } else if (currentCard < totalCards - 1) {
-    nextBtn.textContent = `Karta ${currentCard + 2} →`;
+  } else if (_cardIdx < totalCards - 1) {
+    nextBtn.textContent = `Karta ${_cardIdx + 2} →`;
   } else {
     nextBtn.textContent = 'Nafotit zadní strany →';
   }
 
-  renderDetailPanel(currentCard);
+  renderDetailPanel(_cardIdx);
   updateAddDetailBtn();
+
+  // ── AI rozpoznávání (async – uživatel může mezitím kliknout Další) ──
+  const aiBox = document.getElementById('aiResultBox');
+  aiBox.style.display = '';
+  if (groqKey || useSharedProxy) {
+    aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
+    const result = await identifyCard(dataUrl);
+
+    // Výsledek vždy ulož do SPRÁVNÉ karty (i když user mezitím přešel jinam)
+    cards[_cardIdx].frontAI = result?.name ? result : null;
+
+    // UI aktualizuj pouze pokud jsme stále na té samé kartě
+    if (currentCard === _cardIdx) {
+      showAiResult(result);
+      // Japonská karta → zobrazit panel pro záběr názvu
+      const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
+      if (isJP) {
+        if (result) result.lang = 'JP';
+        showJpNamePanel(_cardIdx);
+      } else {
+        document.getElementById('jpNamePanel').style.display = 'none';
+      }
+    }
+  } else {
+    aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
+  }
 }
 
 function renderDetailPanel(cardIdx) {
@@ -1589,28 +1599,32 @@ function updateAddDetailBtn() {
 
 function processDetailPhoto(dataUrl) {
   haptic(40);
-  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
-  if (cards[currentCard].detailPhotos.length >= 10) return;
-  cards[currentCard].detailPhotos.push(dataUrl);
-  renderDetailPanel(currentCard);
+  const _cardIdx = currentCard;  // zachyť před jakýmkoliv await
+  if (!cards[_cardIdx].detailPhotos) cards[_cardIdx].detailPhotos = [];
+  if (cards[_cardIdx].detailPhotos.length >= 10) return;
+  cards[_cardIdx].detailPhotos.push(dataUrl);
+  renderDetailPanel(_cardIdx);
   updateAddDetailBtn();
-  const n = cards[currentCard].detailPhotos.length;
+  const n = cards[_cardIdx].detailPhotos.length;
   toast(`📷 Fotodetail ${n}/10 přidán`);
 
   // Pokud karta dosud nebyla rozpoznána, zkus AI automaticky z tohoto detailu
-  if (groqKey && !cards[currentCard].frontAI?.name) {
+  if (groqKey && !cards[_cardIdx].frontAI?.name) {
     const aiBox = document.getElementById('aiResultBox');
     if (aiBox) {
       aiBox.style.display = '';
       aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším rozpoznat z detailu…</div>';
       identifyCard(dataUrl).then(result => {
         if (result?.name) {
-          cards[currentCard].frontAI = result;
-          showAiResult(result);
-          haptic([40,30,80]);
-          toast('✅ Karta rozpoznána z detailu!');
+          cards[_cardIdx].frontAI = result;
+          // UI aktualizuj jen pokud jsme stále na té samé kartě
+          if (currentCard === _cardIdx) {
+            showAiResult(result);
+            haptic([40,30,80]);
+            toast('✅ Karta rozpoznána z detailu!');
+          }
         } else {
-          showAiResult(null);
+          if (currentCard === _cardIdx) showAiResult(null);
         }
       });
     }
@@ -1894,7 +1908,9 @@ function showBackScreen() {
 
 async function processBackPhoto(dataUrl) {
   haptic(50);
-  cards[currentCard].backPhoto = dataUrl;
+  // ── Zachyť index PŘED jakýmkoliv await ──────────────────────
+  const _backIdx = currentCard;
+  cards[_backIdx].backPhoto = dataUrl;
   setPhotoBox(document.getElementById('backPhotoBox'), dataUrl);
   document.getElementById('backNextBtn').style.display = '';
 
@@ -1903,9 +1919,13 @@ async function processBackPhoto(dataUrl) {
     backAiBox.style.display = '';
     backAiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI kontroluje poškození zadní strany…</div>';
     const result = await analyzeBackPhoto(dataUrl);
-    cards[currentCard].backAI = result;
-    showBackAiResult(result, cards[currentCard]);
-    if (result) haptic([30, 20, 60]);
+    // Výsledek ulož do správné karty
+    cards[_backIdx].backAI = result;
+    // UI aktualizuj jen pokud jsme stále na té samé kartě
+    if (currentCard === _backIdx) {
+      showBackAiResult(result, cards[_backIdx]);
+      if (result) haptic([30, 20, 60]);
+    }
   }
 }
 
