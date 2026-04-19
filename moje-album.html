@@ -6036,6 +6036,8 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 
         <!-- Info o fotce -->
         <div id="pgmPhotoInfo" style="font-size:11px; color:rgba(240,236,228,0.4); text-align:center; flex-shrink:0;"></div>
+        <!-- Stav uložení ořezu -->
+        <div id="pgmSaveStatus" style="display:none; font-size:12px; font-weight:600; text-align:center; flex-shrink:0; padding:6px 14px; border-radius:8px; transition:all .3s;"></div>
 
 
         <!-- AI výsledek -->
@@ -6382,15 +6384,90 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
     if (e.target === this) closePhotoGallery();
   });
 
-  // ── Uložení ořezu zpět do galerie + Supabase ────────────────
-  window.pgmUpdateCurrentPhoto = function(dataUrl) {
+  // ── Uložení ořezu zpět do galerie + Supabase Storage ──────────
+  function pgmShowSaveStatus(msg, type) {
+    const el = document.getElementById('pgmSaveStatus');
+    if (!el) return;
+    el.style.display = 'block';
+    el.textContent = msg;
+    if (type === 'saving') {
+      el.style.background = 'rgba(245,200,66,0.1)';
+      el.style.border = '1px solid rgba(245,200,66,0.25)';
+      el.style.color = '#f5c842';
+    } else if (type === 'ok') {
+      el.style.background = 'rgba(74,222,128,0.1)';
+      el.style.border = '1px solid rgba(74,222,128,0.25)';
+      el.style.color = '#4ade80';
+      setTimeout(() => { el.style.display = 'none'; }, 3000);
+    } else {
+      el.style.background = 'rgba(248,113,113,0.1)';
+      el.style.border = '1px solid rgba(248,113,113,0.25)';
+      el.style.color = '#f87171';
+      setTimeout(() => { el.style.display = 'none'; }, 5000);
+    }
+  }
+
+  window.pgmUpdateCurrentPhoto = async function(dataUrl) {
     const photo = _pgmPhotos[_pgmIdx];
     if (!photo) return;
+
+    // Okamžitě aktualizuj UI
     photo.url = dataUrl;
     pgmRenderGrid();
-    if (photo.id && typeof sbReq === 'function') {
-      sbReq(`rest/v1/user_card_photos?id=eq.${photo.id}`, 'PATCH', { url: dataUrl })
-        .catch(() => {});
+    pgmShowSaveStatus('⏳ Ukládám ořez…', 'saving');
+
+    try {
+      // 1. Převeď dataUrl na Uint8Array
+      const b64 = dataUrl.split(',')[1];
+      if (!b64) throw new Error('Neplatný obrázek');
+      const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+      // 2. Získej token a URL
+      const tok = (typeof token !== 'undefined' ? token : null)
+        || localStorage.getItem('sb_token')
+        || localStorage.getItem('sb_access_token');
+      const uid = (typeof userId !== 'undefined' ? userId : null)
+        || localStorage.getItem('sb_user_id');
+      const sbUrl = (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : null);
+      const sbAnon = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : null);
+
+      if (!tok || !uid || !sbUrl || !sbAnon) throw new Error('Nepřihlášen');
+
+      // 3. Nahraj do Supabase Storage (bucket card-photo)
+      const ts = Date.now();
+      const storagePath = `${uid}/crop_${photo.id || ts}_${ts}.jpg`;
+      const upRes = await fetch(`${sbUrl}/storage/v1/object/card-photo/${storagePath}`, {
+        method: 'POST',
+        headers: {
+          'apikey':        sbAnon,
+          'Authorization': 'Bearer ' + tok,
+          'Content-Type':  'image/jpeg',
+          'x-upsert':      'true',
+        },
+        body: buf,
+      });
+
+      if (!upRes.ok) {
+        const errText = await upRes.text().catch(() => '');
+        throw new Error('Storage upload selhal: ' + upRes.status + ' ' + errText);
+      }
+
+      // 4. Sestav veřejnou URL
+      const publicUrl = `${sbUrl}/storage/v1/object/public/card-photo/${storagePath}`;
+
+      // 5. Aktualizuj URL v databázi
+      if (photo.id && typeof sbReq === 'function') {
+        await sbReq(`rest/v1/user_card_photos?id=eq.${photo.id}`, 'PATCH', { url: publicUrl });
+      }
+
+      // 6. Aktualizuj interní URL na veřejnou (ne base64)
+      photo.url = publicUrl;
+      pgmRenderGrid();
+      pgmShowSaveStatus('✅ Ořez uložen', 'ok');
+
+    } catch (e) {
+      console.error('[pgmUpdateCurrentPhoto]', e);
+      pgmShowSaveStatus('❌ Nepodařilo se uložit: ' + e.message, 'error');
     }
   };
 })();
@@ -7217,7 +7294,7 @@ function pgmConfirmCrop() {
   const btn = document.querySelector('.pgm-btn-confirm');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Ořezávám…'; }
 
-  requestAnimationFrame(() => setTimeout(() => {
+  requestAnimationFrame(() => setTimeout(async () => {
     const c = PGM_CROP.corners;
     const outW = Math.round((Math.hypot(c[1].x-c[0].x,c[1].y-c[0].y)+Math.hypot(c[2].x-c[3].x,c[2].y-c[3].y))/2);
     const outH = Math.round((Math.hypot(c[3].x-c[0].x,c[3].y-c[0].y)+Math.hypot(c[2].x-c[1].x,c[2].y-c[1].y))/2);
@@ -7233,13 +7310,17 @@ function pgmConfirmCrop() {
       return;
     }
 
-    // Zapiš zpět do galerie
+    // Zapiš zpět do galerie + nahraj do Supabase Storage
     const imgEl = document.getElementById('pgmMainImg');
     if (imgEl) { imgEl.style.opacity='0'; imgEl.src=dataUrl; imgEl.onload=()=>{imgEl.style.opacity='1';}; }
-    if (typeof pgmUpdateCurrentPhoto === 'function') pgmUpdateCurrentPhoto(dataUrl);
 
     if (btn) { btn.disabled=false; btn.textContent='✂️ Oříznout'; }
     pgmCancelCrop();
+
+    // Async nahrání — zobrazí stav přímo v galerii
+    if (typeof pgmUpdateCurrentPhoto === 'function') {
+      pgmUpdateCurrentPhoto(dataUrl);
+    }
   }, 0));
 }
 
