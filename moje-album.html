@@ -6458,11 +6458,11 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
       // 5. Aktualizuj URL v databázi
       if (!photo.id) throw new Error('Fotka nemá ID – nelze uložit (otevři galerii znovu)');
       if (typeof sbReq === 'function') {
-        // Pokus o PATCH (update URL stávajícího záznamu)
+        // Pokus o PATCH (update URL + storage_path stávajícího záznamu)
         const patchRes = await sbReq(
           `rest/v1/user_card_photos?id=eq.${photo.id}&user_id=eq.${uid}`,
           'PATCH',
-          { url: publicUrl }
+          { url: publicUrl, storage_path: storagePath }
         );
 
         const patchFailed = patchRes && patchRes._err;
@@ -6471,12 +6471,10 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
         if (patchFailed) throw new Error('DB update selhal: ' + patchRes._err);
 
         if (patchEmpty) {
-          // Fallback: tabulka pravděpodobně nemá UPDATE RLS policy.
-          // Smažeme starý záznam a vložíme nový s novou URL.
-          await sbReq(
-            `rest/v1/user_card_photos?id=eq.${photo.id}&user_id=eq.${uid}`,
-            'DELETE'
-          );
+          // Fallback: tabulka nemá UPDATE RLS policy.
+          // BEZPEČNÉ POŘADÍ: nejdříve INSERT, pak teprve DELETE.
+          // Tak fotka nikdy nezmizí, i kdyby INSERT selhal.
+          const oldId = photo.id;
           const insertRes = await sbReq('rest/v1/user_card_photos', 'POST', {
             user_id:             uid,
             user_card_local_id:  photo.user_card_local_id || null,
@@ -6488,13 +6486,23 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
           if (insertRes && insertRes._err) throw new Error('Vložení záznamu selhalo: ' + insertRes._err);
           // Aktualizuj ID na nový záznam
           if (Array.isArray(insertRes) && insertRes[0]) photo.id = insertRes[0].id;
+          // Teprve TEĎ smaž starý záznam (INSERT proběhl OK)
+          await sbReq(
+            `rest/v1/user_card_photos?id=eq.${oldId}&user_id=eq.${uid}`,
+            'DELETE'
+          ).catch(() => null);
         }
       }
 
       // 6. Aktualizuj interní URL na veřejnou (ne base64)
       photo.url = publicUrl;
       pgmRenderGrid();
-      pgmShowSaveStatus('✅ Ořez uložen', 'ok');
+      pgmShowSaveStatus('\u2705 Ořez uložen', 'ok');
+
+      // 7. Obnov panel fotek v detailu karty
+      if (typeof _detailCard !== 'undefined' && _detailCard && typeof loadCardRealPhotos === 'function') {
+        loadCardRealPhotos(_detailCard.id || _detailCard.local_id);
+      }
 
     } catch (e) {
       console.error('[pgmUpdateCurrentPhoto]', e);
