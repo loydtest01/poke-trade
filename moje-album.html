@@ -368,6 +368,7 @@ body { background: #06040c; overflow-x: hidden; }
   background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
   cursor: pointer; transition: transform .15s, border-color .15s;
   aspect-ratio: 63/88;
+  width: 100%; height: 100%; /* vyplní card-slot-wrap */
 }
 .card-slot:hover { border-color: rgba(255,255,255,0.14); }
 /* inner – klipuje obrázek, nepůsobí na sel-ring */
@@ -383,7 +384,12 @@ body { background: #06040c; overflow-x: hidden; }
   mix-blend-mode: screen;
 }
 /* ── card-slot-wrap — wrapper pro každou kartu v gridu ──────────── */
-.card-slot-wrap { position: relative; }
+.card-slot-wrap {
+  position: relative;
+  aspect-ratio: 63/88;          /* stejný poměr jako karta */
+  isolation: isolate;           /* vytvoří vlastní stacking context */
+  overflow: visible !important; /* ::before se musí zobrazit mimo hranice */
+}
 
 /* ── VÝBĚR KARTY – rotující zlatý rámeček dokola ────────────────── */
 .card-slot-wrap.selected::before {
@@ -399,21 +405,35 @@ body { background: #06040c; overflow-x: hidden; }
     rgba(245,200,66,0.05) 88%,
     #f5c842 100%
   );
+  /* Standard mask – funguje ve všech prohlížečích */
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  /* WebKit prefix pro Safari */
   -webkit-mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
-  mask-composite: exclude;
   animation: sel-spin 1.4s linear infinite;
   pointer-events: none;
-  z-index: 5;
+  z-index: 10;
 }
 @keyframes sel-spin {
-  to { transform: rotate(360deg); }
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes sel-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(245,200,66,0.5)); }
+  50%       { filter: drop-shadow(0 0 10px rgba(245,200,66,0.9)); }
 }
 .card-slot.selected {
   border-color: rgba(245,200,66,0.55) !important;
   box-shadow: 0 0 16px 4px rgba(245,200,66,0.28), inset 0 0 12px rgba(245,200,66,0.08);
+}
+/* Zlaté zvýraznění i na wrapperu – záložní glow pokud ::before nefunguje */
+.card-slot-wrap.selected {
+  animation: sel-pulse 1.6s ease-in-out infinite;
 }
 /* Staré sel-ring – skryje se, pokud by zůstalo v DOM */
 .sel-ring { display: none; }
@@ -5558,7 +5578,10 @@ function applyTilt(card) {
     const ry = (cx - 0.5) * 28;   // reversed
     card.style.transform = `perspective(600px) rotateX(${rx}deg) rotateY(${ry}deg) scale(1.06)`;
     card.style.transition = 'transform 0.05s ease-out, box-shadow .15s, border-color .15s';
-    card.style.boxShadow  = `${ry*-0.5}px ${rx*0.5}px 20px rgba(0,0,0,0.5)`;
+    // Nepřepisovat box-shadow vybrané karty — CSS třída .card-slot.selected si ho řídí sama
+    if (!card.classList.contains('selected')) {
+      card.style.boxShadow = `${ry*-0.5}px ${rx*0.5}px 20px rgba(0,0,0,0.5)`;
+    }
     // Glare — světlo z pozice myši
     glare.style.opacity = '1';
     glare.style.background = `radial-gradient(circle at ${cx*100}% ${cy*100}%,
@@ -5568,7 +5591,8 @@ function applyTilt(card) {
   card.addEventListener('mouseleave', () => {
     card.style.transform  = '';
     card.style.transition = 'transform 0.3s ease-out, box-shadow .3s, border-color .15s';
-    card.style.boxShadow  = '';
+    card.style.boxShadow  = ''; // smaže inline styl → CSS třída .card-slot.selected převezme
+    card.style.borderColor = ''; // smaže inline border → CSS třída převezme zlatou barvu
     glare.style.opacity   = '0';
   });
 }
