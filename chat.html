@@ -802,6 +802,83 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .btn-fake-detector:hover { border-color: rgba(245,200,66,0.4); background: rgba(245,200,66,0.12); }
 
+/* ═══ CHAT IMAGE UPLOAD ═══ */
+.btn-img-upload {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: rgba(240,236,228,0.5); font-size: 16px; cursor: pointer; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+}
+.btn-img-upload:hover { border-color: rgba(255,255,255,0.2); color: var(--text); background: rgba(255,255,255,0.08); }
+
+.chat-img-preview-bar {
+  display: none; padding: 6px 0 4px; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.chat-img-preview-bar.show { display: flex; }
+.chat-img-chip {
+  position: relative; display: inline-block;
+}
+.chat-img-chip img {
+  height: 56px; width: 56px; object-fit: cover; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15); display: block;
+}
+.chat-img-chip-remove {
+  position: absolute; top: -6px; right: -6px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--red); border: none; color: #fff;
+  font-size: 11px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.chat-img-upload-hint {
+  font-size: 11px; color: rgba(240,236,228,0.35);
+}
+
+/* ═══ PICKER TABS ═══ */
+.picker-tabs {
+  display: flex; gap: 4px; padding: 8px 16px 0;
+}
+.picker-tab {
+  flex: 1; padding: 7px 0; border-radius: 8px; font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border); background: transparent; color: var(--text3);
+  cursor: pointer; font-family: inherit; transition: all .15s; text-align: center;
+}
+.picker-tab:hover { background: rgba(255,255,255,0.05); color: var(--text2); }
+.picker-tab.active {
+  background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.3); color: var(--yellow);
+}
+.picker-panel { display: none; flex-direction: column; overflow: hidden; flex: 1; min-height: 0; }
+.picker-panel.active { display: flex; }
+
+/* Album card items */
+.album-card-item {
+  display: flex; gap: 10px; padding: 10px; border-radius: 10px;
+  cursor: pointer; transition: background .12s; align-items: center;
+}
+.album-card-item:hover { background: rgba(255,255,255,0.05); }
+.album-card-item.selected { background: rgba(245,200,66,0.08); }
+.album-card-thumb {
+  width: 40px; height: 55px; border-radius: 6px; flex-shrink: 0;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.album-card-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.album-card-info { flex: 1; min-width: 0; }
+.album-card-name {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.album-card-meta { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.album-card-price { font-size: 12px; font-weight: 700; color: var(--green); margin-top: 2px; }
+.album-card-check {
+  width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0;
+  border: 2px solid var(--border); background: transparent; transition: all .12s;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: transparent;
+}
+.album-card-item.selected .album-card-check {
+  border-color: var(--yellow); background: rgba(245,200,66,0.2); color: var(--yellow);
+}
+.album-loading { text-align: center; padding: 30px 20px; color: var(--text3); font-size: 13px; }
+
 </style>
 <style id="embeddedStyle"></style>
 </head>
@@ -917,6 +994,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <!-- Input area -->
     <div class="chat-input-area" id="chatInputArea" style="display:none">
       <div class="attach-bar" id="attachBar"></div>
+      <!-- Chat image preview strip -->
+      <div class="chat-img-preview-bar" id="chatImgPreviewBar">
+        <!-- chips vloženy dynamicky -->
+        <span class="chat-img-upload-hint" id="chatImgUploadHint"></span>
+      </div>
       <!-- Bot image preview strip -->
       <div id="botImgPreviewBar" style="display:none;padding:6px 12px 0;align-items:center;gap:8px">
         <div style="position:relative;display:inline-block">
@@ -926,9 +1008,14 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <span style="font-size:11px;color:rgba(240,236,228,.4)">Karta připravena k analýze 🃏</span>
       </div>
       <div class="chat-input-row">
-        <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku z marketplace" id="btnAttachListing">
+        <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku / kartičku z alba" id="btnAttachListing">
           🃏
         </button>
+        <!-- Obrázek z PC do chatu -->
+        <button class="btn-img-upload" id="btnChatImg" onclick="document.getElementById('chatImgFileInput').click()" title="Přiložit obrázek z PC">
+          🖼️
+        </button>
+        <input type="file" id="chatImgFileInput" accept="image/*" multiple style="display:none" onchange="chatImgSelected(this)">
         <button class="btn-fake-detector" onclick="openFakeDetectorModal()" title="🔍 Detekovat falzum karty" id="btnFakeDetect" style="display:none">
           📷
         </button>
@@ -976,15 +1063,30 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 <!-- ═══ LISTING PICKER MODAL ═══ -->
 <div class="modal-overlay" id="listingPickerModal">
-  <div class="modal-box">
+  <div class="modal-box" style="max-height:85vh">
     <div class="modal-head">
-      <h3>🃏 Připojit nabídky</h3>
+      <h3 id="pickerModalTitle">🃏 Připojit kartičky</h3>
       <button class="modal-close" onclick="closeListingPicker()">✕</button>
     </div>
-    <div class="modal-search-wrap">
-      <input class="modal-search" id="pickerSearch" type="text" placeholder="Hledat nabídku..." oninput="filterPickerListings()">
+    <!-- Tabs -->
+    <div class="picker-tabs">
+      <button class="picker-tab active" id="tabMarket" onclick="switchPickerTab('market')">🛒 Nabídky</button>
+      <button class="picker-tab" id="tabAlbum" onclick="switchPickerTab('album')">📚 Moje album</button>
     </div>
-    <div class="modal-list" id="pickerList"></div>
+    <!-- Panel: Marketplace -->
+    <div class="picker-panel active" id="panelMarket" style="flex:1;min-height:0">
+      <div class="modal-search-wrap">
+        <input class="modal-search" id="pickerSearch" type="text" placeholder="Hledat nabídku..." oninput="filterPickerListings()">
+      </div>
+      <div class="modal-list" id="pickerList"></div>
+    </div>
+    <!-- Panel: Moje album -->
+    <div class="picker-panel" id="panelAlbum" style="flex:1;min-height:0">
+      <div class="modal-search-wrap">
+        <input class="modal-search" id="albumSearch" type="text" placeholder="Hledat v albu..." oninput="filterAlbumCards()">
+      </div>
+      <div class="modal-list" id="albumPickerList"><div class="album-loading">⏳ Načítám karty…</div></div>
+    </div>
     <div class="modal-footer">
       <button class="btn-modal-cancel" onclick="closeListingPicker()">Zrušit</button>
       <button class="btn-modal-confirm" onclick="confirmListingPicker()">
@@ -1264,6 +1366,7 @@ async function openConversation(conv) {
   document.getElementById('botConvItem').classList.remove('active');
   document.getElementById('btnFakeDetect').style.display = 'none';
   document.getElementById('btnAttachListing').style.display = '';
+  document.getElementById('btnChatImg').style.display = '';
   document.getElementById('btnBotImage').style.display = 'none';
   clearBotImagePreview();
   document.getElementById('chatInput').placeholder = 'Napište zprávu...';
@@ -1504,7 +1607,8 @@ async function sendMessage() {
     return;
   }
 
-  if (!text && !attachedListings.length) return;
+  const hasImages = _chatPendingImages.length > 0;
+  if (!text && !attachedListings.length && !hasImages) return;
   if (!activeConvId || !token) return;
 
   const listingRefs = attachedListings.map(l => ({
@@ -1514,21 +1618,24 @@ async function sendMessage() {
     price_czk:     l.price_czk || null,
     api_image_url: l.api_image_url || '',
     username:      l.username || '',
+    _source:       l._source || 'market',
   }));
 
-  const msgText = text || (listingRefs.length === 1
-    ? `📎 Nabídka: ${listingRefs[0].title}`
-    : `📎 ${listingRefs.length} nabídek připojeno`);
+  // Optimisticky zapiš zprávu
+  const pendingImgCount = _chatPendingImages.length;
+  let msgText = text || '';
+  if (!msgText && listingRefs.length === 1) msgText = `📎 ${listingRefs[0].title}`;
+  else if (!msgText && listingRefs.length > 1) msgText = `📎 ${listingRefs.length} kartiček připojeno`;
+  if (pendingImgCount && !msgText) msgText = `🖼️ ${pendingImgCount > 1 ? pendingImgCount + ' obrázky' : 'Obrázek'}`;
 
   const senderUsername = getSenderUsername();
 
-  // Optimistic UI
   const tempMsg = {
     id: 'temp-'+Date.now(),
     conversation_id: activeConvId,
     sender_id: userId,
     sender_username: senderUsername,
-    text: msgText,
+    text: msgText + (pendingImgCount ? '\n[UPLOADING_IMAGES]' : ''),
     listing_refs: listingRefs,
     is_read: false,
     created_at: new Date().toISOString(),
@@ -1540,12 +1647,25 @@ async function sendMessage() {
   attachedListings = [];
   renderAttachBar();
 
+  // Upload obrázků
+  let finalText = text || msgText.replace('\n[UPLOADING_IMAGES]', '');
+  if (hasImages) {
+    const imgUrls = await uploadChatImages();
+    _chatPendingImages = [];
+    renderChatImgBar();
+    const imgTags = imgUrls.map(u => '[IMG:' + u + ']').join('\n');
+    finalText = [finalText, imgTags].filter(Boolean).join('\n');
+    // Aktualizuj temp zprávu s obrázky
+    const ti = messages.findIndex(m => m.id === tempMsg.id);
+    if (ti >= 0) { messages[ti].text = finalText; renderMessages(); }
+  }
+
   // Send to server
   const res = await sb('rest/v1/chat_messages', 'POST', {
     conversation_id: activeConvId,
     sender_id: userId,
     sender_username: senderUsername,
-    text: msgText,
+    text: finalText || msgText,
     listing_refs: listingRefs,
   }, token);
 
@@ -1630,9 +1750,13 @@ async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
 
 // ═══ LISTING PICKER ═══
 async function openListingPicker() {
-  pickerSelected = new Set(attachedListings.map(l => l.id));
+  pickerSelected = new Set(attachedListings.filter(l => !l._source).map(l => l.id));
+  albumPickerSelected = new Set(attachedListings.filter(l => l._source === 'album').map(l => l._pickerId));
   document.getElementById('listingPickerModal').classList.add('open');
   document.getElementById('pickerSearch').value = '';
+
+  // Reset na market tab
+  switchPickerTab('market');
 
   // Load marketplace listings
   if (!allMarketListings.length) {
@@ -1677,7 +1801,7 @@ function renderPickerListings() {
       </div>`;
   }).join('');
 
-  document.getElementById('pickerCount').textContent = pickerSelected.size;
+  document.getElementById('pickerCount').textContent = pickerSelected.size + (typeof albumPickerSelected !== 'undefined' ? albumPickerSelected.size : 0);
 }
 
 function filterPickerListings() { renderPickerListings(); }
@@ -1689,9 +1813,205 @@ function togglePickerItem(id) {
 }
 
 function confirmListingPicker() {
-  attachedListings = allMarketListings.filter(l => pickerSelected.has(l.id));
+  // Marketplace výběr
+  const marketSel = allMarketListings.filter(l => pickerSelected.has(l.id));
+  // Album výběr (převedeno do stejného formátu jako listing)
+  const albumSel = _allAlbumCards.filter(c => albumPickerSelected.has(c._pickerId));
+  attachedListings = [...marketSel, ...albumSel];
   renderAttachBar();
   closeListingPicker();
+}
+
+// ═══ PICKER TABS ═══════════════════════════════════════════════
+let _currentPickerTab = 'market';
+
+function switchPickerTab(tab) {
+  _currentPickerTab = tab;
+  document.getElementById('tabMarket').classList.toggle('active', tab === 'market');
+  document.getElementById('tabAlbum').classList.toggle('active', tab === 'album');
+  document.getElementById('panelMarket').classList.toggle('active', tab === 'market');
+  document.getElementById('panelAlbum').classList.toggle('active', tab === 'album');
+  if (tab === 'album' && !_albumCardsLoaded) loadAlbumCards();
+}
+
+// ═══ ALBUM CARD PICKER ══════════════════════════════════════════
+let _allAlbumCards = [];
+let albumPickerSelected = new Set();
+let _albumCardsLoaded = false;
+
+async function loadAlbumCards() {
+  if (!token || !userId) {
+    document.getElementById('albumPickerList').innerHTML =
+      '<div class="album-loading">🔒 Přihlas se pro přístup k albu</div>';
+    return;
+  }
+  document.getElementById('albumPickerList').innerHTML = '<div class="album-loading">⏳ Načítám karty…</div>';
+
+  try {
+    // Načti karty uživatele
+    const cards = await sb(
+      `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk&order=updated_at.desc&limit=300`,
+      'GET', null, token
+    );
+    if (!Array.isArray(cards) || cards._err) {
+      document.getElementById('albumPickerList').innerHTML = '<div class="album-loading">❌ Nepodařilo se načíst karty</div>';
+      return;
+    }
+
+    // Načti první fotky pro každou kartu (batch)
+    const localIds = cards.map(c => c.local_id).filter(Boolean);
+    let photosMap = {};
+    if (localIds.length > 0) {
+      // Načti fotky pro všechny karty najednou (limit 500)
+      const photos = await sb(
+        `rest/v1/user_card_photos?user_id=eq.${userId}&select=user_card_local_id,url&order=created_at.asc&limit=500`,
+        'GET', null, token
+      );
+      if (Array.isArray(photos)) {
+        photos.forEach(p => {
+          if (!photosMap[p.user_card_local_id]) photosMap[p.user_card_local_id] = p.url;
+        });
+      }
+    }
+
+    // Sestav finální seznam
+    _allAlbumCards = cards.map(c => {
+      const cd = c.card_data || {};
+      const photoUrl = photosMap[c.local_id] || cd.photoUrl || cd.imageUrl || cd.apiSmall || '';
+      const name = cd.name || c.local_id || 'Karta';
+      const set  = cd.set || '';
+      const price = c.price_czk || cd.price_czk || null;
+      return {
+        _pickerId: c.local_id,          // unikátní klíč
+        id: 'album_' + c.local_id,      // pro listing_refs
+        title: name,
+        card_name: name,
+        card_set: set,
+        api_image_url: photoUrl,
+        price_czk: price,
+        username: username,
+        _source: 'album',
+      };
+    });
+
+    _albumCardsLoaded = true;
+    renderAlbumPicker();
+  } catch (e) {
+    document.getElementById('albumPickerList').innerHTML = '<div class="album-loading">❌ Chyba: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAlbumPicker() {
+  const q = (document.getElementById('albumSearch').value || '').toLowerCase();
+  const filtered = _allAlbumCards.filter(c =>
+    !q || (c.title + c.card_set).toLowerCase().includes(q)
+  );
+  const list = document.getElementById('albumPickerList');
+  if (!filtered.length) {
+    list.innerHTML = '<div class="picker-empty">📭 Žádné karty nenalezeny</div>';
+  } else {
+    list.innerHTML = filtered.map(c => {
+      const sel = albumPickerSelected.has(c._pickerId);
+      const price = c.price_czk ? c.price_czk.toLocaleString('cs') + ' Kč' : (c._source === 'album' ? 'Z alba' : 'Výměna');
+      return `
+        <div class="album-card-item${sel ? ' selected' : ''}" onclick="toggleAlbumCard('${esc(c._pickerId)}')">
+          <div class="album-card-thumb">
+            ${c.api_image_url ? `<img src="${esc(c.api_image_url)}" alt="" loading="lazy">` : '<span style="font-size:18px">🃏</span>'}
+          </div>
+          <div class="album-card-info">
+            <div class="album-card-name">${esc(c.title)}</div>
+            <div class="album-card-meta">${esc(c.card_set || 'Bez setu')}</div>
+            <div class="album-card-price">${esc(price)}</div>
+          </div>
+          <div class="album-card-check">${sel ? '✓' : ''}</div>
+        </div>`;
+    }).join('');
+  }
+  updatePickerCount();
+}
+
+function filterAlbumCards() { renderAlbumPicker(); }
+
+function toggleAlbumCard(pickerId) {
+  if (albumPickerSelected.has(pickerId)) albumPickerSelected.delete(pickerId);
+  else albumPickerSelected.add(pickerId);
+  renderAlbumPicker();
+}
+
+function updatePickerCount() {
+  document.getElementById('pickerCount').textContent =
+    pickerSelected.size + albumPickerSelected.size;
+}
+
+// ═══ OBRÁZKY Z PC DO CHATU ══════════════════════════════════════
+let _chatPendingImages = []; // pole { dataUrl, mime, name }
+
+function chatImgSelected(input) {
+  if (isBotMode) return; // v bot módu ignorujeme
+  const files = Array.from(input.files || []);
+  input.value = '';
+  files.forEach(file => {
+    if (!file.type.startsWith('image/')) return;
+    if (file.size > 10 * 1024 * 1024) { showToast('❌ Obrázek ' + file.name + ' je příliš velký (max 10 MB)', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      _chatPendingImages.push({ dataUrl: e.target.result, mime: file.type, name: file.name });
+      renderChatImgBar();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderChatImgBar() {
+  const bar = document.getElementById('chatImgPreviewBar');
+  if (!_chatPendingImages.length) {
+    bar.classList.remove('show');
+    bar.innerHTML = '';
+    return;
+  }
+  bar.classList.add('show');
+  bar.innerHTML = _chatPendingImages.map((img, i) => `
+    <div class="chat-img-chip">
+      <img src="${img.dataUrl}" alt="${esc(img.name)}" title="${esc(img.name)}">
+      <button class="chat-img-chip-remove" onclick="removeChatImg(${i})" title="Odebrat">✕</button>
+    </div>
+  `).join('') + `<span class="chat-img-upload-hint">${_chatPendingImages.length} obrázek${_chatPendingImages.length > 1 ? 'y' : ''} připraven${_chatPendingImages.length > 1 ? 'y' : ''}… Odeslat zprávou →</span>`;
+}
+
+function removeChatImg(idx) {
+  _chatPendingImages.splice(idx, 1);
+  renderChatImgBar();
+}
+
+async function uploadChatImages() {
+  if (!_chatPendingImages.length) return [];
+  const urls = [];
+  for (const img of _chatPendingImages) {
+    try {
+      const ext = img.mime.split('/')[1] || 'jpg';
+      const fname = `${userId}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const bytes = Uint8Array.from(atob(img.dataUrl.split(',')[1]), c => c.charCodeAt(0));
+      const upRes = await fetch(`${SB_URL}/storage/v1/object/chat-images/${fname}`, {
+        method: 'POST',
+        headers: {
+          'apikey': SB_ANON,
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': img.mime,
+          'x-upsert': 'true',
+        },
+        body: bytes,
+      });
+      if (upRes.ok) {
+        urls.push(`${SB_URL}/storage/v1/object/public/chat-images/${fname}`);
+      } else {
+        // Fallback: pošli jako data URL (inline base64) — funguje pro menší obrázky
+        urls.push(img.dataUrl);
+      }
+    } catch (e) {
+      urls.push(img.dataUrl);
+    }
+  }
+  return urls;
 }
 
 // ═══ ATTACH BAR ═══
@@ -1956,6 +2276,11 @@ async function saveEditMsg() {
   btn.disabled = false; btn.innerHTML = '💾 Uložit';
 
   if (r._err) { showToast('❌ Chyba: ' + r._err, 'error'); return; }
+  // Prázdné pole = PATCH neodpovídal žádnému záznamu (RLS nebo špatné ID)
+  if (Array.isArray(r) && r.length === 0) {
+    showToast('❌ Zprávu se nepodařilo uložit – žádný záznam neodpovídá.', 'error');
+    return;
+  }
 
   // Optimistic update
   const idx = messages.findIndex(m => m.id === _ctxMsgId);
@@ -2332,6 +2657,7 @@ function openBotConversation() {
   // Show fake detector button, hide listing attach
   document.getElementById('btnFakeDetect').style.display = '';
   document.getElementById('btnAttachListing').style.display = 'none';
+  document.getElementById('btnChatImg').style.display = 'none';
   document.getElementById('btnBotImage').style.display = '';
 
   // Set header
