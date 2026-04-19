@@ -1967,6 +1967,9 @@ function openListingFromQueue(pendingId) {
   imgEl.onerror = () => { imgEl.style.display = 'none'; };
   imgEl.onload  = () => { imgEl.style.display = ''; };
   if (!existingImg) imgEl.style.display = 'none';
+  // Nastavit large img pro lightbox zoom (oprava: prázdné src se jinak resolve na URL stránky)
+  const largeImgEl = document.getElementById('addCardLargeImg');
+  if (largeImgEl) largeImgEl.src = existingImg || '';
 
   nameEl.textContent = card.name || '';
   const setName = card.set?.name || (typeof card.set === 'string' ? card.set : '') || '';
@@ -2084,6 +2087,9 @@ async function _autoFetchFullCardData(pendingCard) {
     if (img) {
       imgEl.style.display = '';
       imgEl.src = img;
+      // Nastavit large img pro lightbox zoom
+      const largeImgEl2 = document.getElementById('addCardLargeImg');
+      if (largeImgEl2) largeImgEl2.src = card.images?.large || img;
       // Také updatovat officialCardWrap v sekci "Fotky k prodeji"
       const ot2 = document.getElementById('officialCardThumb');
       const ow2 = document.getElementById('officialCardWrap');

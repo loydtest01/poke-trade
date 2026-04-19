@@ -223,16 +223,24 @@
             <label>Typ / Element</label>
             <select class="adv-inp" id="afType" onchange="syncAdvTypeToSidebar(this.value)">
               <option value="">Všechny typy</option>
+              <option value="colorless">⬜ Normální / Bezbarvý</option>
               <option value="fire">🔥 Ohnivý</option>
               <option value="water">💧 Vodní</option>
               <option value="grass">🌿 Travní</option>
               <option value="lightning">⚡ Elektrický</option>
-              <option value="psychic">🔮 Psychický</option>
-              <option value="darkness">🌑 Temný</option>
-              <option value="dragon">🐉 Dračí</option>
+              <option value="ice">❄️ Ledový</option>
               <option value="fighting">👊 Bojový</option>
-              <option value="metal">⚙️ Kovový</option>
-              <option value="colorless">⭐ Bezbarvý</option>
+              <option value="poison">☠️ Jedový</option>
+              <option value="ground">🌍 Zemní</option>
+              <option value="flying">🦅 Létající</option>
+              <option value="psychic">🔮 Psychický</option>
+              <option value="bug">🐛 Hmyzí</option>
+              <option value="rock">🪨 Skalní</option>
+              <option value="ghost">👻 Přízračný</option>
+              <option value="dragon">🐉 Dračí</option>
+              <option value="darkness">🌑 Temný</option>
+              <option value="metal">⚙️ Kovový / Ocelový</option>
+              <option value="fairy">🧚 Vílovitý</option>
             </select>
           </div>
           <div class="adv-field">
@@ -485,7 +493,7 @@
             </div>
             <div id="addCardPreview" class="fs-card-preview" style="display:none">
               <div class="card-preview-hover-wrap">
-                <img id="addCardImg" class="card-preview-thumb" style="width:52px;height:72px;border-radius:6px;object-fit:cover;cursor:zoom-in" src="" onclick="openCardImgZoom(this.src, document.getElementById('addCardLargeImg')?.src)">
+                <img id="addCardImg" class="card-preview-thumb" style="width:52px;height:72px;border-radius:6px;object-fit:cover;cursor:zoom-in" src="" onclick="(function(el){var lg=document.getElementById('addCardLargeImg');var lsrc=(lg&&lg.getAttribute('src'))||'';openCardImgZoom(el.src,lsrc&&!lsrc.includes('marketplace')&&!lsrc.includes('index')?lsrc:'');})(this)">
                 <div class="card-preview-zoom-overlay" id="cardZoomOverlay">
                   <img id="addCardLargeImg" src="" class="card-zoom-large">
                 </div>
@@ -543,7 +551,7 @@
               <option value="D" style="background:#0e0c14;color:#f0ece4;">D – Poškozená</option>
             </select>
             <div class="fs-label" style="margin-top:10px">Popis (nepovinné)</div>
-            <textarea id="addDesc" class="panel-textarea" style="height:80px" placeholder="Stav karty, odkud pochází, co přijmete za výměnu..."></textarea>
+            <textarea id="addDesc" class="panel-textarea" style="height:150px;resize:vertical" placeholder="Stav karty, odkud pochází, co přijmete za výměnu..."></textarea>
           </div>
         </div>
 
