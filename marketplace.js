@@ -2008,8 +2008,9 @@ function openListingFromQueue(pendingId) {
         ? card.allPhotos.map(p => (typeof p === 'string' ? p : (p.url || p.croppedUrl || p.src || ''))).filter(Boolean)
         : null)
     || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
-  if (albumPhotos.length) {
-    albumPhotos.forEach(src => {
+
+  function _pushAlbumPhotos(urls) {
+    urls.forEach(src => {
       if (typeof src === 'string' && src.startsWith('data:')) {
         const parts2 = src.split(',');
         const mime = parts2[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
@@ -2017,12 +2018,37 @@ function openListingFromQueue(pendingId) {
       } else if (typeof src === 'object' && src && src.src) {
         salePhotos.push(src);
       } else if (typeof src === 'string' && src) {
-        // Remote URL (např. Supabase storage)
         salePhotos.push({ src, mime: 'image/jpeg' });
       }
     });
   }
+
+  if (albumPhotos.length) {
+    _pushAlbumPhotos(albumPhotos);
+  }
   renderSalePhotos();
+
+  // Fallback: pokud allPhotos chybělo nebo obsahuje méně fotek než DB,
+  // donačti všechny fotky přímo z user_card_photos (přední + zadní + detail)
+  const cardLocalId = card.id || card.local_id || '';
+  const hasAllSides = card.allPhotos?.length > 1;
+  if (cardLocalId && !hasAllSides && userId && token) {
+    sbReq(
+      `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(cardLocalId)}&order=created_at.asc`,
+      'GET', null, token
+    ).then(rows => {
+      if (!Array.isArray(rows) || !rows.length) return;
+      // Přidej fotky které ještě nejsou v salePhotos
+      const existingUrls = new Set(salePhotos.map(p => p.src || p.croppedUrl || ''));
+      const toAdd = rows
+        .map(r => r.url)
+        .filter(url => url && !existingUrls.has(url));
+      if (toAdd.length) {
+        _pushAlbumPhotos(toAdd);
+        renderSalePhotos();
+      }
+    }).catch(() => null);
+  }
 
   // Show album price as info
   const priceInfo = document.getElementById('albumPriceInfo');
@@ -2086,7 +2112,7 @@ async function _autoFetchFullCardData(pendingCard) {
     if (!card) return;
 
     // Update addCardData with full TCG data, keep pending-specific fields
-    addCardData = { ...pendingCard, ...card, _pendingId: pendingCard._pendingId, _userPhoto: pendingCard._userPhoto };
+    addCardData = { ...pendingCard, ...card, _pendingId: pendingCard._pendingId, _userPhoto: pendingCard._userPhoto, allPhotos: pendingCard.allPhotos || [] };
 
     // Update preview image
     const img = card.images?.large || card.images?.small || '';
