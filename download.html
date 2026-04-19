@@ -61,11 +61,11 @@ body::after {
       text-decoration: none; color: #f0ece4; transition: all .15s;
     }
     .user-avatar {
-      width: 26px; height: 26px; border-radius: 50%;
-      background: #f5c842; color: #000;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 800;
-      background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0; width: 30px; height: 30px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--yellow, #f5c842); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
 }
 
     /* ── PAGE ── */
@@ -583,5 +583,7 @@ document.addEventListener('DOMContentLoaded',function(){
   poll();setInterval(poll,POLL);
 })();
 </script>
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
 </body>
 </html>
