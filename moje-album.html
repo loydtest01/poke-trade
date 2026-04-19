@@ -354,7 +354,28 @@ body { background: #06040c; overflow-x: hidden; }
     rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 60%, transparent 80%);
   mix-blend-mode: screen;
 }
-.card-slot.selected { border-color: rgba(245,200,66,0.7); box-shadow: 0 0 0 2px rgba(245,200,66,0.25); }
+.card-slot.selected { border-color: rgba(245,200,66,0.55); box-shadow: 0 0 0 1px rgba(245,200,66,0.3), 0 0 14px 3px rgba(245,200,66,0.18); }
+
+/* Rotující zlatá čárka */
+.sel-ring {
+  position: absolute; inset: 0; z-index: 9; pointer-events: none;
+  border-radius: 10px; overflow: hidden;
+}
+.sel-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+@keyframes sel-dash-march {
+  to { stroke-dashoffset: -42; }
+}
+.sel-ring rect {
+  fill: none;
+  stroke: #f5c842;
+  stroke-width: 2.2;
+  stroke-dasharray: 14 7;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  animation: sel-dash-march 3.2s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(245,200,66,0.6));
+}
 .card-slot.in-album { border-color: rgba(74,158,255,0.4); }
 
 .card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -2091,6 +2112,7 @@ function renderCard(c, albumCardIds) {
 
   return `
     <div class="card-slot ${cls}" data-id="${esc(c.id)}" onclick="cardClick('${esc(c.id)}')">
+      ${sel ? `<div class="sel-ring"><svg viewBox="0 0 63 88" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg"><rect x="1.5" y="1.5" width="60" height="85" rx="8" ry="8"/></svg></div>` : ''}
       ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
       ${photosBadge}
       ${img
