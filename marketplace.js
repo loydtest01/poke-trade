@@ -956,6 +956,11 @@ function resetAiZone(){
   const zone = document.getElementById('aiDropZone');
   if(zone){
     zone.classList.remove('scanning');
+    // Obnov původní styl zóny
+    zone.style.padding   = '';
+    zone.style.cursor    = '';
+    zone.style.textAlign = '';
+    zone.setAttribute('onclick', "document.getElementById('aiPhotoInput').click()");
     zone.innerHTML=`<input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div id="aiDropContent">
       <div class="ai-drop-icon">📸</div>
@@ -1212,27 +1217,31 @@ function applyAiCard(card, photoSrc, confidence){
   if(addCardData) addCardData._userPhoto = photoSrc;
 }
 
+/** Po AI skenu automaticky přidá reálnou fotku do sekce Fotky k prodeji */
+function _aiAddPhotoToSalePhotos(photoSrc) {
+  if (!photoSrc) return;
+  // Nekopíruj pokud stejná fotka je tam už (např. při druhém volání)
+  const alreadyIn = salePhotos.some(p => (p.src || p.croppedUrl) === photoSrc);
+  if (alreadyIn) return;
+  if (photoSrc.startsWith('data:')) {
+    const parts = photoSrc.split(',');
+    const mime  = parts[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
+    salePhotos.push({ src: photoSrc, base64: parts[1] || '', mime });
+  } else {
+    salePhotos.push({ src: photoSrc, mime: 'image/jpeg' });
+  }
+  renderSalePhotos();
+}
+
 function showAiSuccess(zone, photoSrc, card, confidence, condResult){
   const confClass = confidence==='high'?'high':confidence==='med'?'med':'low';
   const confLabel = confidence==='high'?'✓ Vysoká jistota':confidence==='med'?'~ Střední jistota':'? Nízká jistota';
 
-  // Build condition badge
-  let condHtml = '';
-  if (condResult?.grade) {
-    const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
-    const col = condColors[condResult.grade] || '#9ca3af';
-    const condConf = condResult.confidence === 'high' ? '' : condResult.confidence === 'med' ? ' ~' : ' ?';
-    condHtml = `
-      <div style="margin-top:5px;padding:5px 8px;background:rgba(255,255,255,0.05);border-radius:7px;border-left:3px solid ${col}">
-        <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:11px;font-weight:700;color:${col}">🔍 AI stav: ${esc(condResult.grade)}${condConf}</span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.45)">${esc(condResult.label||'')}</span>
-        </div>
-        ${condResult.summary ? `<div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:2px">${esc(condResult.summary)}</div>` : ''}
-        ${condResult.issues?.length ? `<div style="font-size:10px;color:rgba(255,255,255,0.4);margin-top:1px">⚠ ${condResult.issues.map(esc).join(' · ')}</div>` : ''}
-      </div>`;
-  }
-
+  // Kompaktní zobrazení — stav karty je již vyplněn v dropdownu, nepřetéká zónou
+  zone.style.padding   = '8px';
+  zone.style.cursor    = 'default';
+  zone.style.textAlign = 'left';
+  zone.removeAttribute('onclick');
   zone.innerHTML = `
     <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div class="ai-preview-wrap" onclick="event.stopPropagation()">
@@ -1241,19 +1250,19 @@ function showAiSuccess(zone, photoSrc, card, confidence, condResult){
         <div class="ai-preview-name">${esc(card.name)}</div>
         <div class="ai-preview-meta">${esc(card.set?.name||'')}${card.number?' · #'+esc(card.number):''}${card.rarity?' · '+esc(card.rarity):''}</div>
         <div class="ai-preview-conf ${confClass}">${confLabel}</div>
-        ${condHtml}
       </div>
       <button class="ai-preview-change" onclick="document.getElementById('aiPhotoInput').click()">📸 Změnit</button>
     </div>`;
+
+  // Automaticky přidej reálnou fotku do sekce "Fotky k prodeji"
+  _aiAddPhotoToSalePhotos(photoSrc);
 }
 
 function showAiFailure(zone, photoSrc, aiResult, condResult){
-  let condHtml = '';
-  if (condResult?.grade) {
-    const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
-    const col = condColors[condResult.grade] || '#9ca3af';
-    condHtml = `<div style="margin-top:5px;padding:4px 8px;background:rgba(255,255,255,0.05);border-radius:7px;border-left:3px solid ${col};font-size:10px;color:${col}">🔍 AI stav: ${esc(condResult.grade)} — ${esc(condResult.summary||'')}</div>`;
-  }
+  zone.style.padding   = '8px';
+  zone.style.cursor    = 'default';
+  zone.style.textAlign = 'left';
+  zone.removeAttribute('onclick');
   zone.innerHTML = `
     <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div class="ai-preview-wrap" onclick="event.stopPropagation()">
@@ -1261,7 +1270,6 @@ function showAiFailure(zone, photoSrc, aiResult, condResult){
       <div class="ai-preview-info">
         <div class="ai-preview-name" style="color:var(--text3)">Karta nenalezena v databázi</div>
         <div class="ai-preview-meta">${aiResult.name ? 'AI odhaduje: '+esc(aiResult.name) : 'Zkus lepší foto nebo ruční hledání'}</div>
-        ${condHtml}
         <div style="display:flex;gap:6px;margin-top:6px">
           <button onclick="openCardSearch('listing')" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(245,200,66,0.3);background:transparent;color:var(--yellow);cursor:pointer">🔍 Hledat ručně</button>
           <button onclick="document.getElementById('aiPhotoInput').click()" style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer">📸 Znovu</button>
@@ -1271,9 +1279,16 @@ function showAiFailure(zone, photoSrc, aiResult, condResult){
   // Keep photo stored for listing
   aiPhotoBase64 && (addCardData = addCardData || {});
   if(addCardData) addCardData._userPhoto = photoSrc;
+
+  // Automaticky přidej reálnou fotku do sekce "Fotky k prodeji"
+  _aiAddPhotoToSalePhotos(photoSrc);
 }
 
 function showAiError(zone, photoSrc, errMsg){
+  zone.style.padding   = '8px';
+  zone.style.cursor    = 'default';
+  zone.style.textAlign = 'left';
+  zone.removeAttribute('onclick');
   zone.innerHTML=`
     <input type="file" id="aiPhotoInput" accept="image/*" style="display:none" onchange="handleAiPhoto(this.files[0])">
     <div class="ai-preview-wrap" onclick="event.stopPropagation()">
@@ -1287,6 +1302,9 @@ function showAiError(zone, photoSrc, errMsg){
         </div>
       </div>
     </div>`;
+
+  // I při chybě přidej fotku do salePhotos — uživatel ji tam chce mít
+  _aiAddPhotoToSalePhotos(photoSrc);
 }
 
 // ── AI Pick Modal ─────────────────────────────────────────────
@@ -2008,9 +2026,8 @@ function openListingFromQueue(pendingId) {
         ? card.allPhotos.map(p => (typeof p === 'string' ? p : (p.url || p.croppedUrl || p.src || ''))).filter(Boolean)
         : null)
     || (card._userPhoto ? [card._userPhoto] : (card.photoUrl ? [card.photoUrl] : []));
-
-  function _pushAlbumPhotos(urls) {
-    urls.forEach(src => {
+  if (albumPhotos.length) {
+    albumPhotos.forEach(src => {
       if (typeof src === 'string' && src.startsWith('data:')) {
         const parts2 = src.split(',');
         const mime = parts2[0]?.match(/:(.*?);/)?.[1] || 'image/jpeg';
@@ -2018,37 +2035,12 @@ function openListingFromQueue(pendingId) {
       } else if (typeof src === 'object' && src && src.src) {
         salePhotos.push(src);
       } else if (typeof src === 'string' && src) {
+        // Remote URL (např. Supabase storage)
         salePhotos.push({ src, mime: 'image/jpeg' });
       }
     });
   }
-
-  if (albumPhotos.length) {
-    _pushAlbumPhotos(albumPhotos);
-  }
   renderSalePhotos();
-
-  // Fallback: pokud allPhotos chybělo nebo obsahuje méně fotek než DB,
-  // donačti všechny fotky přímo z user_card_photos (přední + zadní + detail)
-  const cardLocalId = card.id || card.local_id || '';
-  const hasAllSides = card.allPhotos?.length > 1;
-  if (cardLocalId && !hasAllSides && userId && token) {
-    sbReq(
-      `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(cardLocalId)}&order=created_at.asc`,
-      'GET', null, token
-    ).then(rows => {
-      if (!Array.isArray(rows) || !rows.length) return;
-      // Přidej fotky které ještě nejsou v salePhotos
-      const existingUrls = new Set(salePhotos.map(p => p.src || p.croppedUrl || ''));
-      const toAdd = rows
-        .map(r => r.url)
-        .filter(url => url && !existingUrls.has(url));
-      if (toAdd.length) {
-        _pushAlbumPhotos(toAdd);
-        renderSalePhotos();
-      }
-    }).catch(() => null);
-  }
 
   // Show album price as info
   const priceInfo = document.getElementById('albumPriceInfo');
@@ -2112,7 +2104,7 @@ async function _autoFetchFullCardData(pendingCard) {
     if (!card) return;
 
     // Update addCardData with full TCG data, keep pending-specific fields
-    addCardData = { ...pendingCard, ...card, _pendingId: pendingCard._pendingId, _userPhoto: pendingCard._userPhoto, allPhotos: pendingCard.allPhotos || [] };
+    addCardData = { ...pendingCard, ...card, _pendingId: pendingCard._pendingId, _userPhoto: pendingCard._userPhoto };
 
     // Update preview image
     const img = card.images?.large || card.images?.small || '';
