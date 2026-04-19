@@ -1077,6 +1077,21 @@ async function sbRpc(fn, params={}) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/** Renderuje text zprávy: nahradí [IMG:url] inline obrázkem */
+function renderMsgText(raw) {
+  const parts = String(raw||'').split(/(\[IMG:[^\]]+\])/g);
+  return parts.map(p => {
+    const m = p.match(/^\[IMG:(.+)\]$/);
+    if (m) {
+      const url = m[1];
+      return `<a href="${esc(url)}" target="_blank" style="display:block;margin:4px 0">` +
+             `<img src="${esc(url)}" alt="Obrázek" onclick="event.stopPropagation()" ` +
+             `style="max-width:240px;max-height:240px;border-radius:8px;display:block;cursor:zoom-in;border:1px solid rgba(255,255,255,.1)"></a>`;
+    }
+    return esc(p);
+  }).join('');
+}
+
 // ═══ AUTH ═══
 let token=null, userId=null, username='';
 
@@ -1417,7 +1432,7 @@ function renderMessages() {
     html += `
       <div class="msg-row ${isMe?'me':'them'}">
         <div class="msg-bubble"${isMe ? ` oncontextmenu="openMsgCtx(event,'${m.id}')" style="cursor:context-menu"` : ''}>
-          ${m.text ? `<span class="msg-text-content" id="mtxt-${m.id}">${esc(m.text)}</span>` : ''}
+          ${m.text ? `<span class="msg-text-content" id="mtxt-${m.id}">${renderMsgText(m.text)}</span>` : ''}
           ${listingsHtml}
           <div class="msg-time">${esc(time)}${isMe && m.is_read ? ' ✓✓' : ''}${m._edited ? ' <span style="font-size:10px;opacity:.5">(upraveno)</span>' : ''}</div>
         </div>
@@ -3029,8 +3044,373 @@ function renderFakeResult(result) {
   color: #f5c842;
 }
 </style>
-<a id="feedback-btn-fixed" href="feedback.html" title="Zpětná vazba">
+<button id="feedback-btn-fixed" onclick="openFeedbackModal()" title="Zpětná vazba">
   💬 Zpětná vazba
-</a>
+</button>
+<!-- ═══════════════════════════════════════════════
+     ZPĚTNÁ VAZBA — MODAL
+════════════════════════════════════════════════ -->
+<style>
+#feedbackModal {
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#feedbackModal.open { display: flex; }
+.fb-box {
+  background: #12101a; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px; width: 100%; max-width: 500px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  display: flex; flex-direction: column; overflow: hidden;
+  max-height: 92vh;
+}
+.fb-head {
+  padding: 16px 18px 13px; border-bottom: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.fb-head h3 {
+  font-family: 'Unbounded', sans-serif; font-size: 13px; font-weight: 700; color: #f0ece4;
+}
+.fb-close {
+  background: rgba(255,255,255,0.07); border: none; border-radius: 6px;
+  color: #f0ece4; font-size: 14px; padding: 4px 10px; cursor: pointer; transition: background .12s;
+}
+.fb-close:hover { background: rgba(255,255,255,0.14); }
+.fb-body {
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 11px;
+  overflow-y: auto; flex: 1;
+}
+.fb-hint {
+  font-size: 12px; color: rgba(240,236,228,.45); line-height: 1.5;
+}
+#fbText {
+  width: 100%; padding: 10px 13px; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05);
+  color: #f0ece4; font-family: 'DM Sans', sans-serif; font-size: 13.5px;
+  resize: none; outline: none; line-height: 1.55; transition: border-color .15s;
+  box-sizing: border-box;
+}
+#fbText:focus { border-color: rgba(245,200,66,0.38); }
+#fbText::placeholder { color: rgba(240,236,228,.28); }
+
+/* Image source buttons */
+.fb-img-row {
+  display: flex; gap: 7px; flex-wrap: wrap;
+}
+.fb-img-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 13px; border-radius: 8px; font-size: 12px; font-weight: 500;
+  border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.04);
+  color: rgba(240,236,228,.7); cursor: pointer; font-family: inherit; transition: all .14s;
+}
+.fb-img-btn:hover { border-color: rgba(245,200,66,0.3); color: var(--yellow); background: rgba(245,200,66,0.07); }
+.fb-paste-hint {
+  font-size: 11px; color: rgba(240,236,228,.28); display: flex; align-items: center; gap: 4px; margin-top: -3px;
+}
+
+/* Image preview */
+#fbImgPreview {
+  display: none; position: relative; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1); overflow: hidden; max-height: 200px;
+}
+#fbImgPreview img {
+  display: block; width: 100%; max-height: 200px; object-fit: contain;
+  background: rgba(0,0,0,0.3);
+}
+#fbRemoveImg {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(248,113,113,0.85); border: none; border-radius: 5px;
+  color: #fff; font-size: 11px; padding: 2px 8px; cursor: pointer; font-weight: 700;
+}
+
+/* Camera */
+#fbCameraWrap {
+  display: none; flex-direction: column; gap: 8px;
+}
+#fbVideo {
+  width: 100%; border-radius: 10px; background: #000; max-height: 220px; object-fit: cover;
+}
+.fb-camera-btns { display: flex; gap: 7px; }
+.fb-cam-snap {
+  flex: 1; padding: 8px; border-radius: 8px; border: none;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.3);
+  color: var(--yellow); font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .14s;
+}
+.fb-cam-snap:hover { background: rgba(245,200,66,0.25); }
+.fb-cam-close {
+  padding: 8px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: transparent; color: rgba(240,236,228,.5); font-family: inherit;
+  font-size: 12px; cursor: pointer;
+}
+
+/* Footer */
+.fb-foot {
+  padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-shrink: 0;
+}
+#fbStatus { font-size: 12px; color: rgba(240,236,228,.45); flex: 1; }
+.fb-foot-btns { display: flex; gap: 8px; }
+.fb-btn-cancel {
+  padding: 7px 16px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.1); background: transparent;
+  color: rgba(240,236,228,.6); font-family: inherit; font-size: 13px; cursor: pointer;
+}
+.fb-btn-send {
+  padding: 7px 18px; border-radius: 8px;
+  background: rgba(245,200,66,0.15); border: 1px solid rgba(245,200,66,0.35);
+  color: var(--yellow); font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .14s;
+}
+.fb-btn-send:hover { background: rgba(245,200,66,0.28); }
+.fb-btn-send:disabled { opacity: .5; cursor: not-allowed; }
+</style>
+
+<div id="feedbackModal" onclick="if(event.target===this)closeFeedbackModal()">
+  <div class="fb-box">
+    <div class="fb-head">
+      <h3>💬 Zpětná vazba</h3>
+      <button class="fb-close" onclick="closeFeedbackModal()">✕</button>
+    </div>
+    <div class="fb-body">
+      <div class="fb-hint">Napiš mi zprávu, návrh nebo hlášení chyby — odpovím co nejdříve 👋</div>
+
+      <textarea id="fbText" rows="5"
+        placeholder="Napiš sem svou zprávu…"
+        onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();sendFeedback();}"></textarea>
+
+      <!-- Obrázek: preview -->
+      <div id="fbImgPreview">
+        <img id="fbImgEl" src="" alt="Náhled">
+        <button id="fbRemoveImg" onclick="fbRemoveImage()">✕ Odebrat</button>
+      </div>
+
+      <!-- Kamera live view -->
+      <div id="fbCameraWrap">
+        <video id="fbVideo" autoplay playsinline muted></video>
+        <div class="fb-camera-btns">
+          <button class="fb-cam-snap" onclick="fbCameraSnap()">📸 Vyfotit</button>
+          <button class="fb-cam-close" onclick="fbCameraClose()">✕ Zavřít kameru</button>
+        </div>
+      </div>
+
+      <!-- Zdroj obrázku -->
+      <div class="fb-img-row">
+        <label class="fb-img-btn">
+          📁 Ze souboru
+          <input type="file" accept="image/*" style="display:none" onchange="fbFileChosen(this)">
+        </label>
+        <button class="fb-img-btn" onclick="fbCameraOpen()">📷 Kamera / QR</button>
+        <label class="fb-img-btn" title="Klikni, pak stiskni Ctrl+V nebo vložení ze schránky">
+          📋 Vložit
+          <input type="file" id="fbCamMobile" accept="image/*" capture="environment" style="display:none" onchange="fbFileChosen(this)">
+        </label>
+      </div>
+      <div class="fb-paste-hint">📋 Ctrl+V — vloží screenshot přímo do zprávy</div>
+    </div>
+
+    <div class="fb-foot">
+      <span id="fbStatus"></span>
+      <div class="fb-foot-btns">
+        <button class="fb-btn-cancel" onclick="closeFeedbackModal()">Zrušit</button>
+        <button class="fb-btn-send" id="fbSendBtn" onclick="sendFeedback()">📨 Odeslat</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════
+   FEEDBACK MODAL
+════════════════════════════════════════════ */
+(function(){
+  let _imgBase64 = null, _imgMime = null, _stream = null;
+
+  /* ── Otevřít / zavřít ── */
+  window.openFeedbackModal = function() {
+    if (!token || !userId) {
+      showToast('Pro odeslání zpětné vazby se přihlas.', 'error');
+      return;
+    }
+    document.getElementById('feedbackModal').classList.add('open');
+    setTimeout(() => document.getElementById('fbText').focus(), 50);
+  };
+  window.closeFeedbackModal = function() {
+    fbCameraClose();
+    document.getElementById('feedbackModal').classList.remove('open');
+    document.getElementById('fbText').value = '';
+    document.getElementById('fbStatus').textContent = '';
+    fbRemoveImage();
+  };
+
+  /* ── Obrázek: soubor ── */
+  window.fbFileChosen = function(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { showToast('Vyber prosím obrázek.', 'error'); return; }
+    if (file.size > 8 * 1024 * 1024) { showToast('Obrázek je příliš velký (max 8 MB).', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => { _imgBase64 = e.target.result.split(',')[1]; _imgMime = file.type; fbShowPreview(e.target.result); };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+
+  /* ── Obrázek: kamera ── */
+  window.fbCameraOpen = async function() {
+    const wrap = document.getElementById('fbCameraWrap');
+    const video = document.getElementById('fbVideo');
+    try {
+      _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+      video.srcObject = _stream;
+      wrap.style.display = 'flex';
+    } catch(e) {
+      // Fallback — na mobilu otevře nativní fotoaparát
+      document.getElementById('fbCamMobile').click();
+    }
+  };
+  window.fbCameraSnap = function() {
+    const video = document.getElementById('fbVideo');
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const url = canvas.toDataURL('image/jpeg', 0.88);
+    _imgBase64 = url.split(',')[1]; _imgMime = 'image/jpeg';
+    fbShowPreview(url);
+    fbCameraClose();
+  };
+  window.fbCameraClose = function() {
+    if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
+    document.getElementById('fbCameraWrap').style.display = 'none';
+  };
+
+  /* ── Obrázek: preview / odebrání ── */
+  function fbShowPreview(dataUrl) {
+    document.getElementById('fbImgEl').src = dataUrl;
+    document.getElementById('fbImgPreview').style.display = '';
+  }
+  window.fbRemoveImage = function() {
+    _imgBase64 = null; _imgMime = null;
+    document.getElementById('fbImgEl').src = '';
+    document.getElementById('fbImgPreview').style.display = 'none';
+  };
+
+  /* ── Paste / printscreen ── */
+  document.addEventListener('paste', function(e) {
+    if (!document.getElementById('feedbackModal').classList.contains('open')) return;
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        const reader = new FileReader();
+        reader.onload = ev => {
+          _imgBase64 = ev.target.result.split(',')[1];
+          _imgMime = item.type;
+          fbShowPreview(ev.target.result);
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  });
+
+  /* ── Odeslat ── */
+  window.sendFeedback = async function() {
+    const text = (document.getElementById('fbText').value || '').trim();
+    if (!text && !_imgBase64) {
+      document.getElementById('fbStatus').textContent = '⚠️ Napiš zprávu nebo přilož obrázek.';
+      return;
+    }
+    if (!token || !userId) { showToast('Přihlas se pro odeslání.', 'error'); return; }
+
+    const sendBtn = document.getElementById('fbSendBtn');
+    sendBtn.disabled = true;
+    document.getElementById('fbStatus').textContent = '⏳ Odesílám…';
+
+    try {
+      /* 1. Upload obrázku do Supabase Storage */
+      let imageUrl = null;
+      if (_imgBase64) {
+        const ext = (_imgMime || 'image/jpeg').split('/')[1] || 'jpg';
+        const fname = `${userId}_${Date.now()}.${ext}`;
+        const bytes = Uint8Array.from(atob(_imgBase64), c => c.charCodeAt(0));
+        const upRes = await fetch(`${SB_URL}/storage/v1/object/feedback-images/${fname}`, {
+          method: 'POST',
+          headers: {
+            'apikey': SB_ANON,
+            'Authorization': 'Bearer ' + (token || SB_ANON),
+            'Content-Type': _imgMime || 'image/jpeg',
+            'x-upsert': 'true',
+          },
+          body: bytes,
+        });
+        if (upRes.ok) {
+          imageUrl = `${SB_URL}/storage/v1/object/public/feedback-images/${fname}`;
+        } else {
+          // Storage bucket neexistuje – pošleme jako base64 data URL v metadatech
+          imageUrl = `data:${_imgMime};base64,${_imgBase64}`;
+        }
+      }
+
+      /* 2. Najít admin profil */
+      let adminId = null;
+      const profiles = await sb(`rest/v1/profiles?select=id,username&limit=500`, 'GET', null, token);
+      if (Array.isArray(profiles)) {
+        const hit = profiles.find(p => {
+          const u = (p.username || '').toLowerCase();
+          return u === 'papez' || u === 'papez.ondrej' || u === 'admin' || u.startsWith('papez');
+        });
+        if (hit) adminId = hit.id;
+      }
+      if (!adminId) {
+        // Fallback: zkus hledat přes auth email hint uložený v localStorage
+        const saved = localStorage.getItem('pkc_admin_id');
+        if (saved) adminId = saved;
+      }
+      if (!adminId) {
+        document.getElementById('fbStatus').textContent = '❌ Nepodařilo se najít příjemce. Zkus to znovu.';
+        sendBtn.disabled = false;
+        return;
+      }
+      // Uložit pro příště
+      localStorage.setItem('pkc_admin_id', adminId);
+
+      /* 3. Vytvořit nebo otevřít konverzaci s adminem */
+      const convId = await sbRpc('get_or_create_conversation', { user1_id: userId, user2_id: adminId });
+      if (!convId) throw new Error('Konverzaci se nepodařilo vytvořit.');
+
+      /* 4. Sestavit text zprávy */
+      const lines = [];
+      lines.push('📋 Zpětná vazba od ' + (username || userId));
+      if (text) lines.push(text);
+      if (imageUrl) lines.push('[IMG:' + imageUrl + ']');
+      const msgText = lines.join('\n\n');
+
+      /* 5. Odeslat zprávu */
+      const res = await sb('rest/v1/chat_messages', 'POST', {
+        conversation_id: convId,
+        sender_id: userId,
+        sender_username: username,
+        text: msgText,
+      }, token);
+      if (res._err) throw new Error(res._err);
+
+      document.getElementById('fbStatus').textContent = '✅ Odesláno! Odpovím co nejdříve.';
+      setTimeout(closeFeedbackModal, 1800);
+
+      // Refresh konverzací pokud jsme na chat stránce
+      if (typeof loadConversations === 'function') loadConversations();
+
+    } catch(e) {
+      document.getElementById('fbStatus').textContent = '❌ Chyba: ' + (e.message || 'neznámá');
+      sendBtn.disabled = false;
+    }
+  };
+
+})();
+</script>
 </body>
 </html>
