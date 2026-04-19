@@ -2165,17 +2165,99 @@ async function compressImage(dataUrl, maxPx = 1400, quality = 0.85) {
 }
 
 async function postPhoto(payload) {
-  // Odeslat JSON data na PC (server přepošle do qr-bridge._handleBatchPhoto)
-  const r = await fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  });
-  if (!r.ok) {
-    const errText = await r.text().catch(() => '');
-    throw new Error(`HTTP ${r.status}: ${errText.slice(0, 120)}`);
+  // Přímý upload do Supabase Storage + photo_queue (bez Vercel)
+  const dataUrl = payload.photoDataUrl || payload.photo || '';
+  if (!dataUrl) throw new Error('Chybí photoDataUrl');
+
+  // Dekóduj base64
+  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!matches) throw new Error('Neplatný formát obrázku');
+  const mimeType = matches[1];
+  const base64   = matches[2];
+  const ext      = mimeType.includes('png') ? 'png' : 'jpg';
+
+  // base64 → Uint8Array (funguje v mobile browseru bez Node.js Buffer)
+  const binary = atob(base64);
+  const buf    = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) buf[i] = binary.charCodeAt(i);
+
+  // Sestavení cesty: {user_id}/{batchId}_card{n}_{side}_{ts}.jpg
+  const bId     = payload.batchId   || Date.now().toString(36);
+  const side    = payload.side      || 'front';
+  const cardIdx = payload.cardIndex || 1;
+  const ts      = Date.now();
+  const fname   = `${bId}_card${cardIdx}_${side}_${ts}.${ext}`;
+
+  // userId z USER_ID (URL param) nebo z auth
+  let userId = USER_ID;
+  if (!userId) {
+    try {
+      const r = await fetch(`${SB_URL}/auth/v1/user`, {
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
+      });
+      const u = await r.json();
+      userId = u?.id || '';
+    } catch { userId = ''; }
   }
-  return r;
+  if (!userId) throw new Error('Nepřihlášen – chybí userId');
+
+  const storagePath = `${userId}/${fname}`;
+
+  // 1. Upload do Supabase Storage
+  const upRes = await fetch(
+    `${SB_URL}/storage/v1/object/card-photo/${storagePath}`,
+    {
+      method: 'POST',
+      headers: {
+        'apikey':        SB_ANON,
+        'Authorization': 'Bearer ' + mobileToken,
+        'Content-Type':  mimeType,
+        'x-upsert':      'true',
+      },
+      body: buf,
+    }
+  );
+  if (!upRes.ok) {
+    const errText = await upRes.text().catch(() => '');
+    throw new Error(`Storage upload selhal ${upRes.status}: ${errText.slice(0, 120)}`);
+  }
+
+  // 2. Metadata z AI výsledku
+  const metadata = {
+    side, cardIndex: cardIdx, totalCards: payload.totalCards || 1,
+    batchId: bId, batchComplete: payload.batchComplete || false,
+    name: payload.name || null, set: payload.set || null,
+    number: payload.number || null, type: payload.type || null,
+    hp: payload.hp || null, category: payload.category || null,
+    subtype: payload.subtype || null, variant: payload.variant || null,
+    condition: payload.condition || 'NM', conditionNotes: payload.conditionNotes || '',
+    confidence: payload.confidence || null, notes: payload.notes || '',
+    lang: payload.lang || 'EN',
+  };
+
+  // 3. Vložit záznam do photo_queue
+  const qRes = await fetch(`${SB_URL}/rest/v1/photo_queue`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SB_ANON,
+      'Authorization': 'Bearer ' + mobileToken,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({
+      user_id:      userId,
+      storage_path: storagePath,
+      filename:     fname,
+      processed:    false,
+      metadata:     metadata,
+    }),
+  });
+  if (!qRes.ok) {
+    const errText = await qRes.text().catch(() => '');
+    throw new Error(`photo_queue insert selhal ${qRes.status}: ${errText.slice(0, 120)}`);
+  }
+
+  return { ok: true, storagePath, filename: fname };
 }
 
 function restartBatch() {

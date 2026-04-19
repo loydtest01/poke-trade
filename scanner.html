@@ -1558,21 +1558,140 @@ async function testGroqKey() {
 /* ═══════════════════════════════════════════════════════
    PHOTO MANAGEMENT
 ═══════════════════════════════════════════════════════ */
+
+/* Komprese obrázku před uploadem (stejný přístup jako mobile.html) */
+async function compressImage(dataUrl, maxPx = 1400, quality = 0.85) {
+  if (!dataUrl) return dataUrl;
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width  * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+/* Upload jedné fotky na Supabase Storage + záznam do photo_queue.
+   Vrátí { queueId, publicUrl } nebo null při chybě. */
+async function uploadPhotoToQueue(dataUrl, filename) {
+  if (!currentUser?.id) return null;
+  try {
+    const tok = await window.getValidToken();
+    if (!tok) return null;
+
+    // Komprese
+    const compressed = await compressImage(dataUrl);
+
+    // Base64 → Uint8Array
+    const b64 = compressed.split(',')[1];
+    const buf = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+
+    // storage_path: {user_id}/{filename}
+    const storagePath = `${currentUser.id}/${filename}`;
+
+    // Upload do Supabase Storage (bucket card-photo)
+    const upRes = await fetch(
+      `${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`,
+      {
+        method: 'POST',
+        headers: {
+          'apikey':        SUPABASE_ANON,
+          'Authorization': 'Bearer ' + tok,
+          'Content-Type':  'image/jpeg',
+          'x-upsert':      'true',
+        },
+        body: buf,
+      }
+    );
+
+    if (!upRes.ok) {
+      const err = await upRes.text().catch(() => '');
+      console.error('[uploadPhotoToQueue] Storage error', upRes.status, err);
+      return null;
+    }
+
+    // Vložit záznam do photo_queue
+    const qRes = await fetch(`${SUPABASE_URL}/rest/v1/photo_queue`, {
+      method: 'POST',
+      headers: {
+        'apikey':        SUPABASE_ANON,
+        'Authorization': 'Bearer ' + tok,
+        'Content-Type':  'application/json',
+        'Prefer':        'return=representation',
+      },
+      body: JSON.stringify({
+        user_id:      currentUser.id,
+        storage_path: storagePath,
+        filename:     filename,
+        processed:    false,
+        metadata:     {},
+      }),
+    });
+
+    if (!qRes.ok) {
+      console.error('[uploadPhotoToQueue] Queue insert error', qRes.status);
+      return null;
+    }
+
+    const rows = await qRes.json();
+    const queueId  = rows?.[0]?.id || null;
+    const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${storagePath}`;
+    return { queueId, publicUrl };
+
+  } catch (e) {
+    console.error('[uploadPhotoToQueue]', e);
+    return null;
+  }
+}
+
 function handleFiles(fileList) {
   const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
   if (!files.length) return;
 
+  // Batch ID ve stejném formátu jako mobile.html (např. "pc1a2b3c4")
+  const batchId = 'pc' + Date.now().toString(36);
+
   let loaded = 0;
-  files.forEach(file => {
+  files.forEach((file, fileIdx) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      photos.push({
-        id: nextId++, dataUrl: e.target.result,
-        name: file.name, status: 'pending',
+    reader.onload = async e => {
+      const localId = nextId++;
+      const ts = Date.now();
+      // Název ve stejném formátu jako mobile: {batchId}_card{n}_front_{ts}.jpg
+      const filename = `${batchId}_card${fileIdx + 1}_front_${ts}.jpg`;
+
+      // Přidat do UI ihned (s lokálním dataUrl)
+      const photoEntry = {
+        id: localId, dataUrl: e.target.result,
+        name: filename, status: 'pending',
         result: null, tcgCard: null, saveSelected: true,
-      });
+        queueId: null,
+      };
+      photos.push(photoEntry);
       loaded++;
       renderAll();
+
+      // Upload na Supabase (na pozadí, neblokuje UI)
+      if (currentUser?.id) {
+        const uploaded = await uploadPhotoToQueue(e.target.result, filename);
+        if (uploaded?.queueId) {
+          // Přiřadit queueId k fotce (umožní odkaz do queue.html)
+          const p = photos.find(p => p.id === localId);
+          if (p) {
+            p.queueId = uploaded.queueId;
+            // Aktualizuj klikatelnost karty
+            renderAll();
+          }
+        }
+      }
+
       // Po načtení všech souborů automaticky spustit rozpoznávání
       if (loaded === files.length && hasGroqKey()) {
         setTimeout(() => recognizeAll(), 100);
