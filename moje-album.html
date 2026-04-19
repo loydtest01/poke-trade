@@ -135,14 +135,14 @@ body { background: #06040c; overflow-x: hidden; }
 .album-val { font-size: 10px; color: #f5c842; font-weight: 700; margin-left: 2px; white-space: nowrap; }
 /* Kebab (⋯) na album-item */
 .album-kebab {
-  opacity: 0; background: none; border: none; cursor: pointer;
-  color: var(--text3); font-size: 14px; padding: 0 3px; line-height: 1;
-  transition: opacity .15s, color .15s; flex-shrink: 0;
+  opacity: 0.45; background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 16px; padding: 2px 5px; line-height: 1;
+  transition: opacity .15s, color .15s, background .15s; flex-shrink: 0;
   border-radius: 5px;
 }
-.album-item:hover .album-kebab,
-.album-item.active .album-kebab { opacity: 1; }
-.album-kebab:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+.album-item:hover .album-kebab { opacity: 1; color: var(--text2); }
+.album-item.active .album-kebab { opacity: 1; color: var(--text); }
+.album-kebab:hover { color: var(--text); background: rgba(255,255,255,0.12) !important; }
 
 /* Album kebab dropdown */
 .album-dropdown {
@@ -376,28 +376,32 @@ body { background: #06040c; overflow-x: hidden; }
     rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.05) 60%, transparent 80%);
   mix-blend-mode: screen;
 }
-.card-slot.selected { border-color: rgba(245,200,66,0.7); box-shadow: 0 0 0 1px rgba(245,200,66,0.4), 0 0 18px 4px rgba(245,200,66,0.22); }
+.card-slot.selected {
+  border-color: rgba(245,200,66,0.75);
+  box-shadow: 0 0 0 2px rgba(245,200,66,0.45), 0 0 20px 5px rgba(245,200,66,0.2);
+}
 
 /* Rotující zlatá čárka */
 .sel-ring {
-  position: absolute; inset: -1px; z-index: 9; pointer-events: none;
+  position: absolute; inset: 0; z-index: 9; pointer-events: none;
   border-radius: 10px; overflow: hidden;
 }
 .sel-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
+/* dasharray: 10px dash + 6px gap = 16px perioda  →  dashoffset musí jít -16 nebo násobek */
 @keyframes sel-dash-march {
-  from { stroke-dashoffset: 42; }
-  to   { stroke-dashoffset: 0; }
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -16; }
 }
 .sel-ring rect {
   fill: none;
   stroke: #f5c842;
   stroke-width: 2.5;
-  stroke-dasharray: 12 6;
+  stroke-dasharray: 10 6;
   stroke-dashoffset: 0;
   stroke-linecap: round;
-  animation: sel-dash-march 2.8s linear infinite;
-  filter: drop-shadow(0 0 2.5px rgba(245,200,66,0.55));
+  animation: sel-dash-march 1.4s linear infinite;
+  filter: drop-shadow(0 0 3px rgba(245,200,66,0.7));
 }
 .card-slot.in-album { border-color: rgba(74,158,255,0.4); }
 
