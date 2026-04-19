@@ -133,13 +133,35 @@ body { background: #06040c; overflow-x: hidden; }
 .album-item.active .album-name { color: var(--text); font-weight: 600; }
 .album-cnt { font-size: 10px; color: var(--text3); }
 .album-val { font-size: 10px; color: #f5c842; font-weight: 700; margin-left: 2px; white-space: nowrap; }
-.album-del-btn {
+/* Kebab (⋯) na album-item */
+.album-kebab {
   opacity: 0; background: none; border: none; cursor: pointer;
-  color: var(--text3); font-size: 13px; padding: 0 2px;
-  transition: opacity .15s, color .15s;
+  color: var(--text3); font-size: 14px; padding: 0 3px; line-height: 1;
+  transition: opacity .15s, color .15s; flex-shrink: 0;
+  border-radius: 5px;
 }
-.album-item:hover .album-del-btn { opacity: 1; }
-.album-del-btn:hover { color: var(--red); }
+.album-item:hover .album-kebab,
+.album-item.active .album-kebab { opacity: 1; }
+.album-kebab:hover { color: var(--text); background: rgba(255,255,255,0.1); }
+
+/* Album kebab dropdown */
+.album-dropdown {
+  position: fixed; z-index: 600;
+  background: rgba(14,12,20,0.97); border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  backdrop-filter: blur(16px); min-width: 180px; overflow: hidden;
+  padding: 4px 0;
+}
+.album-dropdown-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; font-size: 13px; cursor: pointer;
+  color: var(--text2); transition: background .12s, color .12s;
+  border: none; background: none; width: 100%; text-align: left; font-family: inherit;
+}
+.album-dropdown-item:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.album-dropdown-item.danger { color: var(--red, #f87171); }
+.album-dropdown-item.danger:hover { background: rgba(248,113,113,0.12); color: #f87171; }
+.album-dropdown-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 4px 0; }
 
 .new-album-btn {
   display: flex; align-items: center; gap: 6px;
@@ -1380,8 +1402,7 @@ body { background: #06040c; overflow-x: hidden; }
         <div class="album-header-cnt" id="ahCnt">0 karet</div>
       </div>
       <div class="album-header-actions">
-        <button class="ah-btn add-sel" onclick="startSelectMode()">✏️ Upravit karty</button>
-        <button class="ah-btn rename"  onclick="renameCurrentAlbum()">Přejmenovat</button>
+        <!-- Akce přesunuty do ⋯ menu na album-item v sidebaru -->
       </div>
     </div>
 
@@ -3830,7 +3851,7 @@ function renderAlbumList() {
       <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
       <span class="album-name">${esc(a.name)}</span>
       <span class="album-cnt">${cnt}</span>
-      <button class="album-del-btn" onclick="event.stopPropagation();deleteAlbum('${esc(a.id)}')" title="Smazat album">✕</button>
+      <button class="album-kebab" onclick="event.stopPropagation();openAlbumMenu(event,'${esc(a.id)}')" title="Možnosti alba">⋯</button>
     </button>`;
   }).join('');
 }
@@ -3885,6 +3906,56 @@ async function deleteAlbum(id) {
   saveAlbumsLocal();
   renderAlbumList();
   render();
+}
+
+// ── Kebab menu pro album-item ─────────────────────────────────────
+let _albumMenuEl = null;
+let _albumMenuId = null;
+
+function openAlbumMenu(e, albumId) {
+  e.stopPropagation();
+  closeAlbumMenu();
+
+  // Přepni na album pokud není aktivní
+  if (activeAlbumId !== albumId) {
+    activeAlbumId = albumId;
+    cancelSelect();
+    renderAlbumList();
+    render();
+  }
+  _albumMenuId = albumId;
+
+  const menu = document.createElement('div');
+  menu.className = 'album-dropdown';
+  menu.id = 'albumContextMenu';
+  menu.innerHTML = `
+    <button class="album-dropdown-item" onclick="closeAlbumMenu();startSelectMode()">✏️ Upravit karty</button>
+    <button class="album-dropdown-item" onclick="closeAlbumMenu();renameCurrentAlbum()">✏️ Přejmenovat</button>
+    <div class="album-dropdown-sep"></div>
+    <button class="album-dropdown-item danger" onclick="closeAlbumMenu();deleteAlbum('${albumId.replace(/'/g,"\\'")}')">🗑 Vymazat album</button>
+  `;
+
+  document.body.appendChild(menu);
+  _albumMenuEl = menu;
+
+  // Pozicování pod tlačítkem ⋯
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const mw = 188, mh = 130;
+  const vw = window.innerWidth, vh = window.innerHeight;
+  let left = rect.left;
+  let top  = rect.bottom + 4;
+  if (left + mw > vw) left = vw - mw - 6;
+  if (top + mh  > vh) top  = rect.top - mh - 4;
+  menu.style.left = left + 'px';
+  menu.style.top  = top  + 'px';
+
+  setTimeout(() => document.addEventListener('click', closeAlbumMenu, { once: true }), 10);
+}
+
+function closeAlbumMenu() {
+  if (_albumMenuEl) { _albumMenuEl.remove(); _albumMenuEl = null; }
+  _albumMenuId = null;
 }
 
 function renameCurrentAlbum() {
@@ -5572,7 +5643,7 @@ function slotActionManual() {
 
 // Zavřít menu při Escape
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeSlotMenu();
+  if (e.key === 'Escape') { closeSlotMenu(); closeAlbumMenu(); }
 });
 
 // ══════════════════════════════════════════════════════════════════
