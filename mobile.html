@@ -2813,7 +2813,7 @@ function renderMsgsThread(silent = false) {
     if (ds !== lastDate) { html += `<div class="msg-date-sep-m">${ds}</div>`; lastDate = ds; }
     const isMe = m.sender_id === _msgsUserId;
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
-    const txt = escHtml(m.message || m.content || m.text || m.body || '');
+    const txt = escHtml(m.text || m.content || m.message || m.body || '');
     html += `<div class="msg-row-${isMe?'me':'them'}">
       <div class="msg-bubble ${isMe?'me':'them'}">${txt}</div>
       <div class="msg-time-m">${time}</div>
@@ -2835,7 +2835,8 @@ async function sendMobileMsg() {
   // Optimistické zobrazení — zpráva se ukáže ihned
   const tempMsg = {
     sender_id: _msgsUserId,
-    message: text,
+    sender_username: localStorage.getItem('sb_username')||'',
+    text: text,
     created_at: new Date().toISOString(),
     _optimistic: true
   };
@@ -2846,7 +2847,7 @@ async function sendMobileMsg() {
     const r = await fetch(`${SB_URL}/rest/v1/chat_messages`, {
       method: 'POST',
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, message: text, type: 'text' })
+      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, sender_username: localStorage.getItem('sb_username')||'', text: text, listing_refs: [] })
     });
     if (!r.ok) {
       let errDetail = r.status;
