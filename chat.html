@@ -3204,12 +3204,20 @@ function renderFakeResult(result) {
       </div>
 
       <!-- Kamera live view -->
-      <div id="fbCameraWrap">
-        <video id="fbVideo" autoplay playsinline muted></video>
-        <div class="fb-camera-btns">
+      <div id="fbCameraWrap" style="display:none;flex-direction:column;gap:8px">
+        <video id="fbVideo" autoplay playsinline muted style="width:100%;border-radius:10px;background:#000;max-height:220px;object-fit:cover"></video>
+        <div style="display:flex;gap:7px">
           <button class="fb-cam-snap" onclick="fbCameraSnap()">📸 Vyfotit</button>
-          <button class="fb-cam-close" onclick="fbCameraClose()">✕ Zavřít kameru</button>
+          <button class="fb-cam-close" onclick="fbCameraClose()">✕ Zavřít</button>
         </div>
+      </div>
+
+      <!-- QR kód (fallback pro desktop bez kamery) -->
+      <div id="fbQrWrap" style="display:none;flex-direction:column;align-items:center;gap:10px;padding:14px;border-radius:10px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03)">
+        <div style="font-size:12px;color:rgba(240,236,228,.55);text-align:center">Naskenuj QR kódem z telefonu — vyfotíš přímo tam 📱</div>
+        <canvas id="fbQrCanvas" style="border-radius:8px;background:#fff;padding:8px"></canvas>
+        <div style="font-size:11px;color:rgba(240,236,228,.3);text-align:center" id="fbQrHint"></div>
+        <button class="fb-cam-close" onclick="document.getElementById('fbQrWrap').style.display='none'">Zavřít</button>
       </div>
 
       <!-- Zdroj obrázku -->
@@ -3218,8 +3226,8 @@ function renderFakeResult(result) {
           📁 Ze souboru
           <input type="file" accept="image/*" style="display:none" onchange="fbFileChosen(this)">
         </label>
-        <button class="fb-img-btn" onclick="fbCameraOpen()">📷 Kamera / QR</button>
-        <label class="fb-img-btn" title="Klikni, pak stiskni Ctrl+V nebo vložení ze schránky">
+        <button class="fb-img-btn" id="fbCamBtn" onclick="fbCameraOpen()">📷 Kamera / QR</button>
+        <label class="fb-img-btn" title="Ctrl+V nebo klikni sem a vlož ze schránky">
           📋 Vložit
           <input type="file" id="fbCamMobile" accept="image/*" capture="environment" style="display:none" onchange="fbFileChosen(this)">
         </label>
@@ -3255,6 +3263,7 @@ function renderFakeResult(result) {
   };
   window.closeFeedbackModal = function() {
     fbCameraClose();
+    document.getElementById('fbQrWrap').style.display = 'none';
     document.getElementById('feedbackModal').classList.remove('open');
     document.getElementById('fbText').value = '';
     document.getElementById('fbStatus').textContent = '';
@@ -3274,22 +3283,66 @@ function renderFakeResult(result) {
   };
 
   /* ── Obrázek: kamera ── */
+  const _isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
   window.fbCameraOpen = async function() {
-    const wrap = document.getElementById('fbCameraWrap');
+    // Zavři QR pokud je otevřené
+    document.getElementById('fbQrWrap').style.display = 'none';
+
+    if (_isMobile) {
+      // Mobil: přímo nativní fotoaparát
+      document.getElementById('fbCamMobile').click();
+      return;
+    }
+
+    // Desktop: zkus getUserMedia (webkamera)
+    const wrap  = document.getElementById('fbCameraWrap');
     const video = document.getElementById('fbVideo');
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      fbShowQR(); return;
+    }
     try {
-      _stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
+      _stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
       video.srcObject = _stream;
       wrap.style.display = 'flex';
     } catch(e) {
-      // Fallback — na mobilu otevře nativní fotoaparát
-      document.getElementById('fbCamMobile').click();
+      // Kamera zamítnuta nebo není — ukáž QR kód
+      fbShowQR();
     }
   };
+
+  function fbShowQR() {
+    const qrWrap  = document.getElementById('fbQrWrap');
+    const canvas  = document.getElementById('fbQrCanvas');
+    const hint    = document.getElementById('fbQrHint');
+    const url     = location.href.split('?')[0]; // aktuální stránka bez params
+    hint.textContent = url;
+    qrWrap.style.display = 'flex';
+
+    // Vygeneruj QR kód přes knihovnu
+    if (window._qrLoaded) { _drawQR(canvas, url); return; }
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js';
+    s.onload = () => { window._qrLoaded = true; _drawQR(canvas, url); };
+    document.head.appendChild(s);
+  }
+
+  function _drawQR(canvas, url) {
+    if (!window.QRCode) return;
+    QRCode.toCanvas(canvas, url, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' }
+    });
+  }
+
   window.fbCameraSnap = function() {
-    const video = document.getElementById('fbVideo');
+    const video  = document.getElementById('fbVideo');
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth || 640;
+    canvas.width  = video.videoWidth  || 640;
     canvas.height = video.videoHeight || 480;
     canvas.getContext('2d').drawImage(video, 0, 0);
     const url = canvas.toDataURL('image/jpeg', 0.88);
@@ -3297,6 +3350,7 @@ function renderFakeResult(result) {
     fbShowPreview(url);
     fbCameraClose();
   };
+
   window.fbCameraClose = function() {
     if (_stream) { _stream.getTracks().forEach(t => t.stop()); _stream = null; }
     document.getElementById('fbCameraWrap').style.display = 'none';
