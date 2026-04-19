@@ -762,7 +762,7 @@ const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 let mobileToken = localStorage.getItem('sb_token') || '';
 
 // ─── Batch state ─────────────────────────────────────────────
-let totalCards   = 9;
+let totalCards   = 1;  // window.onload volá selectCount(1, true) → konzistentní inicializace
 let currentCard  = 0;
 let captureMode  = 'front';
 let currentCond  = 'NM';
@@ -1094,13 +1094,19 @@ function toggleFakeMode() {
 
 function selectCount(n, silent) {
   totalCards = n;
-  document.querySelectorAll('.quick-btn').forEach((b, i) => {
+  // Scope pouze na #scSetup — nesmí ovlivnit tlačítka galerie (#scGalSetup)
+  document.querySelectorAll('#scSetup .quick-btn').forEach((b, i) => {
     b.classList.toggle('selected', i + 1 === n);
   });
   if (!silent) toast(`Vybráno ${n} ${n===1?'karta':n<5?'karty':'karet'}`);
 }
 
 function startBatch() {
+  // Přečti totalCards přímo z UI — ochrana proti rozsynchronizaci proměnné
+  const btns = [...document.querySelectorAll('#scSetup .quick-btn')];
+  const selIdx = btns.findIndex(b => b.classList.contains('selected'));
+  if (selIdx >= 0) totalCards = selIdx + 1;
+
   cards = Array.from({ length: totalCards }, () => ({
     frontPhoto: null, frontAI: null, condition: 'NM', note: '', backPhoto: null, backAI: null, detailPhotos: [], jpNamePhoto: null, isFakeTraining: fakeMode
   }));
@@ -2089,8 +2095,8 @@ async function postPhoto(payload) {
 }
 
 function restartBatch() {
-  totalCards = 9; currentCard = 0; cards = []; galCards = []; galWizardCurrent = 0;
-  selectCount(1, true);
+  currentCard = 0; cards = []; galCards = []; galWizardCurrent = 0;
+  selectCount(1, true);  // nastaví totalCards=1 a zvýrazní správné tlačítko
   showScreen('scSetup');
   document.getElementById('detailPanel').style.display = 'none';
   document.getElementById('progFill').style.width = '0%';
