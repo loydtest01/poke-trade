@@ -1363,6 +1363,8 @@ async function sendGallery() {
   showScreen('scSending');
   const total = galCards.length;
   const bId = Date.now().toString(36) + '_gal';
+  let failCount = 0;
+  let lastErr = '';
 
   for (let i = 0; i < galCards.length; i++) {
     const c = galCards[i];
@@ -1375,29 +1377,34 @@ async function sendGallery() {
     const backComp  = await compressImage(c.backPhoto);
     const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
 
+    const hasBack    = !!c.backPhoto;
+    const hasDetails = !!(c.detailPhotos?.length);
+
     // Přední strana
     reqs.push(postPhoto({
       photo: frontComp, photoDataUrl: frontComp,
       side: 'front', cardIndex: i + 1, totalCards: total,
       batchId: bId, isFakeTraining: fakeMode,
-      batchComplete: isLast && !c.backPhoto && !c.detailPhotos.length,
-    }).catch(() => {}));
+      batchComplete: isLast && !hasBack && !hasDetails,
+    }).catch(e => { failCount++; lastErr = e.message; }));
 
     // Detaily
     detailComps.forEach((dp, d) => {
+      const isLastDetail = (d === detailComps.length - 1);
       reqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
-        cardIndex: i + 1, totalCards: total, batchId: bId, batchComplete: false,
-      }).catch(() => {}));
+        cardIndex: i + 1, totalCards: total, batchId: bId,
+        batchComplete: isLast && !hasBack && isLastDetail,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     });
 
     // Zadní strana
-    if (c.backPhoto) {
+    if (hasBack) {
       reqs.push(postPhoto({
         photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId: bId,
         batchComplete: isLast,
-      }).catch(() => {}));
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     await Promise.all(reqs);
@@ -1408,10 +1415,20 @@ async function sendGallery() {
     await delay(40);
   }
 
+  if (failCount > 0) {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '⚠️';
+    document.getElementById('scDone').querySelector('.done-title').textContent = `${failCount} karet se neodesla${failCount === 1 ? 'lo' : 'lo'}!`;
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = lastErr || 'Zkontroluj připojení a zkus znovu.';
+  } else {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
+    document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+  }
+
   document.getElementById('doneStats').innerHTML =
     `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${galCards.filter(c => c.backPhoto).length}</div><div class="stat-lbl">Se zadní</div></div>`;
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--accent)'}">${withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--green)'}">${failCount > 0 ? failCount : galCards.filter(c => c.backPhoto).length}</div><div class="stat-lbl">${failCount > 0 ? 'Chyby' : 'Se zadní'}</div></div>`;
   showScreen('scDone');
 }
 
@@ -2033,23 +2050,28 @@ function goBack() {
 async function sendAll() {
   // Před odesláním ověř/obnov token
   const tokenOk = await ensureValidToken();
-  if (!tokenOk) return; // ensureValidToken už zobrazil login
+  if (!tokenOk) return;
 
   showScreen('scSending');
   const total = cards.length;
+  let failCount = 0;
+  let lastErr = '';
 
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
     const isLast = (i === cards.length - 1);
     const ai = c.frontAI || {};
 
-    // Build all requests for this card
     const cardReqs = [];
 
     // Komprese před odesláním (15–30× menší soubor, pod Vercel limit 4.5 MB)
     const frontComp  = await compressImage(c.frontPhoto);
     const backComp   = await compressImage(c.backPhoto);
     const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
+
+    // batchComplete: true pouze na skutečně posledním požadavku dávky
+    const hasBack    = !!c.backPhoto;
+    const hasDetails = !!(c.detailPhotos?.length);
 
     if (c.frontPhoto) {
       cardReqs.push(postPhoto({
@@ -2066,20 +2088,22 @@ async function sendAll() {
         photo: frontComp, side: 'front',
         cardIndex: i + 1, totalCards: total, batchId,
         isFakeTraining: c.isFakeTraining || false,
-        batchComplete: isLast && !c.backPhoto && !(c.detailPhotos?.length),
-      }).catch(() => {}));
+        batchComplete: isLast && !hasBack && !hasDetails,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     // Detail photos – parallel with front
     detailComps.forEach((dp, d) => {
+      const isLastDetail = (d === detailComps.length - 1);
       cardReqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
-        cardIndex: i + 1, totalCards: total, batchId, batchComplete: false,
-      }).catch(() => {}));
+        cardIndex: i + 1, totalCards: total, batchId,
+        batchComplete: isLast && !hasBack && isLastDetail,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     });
 
     // Back photo – parallel with front+details
-    if (c.backPhoto) {
+    if (hasBack) {
       cardReqs.push(postPhoto({
         photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId,
@@ -2089,7 +2113,7 @@ async function sendAll() {
         backCondition: c.backAI?.condition || null,
         backIssues: c.backAI?.issues || [],
         backNotes: c.backAI?.notes || '',
-      }).catch(() => {}));
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     await Promise.all(cardReqs);
@@ -2102,10 +2126,22 @@ async function sendAll() {
 
   const withPhoto = cards.filter(c => c.frontPhoto).length;
   const withAI    = cards.filter(c => c.frontAI?.name).length;
+
+  if (failCount > 0) {
+    // Aspoň jedna karta se neodeslala – zobraz chybu místo "Odesláno!"
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '⚠️';
+    document.getElementById('scDone').querySelector('.done-title').textContent = `${failCount} karet se neodesla${failCount === 1 ? 'lo' : 'lo'}!`;
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = lastErr || 'Zkontroluj připojení a zkus znovu.';
+  } else {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
+    document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+  }
+
   document.getElementById('doneStats').innerHTML =
     `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Vyfoceno</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${withAI}</div><div class="stat-lbl">AI rozpoznáno</div></div>`;
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--accent)'}">${withPhoto - failCount < 0 ? 0 : withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--green)'}">${failCount > 0 ? failCount : withAI}</div><div class="stat-lbl">${failCount > 0 ? 'Chyby' : 'AI rozp.'}</div></div>`;
   showScreen('scDone');
 }
 
@@ -2130,11 +2166,16 @@ async function compressImage(dataUrl, maxPx = 1400, quality = 0.85) {
 
 async function postPhoto(payload) {
   // Odeslat JSON data na PC (server přepošle do qr-bridge._handleBatchPhoto)
-  return fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
+  const r = await fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    throw new Error(`HTTP ${r.status}: ${errText.slice(0, 120)}`);
+  }
+  return r;
 }
 
 function restartBatch() {

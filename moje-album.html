@@ -383,33 +383,24 @@ body { background: #06040c; overflow-x: hidden; }
   mix-blend-mode: screen;
 }
 /* ── card-slot-wrap — wrapper pro každou kartu v gridu ──────────── */
-/* Wrapper NEMÁ overflow: hidden → ::after může přesahovat ven      */
-.card-slot-wrap {
-  position: relative;
-}
+.card-slot-wrap { position: relative; }
+
+/* ── VÝBĚR KARTY – outline nelze oklipovat overflow: hidden ──────── */
 .card-slot.selected {
-  border-color: rgba(245,200,66,0.75) !important;
-  box-shadow: 0 0 14px 3px rgba(245,200,66,0.18);
+  outline: 2.5px dashed #f5c842 !important;
+  outline-offset: 3px;
+  border-color: rgba(245,200,66,0.6) !important;
+  animation: sel-glow 1.4s ease-in-out infinite;
 }
-/* Marching ants na wrapperu – není klipován žádným overflow */
-@keyframes march-ants-all {
-  from { background-position: 0 0, 0 100%, 0 0, 100% 0; }
-  to   { background-position: 16px 0, -16px 100%, 0 -16px, 100% 16px; }
-}
-.card-slot-wrap.selected::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 12px;
-  pointer-events: none;
-  z-index: 10;
-  background:
-    repeating-linear-gradient(90deg, #f5c842 0, #f5c842 10px, transparent 10px, transparent 16px) 0 0    / 200% 3px no-repeat,
-    repeating-linear-gradient(90deg, #f5c842 0, #f5c842 10px, transparent 10px, transparent 16px) 0 100% / 200% 3px no-repeat,
-    repeating-linear-gradient(0deg,  #f5c842 0, #f5c842 10px, transparent 10px, transparent 16px) 0 0    / 3px 200% no-repeat,
-    repeating-linear-gradient(0deg,  #f5c842 0, #f5c842 10px, transparent 10px, transparent 16px) 100% 0 / 3px 200% no-repeat;
-  animation: march-ants-all 1.8s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(245,200,66,0.75));
+@keyframes sel-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px 2px rgba(245,200,66,0.25);
+    outline-color: rgba(245,200,66,0.7);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(245,200,66,0.5);
+    outline-color: #f5c842;
+  }
 }
 /* Staré sel-ring – skryje se, pokud by zůstalo v DOM */
 .sel-ring { display: none; }
