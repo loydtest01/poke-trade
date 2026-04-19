@@ -94,7 +94,7 @@ body { background: #06040c; overflow-x: hidden; }
 
 /* ── Sidebar ───────────────────────────────────────────────── */
 .sidebar {
-  width: 220px; flex-shrink: 0;
+  width: 258px; flex-shrink: 0;
   background: rgba(8,8,12,0.7);
   border-right: 1px solid rgba(255,255,255,0.05);
   padding: 12px 0; position: sticky; top: 56px;
@@ -5066,17 +5066,24 @@ function changeSyncMode(mode) {
 }
 
 function updateStats() {
-  document.getElementById('cnt-all').textContent   = allCards.length;
-  document.getElementById('statAll').textContent   = allCards.length;
+function updateStats() {
+  const cntAll = document.getElementById('cnt-all');
+  if (cntAll) cntAll.textContent = allCards.length;
+  const statAll = document.getElementById('statAll');
+  if (statAll) statAll.textContent = allCards.length;
   const tradeCount = allCards.filter(c => c.for_trade).length;
   const sellCount  = allCards.filter(c => c.for_sell).length;
   if (document.getElementById('statTrade')) document.getElementById('statTrade').textContent = tradeCount;
   if (document.getElementById('statSell'))  document.getElementById('statSell').textContent  = sellCount;
   // Supertype počty
-  document.getElementById('st-cnt-all').textContent     = allCards.length;
-  document.getElementById('st-cnt-pokemon').textContent = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
-  document.getElementById('st-cnt-trainer').textContent = allCards.filter(c => matchSupertype(c,'Trainer')).length;
-  document.getElementById('st-cnt-energy').textContent  = allCards.filter(c => matchSupertype(c,'Energy')).length;
+  const stAll     = document.getElementById('st-cnt-all');
+  const stPoke    = document.getElementById('st-cnt-pokemon');
+  const stTrain   = document.getElementById('st-cnt-trainer');
+  const stEnergy  = document.getElementById('st-cnt-energy');
+  if (stAll)    stAll.textContent    = allCards.length;
+  if (stPoke)   stPoke.textContent   = allCards.filter(c => matchSupertype(c,'Pokémon')).length;
+  if (stTrain)  stTrain.textContent  = allCards.filter(c => matchSupertype(c,'Trainer')).length;
+  if (stEnergy) stEnergy.textContent = allCards.filter(c => matchSupertype(c,'Energy')).length;
   // Drahé karty
   const expEl = document.getElementById('cnt-expensive');
   if (expEl) expEl.textContent = allCards.filter(c => (c.p30d||0) >= getExpThreshold() && c.p30d > 0).length;
