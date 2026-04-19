@@ -2113,6 +2113,9 @@ function render() {
 
   document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
   if (bookViewMode === 'book') renderBookView();
+  // Aktualizuj počítadlo drahých karet v sidebaru (p30d může být načteno postupně)
+  const expSbEl = document.getElementById('cnt-expensive');
+  if (expSbEl) expSbEl.textContent = allCards.filter(c => (c.p30d||0) >= getExpThreshold() && c.p30d > 0).length;
 }
 
 function getExpThreshold() {
@@ -4118,19 +4121,17 @@ function updateSelectBanner() {
 }
 
 async function addSelectedToAlbum() {
-  if (activeAlbumIds.size === 0) {
-    // Nabídni výběr alba nebo vytvoření
-    const names = allAlbums.map((a, i) => `${i+1}. ${a.name}`).join('\n');
-    const choice = prompt(`Do kterého alba přidat ${selectedIds.size} karet?\n${names}\n\nZadej číslo (nebo 0 pro nové album):`);
-    if (choice === null) return;
-    const idx = parseInt(choice) - 1;
-    if (parseInt(choice) === 0) { openNewAlbumModal(); return; }
-    if (idx < 0 || idx >= allAlbums.length) return;
-    activeAlbumIds.clear();
-    activeAlbumIds.add(allAlbums[idx].id);
-  }
-  const alb = allAlbums.find(a => a.id === getFirstActiveAlbumId());
-  if (!alb) return;
+  // Vždy nabídni výběr alba – uživatel vybírá cíl bez ohledu na aktuální album
+  const SPECIAL_NAMES = SPECIAL_ALB_NAMES;
+  const regularAlbs = allAlbums.filter(a => !SPECIAL_NAMES.includes(a.name));
+  if (!regularAlbs.length) { openNewAlbumModal(); return; }
+  const names = regularAlbs.map((a, i) => `${i+1}. ${a.name}`).join('\n');
+  const choice = prompt(`Do kterého alba přidat ${selectedIds.size} karet?\n${names}\n\nZadej číslo (nebo 0 pro nové album):`);
+  if (choice === null) return;
+  if (parseInt(choice) === 0) { openNewAlbumModal(); return; }
+  const idx = parseInt(choice) - 1;
+  if (idx < 0 || idx >= regularAlbs.length) return;
+  const alb = regularAlbs[idx];
   selectedIds.forEach(id => {
     if (!alb.cardIds.includes(id)) alb.cardIds.push(id);
   });
@@ -5065,7 +5066,6 @@ function changeSyncMode(mode) {
   localStorage.setItem(SYNC_MODE_KEY, mode);
 }
 
-function updateStats() {
 function updateStats() {
   const cntAll = document.getElementById('cnt-all');
   if (cntAll) cntAll.textContent = allCards.length;
