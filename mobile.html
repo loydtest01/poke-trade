@@ -1895,7 +1895,9 @@ function advanceFront() {
   currentCard++;
   if (currentCard < totalCards) showFrontScreen();
   else { currentCard = 0; showBackScreen(); }
-  setTimeout(() => { _advancingFront = false; }, 600);
+  // Reset ihned – JS je single-thread, flag chrání jen před souběhem tap+swipe
+  // ve stejném event loopu. Timeout 600ms blokoval legitimní rychlé kliknutí.
+  requestAnimationFrame(() => { _advancingFront = false; });
 }
 
 function showBackScreen() {
@@ -1993,7 +1995,7 @@ function advanceBack() {
   currentCard++;
   if (currentCard < totalCards) showBackScreen();
   else showReviewScreen();
-  setTimeout(() => { _advancingBack = false; }, 600);
+  requestAnimationFrame(() => { _advancingBack = false; });
 }
 
 function showReviewScreen() {
