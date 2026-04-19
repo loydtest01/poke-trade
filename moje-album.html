@@ -1372,18 +1372,21 @@ body { background: #06040c; overflow-x: hidden; }
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sb-section">
-      <span class="sb-label" data-i18n="show">Zobrazit</span>
-      <button class="sb-btn active" onclick="setView('all')"  id="vb-all" data-i18n="all_cards">Všechny karty <span class="cnt" id="cnt-all">0</span></button>
-    </div>
-    <div class="sb-divider"></div>
-
-    <div class="sb-section">
       <span class="sb-label" data-i18n="cond">Stav karty</span>
       <button class="sb-btn active" onclick="setCond('')" data-i18n="c_all">Vše</button>
       <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
       <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
       <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
       <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
+      <span class="sb-label" data-i18n="my_albums">Moje alba</span>
+      <div class="album-list" id="albumList">
+        <div style="font-size:11px;color:var(--text3);padding:4px 6px" data-i18n="loading">Načítám…</div>
+      </div>
+      <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1401,15 +1404,6 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sb-btn" id="vb-expensive" onclick="toggleExpFilter()">
         💰 Nad nastav. cenu <span class="cnt" id="cnt-expensive">0</span>
       </button>
-    </div>
-    <div class="sb-divider"></div>
-
-    <div class="sb-section">
-      <span class="sb-label" data-i18n="my_albums">Moje alba</span>
-      <div class="album-list" id="albumList">
-        <div style="font-size:11px;color:var(--text3);padding:4px 6px" data-i18n="loading">Načítám…</div>
-      </div>
-      <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -1806,7 +1800,22 @@ let activeRarity    = '';    // '' | 'common' | 'uncommon' | ... | 'basic_energy
 let activeTrainerSub = '';   // '' | 'Stadium' | 'Supporter' | 'Item' | 'Tool'
 let activeExpFilter  = false; // true = zobrazit pouze drahé karty nad nastavenou cenu
 let activeEnergyType = '';  // '' | 'fire' | 'water' | ...
-let activeAlbumId = null;    // null = všechny karty
+let activeAlbumIds = new Set(); // multi-select alb; prázdné = první album
+const SPECIAL_ALB_NAMES = ['Výměna','Obchod','Vyměněno','Prodáno'];
+function getFirstActiveAlbumId() { return activeAlbumIds.size > 0 ? [...activeAlbumIds][0] : null; }
+function getActiveAlbumCardIds() {
+  if (activeAlbumIds.size === 0) return null;
+  return [...activeAlbumIds].flatMap(id => {
+    const a = allAlbums.find(x => x.id === id);
+    return a ? (a.cardIds || []).map(String) : [];
+  });
+}
+// Compat shim pro starý kód
+Object.defineProperty(window, 'activeAlbumId', {
+  get() { return getFirstActiveAlbumId(); },
+  set(v) { activeAlbumIds.clear(); if (v) activeAlbumIds.add(v); },
+  configurable: true
+});
 let selectMode    = false;
 let selectedIds   = new Set();
 
@@ -2035,9 +2044,7 @@ function saveAlbumsLocal() {
 // ══════════════════════════════════════════════════════════════════
 function render() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
-  const albumCardIds = activeAlbumId
-    ? (allAlbums.find(a => a.id === activeAlbumId)?.cardIds || [])
-    : null;
+  const albumCardIds = getActiveAlbumCardIds();
 
   let filtered = allCards.filter(c => {
     if (activeView === 'trade' && !c.for_trade) return false;
@@ -2060,7 +2067,7 @@ function render() {
   // Stat chips
   const fChip = document.getElementById('filteredChip');
   document.getElementById('statFiltered').textContent = filtered.length;
-  fChip.style.display = (activeAlbumId || activeType || activeRarity || activeTrainerSub || activeSupertype || activeView !== 'all' || q || activeExpFilter) ? '' : 'none';
+  fChip.style.display = (activeAlbumIds.size > 0 || activeType || activeRarity || activeTrainerSub || activeSupertype || activeView !== 'all' || q || activeExpFilter) ? '' : 'none';
 
   // Album header – skrytý (název alba je vidět v sidebaru)
   const ah = document.getElementById('albumHeader');
@@ -2085,14 +2092,15 @@ function render() {
   if (tvExpN) tvExpN.textContent   = expCount;
 
   if (!filtered.length) {
+    const _hasAlb = activeAlbumIds.size > 0;
     document.getElementById('cardsGrid').innerHTML = `
       <div class="empty-state">
-        <div class="icon">${activeAlbumId ? '📁' : '🎴'}</div>
-        <h3>${activeAlbumId ? 'Album je prázdné' : 'Žádné karty'}</h3>
-        <p>${activeAlbumId
+        <div class="icon">${_hasAlb ? '📁' : '🎴'}</div>
+        <h3>${_hasAlb ? 'Album je prázdné' : 'Žádné karty'}</h3>
+        <p>${_hasAlb
           ? 'Klikni na „Upravit karty" a přidej karty z alba do tohoto alba.'
           : 'Karty se synchronizují z aplikace. Ujisti se že jsi přihlášen a spusť sync.'}</p>
-        ${activeAlbumId ? `<button class="btn-primary btn-sm" style="margin-top:14px" onclick="startSelectMode()">✏️ Přidat karty</button>` : ''}
+        ${_hasAlb ? `<button class="btn-primary btn-sm" style="margin-top:14px" onclick="startSelectMode()">✏️ Přidat karty</button>` : ''}
       </div>`;
     return;
   }
@@ -2158,7 +2166,7 @@ function renderCard(c, albumCardIds) {
   const emoji = typeEmoji(c.types?.[0] || c.type || '');
   const sel   = selectedIds.has(String(c.id));
   const inAlb = albumCardIds ? albumCardIds.includes(String(c.id)) : false;
-  let cls = sel ? 'selected' : (inAlb && activeAlbumId ? 'in-album' : '');
+  let cls = sel ? 'selected' : (inAlb && activeAlbumIds.size > 0 ? 'in-album' : '');
 
   // Zjisti počet fotek pouze pro odznak – reálné fotky se zobrazují jen v detailu karty
   const localId   = String(c.id || c.local_id || '');
@@ -3852,7 +3860,7 @@ Tato akce je nevratná.`)) return;
 //  ALBUM SIDEBAR RENDER
 // ══════════════════════════════════════════════════════════════════
 function renderAlbumList() {
-  const SPECIAL_NAMES = ['Výměna','Obchod','Vyměněno','Prodáno'];
+  const SPECIAL_NAMES = SPECIAL_ALB_NAMES;
   // Aktualizuj počty speciálních alb v sidebaru
   const vymena   = allAlbums.find(a => a.name === 'Výměna');
   const obchod   = allAlbums.find(a => a.name === 'Obchod');
@@ -3864,28 +3872,39 @@ function renderAlbumList() {
   document.getElementById('cnt-prodano').textContent  = (prodano?.cardIds||[]).length;
 
   // Zvýrazni aktivní speciální album
-  document.getElementById('sbVymena').classList.toggle('active',   activeAlbumId === vymena?.id);
-  document.getElementById('sbObchod').classList.toggle('active',   activeAlbumId === obchod?.id);
-  document.getElementById('sbVymeneno').classList.toggle('active', activeAlbumId === vymeneno?.id);
-  document.getElementById('sbProdano').classList.toggle('active',  activeAlbumId === prodano?.id);
+  document.getElementById('sbVymena').classList.toggle('active',   activeAlbumIds.has(vymena?.id));
+  document.getElementById('sbObchod').classList.toggle('active',   activeAlbumIds.has(obchod?.id));
+  document.getElementById('sbVymeneno').classList.toggle('active', activeAlbumIds.has(vymeneno?.id));
+  document.getElementById('sbProdano').classList.toggle('active',  activeAlbumIds.has(prodano?.id));
 
   // Zobraz/skryj tlačítko "Označit jako dokončeno" ve select banneru
-  const isSpecialTrade = activeAlbumId && (activeAlbumId === vymena?.id || activeAlbumId === obchod?.id);
+  const isSpecialTrade = activeAlbumIds.has(vymena?.id) || activeAlbumIds.has(obchod?.id);
   const btnCompleted = document.getElementById('btnMarkCompleted');
   if (btnCompleted) btnCompleted.style.display = isSpecialTrade ? '' : 'none';
 
   const el = document.getElementById('albumList');
   // Skryj speciální alba ze seznamu
   const regular = allAlbums.filter(a => !SPECIAL_NAMES.includes(a.name));
+
+  // Auto-vyber první album pokud nic není vybráno z user alb
+  const hasUserAlbActive = regular.some(a => activeAlbumIds.has(a.id));
+  const hasSpecialActive = [...activeAlbumIds].some(id => allAlbums.find(a=>a.id===id && SPECIAL_NAMES.includes(a.name)));
+  if (!hasUserAlbActive && !hasSpecialActive && regular.length > 0) {
+    activeAlbumIds.add(regular[0].id);
+  }
+
   if (!regular.length) {
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
     return;
   }
-  el.innerHTML = regular.map(a => {
+  el.innerHTML = regular.map((a, idx) => {
     const ids = new Set((a.cardIds||[]).map(String));
     const cnt = ids.size;
+    const isActive = activeAlbumIds.has(a.id);
+    const isFirst = idx === 0;
+    const isLast  = idx === regular.length - 1;
     return `
-    <div class="album-item ${activeAlbumId === a.id ? 'active' : ''}"
+    <div class="album-item ${isActive ? 'active' : ''}"
       onclick="setAlbum('${esc(a.id)}')">
       <div class="album-row1">
         <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
@@ -3893,7 +3912,7 @@ function renderAlbumList() {
       </div>
       <div class="album-row2">
         <span class="album-cnt">${cnt} karet</span>
-        <span class="album-kebab" role="button" tabindex="0" onclick="event.stopPropagation();openAlbumMenu(event,'${esc(a.id)}')" title="Možnosti alba">⋮</span>
+        <span class="album-kebab" role="button" tabindex="0" onclick="event.stopPropagation();openAlbumMenu(event,'${esc(a.id)}',${isFirst},${isLast})" title="Možnosti alba">⋮</span>
       </div>
     </div>`;
   }).join('');
@@ -3903,7 +3922,21 @@ function renderAlbumList() {
 //  ALBUM CRUD
 // ══════════════════════════════════════════════════════════════════
 function setAlbum(id) {
-  activeAlbumId = (activeAlbumId === id) ? null : id;
+  // Speciální alba vypnout při výběru user alba
+  [...activeAlbumIds].forEach(aid => {
+    const a = allAlbums.find(x => x.id === aid);
+    if (a && SPECIAL_ALB_NAMES.includes(a.name)) activeAlbumIds.delete(aid);
+  });
+  if (activeAlbumIds.has(id)) {
+    activeAlbumIds.delete(id);
+    // Auto-select první user album pokud nic nezbylo
+    if (activeAlbumIds.size === 0) {
+      const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+      if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+    }
+  } else {
+    activeAlbumIds.add(id);
+  }
   cancelSelect();
   renderAlbumList();
   render();
@@ -3913,7 +3946,18 @@ function setAlbum(id) {
 function setAlbumByName(name) {
   const alb = allAlbums.find(a => a.name === name);
   if (!alb) return;
-  activeAlbumId = (activeAlbumId === alb.id) ? null : alb.id;
+  if (activeAlbumIds.has(alb.id)) {
+    // Odtoggluj speciální album → vrátíme se na první user album
+    activeAlbumIds.delete(alb.id);
+    if (activeAlbumIds.size === 0) {
+      const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+      if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+    }
+  } else {
+    // Speciální alba: single-select – vymaž vše a nastav jen toto
+    activeAlbumIds.clear();
+    activeAlbumIds.add(alb.id);
+  }
   cancelSelect();
   renderAlbumList();
   render();
@@ -3936,7 +3980,8 @@ async function saveFirstRunAlbum() {
   saveAlbumsLocal();
   await saveAlbumsToServer();
   closeFirstRun();
-  activeAlbumId = null;  // OPRAVA: nenastav hned jako aktivní (toggle bug)
+  activeAlbumIds.clear();
+  activeAlbumIds.add(album.id);
   renderAlbumList();
   render();
 }
@@ -3944,7 +3989,11 @@ async function saveFirstRunAlbum() {
 async function deleteAlbum(id) {
   if (!confirm('Smazat album? Karty zůstanou v albumu – pouze se odstraní skupina.')) return;
   allAlbums = allAlbums.filter(a => a.id !== id);
-  if (activeAlbumId === id) activeAlbumId = null;
+  activeAlbumIds.delete(id);
+  if (activeAlbumIds.size === 0) {
+    const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+    if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+  }
   await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&id=eq.${id}`, 'DELETE');
   saveAlbumsLocal();
   renderAlbumList();
@@ -3955,19 +4004,21 @@ async function deleteAlbum(id) {
 let _albumMenuEl = null;
 let _albumMenuId = null;
 
-function openAlbumMenu(e, albumId) {
+function openAlbumMenu(e, albumId, isFirst, isLast) {
   e.stopPropagation();
 
-  // Souřadnice tlačítka MUSÍ být načteny PŘED re-renderem sidebaru,
-  // protože renderAlbumList() přestaví DOM a tlačítko bude detachováno.
   const btn = e.currentTarget;
   const rect = btn.getBoundingClientRect();
 
   closeAlbumMenu();
 
-  // Přepni na album pokud není aktivní
-  if (activeAlbumId !== albumId) {
-    activeAlbumId = albumId;
+  // Přidej album do výběru pokud tam není
+  if (!activeAlbumIds.has(albumId)) {
+    [...activeAlbumIds].forEach(aid => {
+      const a = allAlbums.find(x => x.id === aid);
+      if (a && SPECIAL_ALB_NAMES.includes(a.name)) activeAlbumIds.delete(aid);
+    });
+    activeAlbumIds.add(albumId);
     cancelSelect();
     renderAlbumList();
     render();
@@ -3978,7 +4029,10 @@ function openAlbumMenu(e, albumId) {
   menu.className = 'album-dropdown';
   menu.id = 'albumContextMenu';
   menu.innerHTML = `
-    <button class="album-dropdown-item" onclick="closeAlbumMenu();startSelectMode()">🗑 Vymazat kartu</button>
+    ${!isFirst ? `<button class="album-dropdown-item" onclick="closeAlbumMenu();moveAlbumUp('${albumId.replace(/'/g,"\\'")}')">⬆️ Přesunout nahoru</button>` : ''}
+    ${!isLast  ? `<button class="album-dropdown-item" onclick="closeAlbumMenu();moveAlbumDown('${albumId.replace(/'/g,"\\'")}')">⬇️ Přesunout dolů</button>` : ''}
+    ${(!isFirst || !isLast) ? `<div class="album-dropdown-sep"></div>` : ''}
+    <button class="album-dropdown-item" onclick="closeAlbumMenu();startSelectMode()">✏️ Upravit karty</button>
     <button class="album-dropdown-item" onclick="closeAlbumMenu();renameCurrentAlbum()">✏️ Přejmenovat</button>
     <div class="album-dropdown-sep"></div>
     <button class="album-dropdown-item danger" onclick="closeAlbumMenu();deleteAlbum('${albumId.replace(/'/g,"\\'")}')">🗑 Vymazat album</button>
@@ -4003,8 +4057,33 @@ function closeAlbumMenu() {
   _albumMenuId = null;
 }
 
+function moveAlbumUp(id) {
+  const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+  const idx = regular.findIndex(a => a.id === id);
+  if (idx <= 0) return;
+  // Swap v allAlbums
+  const iA = allAlbums.indexOf(regular[idx]);
+  const iB = allAlbums.indexOf(regular[idx - 1]);
+  [allAlbums[iA], allAlbums[iB]] = [allAlbums[iB], allAlbums[iA]];
+  saveAlbumsLocal();
+  saveAlbumsToServer();
+  renderAlbumList();
+}
+
+function moveAlbumDown(id) {
+  const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+  const idx = regular.findIndex(a => a.id === id);
+  if (idx < 0 || idx >= regular.length - 1) return;
+  const iA = allAlbums.indexOf(regular[idx]);
+  const iB = allAlbums.indexOf(regular[idx + 1]);
+  [allAlbums[iA], allAlbums[iB]] = [allAlbums[iB], allAlbums[iA]];
+  saveAlbumsLocal();
+  saveAlbumsToServer();
+  renderAlbumList();
+}
+
 function renameCurrentAlbum() {
-  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  const alb = allAlbums.find(a => a.id === (_albumMenuId || getFirstActiveAlbumId()));
   if (!alb) return;
   const name = prompt('Nový název alba:', alb.name);
   if (!name || !name.trim()) return;
@@ -4019,7 +4098,7 @@ function renameCurrentAlbum() {
 function startSelectMode() {
   selectMode = true; selectedIds.clear();
   document.getElementById('bulkSelectBtn').style.display = 'none';
-  document.getElementById('removeFromAlbumBtn').style.display = activeAlbumId ? '' : 'none';
+  document.getElementById('removeFromAlbumBtn').style.display = activeAlbumIds.size > 0 ? '' : 'none';
   renderAlbumList(); // aktualizuje btnMarkCompleted dle aktivního alba
   updateSelectBanner();
   render();
@@ -4040,7 +4119,7 @@ function updateSelectBanner() {
 }
 
 async function addSelectedToAlbum() {
-  if (!activeAlbumId) {
+  if (activeAlbumIds.size === 0) {
     // Nabídni výběr alba nebo vytvoření
     const names = allAlbums.map((a, i) => `${i+1}. ${a.name}`).join('\n');
     const choice = prompt(`Do kterého alba přidat ${selectedIds.size} karet?\n${names}\n\nZadej číslo (nebo 0 pro nové album):`);
@@ -4048,9 +4127,10 @@ async function addSelectedToAlbum() {
     const idx = parseInt(choice) - 1;
     if (parseInt(choice) === 0) { openNewAlbumModal(); return; }
     if (idx < 0 || idx >= allAlbums.length) return;
-    activeAlbumId = allAlbums[idx].id;
+    activeAlbumIds.clear();
+    activeAlbumIds.add(allAlbums[idx].id);
   }
-  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  const alb = allAlbums.find(a => a.id === getFirstActiveAlbumId());
   if (!alb) return;
   selectedIds.forEach(id => {
     if (!alb.cardIds.includes(id)) alb.cardIds.push(id);
@@ -4063,7 +4143,7 @@ async function addSelectedToAlbum() {
 }
 
 async function removeSelectedFromAlbum() {
-  const alb = allAlbums.find(a => a.id === activeAlbumId);
+  const alb = allAlbums.find(a => a.id === getFirstActiveAlbumId());
   if (!alb) return;
   alb.cardIds = alb.cardIds.filter(id => !selectedIds.has(id));
   saveAlbumsLocal();
@@ -4451,8 +4531,8 @@ function openMarkCompletedModal() {
   if (!selectedIds.size) return;
   const vymena = allAlbums.find(a => a.name === 'Výměna');
   const obchod = allAlbums.find(a => a.name === 'Obchod');
-  const isTradeAlbum = activeAlbumId === vymena?.id;
-  const isSellAlbum  = activeAlbumId === obchod?.id;
+  const isTradeAlbum = activeAlbumIds.has(vymena?.id);
+  const isSellAlbum  = activeAlbumIds.has(obchod?.id);
 
   const modal   = document.getElementById('markCompletedModal');
   const btnVym  = document.getElementById('mcBtnVymeneno');
@@ -4487,8 +4567,8 @@ async function markAsCompleted(target) {
     // 1. Odznač for_trade / for_sell
     const vymena = allAlbums.find(a => a.name === 'Výměna');
     const obchod = allAlbums.find(a => a.name === 'Obchod');
-    const isFromTrade = activeAlbumId === vymena?.id;
-    const isFromSell  = activeAlbumId === obchod?.id;
+    const isFromTrade = activeAlbumIds.has(vymena?.id);
+    const isFromSell  = activeAlbumIds.has(obchod?.id);
 
     const payload = ids.map(id => {
       const c = allCards.find(x => String(x.id) === id);
@@ -4587,7 +4667,7 @@ async function saveNewAlbum() {
   closeNewAlbumModal();
   // OPRAVA: nastavíme album jako aktivní, ale hned zaznamenáme jeho ID jako "nově vytvořené"
   // aby setAlbum() při prvním kliknutí nepřepnulo na null (toggle bug)
-  activeAlbumId = null;   // reset - aby kliknutí v sidebaru aktivovalo (ne togglelo)
+  activeAlbumIds.add(album.id); // automaticky vyber nové album
   renderAlbumList();
   render();
   // Krátce zvýrazni nové album v sidebaru, ale nenastav ho jako aktivní
@@ -5469,9 +5549,7 @@ function bookNextPage() {
 function renderBookView() {
   // Get same filtered cards as grid
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
-  const albumCardIds = activeAlbumId
-    ? (allAlbums.find(a => a.id === activeAlbumId)?.cardIds || [])
-    : null;
+  const albumCardIds = getActiveAlbumCardIds();
 
   let rawFiltered = allCards.filter(c => {
     if (activeView === 'trade' && !c.for_trade) return false;
@@ -5482,6 +5560,7 @@ function renderBookView() {
     if (activeRarity && !matchRarity(c, activeRarity)) return false;
     if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
     if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
+    if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
     if (q && !((c.name||'').toLowerCase().includes(q) ||
                (c.set||'').toLowerCase().includes(q)  ||
                (c.number||'').toLowerCase().includes(q))) return false;

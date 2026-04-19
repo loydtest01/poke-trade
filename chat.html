@@ -2996,46 +2996,41 @@ function renderFakeResult(result) {
 </script>
 
 <style id="chatOverrides">
-/* Přesun tlačítka Zpětná vazba doleva */
-[class*="feedback"], [id*="feedback"],
-iframe[src*="feedback"], 
-div[style*="bottom"][style*="right"] > button,
-.feedback-widget, #feedback-widget,
-.__jisc_widget, .tawk-min-container,
-/* Obecný přesun jakéhokoli fixed bottom-right floating buttonu */
-body > div[style*="position: fixed"][style*="bottom"][style*="right"],
-body > div[style*="position:fixed"][style*="bottom"][style*="right"] {
-  right: auto !important;
-  left: 20px !important;
-}
 /* Schovat taby pokud by zůstaly */
 .conv-tabs { display: none !important; }
 </style>
 
 <script>
-// Přesun Zpětná vazba do levého rohu
+// Přesun "Zpětná vazba" do levého rohu – hledáme pouze přesný text
 (function moveFeedback() {
   function tryMove() {
-    // Hledáme tlačítka s textem "Zpětná vazba" nebo podobné fixed bottom-right prvky
-    var all = document.querySelectorAll('*');
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      var style = window.getComputedStyle(el);
-      if (style.position === 'fixed' && style.bottom && style.right && style.right !== 'auto' && parseInt(style.bottom) < 100) {
-        var text = el.textContent || '';
-        if (text.includes('vazba') || text.includes('Feedback') || text.includes('feedback') || el.offsetWidth < 250) {
-          el.style.right = 'auto';
-          el.style.left = '20px';
+    document.querySelectorAll('*').forEach(function(el) {
+      try {
+        // Pouze přímé textové shody s "vazba" nebo "Feedback"
+        var ownText = Array.from(el.childNodes)
+          .filter(n => n.nodeType === 3)
+          .map(n => n.textContent).join('');
+        if (!ownText.includes('vazba') && !el.title?.includes('vazba')) return;
+        var s = window.getComputedStyle(el);
+        if (s.position !== 'fixed') {
+          // Zkus rodičovský element
+          var p = el.closest('[style*="fixed"], [style*="position"]');
+          if (p) el = p;
+          s = window.getComputedStyle(el);
         }
-      }
-    }
+        if (s.position === 'fixed') {
+          el.style.setProperty('right', 'auto', 'important');
+          el.style.setProperty('left', '20px', 'important');
+        }
+      } catch(e) {}
+    });
   }
-  setTimeout(tryMove, 500);
-  setTimeout(tryMove, 1500);
-  setTimeout(tryMove, 3000);
-  // Observer pro dynamicky přidané prvky
-  var obs = new MutationObserver(function() { tryMove(); });
-  obs.observe(document.body, { childList: true, subtree: true });
+  setTimeout(tryMove, 800);
+  setTimeout(tryMove, 2000);
+  var obs = new MutationObserver(function() { setTimeout(tryMove, 200); });
+  document.addEventListener('DOMContentLoaded', function() {
+    obs.observe(document.body, { childList: true, subtree: false });
+  });
 })();
 </script>
 </body>
