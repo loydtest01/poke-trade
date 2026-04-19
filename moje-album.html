@@ -6457,7 +6457,8 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
 
       // 5. Aktualizuj URL v databázi
       if (photo.id && typeof sbReq === 'function') {
-        await sbReq(`rest/v1/user_card_photos?id=eq.${photo.id}`, 'PATCH', { url: publicUrl });
+        const patchRes = await sbReq(`rest/v1/user_card_photos?id=eq.${photo.id}`, 'PATCH', { url: publicUrl });
+        if (patchRes && patchRes._err) throw new Error('DB update selhal: ' + patchRes._err);
       }
 
       // 6. Aktualizuj interní URL na veřejnou (ne base64)
