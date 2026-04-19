@@ -771,6 +771,12 @@ body { background: #06040c; overflow-x: hidden; }
   transform-style: preserve-3d;
   will-change: transform;
 }
+.cd-panel-photo-count {
+  position:absolute;bottom:4px;right:4px;
+  background:rgba(0,0,0,0.75);color:#f5c842;
+  font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;
+  pointer-events:none;
+}
 /* photo panel individual item meta */
 .cd-panel-photo-item {
   position: relative; border-radius: 8px; overflow: visible;
@@ -2535,7 +2541,7 @@ async function loadCardRealPhotos(localId) {
     batches.get(key).push(r);
   }
 
-  // ── Renderuj fotky do pravého panelu — každá samostatně ────────
+  // ── Renderuj JEDNU dlaždici na batch (thumbnail = přední fotka) ──
   let panelHtml = '';
   for (const [batchKey, batchPhotos] of batches) {
     // Seřaď: front první
@@ -2545,23 +2551,27 @@ async function loadCardRealPhotos(localId) {
     });
     // Připrav JSON celého batche pro otevření galerie
     const batchJson = sorted.map(p => JSON.stringify(p).replace(/"/g,'&quot;')).join(',');
+    // Ids pro mazání celého batche
+    const batchIdsJs = sorted.map(p => `'${p.id}'`).join(',');
 
-    for (let pi = 0; pi < sorted.length; pi++) {
-      const ph = sorted[pi];
-      const label = sideLabel[ph.side] || ph.side || '';
-      const ts = ph.created_at
-        ? new Date(ph.created_at).toLocaleString('cs', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
-        : '';
-      panelHtml += `
-        <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}">
-          <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], ${pi})">
-            <img src="${esc(ph.url)}" alt="${label}" loading="lazy">
-            <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoPanel('${ph.id}',this)" title="Smazat">✕</button>
-          </div>
-          ${ts ? `<div class="cd-panel-photo-date">${label} · ${ts}</div>` : `<div class="cd-panel-photo-date">${label}</div>`}
-          ${ph.note ? `<div class="cd-panel-photo-note">${ph.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
-        </div>`;
-    }
+    // Jedna dlaždice = celý batch; thumbnail = první (přední) fotka
+    const frontPhoto = sorted[0];
+    const label = sideLabel[frontPhoto.side] || frontPhoto.side || '';
+    const ts = frontPhoto.created_at
+      ? new Date(frontPhoto.created_at).toLocaleString('cs', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : '';
+    const countBadge = sorted.length > 1
+      ? `<div class="cd-panel-photo-count">${sorted.length}×</div>`
+      : '';
+    panelHtml += `
+      <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}${sorted.length>1?' · '+sorted.length+' fotek':''}">
+        <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], 0)" style="position:relative">
+          <img src="${esc(frontPhoto.url)}" alt="${label}" loading="lazy">
+          ${countBadge}
+          <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoBatch([${batchIdsJs}],this)" title="Smazat focení">✕</button>
+        </div>
+        ${ts ? `<div class="cd-panel-photo-date">${label}${sorted.length>1?' +'+( sorted.length-1):''} · ${ts}</div>` : `<div class="cd-panel-photo-date">${label}</div>`}
+      </div>`;
   }
   panelList.innerHTML = panelHtml || '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px 4px;opacity:.5">Žádné fotky</div>';
   wrap.style.display  = '';
@@ -2590,6 +2600,17 @@ async function deleteCardPhotoPanel(id, btn) {
   const item = btn.closest('.cd-panel-photo-item');
   if (item) { item.style.transition = 'opacity .3s'; item.style.opacity = '0'; }
   await sbReq(`rest/v1/user_card_photos?id=eq.${id}`, 'DELETE').catch(() => null);
+  setTimeout(() => { if (item) item.remove(); }, 300);
+}
+
+async function deleteCardPhotoBatch(ids, btn) {
+  const count = ids.length;
+  if (!confirm(count > 1 ? `Smazat celé focení (${count} fotek)?` : 'Smazat tuto fotku?')) return;
+  const item = btn.closest('.cd-panel-photo-item');
+  if (item) { item.style.transition = 'opacity .3s'; item.style.opacity = '0'; }
+  for (const id of ids) {
+    await sbReq(`rest/v1/user_card_photos?id=eq.${id}&user_id=eq.${userId}`, 'DELETE').catch(() => null);
+  }
   setTimeout(() => { if (item) item.remove(); }, 300);
 }
 
@@ -3243,11 +3264,34 @@ async function openListingPhotoModal(type) {
     grid.innerHTML = '<div style="color:var(--text3);font-size:12px;grid-column:1/-1;text-align:center;padding:16px">Karta nemá žádné fotky.<br>Pokračuj bez fotky nebo nejdříve vyfot kartu.</div>';
     btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; return;
   }
-  grid.innerHTML = rows.map(r =>
-    `<div class="lpm-photo" onclick="selectListingPhoto(this,'${r.url.replace(/'/g,"\\'")}')" style="cursor:pointer;border-radius:8px;border:2px solid transparent;overflow:hidden;aspect-ratio:3/4;transition:border-color .15s">
-      <img src="${r.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
-    </div>`
-  ).join('');
+
+  // Seskup dle batch_id — zobraz jen přední fotku každého focení
+  const lpmBatches = new Map();
+  for (const r of rows) {
+    const k = r.batch_id || ('solo_' + r.id);
+    if (!lpmBatches.has(k)) lpmBatches.set(k, []);
+    lpmBatches.get(k).push(r);
+  }
+  // Ulož celé batche pro předání při confirmaci
+  window._listingBatchPhotoMap = {};
+
+  grid.innerHTML = [...lpmBatches.values()].map(batchPhotos => {
+    const sorted = [...batchPhotos].sort((a,b) => {
+      const o = {front:0,back:1,detail:2,name:3};
+      return (o[a.side]??9) - (o[b.side]??9);
+    });
+    const front = sorted[0];
+    const safeUrl = front.url.replace(/'/g,"\\'");
+    window._listingBatchPhotoMap[front.url] = sorted;
+    const badge = sorted.length > 1
+      ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.78);color:#f5c842;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px">${sorted.length}×</div>`
+      : '';
+    return `<div class="lpm-photo" onclick="selectListingPhoto(this,'${safeUrl}')"
+      style="cursor:pointer;border-radius:8px;border:2px solid transparent;overflow:hidden;aspect-ratio:3/4;transition:border-color .15s;position:relative">
+      <img src="${front.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
+      ${badge}
+    </div>`;
+  }).join('');
 }
 
 function selectListingPhoto(el, url) {
@@ -3261,6 +3305,7 @@ function selectListingPhoto(el, url) {
 function closeListingPhotoModal() {
   document.getElementById('listingPhotoModal').style.display = 'none';
   _pendingListingType = null; _selectedListingPhotoUrl = null;
+  window._listingBatchPhotoMap = {};
 }
 
 // ── Fronta "Čeká na vystavení" pro marketplace ─────────────────
@@ -3327,6 +3372,9 @@ async function confirmListingPhoto() {
       album_price: c.price_czk   || null,
       condition:   cd.condition  || c.condition   || c.cond || 'NM',
       photoUrl:    _selectedListingPhotoUrl || null,
+      allPhotos:   (window._listingBatchPhotoMap && _selectedListingPhotoUrl)
+                     ? (window._listingBatchPhotoMap[_selectedListingPhotoUrl] || null)
+                     : null,
       listing_type: _pendingListingType || 'sell',
     };
     pushToPendingQueue([pendingCard]);

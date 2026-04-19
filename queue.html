@@ -1519,6 +1519,7 @@ async function doAssign(groups, albumId) {
           rarity:    rc?.rarity   || ai.rarity || '',
           note:      g.comment    || ai.notes || '',
           photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.croppedUrl || fp?.url || ''; })(),
+          allPhotos: g.photos.length > 1 ? g.photos.map(p => ({ url: p.croppedUrl || p.url, side: p.side || 'front', storagePath: p.storagePath || null })) : null,
           imageUrl:  g._origImageSmall || g._origImage || rc?.imageUrl || '',
           apiSmall:  g._origImageSmall || g._origImage || rc?.apiSmall || '',
           apiLarge:  g._origImage || rc?.apiLarge || '',
