@@ -892,8 +892,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <div class="clients-search-wrap">
         <div class="clients-search-inner">
           <input class="clients-search" id="clientsSearch" type="text"
-            placeholder="Hledat přezdívkou nebo emailem…"
-            oninput="onClientsSearch()" autocomplete="off">
+            placeholder="Přezdívka nebo e-mail uživatele…"
+            oninput="onClientsSearch()" autocomplete="off" autocorrect="off" spellcheck="false">
         </div>
       </div>
       <div class="clients-list" id="clientsList">
@@ -975,8 +975,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <button class="modal-close" onclick="closeNewConvModal()">✕</button>
     </div>
     <input class="modal-search-input" id="newConvSearch" type="text"
-      placeholder="Hledat uživatele podle přezdívky…"
-      oninput="onNewConvSearch()" autocomplete="off">
+      placeholder="Přezdívka nebo e-mail uživatele…"
+      oninput="onNewConvSearch()" autocomplete="off" autocorrect="off" spellcheck="false">
+    <div style="font-size:11px;color:rgba(240,236,228,0.3);margin-top:6px;padding:0 2px">
+      Hledá se v přezdívkách i e-mailech registrovaných uživatelů
+    </div>
     <div class="modal-results" id="newConvResults">
       <div class="modal-hint">Zadej alespoň 2 znaky…</div>
     </div>
@@ -2024,17 +2027,26 @@ function onNewConvSearch() {
 
 async function searchNewConvUsers(q) {
   const enc = encodeURIComponent(q);
+  const isEmail = q.includes('@');
 
   // Zkus view user_search (bezpečné RLS), fallback na profiles
   let data = await sb(
-    `rest/v1/user_search?or=(username.ilike.*${enc}*,email_hint.ilike.*${enc}*)&id=neq.${userId}&select=id,username,avatar_url,email_hint&limit=8`,
+    `rest/v1/user_search?or=(username.ilike.*${enc}*,email_hint.ilike.*${enc}*)&id=neq.${userId}&select=id,username,avatar_url,email_hint&limit=10`,
     'GET', null, token
   );
   if (!Array.isArray(data) || data.code) {
+    // Fallback: profiles tabulka – search by username or email
+    const orFilter = isEmail
+      ? `or=(username.ilike.*${enc}*,email.ilike.*${enc}*)`
+      : `username=ilike.*${enc}*`;
     data = await sb(
-      `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${userId}&select=id,username&limit=8`,
+      `rest/v1/profiles?${orFilter}&id=neq.${userId}&select=id,username,email&limit=10`,
       'GET', null, token
     );
+    // Normalize: map email→email_hint for uniform rendering
+    if (Array.isArray(data)) {
+      data = data.map(u => ({ ...u, email_hint: u.email_hint || (u.email ? u.email.replace(/(.{2}).*@/, '$1…@') : '') }));
+    }
   }
 
   const res = document.getElementById('newConvResults');
@@ -2054,7 +2066,7 @@ async function searchNewConvUsers(q) {
         <div class="modal-result-avatar">${avatarHtml}</div>
         <div>
           <div class="modal-result-name">@${esc(u.username)}${blocked ? ' 🚫' : ''}</div>
-          ${u.email_hint ? `<div class="modal-result-hint">${esc(u.email_hint)}</div>` : ''}
+          ${u.email_hint ? `<div class="modal-result-hint">📧 ${esc(u.email_hint)}</div>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -2157,6 +2169,7 @@ function onClientsSearch() {
 
 async function findClients(q) {
   const enc = encodeURIComponent(q);
+  const isEmail = q.includes('@');
 
   // 1. Search profiles by username OR email_hint
   let profiles = [];
@@ -2166,10 +2179,16 @@ async function findClients(q) {
       'GET', null, token
     );
     if (!Array.isArray(res) || res.code) {
+      const orFilter = isEmail
+        ? `or=(username.ilike.*${enc}*,email.ilike.*${enc}*)`
+        : `username=ilike.*${enc}*`;
       res = await sb(
-        `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${userId}&select=id,username,avatar_url&limit=12`,
+        `rest/v1/profiles?${orFilter}&id=neq.${userId}&select=id,username,avatar_url,email&limit=12`,
         'GET', null, token
       );
+      if (Array.isArray(res)) {
+        res = res.map(u => ({ ...u, email_hint: u.email_hint || (u.email ? u.email.replace(/(.{2}).*@/, '$1…@') : '') }));
+      }
     }
     profiles = Array.isArray(res) ? res : [];
   } catch(e) {}
