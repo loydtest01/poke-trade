@@ -407,8 +407,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         </div>
         <div style="margin-top:12px">
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Stav AI</div>
-          <div id="chipAI" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
-          <div id="chipPC" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
+          <div id="chipAI_drawer" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
+          <div id="chipPC_drawer" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
         </div>
       </div>
 
@@ -1055,9 +1055,12 @@ function doMobileLogout() {
 }
 
 function updateStatusChips() {
-  const aiBadge = document.getElementById('chipAI');
-  const pcBadge = document.getElementById('chipPC');
-  if (aiBadge) {
+  // Update all AI chip instances (header + drawer)
+  const aiEls = [document.getElementById('chipAI'), document.getElementById('chipAI_drawer')];
+  const pcEls = [document.getElementById('chipPC'), document.getElementById('chipPC_drawer')];
+
+  aiEls.forEach(function(aiBadge) {
+    if (!aiBadge) return;
     if (groqKey || useSharedProxy) {
       aiBadge.style.background  = 'rgba(74,222,128,.15)';
       aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
@@ -1069,14 +1072,16 @@ function updateStatusChips() {
       aiBadge.style.color       = '#f87171';
       aiBadge.textContent       = '🤖 AI ✗';
     }
-  }
-  if (pcBadge) {
+  });
+
+  pcEls.forEach(function(pcBadge) {
+    if (!pcBadge) return;
     const ok = !!mobileToken;
     pcBadge.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
     pcBadge.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
     pcBadge.style.color       = ok ? '#4ade80'              : '#f87171';
     pcBadge.textContent       = ok ? '💻 PC ✓'             : '💻 PC ✗';
-  }
+  });
 }
 
 // ══════════════════════════════════════════════
