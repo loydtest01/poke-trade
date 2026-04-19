@@ -52,14 +52,15 @@ body::after {
 .user-chip {
   display: flex; align-items: center; gap: 8px;
   background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px; padding: 4px 12px 4px 6px; font-size: 13px;
+  border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
   text-decoration: none; color: #f0ece4; transition: all .15s;
 }
 .user-avatar {
-  width: 26px; height: 26px; border-radius: 50%;
-  background: #f5c842; color: #000;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--yellow, #f5c842); color: #000;
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
 }
 .btn-nav-outline {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
@@ -4050,5 +4051,7 @@ function fileToBase64(file) {
 }
 </script>
 
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
 </body>
 </html>
