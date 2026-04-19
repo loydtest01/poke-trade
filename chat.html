@@ -1482,6 +1482,20 @@ async function handleShareInvite(shareId, action, btn) {
 }
 
 // ═══ SEND MESSAGE ═══
+
+const ADMIN_ID = '04be47bd-4687-4683-ab60-a7e70832440d';
+
+/** Vrátí true pokud aktuální konverzace je zpětná vazba (obsahuje feedback zprávu) */
+function isFeedbackConversation() {
+  if (userId !== ADMIN_ID) return false;
+  return messages.some(m => m.text && m.text.startsWith('📋 Zpětná vazba'));
+}
+
+/** Jméno odesílatele — Admin pokud je to feedback konverzace, jinak normální username */
+function getSenderUsername() {
+  return isFeedbackConversation() ? 'Admin' : username;
+}
+
 async function sendMessage() {
   const inp = document.getElementById('chatInput');
   const text = inp.value.trim();
@@ -1511,12 +1525,14 @@ async function sendMessage() {
     ? `📎 Nabídka: ${listingRefs[0].title}`
     : `📎 ${listingRefs.length} nabídek připojeno`);
 
+  const senderUsername = getSenderUsername();
+
   // Optimistic UI
   const tempMsg = {
     id: 'temp-'+Date.now(),
     conversation_id: activeConvId,
     sender_id: userId,
-    sender_username: username,
+    sender_username: senderUsername,
     text: msgText,
     listing_refs: listingRefs,
     is_read: false,
@@ -1533,7 +1549,7 @@ async function sendMessage() {
   const res = await sb('rest/v1/chat_messages', 'POST', {
     conversation_id: activeConvId,
     sender_id: userId,
-    sender_username: username,
+    sender_username: senderUsername,
     text: msgText,
     listing_refs: listingRefs,
   }, token);
@@ -3355,28 +3371,13 @@ function renderFakeResult(result) {
         }
       }
 
-      /* 2. Najít admin profil */
-      let adminId = null;
-      const profiles = await sb(`rest/v1/profiles?select=id,username&limit=500`, 'GET', null, token);
-      if (Array.isArray(profiles)) {
-        const hit = profiles.find(p => {
-          const u = (p.username || '').toLowerCase();
-          return u === 'papez' || u === 'papez.ondrej' || u === 'admin' || u.startsWith('papez');
-        });
-        if (hit) adminId = hit.id;
-      }
-      if (!adminId) {
-        // Fallback: zkus hledat přes auth email hint uložený v localStorage
-        const saved = localStorage.getItem('pkc_admin_id');
-        if (saved) adminId = saved;
-      }
-      if (!adminId) {
-        document.getElementById('fbStatus').textContent = '❌ Nepodařilo se najít příjemce. Zkus to znovu.';
+      /* 2. Admin ID — hardcoded */
+      const adminId = '04be47bd-4687-4683-ab60-a7e70832440d';
+      if (adminId === userId) {
+        document.getElementById('fbStatus').textContent = '⚠️ Jsi přihlášen jako admin.';
         sendBtn.disabled = false;
         return;
       }
-      // Uložit pro příště
-      localStorage.setItem('pkc_admin_id', adminId);
 
       /* 3. Vytvořit nebo otevřít konverzaci s adminem */
       const convId = await sbRpc('get_or_create_conversation', { user1_id: userId, user2_id: adminId });
@@ -3384,7 +3385,7 @@ function renderFakeResult(result) {
 
       /* 4. Sestavit text zprávy */
       const lines = [];
-      lines.push('📋 Zpětná vazba od ' + (username || userId));
+      lines.push('📋 Zpětná vazba — ' + (username || 'neznámý uživatel'));
       if (text) lines.push(text);
       if (imageUrl) lines.push('[IMG:' + imageUrl + ']');
       const msgText = lines.join('\n\n');
