@@ -385,22 +385,35 @@ body { background: #06040c; overflow-x: hidden; }
 /* ── card-slot-wrap — wrapper pro každou kartu v gridu ──────────── */
 .card-slot-wrap { position: relative; }
 
-/* ── VÝBĚR KARTY – outline nelze oklipovat overflow: hidden ──────── */
-.card-slot.selected {
-  outline: 2.5px dashed #f5c842 !important;
-  outline-offset: 3px;
-  border-color: rgba(245,200,66,0.6) !important;
-  animation: sel-glow 1.4s ease-in-out infinite;
+/* ── VÝBĚR KARTY – rotující zlatý rámeček dokola ────────────────── */
+.card-slot-wrap.selected::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: 14px;
+  padding: 3px;
+  background: conic-gradient(
+    #f5c842 0%,
+    rgba(245,200,66,0.05) 38%,
+    #f5c842 52%,
+    rgba(245,200,66,0.05) 88%,
+    #f5c842 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: sel-spin 1.4s linear infinite;
+  pointer-events: none;
+  z-index: 5;
 }
-@keyframes sel-glow {
-  0%, 100% {
-    box-shadow: 0 0 8px 2px rgba(245,200,66,0.25);
-    outline-color: rgba(245,200,66,0.7);
-  }
-  50% {
-    box-shadow: 0 0 20px 6px rgba(245,200,66,0.5);
-    outline-color: #f5c842;
-  }
+@keyframes sel-spin {
+  to { transform: rotate(360deg); }
+}
+.card-slot.selected {
+  border-color: rgba(245,200,66,0.55) !important;
+  box-shadow: 0 0 16px 4px rgba(245,200,66,0.28), inset 0 0 12px rgba(245,200,66,0.08);
 }
 /* Staré sel-ring – skryje se, pokud by zůstalo v DOM */
 .sel-ring { display: none; }
@@ -3917,6 +3930,12 @@ let _albumMenuId = null;
 
 function openAlbumMenu(e, albumId) {
   e.stopPropagation();
+
+  // Souřadnice tlačítka MUSÍ být načteny PŘED re-renderem sidebaru,
+  // protože renderAlbumList() přestaví DOM a tlačítko bude detachováno.
+  const btn = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+
   closeAlbumMenu();
 
   // Přepni na album pokud není aktivní
@@ -3940,10 +3959,6 @@ function openAlbumMenu(e, albumId) {
 
   document.body.appendChild(menu);
   _albumMenuEl = menu;
-
-  // Pozicování pod tlačítkem ⋯
-  const btn = e.currentTarget;
-  const rect = btn.getBoundingClientRect();
   const mw = 188, mh = 130;
   const vw = window.innerWidth, vh = window.innerHeight;
   let left = rect.left;
@@ -6186,6 +6201,18 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
   document.getElementById('photoGalleryModal').addEventListener('click', function(e) {
     if (e.target === this) closePhotoGallery();
   });
+
+  // ── Uložení ořezu zpět do galerie + Supabase ────────────────
+  window.pgmUpdateCurrentPhoto = function(dataUrl) {
+    const photo = _pgmPhotos[_pgmIdx];
+    if (!photo) return;
+    photo.url = dataUrl;
+    pgmRenderGrid();
+    if (photo.id && typeof sbReq === 'function') {
+      sbReq(`rest/v1/user_card_photos?id=eq.${photo.id}`, 'PATCH', { url: dataUrl })
+        .catch(() => {});
+    }
+  };
 })();
 </script>
 <!-- ═══════════════════════════════════════════════════════════════
@@ -7029,6 +7056,7 @@ function pgmConfirmCrop() {
     // Zapiš zpět do galerie
     const imgEl = document.getElementById('pgmMainImg');
     if (imgEl) { imgEl.style.opacity='0'; imgEl.src=dataUrl; imgEl.onload=()=>{imgEl.style.opacity='1';}; }
+    if (typeof pgmUpdateCurrentPhoto === 'function') pgmUpdateCurrentPhoto(dataUrl);
 
     if (btn) { btn.disabled=false; btn.textContent='✂️ Oříznout'; }
     pgmCancelCrop();
