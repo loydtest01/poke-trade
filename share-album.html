@@ -227,6 +227,11 @@ body::after {
 }
 .btn-cancel-share:hover { background: rgba(255,60,60,0.22); border-color: rgba(255,60,60,0.5); }
 
+/* ── Stav prohlédnutí ── */
+.sent-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.status-viewed   { background: rgba(100,180,255,0.12); color: #6ab4ff; }
+.status-waiting  { background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.45); }
+
 /* ── Username modal ── */
 .modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 500;
@@ -869,7 +874,7 @@ async function cancelShare(shareId, btn) {
 async function loadSent() {
   if (!ME || !ME.id) return;
   const data = await sbGet(
-    `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at&order=created_at.desc&limit=20`
+    `rest/v1/album_shares?sender_id=eq.${ME.id}&select=id,receiver_id,album_name,status,expires_at,created_at,viewed_at&order=created_at.desc&limit=20`
   );
   const list = document.getElementById('sentList');
   if (!data || !data.length) {
@@ -883,19 +888,27 @@ async function loadSent() {
   const profileMap = Object.fromEntries((profiles||[]).map(p => [p.id, p.username]));
 
   const statusLabel = { pending: 'Čeká', accepted: 'Přijato', declined: 'Odmítnuto', expired: 'Expirováno' };
-  list.innerHTML = data.map(s => `
+  list.innerHTML = data.map(s => {
+    const isPending = s.status === 'pending';
+    const isViewed  = !!s.viewed_at;
+    const viewBadge = isPending
+      ? (isViewed
+          ? `<span class="status-badge status-viewed" title="Zobrazeno ${formatDate(s.viewed_at)}">👁 Zobrazeno</span>`
+          : `<span class="status-badge status-waiting">⏳ Čeká na prohlídku</span>`)
+      : '';
+    const actionBtn = isPending
+      ? `<button class="btn-cancel-share" onclick="cancelShare('${s.id}', this)">✕ Zrušit</button>`
+      : `<span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>`;
+    return `
     <div class="sent-item">
       <div class="sent-avatar">${(profileMap[s.receiver_id]||'?')[0].toUpperCase()}</div>
       <div class="sent-info">
         <strong>@${esc(profileMap[s.receiver_id] || s.receiver_id.substring(0,8))} — ${esc(s.album_name)}</strong>
-        <small>${formatDate(s.created_at)} · ${s.status === 'pending' ? 'Vyprší ' + formatExpiry(s.expires_at) : ''}</small>
+        <small>${formatDate(s.created_at)} · ${isPending ? 'Vyprší ' + formatExpiry(s.expires_at) : ''}</small>
       </div>
-      ${s.status === 'pending'
-        ? `<button class="btn-cancel-share" onclick="cancelShare('${s.id}', this)">✕ Zrušit</button>`
-        : `<span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>`
-      }
-    </div>
-  `).join('');
+      <div class="sent-actions">${viewBadge}${actionBtn}</div>
+    </div>`;
+  }).join('');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
