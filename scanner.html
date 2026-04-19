@@ -536,6 +536,7 @@ body::after {
   gap: 16px;
   align-items: stretch;
   margin-bottom: 20px;
+  min-height: 260px;
 }
 .qr-panel-half {
   flex: 1;
@@ -551,12 +552,12 @@ body::after {
   .qr-upload-row { flex-direction: column; }
 }
 .qr-panel {
-  display: flex; gap: 24px; align-items: flex-start;
-  padding: 24px; margin-bottom: 20px; flex-wrap: wrap;
+  display: flex; gap: 16px; align-items: flex-start;
+  padding: 20px; margin-bottom: 0; flex-wrap: nowrap;
 }
 .qr-code-box {
-  flex-shrink: 0; width: 160px; height: 160px;
-  background: #fff; border-radius: 12px; padding: 10px;
+  flex-shrink: 0; width: 130px; height: 130px;
+  background: #fff; border-radius: 12px; padding: 8px;
   display: flex; align-items: center; justify-content: center;
 }
 .qr-code-box canvas, .qr-code-box img { width: 100% !important; height: 100% !important; }
@@ -564,6 +565,7 @@ body::after {
 .qr-title {
   font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 700;
   margin-bottom: 6px; display: flex; align-items: center; gap: 8px;
+  flex-wrap: nowrap; white-space: nowrap;
 }
 .qr-desc { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 12px; }
 .qr-steps { display: flex; flex-direction: column; gap: 8px; }
@@ -596,13 +598,20 @@ body::after {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(0.7); }
 }
-.incoming-banner {
-  display: none; align-items: center; gap: 10px;
-  padding: 10px 16px; border-radius: var(--radius-sm);
-  background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.3);
-  color: var(--green); font-size: 13px; font-weight: 600; margin-bottom: 12px;
+.incoming-banner { display: none; }
+/* ── Phone-sync pill in topbar ── */
+#phoneSyncPill {
+  display: none; align-items: center; gap: 6px;
+  background: rgba(46,204,113,0.12); border: 1px solid rgba(46,204,113,0.35);
+  border-radius: 20px; padding: 5px 13px; font-size: 12px; font-weight: 600;
+  color: var(--green); white-space: nowrap; cursor: default;
 }
-.incoming-banner.show { display: flex; }
+#phoneSyncPill.show { display: flex; }
+#phoneSyncPill .pill-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); flex-shrink: 0;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
 
 /* ── Unified Top bar ──────────────────────────────────────────────── */
 .app-topbar {
@@ -793,6 +802,10 @@ body::after {
   </a>
   <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
+    <div id="phoneSyncPill" title="Fotky z telefonu čekají">
+      <span class="pill-dot"></span>
+      <span id="phoneSyncText">📲 1 foto</span>
+    </div>
         <div class="chat-dropdown-wrap" id="chatDropWrap">
       <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -2292,13 +2305,16 @@ async function pollNewPhotos() {
       `rest/v1/photo_queue?user_id=eq.${currentUser.id}&processed=eq.false&order=created_at.asc&limit=30`,
       'GET', null, currentToken
     );
-    if (!Array.isArray(rows) || rows.length === 0) return;
-
-    const banner   = document.getElementById('incomingBanner');
-    const incomTxt = document.getElementById('incomingText');
-    incomTxt.textContent = `Přijímám ${rows.length} foto${rows.length > 1 ? 'ky' : ''} z telefonu...`;
-    banner.classList.add('show');
-    setTimeout(() => banner.classList.remove('show'), 5000);
+    const pill = document.getElementById('phoneSyncPill');
+    if (!Array.isArray(rows) || rows.length === 0) {
+      if (pill) pill.classList.remove('show');
+      return;
+    }
+    const pillTxt = document.getElementById('phoneSyncText');
+    if (pill && pillTxt) {
+      pillTxt.textContent = `📲 ${rows.length} foto${rows.length > 1 ? 'ky' : ''}`;
+      pill.classList.add('show');
+    }
 
     let added = 0;
     // Filtruj duplikáty – neopakuj fotky, které už máme v paměti
