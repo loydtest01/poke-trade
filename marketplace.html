@@ -70,31 +70,56 @@
       </div>
     </div>
     <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label">Stav karty</span>
-      <label class="filter-opt"><input type="checkbox" id="fNM" checked onchange="applyFilters()"> NM <span class="sb-count" id="sbCountNM">0</span></label>
-      <label class="filter-opt"><input type="checkbox" id="fLP" checked onchange="applyFilters()"> LP <span class="sb-count" id="sbCountLP">0</span></label>
-      <label class="filter-opt"><input type="checkbox" id="fMP" checked onchange="applyFilters()"> MP <span class="sb-count" id="sbCountMP">0</span></label>
-      <label class="filter-opt"><input type="checkbox" id="fHP" onchange="applyFilters()"> HP / D <span class="sb-count" id="sbCountHP">0</span></label>
+    <div class="sb-section sb-acc-wrap">
+      <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
+        <span>Stav karty</span>
+        <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sb-acc-body" hidden>
+        <label class="filter-opt"><input type="checkbox" id="fNM" checked onchange="applyFilters()"> NM <span class="sb-count" id="sbCountNM">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLP" checked onchange="applyFilters()"> LP <span class="sb-count" id="sbCountLP">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fMP" checked onchange="applyFilters()"> MP <span class="sb-count" id="sbCountMP">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fHP" checked onchange="applyFilters()"> HP / D <span class="sb-count" id="sbCountHP">0</span></label>
+      </div>
     </div>
     <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label">Element</span>
-      <label class="filter-opt"><input type="checkbox" id="fFire" onchange="applyFilters()"> Ohnivý</label>
-      <label class="filter-opt"><input type="checkbox" id="fWater" onchange="applyFilters()"> Vodní</label>
-      <label class="filter-opt"><input type="checkbox" id="fGrass" onchange="applyFilters()"> Travní</label>
-      <label class="filter-opt"><input type="checkbox" id="fElec" onchange="applyFilters()"> Elektrický</label>
-      <label class="filter-opt"><input type="checkbox" id="fPsychic" onchange="applyFilters()"> Psychický</label>
-      <label class="filter-opt"><input type="checkbox" id="fDark" onchange="applyFilters()"> Temný</label>
-      <label class="filter-opt"><input type="checkbox" id="fDragon" onchange="applyFilters()"> Dračí</label>
-      <label class="filter-opt"><input type="checkbox" id="fOther" onchange="applyFilters()"> Ostatní</label>
+    <div class="sb-section sb-acc-wrap">
+      <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
+        <span>Element</span>
+        <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sb-acc-body" hidden>
+        <label class="filter-opt"><input type="checkbox" id="fNormal"   checked onchange="applyFilters()"> ⬜ Normální</label>
+        <label class="filter-opt"><input type="checkbox" id="fFire"     checked onchange="applyFilters()"> 🔥 Ohnivý</label>
+        <label class="filter-opt"><input type="checkbox" id="fWater"    checked onchange="applyFilters()"> 💧 Vodní</label>
+        <label class="filter-opt"><input type="checkbox" id="fElec"     checked onchange="applyFilters()"> ⚡ Elektrický</label>
+        <label class="filter-opt"><input type="checkbox" id="fGrass"    checked onchange="applyFilters()"> 🌿 Travní</label>
+        <label class="filter-opt"><input type="checkbox" id="fIce"      checked onchange="applyFilters()"> ❄️ Ledový</label>
+        <label class="filter-opt"><input type="checkbox" id="fFighting" checked onchange="applyFilters()"> 🥊 Bojový</label>
+        <label class="filter-opt"><input type="checkbox" id="fPoison"   checked onchange="applyFilters()"> ☠️ Jedový</label>
+        <label class="filter-opt"><input type="checkbox" id="fGround"   checked onchange="applyFilters()"> 🌍 Zemní</label>
+        <label class="filter-opt"><input type="checkbox" id="fFlying"   checked onchange="applyFilters()"> 🦅 Létající</label>
+        <label class="filter-opt"><input type="checkbox" id="fPsychic"  checked onchange="applyFilters()"> 🔮 Psychický</label>
+        <label class="filter-opt"><input type="checkbox" id="fBug"      checked onchange="applyFilters()"> 🐛 Hmyzí</label>
+        <label class="filter-opt"><input type="checkbox" id="fRock"     checked onchange="applyFilters()"> 🪨 Skalní</label>
+        <label class="filter-opt"><input type="checkbox" id="fGhost"    checked onchange="applyFilters()"> 👻 Přízračný</label>
+        <label class="filter-opt"><input type="checkbox" id="fDragon"   checked onchange="applyFilters()"> 🐉 Dračí</label>
+        <label class="filter-opt"><input type="checkbox" id="fDark"     checked onchange="applyFilters()"> 🌑 Temný</label>
+        <label class="filter-opt"><input type="checkbox" id="fMetal"    checked onchange="applyFilters()"> ⚙️ Ocelový</label>
+        <label class="filter-opt"><input type="checkbox" id="fFairy"    checked onchange="applyFilters()"> 🧚 Vílovitý</label>
+      </div>
     </div>
     <div class="sb-divider"></div>
-    <div class="sb-section">
-      <span class="sb-label">Vzácnost</span>
-      <label class="filter-opt"><input type="checkbox" id="fCommon" onchange="applyFilters()"> Common / Uncommon</label>
-      <label class="filter-opt"><input type="checkbox" id="fRare" onchange="applyFilters()"> Rare / Holo</label>
-      <label class="filter-opt"><input type="checkbox" id="fUltra" onchange="applyFilters()"> Ultra Rare / V / ex</label>
+    <div class="sb-section sb-acc-wrap">
+      <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
+        <span>Vzácnost</span>
+        <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sb-acc-body" hidden>
+        <label class="filter-opt"><input type="checkbox" id="fCommon" checked onchange="applyFilters()"> Common / Uncommon</label>
+        <label class="filter-opt"><input type="checkbox" id="fRare"   checked onchange="applyFilters()"> Rare / Holo</label>
+        <label class="filter-opt"><input type="checkbox" id="fUltra"  checked onchange="applyFilters()"> Ultra Rare / V / ex</label>
+      </div>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -1226,5 +1251,14 @@ function mktRunFakeCheck() {
   </div>
 </div>
 
+<script>
+function sbToggle(btn) {
+  const body = btn.nextElementSibling;
+  const open = btn.getAttribute('aria-expanded') === 'true';
+  btn.setAttribute('aria-expanded', !open);
+  btn.classList.toggle('open', !open);
+  if (open) { body.hidden = true; } else { body.hidden = false; }
+}
+</script>
 </body>
 </html>

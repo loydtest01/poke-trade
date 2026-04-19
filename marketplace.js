@@ -146,13 +146,12 @@ function clearAllFilters() {
   ['fSell','fTrade'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
   // Cena
   ['fPriceMin','fPriceMax'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
-  // Stav karty
-  ['fNM','fLP','fMP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
-  ['fHP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
-  // Elementy
-  ['fFire','fWater','fGrass','fElec','fPsychic','fDark','fDragon','fOther'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
-  // Vzácnost
-  ['fCommon','fRare','fUltra'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
+  // Stav karty — vše zaškrtnuto
+  ['fNM','fLP','fMP','fHP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  // Elementy — vše zaškrtnuto
+  ['fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  // Vzácnost — vše zaškrtnuto
+  ['fCommon','fRare','fUltra'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
   // Vyhledávání
   const si = document.getElementById('searchInput'); if(si) si.value = '';
   // Pokročilý filtr
@@ -256,17 +255,30 @@ function applyFilters(){
   const prMin   = parseFloat(document.getElementById('fPriceMin').value)||0;
   const prMax   = parseFloat(document.getElementById('fPriceMax').value)||Infinity;
 
-  // Element filters
+  // Element filters — všechny zaškrtnuté = zobraz vše
+  const ALL_EL_IDS = ['fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy'];
   const elFilters = [];
-  if(document.getElementById('fFire').checked)    elFilters.push('fire');
-  if(document.getElementById('fWater').checked)   elFilters.push('water');
-  if(document.getElementById('fGrass').checked)   elFilters.push('grass');
-  if(document.getElementById('fElec').checked)    elFilters.push('lightning','electric');
-  if(document.getElementById('fPsychic').checked) elFilters.push('psychic');
-  if(document.getElementById('fDark').checked)    elFilters.push('darkness','dark');
-  if(document.getElementById('fDragon').checked)  elFilters.push('dragon');
-  if(document.getElementById('fOther').checked)   elFilters.push('other');
-  const anyEl = elFilters.length === 0;
+  if(document.getElementById('fNormal')?.checked)   elFilters.push('colorless','normal');
+  if(document.getElementById('fFire')?.checked)     elFilters.push('fire');
+  if(document.getElementById('fWater')?.checked)    elFilters.push('water');
+  if(document.getElementById('fElec')?.checked)     elFilters.push('lightning','electric');
+  if(document.getElementById('fGrass')?.checked)    elFilters.push('grass');
+  if(document.getElementById('fIce')?.checked)      elFilters.push('ice');
+  if(document.getElementById('fFighting')?.checked) elFilters.push('fighting');
+  if(document.getElementById('fPoison')?.checked)   elFilters.push('poison');
+  if(document.getElementById('fGround')?.checked)   elFilters.push('ground');
+  if(document.getElementById('fFlying')?.checked)   elFilters.push('flying');
+  if(document.getElementById('fPsychic')?.checked)  elFilters.push('psychic');
+  if(document.getElementById('fBug')?.checked)      elFilters.push('bug');
+  if(document.getElementById('fRock')?.checked)     elFilters.push('rock');
+  if(document.getElementById('fGhost')?.checked)    elFilters.push('ghost');
+  if(document.getElementById('fDragon')?.checked)   elFilters.push('dragon');
+  if(document.getElementById('fDark')?.checked)     elFilters.push('darkness','dark');
+  if(document.getElementById('fMetal')?.checked)    elFilters.push('metal','steel');
+  if(document.getElementById('fFairy')?.checked)    elFilters.push('fairy');
+  // Všechny zaškrtnuté = žádný filtr; none = žádný filtr (nesmysl); jinak filtruj
+  const checkedElCount = ALL_EL_IDS.filter(id => document.getElementById(id)?.checked).length;
+  const anyEl = checkedElCount === 0 || checkedElCount === ALL_EL_IDS.length;
 
   const af = advFilterData || {};
 
@@ -2427,29 +2439,40 @@ function openCardSearchForListing(){
 // When user picks in the dropdown panel, the left sidebar reacts.
 
 function syncAdvTypeToSidebar(val) {
-  // Uncheck all element checkboxes first
-  ['fFire','fWater','fGrass','fElec','fPsychic','fDark','fDragon','fOther'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.checked = false;
-  });
-  if (!val) return; // "Všechny typy" → uncheck all (= no filter = show all)
+  const ALL_EL = ['fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy'];
+  if (!val) {
+    // "Všechny typy" → zaškrtni vše
+    ALL_EL.forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+    return;
+  }
+  // Odškrtni vše, zaškrtni jen vybraný
+  ALL_EL.forEach(id => { const el = document.getElementById(id); if(el) el.checked = false; });
   const map = {
     fire:      'fFire',
     water:     'fWater',
     grass:     'fGrass',
     lightning: 'fElec',
+    electric:  'fElec',
     psychic:   'fPsychic',
     darkness:  'fDark',
+    dark:      'fDark',
     dragon:    'fDragon',
-    fighting:  'fOther',
-    metal:     'fOther',
-    colorless: 'fOther',
+    fighting:  'fFighting',
+    metal:     'fMetal',
+    steel:     'fMetal',
+    colorless: 'fNormal',
+    normal:    'fNormal',
+    fairy:     'fFairy',
+    ice:       'fIce',
+    poison:    'fPoison',
+    ground:    'fGround',
+    flying:    'fFlying',
+    bug:       'fBug',
+    rock:      'fRock',
+    ghost:     'fGhost',
   };
   const cbId = map[val];
-  if (cbId) {
-    const cb = document.getElementById(cbId);
-    if (cb) cb.checked = true;
-  }
+  if (cbId) { const cb = document.getElementById(cbId); if(cb) cb.checked = true; }
   applyFilters();
 }
 
@@ -2540,20 +2563,22 @@ function _syncSidebarToAdvDropdowns() {
   // Sync element/type dropdown
   const typSel = document.getElementById('afType');
   if (typSel) {
-    const checks = {
-      fire:     document.getElementById('fFire')?.checked,
-      water:    document.getElementById('fWater')?.checked,
-      grass:    document.getElementById('fGrass')?.checked,
-      lightning:document.getElementById('fElec')?.checked,
-      psychic:  document.getElementById('fPsychic')?.checked,
-      darkness: document.getElementById('fDark')?.checked,
-      dragon:   document.getElementById('fDragon')?.checked,
-      other:    document.getElementById('fOther')?.checked,
+    const elMap = {
+      fire:      document.getElementById('fFire')?.checked,
+      water:     document.getElementById('fWater')?.checked,
+      grass:     document.getElementById('fGrass')?.checked,
+      lightning: document.getElementById('fElec')?.checked,
+      psychic:   document.getElementById('fPsychic')?.checked,
+      darkness:  document.getElementById('fDark')?.checked,
+      dragon:    document.getElementById('fDragon')?.checked,
+      metal:     document.getElementById('fMetal')?.checked,
+      fairy:     document.getElementById('fFairy')?.checked,
+      fighting:  document.getElementById('fFighting')?.checked,
+      colorless: document.getElementById('fNormal')?.checked,
     };
-    const active = Object.entries(checks).filter(([,v])=>v).map(([k])=>k);
-    if (active.length === 0) typSel.value = '';
-    else if (active.length === 1) typSel.value = active[0] === 'other' ? 'fighting' : active[0];
-    else typSel.value = ''; // multiple → reset
+    const active = Object.entries(elMap).filter(([,v])=>v).map(([k])=>k);
+    if (active.length === 1) typSel.value = active[0];
+    else typSel.value = '';
   }
 }
 

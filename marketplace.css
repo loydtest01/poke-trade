@@ -102,6 +102,22 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   padding: 0 4px 7px; display: block;
 }
 .sb-divider { height: 1px; background: var(--border); margin: 4px 12px 14px; }
+
+/* ── Accordion ── */
+.sb-acc-wrap { padding-bottom: 0; }
+.sb-acc-hdr {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--text3); padding: 0 4px 10px; border-radius: 4px;
+  transition: color .15s;
+}
+.sb-acc-hdr:hover { color: var(--text2); }
+.sb-acc-arrow {
+  color: var(--text3); flex-shrink: 0; transition: transform .2s ease;
+}
+.sb-acc-hdr.open .sb-acc-arrow { transform: rotate(180deg); }
+.sb-acc-body { padding-bottom: 12px; }
 .filter-opt {
   display: flex; align-items: center; gap: 7px;
   font-size: 13px; color: var(--text2); cursor: pointer;
