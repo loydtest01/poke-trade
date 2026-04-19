@@ -377,6 +377,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
             <div class="toggle-thumb"></div>
           </label>
         </div>
+        <div class="notif-row">
+          <div class="notif-icon">📂</div>
+          <div class="notif-label">
+            <div class="notif-name">Sdílení alb</div>
+            <div class="notif-desc">Když ti někdo sdílí album</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="notifAlbum" onchange="saveNotifSettings()">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
       </div>
 
       <div class="drawer-section">
@@ -395,8 +407,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         </div>
         <div style="margin-top:12px">
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Stav AI</div>
-          <div id="chipAI" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
-          <div id="chipPC" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
+          <div id="chipAI_drawer" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
+          <div id="chipPC_drawer" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
         </div>
       </div>
 
@@ -447,7 +459,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       💬
       <span class="hdr-unread-dot" id="hdrUnreadDot" style="display:none">0</span>
     </button>
-    <div style="flex:1"></div>
+    <div id="hdrProg" style="flex:1;font-size:11px;color:var(--muted);text-align:center"></div>
     <button class="hdr-icon-btn" onclick="openSettings()" title="Nastavení">⚙️</button>
     <div class="hdr-chips">
       <button id="chipFake" onclick="toggleFakeMode()" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;cursor:pointer;font-family:inherit">🃏 FAKE</button>
@@ -1043,9 +1055,12 @@ function doMobileLogout() {
 }
 
 function updateStatusChips() {
-  const aiBadge = document.getElementById('chipAI');
-  const pcBadge = document.getElementById('chipPC');
-  if (aiBadge) {
+  // Update all AI chip instances (header + drawer)
+  const aiEls = [document.getElementById('chipAI'), document.getElementById('chipAI_drawer')];
+  const pcEls = [document.getElementById('chipPC'), document.getElementById('chipPC_drawer')];
+
+  aiEls.forEach(function(aiBadge) {
+    if (!aiBadge) return;
     if (groqKey || useSharedProxy) {
       aiBadge.style.background  = 'rgba(74,222,128,.15)';
       aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
@@ -1057,14 +1072,16 @@ function updateStatusChips() {
       aiBadge.style.color       = '#f87171';
       aiBadge.textContent       = '🤖 AI ✗';
     }
-  }
-  if (pcBadge) {
+  });
+
+  pcEls.forEach(function(pcBadge) {
+    if (!pcBadge) return;
     const ok = !!mobileToken;
     pcBadge.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
     pcBadge.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
     pcBadge.style.color       = ok ? '#4ade80'              : '#f87171';
     pcBadge.textContent       = ok ? '💻 PC ✓'             : '💻 PC ✗';
-  }
+  });
 }
 
 // ══════════════════════════════════════════════
@@ -1346,6 +1363,8 @@ async function sendGallery() {
   showScreen('scSending');
   const total = galCards.length;
   const bId = Date.now().toString(36) + '_gal';
+  let failCount = 0;
+  let lastErr = '';
 
   for (let i = 0; i < galCards.length; i++) {
     const c = galCards[i];
@@ -1358,29 +1377,34 @@ async function sendGallery() {
     const backComp  = await compressImage(c.backPhoto);
     const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
 
+    const hasBack    = !!c.backPhoto;
+    const hasDetails = !!(c.detailPhotos?.length);
+
     // Přední strana
     reqs.push(postPhoto({
       photo: frontComp, photoDataUrl: frontComp,
       side: 'front', cardIndex: i + 1, totalCards: total,
       batchId: bId, isFakeTraining: fakeMode,
-      batchComplete: isLast && !c.backPhoto && !c.detailPhotos.length,
-    }).catch(() => {}));
+      batchComplete: isLast && !hasBack && !hasDetails,
+    }).catch(e => { failCount++; lastErr = e.message; }));
 
     // Detaily
     detailComps.forEach((dp, d) => {
+      const isLastDetail = (d === detailComps.length - 1);
       reqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
-        cardIndex: i + 1, totalCards: total, batchId: bId, batchComplete: false,
-      }).catch(() => {}));
+        cardIndex: i + 1, totalCards: total, batchId: bId,
+        batchComplete: isLast && !hasBack && isLastDetail,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     });
 
     // Zadní strana
-    if (c.backPhoto) {
+    if (hasBack) {
       reqs.push(postPhoto({
         photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId: bId,
         batchComplete: isLast,
-      }).catch(() => {}));
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     await Promise.all(reqs);
@@ -1391,10 +1415,20 @@ async function sendGallery() {
     await delay(40);
   }
 
+  if (failCount > 0) {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '⚠️';
+    document.getElementById('scDone').querySelector('.done-title').textContent = `${failCount} karet se neodesla${failCount === 1 ? 'lo' : 'lo'}!`;
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = lastErr || 'Zkontroluj připojení a zkus znovu.';
+  } else {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
+    document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+  }
+
   document.getElementById('doneStats').innerHTML =
     `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${galCards.filter(c => c.backPhoto).length}</div><div class="stat-lbl">Se zadní</div></div>`;
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--accent)'}">${withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--green)'}">${failCount > 0 ? failCount : galCards.filter(c => c.backPhoto).length}</div><div class="stat-lbl">${failCount > 0 ? 'Chyby' : 'Se zadní'}</div></div>`;
   showScreen('scDone');
 }
 
@@ -1499,6 +1533,7 @@ async function processFrontPhoto(dataUrl) {
   haptic(50);
   const box = document.getElementById('frontPhotoBox');
   setPhotoBox(box, dataUrl);
+  // Hide alignment guide after photo taken
   const guide = box.querySelector('.align-guide');
   if (guide) guide.style.display = 'none';
 
@@ -1507,10 +1542,13 @@ async function processFrontPhoto(dataUrl) {
   cards[_cardIdx].frontPhoto = dataUrl;
   if (!cards[_cardIdx].detailPhotos) cards[_cardIdx].detailPhotos = [];
 
-  // ── Ihned přepni tlačítka – NEZÁVISLE na AI ─────────────────
+  // ── Ihned přepni tlačítka a progress – NEZÁVISLE na AI ──────
+  // (uživatel vidí správné tlačítko "Karta 2 →" okamžitě po fotce,
+  //  bez čekání na AI – eliminuje zmatek a chybné kliknutí "Přeskočit")
   document.getElementById('condPanel').style.display = '';
   document.getElementById('btnEmpty').style.display = 'none';
   document.getElementById('btnPhoto').style.display = '';
+
   const nextBtn = document.getElementById('frontNextBtn');
   if (totalCards === 1) {
     nextBtn.textContent = 'Pokračovat → zadní';
@@ -1519,22 +1557,24 @@ async function processFrontPhoto(dataUrl) {
   } else {
     nextBtn.textContent = 'Nafotit zadní strany →';
   }
+
   renderDetailPanel(_cardIdx);
   updateAddDetailBtn();
 
-  // ── AI rozpoznávání (async – uživatel může mezitím přejít dál) ──
+  // ── AI rozpoznávání (async – uživatel může mezitím kliknout Další) ──
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (groqKey || useSharedProxy) {
     aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
     const result = await identifyCard(dataUrl);
 
-    // Výsledek ulož vždy do SPRÁVNÉ karty
+    // Výsledek vždy ulož do SPRÁVNÉ karty (i když user mezitím přešel jinam)
     cards[_cardIdx].frontAI = result?.name ? result : null;
 
-    // UI aktualizuj POUZE pokud jsme stále na té samé kartě
+    // UI aktualizuj pouze pokud jsme stále na té samé kartě
     if (currentCard === _cardIdx) {
       showAiResult(result);
+      // Japonská karta → zobrazit panel pro záběr názvu
       const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
       if (isJP) {
         if (result) result.lang = 'JP';
@@ -1576,28 +1616,32 @@ function updateAddDetailBtn() {
 
 function processDetailPhoto(dataUrl) {
   haptic(40);
-  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
-  if (cards[currentCard].detailPhotos.length >= 10) return;
-  cards[currentCard].detailPhotos.push(dataUrl);
-  renderDetailPanel(currentCard);
+  const _cardIdx = currentCard;  // zachyť před jakýmkoliv await
+  if (!cards[_cardIdx].detailPhotos) cards[_cardIdx].detailPhotos = [];
+  if (cards[_cardIdx].detailPhotos.length >= 10) return;
+  cards[_cardIdx].detailPhotos.push(dataUrl);
+  renderDetailPanel(_cardIdx);
   updateAddDetailBtn();
-  const n = cards[currentCard].detailPhotos.length;
+  const n = cards[_cardIdx].detailPhotos.length;
   toast(`📷 Fotodetail ${n}/10 přidán`);
 
   // Pokud karta dosud nebyla rozpoznána, zkus AI automaticky z tohoto detailu
-  if (groqKey && !cards[currentCard].frontAI?.name) {
+  if (groqKey && !cards[_cardIdx].frontAI?.name) {
     const aiBox = document.getElementById('aiResultBox');
     if (aiBox) {
       aiBox.style.display = '';
       aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším rozpoznat z detailu…</div>';
       identifyCard(dataUrl).then(result => {
         if (result?.name) {
-          cards[currentCard].frontAI = result;
-          showAiResult(result);
-          haptic([40,30,80]);
-          toast('✅ Karta rozpoznána z detailu!');
+          cards[_cardIdx].frontAI = result;
+          // UI aktualizuj jen pokud jsme stále na té samé kartě
+          if (currentCard === _cardIdx) {
+            showAiResult(result);
+            haptic([40,30,80]);
+            toast('✅ Karta rozpoznána z detailu!');
+          }
         } else {
-          showAiResult(null);
+          if (currentCard === _cardIdx) showAiResult(null);
         }
       });
     }
@@ -1808,19 +1852,23 @@ function selectCond(btn) {
 
 // ── Zkusit AI znovu na stejné fotce ──────────────────────────
 async function retryAI() {
-  const photo = cards[currentCard]?.frontPhoto;
+  const _cardIdx = currentCard;
+  const photo = cards[_cardIdx]?.frontPhoto;
   if (!photo || !groqKey) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
   const result = await identifyCard(photo);
-  cards[currentCard].frontAI = result;
-  showAiResult(result);
-  if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
+  cards[_cardIdx].frontAI = result;
+  if (currentCard === _cardIdx) {
+    showAiResult(result);
+    if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
+  }
 }
 
 // ── Zkusit AI na detailních fotkách ──────────────────────────
 async function retryWithDetails() {
-  const details = cards[currentCard]?.detailPhotos || [];
+  const _cardIdx = currentCard;
+  const details = cards[_cardIdx]?.detailPhotos || [];
   if (!details.length || !groqKey) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším z detailních fotek…</div>';
@@ -1829,14 +1877,16 @@ async function retryWithDetails() {
     result = await identifyCard(photo);
     if (result?.name) break;
   }
-  if (result?.name) {
-    cards[currentCard].frontAI = result;
-    showAiResult(result);
-    haptic([40,30,80]);
-    toast('✅ Karta rozpoznána z detailu!');
-  } else {
-    showAiResult(null);
-    toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
+  if (currentCard === _cardIdx) {
+    if (result?.name) {
+      cards[_cardIdx].frontAI = result;
+      showAiResult(result);
+      haptic([40,30,80]);
+      toast('✅ Karta rozpoznána z detailu!');
+    } else {
+      showAiResult(null);
+      toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
+    }
   }
 }
 
@@ -1855,10 +1905,16 @@ function confirmFront() {
   advanceFront();
 }
 
+let _advancingFront = false;
 function advanceFront() {
+  if (_advancingFront) return;   // pojistka proti double-call (swipe + tap)
+  _advancingFront = true;
   currentCard++;
   if (currentCard < totalCards) showFrontScreen();
   else { currentCard = 0; showBackScreen(); }
+  // Reset ihned – JS je single-thread, flag chrání jen před souběhem tap+swipe
+  // ve stejném event loopu. Timeout 600ms blokoval legitimní rychlé kliknutí.
+  requestAnimationFrame(() => { _advancingFront = false; });
 }
 
 function showBackScreen() {
@@ -1881,7 +1937,9 @@ function showBackScreen() {
 
 async function processBackPhoto(dataUrl) {
   haptic(50);
-  cards[currentCard].backPhoto = dataUrl;
+  // ── Zachyť index PŘED jakýmkoliv await ──────────────────────
+  const _backIdx = currentCard;
+  cards[_backIdx].backPhoto = dataUrl;
   setPhotoBox(document.getElementById('backPhotoBox'), dataUrl);
   document.getElementById('backNextBtn').style.display = '';
 
@@ -1890,9 +1948,13 @@ async function processBackPhoto(dataUrl) {
     backAiBox.style.display = '';
     backAiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI kontroluje poškození zadní strany…</div>';
     const result = await analyzeBackPhoto(dataUrl);
-    cards[currentCard].backAI = result;
-    showBackAiResult(result, cards[currentCard]);
-    if (result) haptic([30, 20, 60]);
+    // Výsledek ulož do správné karty
+    cards[_backIdx].backAI = result;
+    // UI aktualizuj jen pokud jsme stále na té samé kartě
+    if (currentCard === _backIdx) {
+      showBackAiResult(result, cards[_backIdx]);
+      if (result) haptic([30, 20, 60]);
+    }
   }
 }
 
@@ -1943,10 +2005,14 @@ function skipBack()    { cards[currentCard].backPhoto = null; advanceBack(); }
 function skipAllBacks() { for (let i = currentCard; i < totalCards; i++) cards[i].backPhoto = null; showReviewScreen(); }
 function confirmBack() { advanceBack(); }
 
+let _advancingBack = false;
 function advanceBack() {
+  if (_advancingBack) return;   // pojistka proti double-call (swipe + tap)
+  _advancingBack = true;
   currentCard++;
   if (currentCard < totalCards) showBackScreen();
   else showReviewScreen();
+  requestAnimationFrame(() => { _advancingBack = false; });
 }
 
 function showReviewScreen() {
@@ -1984,23 +2050,28 @@ function goBack() {
 async function sendAll() {
   // Před odesláním ověř/obnov token
   const tokenOk = await ensureValidToken();
-  if (!tokenOk) return; // ensureValidToken už zobrazil login
+  if (!tokenOk) return;
 
   showScreen('scSending');
   const total = cards.length;
+  let failCount = 0;
+  let lastErr = '';
 
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
     const isLast = (i === cards.length - 1);
     const ai = c.frontAI || {};
 
-    // Build all requests for this card
     const cardReqs = [];
 
     // Komprese před odesláním (15–30× menší soubor, pod Vercel limit 4.5 MB)
     const frontComp  = await compressImage(c.frontPhoto);
     const backComp   = await compressImage(c.backPhoto);
     const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
+
+    // batchComplete: true pouze na skutečně posledním požadavku dávky
+    const hasBack    = !!c.backPhoto;
+    const hasDetails = !!(c.detailPhotos?.length);
 
     if (c.frontPhoto) {
       cardReqs.push(postPhoto({
@@ -2017,20 +2088,22 @@ async function sendAll() {
         photo: frontComp, side: 'front',
         cardIndex: i + 1, totalCards: total, batchId,
         isFakeTraining: c.isFakeTraining || false,
-        batchComplete: isLast && !c.backPhoto && !(c.detailPhotos?.length),
-      }).catch(() => {}));
+        batchComplete: isLast && !hasBack && !hasDetails,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     // Detail photos – parallel with front
     detailComps.forEach((dp, d) => {
+      const isLastDetail = (d === detailComps.length - 1);
       cardReqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
-        cardIndex: i + 1, totalCards: total, batchId, batchComplete: false,
-      }).catch(() => {}));
+        cardIndex: i + 1, totalCards: total, batchId,
+        batchComplete: isLast && !hasBack && isLastDetail,
+      }).catch(e => { failCount++; lastErr = e.message; }));
     });
 
     // Back photo – parallel with front+details
-    if (c.backPhoto) {
+    if (hasBack) {
       cardReqs.push(postPhoto({
         photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId,
@@ -2040,7 +2113,7 @@ async function sendAll() {
         backCondition: c.backAI?.condition || null,
         backIssues: c.backAI?.issues || [],
         backNotes: c.backAI?.notes || '',
-      }).catch(() => {}));
+      }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
     await Promise.all(cardReqs);
@@ -2053,10 +2126,22 @@ async function sendAll() {
 
   const withPhoto = cards.filter(c => c.frontPhoto).length;
   const withAI    = cards.filter(c => c.frontAI?.name).length;
+
+  if (failCount > 0) {
+    // Aspoň jedna karta se neodeslala – zobraz chybu místo "Odesláno!"
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '⚠️';
+    document.getElementById('scDone').querySelector('.done-title').textContent = `${failCount} karet se neodesla${failCount === 1 ? 'lo' : 'lo'}!`;
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = lastErr || 'Zkontroluj připojení a zkus znovu.';
+  } else {
+    document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
+    document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+  }
+
   document.getElementById('doneStats').innerHTML =
     `<div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Karet</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--accent)">${withPhoto}</div><div class="stat-lbl">Vyfoceno</div></div>
-     <div class="stat-item"><div class="stat-num" style="color:var(--green)">${withAI}</div><div class="stat-lbl">AI rozpoznáno</div></div>`;
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--accent)'}">${withPhoto - failCount < 0 ? 0 : withPhoto}</div><div class="stat-lbl">Odesláno</div></div>
+     <div class="stat-item"><div class="stat-num" style="color:${failCount>0?'var(--red)':'var(--green)'}">${failCount > 0 ? failCount : withAI}</div><div class="stat-lbl">${failCount > 0 ? 'Chyby' : 'AI rozp.'}</div></div>`;
   showScreen('scDone');
 }
 
@@ -2081,11 +2166,16 @@ async function compressImage(dataUrl, maxPx = 1400, quality = 0.85) {
 
 async function postPhoto(payload) {
   // Odeslat JSON data na PC (server přepošle do qr-bridge._handleBatchPhoto)
-  return fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
+  const r = await fetch(`${SERVER}/api/scan-result?t=${mobileToken}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    throw new Error(`HTTP ${r.status}: ${errText.slice(0, 120)}`);
+  }
+  return r;
 }
 
 function restartBatch() {
@@ -2094,7 +2184,8 @@ function restartBatch() {
   showScreen('scSetup');
   document.getElementById('detailPanel').style.display = 'none';
   document.getElementById('progFill').style.width = '0%';
-  document.getElementById('hdrProg').style.display = 'none';
+  const _hdrProg = document.getElementById('hdrProg');
+  if (_hdrProg) _hdrProg.style.display = 'none';
 }
 
 // ══════════════════════════════════════════════
@@ -2112,6 +2203,10 @@ function initSwipe() {
     }, { passive: true });
 
     el.addEventListener('touchend', e => {
+      // Pokud se dotyk skončil na tlačítku nebo klikatelném prvku → ignoruj swipe
+      // (zabrání double-call: tap na tlačítko + swipe na parent elementu)
+      if (e.target.closest('button, [onclick], input, textarea, select, a')) return;
+
       const dx = e.changedTouches[0].clientX - tx;
       const dy = e.changedTouches[0].clientY - ty;
       if (Math.abs(dx) < THRESHOLD || Math.abs(dy) > Math.abs(dx) * 0.8) return;
@@ -2412,6 +2507,7 @@ function loadNotifSettings() {
   document.getElementById('notifSold').checked     = s.sold;
   document.getElementById('notifTrade').checked    = s.trade;
   document.getElementById('notifDemand').checked   = s.demand;
+  document.getElementById('notifAlbum').checked    = s.album;
 }
 
 function getNotifSettings() {
@@ -2423,8 +2519,9 @@ function getNotifSettings() {
       sold:     s.sold     !== false,
       trade:    s.trade    !== false,
       demand:   s.demand   !== false,
+      album:    s.album    !== false,
     };
-  } catch { return { messages: true, sold: true, trade: true, demand: true }; }
+  } catch { return { messages: true, sold: true, trade: true, demand: true, album: true }; }
 }
 
 function saveNotifSettings() {
@@ -2433,10 +2530,11 @@ function saveNotifSettings() {
     sold:     document.getElementById('notifSold').checked,
     trade:    document.getElementById('notifTrade').checked,
     demand:   document.getElementById('notifDemand').checked,
+    album:    document.getElementById('notifAlbum').checked,
   };
   localStorage.setItem(NOTIF_KEY, JSON.stringify(s));
   // Ask for permission when enabling any notification
-  if ((s.messages || s.sold || s.trade || s.demand) && 'Notification' in window && Notification.permission === 'default') {
+  if ((s.messages || s.sold || s.trade || s.demand || s.album) && 'Notification' in window && Notification.permission === 'default') {
     requestNotifPermission();
   }
 }
@@ -2481,6 +2579,7 @@ function _notifCategory(title, body) {
   if (t.includes('zakoupil') || t.includes('prodej') || t.includes('koupil') || t.includes('sold')) return 'sold';
   if (t.includes('výměna') || t.includes('trade')) return 'trade';
   if (t.includes('poptávk') || t.includes('demand') || t.includes('nabídka') || t.includes('offer')) return 'demand';
+  if (t.includes('album') || t.includes('sdíl') || t.includes('album_share')) return 'album';
   return 'other';
 }
 
@@ -2522,6 +2621,7 @@ async function checkNotifications() {
         (cat === 'sold'     && s.sold)     ||
         (cat === 'trade'    && s.trade)    ||
         (cat === 'demand'   && s.demand)   ||
+        (cat === 'album'    && s.album)    ||
         (cat === 'other')
       );
       if (allowed) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
