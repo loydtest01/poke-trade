@@ -2850,10 +2850,12 @@ async function sendMobileMsg() {
       body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, content: text, type: 'text' })
     });
     if (!r.ok) {
+      let errDetail = r.status;
+      try { const errJson = await r.json(); errDetail = errJson.message || errJson.hint || errJson.code || r.status; } catch {}
       _msgsMessages = _msgsMessages.filter(m => m !== tempMsg);
       renderMsgsThread(false);
       inp.value = text;
-      toast('\u26a0\ufe0f Zpr\u00e1vu se nepoda\u0159ilo odeslat');
+      toast('\u26a0\ufe0f Chyba ' + errDetail);
       return;
     }
     // Update last_message_at in conversation
