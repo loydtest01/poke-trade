@@ -1835,19 +1835,23 @@ function selectCond(btn) {
 
 // ── Zkusit AI znovu na stejné fotce ──────────────────────────
 async function retryAI() {
-  const photo = cards[currentCard]?.frontPhoto;
+  const _cardIdx = currentCard;
+  const photo = cards[_cardIdx]?.frontPhoto;
   if (!photo || !groqKey) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
   const result = await identifyCard(photo);
-  cards[currentCard].frontAI = result;
-  showAiResult(result);
-  if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
+  cards[_cardIdx].frontAI = result;
+  if (currentCard === _cardIdx) {
+    showAiResult(result);
+    if (result?.name) { haptic([40,30,80]); toast('✅ Karta rozpoznána!'); }
+  }
 }
 
 // ── Zkusit AI na detailních fotkách ──────────────────────────
 async function retryWithDetails() {
-  const details = cards[currentCard]?.detailPhotos || [];
+  const _cardIdx = currentCard;
+  const details = cards[_cardIdx]?.detailPhotos || [];
   if (!details.length || !groqKey) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším z detailních fotek…</div>';
@@ -1856,14 +1860,16 @@ async function retryWithDetails() {
     result = await identifyCard(photo);
     if (result?.name) break;
   }
-  if (result?.name) {
-    cards[currentCard].frontAI = result;
-    showAiResult(result);
-    haptic([40,30,80]);
-    toast('✅ Karta rozpoznána z detailu!');
-  } else {
-    showAiResult(null);
-    toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
+  if (currentCard === _cardIdx) {
+    if (result?.name) {
+      cards[_cardIdx].frontAI = result;
+      showAiResult(result);
+      haptic([40,30,80]);
+      toast('✅ Karta rozpoznána z detailu!');
+    } else {
+      showAiResult(null);
+      toast('⚠️ Ani detaily nestačily – zkus lepší fotku');
+    }
   }
 }
 
@@ -1882,10 +1888,14 @@ function confirmFront() {
   advanceFront();
 }
 
+let _advancingFront = false;
 function advanceFront() {
+  if (_advancingFront) return;   // pojistka proti double-call (swipe + tap)
+  _advancingFront = true;
   currentCard++;
   if (currentCard < totalCards) showFrontScreen();
   else { currentCard = 0; showBackScreen(); }
+  setTimeout(() => { _advancingFront = false; }, 600);
 }
 
 function showBackScreen() {
@@ -1976,10 +1986,14 @@ function skipBack()    { cards[currentCard].backPhoto = null; advanceBack(); }
 function skipAllBacks() { for (let i = currentCard; i < totalCards; i++) cards[i].backPhoto = null; showReviewScreen(); }
 function confirmBack() { advanceBack(); }
 
+let _advancingBack = false;
 function advanceBack() {
+  if (_advancingBack) return;   // pojistka proti double-call (swipe + tap)
+  _advancingBack = true;
   currentCard++;
   if (currentCard < totalCards) showBackScreen();
   else showReviewScreen();
+  setTimeout(() => { _advancingBack = false; }, 600);
 }
 
 function showReviewScreen() {
@@ -2145,6 +2159,10 @@ function initSwipe() {
     }, { passive: true });
 
     el.addEventListener('touchend', e => {
+      // Pokud se dotyk skončil na tlačítku nebo klikatelném prvku → ignoruj swipe
+      // (zabrání double-call: tap na tlačítko + swipe na parent elementu)
+      if (e.target.closest('button, [onclick], input, textarea, select, a')) return;
+
       const dx = e.changedTouches[0].clientX - tx;
       const dy = e.changedTouches[0].clientY - ty;
       if (Math.abs(dx) < THRESHOLD || Math.abs(dy) > Math.abs(dx) * 0.8) return;
