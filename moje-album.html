@@ -135,6 +135,36 @@ body { background: #06040c; overflow-x: hidden; }
 .album-item.active .album-name { color: var(--text); font-weight: 600; }
 .album-cnt { font-size: 10px; color: var(--text3); flex-shrink: 0; white-space: nowrap; }
 .album-val { font-size: 10px; color: #f5c842; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+/* ── Multi-select toggle ───────────────────────────────────── */
+.sb-label-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 6px 6px;
+}
+.sb-label-row .sb-label { padding: 0; }
+.multiselect-toggle {
+  background: none; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px; color: var(--text3); font-size: 10px;
+  padding: 2px 7px; cursor: pointer; font-family: inherit;
+  transition: all .15s; line-height: 1.5; white-space: nowrap;
+}
+.multiselect-toggle:hover { border-color: rgba(245,200,66,0.35); color: var(--yellow); }
+.multiselect-toggle.active {
+  background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.4);
+  color: var(--yellow);
+}
+/* Checkbox uvnitř album-item */
+.album-check {
+  width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0;
+  border: 1.5px solid rgba(255,255,255,0.18); background: transparent;
+  display: none; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; color: #000;
+  transition: all .15s;
+}
+.album-list.multi-mode .album-check { display: flex; }
+.album-item.active .album-check {
+  background: var(--yellow); border-color: var(--yellow);
+}
+
 /* Kebab (⋯) na album-item */
 .album-kebab {
   opacity: 0.45; background: none; border: none; cursor: pointer;
@@ -1382,7 +1412,10 @@ body { background: #06040c; overflow-x: hidden; }
     <div class="sb-divider"></div>
 
     <div class="sb-section">
-      <span class="sb-label" data-i18n="my_albums">Moje alba</span>
+      <div class="sb-label-row">
+        <span class="sb-label" data-i18n="my_albums">Moje alba</span>
+        <button class="multiselect-toggle" id="multiselectToggle" onclick="toggleMultiSelect()" title="Vybrat více alb najednou">☑ Více</button>
+      </div>
       <div class="album-list" id="albumList">
         <div style="font-size:11px;color:var(--text3);padding:4px 6px" data-i18n="loading">Načítám…</div>
       </div>
@@ -1801,6 +1834,28 @@ let activeTrainerSub = '';   // '' | 'Stadium' | 'Supporter' | 'Item' | 'Tool'
 let activeExpFilter  = false; // true = zobrazit pouze drahé karty nad nastavenou cenu
 let activeEnergyType = '';  // '' | 'fire' | 'water' | ...
 let activeAlbumIds = new Set(); // multi-select alb; prázdné = první album
+let multiSelectMode = false;   // true = multi-select režim v sidebar
+
+function toggleMultiSelect() {
+  multiSelectMode = !multiSelectMode;
+  const btn  = document.getElementById('multiselectToggle');
+  const list = document.getElementById('albumList');
+  if (btn)  btn.classList.toggle('active', multiSelectMode);
+  if (list) list.classList.toggle('multi-mode', multiSelectMode);
+  if (!multiSelectMode) {
+    // Při vypnutí: necháme jen první vybrané album
+    const firstId = [...activeAlbumIds][0];
+    activeAlbumIds.clear();
+    if (firstId) {
+      activeAlbumIds.add(firstId);
+    } else {
+      const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+      if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+    }
+    render();
+  }
+  renderAlbumList();
+}
 const SPECIAL_ALB_NAMES = ['Výměna','Obchod','Vyměněno','Prodáno'];
 function getFirstActiveAlbumId() { return activeAlbumIds.size > 0 ? [...activeAlbumIds][0] : null; }
 function getActiveAlbumCardIds() {
@@ -3899,6 +3954,7 @@ function renderAlbumList() {
     el.innerHTML = '<div style="font-size:11px;color:var(--text3);padding:4px 6px">Zatím žádná alba</div>';
     return;
   }
+  el.classList.toggle('multi-mode', multiSelectMode);
   el.innerHTML = regular.map((a, idx) => {
     const ids = new Set((a.cardIds||[]).map(String));
     const cnt = ids.size;
@@ -3909,6 +3965,7 @@ function renderAlbumList() {
     <div class="album-item ${isActive ? 'active' : ''}"
       onclick="setAlbum('${esc(a.id)}')">
       <div class="album-row1">
+        <div class="album-check">${isActive ? '✓' : ''}</div>
         <div class="album-dot" style="background:${esc(a.color||'#4f8ef7')}"></div>
         <span class="album-name">${esc(a.name)}</span>
       </div>
@@ -3929,14 +3986,21 @@ function setAlbum(id) {
     const a = allAlbums.find(x => x.id === aid);
     if (a && SPECIAL_ALB_NAMES.includes(a.name)) activeAlbumIds.delete(aid);
   });
-  if (activeAlbumIds.has(id)) {
-    activeAlbumIds.delete(id);
-    // Auto-select první user album pokud nic nezbylo
-    if (activeAlbumIds.size === 0) {
-      const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
-      if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+  if (multiSelectMode) {
+    // Multi-select: toggle vybraného alba
+    if (activeAlbumIds.has(id)) {
+      activeAlbumIds.delete(id);
+      // Auto-select první user album pokud nic nezbylo
+      if (activeAlbumIds.size === 0) {
+        const regular = allAlbums.filter(a => !SPECIAL_ALB_NAMES.includes(a.name));
+        if (regular.length > 0) activeAlbumIds.add(regular[0].id);
+      }
+    } else {
+      activeAlbumIds.add(id);
     }
   } else {
+    // Single-select: vyber jen toto album, předchozí odznač
+    activeAlbumIds.clear();
     activeAlbumIds.add(id);
   }
   cancelSelect();
