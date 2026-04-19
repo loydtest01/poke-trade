@@ -2535,7 +2535,8 @@ async function loadCardRealPhotos(localId) {
     batches.get(key).push(r);
   }
 
-  // ── Renderuj fotky do pravého panelu — každá samostatně ────────
+  // ── Renderuj fotky do pravého panelu — jen PŘEDNÍ fotky jako thumbnail ──
+  // Kliknutím na thumbnail se otevře galerie s CELÝM batchem (přední + zadní + detail)
   let panelHtml = '';
   for (const [batchKey, batchPhotos] of batches) {
     // Seřaď: front první
@@ -2543,25 +2544,27 @@ async function loadCardRealPhotos(localId) {
       const order = {front:0,back:1,detail:2,name:3};
       return (order[a.side]??9) - (order[b.side]??9);
     });
-    // Připrav JSON celého batche pro otevření galerie
+    // Připrav JSON celého batche pro otevření galerie (všechny strany)
     const batchJson = sorted.map(p => JSON.stringify(p).replace(/"/g,'&quot;')).join(',');
+    // Počet stran v batchi (přední + zadní + detail)
+    const sideCount = sorted.length;
+    const sideHint  = sideCount > 1 ? ` · ${sideCount}× 📷` : '';
 
-    for (let pi = 0; pi < sorted.length; pi++) {
-      const ph = sorted[pi];
-      const label = sideLabel[ph.side] || ph.side || '';
-      const ts = ph.created_at
-        ? new Date(ph.created_at).toLocaleString('cs', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
-        : '';
-      panelHtml += `
-        <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}">
-          <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], ${pi})">
-            <img src="${esc(ph.url)}" alt="${label}" loading="lazy">
-            <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoPanel('${ph.id}',this)" title="Smazat">✕</button>
-          </div>
-          ${ts ? `<div class="cd-panel-photo-date">${label} · ${ts}</div>` : `<div class="cd-panel-photo-date">${label}</div>`}
-          ${ph.note ? `<div class="cd-panel-photo-note">${ph.note.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
-        </div>`;
-    }
+    // Zobraz jen přední fotku (nebo první dostupnou) jako thumbnail
+    const frontPhoto = sorted.find(p => p.side === 'front') || sorted[0];
+    const label = 'Přední';
+    const ts = frontPhoto.created_at
+      ? new Date(frontPhoto.created_at).toLocaleString('cs', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' })
+      : '';
+    panelHtml += `
+      <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}${sideHint}">
+        <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], 0)" style="position:relative">
+          <img src="${esc(frontPhoto.url)}" alt="${label}" loading="lazy">
+          ${sideCount > 1 ? `<div style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,0.7);color:#fff;font-size:9px;border-radius:4px;padding:1px 4px;pointer-events:none">${sideCount}×</div>` : ''}
+          <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoPanel('${frontPhoto.id}',this)" title="Smazat">✕</button>
+        </div>
+        ${ts ? `<div class="cd-panel-photo-date">${label} · ${ts}${sideHint}</div>` : `<div class="cd-panel-photo-date">${label}${sideHint}</div>`}
+      </div>`;
   }
   panelList.innerHTML = panelHtml || '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px 4px;opacity:.5">Žádné fotky</div>';
   wrap.style.display  = '';
@@ -3228,7 +3231,6 @@ async function openListingPhotoModal(type) {
   if (!_detailCard) return;
   _pendingListingType = type;
   _selectedListingPhotoUrl = null;
-  _listingAllPhotoRows = [];
   const modal = document.getElementById('listingPhotoModal');
   const grid  = document.getElementById('listingPhotoGrid');
   const btn   = document.getElementById('listingPhotoConfirmBtn');
@@ -3245,12 +3247,17 @@ async function openListingPhotoModal(type) {
     grid.innerHTML = '<div style="color:var(--text3);font-size:12px;grid-column:1/-1;text-align:center;padding:16px">Karta nemá žádné fotky.<br>Pokračuj bez fotky nebo nejdříve vyfot kartu.</div>';
     btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; return;
   }
-  _listingAllPhotoRows = rows;  // uložíme všechny fotky (front + back + detail)
-  grid.innerHTML = rows.map(r =>
-    `<div class="lpm-photo" onclick="selectListingPhoto(this,'${r.url.replace(/'/g,"\\'")}')" style="cursor:pointer;border-radius:8px;border:2px solid transparent;overflow:hidden;aspect-ratio:3/4;transition:border-color .15s">
-      <img src="${r.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">
-    </div>`
-  ).join('');
+  _listingAllPhotoRows = rows;  // všechny fotky pro přenos do nabídky
+  // Zobrazit jen PŘEDNÍ fotky v dialogu; do nabídky se přenesou všechny strany
+  const frontRows = rows.filter(r => r.side === 'front');
+  const displayRows = frontRows.length ? frontRows : rows.slice(0, 1);
+  const totalSides = rows.length;
+  grid.innerHTML = displayRows.map(r => {
+    const hint = totalSides > 1 ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.75);color:#fff;font-size:10px;border-radius:4px;padding:1px 5px;pointer-events:none">${totalSides}\u00d7 \ud83d\udcf7</div>` : '';
+    return `<div class="lpm-photo" onclick="selectListingPhoto(this,'${r.url.replace(/'/g,"\\'")}')" style="position:relative;cursor:pointer;border-radius:8px;border:2px solid transparent;overflow:hidden;aspect-ratio:3/4;transition:border-color .15s">`
+      + `<img src="${r.url}" style="width:100%;height:100%;object-fit:cover" loading="lazy">`
+      + hint + `</div>`;
+  }).join('');
 }
 
 function selectListingPhoto(el, url) {
