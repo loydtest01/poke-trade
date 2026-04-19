@@ -220,6 +220,13 @@ body::after {
 .status-accepted { background: rgba(40,200,80,0.12);  color: #4fda7a; }
 .status-declined { background: rgba(255,60,60,0.12);  color: #ff6060; }
 .status-expired  { background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.35); }
+.btn-cancel-share {
+  background: rgba(255,60,60,0.10); border: 1px solid rgba(255,60,60,0.25);
+  color: #ff8080; border-radius: 8px; padding: 4px 10px; font-size: 11px;
+  font-weight: 600; cursor: pointer; font-family: inherit; transition: all .15s;
+  white-space: nowrap;
+}
+.btn-cancel-share:hover { background: rgba(255,60,60,0.22); border-color: rgba(255,60,60,0.5); color: #ff6060; }
 
 /* ── Username modal ── */
 .modal-overlay {
@@ -852,8 +859,28 @@ async function loadSent() {
         <small>${formatDate(s.created_at)} · ${s.status === 'pending' ? 'Vyprší ' + formatExpiry(s.expires_at) : ''}</small>
       </div>
       <span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>
+      ${s.status === 'pending' ? `<button class="btn-cancel-share" onclick="cancelShare('${s.id}')">✕ Zrušit</button>` : ''}
     </div>
   `).join('');
+}
+
+async function cancelShare(shareId) {
+  if (!confirm('Opravdu chceš zrušit toto sdílení?')) return;
+  const token = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` }
+    });
+    if (r.ok) {
+      toast('Sdílení zrušeno', 'ok');
+      await loadSent();
+    } else {
+      toast('Nepodařilo se zrušit sdílení', 'error');
+    }
+  } catch(e) {
+    toast('Chyba: ' + e.message, 'error');
+  }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────
