@@ -3000,38 +3000,37 @@ function renderFakeResult(result) {
 .conv-tabs { display: none !important; }
 </style>
 
-<script>
-// Přesun "Zpětná vazba" do levého rohu – hledáme pouze přesný text
-(function moveFeedback() {
-  function tryMove() {
-    document.querySelectorAll('*').forEach(function(el) {
-      try {
-        // Pouze přímé textové shody s "vazba" nebo "Feedback"
-        var ownText = Array.from(el.childNodes)
-          .filter(n => n.nodeType === 3)
-          .map(n => n.textContent).join('');
-        if (!ownText.includes('vazba') && !el.title?.includes('vazba')) return;
-        var s = window.getComputedStyle(el);
-        if (s.position !== 'fixed') {
-          // Zkus rodičovský element
-          var p = el.closest('[style*="fixed"], [style*="position"]');
-          if (p) el = p;
-          s = window.getComputedStyle(el);
-        }
-        if (s.position === 'fixed') {
-          el.style.setProperty('right', 'auto', 'important');
-          el.style.setProperty('left', '20px', 'important');
-        }
-      } catch(e) {}
-    });
-  }
-  setTimeout(tryMove, 800);
-  setTimeout(tryMove, 2000);
-  var obs = new MutationObserver(function() { setTimeout(tryMove, 200); });
-  document.addEventListener('DOMContentLoaded', function() {
-    obs.observe(document.body, { childList: true, subtree: false });
-  });
-})();
-</script>
+<style>
+#feedback-btn-fixed {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 999;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(245,200,66,0.25);
+  background: rgba(12,10,18,0.92);
+  color: rgba(240,236,228,0.7);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  transition: all .15s;
+}
+#feedback-btn-fixed:hover {
+  background: rgba(245,200,66,0.1);
+  border-color: rgba(245,200,66,0.45);
+  color: #f5c842;
+}
+</style>
+<a id="feedback-btn-fixed" href="feedback.html" title="Zpětná vazba">
+  💬 Zpětná vazba
+</a>
 </body>
 </html>
