@@ -411,9 +411,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
   <!-- Messages panel -->
   <div class="msgs-panel" id="msgsPanel">
     <div class="msgs-head">
-      <button class="msgs-back" id="msgsBackBtn" onclick="closeMsgsPanel()">←</button>
+      <button class="msgs-back" onclick="closeMsgsPanel()">←</button>
       <div class="msgs-head-title" id="msgsPanelTitle">Zprávy</div>
-      <button id="msgsNewBtn" onclick="openUserSearch()" title="Nová konverzace" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:8px;border-radius:10px;margin-left:auto;flex-shrink:0">✏️</button>
+      <button onclick="openUserSearch()" title="Nová konverzace" style="background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:8px;border-radius:10px;margin-left:auto;flex-shrink:0">✏️</button>
     </div>
 
     <!-- User search panel (slides in inside msgs-panel) -->
@@ -1499,49 +1499,53 @@ async function processFrontPhoto(dataUrl) {
   haptic(50);
   const box = document.getElementById('frontPhotoBox');
   setPhotoBox(box, dataUrl);
-  // Hide alignment guide after photo taken
   const guide = box.querySelector('.align-guide');
   if (guide) guide.style.display = 'none';
 
-  cards[currentCard].frontPhoto = dataUrl;
-  if (!cards[currentCard].detailPhotos) cards[currentCard].detailPhotos = [];
+  // ── Zachyť index PŘED jakýmkoliv await ──────────────────────
+  const _cardIdx = currentCard;
+  cards[_cardIdx].frontPhoto = dataUrl;
+  if (!cards[_cardIdx].detailPhotos) cards[_cardIdx].detailPhotos = [];
 
+  // ── Ihned přepni tlačítka – NEZÁVISLE na AI ─────────────────
+  document.getElementById('condPanel').style.display = '';
+  document.getElementById('btnEmpty').style.display = 'none';
+  document.getElementById('btnPhoto').style.display = '';
+  const nextBtn = document.getElementById('frontNextBtn');
+  if (totalCards === 1) {
+    nextBtn.textContent = 'Pokračovat → zadní';
+  } else if (_cardIdx < totalCards - 1) {
+    nextBtn.textContent = `Karta ${_cardIdx + 2} →`;
+  } else {
+    nextBtn.textContent = 'Nafotit zadní strany →';
+  }
+  renderDetailPanel(_cardIdx);
+  updateAddDetailBtn();
+
+  // ── AI rozpoznávání (async – uživatel může mezitím přejít dál) ──
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
   if (groqKey || useSharedProxy) {
     aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
     const result = await identifyCard(dataUrl);
-    // result je buď {name:..., ...} nebo {_error:...} nebo null
-    cards[currentCard].frontAI = result?.name ? result : null;
-    showAiResult(result);
-    // Japonská karta → zobrazit panel pro záběr názvu
-    const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
-    if (isJP) {
-      if (result) result.lang = 'JP';
-      showJpNamePanel(currentCard);
-    } else {
-      document.getElementById('jpNamePanel').style.display = 'none';
+
+    // Výsledek ulož vždy do SPRÁVNÉ karty
+    cards[_cardIdx].frontAI = result?.name ? result : null;
+
+    // UI aktualizuj POUZE pokud jsme stále na té samé kartě
+    if (currentCard === _cardIdx) {
+      showAiResult(result);
+      const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
+      if (isJP) {
+        if (result) result.lang = 'JP';
+        showJpNamePanel(_cardIdx);
+      } else {
+        document.getElementById('jpNamePanel').style.display = 'none';
+      }
     }
   } else {
     aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
   }
-  document.getElementById('condPanel').style.display = '';
-
-  // Switch button state
-  document.getElementById('btnEmpty').style.display = 'none';
-  document.getElementById('btnPhoto').style.display = '';
-
-  const nextBtn = document.getElementById('frontNextBtn');
-  if (totalCards === 1) {
-    nextBtn.textContent = 'Pokračovat → zadní';
-  } else if (currentCard < totalCards - 1) {
-    nextBtn.textContent = `Karta ${currentCard + 2} →`;
-  } else {
-    nextBtn.textContent = 'Nafotit zadní strany →';
-  }
-
-  renderDetailPanel(currentCard);
-  updateAddDetailBtn();
 }
 
 function renderDetailPanel(cardIdx) {
@@ -2639,12 +2643,12 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   _msgsPartner  = { id: partnerId, name: partnerName };
   document.getElementById('msgsPanelTitle').textContent = partnerName;
 
-  // Přepni horní header do "thread" režimu (← zpět + jméno partnera)
-  document.getElementById('msgsBackBtn').onclick = backToConvList;
-  document.getElementById('msgsNewBtn').style.display = 'none';
-
   const b = document.getElementById('msgsBody');
   b.innerHTML = `<div class="chat-thread">
+    <div class="chat-thread-head">
+      <button class="chat-back-btn" onclick="backToConvList()">←</button>
+      <div class="chat-partner-name">${escHtml(partnerName)}</div>
+    </div>
     <div class="chat-msgs-m" id="chatMsgsM"></div>
     <div class="chat-input-m">
       <textarea id="chatInputM" placeholder="Napsat zprávu…" rows="1"
@@ -2672,10 +2676,6 @@ function backToConvList() {
   _msgsActiveId = null;
   _msgsPartner  = null;
   document.getElementById('msgsPanelTitle').textContent = 'Zprávy';
-  // Obnov horní header zpět do "seznam" režimu
-  document.getElementById('msgsBackBtn').onclick = closeMsgsPanel;
-  const newBtn = document.getElementById('msgsNewBtn');
-  if (newBtn) newBtn.style.display = '';
   renderMsgsConvList();
   loadMsgsConversations(); // refresh unread counts
 }
@@ -2706,7 +2706,7 @@ function renderMsgsThread(silent = false) {
     if (ds !== lastDate) { html += `<div class="msg-date-sep-m">${ds}</div>`; lastDate = ds; }
     const isMe = m.sender_id === _msgsUserId;
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
-    const txt = escHtml(m.text || m.content || '');
+    const txt = escHtml(m.content || '');
     html += `<div class="msg-row-${isMe?'me':'them'}">
       <div class="msg-bubble ${isMe?'me':'them'}">${txt}</div>
       <div class="msg-time-m">${time}</div>
@@ -2729,7 +2729,7 @@ async function sendMobileMsg() {
     await fetch(`${SB_URL}/rest/v1/chat_messages`, {
       method: 'POST',
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, text: text })
+      body: JSON.stringify({ conversation_id: _msgsActiveId, sender_id: _msgsUserId, content: text, type: 'text' })
     });
     // Update last_message_at in conversation
     await fetch(`${SB_URL}/rest/v1/conversations?id=eq.${_msgsActiveId}`, {
