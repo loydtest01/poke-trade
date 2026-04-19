@@ -220,6 +220,12 @@ body::after {
 .status-accepted { background: rgba(40,200,80,0.12);  color: #4fda7a; }
 .status-declined { background: rgba(255,60,60,0.12);  color: #ff6060; }
 .status-expired  { background: rgba(255,255,255,0.06); color: rgba(240,236,228,0.35); }
+.btn-cancel-share {
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  background: rgba(255,60,60,0.1); border: 1px solid rgba(255,60,60,0.25);
+  color: #ff6060; cursor: pointer; font-family: inherit; transition: all .15s; white-space: nowrap;
+}
+.btn-cancel-share:hover { background: rgba(255,60,60,0.22); border-color: rgba(255,60,60,0.5); }
 
 /* ── Username modal ── */
 .modal-overlay {
@@ -490,6 +496,17 @@ async function sbPatch(path, body) {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
+async function sbDelete(path) {
+  const token = localStorage.getItem('sb_token');
+  try {
+    const r = await fetch(`${SUPABASE_URL}/${path}`, {
+      method: 'DELETE',
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` }
     });
     return r.ok;
   } catch { return false; }
@@ -832,6 +849,22 @@ async function declineShare(shareId) {
   toast('Pozvánka odmítnuta.', '');
 }
 
+// ── Zrušení odeslaného sdílení ────────────────────────────────────
+async function cancelShare(shareId, btn) {
+  if (!confirm('Opravdu chceš zrušit toto sdílení?')) return;
+  btn.disabled = true;
+  btn.textContent = '…';
+  const ok = await sbDelete(`rest/v1/album_shares?id=eq.${shareId}&sender_id=eq.${ME.id}`);
+  if (ok) {
+    toast('✅ Sdílení zrušeno', 'ok');
+    await loadSent();
+  } else {
+    toast('❌ Nepodařilo se zrušit sdílení', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Zrušit';
+  }
+}
+
 // ── Odeslané ──────────────────────────────────────────────────────
 async function loadSent() {
   if (!ME || !ME.id) return;
@@ -857,7 +890,10 @@ async function loadSent() {
         <strong>@${esc(profileMap[s.receiver_id] || s.receiver_id.substring(0,8))} — ${esc(s.album_name)}</strong>
         <small>${formatDate(s.created_at)} · ${s.status === 'pending' ? 'Vyprší ' + formatExpiry(s.expires_at) : ''}</small>
       </div>
-      <span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>
+      ${s.status === 'pending'
+        ? `<button class="btn-cancel-share" onclick="cancelShare('${s.id}', this)">✕ Zrušit</button>`
+        : `<span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>`
+      }
     </div>
   `).join('');
 }
