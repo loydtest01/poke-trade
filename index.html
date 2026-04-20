@@ -744,7 +744,36 @@ function doLogout() {
     after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, startCycle);
   }
 
-  startCycle();
+  // Načti náhodné high-rarity karty z API
+  (async function loadRandomCards() {
+    var subtypes = ['EX', 'GX', 'VMAX', 'V', 'ex'];
+    var cardEls  = [pikachu, mewtwo, charizard];
+    var fetched  = [];
+    try {
+      var q = subtypes.map(function(s){return 'subtypes:'+s;}).join(' OR ');
+      var page = Math.floor(Math.random() * 8) + 1;
+      var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
+              + '&pageSize=60&page=' + page + '&orderBy=-set.releaseDate';
+      var r = await fetch(url);
+      var d = await r.json();
+      var pool = (d.data || []).filter(function(c){ return c.images && c.images.large; });
+      // Zamíchej Fisher-Yates
+      for (var i = pool.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+      }
+      fetched = pool.slice(0, 3);
+    } catch(e) { /* fallback */ }
+
+    fetched.forEach(function(card, i) {
+      var el = cardEls[i];
+      if (!el) return;
+      var img = el.querySelector('img');
+      if (img) { img.src = card.images.large; img.alt = card.name; }
+    });
+
+    startCycle();
+  })();
 })();
 </script>
 
