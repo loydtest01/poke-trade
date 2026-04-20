@@ -436,29 +436,34 @@ body { background: #06040c; overflow-x: hidden; }
 
 /* ── VÝBĚR KARTY – zlatý komet obíhající rámeček ────────────────── */
 
+/* CSS custom property pro animaci úhlu conic-gradient */
+@property --sel-comet-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes sel-comet {
+  from { --sel-comet-angle: 0deg; }
+  to   { --sel-comet-angle: 360deg; }
+}
+
 /* Základní rámeček karty – tenká zlatá čára (komet do ní splývá) */
 .card-slot.selected {
   border-color: rgba(245,200,66,0.28) !important;
   box-shadow: 0 0 10px 2px rgba(245,200,66,0.15);
 }
 
-/* Komet: svítivá hrana vpředu, za sebou pozvolna splývá s rámečkem */
-.card-slot-wrap.selected::before {
+/* Komet – gradient se otáčí po perimetru obdélníku */
+.card-slot-wrap.selected::before,
+.book-card-wrap.selected::before {
   content: '';
   position: absolute;
   inset: -3px;
   border-radius: 14px;
   padding: 3px;
-  /*
-    Gradient jde 0° → 360° (po směru hodinových ručiček).
-    0%–65%  = základní tlumená zlatá (= barva rámečku, "prázdná stopa")
-    65%–80% = začátek ocasu (pozvolné zesvětlení)
-    80%–93% = tělo kometu (výrazná zlatá)
-    93%–98% = hlava / špička (nejvíce svítivá – bílozlatá)
-    98%–100%= skok zpět na tlumenou zlatou (okamžitý přechod za hlavou)
-  */
   background: conic-gradient(
-    from 0deg,
+    from var(--sel-comet-angle),
     rgba(245,200,66,0.22)  0%,
     rgba(245,200,66,0.22) 65%,
     rgba(245,200,66,0.38) 75%,
@@ -468,7 +473,6 @@ body { background: #06040c; overflow-x: hidden; }
     rgba(245,200,66,0.22) 99%,
     rgba(245,200,66,0.22) 100%
   );
-  /* Maska: zobrazí jen okraj (padding oblast = 3px pruh) */
   mask:
     linear-gradient(#fff 0 0) content-box,
     linear-gradient(#fff 0 0);
@@ -482,9 +486,25 @@ body { background: #06040c; overflow-x: hidden; }
   z-index: 6;
 }
 
-@keyframes sel-comet {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+/* Wrapper pro book-card (nesmí mít overflow:hidden kvůli kometu) */
+.book-card-wrap {
+  position: relative;
+  aspect-ratio: 63/88;
+  isolation: isolate;
+}
+.book-card-wrap.selected .book-card {
+  border-color: rgba(245,200,66,0.28) !important;
+  box-shadow: 0 0 10px 2px rgba(245,200,66,0.15);
+}
+.book-card-wrap .card-check {
+  position: absolute; top: 4px; left: 4px; z-index: 7;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; pointer-events: none;
+}
+.book-card-wrap.selected .card-check {
+  background: var(--yellow); border-color: var(--yellow); color: #000; font-weight: 900;
 }
 
 /* Staré sel-ring – skryje se, pokud by zůstalo v DOM */
@@ -5810,7 +5830,10 @@ function renderBookView() {
     if (!c) return '<div class="book-card-empty" onclick="openSlotMenu(event)"></div>';
     const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
     const emoji = typeEmoji(c.types?.[0] || c.type || '');
-    return `<div class="book-card" onclick="cardClick('${esc(c.id)}')">
+    const sel   = selectedIds.has(String(c.id));
+    return `<div class="book-card-wrap${sel ? ' selected' : ''}">
+      ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
+      <div class="book-card" onclick="cardClick('${esc(c.id)}')">
       ${img
         ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="eager">`
         : `<div class="book-card-placeholder">
@@ -5826,7 +5849,7 @@ function renderBookView() {
         <div class="card-name">${esc(c.name||'?')}</div>
         <div class="card-sub">${esc(c.set||'')}${c.number?' #'+esc(c.number):''}</div>
       </div>
-    </div>`;
+    </div></div>`;
   }
 
   // Pad to 3 cards each side
@@ -5894,7 +5917,7 @@ function applyTilt(card) {
 
 // Aplikuj tilt na všechny viditelné karty (volej po každém renderu)
 function applyTiltToAll() {
-  document.querySelectorAll('.book-card, .card-slot').forEach(applyTilt);
+  document.querySelectorAll('.book-card-wrap .book-card, .card-slot').forEach(applyTilt);
 }
 
 // Hooknout na MutationObserver aby se tilt aplikoval i na nově přidané karty
