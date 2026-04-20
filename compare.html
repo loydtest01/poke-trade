@@ -173,6 +173,22 @@ body::after {
   text-shadow: 0 1px 2px rgba(0,0,0,0.5); user-select: none; pointer-events: none;
 }
 
+/* Stránkování */
+.cmp-pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 6px; padding: 20px 0 8px; flex-wrap: wrap;
+}
+.cmp-pg-btn {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05); color: rgba(240,236,228,0.7);
+  font-family: inherit; font-size: 13px; cursor: pointer; transition: all .15s;
+}
+.cmp-pg-btn:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #f0ece4; }
+.cmp-pg-btn.active { background: rgba(245,200,66,0.18); border-color: rgba(245,200,66,0.4); color: #f5c842; font-weight: 700; }
+.cmp-pg-btn:disabled { opacity: .35; cursor: default; }
+.cmp-pg-info { font-size: 12px; color: rgba(240,236,228,0.4); padding: 0 6px; }
+
 /* ══════════════════════════════════════════════
    SHARE ALBUM — specifické styly
    ══════════════════════════════════════════════ */
@@ -528,6 +544,7 @@ body::after {
       </div>
 
       <div id="compareGrid" class="compare-grid"></div>
+      <div id="comparePagination" class="cmp-pagination"></div>
 
     </div>
   </div>
@@ -1175,12 +1192,39 @@ function showTab(key, btn) {
   renderCompareCards(cmpApplyFilters(rawCards), key);
 }
 
+// ── Stránkování ────────────────────────────────────────────
+const CMP_PAGE_SIZE = 200;
+let _cmpCurrentPage = 1;
+let _cmpAllCards    = [];
+let _cmpCurrentKey  = '';
+
 function renderCompareCards(cards, key) {
+  _cmpAllCards   = cards;
+  _cmpCurrentKey = key;
+  _cmpCurrentPage = 1;
+  _renderCmpPage();
+}
+
+function _renderCmpPage() {
   const grid = document.getElementById('compareGrid');
-  if (!cards.length) { grid.innerHTML = '<p class="empty-state">Žádné karty v této kategorii</p>'; return; }
+  const pgEl = document.getElementById('comparePagination');
+  const cards = _cmpAllCards;
+  const key   = _cmpCurrentKey;
+
+  if (!cards.length) {
+    grid.innerHTML = '<p class="empty-state">Žádné karty v této kategorii</p>';
+    if (pgEl) pgEl.innerHTML = '';
+    return;
+  }
+
+  const totalPages = Math.ceil(cards.length / CMP_PAGE_SIZE);
+  const start = (_cmpCurrentPage - 1) * CMP_PAGE_SIZE;
+  const pageCards = cards.slice(start, start + CMP_PAGE_SIZE);
+
   const colorMap = { both: 'green', only1: 'blue', only2: 'yellow', all: '' };
   const color = colorMap[key] || '';
-  grid.innerHTML = cards.slice(0, 200).map((card) => {
+
+  grid.innerHTML = pageCards.map((card) => {
     const img = card.images?.small || card.apiSmall || '';
     const cardJson = encodeURIComponent(JSON.stringify({name:card.name,set:card.set,number:card.number||card.num,hp:card.hp,rarity:card.rarity}));
     return `
@@ -1198,9 +1242,43 @@ function renderCompareCards(cards, key) {
       </div>
     `;
   }).join('');
-  if (cards.length > 200) {
-    grid.innerHTML += `<div class="compare-more">Zobrazeno 200 z ${cards.length} karet</div>`;
+
+  // Stránkování
+  if (pgEl) {
+    if (totalPages <= 1) { pgEl.innerHTML = ''; return; }
+
+    // Okno stránek: vždy zobraz max 5 čísel kolem aktuální
+    const WINDOW = 2;
+    let pages = [];
+    for (let p = 1; p <= totalPages; p++) {
+      if (p === 1 || p === totalPages || (p >= _cmpCurrentPage - WINDOW && p <= _cmpCurrentPage + WINDOW)) {
+        pages.push(p);
+      }
+    }
+    // Doplň "…" mezery
+    let btns = '';
+    let prev = 0;
+    for (const p of pages) {
+      if (prev && p - prev > 1) btns += `<span class="cmp-pg-info">…</span>`;
+      btns += `<button class="cmp-pg-btn ${p === _cmpCurrentPage ? 'active' : ''}" onclick="cmpGoPage(${p})">${p}</button>`;
+      prev = p;
+    }
+
+    pgEl.innerHTML =
+      `<button class="cmp-pg-btn" onclick="cmpGoPage(${_cmpCurrentPage - 1})" ${_cmpCurrentPage === 1 ? 'disabled' : ''}>‹</button>` +
+      btns +
+      `<button class="cmp-pg-btn" onclick="cmpGoPage(${_cmpCurrentPage + 1})" ${_cmpCurrentPage === totalPages ? 'disabled' : ''}>›</button>` +
+      `<span class="cmp-pg-info">${start + 1}–${Math.min(start + CMP_PAGE_SIZE, cards.length)} z ${cards.length}</span>`;
   }
+}
+
+function cmpGoPage(p) {
+  const totalPages = Math.ceil(_cmpAllCards.length / CMP_PAGE_SIZE);
+  if (p < 1 || p > totalPages) return;
+  _cmpCurrentPage = p;
+  _renderCmpPage();
+  // Scrollni nahoru na grid
+  document.getElementById('compareGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function initCmpFilters() { cmpRenderFilterBtns(); }

@@ -203,6 +203,21 @@ body { background: #06040c; overflow-x: hidden; }
   font-family: inherit; cursor: pointer; margin-top: 6px; transition: all .15s;
 }
 .new-album-btn:hover { border-color: rgba(245,200,66,0.3); color: var(--yellow); }
+
+/* Sdílené alba */
+.album-item.shared-alb { border-left: 2px solid rgba(74,158,255,0.35); padding-left: 8px; }
+.album-item.shared-alb .album-name { color: rgba(130,190,255,0.85); }
+.album-item.shared-alb.active { background: rgba(74,158,255,0.1); }
+.readonly-banner {
+  display: none; align-items: center; gap: 10px; padding: 9px 16px;
+  background: rgba(74,158,255,0.07); border: 1px solid rgba(74,158,255,0.22);
+  border-radius: 10px; margin-bottom: 10px; font-size: 13px; color: rgba(130,190,255,0.9);
+}
+.readonly-banner.visible { display: flex; }
+.readonly-banner .rb-close {
+  margin-left: auto; background: none; border: none; color: rgba(130,190,255,0.5);
+  cursor: pointer; font-size: 16px;
+}
 .curr-btn {
   flex: 1; padding: 6px 0; border-radius: 8px;
   border: 1px solid rgba(255,255,255,0.1);
@@ -1422,6 +1437,12 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <button class="new-album-btn" onclick="openNewAlbumModal()" data-i18n="new_album">＋ Nové album</button>
     </div>
+    <!-- Sdílené alba -->
+    <div class="sb-divider" id="sharedAlbDivider" style="display:none"></div>
+    <div class="sb-section" id="sharedAlbSection" style="display:none">
+      <span class="sb-label">👁 Sdílené alba</span>
+      <div class="album-list" id="sharedAlbumList"></div>
+    </div>
     <div class="sb-divider"></div>
 
     <div class="sb-section">
@@ -1453,6 +1474,13 @@ body { background: #06040c; overflow-x: hidden; }
 
   <!-- Main -->
   <main class="main">
+
+    <!-- Read-only banner pro sdílená alba -->
+    <div class="readonly-banner" id="readonlyBanner">
+      <span>👁</span>
+      <span id="readonlyBannerText">Sdílené album — pouze ke čtení</span>
+      <button class="rb-close" onclick="clearSharedAlbum()">✕</button>
+    </div>
 
     <!-- Select mode banner -->
     <div class="select-banner" id="selectBanner">
@@ -1925,6 +1953,7 @@ let editingAlbumId = null;
   updateCurrencyUI();
 
   await Promise.all([loadCards(), loadAlbums()]);
+  await loadSharedAlbums();
   await loadAllCardPhotos();
   // Jednorázový auto-select: pokud nic není vybráno, vyber první user album
   if (activeAlbumIds.size === 0) {
@@ -2079,6 +2108,73 @@ async function loadAlbums() {
   } catch(e) { console.error('[albums load]', e); allAlbums = []; }
 }
 
+// ══ SDÍLENÉ ALBA ══════════════════════════════════════════════
+let allSharedAlbums = [];
+let activeSharedAlbumId = null;
+
+async function loadSharedAlbums() {
+  try {
+    const res = await sbReq(
+      `rest/v1/album_shares?receiver_id=eq.${userId}&status=eq.accepted` +
+      `&expires_at=gt.${encodeURIComponent(new Date().toISOString())}` +
+      `&select=id,album_name,sender_username,cards_snapshot,expires_at&order=created_at.desc`
+    );
+    allSharedAlbums = Array.isArray(res) ? res : [];
+  } catch(e) { console.error('[shared albums]', e); allSharedAlbums = []; }
+
+  const params = new URLSearchParams(location.search);
+  const acceptedId = params.get('accepted_share');
+  if (acceptedId && allSharedAlbums.find(s => s.id === acceptedId)) {
+    activeSharedAlbumId = acceptedId;
+    history.replaceState(null, '', location.pathname);
+  }
+  renderSharedAlbumList();
+}
+
+function renderSharedAlbumList() {
+  const section = document.getElementById('sharedAlbSection');
+  const divider = document.getElementById('sharedAlbDivider');
+  const el      = document.getElementById('sharedAlbumList');
+  if (!section || !el) return;
+  const visible = allSharedAlbums.length > 0;
+  section.style.display = visible ? '' : 'none';
+  divider.style.display = visible ? '' : 'none';
+  if (!visible) return;
+  el.innerHTML = allSharedAlbums.map(s => {
+    const cnt = (s.cards_snapshot || []).length;
+    const isActive = activeSharedAlbumId === s.id;
+    return `
+    <div class="album-item shared-alb ${isActive ? 'active' : ''}" onclick="setSharedAlbum('${esc(s.id)}')">
+      <div class="album-row1">
+        <div class="album-dot" style="background:#4a9eff"></div>
+        <span class="album-name">${esc(s.album_name)}</span>
+      </div>
+      <div class="album-row2">
+        <span class="album-cnt">@${esc(s.sender_username)} · ${cnt} karet</span>
+        <span style="font-size:11px;opacity:.6">👁</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setSharedAlbum(shareId) {
+  activeAlbumIds.clear();
+  activeSharedAlbumId = shareId;
+  if (selectMode) { selectMode = false; selectedIds.clear(); }
+  renderAlbumList();
+  renderSharedAlbumList();
+  render();
+}
+
+function clearSharedAlbum() {
+  activeSharedAlbumId = null;
+  const first = allAlbums.find(a => !SPECIAL_ALB_NAMES.includes(a.name));
+  if (first) activeAlbumIds.add(first.id);
+  renderSharedAlbumList();
+  renderAlbumList();
+  render();
+}
+
 async function saveAlbumsToServer() {
   if (!allAlbums.length) return;
   const payload = allAlbums.map(a => ({
@@ -2106,23 +2202,51 @@ function saveAlbumsLocal() {
 // ══════════════════════════════════════════════════════════════════
 function render() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
-  const albumCardIds = getActiveAlbumCardIds();
 
-  let filtered = allCards.filter(c => {
-    if (activeView === 'trade' && !c.for_trade) return false;
-    if (activeView === 'sell'  && !c.for_sell)  return false;
-    if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
-    if (activeType && !matchType(c, activeType)) return false;
-    if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
-    if (activeRarity && !matchRarity(c, activeRarity)) return false;
-    if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
-    if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
-    if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
-    if (q && !((c.name||'').toLowerCase().includes(q) ||
-               (c.set||'').toLowerCase().includes(q)  ||
-               (c.number||'').toLowerCase().includes(q))) return false;
-    return true;
-  });
+  // ── Sdílené album (read-only) ──────────────────────────────
+  const readOnlyShare = activeSharedAlbumId
+    ? allSharedAlbums.find(s => s.id === activeSharedAlbumId) : null;
+  const isReadOnly = !!readOnlyShare;
+
+  // Zobraz/skryj read-only banner
+  const rb = document.getElementById('readonlyBanner');
+  if (rb) {
+    rb.classList.toggle('visible', isReadOnly);
+    if (isReadOnly && readOnlyShare)
+      document.getElementById('readonlyBannerText').textContent =
+        `👁 „${readOnlyShare.album_name}" od @${readOnlyShare.sender_username} — pouze ke čtení, nemůžeš karty přidávat ani mazat`;
+  }
+  // Skryj akční tlačítka v read-only módu
+  const bulkBtn = document.getElementById('bulkSelectBtn');
+  if (bulkBtn) bulkBtn.style.display = isReadOnly ? 'none' : '';
+  if (isReadOnly && selectMode) { selectMode = false; selectedIds.clear();
+    document.getElementById('selectBanner')?.classList.remove('active'); }
+
+  // ── Filtrování karet ─────────────────────────────────────────
+  const albumCardIds = isReadOnly ? null : getActiveAlbumCardIds();
+  let filtered;
+  if (isReadOnly) {
+    filtered = (readOnlyShare.cards_snapshot || []).map(c => ({ ...c, _readOnly: true }))
+      .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
+                          (c.set||'').toLowerCase().includes(q)  ||
+                          (c.number||'').toLowerCase().includes(q));
+  } else {
+    filtered = allCards.filter(c => {
+      if (activeView === 'trade' && !c.for_trade) return false;
+      if (activeView === 'sell'  && !c.for_sell)  return false;
+      if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
+      if (activeType && !matchType(c, activeType)) return false;
+      if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
+      if (activeRarity && !matchRarity(c, activeRarity)) return false;
+      if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
+      if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
+      if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
+      if (q && !((c.name||'').toLowerCase().includes(q) ||
+                 (c.set||'').toLowerCase().includes(q)  ||
+                 (c.number||'').toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
   filtered = sortCards(filtered);
   _detailList = filtered; // store for prev/next navigation
 
@@ -2258,7 +2382,7 @@ function renderCard(c, albumCardIds) {
         ${c.for_trade ? '<span class="badge-pill badge-trade">\u{1F504}</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">\u{1F4B0}</span>'  : ''}
         ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">\u2B50 ${fmtCardPrice(c.p30d)}</span>` : ''}
-        ${!selectMode ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">\u{1F5D1}</button>` : ''}
+        ${(!selectMode && !c._readOnly) ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">\\u{1F5D1}</button>` : ''}
       </div>
       <div class="card-footer">
         <div class="card-name">${esc(c.name||'?')}</div>
@@ -5126,6 +5250,7 @@ function setCond(c) {
 async function doSync() {
   setSyncState('syncing', 'Synchronizuji…');
   await Promise.all([loadCards(), loadAlbums()]);
+  await loadSharedAlbums();
   await loadAllCardPhotos();
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   updateLastSyncInfo();
