@@ -13,7 +13,7 @@
 (function () {
 'use strict';
 
-var SUPPORTED = ['cs', 'en'];
+var SUPPORTED = ['cs', 'en', 'de', 'jp', 'fr', 'it', 'es'];
 var DEFAULT   = 'cs';
 var STORAGE_KEY = 'pt_lang';
 

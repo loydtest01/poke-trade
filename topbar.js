@@ -932,6 +932,90 @@ function injectAuthChip() {
 /* ══════════════════════════════════════════════════════════════
    7. INIT
    ══════════════════════════════════════════════════════════════ */
+function injectLangSwitch() {
+  var tr = document.querySelector('.topbar-right');
+  if (!tr || document.getElementById('langSwitchWrap')) return;
+
+  var wrap = document.createElement('div');
+  wrap.id = 'langSwitchWrap';
+  wrap.style.cssText = 'position:relative;display:flex;align-items:center;';
+
+  var btn = document.createElement('button');
+  btn.id = 'langSwitchBtn';
+  btn.className = 'chat-icon-btn';
+  btn.title = 'Language / Jazyk';
+  btn.style.cssText = 'font-size:15px;padding:5px 8px;letter-spacing:.5px;';
+  btn.onclick = function(e) { e.stopPropagation(); _toggleLangDrop(); };
+
+  var drop = document.createElement('div');
+  drop.id = 'langDrop';
+  drop.style.cssText = 'display:none;position:absolute;top:calc(100% + 8px);right:0;'
+    + 'background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;'
+    + 'box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:600;overflow:hidden;min-width:130px;';
+
+  var langs = [
+    { code: 'cs', label: '🇨🇿 Čeština' },
+    { code: 'en', label: '🇬🇧 English'  },
+    { code: 'de', label: '🇩🇪 Deutsch'  },
+    { code: 'jp', label: '🇯🇵 日本語'   },
+    { code: 'fr', label: '🇫🇷 Français' },
+    { code: 'it', label: '🇮🇹 Italiano' },
+    { code: 'es', label: '🇪🇸 Español'  }
+  ];
+
+  drop.innerHTML = langs.map(function(l) {
+    return '<button onclick="window.setLang&&window.setLang(\'' + l.code + '\');_closeLangDrop()" '
+      + 'id="langOpt_' + l.code + '" '
+      + 'style="display:block;width:100%;padding:10px 14px;background:none;border:none;'
+      + 'color:rgba(240,236,228,.75);font-size:13px;font-family:inherit;cursor:pointer;'
+      + 'text-align:left;transition:background .12s;" '
+      + 'onmouseover="this.style.background=\'rgba(255,255,255,.07)\'" '
+      + 'onmouseout="this.style.background=\'none\'">'
+      + l.label + '</button>';
+  }).join('');
+
+  wrap.appendChild(btn);
+  wrap.appendChild(drop);
+  tr.insertBefore(wrap, tr.firstChild);
+
+  _updateLangBtn();
+
+  document.addEventListener('click', function(e) {
+    if (!wrap.contains(e.target)) _closeLangDrop();
+  });
+}
+
+function _getLangFlag() {
+  var lang = (window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || 'cs';
+  var flags = { cs:'🇨🇿', en:'🇬🇧', de:'🇩🇪', jp:'🇯🇵', fr:'🇫🇷', it:'🇮🇹', es:'🇪🇸' };
+  return flags[lang] || '🌐';
+}
+
+function _updateLangBtn() {
+  var btn = document.getElementById('langSwitchBtn');
+  if (btn) btn.textContent = _getLangFlag();
+  var lang = (window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || 'cs';
+  ['cs','en','de','jp','fr','it','es'].forEach(function(c) {
+    var el = document.getElementById('langOpt_' + c);
+    if (el) el.style.color = (c === lang) ? '#f5c842' : 'rgba(240,236,228,.75)';
+  });
+}
+
+function _toggleLangDrop() {
+  var d = document.getElementById('langDrop');
+  if (!d) return;
+  d.style.display = d.style.display === 'none' ? 'block' : 'none';
+}
+
+function _closeLangDrop() {
+  var d = document.getElementById('langDrop');
+  if (d) d.style.display = 'none';
+}
+
+// Reagovat na změnu jazyka
+document.addEventListener('i18n:changed', function() { _updateLangBtn(); });
+document.addEventListener('i18n:ready',   function() { _updateLangBtn(); });
+
 function init() {
   injectStyles();
   renderNav();
@@ -939,6 +1023,7 @@ function init() {
   initSettingsValues();
   injectBell();
   injectAuthChip();
+  injectLangSwitch();
   initGroqPanel();
 }
 
