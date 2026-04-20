@@ -428,20 +428,20 @@ body {
   </div>
   <!-- ═══ ANIMATED POKEMON CARDS ═══ -->
   <div class="pkshow-stage" id="pkShowStage">
-    <!-- Pikachu GX – zlatá aura -->
+    <!-- Karta 1 – zlatá aura -->
     <div class="pkshow-card pkcard-pikachu" id="pkPikachu">
       <div class="pkshow-aura aura-gold"></div>
-      <img src="pikachu-gx.png" alt="Pikachu GX">
+      <img id="pkImg1" src="pikachu-gx.png" alt="Pokémon karta">
     </div>
-    <!-- Mewtwo V – fialová aura -->
+    <!-- Karta 2 – fialová aura -->
     <div class="pkshow-card pkcard-mewtwo" id="pkMewtwo">
       <div class="pkshow-aura aura-purple"></div>
-      <img src="mewtwo-v.png" alt="Mewtwo V">
+      <img id="pkImg2" src="mewtwo-v.png" alt="Pokémon karta">
     </div>
-    <!-- Charizard GX – červená aura -->
+    <!-- Karta 3 – červená aura -->
     <div class="pkshow-card pkcard-charizard" id="pkCharizard">
       <div class="pkshow-aura aura-red"></div>
-      <img src="charizard-gx.png" alt="Charizard GX">
+      <img id="pkImg3" src="charizard-gx.png" alt="Pokémon karta">
     </div>
   </div>
 </section>
@@ -644,32 +644,80 @@ function doLogout() {
 </script>
 <script>
 /* ══════════════════════════════════════════════════
-   POKEMON CARDS FLY-IN ANIMATION
+   POKEMON CARDS FLY-IN ANIMATION + TCG API
+   – Každý cyklus načte 3 náhodné rare karty z API
+     (VMAX, GX, V, EX, Full Art...)
+   – Fallback na lokální obrázky pokud API selže
    Timeline per cyklus:
-     0s       – Pikachu přilétá
-     0.8s     – Mewtwo přilétá
-     1.6s     – Charizard přilétá
+     0s       – karta 1 přilétá
+     0.8s     – karta 2 přilétá
+     1.6s     – karta 3 přilétá
      2.6s     – aury se rozsvítí + karty pulzují
      62.6s    – karty odlétají (fade-out + scale + blur)
-     64.0s    – reset → opakování
+     64.0s    – načtení nových karet → opakování
 ══════════════════════════════════════════════════ */
 (function pkShowInit() {
   var stage    = document.getElementById('pkShowStage');
-  var pikachu  = document.getElementById('pkPikachu');
-  var mewtwo   = document.getElementById('pkMewtwo');
-  var charizard= document.getElementById('pkCharizard');
-  if (!stage || !pikachu) return;
+  var card1    = document.getElementById('pkPikachu');
+  var card2    = document.getElementById('pkMewtwo');
+  var card3    = document.getElementById('pkCharizard');
+  var img1     = document.getElementById('pkImg1');
+  var img2     = document.getElementById('pkImg2');
+  var img3     = document.getElementById('pkImg3');
+  if (!stage || !card1) return;
 
-  var FLY_IN_DUR   = 1300;   // ms – délka příletu (cubic-bezier)
-  var PULSE_MS     = 60000;  // ms – jak dlouho karty svítí
-  var FADE_MS      = 1800;   // ms – délka odletu
-  var PAUSE_MS     = 800;    // ms – pauza před restartm
-  var timers       = [];
+  var FLY_IN_DUR = 1300;
+  var PULSE_MS   = 60000;
+  var FADE_MS    = 1800;
+  var PAUSE_MS   = 800;
+  var timers     = [];
+
+  /* Pool karet načtených z API */
+  var cardPool = [];
+
+  /* Fallback obrázky pokud API selže */
+  var FALLBACK = [
+    { url: 'pikachu-gx.png',   name: 'Pikachu GX'   },
+    { url: 'mewtwo-v.png',     name: 'Mewtwo V'      },
+    { url: 'charizard-gx.png', name: 'Charizard GX'  }
+  ];
+
+  /* Načte pool karet z Pokémon TCG API */
+  async function fetchCardPool() {
+    try {
+      /* Načte náhodnou stránku rare karet (VMAX, GX, V, EX, Full Art) */
+      var page = Math.floor(Math.random() * 5) + 1;
+      var url  = 'https://api.pokemontcg.io/v2/cards'
+               + '?q=subtypes:VMAX OR subtypes:GX OR subtypes:V OR subtypes:EX'
+               + '&select=id,name,images'
+               + '&pageSize=20&page=' + page;
+      var resp = await fetch(url, { signal: AbortSignal.timeout(5000) });
+      if (!resp.ok) throw new Error('API error');
+      var data = await resp.json();
+      /* Filtruje karty které mají large obrázek */
+      var valid = (data.data || []).filter(function(c) {
+        return c.images && c.images.large;
+      });
+      if (valid.length >= 3) {
+        cardPool = valid;
+        return true;
+      }
+    } catch(e) {}
+    return false;
+  }
+
+  /* Vybere 3 náhodné unikátní karty z poolu */
+  function pickThree() {
+    if (cardPool.length < 3) {
+      return FALLBACK.map(function(f) { return { images: { large: f.url }, name: f.name }; });
+    }
+    var shuffled = cardPool.slice().sort(function() { return Math.random() - 0.5; });
+    return shuffled.slice(0, 3);
+  }
 
   function after(ms, fn) { var t = setTimeout(fn, ms); timers.push(t); return t; }
   function clearAll()    { timers.forEach(clearTimeout); timers = []; }
 
-  /* Uvede kartu do výchozí pozice */
   function resetCard(el) {
     el.style.transition = 'none';
     el.style.opacity    = '0';
@@ -678,9 +726,7 @@ function doLogout() {
     el.classList.remove('active');
   }
 
-  /* Animuje přilet jedné karty */
   function flyIn(el) {
-    // Krátký tick aby prohlížeč zaregistroval reset
     requestAnimationFrame(function() {
       requestAnimationFrame(function() {
         el.style.transition =
@@ -693,9 +739,8 @@ function doLogout() {
     });
   }
 
-  /* Animuje odlet všech karet */
   function flyOut() {
-    [pikachu, mewtwo, charizard].forEach(function(el, i) {
+    [card1, card2, card3].forEach(function(el, i) {
       after(i * 120, function() {
         el.style.transition =
           'transform ' + FADE_MS + 'ms cubic-bezier(0.4, 0, 1, 1), ' +
@@ -709,32 +754,44 @@ function doLogout() {
     });
   }
 
-  /* Jeden kompletní cyklus */
-  function startCycle() {
+  /* Nastaví obrázky karet před přiletem */
+  function applyCards(three) {
+    img1.src = three[0].images.large; img1.alt = three[0].name || 'Pokémon karta';
+    img2.src = three[1].images.large; img2.alt = three[1].name || 'Pokémon karta';
+    img3.src = three[2].images.large; img3.alt = three[2].name || 'Pokémon karta';
+  }
+
+  async function startCycle() {
     clearAll();
 
-    /* 1. Reset do výchozí pozice */
-    resetCard(pikachu);
-    resetCard(mewtwo);
-    resetCard(charizard);
+    /* Reset pozice */
+    resetCard(card1); resetCard(card2); resetCard(card3);
     stage.classList.remove('auras-on');
 
-    /* 2. Přilet karet */
-    after(60,  function() { flyIn(pikachu);   });
-    after(860, function() { flyIn(mewtwo);    });
-    after(1660,function() { flyIn(charizard); });
+    /* Načti nové karty z API (nebo použij pool) */
+    if (cardPool.length < 3) await fetchCardPool();
+    applyCards(pickThree());
 
-    /* 3. Zapni aury */
+    /* Přilet */
+    after(60,   function() { flyIn(card1); });
+    after(860,  function() { flyIn(card2); });
+    after(1660, function() { flyIn(card3); });
+
+    /* Aury */
     after(2700, function() { stage.classList.add('auras-on'); });
 
-    /* 4. Po 60 sekundách odlet */
+    /* Odlet */
     after(2700 + PULSE_MS, function() {
       stage.classList.remove('auras-on');
       after(400, flyOut);
     });
 
-    /* 5. Restart */
-    after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, startCycle);
+    /* Restart + obnovení poolu */
+    after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, function() {
+      /* Každý 3. cyklus refreshneme pool pro nové karty */
+      if (Math.random() < 0.4) cardPool = [];
+      startCycle();
+    });
   }
 
   startCycle();
