@@ -452,65 +452,65 @@ body::after {
     <div class="album-picker-panel" id="albumPickerPanel">
       <div class="album-picker-title">📂 Vyber své album k porovnání</div>
       <div class="album-picker-subtitle">Album druhého uživatele je načteno — zvol, se kterým ze svých alb chceš porovnat.</div>
-      <div class="album-picker-list" id="albumPickerList"><div class="album-picker-empty">⏳ Načítám alba…</div></div>
-      <div class="album-picker-actions">
-        <button class="btn-compare-go" id="btnCompareGo" onclick="startOnlineCompare()" disabled>Porovnat alba →</button>
+      <div class=\"album-picker-list\" id=\"albumPickerList\"><div class=\"album-picker-empty\">⏳ Načítám alba…</div></div>
+      <div class=\"album-picker-actions\">
+        <button class=\"btn-compare-go\" id=\"btnCompareGo\" onclick=\"startOnlineCompare()\" disabled><span data-i18n="compare.compareBtn">Porovnat alba →</span></button>
       </div>
     </div>
 
-    <div class="compare-header">
-      <h1>Porovnat dvě alba</h1>
-      <p>Nahraj dvě <code>.pktr</code> zálohy a hned uvidíš průniky a rozdíly.</p>
+    <div class=\"compare-header\">
+      <h1 data-i18n="compare.title">Porovnat dvě alba</h1>
+      <p><span data-i18n="compare.subtitle1">Nahraj dvě</span> <code>.pktr</code> <span data-i18n="compare.subtitle2">zálohy a hned uvidíš průniky a rozdíly.</span></p>
     </div>
 
     <!-- UPLOAD ZONE -->
-    <div class="compare-upload-row">
-      <div class="compare-drop" id="drop1"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event,1)">
-        <div class="cd-inner">
-          <div class="cd-icon">📂</div>
-          <div class="cd-label" id="label1">Album A</div>
-          <small>Přetáhni .pktr nebo .pkte</small>
-          <button class="btn-ghost" onclick="openLocalAlbumPicker(1)" style="margin-bottom:4px">🗂 Vybrat z mých alb</button>
-          <label class="btn-ghost" style="font-size:12px;opacity:.7">
-            Vybrat soubor
-            <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,1)" style="display:none">
+    <div class=\"compare-upload-row\">
+      <div class=\"compare-drop\" id=\"drop1\"
+           ondragover=\"event.preventDefault();this.classList.add('drag-over')\"
+           ondragleave=\"this.classList.remove('drag-over')\"
+           ondrop=\"handleDrop(event,1)\">
+        <div class=\"cd-inner\">
+          <div class=\"cd-icon\">📂</div>
+          <div class=\"cd-label\" id=\"label1\" data-i18n="compare.albumA">Album A</div>
+          <small data-i18n="compare.dragHint">Přetáhni .pktr nebo .pkte</small>
+          <button class=\"btn-ghost\" onclick=\"openLocalAlbumPicker(1)\" style=\"margin-bottom:4px\">🗂 <span data-i18n="compare.pickAlbum">Vybrat z mých alb</span></button>
+          <label class=\"btn-ghost\" style=\"font-size:12px;opacity:.7\">
+            <span data-i18n="compare.pickFile">Vybrat soubor</span>
+            <input type=\"file\" accept=\".pktr,.pkte\" onchange=\"handleFile(event,1)\" style=\"display:none\">
           </label>
         </div>
       </div>
 
-      <div class="compare-vs">VS</div>
+      <div class=\"compare-vs\">VS</div>
 
-      <div class="compare-drop" id="drop2"
-           ondragover="event.preventDefault();this.classList.add('drag-over')"
-           ondragleave="this.classList.remove('drag-over')"
-           ondrop="handleDrop(event,2)">
-        <div class="cd-inner">
-          <div class="cd-icon">📂</div>
-          <div class="cd-label" id="label2">Album B</div>
-          <small>Přetáhni .pktr nebo .pkte</small>
-          <button class="btn-ghost" onclick="openLocalAlbumPicker(2)" style="margin-bottom:4px">🗂 Vybrat z mých alb</button>
-          <label class="btn-ghost" style="font-size:12px;opacity:.7">
-            Vybrat soubor
-            <input type="file" accept=".pktr,.pkte" onchange="handleFile(event,2)" style="display:none">
+      <div class=\"compare-drop\" id=\"drop2\"
+           ondragover=\"event.preventDefault();this.classList.add('drag-over')\"
+           ondragleave=\"this.classList.remove('drag-over')\"
+           ondrop=\"handleDrop(event,2)\">
+        <div class=\"cd-inner\">
+          <div class=\"cd-icon\">📂</div>
+          <div class=\"cd-label\" id=\"label2\" data-i18n="compare.albumB">Album B</div>
+          <small data-i18n="compare.dragHint">Přetáhni .pktr nebo .pkte</small>
+          <button class=\"btn-ghost\" onclick=\"openLocalAlbumPicker(2)\" style=\"margin-bottom:4px\">🗂 <span data-i18n="compare.pickAlbum">Vybrat z mých alb</span></button>
+          <label class=\"btn-ghost\" style=\"font-size:12px;opacity:.7\">
+            <span data-i18n="compare.pickFile">Vybrat soubor</span>
+            <input type=\"file\" accept=\".pktr,.pkte\" onchange=\"handleFile(event,2)\" style=\"display:none\">
           </label>
         </div>
       </div>
     </div>
 
-    <div id="compareResults" style="display:none">
+    <div id=\"compareResults\" style=\"display:none\">
 
       <!-- STATS BAR -->
-      <div class="compare-stats" id="compareStats"></div>
+      <div class=\"compare-stats\" id=\"compareStats\"></div>
 
       <!-- TABS -->
-      <div class="compare-tabs">
-        <button class="ct-tab active" onclick="showTab('both',this)">✅ Máte oba</button>
-        <button class="ct-tab" onclick="showTab('only1',this)">🟦 Jen Album A</button>
-        <button class="ct-tab" onclick="showTab('only2',this)">🟨 Jen Album B</button>
-        <button class="ct-tab" onclick="showTab('all',this)">📋 Vše</button>
+      <div class=\"compare-tabs\">
+        <button class=\"ct-tab active\" onclick=\"showTab('both',this)\">✅ <span data-i18n="compare.tabBoth">Máte oba</span></button>
+        <button class=\"ct-tab\" onclick=\"showTab('only1',this)\">🟦 <span data-i18n="compare.tabOnly1">Jen Album A</span></button>
+        <button class=\"ct-tab\" onclick=\"showTab('only2',this)\">🟨 <span data-i18n="compare.tabOnly2">Jen Album B</span></button>
+        <button class=\"ct-tab\" onclick=\"showTab('all',this)\">📋 <span data-i18n="compare.tabAll">Vše</span></button>
       </div>
 
       <!-- FLAT FILTERS -->

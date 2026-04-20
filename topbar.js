@@ -28,13 +28,13 @@
    Přidej/odeber řádek zde a propíše se na všechny stránky.
    ══════════════════════════════════════════════════════════════ */
 var PAGES = [
-  { href: 'marketplace.html',  icon: 'energi/obchod.png',          label: 'Obchod',            id: 'marketplace' },
-  { href: 'moje-album.html',   icon: 'energi/moje alba.png',        label: 'Moje alba',         id: 'moje-album'  },
-  { href: 'compare.html',      icon: 'energi/porovnat.png',         label: 'Porovnat alba',     id: 'compare'     },
-  { href: 'share-album.html',       icon: 'energi/sdilet.png',      label: 'Sdílet album',      id: 'share'  },
-  { href: 'scanner.html',      icon: 'energi/scanner.png',          label: 'Skener',            id: 'scanner'     },
-  { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', label: 'Čeká na zařazení',  id: 'queue'       },
-  { href: 'download.html',     icon: 'energi/ke_stazeni.png',       label: 'Ke stažení',        id: 'download'    },
+  { href: 'marketplace.html',  icon: 'energi/obchod.png',          labelKey: 'nav.marketplace', label: 'Obchod',            id: 'marketplace' },
+  { href: 'moje-album.html',   icon: 'energi/moje alba.png',        labelKey: 'nav.myAlbum',     label: 'Moje alba',         id: 'moje-album'  },
+  { href: 'compare.html',      icon: 'energi/porovnat.png',         labelKey: 'nav.compare',     label: 'Porovnat alba',     id: 'compare'     },
+  { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
+  { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
+  { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
+  { href: 'download.html',     icon: 'energi/ke_stazeni.png',       labelKey: 'nav.download',    label: 'Ke stažení',        id: 'download'    },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -387,10 +387,11 @@ function renderNav() {
 
   /* ── Desktop nav pills ── */
   nav.innerHTML = PAGES.map(function (p) {
-    var cls = (p.id === active) ? ' class="active"' : '';
+    var cls   = (p.id === active) ? ' class="active"' : '';
+    var label = (window.t && p.labelKey) ? window.t(p.labelKey, p.label) : p.label;
     return '<a href="' + p.href + '"' + cls + '>'
          + '<img src="' + p.icon + '" class="nav-icon"> '
-         + p.label + '</a>';
+         + label + '</a>';
   }).join('');
 
   /* ── Hamburger tlačítko (vkládá se PŘED nav) ── */
@@ -407,10 +408,11 @@ function renderNav() {
   /* ── Mobilní drawer overlay ── */
   if (!document.getElementById('mobNavOverlay')) {
     var linksHtml = PAGES.map(function(p) {
-      var cls = (p.id === active) ? ' active' : '';
+      var cls   = (p.id === active) ? ' active' : '';
+      var label = (window.t && p.labelKey) ? window.t(p.labelKey, p.label) : p.label;
       return '<a href="' + p.href + '" class="' + cls + '">'
            + '<img src="' + p.icon + '" class="nav-icon"> '
-           + p.label + '</a>';
+           + label + '</a>';
     }).join('');
 
     var overlay = document.createElement('div');
