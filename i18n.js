@@ -60,14 +60,29 @@ function applyToNode(root) {
     var el  = els[i];
     var key = el.getAttribute('data-i18n');
     var val = t(key);
-    if (val !== key) {
-      // Pokud element obsahuje jen text, nahradíme textContent
-      // Pokud má atribut data-i18n-attr, přeložíme atribut (placeholder, title…)
-      var attr = el.getAttribute('data-i18n-attr');
-      if (attr) {
-        el.setAttribute(attr, val);
-      } else {
-        el.textContent = val;
+    if (val === key) continue; // klíč nenalezen, nechej jak je
+
+    var attr = el.getAttribute('data-i18n-attr');
+    if (attr) {
+      // Přeložit atribut (placeholder, title, aria-label…)
+      el.setAttribute(attr, val);
+    } else if (el.children.length === 0) {
+      // Leaf element — bezpečně přepsat text
+      el.textContent = val;
+    } else {
+      // Element má child elementy — najdi první textový uzel a přepiš jen ten
+      var replaced = false;
+      for (var j = 0; j < el.childNodes.length; j++) {
+        var node = el.childNodes[j];
+        if (node.nodeType === 3 && node.textContent.trim() !== '') {
+          node.textContent = val;
+          replaced = true;
+          break;
+        }
+      }
+      // Pokud žádný textový uzel nenašel, vlož před první child
+      if (!replaced) {
+        el.insertBefore(document.createTextNode(val), el.firstChild);
       }
     }
   }

@@ -1015,8 +1015,8 @@ function _closeLangDrop() {
 }
 
 // Reagovat na změnu jazyka
-document.addEventListener('i18n:changed', function() { _updateLangBtn(); });
-document.addEventListener('i18n:ready',   function() { _updateLangBtn(); });
+document.addEventListener('i18n:changed', function() { _updateLangBtn(); renderNav(); });
+document.addEventListener('i18n:ready',   function() { _updateLangBtn(); renderNav(); });
 
 function init() {
   injectStyles();
