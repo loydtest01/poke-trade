@@ -1472,6 +1472,7 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75"><img src="energi/vymeneno.png" class="sb-icon"> Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
+      <button class="sb-btn" onclick="openTcgBrowser()" id="sbTcgBrowser" style="border:1px solid rgba(245,200,66,.2);background:rgba(245,200,66,.05);">🔍 <span style="margin-left:2px;">pokemontcg.io</span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -6033,7 +6034,15 @@ let _cbQuery = '';
 let _cbSet   = '';
 let _cbLoading = false;
 
-async function openCardBrowser() {
+function openTcgBrowser() {
+  // Odznač ostatní speciální tlačítka v sidebaru
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('sbTcgBrowser');
+  if (btn) btn.classList.add('active');
+  openCardBrowser(true);
+}
+
+async function openCardBrowser(autoLoad = false) {
   let modal = document.getElementById('cardBrowserModal');
   if (!modal) {
     modal = document.createElement('div');
@@ -6097,15 +6106,19 @@ async function openCardBrowser() {
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) closeCardBrowser(); });
     // Načti sety
-    cbLoadSets();
+    await cbLoadSets();
+    if (autoLoad) cbSearch(1); // automaticky načti nejnovější karty
   } else {
     modal.style.display = 'flex';
+    if (autoLoad) cbSearch(1);
   }
 }
 
 function closeCardBrowser() {
   const modal = document.getElementById('cardBrowserModal');
   if (modal) modal.style.display = 'none';
+  const btn = document.getElementById('sbTcgBrowser');
+  if (btn) btn.classList.remove('active');
 }
 
 let _cbSearchTimer = null;
