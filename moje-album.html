@@ -2402,7 +2402,7 @@ function renderCard(c, albumCardIds) {
         ${c.for_trade ? '<span class="badge-pill badge-trade">\u{1F504}</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">\u{1F4B0}</span>'  : ''}
         ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">\u2B50 ${fmtCardPrice(c.p30d)}</span>` : ''}
-        ${(!selectMode && !c._readOnly) ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">\\u{1F5D1}</button>` : ''}
+        ${(!selectMode && !c._readOnly) ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">🗑</button>` : ''}
       </div>
       <div class="card-footer">
         <div class="card-name">${esc(c.name||'?')}</div>
@@ -5778,23 +5778,36 @@ function bookNextPage() {
 function renderBookView() {
   // Get same filtered cards as grid
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
-  const albumCardIds = getActiveAlbumCardIds();
 
-  let rawFiltered = allCards.filter(c => {
-    if (activeView === 'trade' && !c.for_trade) return false;
-    if (activeView === 'sell'  && !c.for_sell)  return false;
-    if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
-    if (activeType && !matchType(c, activeType)) return false;
-    if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
-    if (activeRarity && !matchRarity(c, activeRarity)) return false;
-    if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
-    if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
-    if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
-    if (q && !((c.name||'').toLowerCase().includes(q) ||
-               (c.set||'').toLowerCase().includes(q)  ||
-               (c.number||'').toLowerCase().includes(q))) return false;
-    return true;
-  });
+  // Sdílené album (read-only) — stejná logika jako v render()
+  const readOnlyShare = activeSharedAlbumId
+    ? allSharedAlbums.find(s => s.id === activeSharedAlbumId) : null;
+  const isReadOnly = !!readOnlyShare;
+
+  let rawFiltered;
+  if (isReadOnly) {
+    rawFiltered = (readOnlyShare.cards_snapshot || []).map(c => ({ ...c, _readOnly: true }))
+      .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
+                          (c.set||'').toLowerCase().includes(q)  ||
+                          (c.number||'').toLowerCase().includes(q));
+  } else {
+    const albumCardIds = getActiveAlbumCardIds();
+    rawFiltered = allCards.filter(c => {
+      if (activeView === 'trade' && !c.for_trade) return false;
+      if (activeView === 'sell'  && !c.for_sell)  return false;
+      if (activeCond && (c.condition || c.cond || 'NM') !== activeCond) return false;
+      if (activeType && !matchType(c, activeType)) return false;
+      if (activeSupertype && !matchSupertype(c, activeSupertype)) return false;
+      if (activeRarity && !matchRarity(c, activeRarity)) return false;
+      if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
+      if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
+      if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
+      if (q && !((c.name||'').toLowerCase().includes(q) ||
+                 (c.set||'').toLowerCase().includes(q)  ||
+                 (c.number||'').toLowerCase().includes(q))) return false;
+      return true;
+    });
+  }
   rawFiltered = sortCards(rawFiltered);
   bookFilteredCards = buildBookPages(rawFiltered);
 
