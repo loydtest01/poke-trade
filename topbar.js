@@ -388,7 +388,7 @@ function renderNav() {
   /* ── Desktop nav pills ── */
   nav.innerHTML = PAGES.map(function (p) {
     var cls   = (p.id === active) ? ' class="active"' : '';
-    var label = (window.t && p.labelKey) ? window.t(p.labelKey, p.label) : p.label;
+    var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
     return '<a href="' + p.href + '"' + cls + '>'
          + '<img src="' + p.icon + '" class="nav-icon"> '
          + label + '</a>';
@@ -409,7 +409,7 @@ function renderNav() {
   if (!document.getElementById('mobNavOverlay')) {
     var linksHtml = PAGES.map(function(p) {
       var cls   = (p.id === active) ? ' active' : '';
-      var label = (window.t && p.labelKey) ? window.t(p.labelKey, p.label) : p.label;
+      var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
       return '<a href="' + p.href + '" class="' + cls + '">'
            + '<img src="' + p.icon + '" class="nav-icon"> '
            + label + '</a>';

@@ -124,8 +124,8 @@ function onReady(fn) {
 }
 
 /* ── Veřejné API ── */
-window.t = t;
-window.setLang = setLang;            // alias pro topbar.js
+window.pt = t;                       // window.pt() — bezkolizní název
+window.setLang = setLang;
 window.getLang = function() { return _lang; };
 window.i18n = {
   get lang() { return _lang; },
