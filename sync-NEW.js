@@ -9,7 +9,7 @@ import { saveAsset, listAssets } from './asset-store.js';
 
 // ── Konfigurace ───────────────────────────────────────────────────────────
 // ⚠️ Vyplň URL svého Vercel projektu:
-const MANIFEST_URL = 'https://pokemon-trade-ruddy.vercel.app/pkc-manifest.json';
+const MANIFEST_URL = 'https://poke-trade-ruddy.vercel.app/pkc-manifest.json';
 
 const LS_KEY_LAST_SYNC   = 'pkc_sync_last_updated';
 const LS_KEY_SYNC_STATUS = 'pkc_sync_status';
