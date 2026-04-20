@@ -4,11 +4,12 @@
   <link rel="icon" type="image/png" href="pokemon.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nabídky – PokéTrade</title>
+  <title data-i18n="marketplace.page_title">Nabídky – PokéTrade</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="marketplace.css">
+  <script src="i18n.js"></script>
   <script>window.TOPBAR_ACTIVE = 'marketplace';</script>
   <script src="topbar.js"></script>
 </head>
@@ -53,23 +54,23 @@
   <!-- Plovoucí tlačítko filtrů (viditelné jen na mobilu) -->
   <button class="mob-filter-btn" onclick="openMobSidebar()" id="mobFilterBtn">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
-    Filtry
+    <span data-i18n="common.filters">Filtry</span>
   </button>
   <aside class="sidebar" id="mainSidebar">
     <div class="sb-section">
-      <span class="sb-label">Typ položek</span>
-      <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"> 🃏 Karty <span class="sb-count" id="sbCountCards">0</span></label>
-      <label class="filter-opt"><input type="checkbox" id="itSealed" checked onchange="applyItemTypeCheckboxes()"> 📦 Sealed <span class="sb-count" id="sbCountSealed">0</span></label>
+      <span class="sb-label" data-i18n="marketplace.sidebar.item_type">Typ položek</span>
+      <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"><span data-i18n="marketplace.sidebar.cards">🃏 Karty</span> <span class="sb-count" id="sbCountCards">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="itSealed" checked onchange="applyItemTypeCheckboxes()"><span data-i18n="marketplace.sidebar.sealed">📦 Sealed</span> <span class="sb-count" id="sbCountSealed">0</span></label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
-      <span class="sb-label">Typ nabídky</span>
-      <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"> Prodej <span class="sb-count" id="sbCountSell">0</span></label>
-      <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"> Výměna <span class="sb-count" id="sbCountTrade">0</span></label>
+      <span class="sb-label" data-i18n="marketplace.sidebar.offer_type">Typ nabídky</span>
+      <label class="filter-opt"><input type="checkbox" id="fSell" checked onchange="applyFilters()"><span data-i18n="marketplace.sidebar.sell">Prodej</span> <span class="sb-count" id="sbCountSell">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="fTrade" checked onchange="applyFilters()"><span data-i18n="marketplace.sidebar.trade">Výměna</span> <span class="sb-count" id="sbCountTrade">0</span></label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
-      <span class="sb-label">Cena (Kč)</span>
+      <span class="sb-label" data-i18n="marketplace.sidebar.price_czk">Cena (Kč)</span>
       <div class="price-row">
         <input class="price-inp" id="fPriceMin" type="number" placeholder="0" onchange="applyFilters()">
         <span>—</span>
@@ -79,7 +80,7 @@
     <div class="sb-divider"></div>
     <div class="sb-section sb-acc-wrap">
       <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
-        <span>Stav karty</span>
+        <span data-i18n="marketplace.sidebar.card_condition">Stav karty</span>
         <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sb-acc-body" hidden>
@@ -92,7 +93,7 @@
     <div class="sb-divider"></div>
     <div class="sb-section sb-acc-wrap">
       <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
-        <span>Element</span>
+        <span data-i18n="marketplace.sidebar.element">Element</span>
         <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sb-acc-body" hidden>
@@ -119,7 +120,7 @@
     <div class="sb-divider"></div>
     <div class="sb-section sb-acc-wrap">
       <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
-        <span>Vzácnost</span>
+        <span data-i18n="marketplace.sidebar.rarity">Vzácnost</span>
         <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sb-acc-body" hidden>
@@ -130,20 +131,20 @@
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
-      <span class="sb-label">Moje alba</span>
+      <span class="sb-label" data-i18n="marketplace.sidebar.my_albums">Moje alba</span>
       <button class="btn-album-compare" id="btnAlbumCompare" onclick="toggleAlbumPicker()">
-        📚 Porovnat s albem
+        <span data-i18n="marketplace.sidebar.compare_album">📚 Porovnat s albem</span>
         <span class="ac-badge" id="acBadge" style="display:none">0</span>
       </button>
       <div id="albumPickerDrop" class="album-picker-drop" style="display:none">
         <div id="albumPickerList">
-          <div class="album-picker-item" style="color:var(--text3);font-size:11px;pointer-events:none">⏳ Načítám alba...</div>
+          <div class="album-picker-item" style="color:var(--text3);font-size:11px;pointer-events:none" data-i18n="marketplace.sidebar.loading_albums">⏳ Načítám alba...</div>
         </div>
       </div>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
-      <button onclick="clearAllFilters()" style="width:100%;padding:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(255,80,80,0.12)';this.style.color='#ff6060'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='var(--text3)'">✕ Vše vymazat</button>
+      <button onclick="clearAllFilters()" style="width:100%;padding:8px 0;border-radius:8px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.05);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(255,80,80,0.12)';this.style.color='#ff6060'" onmouseout="this.style.background='rgba(255,255,255,0.05)';this.style.color='var(--text3)'"><span data-i18n="marketplace.sidebar.clear_filters">✕ Vše vymazat</span></button>
     </div>
   </aside>
 
@@ -153,14 +154,14 @@
       <div style="background:#0e0c14;border:1px solid rgba(245,200,66,0.22);border-radius:18px;width:100%;max-width:480px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;animation:panelSlide .18s ease">
         <div class="panel-head" style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
           <div class="panel-head-title">
-            ⏳ Čeká na vystavení
+            <span data-i18n="marketplace.pending.title">⏳ Čeká na vystavení</span>
             <span class="pending-badge" id="pendingBadgePanel">0</span>
           </div>
           <button class="panel-close" onclick="togglePendingPanel(false)">✕</button>
         </div>
-        <div style="padding:10px 20px;font-size:12px;color:var(--text3);flex-shrink:0">Klikni na kartu pro vystavení nabídky</div>
+        <div style="padding:10px 20px;font-size:12px;color:var(--text3);flex-shrink:0" data-i18n="marketplace.pending.hint">Klikni na kartu pro vystavení nabídky</div>
         <div class="pending-list" id="pendingList" style="overflow-y:auto;flex:1;padding-bottom:8px">
-          <div class="pending-empty">Žádné karty nečekají na vystavení.</div>
+          <div class="pending-empty" data-i18n="marketplace.pending.empty">Žádné karty nečekají na vystavení.</div>
         </div>
       </div>
     </div>
@@ -169,10 +170,10 @@
     <div id="listView">
       <!-- MODE TABS: Nabídky / Poptávky -->
       <div class="market-mode-tabs">
-        <button class="mmt-btn active" id="mmtOffer" onclick="setMarketMode('offer')">🏷️ Nabídky</button>
-        <button class="mmt-btn" id="mmtDemand" onclick="setMarketMode('demand')">🔍 Poptávky</button>
-        <a class="mmt-btn" id="mmtMyListings" href="marketplace.html?my=1">🏪 Správa inzerátů</a>
-        <a class="mmt-btn" id="mmtTransactions" href="transactions.html">💳 Transakce</a>
+        <button class="mmt-btn active" id="mmtOffer" onclick="setMarketMode('offer')" data-i18n="marketplace.tabs.offers">🏷️ Nabídky</button>
+        <button class="mmt-btn" id="mmtDemand" onclick="setMarketMode('demand')" data-i18n="marketplace.tabs.demands">🔍 Poptávky</button>
+        <a class="mmt-btn" id="mmtMyListings" href="marketplace.html?my=1" data-i18n="marketplace.tabs.my_listings">🏪 Správa inzerátů</a>
+        <a class="mmt-btn" id="mmtTransactions" href="transactions.html" data-i18n="marketplace.tabs.transactions">💳 Transakce</a>
       </div>
       <script>
         // Zvýraznit správnou záložku podle URL
@@ -191,43 +192,43 @@
 
       <div class="market-toolbar">
         <div class="search-wrap">
-          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." oninput="applyFilters()" style="padding-right:42px">
-          <button class="search-filter-btn" id="advFilterBtn" onclick="toggleAdvFilter()" title="Pokročilé filtry">▾ Filtr</button>
+          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." data-i18n-placeholder="marketplace.toolbar.search_placeholder" oninput="applyFilters()" style="padding-right:42px">
+          <button class="search-filter-btn" id="advFilterBtn" onclick="toggleAdvFilter()" title="Pokročilé filtry" data-i18n="marketplace.toolbar.adv_filter">▾ Filtr</button>
         </div>
         <select class="sort-sel" id="sortSel" onchange="applyFilters()">
-          <option value="newest">Nejnovější</option>
-          <option value="price_asc">Cena: nejnižší</option>
-          <option value="price_desc">Cena: nejvyšší</option>
-          <option value="offers">Nejvíce nabídek</option>
+          <option value="newest" data-i18n="marketplace.toolbar.sort_newest">Nejnovější</option>
+          <option value="price_asc" data-i18n="marketplace.toolbar.sort_price_asc">Cena: nejnižší</option>
+          <option value="price_desc" data-i18n="marketplace.toolbar.sort_price_desc">Cena: nejvyšší</option>
+          <option value="offers" data-i18n="marketplace.toolbar.sort_offers">Nejvíce nabídek</option>
         </select>
         <div class="view-toggle" id="viewToggleBtns">
-          <button class="vt-btn act" id="vtList" onclick="setViewMode('list')">☰ Seznam</button>
-          <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')">⊞ Mřížka</button>
+          <button class="vt-btn act" id="vtList" onclick="setViewMode('list')" data-i18n="marketplace.toolbar.view_list">☰ Seznam</button>
+          <button class="vt-btn" id="vtGrid" onclick="setViewMode('grid')" data-i18n="marketplace.toolbar.view_grid">⊞ Mřížka</button>
         </div>
         <span class="count-info" id="countInfo">0 nabídek</span>
         <button id="btnPendingQueue" class="btn-pending empty" onclick="togglePendingPanel()">
-          ⏳ Čeká na vystavení <span class="pending-badge" id="pendingBadgeBtn">0</span>
+          <span data-i18n="marketplace.toolbar.pending_queue">⏳ Čeká na vystavení</span> <span class="pending-badge" id="pendingBadgeBtn">0</span>
         </button>
-        <button id="btnAddOffer" onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">＋ Vystavit nabídku</button>
-        <button id="btnAddDemand" onclick="openAddDemand()" style="display:none;padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">🔍 Přidat poptávku</button>
+        <button id="btnAddOffer" onclick="openAddListing()" style="padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,var(--yellow),#ff8c00);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap" data-i18n="marketplace.toolbar.add_offer">＋ Vystavit nabídku</button>
+        <button id="btnAddDemand" onclick="openAddDemand()" style="display:none;padding:8px 16px;border-radius:8px;border:none;background:linear-gradient(135deg,#22d3ee,#0891b2);color:#000;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap" data-i18n="marketplace.toolbar.add_demand">🔍 Přidat poptávku</button>
       </div>
       <!-- ADVANCED FILTER PANEL -->
       <div id="advFilterPanel" class="adv-filter-panel" style="display:none">
         <div class="adv-filter-grid">
           <div class="adv-field">
-            <label>Název Pokémona</label>
+            <label data-i18n="marketplace.adv_filter.pokemon_name">Název Pokémona</label>
             <input class="adv-inp" id="afName" placeholder="Charizard...">
           </div>
           <div class="adv-field">
-            <label>Série / Set</label>
+            <label data-i18n="marketplace.adv_filter.series_set">Série / Set</label>
             <input class="adv-inp" id="afSet" placeholder="Scarlet &amp; Violet...">
           </div>
           <div class="adv-field">
-            <label>Číslo karty</label>
+            <label data-i18n="marketplace.adv_filter.card_number">Číslo karty</label>
             <input class="adv-inp" id="afNumber" placeholder="025/198">
           </div>
           <div class="adv-field">
-            <label>Typ / Element</label>
+            <label data-i18n="marketplace.adv_filter.type_element">Typ / Element</label>
             <select class="adv-inp" id="afType" onchange="syncAdvTypeToSidebar(this.value)">
               <option value="">Všechny typy</option>
               <option value="colorless">⬜ Normální / Bezbarvý</option>
@@ -251,7 +252,7 @@
             </select>
           </div>
           <div class="adv-field">
-            <label>Vzácnost</label>
+            <label data-i18n="marketplace.adv_filter.rarity">Vzácnost</label>
             <select class="adv-inp" id="afRarity" onchange="syncAdvRarityToSidebar(this.value)">
               <option value="">Všechny vzácnosti</option>
               <option value="common">Common</option>
@@ -265,7 +266,7 @@
             </select>
           </div>
           <div class="adv-field">
-            <label>Stav karty</label>
+            <label data-i18n="marketplace.adv_filter.condition">Stav karty</label>
             <select class="adv-inp" id="afCond" onchange="syncAdvCondToSidebar(this.value)">
               <option value="">Všechny stavy</option>
               <option value="NM">NM – Nová / Mint</option>
@@ -287,8 +288,8 @@
           </div>
         </div>
         <div class="adv-filter-footer">
-          <button class="btn-adv-search" onclick="applyAdvancedFilter()">🔍 Vyhledat</button>
-          <button class="btn-adv-clear" onclick="clearAdvancedFilter()">✕ Zrušit</button>
+          <button class="btn-adv-search" onclick="applyAdvancedFilter()" data-i18n="marketplace.adv_filter.search_btn">🔍 Vyhledat</button>
+          <button class="btn-adv-clear" onclick="clearAdvancedFilter()" data-i18n="marketplace.adv_filter.clear_btn">✕ Zrušit</button>
           <span id="advFilterActiveBadge" class="adv-filter-active-badge" style="display:none">Aktivní filtr</span>
         </div>
       </div>
@@ -313,7 +314,7 @@
       <!-- DEMANDS VIEW -->
       <div id="demandsView" style="display:none">
         <div class="demand-search-wrap">
-          <input type="text" id="demandSearch" placeholder="Hledat poptávku, kartu, uživatele..." oninput="applyDemandFilters()" class="panel-inp" style="flex:1;font-size:14px">
+          <input type="text" id="demandSearch" placeholder="Hledat poptávku, kartu, uživatele..." data-i18n-placeholder="marketplace.demands.search_placeholder" oninput="applyDemandFilters()" class="panel-inp" style="flex:1;font-size:14px">
           <select class="sort-sel" id="demandSortSel" onchange="applyDemandFilters()">
             <option value="newest">Nejnovější</option>
             <option value="price_desc">Nejvyšší cena</option>
@@ -329,7 +330,7 @@
     <!-- DETAIL VIEW -->
     <div id="detailView" class="detail-page">
       <div class="breadcrumb">
-        <a href="#" onclick="showList()">← Nabídky</a>
+        <a href="#" onclick="showList()" data-i18n="marketplace.detail.breadcrumb">← Nabídky</a>
         <span>/</span>
         <span id="breadTitle">Detail</span>
       </div>
@@ -342,9 +343,9 @@
             </div>
           </div>
           <div class="gallery-thumbs" id="galleryThumbs"></div>
-          <div class="gallery-hint">1. foto = ofic. obrázek z API · ostatní = fotky prodejce</div>
+          <div class="gallery-hint" data-i18n="marketplace.detail.gallery_hint">1. foto = ofic. obrázek z API · ostatní = fotky prodejce</div>
           <div style="margin-top:8px">
-            <button id="mktFakeBtn" onclick="mktRunFakeCheck()" style="width:100%;padding:7px 0;border-radius:8px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#f59e0b;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.18)'" onmouseout="this.style.background='rgba(245,158,11,.08)'">
+            <button id="mktFakeBtn" onclick="mktRunFakeCheck()" style="width:100%;padding:7px 0;border-radius:8px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#f59e0b;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s" onmouseover="this.style.background='rgba(245,158,11,.18)'" onmouseout="this.style.background='rgba(245,158,11,.08)'" data-i18n="marketplace.detail.fake_check">
               🤖 Zkontrolovat falzum (AI)
             </button>
             <div id="mktFakeResult"></div>
@@ -369,11 +370,11 @@
             </div>
           </div>
           <div class="detail-actions">
-            <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none">Koupit</button>
-            <button class="btn-detail-offer" id="dBtnOffer" onclick="togglePanel('offerPanel')">💸 Navrhnout cenu</button>
-            <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none">🔄 Navrhnout výměnu</button>
-            <button class="btn-detail-msg" id="dBtnMsg" onclick="openChat()">✉️ Napsat prodejci</button>
-            <button class="btn-detail-share" id="dBtnShare" onclick="openShareModal()">🔗 Sdílet</button>
+            <button class="btn-detail-buy" id="dBtnBuy" onclick="doBuy()" style="display:none" data-i18n="marketplace.detail.btn_buy">Koupit</button>
+            <button class="btn-detail-offer" id="dBtnOffer" onclick="togglePanel('offerPanel')" data-i18n="marketplace.detail.btn_offer">💸 Navrhnout cenu</button>
+            <button class="btn-detail-trade" id="dBtnTrade" onclick="togglePanel('tradePanel')" style="display:none" data-i18n="marketplace.detail.btn_trade">🔄 Navrhnout výměnu</button>
+            <button class="btn-detail-msg" id="dBtnMsg" onclick="openChat()" data-i18n="marketplace.detail.btn_msg">✉️ Napsat prodejci</button>
+            <button class="btn-detail-share" id="dBtnShare" onclick="openShareModal()" data-i18n="marketplace.detail.btn_share">🔗 Sdílet</button>
           </div>
           <!-- Owner akce -->
           <div id="ownerActions" style="display:none;flex-direction:column;gap:8px;margin-top:8px">
