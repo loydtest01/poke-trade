@@ -1472,7 +1472,7 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75"><img src="energi/vymeneno.png" class="sb-icon"> Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
-      <button class="sb-btn" onclick="openTcgBrowser()" id="sbTcgBrowser" style="border:1px solid rgba(245,200,66,.2);background:rgba(245,200,66,.05);">🔍 <span style="margin-left:2px;">pokemontcg.io</span></button>
+      <button class="sb-btn" onclick="openTcgBrowser()" id="sbTcgBrowser" style="border:1px solid rgba(245,200,66,.2);background:rgba(245,200,66,.05);">🔍 pokemontcg.io <span class="cnt" id="cnt-tcgapi"></span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1871,6 +1871,8 @@ body { background: #06040c; overflow-x: hidden; }
 // SUPABASE_URL a SUPABASE_ANON jsou načteny z app.js
 
 let allCards   = [];
+let _gridPage  = 0;
+const GRID_PAGE_SIZE = 200;
 let allAlbums  = [];
 let userId     = null, token = null, uname = '';
 // Map: localId (string) -> [ {id, url, side, created_at, note} ]
@@ -2224,6 +2226,15 @@ function saveAlbumsLocal() {
 // ══════════════════════════════════════════════════════════════════
 function render() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  // Reset stránky při změně filtru/hledání
+  if (render._lastQ !== q || render._lastAlbum !== [...activeAlbumIds].join(',') ||
+      render._lastType !== activeType || render._lastSuper !== activeSupertype) {
+    _gridPage = 0;
+    render._lastQ = q;
+    render._lastAlbum = [...activeAlbumIds].join(',');
+    render._lastType = activeType;
+    render._lastSuper = activeSupertype;
+  }
 
   // ── Sdílené album (read-only) ──────────────────────────────
   const readOnlyShare = activeSharedAlbumId
@@ -2291,7 +2302,7 @@ function render() {
   const expCount = filtered.filter(c => c.p30d >= getExpThreshold() && c.p30d > 0).length;
   if (tvBar) tvBar.style.display = bookViewMode === 'book' ? 'none' : 'flex';
   if (tvAmt) {
-    const cnt = cardsWithPrice.length;
+    const cnt = filtered.reduce((s, c) => s + (c.count || c.qty || 1), 0);
     const eurStr = totalVal > 0 ? totalVal.toFixed(2) + ' €' : '0 €';
     const czkStr = eurToCzk(totalVal) + ' Kč';
     tvAmt.textContent = cnt + ' karet · ' + eurStr + (window._eurRate ? ' / ' + czkStr : '');
@@ -2313,7 +2324,37 @@ function render() {
     return;
   }
 
-  document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
+  // ── Stránkování mřížky (200 karet/stránka) ────────────────
+  if (bookViewMode !== 'book') {
+    const totalPages = Math.ceil(filtered.length / GRID_PAGE_SIZE);
+    if (_gridPage >= totalPages) _gridPage = Math.max(0, totalPages - 1);
+    const pageCards = filtered.slice(_gridPage * GRID_PAGE_SIZE, (_gridPage + 1) * GRID_PAGE_SIZE);
+    document.getElementById('cardsGrid').innerHTML = pageCards.map(c => renderCard(c, albumCardIds)).join('');
+    let pagerEl = document.getElementById('gridPager');
+    if (!pagerEl) {
+      pagerEl = document.createElement('div');
+      pagerEl.id = 'gridPager';
+      pagerEl.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 0 6px;flex-wrap:wrap;';
+      document.getElementById('cardsGrid').after(pagerEl);
+    }
+    if (totalPages <= 1) {
+      pagerEl.style.display = 'none';
+    } else {
+      pagerEl.style.display = 'flex';
+      let html = `<button onclick="setGridPage(${_gridPage-1})" ${_gridPage<=0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(240,236,228,.6);font-size:12px;cursor:pointer;font-family:inherit;${_gridPage<=0?'opacity:.3':''}">← Zpět</button>`;
+      for (let p = 0; p < totalPages; p++) {
+        const act = p === _gridPage;
+        const s = p * GRID_PAGE_SIZE + 1, e = Math.min((p+1)*GRID_PAGE_SIZE, filtered.length);
+        html += `<button onclick="setGridPage(${p})" style="padding:6px 14px;border-radius:8px;border:1px solid ${act?'rgba(245,200,66,.6)':'rgba(255,255,255,.12)'};background:${act?'rgba(245,200,66,.18)':'rgba(255,255,255,.04)'};color:${act?'#f5c842':'rgba(240,236,228,.6)'};font-size:12px;font-weight:${act?'800':'500'};cursor:pointer;font-family:inherit;">${p+1} <span style="font-size:10px;opacity:.6;">${s}–${e}</span></button>`;
+      }
+      html += `<button onclick="setGridPage(${_gridPage+1})" ${_gridPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(240,236,228,.6);font-size:12px;cursor:pointer;font-family:inherit;${_gridPage>=totalPages-1?'opacity:.3':''}">Další →</button>`;
+      pagerEl.innerHTML = html;
+    }
+  } else {
+    document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
+    const pagerEl = document.getElementById('gridPager');
+    if (pagerEl) pagerEl.style.display = 'none';
+  }
   if (bookViewMode === 'book') renderBookView();
   // Aktualizuj počítadlo drahých karet v sidebaru (p30d může být načteno postupně)
   const expSbEl = document.getElementById('cnt-expensive');
@@ -2323,6 +2364,13 @@ function render() {
 function getExpThreshold() {
   const v = parseFloat(localStorage.getItem('pkc_exp_threshold'));
   return isNaN(v) ? 20 : v;
+}
+
+function setGridPage(p) {
+  _gridPage = Math.max(0, p);
+  render();
+  const grid = document.getElementById('cardsGrid');
+  if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ══════════════════════════════════════════════
@@ -6032,6 +6080,8 @@ let _cbSets = [];
 let _cbPage = 1;
 let _cbQuery = '';
 let _cbSet   = '';
+let _cbType  = '';      // element filtr (Fire, Water, …)
+let _cbSuper = '';      // supertype filtr (Pokémon, Trainer, Energy)
 let _cbLoading = false;
 
 function openTcgBrowser() {
@@ -6052,44 +6102,67 @@ async function openCardBrowser(autoLoad = false) {
       display:flex;align-items:center;justify-content:center;padding:12px;
     `;
     modal.innerHTML = `
-      <div style="background:#15111e;border-radius:16px;width:100%;max-width:700px;max-height:90vh;
+      <div style="background:#15111e;border-radius:16px;width:100%;max-width:760px;max-height:92vh;
                   display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(245,200,66,.2);
                   box-shadow:0 8px 48px #000a;">
         <!-- Header -->
-        <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.08);
+        <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.08);
                     display:flex;align-items:center;gap:10px;flex-shrink:0;">
           <span style="font-size:20px;">🖼️</span>
           <span style="font-weight:700;font-size:15px;color:#f0ece4;flex:1;">Procházet karty</span>
           <button onclick="closeCardBrowser()" style="background:none;border:none;color:rgba(240,236,228,.5);
             font-size:20px;cursor:pointer;padding:0 4px;line-height:1;">✕</button>
         </div>
-        <!-- Search row -->
-        <div style="padding:10px 14px;display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
-          <input id="cbSearchInput" placeholder="Název karty…" oninput="cbOnSearch()"
-            style="flex:1;min-width:140px;padding:8px 12px;background:rgba(255,255,255,.07);
+        <!-- Search row 1: jméno/číslo + série -->
+        <div style="padding:10px 14px 4px;display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+          <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
+            style="flex:2;min-width:160px;padding:8px 12px;background:rgba(255,255,255,.07);
                    border:1px solid rgba(245,200,66,.3);border-radius:9px;color:#f0ece4;
                    font-size:13px;font-family:inherit;outline:none;" />
           <select id="cbSetSelect" onchange="cbOnSetChange()"
-            style="flex:1;min-width:140px;padding:8px 10px;background:#0e0c14;
+            style="flex:2;min-width:150px;padding:8px 10px;background:#0e0c14;
                    border:1px solid rgba(245,200,66,.3);border-radius:9px;color:#f0ece4;
                    font-size:12px;font-family:inherit;outline:none;">
             <option value="">— Všechny série —</option>
           </select>
-          <button onclick="cbSearch(1)" style="padding:8px 14px;background:linear-gradient(135deg,#f5c842,#ff8c00);
+          <button onclick="cbSearch(1)" style="padding:8px 16px;background:linear-gradient(135deg,#f5c842,#ff8c00);
             border:none;border-radius:9px;color:#000;font-weight:800;font-size:13px;
             cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
         </div>
+        <!-- Search row 2: element + supertype filtry -->
+        <div style="padding:4px 14px 8px;display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:11px;color:rgba(240,236,228,.35);white-space:nowrap;">Typ:</span>
+          ${['','Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal','Dragon','Colorless'].map(t =>
+            `<button onclick="cbSetType('${t}')" id="cbTypeBtn_${t||'all'}"
+              style="padding:3px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.12);
+                     background:transparent;color:rgba(240,236,228,.6);font-size:11px;cursor:pointer;
+                     font-family:inherit;transition:all .15s;"
+              onmouseover="this.style.background='rgba(255,255,255,.08)'"
+              onmouseout="if(!this.classList.contains('cb-active'))this.style.background='transparent'"
+            >${t||'Vše'}</button>`
+          ).join('')}
+          <span style="font-size:11px;color:rgba(240,236,228,.25);margin:0 4px;">|</span>
+          ${[['','Vše'],['Pokémon','Pokémon'],['Trainer','Trenér'],['Energy','Energie']].map(([v,l]) =>
+            `<button onclick="cbSetSuper('${v}')" id="cbSuperBtn_${v||'all'}"
+              style="padding:3px 10px;border-radius:16px;border:1px solid rgba(255,255,255,.12);
+                     background:transparent;color:rgba(240,236,228,.6);font-size:11px;cursor:pointer;
+                     font-family:inherit;transition:all .15s;"
+              onmouseover="this.style.background='rgba(255,255,255,.08)'"
+              onmouseout="if(!this.classList.contains('cb-active'))this.style.background='transparent'"
+            >${l}</button>`
+          ).join('')}
+        </div>
         <!-- Grid -->
         <div id="cbGrid" style="flex:1;overflow-y:auto;padding:10px 14px;
-          display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:10px;
+          display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:10px;
           min-height:200px;">
           <div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
-            Zadej název karty nebo vyber sérii a stiskni Hledat
+            Zadej název/číslo karty nebo vyber sérii a stiskni Hledat
           </div>
         </div>
         <!-- Pagination -->
         <div id="cbPager" style="padding:10px 14px;border-top:1px solid rgba(255,255,255,.07);
-          display:flex;gap:8px;justify-content:center;align-items:center;flex-shrink:0;display:none;">
+          display:none;gap:8px;justify-content:center;align-items:center;flex-shrink:0;">
           <button id="cbPrevBtn" onclick="cbSearch(_cbPage-1)"
             style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
                    border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">← Zpět</button>
@@ -6135,13 +6208,18 @@ async function cbLoadSets() {
     const d = await r.json();
     _cbSets = d.data || [];
     const sel = document.getElementById('cbSetSelect');
-    if (!sel) return;
-    _cbSets.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = `${s.name} (${s.series})`;
-      sel.appendChild(opt);
-    });
+    if (sel) {
+      _cbSets.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.dataset.symbol = s.images?.symbol || '';
+        opt.textContent = `${s.name} (${s.series}) — ${s.total} karet`;
+        sel.appendChild(opt);
+      });
+    }
+    // Zobraz počet sad v sidebaru
+    const tcgCnt = document.getElementById('cnt-tcgapi');
+    if (tcgCnt) tcgCnt.textContent = _cbSets.length;
   } catch(e) { console.warn('[cbLoadSets]', e); }
 }
 
@@ -6158,11 +6236,21 @@ async function cbSearch(page = 1) {
     ⏳ Načítám karty…</div>`;
 
   try {
-    const PAGE_SIZE = 20;
+    const PAGE_SIZE = 24;
     let q = [];
-    if (_cbQuery) q.push(`name:"${_cbQuery}*"`);
+
+    // Rozlišení: číslo karty vs. jméno
+    if (_cbQuery) {
+      if (/^\d+[a-zA-Z]?$/.test(_cbQuery)) {
+        q.push(`number:${_cbQuery}`);
+      } else {
+        q.push(`name:"${_cbQuery}*"`);
+      }
+    }
     if (_cbSet)   q.push(`set.id:"${_cbSet}"`);
-    if (!q.length) q.push('hp:[1 TO 999]'); // fallback — vrátí karty
+    if (_cbType)  q.push(`types:${_cbType}`);
+    if (_cbSuper) q.push(`supertype:"${_cbSuper}"`);
+    if (!q.length) q.push('hp:[1 TO 999]');
 
     const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q.join(' '))}`
       + `&page=${page}&pageSize=${PAGE_SIZE}&orderBy=-set.releaseDate`;
@@ -6183,12 +6271,15 @@ async function cbSearch(page = 1) {
       const img = c.images?.small || '';
       const name = c.name || '?';
       const setName = c.set?.name || '';
+      const setSymbol = c.set?.images?.symbol || '';
       const num = c.number || '';
+      const types = (c.types || []).join(', ');
       const safeData = encodeURIComponent(JSON.stringify({
         id: c.id, name: c.name, set: c.set?.name || '', setCode: c.set?.id || '',
         number: c.number, types: c.types||[], hp: c.hp||'', rarity: c.rarity||'',
         supertype: c.supertype||'', subtypes: c.subtypes||[],
         imageUrl: c.images?.small||'', apiSmall: c.images?.small||'', apiLarge: c.images?.large||'',
+        setSymbol: setSymbol,
         pMin: c.cardmarket?.prices?.lowPrice||0,
         pTrend: c.cardmarket?.prices?.trendPrice||0,
         p30d: c.cardmarket?.prices?.avg30||0,
@@ -6197,25 +6288,30 @@ async function cbSearch(page = 1) {
       return `<div onclick="cbPickCard('${safeData}')"
         style="cursor:pointer;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.04);
                border:1px solid rgba(255,255,255,.08);transition:border-color .15s,transform .15s;
-               padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;"
+               padding:6px;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative;"
         onmouseover="this.style.borderColor='rgba(245,200,66,.6)';this.style.transform='scale(1.04)'"
         onmouseout="this.style.borderColor='rgba(255,255,255,.08)';this.style.transform='scale(1)'">
         ${img
-          ? `<img src="${img}" alt="${name}" loading="lazy"
-               style="width:100%;border-radius:7px;display:block;">`
+          ? `<div style="position:relative;width:100%;">
+               <img src="${img}" alt="${name}" loading="lazy" style="width:100%;border-radius:7px;display:block;">
+               ${setSymbol ? `<img src="${setSymbol}" alt="${setName}" title="${setName}"
+                 style="position:absolute;bottom:4px;left:4px;width:20px;height:20px;
+                        object-fit:contain;filter:drop-shadow(0 0 3px rgba(0,0,0,.8)) brightness(1.5);">` : ''}
+             </div>`
           : `<div style="width:100%;aspect-ratio:2/3;background:rgba(255,255,255,.06);border-radius:7px;
                          display:flex;align-items:center;justify-content:center;font-size:22px;">🃏</div>`}
         <div style="font-size:10px;font-weight:700;color:#f0ece4;text-align:center;line-height:1.2;
                     width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
-        <div style="font-size:9px;color:rgba(240,236,228,.4);text-align:center;line-height:1.2;
+        <div style="font-size:9px;color:rgba(240,236,228,.4);text-align:center;line-height:1.3;
                     width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${setName} #${num}</div>
+        ${types ? `<div style="font-size:8px;color:rgba(245,200,66,.6);text-align:center;">${types}</div>` : ''}
       </div>`;
     }).join('');
 
     // Pager
     const pager = document.getElementById('cbPager');
     pager.style.display = total > PAGE_SIZE ? 'flex' : 'none';
-    document.getElementById('cbPageInfo').textContent = `Strana ${page} / ${totalPages}  (${total} karet)`;
+    document.getElementById('cbPageInfo').textContent = `Strana ${page} / ${totalPages}  (${total.toLocaleString('cs')} karet)`;
     document.getElementById('cbPrevBtn').disabled = page <= 1;
     document.getElementById('cbNextBtn').disabled = page >= totalPages;
 
@@ -6226,44 +6322,84 @@ async function cbSearch(page = 1) {
   _cbLoading = false;
 }
 
+// Pomocné funkce pro filtr elementu a supertypů
+function cbSetType(t) {
+  _cbType = t;
+  document.querySelectorAll('[id^="cbTypeBtn_"]').forEach(b => {
+    b.classList.remove('cb-active');
+    b.style.background = 'transparent';
+    b.style.borderColor = 'rgba(255,255,255,.12)';
+    b.style.color = 'rgba(240,236,228,.6)';
+  });
+  const active = document.getElementById('cbTypeBtn_' + (t||'all'));
+  if (active) {
+    active.classList.add('cb-active');
+    active.style.background = 'rgba(245,200,66,.18)';
+    active.style.borderColor = 'rgba(245,200,66,.5)';
+    active.style.color = '#f5c842';
+  }
+  cbSearch(1);
+}
+
+function cbSetSuper(s) {
+  _cbSuper = s;
+  document.querySelectorAll('[id^="cbSuperBtn_"]').forEach(b => {
+    b.classList.remove('cb-active');
+    b.style.background = 'transparent';
+    b.style.borderColor = 'rgba(255,255,255,.12)';
+    b.style.color = 'rgba(240,236,228,.6)';
+  });
+  const active = document.getElementById('cbSuperBtn_' + (s||'all'));
+  if (active) {
+    active.classList.add('cb-active');
+    active.style.background = 'rgba(245,200,66,.18)';
+    active.style.borderColor = 'rgba(245,200,66,.5)';
+    active.style.color = '#f5c842';
+  }
+  cbSearch(1);
+}
+
 function cbPickCard(encodedData) {
   let card;
   try { card = JSON.parse(decodeURIComponent(encodedData)); } catch { return; }
 
-  // Odstraň předchozí popup
   document.querySelectorAll('.cb-card-popup').forEach(el => el.remove());
 
   const cardId = card.id || '';
-  const cardUrl = 'https://www.pokemontcg.io/cards/' + cardId;
+  const setSymbol = card.setSymbol || '';
 
   const popup = document.createElement('div');
   popup.className = 'cb-card-popup';
   popup.style.cssText = `
     position:fixed;inset:0;z-index:10001;display:flex;align-items:center;justify-content:center;
-    background:rgba(0,0,0,.7);padding:16px;
+    background:rgba(0,0,0,.75);padding:16px;
   `;
   popup.innerHTML = `
-    <div style="background:#1a1728;border-radius:14px;padding:20px;max-width:340px;width:100%;
+    <div style="background:#1a1728;border-radius:14px;padding:20px;max-width:360px;width:100%;
                 border:1px solid rgba(245,200,66,.25);box-shadow:0 8px 40px #000c;text-align:center;">
-      <img src="${card.apiSmall || card.imageUrl || ''}" alt="${card.name}"
-           style="max-width:140px;border-radius:10px;margin:0 auto 12px;display:block;
-                  box-shadow:0 4px 20px rgba(0,0,0,.6);">
-      <div style="font-weight:800;font-size:15px;color:#f0ece4;margin-bottom:2px;">${card.name}</div>
-      <div style="font-size:11px;color:rgba(240,236,228,.4);margin-bottom:14px;">${card.set} #${card.number}</div>
-
-      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(245,200,66,.2);
-                  border-radius:8px;padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-        <code style="flex:1;font-size:12px;color:#f5c842;word-break:break-all;text-align:left;">${cardId}</code>
-        <button onclick="navigator.clipboard.writeText('${cardId}').then(()=>{
-          this.textContent='✓';this.style.color='#22c55e';
-          setTimeout(()=>{this.textContent='📋';this.style.color='';},1500);
-        })" style="background:none;border:1px solid rgba(245,200,66,.3);border-radius:6px;
-                   color:#f5c842;font-size:14px;cursor:pointer;padding:3px 7px;flex-shrink:0;"
-          title="Kopírovat ID">📋</button>
+      <div style="position:relative;display:inline-block;margin-bottom:12px;">
+        <img src="${card.apiSmall || card.imageUrl || ''}" alt="${card.name}"
+             style="max-width:150px;border-radius:10px;display:block;box-shadow:0 4px 20px rgba(0,0,0,.6);">
+        ${setSymbol ? `<img src="${setSymbol}" alt="" style="position:absolute;bottom:6px;left:6px;
+          width:24px;height:24px;object-fit:contain;
+          filter:drop-shadow(0 0 4px rgba(0,0,0,1)) brightness(1.6);">` : ''}
       </div>
+      <div style="font-weight:800;font-size:15px;color:#f0ece4;margin-bottom:2px;">${card.name}</div>
+      <div style="font-size:11px;color:rgba(240,236,228,.4);margin-bottom:4px;">${card.set} #${card.number}</div>
+      ${card.types?.length ? `<div style="font-size:11px;color:rgba(245,200,66,.7);margin-bottom:12px;">${card.types.join(' / ')}</div>` : '<div style="margin-bottom:12px;"></div>'}
 
-      <div style="font-size:10px;color:rgba(240,236,228,.3);margin-bottom:14px;">
-        Vlož toto ID do pole „pokemontcg.io URL nebo ID" v detailu karty
+      <!-- ID pole + kopírovat -->
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(245,200,66,.2);
+                  border-radius:8px;padding:8px 12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+        <code style="flex:1;font-size:12px;color:#f5c842;word-break:break-all;text-align:left;">${cardId}</code>
+        <button id="cbCopyBtn_${cardId.replace(/[^a-z0-9]/gi,'')}"
+          onclick="cbCopyAndSave('${encodedData}', this)"
+          style="background:none;border:1px solid rgba(245,200,66,.3);border-radius:6px;
+                 color:#f5c842;font-size:14px;cursor:pointer;padding:3px 7px;flex-shrink:0;"
+          title="Kopírovat ID (a uložit kartu do alba)">📋</button>
+      </div>
+      <div style="font-size:10px;color:rgba(240,236,228,.25);margin-bottom:14px;">
+        Po zkopírování se karta automaticky uloží do alba
       </div>
 
       <div style="display:flex;gap:8px;">
@@ -6284,6 +6420,25 @@ function cbPickCard(encodedData) {
   `;
   popup.addEventListener('click', e => { if (e.target === popup) popup.remove(); });
   document.body.appendChild(popup);
+}
+
+async function cbCopyAndSave(encodedData, btn) {
+  let card;
+  try { card = JSON.parse(decodeURIComponent(encodedData)); } catch { return; }
+  const cardId = card.id || '';
+  try {
+    await navigator.clipboard.writeText(cardId);
+    btn.textContent = '✓';
+    btn.style.color = '#22c55e';
+    btn.style.borderColor = 'rgba(34,197,94,.4)';
+    setTimeout(() => { btn.textContent = '📋'; btn.style.color = ''; btn.style.borderColor = ''; }, 2000);
+    // Auto-uložení do alba
+    await cbAddCardDirect(encodedData);
+  } catch {
+    // Pokud clipboard selže, zkus jen přidat
+    btn.textContent = '📋';
+    await navigator.clipboard.writeText(cardId).catch(()=>{});
+  }
 }
 
 async function cbAddCardDirect(encodedData) {
