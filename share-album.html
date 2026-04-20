@@ -830,23 +830,31 @@ async function loadIncoming() {
         <span class="invite-expiry">⏱ Vyprší ${formatExpiry(s.expires_at)}</span>
       </div>
       <div class="invite-btns">
-        <button class="btn-accept" onclick="acceptShare('${s.id}', '${esc(s.sender_username)}', ${JSON.stringify(JSON.stringify(s.cards_snapshot))}, '${esc(s.album_name)}')">Přijmout</button>
+        <button class="btn-accept" onclick="acceptShare('${s.id}', '${esc(s.sender_username)}', '${esc(s.album_name)}')">Přijmout</button>
         <button class="btn-decline" onclick="declineShare('${s.id}')">Odmítnout</button>
       </div>
     </div>
   `).join('');
 }
 
-async function acceptShare(shareId, senderUsername, cardsJson, albumName) {
-  // Aktualizuj status
+async function acceptShare(shareId, senderUsername, albumName) {
   const token = localStorage.getItem('sb_token');
-  await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
+  const btn = document.querySelector(`#invite-${shareId} .btn-accept`);
+  if (btn) { btn.disabled = true; btn.textContent = 'Přijímám…'; }
+
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
     method: 'PATCH',
     headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ status: 'accepted', accepted_at: new Date().toISOString() })
   });
 
-  // Přesměruj na compare s share_id
+  if (!r.ok) {
+    console.error('acceptShare PATCH failed:', r.status, await r.json().catch(() => ({})));
+    toast('❌ Chyba při přijímání pozvánky. Zkus to znovu.', 'err');
+    if (btn) { btn.disabled = false; btn.textContent = 'Přijmout'; }
+    return;
+  }
+
   location.href = `compare.html?share_id=${shareId}`;
 }
 
@@ -924,7 +932,8 @@ async function loadSent() {
       : '';
     const actionBtn = isPending
       ? `<button class="btn-cancel-share" onclick="cancelShare('${s.id}', this)">✕ Zrušit</button>`
-      : `<span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>`;
+      : `<span class="status-badge status-${s.status}">${statusLabel[s.status] || s.status}</span>
+         <button class="btn-cancel-share" onclick="cancelShare('${s.id}', this)" title="Smazat ze seznamu">🗑</button>`;
     return `
     <div class="sent-item">
       <div class="sent-avatar">${(profileMap[s.receiver_id]||'?')[0].toUpperCase()}</div>
