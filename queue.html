@@ -1497,7 +1497,17 @@ async function doAssign(groups, albumId) {
             && d.set  === cardSet
             && normNum(d.number) === normNum(cardNumber);
         });
-        if (dup) existingId = dup.local_id;
+        if (dup) {
+          existingId = dup.local_id;
+          // Navýšit count existující karty
+          const od = dup.card_data || {};
+          const newCount = (od.count || od.qty || 1) + qty;
+          await sbReq(
+            `rest/v1/user_cards?local_id=eq.${existingId}&user_id=eq.${userId}`,
+            'PATCH',
+            { card_data: { ...od, count: newCount, qty: newCount }, updated_at: new Date().toISOString() }
+          ).catch(e => console.warn('[queue dedup PATCH]', e));
+        }
       }
       // ────────────────────────────────────────────────────────────
 

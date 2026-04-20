@@ -2383,6 +2383,43 @@ function resetGroqCounter() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   DEDUP HELPER – sjednotí duplicitní karty
+═══════════════════════════════════════════════════════ */
+function _normNum(n) { return String(n || '').replace(/^0+/, '').split('/')[0].trim(); }
+
+// Zkontroluje zda karta stejného jména/série/čísla/stavu už existuje.
+// Pokud ano → navýší count a vrátí local_id existující karty.
+// Pokud ne → vrátí null.
+async function _deduplicateCard(cardData) {
+  if (!cardData.name || !currentUser?.id) return null;
+  const candidates = await sbReq(
+    `rest/v1/user_cards?user_id=eq.${currentUser.id}&select=local_id,card_data`,
+    'GET', null, currentToken
+  ).catch(() => []);
+  if (!Array.isArray(candidates) || !candidates.length) return null;
+
+  const dup = candidates.find(r => {
+    const d = r.card_data || {};
+    return d.name === cardData.name
+      && d.set  === cardData.set
+      && _normNum(d.number) === _normNum(cardData.number)
+      && (d.condition || 'NM') === (cardData.condition || 'NM');
+  });
+  if (!dup) return null;
+
+  const oldData  = dup.card_data || {};
+  const newCount = (oldData.count || oldData.qty || 1) + 1;
+  await sbReq(
+    `rest/v1/user_cards?local_id=eq.${dup.local_id}&user_id=eq.${currentUser.id}`,
+    'PATCH',
+    { card_data: { ...oldData, count: newCount, qty: newCount }, updated_at: nowIso() },
+    currentToken
+  ).catch(e => console.warn('[dedup PATCH]', e));
+
+  return dup.local_id;
+}
+
+/* ═══════════════════════════════════════════════════════
    SAVE TO SUPABASE
 ═══════════════════════════════════════════════════════ */
 async function saveSelected() {
@@ -2397,44 +2434,67 @@ async function saveSelected() {
 
   try {
 
-  const payload = toSave.map(p => {
+  // ── Dedup: pro každou kartu zkontroluj duplikát před uložením ──
+  const insertPayload = [];
+  const dupMap = new Map(); // local_id existující karty → foto objekt
+
+  for (const p of toSave) {
     const r   = p.result;
     const tcg = p.tcgCard;
-    return {
-      local_id:   uid(),
-      updated_at: nowIso(),
-      for_trade:  false,
-      for_sell:   false,
-      price_czk:  null,
-      card_data: {
-        name:      r.name  || tcg?.name || '',
-        set:       r.set   || tcg?.set?.name || '',
-        number:    r.number|| tcg?.localId  || '',
-        condition: r.condition || 'NM',
-        category:  (r.category || 'Pokemon').toLowerCase(),
-        type:      r.type  || '',
-        types:     tcg?.types || [],
-        supertype: tcg?.supertype || r.category || 'Pokémon',
-        subtype:   r.subtype || '',
-        hp:        r.hp    || tcg?.hp || '',
-        lang:      r.lang  || 'EN',
-        variant:   r.variant || 'Normal',
-        imageUrl:  tcg?.image ? tcg.image + '/high.png' : null,
-        apiSmall:  tcg?.image ? tcg.image + '/low.png'  : null,
-        images:    tcg?.images || null,
-        count:     1,
-        note:      '',
-        tags:      [],
-      },
+    const cardData = {
+      name:      r.name  || tcg?.name || '',
+      set:       r.set   || tcg?.set?.name || '',
+      number:    r.number|| tcg?.localId  || '',
+      condition: r.condition || 'NM',
+      category:  (r.category || 'Pokemon').toLowerCase(),
+      type:      r.type  || '',
+      types:     tcg?.types || [],
+      supertype: tcg?.supertype || r.category || 'Pokémon',
+      subtype:   r.subtype || '',
+      hp:        r.hp    || tcg?.hp || '',
+      lang:      r.lang  || 'EN',
+      variant:   r.variant || 'Normal',
+      imageUrl:  tcg?.image ? tcg.image + '/high.png' : null,
+      apiSmall:  tcg?.image ? tcg.image + '/low.png'  : null,
+      images:    tcg?.images || null,
+      count:     1,
+      note:      '',
+      tags:      [],
     };
-  });
+    const dupId = await _deduplicateCard(cardData);
+    if (dupId) {
+      p.savedLocalId = dupId;
+      p.saveSelected = false;
+      p.status = 'identified';
+      dupMap.set(dupId, p);
+      saved++;
+    } else {
+      const entry = {
+        local_id:   uid(),
+        updated_at: nowIso(),
+        for_trade:  false,
+        for_sell:   false,
+        price_czk:  null,
+        card_data:  cardData,
+        _photoRef:  p, // dočasná reference, odstraní se před odesláním
+      };
+      insertPayload.push(entry);
+    }
+  }
 
-  // Batch upsert (max 200 per request)
-  for (let i = 0; i < payload.length; i += 200) {
-    const batch = payload.slice(i, i + 200);
+  // Přiřaď sjednocené karty do alba
+  const albumId = document.getElementById('targetAlbumSel')?.value;
+  if (albumId && dupMap.size) {
+    _assignCardsToAlbum(albumId, [...dupMap.keys()]).catch(e => console.warn('[album assign dup]', e));
+  }
+
+  // Batch upsert pouze nových karet (max 200 per request)
+  for (let i = 0; i < insertPayload.length; i += 200) {
+    const batch = insertPayload.slice(i, i + 200);
+    const cleanBatch = batch.map(({ _photoRef, ...rest }) => rest);
     const res = await sbReq(
       'rest/v1/rpc/upsert_user_cards', 'POST',
-      { p_user_id: currentUser.id, p_cards: batch },
+      { p_user_id: currentUser.id, p_cards: cleanBatch },
       currentToken
     );
     if (res._err) {
@@ -2442,22 +2502,17 @@ async function saveSelected() {
       failed += batch.length;
     } else {
       saved += batch.length;
-      // Mark as saved + link photos
-      const batchPhotos = toSave.slice(i, i + 200);
       const savedLocalIds = [];
-      batchPhotos.forEach((p, j) => {
+      batch.forEach((entry, j) => {
+        const p = entry._photoRef;
         p.saveSelected = false;
         p.status = 'identified';
-        // Ulož local_id pro případné pozdější linkování
-        const localId = batch[j]?.local_id;
+        const localId = cleanBatch[j]?.local_id;
         if (localId) { p.savedLocalId = localId; savedLocalIds.push(localId); }
-        // Pokud fotka přišla z queue (je to URL), ulož ji do user_card_photos
         if (p.isUrl && p.dataUrl && localId) {
           _savePhotoToCard(p, localId).catch(e => console.warn('[photo link saveSelected]', e));
         }
       });
-      // Přiřaď do vybraného alba
-      const albumId = document.getElementById('targetAlbumSel')?.value;
       if (albumId && savedLocalIds.length) {
         _assignCardsToAlbum(albumId, savedLocalIds).catch(e => console.warn('[album assign]', e));
       }
@@ -2660,15 +2715,26 @@ async function queueTcgConfirm(photoId) {
       },
     };
 
-    const saveRes = await sbReq(
-      'rest/v1/user_cards', 'POST',
-      { user_id: currentUser.id, ...cardPayload },
-      currentToken
-    );
-    const savedId = Array.isArray(saveRes) ? saveRes[0]?.local_id : saveRes?.local_id;
-    if (savedId) {
-      p.savedLocalId  = savedId || cardPayload.local_id;
-      p.saveSelected  = false; // Už je uloženo, checkbox nebude nutný
+    // ── Kontrola duplikátu před uložením ─────────────────────
+    const dupId = await _deduplicateCard(cardPayload.card_data);
+    let savedId;
+    if (dupId) {
+      savedId = dupId;
+      p.savedLocalId = dupId;
+      p.saveSelected = false;
+      toast(`✅ Karta sjednocena: ${card.name} (počet +1)`, 'success');
+    } else {
+      const saveRes = await sbReq(
+        'rest/v1/user_cards', 'POST',
+        { user_id: currentUser.id, ...cardPayload },
+        currentToken
+      );
+      savedId = Array.isArray(saveRes) ? saveRes[0]?.local_id : saveRes?.local_id;
+      if (savedId) {
+        p.savedLocalId = savedId;
+        p.saveSelected = false;
+      }
+      toast(`✅ Karta uložena: ${card.name}`, 'success');
     }
 
     // ── 1b. Přiřaď do alba ───────────────────────────────────
@@ -2679,11 +2745,9 @@ async function queueTcgConfirm(photoId) {
     }
 
     // ── 2. Vlož foto do user_card_photos pokud přišlo z queue ─
-    if (p.isUrl && p.dataUrl && (savedId || cardPayload.local_id)) {
-      await _savePhotoToCard(p, savedId || cardPayload.local_id).catch(e => console.warn('[confirm photo]', e));
+    if (!dupId && p.isUrl && p.dataUrl && cardLocalId) {
+      await _savePhotoToCard(p, cardLocalId).catch(e => console.warn('[confirm photo]', e));
     }
-
-    toast(`✅ Karta uložena: ${card.name}`, 'success');
 
   } catch(e) {
     console.error('[queueTcgConfirm]', e);
