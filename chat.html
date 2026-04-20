@@ -1744,6 +1744,30 @@ async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
       if (Array.isArray(lRes) && lRes[0]) {
         attachedListings = [lRes[0]];
         renderAttachBar();
+
+        // Auto-odešli zprávu pokud přicházíme z marketplace nabídky (sendOffer / sendTrade)
+        if (params.get('auto_send') === '1') {
+          const offerPrice = params.get('offer_price');
+          const offerMsg   = params.get('offer_msg') || '';
+          const offerType  = params.get('offer_type') || 'price';
+          const tradeCards = params.get('trade_cards') || '';
+
+          let autoText = '';
+          if (offerType === 'trade') {
+            autoText = tradeCards
+              ? `Navrhuji výměnu za: ${tradeCards}`
+              : 'Navrhuji výměnu';
+          } else {
+            autoText = offerPrice
+              ? `Navrhuji cenu: ${Number(offerPrice).toLocaleString('cs')} Kč`
+              : '';
+          }
+          if (offerMsg) autoText = autoText ? autoText + '\n' + offerMsg : offerMsg;
+
+          const inp = document.getElementById('chatInput');
+          if (inp) inp.value = autoText;
+          await sendMessage();
+        }
       }
     }
   }
