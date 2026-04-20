@@ -830,7 +830,8 @@ async function sendOffer(){
   document.getElementById('dBtnOffer').style.display = 'none';
   document.getElementById('reservedForMeBanner').style.display = '';
   showMktToast('💸 Nabídka odeslána! Karta je rezervována.');
-  setTimeout(() => openChat(), 300);
+  var _price = price, _msg = msg;
+  setTimeout(() => openChat(_price, _msg, 'price', null), 300);
 }
 
 async function sendTrade(){
@@ -868,7 +869,9 @@ async function sendTrade(){
   document.getElementById('dBtnOffer').style.display = 'none';
   document.getElementById('reservedForMeBanner').style.display = '';
   showMktToast('🔄 Výměna navržena! Karta je rezervována.');
-  setTimeout(() => openChat(), 300);
+  var _cards = selCards.map(c => c.name).join(', ');
+  var _msg   = document.getElementById('tradeMsg').value.trim() || null;
+  setTimeout(() => openChat(null, _msg, 'trade', _cards), 300);
 }
 
 // ── Messages ──────────────────────────────────────────────────
@@ -2301,7 +2304,7 @@ window.addEventListener('load', function() {
   setTimeout(tryLaunch, 800);
 });
 
-function openChat() {
+function openChat(offerPrice, offerMsg, offerType, tradeCards) {
   if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
   if(!currentListing) return;
   var l = currentListing;
@@ -2312,6 +2315,14 @@ function openChat() {
     + '&username=' + encodeURIComponent(sellerName)
     + '&listing='  + l.id
     + '&embedded=1';
+  // Pokud voláno z sendOffer/sendTrade, předej parametry pro auto-odeslání
+  if (offerPrice || offerMsg || offerType || tradeCards) {
+    url += '&auto_send=1';
+    if (offerPrice) url += '&offer_price=' + encodeURIComponent(offerPrice);
+    if (offerMsg)   url += '&offer_msg='   + encodeURIComponent(offerMsg);
+    if (offerType)  url += '&offer_type='  + encodeURIComponent(offerType);
+    if (tradeCards) url += '&trade_cards=' + encodeURIComponent(tradeCards);
+  }
   document.getElementById('chatIframeTitle').textContent = 'Chat s ' + sellerName;
   document.getElementById('chatIframe').src = url;
   document.getElementById('chatIframeModal').style.display = 'flex';

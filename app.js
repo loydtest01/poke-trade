@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';   // ← Project URL ze Supabase Settings → API
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';                   // ← anon public klíč
-const VERCEL_URL    = 'https://poke-trade-ruddy.vercel.app'; // ← URL tvého Vercel projektu
+const VERCEL_URL    = 'https://pokemon-trade-ruddy.vercel.app'; // ← URL tvého Vercel projektu
 // ═══════════════════════════════════════════════════════
 
 // ── Supabase REST request ────────────────────────────

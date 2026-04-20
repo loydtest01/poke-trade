@@ -11,7 +11,7 @@ import { toast, openModal, closeModal } from './ui.js';
 // ─── KONFIGURACE API ─────────────────────────────────────────────────────────
 // Po nasazení webu na Vercel sem vlož svoji URL:
 // Příklad: 'https://pokemon-trade-abc123.vercel.app/v1'
-const API_BASE = 'https://poke-trade-ruddy.vercel.app/v1';
+const API_BASE = 'https://pokemon-trade-ruddy.vercel.app/v1';
 
 // ─── LOKÁLNÍ STAV ONLINE ÚČTU ────────────────────────────────────────────────
 function getOnlineSession() {

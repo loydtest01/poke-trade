@@ -486,7 +486,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         <input id="loginEmail" type="email" autocomplete="email" placeholder="E-mail"
           style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box"
           onkeydown="if(event.key==='Enter')document.getElementById('loginPass').focus()">
-        <input id="loginPass" type="password" autocomplete="current-password" placeholder="Heslo"
+        <input id="loginPass" type="password" autocomplete="off" placeholder="Heslo"
           style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box;margin-top:10px"
           onkeydown="if(event.key==='Enter')doMobileLogin()">
         <button id="loginBtn" class="btn btn-primary" onclick="doMobileLogin()" style="margin-top:14px">
