@@ -2897,8 +2897,15 @@ async function openMsgsThread(convId, partnerName, partnerId) {
 
   await loadMsgsThread();
 
-  // Mark read
+  // Mark read – server call
   markConvRead(convId);
+  // FIX: okamžitě vymaž lokální unread count, aby badge nesekala na starých datech
+  const _readConv = _msgsConvs.find(c => c.id === convId);
+  if (_readConv) {
+    if (_readConv.user1_id === _msgsUserId) _readConv.unread_user1 = 0;
+    else _readConv.unread_user2 = 0;
+  }
+  updateMsgsUnreadBadge();
 
   // Poll while thread open
   if (_msgsPollTimer) clearInterval(_msgsPollTimer);
@@ -3147,7 +3154,9 @@ function updateMsgsUnreadBadge() {
   if (total > 0) {
     dot.textContent = total > 99 ? '99+' : total;
     dot.style.display = '';
-  } else if (!_notifPollTimer) {
+  } else {
+    // FIX: vždy skryj badge pokud žádné nepřečtené – původní podmínka !_notifPollTimer
+    // způsobovala, že badge zůstával viditelný když polling běžel (= vždy)
     dot.style.display = 'none';
   }
 }
