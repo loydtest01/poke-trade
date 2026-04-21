@@ -2729,7 +2729,7 @@ async function checkNotifications() {
         (cat === 'album'    && s.album)    ||
         (cat === 'other')
       );
-      if (allowed) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
+      if (allowed && document.hidden) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
       _notifSeenIds.add(n.id);
     });
 
