@@ -675,6 +675,126 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 
 /* ═══ ZABEZPEČENÍ ÚČTU ═══ */
 .security-section { margin-top: 32px; }
+
+/* ═══ RODINA ═══ */
+.family-section { margin-top: 32px; }
+.family-tabs { display: flex; gap: 4px; margin-bottom: 18px; flex-wrap: wrap; }
+.family-tab-btn {
+  padding: 7px 16px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.08);
+  background: transparent; color: rgba(240,236,228,0.65); font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.family-tab-btn.active { background: rgba(245,200,66,0.12); border-color: rgba(245,200,66,0.3); color: #f5c842; }
+.family-tab-btn:hover:not(.active) { background: rgba(255,255,255,0.05); }
+.family-member-card {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+  transition: border-color .15s, background .15s; cursor: pointer;
+}
+.family-member-card:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.14); }
+.family-member-avatar {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #4ade80, #22d3ee);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #000; background-size: cover; background-position: center;
+}
+.family-member-info { flex: 1; min-width: 0; }
+.family-member-name { font-weight: 600; font-size: 14px; color: #f0ece4; }
+.family-member-nick { font-size: 12px; color: rgba(240,236,228,0.65); margin-top: 2px; }
+.family-member-albums { font-size: 11px; color: rgba(240,236,228,0.35); margin-top: 3px; }
+.family-member-actions { display: flex; gap: 8px; align-items: center; }
+.family-btn-remove {
+  width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.2);
+  background: rgba(248,113,113,0.06); color: #f87171; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.family-btn-remove:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.4); }
+.family-album-list { margin-left: 54px; margin-top: -4px; margin-bottom: 12px; display: none; }
+.family-album-list.open { display: block; }
+.family-album-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  border-radius: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 6px; font-size: 13px; color: rgba(240,236,228,0.65); transition: all .15s;
+}
+.family-album-item:hover { background: rgba(255,255,255,0.05); color: #f0ece4; }
+.family-album-item-name { flex: 1; }
+.family-album-btn {
+  padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .15s; text-decoration: none;
+  white-space: nowrap; border: 1px solid rgba(245,200,66,0.25);
+  background: rgba(245,200,66,0.08); color: #f5c842;
+}
+.family-album-btn:hover { background: rgba(245,200,66,0.16); }
+.family-album-btn.blue {
+  border-color: rgba(116,180,255,0.25); background: rgba(116,180,255,0.08); color: #74b4ff;
+}
+.family-album-btn.blue:hover { background: rgba(116,180,255,0.16); }
+.family-invite-box {
+  background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.12);
+  border-radius: 14px; padding: 18px; margin-top: 16px;
+}
+.family-invite-title { font-size: 13px; font-weight: 600; color: rgba(240,236,228,0.65); margin-bottom: 6px; }
+.family-invite-hint { font-size: 12px; color: rgba(240,236,228,0.35); margin-bottom: 10px; }
+.family-invite-row { display: flex; gap: 8px; }
+.family-invite-input {
+  flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 10px 14px; color: #f0ece4; font-size: 13px;
+  font-family: inherit; outline: none; transition: border-color .15s;
+}
+.family-invite-input:focus { border-color: rgba(245,200,66,0.4); }
+.family-invite-btn {
+  padding: 10px 16px; border-radius: 10px; border: none;
+  background: linear-gradient(135deg, #f5c842, #ff8c00);
+  color: #000; font-weight: 700; font-size: 13px; font-family: inherit;
+  cursor: pointer; white-space: nowrap; transition: opacity .15s;
+}
+.family-invite-btn:hover { opacity: .88; }
+.family-invite-btn:disabled { opacity: .45; cursor: not-allowed; }
+.family-feedback { font-size: 12px; margin-top: 8px; min-height: 16px; }
+.family-feedback.ok { color: #4ade80; }
+.family-feedback.err { color: #f87171; }
+.family-pending-card {
+  background: rgba(245,200,66,0.04); border: 1px solid rgba(245,200,66,0.18);
+  border-radius: 14px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.family-pending-from { font-size: 13px; font-weight: 600; color: #f5c842; }
+.family-pending-sub { font-size: 12px; color: rgba(240,236,228,0.65); margin-top: 2px; }
+.family-pending-actions { display: flex; gap: 8px; }
+.family-btn-accept {
+  padding: 6px 14px; border-radius: 8px; border: none;
+  background: linear-gradient(135deg, #4ade80, #16a34a);
+  color: #000; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: opacity .15s;
+}
+.family-btn-accept:hover { opacity: .85; }
+.family-btn-decline {
+  padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(248,113,113,0.3);
+  background: transparent; color: #f87171; font-size: 12px; font-weight: 600;
+  cursor: pointer; font-family: inherit; transition: all .15s;
+}
+.family-btn-decline:hover { background: rgba(248,113,113,0.1); }
+.family-empty { color: rgba(240,236,228,0.35); font-size: 13px; text-align: center; padding: 20px 0; }
+.family-share-album-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08); margin-bottom: 8px;
+}
+.family-share-album-name { font-size: 13px; color: #f0ece4; }
+.family-toggle {
+  position: relative; width: 38px; height: 20px; cursor: pointer;
+  background: rgba(255,255,255,0.1); border-radius: 10px; transition: background .2s;
+  border: none; flex-shrink: 0;
+}
+.family-toggle.on { background: #4ade80; }
+.family-toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: transform .2s;
+}
+.family-toggle.on::after { transform: translateX(18px); }
+.family-share-hint { font-size: 12px; color: rgba(240,236,228,0.35); margin-bottom: 12px; }
 .security-card {
   background: rgba(12,10,18,0.80);
   border: 1px solid rgba(255,255,255,0.08);
@@ -1384,6 +1504,49 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 
     </div><!-- /security-section -->
 
+    <!-- ═══ RODINA ═══ -->
+    <div class="family-section" id="familySection" style="display:none">
+      <div class="section-title" style="margin-top:32px">👨‍👩‍👧‍👦 Moje Rodina</div>
+
+      <div class="family-tabs">
+        <button class="family-tab-btn active" onclick="familySwitchTab('members')" id="famTabMembers">👥 Členové</button>
+        <button class="family-tab-btn" onclick="familySwitchTab('sharing')" id="famTabSharing">🃏 Sdílení alb</button>
+        <button class="family-tab-btn" onclick="familySwitchTab('pending')" id="famTabPending">
+          ⏳ Žádosti<span id="famPendingBadge" style="display:none;background:rgba(245,200,66,0.18);color:#f5c842;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:6px">0</span>
+        </button>
+      </div>
+
+      <!-- Členové -->
+      <div id="famPanelMembers">
+        <div id="famMembersList">
+          <div class="family-empty" id="famMembersEmpty">Zatím žádní členové rodiny 🕊️</div>
+        </div>
+        <div class="family-invite-box">
+          <div class="family-invite-title">➕ Přidat člena rodiny</div>
+          <div class="family-invite-hint">Zadej email uživatele — dostane pozvánku. Propojení je oboustranné a trvalé.</div>
+          <div class="family-invite-row">
+            <input type="email" id="famInviteEmail" class="family-invite-input" placeholder="email@priklad.cz">
+            <button class="family-invite-btn" id="famInviteBtn" onclick="familySendInvite()">Pozvat</button>
+          </div>
+          <div class="family-feedback" id="famInviteFeedback"></div>
+        </div>
+      </div>
+
+      <!-- Sdílení alb -->
+      <div id="famPanelSharing" style="display:none">
+        <div class="family-share-hint">Vyber alba, která uvidí tvoje rodina. Sdílení je trvalé — bez vypršení.</div>
+        <div id="famShareAlbumsList"><div class="family-empty">Načítám alba…</div></div>
+        <div class="family-feedback" id="famShareFeedback"></div>
+      </div>
+
+      <!-- Čekající žádosti -->
+      <div id="famPanelPending" style="display:none">
+        <div id="famPendingList">
+          <div class="family-empty" id="famPendingEmpty">Žádné čekající žádosti ✅</div>
+        </div>
+      </div>
+    </div><!-- /family-section -->
+
   </div>
 
 </div><!-- /page-wrap -->
@@ -1640,7 +1803,7 @@ function renderProfile(p) {
     if (editBtn) editBtn.style.display = 'flex';
     // Zobraz dashboard
     const ds = document.getElementById('dashboardSection');
-    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); if (typeof securityInit === 'function') securityInit(); }
+    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); if (typeof securityInit === 'function') securityInit(); if (typeof familyInit === 'function') familyInit(); }
   } else if (currentUser) {
     document.getElementById('btnLeaveReview').style.display = 'inline-flex';
   }
@@ -3524,4 +3687,324 @@ function setProgress(pct, label) {
 </script>
 
 <script src="site-tracking.js"></script>
-</body>
+
+<!-- ═══ RODINA JS ═══ -->
+<script>
+(function () {
+  'use strict';
+
+  var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+  var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+
+  function tok() { return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || ''; }
+  function hdr() { return { 'Content-Type':'application/json', 'apikey':SBA, 'Authorization':'Bearer '+tok() }; }
+
+  async function sbGet(path) {
+    try {
+      var r = await fetch(SBU+'/rest/v1/'+path, { headers: hdr() });
+      if (!r.ok) return [];
+      return await r.json();
+    } catch { return []; }
+  }
+  async function sbPost(path, body) {
+    return fetch(SBU+'/rest/v1/'+path, {
+      method:'POST', headers:{...hdr(),'Prefer':'return=representation'}, body:JSON.stringify(body)
+    });
+  }
+  async function sbPatch(path, body) {
+    return fetch(SBU+'/rest/v1/'+path, {
+      method:'PATCH', headers:{...hdr(),'Prefer':'return=minimal'}, body:JSON.stringify(body)
+    });
+  }
+  async function sbDel(path) {
+    return fetch(SBU+'/rest/v1/'+path, { method:'DELETE', headers: hdr() });
+  }
+
+  function myId() {
+    try { return JSON.parse(localStorage.getItem('sb_user')||'null')?.id||null; } catch { return null; }
+  }
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function setFb(id, msg, cls) {
+    var el = document.getElementById(id); if (!el) return;
+    el.textContent = msg; el.className = 'family-feedback '+(cls||'');
+    if (msg) setTimeout(function(){ if(el.textContent===msg) el.textContent=''; }, 4000);
+  }
+
+  /* ── Tab přepínání ── */
+  window.familySwitchTab = function(tab) {
+    ['Members','Sharing','Pending'].forEach(function(t) {
+      var tl = t.toLowerCase();
+      document.getElementById('famTab'+t).classList.toggle('active', tl===tab);
+      document.getElementById('famPanel'+t).style.display = tl===tab ? '' : 'none';
+    });
+    if (tab==='sharing') loadShareAlbums();
+    if (tab==='pending') loadPending();
+  };
+
+  /* ── Init (volá se z loadProfile) ── */
+  window.familyInit = async function() {
+    var uid = myId(); if (!uid) return;
+    var sec = document.getElementById('familySection');
+    if (sec) sec.style.display = '';
+    await loadMembers();
+    await loadPendingCount();
+  };
+
+  /* ── Členové ── */
+  async function loadMembers() {
+    var uid = myId(); if (!uid) return;
+    var rows = await sbGet(
+      'family_connections?or=(user_id.eq.'+uid+',member_id.eq.'+uid+')&status=eq.accepted&select=*'
+    );
+    var wrap = document.getElementById('famMembersList');
+    var empty = document.getElementById('famMembersEmpty');
+    if (!rows.length) { wrap.innerHTML = ''; wrap.appendChild(empty); empty.style.display=''; return; }
+    empty.style.display = 'none';
+    var html = '';
+    for (var i=0; i<rows.length; i++) {
+      var row = rows[i];
+      var otherId = row.user_id===uid ? row.member_id : row.user_id;
+      var prof = await sbGet('profiles?id=eq.'+otherId+'&select=id,username,display_name,avatar_url');
+      var p = prof[0] || {};
+      var nick = esc(p.display_name || p.username || 'Neznámý');
+      var uname = esc(p.username || '');
+      var init = nick.charAt(0).toUpperCase();
+      var avStyle = p.avatar_url ? 'background-image:url(\''+p.avatar_url+'\');background:transparent' : '';
+      var shared = await sbGet('family_shared_albums?owner_id=eq.'+otherId+'&is_shared=eq.true&select=album_id,album_name');
+      var cnt = shared.length;
+      var albumLabel = cnt===0 ? 'Nesdílí žádná alba' : cnt+' sdílen'+(cnt===1?'é':'á')+' album'+(cnt>1?'ů':'');
+      var albumRows = '';
+      shared.forEach(function(a) {
+        var aname = esc(a.album_name||'Album');
+        albumRows += '<div class="family-album-item">' +
+          '<span style="font-size:15px">🃏</span>' +
+          '<span class="family-album-item-name">'+aname+'</span>' +
+          '<a class="family-album-btn blue" href="moje-album.html?familyUser='+otherId+'&familyAlbum='+encodeURIComponent(a.album_id)+'">👁 Zobrazit</a>' +
+          '<a class="family-album-btn" style="margin-left:4px" href="compare.html?b='+otherId+'&ba='+encodeURIComponent(a.album_id)+'">⚔️ Porovnat</a>' +
+        '</div>';
+      });
+      if (!albumRows) albumRows = '<div style="font-size:12px;color:rgba(240,236,228,0.35);padding:6px 0">Člen nesdílí žádná alba.</div>';
+      html += '<div>' +
+        '<div class="family-member-card" onclick="famToggle(\'fal-'+otherId+'\')">' +
+          '<div class="family-member-avatar" style="'+avStyle+'">'+(p.avatar_url?'':init)+'</div>' +
+          '<div class="family-member-info">' +
+            '<div class="family-member-name">'+nick+'</div>' +
+            '<div class="family-member-nick">@'+uname+'</div>' +
+            '<div class="family-member-albums">'+albumLabel+'</div>' +
+          '</div>' +
+          '<div class="family-member-actions">' +
+            '<span id="fa-arrow-'+otherId+'" style="font-size:16px;color:rgba(240,236,228,0.35)">▶</span>' +
+            '<button class="family-btn-remove" onclick="event.stopPropagation();famRemove(\''+row.id+'\',\''+nick+'\')">✕</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="family-album-list" id="fal-'+otherId+'">'+albumRows+'</div>' +
+      '</div>';
+    }
+    wrap.innerHTML = html;
+  }
+
+  window.famToggle = function(id) {
+    var el = document.getElementById(id); if (!el) return;
+    var open = el.classList.toggle('open');
+    var mid = id.replace('fal-','');
+    var arr = document.getElementById('fa-arrow-'+mid);
+    if (arr) arr.textContent = open ? '▼' : '▶';
+  };
+
+  window.famRemove = async function(connId, nick) {
+    if (!confirm('Odebrat '+nick+' z rodiny?')) return;
+    var r = await sbDel('family_connections?id=eq.'+connId);
+    if (r.ok||r.status===204) { showToast('✅ '+nick+' odebrán','success'); loadMembers(); }
+    else showToast('❌ Chyba při odebírání','error');
+  };
+
+  /* ── Sdílení alb ── */
+  async function loadShareAlbums() {
+    var uid = myId(); if (!uid) return;
+    var wrap = document.getElementById('famShareAlbumsList');
+    wrap.innerHTML = '<div class="family-empty">Načítám…</div>';
+    var albums = await sbGet('user_albums?user_id=eq.'+uid+'&select=id,name');
+    if (!albums.length) { wrap.innerHTML = '<div class="family-empty">Nemáš žádná alba.</div>'; return; }
+    var shared = await sbGet('family_shared_albums?owner_id=eq.'+uid+'&select=album_id,is_shared');
+    var map = {};
+    shared.forEach(function(s){ map[s.album_id]=s.is_shared; });
+    var html = '';
+    albums.forEach(function(a) {
+      var on = !!map[a.id];
+      html += '<div class="family-share-album-row">' +
+        '<span class="family-share-album-name">🃏 '+esc(a.name||'Album')+'</span>' +
+        '<button class="family-toggle'+(on?' on':'')+'" id="ftog-'+a.id+'" onclick="famToggleShare(\''+a.id+'\',\''+esc(a.name||'Album')+'\')"></button>' +
+      '</div>';
+    });
+    wrap.innerHTML = html;
+  }
+
+  window.famToggleShare = async function(albumId, albumName) {
+    var uid = myId();
+    var btn = document.getElementById('ftog-'+albumId);
+    var wasOn = btn && btn.classList.contains('on');
+    var newVal = !wasOn;
+    if (btn) btn.classList.toggle('on', newVal);
+    var ex = await sbGet('family_shared_albums?owner_id=eq.'+uid+'&album_id=eq.'+albumId+'&select=id');
+    var r;
+    if (ex.length) {
+      r = await sbPatch('family_shared_albums?owner_id=eq.'+uid+'&album_id=eq.'+albumId, {is_shared:newVal, updated_at:new Date().toISOString()});
+    } else {
+      r = await sbPost('family_shared_albums', {owner_id:uid, album_id:albumId, album_name:albumName, is_shared:newVal});
+    }
+    if (r.ok||r.status===201||r.status===204) {
+      setFb('famShareFeedback', newVal?'✅ "'+albumName+'" sdíleno s rodinou':'🔒 "'+albumName+'" skryto', newVal?'ok':'');
+    } else {
+      setFb('famShareFeedback','❌ Chyba při ukládání','err');
+      if (btn) btn.classList.toggle('on', wasOn);
+    }
+  };
+
+  /* ── Pozvání ── */
+  window.familySendInvite = async function() {
+    var uid = myId();
+    var email = (document.getElementById('famInviteEmail').value||'').trim().toLowerCase();
+    var btn = document.getElementById('famInviteBtn');
+    if (!email||!email.includes('@')) { setFb('famInviteFeedback','⚠️ Zadej platný email','err'); return; }
+    btn.disabled = true;
+    setFb('famInviteFeedback','Hledám uživatele…','');
+    var users = await sbGet('profiles?email=eq.'+encodeURIComponent(email)+'&select=id,username');
+    if (!users.length) {
+      setFb('famInviteFeedback','❌ Uživatel s tímto emailem nenalezen','err');
+      btn.disabled = false; return;
+    }
+    var target = users[0];
+    if (target.id===uid) { setFb('famInviteFeedback','⚠️ To jsi ty!','err'); btn.disabled=false; return; }
+    var ex = await sbGet(
+      'family_connections?or=(and(user_id.eq.'+uid+',member_id.eq.'+target.id+'),and(user_id.eq.'+target.id+',member_id.eq.'+uid+'))&select=id,status'
+    );
+    if (ex.length) {
+      setFb('famInviteFeedback', ex[0].status==='accepted'?'✅ Již ve tvé rodině':'⏳ Pozvánka již odeslána', ex[0].status==='accepted'?'ok':'');
+      btn.disabled=false; return;
+    }
+    var r = await sbPost('family_connections', {user_id:uid, member_id:target.id, status:'pending'});
+    if (r.ok||r.status===201) {
+      setFb('famInviteFeedback','✅ Pozvánka odeslána @'+(target.username||email)+'!','ok');
+      document.getElementById('famInviteEmail').value='';
+    } else {
+      setFb('famInviteFeedback','❌ Chyba při odesílání','err');
+    }
+    btn.disabled = false;
+  };
+
+  /* ── Čekající žádosti ── */
+  async function loadPending() {
+    var uid = myId(); if (!uid) return;
+    var rows = await sbGet('family_connections?member_id=eq.'+uid+'&status=eq.pending&select=*');
+    var wrap = document.getElementById('famPendingList');
+    var empty = document.getElementById('famPendingEmpty');
+    if (!rows.length) { wrap.innerHTML=''; wrap.appendChild(empty); empty.style.display=''; return; }
+    empty.style.display='none';
+    var html='';
+    for (var i=0; i<rows.length; i++) {
+      var row=rows[i];
+      var prof = await sbGet('profiles?id=eq.'+row.user_id+'&select=username,display_name');
+      var p = prof[0]||{};
+      var nick = esc(p.display_name||p.username||'Neznámý');
+      html += '<div class="family-pending-card" id="fpend-'+row.id+'">' +
+        '<div style="font-size:28px">👋</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div class="family-pending-from">'+nick+' tě zve do rodiny</div>' +
+          '<div class="family-pending-sub">@'+esc(p.username||'')+' · Uvidíte vzájemně sdílená alba</div>' +
+        '</div>' +
+        '<div class="family-pending-actions">' +
+          '<button class="family-btn-accept" onclick="famAccept(\''+row.id+'\',\''+nick+'\')">✅ Přijmout</button>' +
+          '<button class="family-btn-decline" onclick="famDecline(\''+row.id+'\')">✕</button>' +
+        '</div>' +
+      '</div>';
+    }
+    wrap.innerHTML = html;
+  }
+
+  async function loadPendingCount() {
+    var uid = myId(); if (!uid) return;
+    var rows = await sbGet('family_connections?member_id=eq.'+uid+'&status=eq.pending&select=id');
+    var badge = document.getElementById('famPendingBadge');
+    if (!badge) return;
+    var cnt = rows.length;
+    badge.textContent = cnt;
+    badge.style.display = cnt>0 ? 'inline' : 'none';
+  }
+
+  window.famAccept = async function(id, nick) {
+    var r = await sbPatch('family_connections?id=eq.'+id, {status:'accepted'});
+    if (r.ok||r.status===204) {
+      showToast('✅ '+nick+' přijat do rodiny!','success');
+      var el=document.getElementById('fpend-'+id); if(el) el.remove();
+      loadMembers(); loadPendingCount();
+    } else showToast('❌ Chyba','error');
+  };
+
+  window.famDecline = async function(id) {
+    var r = await sbDel('family_connections?id=eq.'+id);
+    if (r.ok||r.status===204) {
+      var el=document.getElementById('fpend-'+id); if(el) el.remove();
+      loadPendingCount();
+    }
+  };
+
+})();
+</script>
+
+<!--
+═══════════════════════════════════════════════
+  SQL MIGRACE — spusť v Supabase SQL editoru
+═══════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS family_connections (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  member_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','accepted')),
+  created_at timestamptz DEFAULT now(),
+  UNIQUE(user_id, member_id)
+);
+
+CREATE TABLE IF NOT EXISTS family_shared_albums (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  album_id text NOT NULL,
+  album_name text NOT NULL DEFAULT 'Album',
+  is_shared boolean NOT NULL DEFAULT false,
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE(owner_id, album_id)
+);
+
+ALTER TABLE family_connections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE family_shared_albums ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "family_conn_select" ON family_connections FOR SELECT
+  USING (auth.uid() = user_id OR auth.uid() = member_id);
+CREATE POLICY "family_conn_insert" ON family_connections FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "family_conn_update" ON family_connections FOR UPDATE
+  USING (auth.uid() = member_id OR auth.uid() = user_id);
+CREATE POLICY "family_conn_delete" ON family_connections FOR DELETE
+  USING (auth.uid() = user_id OR auth.uid() = member_id);
+
+CREATE POLICY "family_shared_select" ON family_shared_albums FOR SELECT
+  USING (
+    auth.uid() = owner_id OR
+    EXISTS (
+      SELECT 1 FROM family_connections
+      WHERE status = 'accepted'
+      AND ((user_id = owner_id AND member_id = auth.uid())
+        OR (member_id = owner_id AND user_id = auth.uid()))
+    )
+  );
+CREATE POLICY "family_shared_all" ON family_shared_albums FOR ALL
+  USING (auth.uid() = owner_id) WITH CHECK (auth.uid() = owner_id);
+
+CREATE INDEX IF NOT EXISTS idx_famconn_user   ON family_connections(user_id);
+CREATE INDEX IF NOT EXISTS idx_famconn_member ON family_connections(member_id);
+CREATE INDEX IF NOT EXISTS idx_famshared_owner ON family_shared_albums(owner_id);
+
+═══════════════════════════════════════════════
+-->

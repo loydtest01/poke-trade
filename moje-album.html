@@ -209,6 +209,9 @@ body { background: #06040c; overflow-x: hidden; }
 .album-item.shared-alb { border-left: 2px solid rgba(74,158,255,0.35); padding-left: 8px; }
 .album-item.shared-alb .album-name { color: rgba(130,190,255,0.85); }
 .album-item.shared-alb.active { background: rgba(74,158,255,0.1); }
+.album-item.family-alb { border-left: 2px solid rgba(74,222,128,0.35); padding-left: 8px; }
+.album-item.family-alb .album-name { color: rgba(130,220,160,0.9); }
+.album-item.family-alb.active { background: rgba(74,222,128,0.1); }
 .readonly-banner {
   display: none; align-items: center; gap: 10px; padding: 9px 16px;
   background: rgba(74,158,255,0.07); border: 1px solid rgba(74,158,255,0.22);
@@ -1470,6 +1473,14 @@ body { background: #06040c; overflow-x: hidden; }
       <span class="sb-label">👁 Sdílené alba</span>
       <div class="album-list" id="sharedAlbumList"></div>
     </div>
+
+    <!-- Rodina alba -->
+    <div class="sb-divider" id="familyAlbDivider" style="display:none"></div>
+    <div class="sb-section" id="familyAlbSection" style="display:none">
+      <span class="sb-label">👨‍👩‍👧‍👦 Rodina</span>
+      <div class="album-list" id="familyAlbumList"></div>
+    </div>
+
     <div class="sb-divider"></div>
 
     <div class="sb-section">
@@ -2180,6 +2191,7 @@ let editingAlbumId = null;
 
   await Promise.all([loadCards(), loadAlbums()]);
   await loadSharedAlbums();
+  await loadFamilyAlbums();
   await loadAllCardPhotos();
   // Jednorázový auto-select: pokud nic není vybráno, vyber první user album
   if (activeAlbumIds.size === 0) {
@@ -2338,6 +2350,10 @@ async function loadAlbums() {
 let allSharedAlbums = [];
 let activeSharedAlbumId = null;
 
+// Rodinná alba (read-only, trvalé)
+let allFamilyAlbums = [];         // [{ memberId, memberNick, albumId, albumName, cards }]
+let activeFamilyAlbumIdx = null;  // index do allFamilyAlbums
+
 async function loadSharedAlbums() {
   try {
     const res = await sbReq(
@@ -2401,6 +2417,134 @@ function clearSharedAlbum() {
   render();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  RODINA — načtení a zobrazení rodinných alb (read-only, trvalé)
+// ══════════════════════════════════════════════════════════════════
+async function loadFamilyAlbums() {
+  allFamilyAlbums = [];
+  activeFamilyAlbumIdx = null;
+  if (!userId) return;
+
+  try {
+    // 1) Najdi všechny přijaté rodinné propojení
+    const conns = await sbReq(
+      `rest/v1/family_connections?or=(user_id.eq.${userId},member_id.eq.${userId})&status=eq.accepted&select=user_id,member_id`
+    );
+    if (!Array.isArray(conns) || !conns.length) { renderFamilyAlbumList(); return; }
+
+    // 2) Pro každého člena načti sdílená alba
+    for (const conn of conns) {
+      const memberId = conn.user_id === userId ? conn.member_id : conn.user_id;
+
+      // Profil člena
+      const profs = await sbReq(`rest/v1/profiles?id=eq.${memberId}&select=username,display_name`);
+      const prof = Array.isArray(profs) && profs.length ? profs[0] : {};
+      const memberNick = prof.display_name || prof.username || 'Člen';
+
+      // Sdílená alba tohoto člena
+      const shared = await sbReq(
+        `rest/v1/family_shared_albums?owner_id=eq.${memberId}&is_shared=eq.true&select=album_id,album_name`
+      );
+      if (!Array.isArray(shared) || !shared.length) continue;
+
+      for (const s of shared) {
+        // Načti karty z user_cards pro toto album
+        const albumData = await sbReq(
+          `rest/v1/user_albums?user_id=eq.${memberId}&id=eq.${encodeURIComponent(s.album_id)}&select=card_ids`
+        );
+        const cardIds = Array.isArray(albumData) && albumData.length ? (albumData[0].card_ids || []) : [];
+
+        // Načti samotné karty
+        let cards = [];
+        if (cardIds.length) {
+          const cardRows = await sbReq(
+            `rest/v1/user_cards?user_id=eq.${memberId}&select=local_id,name,set,number,condition,image_url,cm_price_eur`
+          );
+          if (Array.isArray(cardRows)) {
+            const idSet = new Set(cardIds);
+            cards = cardRows.filter(c => idSet.has(c.local_id)).map(c => ({ ...c, _readOnly: true }));
+          }
+        }
+
+        allFamilyAlbums.push({
+          memberId,
+          memberNick,
+          albumId: s.album_id,
+          albumName: s.album_name || 'Album',
+          cards,
+        });
+      }
+    }
+  } catch(e) { console.error('[family albums]', e); }
+
+  // Zkontroluj URL param ?familyUser=&familyAlbum=
+  const params = new URLSearchParams(location.search);
+  const fu = params.get('familyUser');
+  const fa = params.get('familyAlbum');
+  if (fu && fa) {
+    const idx = allFamilyAlbums.findIndex(a => a.memberId === fu && a.albumId === decodeURIComponent(fa));
+    if (idx >= 0) { activeFamilyAlbumIdx = idx; history.replaceState(null, '', location.pathname); }
+  }
+
+  renderFamilyAlbumList();
+}
+
+function renderFamilyAlbumList() {
+  const section = document.getElementById('familyAlbSection');
+  const divider = document.getElementById('familyAlbDivider');
+  const el = document.getElementById('familyAlbumList');
+  if (!section || !el) return;
+  if (!allFamilyAlbums.length) { section.style.display='none'; divider.style.display='none'; return; }
+  section.style.display = '';
+  divider.style.display = '';
+
+  // Seskup podle člena
+  const byMember = {};
+  allFamilyAlbums.forEach(function(a, idx) {
+    if (!byMember[a.memberId]) byMember[a.memberId] = { nick: a.memberNick, albums: [] };
+    byMember[a.memberId].albums.push({ idx, albumName: a.albumName, cnt: a.cards.length });
+  });
+
+  let html = '';
+  Object.values(byMember).forEach(function(m) {
+    html += `<div style="font-size:10px;font-weight:700;letter-spacing:.08em;color:rgba(240,236,228,0.4);text-transform:uppercase;padding:4px 6px 2px">${esc(m.nick)}</div>`;
+    m.albums.forEach(function(a) {
+      const isActive = activeFamilyAlbumIdx === a.idx;
+      html += `<div class="album-item family-alb ${isActive?'active':''}" onclick="setFamilyAlbum(${a.idx})" style="cursor:pointer">
+        <div class="album-row1">
+          <div class="album-dot" style="background:#4ade80"></div>
+          <span class="album-name">${esc(a.albumName)}</span>
+        </div>
+        <div class="album-row2">
+          <span class="album-cnt">${a.cnt} karet</span>
+          <span style="font-size:11px;opacity:.6">👨‍👩‍👧</span>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+function setFamilyAlbum(idx) {
+  activeFamilyAlbumIdx = idx;
+  activeSharedAlbumId = null;
+  activeAlbumIds.clear();
+  if (selectMode) { selectMode = false; selectedIds.clear(); }
+  renderFamilyAlbumList();
+  renderSharedAlbumList();
+  renderAlbumList();
+  render();
+}
+
+function clearFamilyAlbum() {
+  activeFamilyAlbumIdx = null;
+  const first = allAlbums.find(a => !SPECIAL_ALB_NAMES.includes(a.name));
+  if (first) activeAlbumIds.add(first.id);
+  renderFamilyAlbumList();
+  renderAlbumList();
+  render();
+}
+
 async function saveAlbumsToServer() {
   if (!allAlbums.length) return;
   const payload = allAlbums.map(a => ({
@@ -2438,18 +2582,24 @@ function render() {
     render._lastSuper = activeSupertype;
   }
 
-  // ── Sdílené album (read-only) ──────────────────────────────
+  // ── Sdílené album / Rodinné album (read-only) ─────────────────
   const readOnlyShare = activeSharedAlbumId
     ? allSharedAlbums.find(s => s.id === activeSharedAlbumId) : null;
-  const isReadOnly = !!readOnlyShare;
+  const familyAlbum = (activeFamilyAlbumIdx !== null)
+    ? (allFamilyAlbums[activeFamilyAlbumIdx] || null) : null;
+  const isReadOnly = !!(readOnlyShare || familyAlbum);
 
   // Zobraz/skryj read-only banner
   const rb = document.getElementById('readonlyBanner');
   if (rb) {
     rb.classList.toggle('visible', isReadOnly);
-    if (isReadOnly && readOnlyShare)
-      document.getElementById('readonlyBannerText').textContent =
-        `👁 „${readOnlyShare.album_name}" od @${readOnlyShare.sender_username} — pouze ke čtení, nemůžeš karty přidávat ani mazat`;
+    const rbTxt = document.getElementById('readonlyBannerText');
+    if (familyAlbum && rbTxt)
+      rbTxt.textContent = `👨‍👩‍👧 „${familyAlbum.albumName}" · ${familyAlbum.memberNick} — pouze ke čtení`;
+    else if (readOnlyShare && rbTxt)
+      rbTxt.textContent = `👁 „${readOnlyShare.album_name}" od @${readOnlyShare.sender_username} — pouze ke čtení`;
+    const rbClose = rb.querySelector('.rb-close');
+    if (rbClose) rbClose.onclick = familyAlbum ? clearFamilyAlbum : clearSharedAlbum;
   }
   // Skryj akční tlačítka v read-only módu
   const bulkBtn = document.getElementById('bulkSelectBtn');
@@ -2460,7 +2610,12 @@ function render() {
   // ── Filtrování karet ─────────────────────────────────────────
   const albumCardIds = isReadOnly ? null : getActiveAlbumCardIds();
   let filtered;
-  if (isReadOnly) {
+  if (familyAlbum) {
+    filtered = familyAlbum.cards
+      .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
+                          (c.set||'').toLowerCase().includes(q)  ||
+                          (c.number||'').toLowerCase().includes(q));
+  } else if (isReadOnly) {
     filtered = (readOnlyShare.cards_snapshot || []).map(c => ({ ...c, _readOnly: true }))
       .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
                           (c.set||'').toLowerCase().includes(q)  ||
@@ -2918,7 +3073,7 @@ async function loadCardRealPhotos(localId) {
   if (!localId || !token) return;
 
   const rows = await sbReq(
-    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(localId)}&order=created_at.asc`
+    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${localId}&order=created_at.asc`
   ).catch(() => null);
 
   if (!rows?.length) {
@@ -3588,7 +3743,7 @@ async function saveCardUpdates(c) {
     updated_at: new Date().toISOString(),
   };
   await sbReq(
-    `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${encodeURIComponent(localId)}`,
+    `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${localId}`,
     'PATCH', payload
   ).catch(() => {});
   // Aktualizuj lokální pole
@@ -3641,7 +3796,7 @@ async function openListingPhotoModal(type) {
 
   const localId = _detailCard.id || _detailCard.local_id;
   const rows = await sbReq(
-    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(localId)}&order=created_at.asc`
+    `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${localId}&order=created_at.asc`
   ).catch(() => null);
 
   if (!rows?.length) {
@@ -4313,7 +4468,7 @@ async function deleteCard(id, name) {
 Tato akce je nevratná.`)) return;
   try {
     const res = await sbReq(
-      `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${encodeURIComponent(id)}`,
+      `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${id}`,
       'DELETE'
     );
     if (res && res._err) throw new Error(res._err);
@@ -4668,7 +4823,7 @@ async function bulkDelete() {
     // Smaž po jedné (Supabase REST neumí bulk delete přes pole local_id snadno)
     for (const id of ids) {
       await sbReq(
-        `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${encodeURIComponent(id)}`,
+        `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${id}`,
         'DELETE'
       );
     }
@@ -4912,7 +5067,7 @@ async function openPhotoPickerModal(cardIds, type) {
       rows.push({ cardId: cid, photos: existing });
     } else {
       const fetched = await sbReq(
-        `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${encodeURIComponent(cid)}&order=created_at.asc`
+        `rest/v1/user_card_photos?user_id=eq.${userId}&user_card_local_id=eq.${cid}&order=created_at.asc`
       ).catch(() => null);
       if (fetched?.length) {
         allCardPhotosMap[String(cid)] = fetched;
@@ -5177,7 +5332,7 @@ async function mergeDuplicatesInAlbum() {
         if (!dupId) continue;
 
         await sbReq(
-          'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + encodeURIComponent(dupId),
+          'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + dupId,
           'PATCH',
           { user_card_local_id: String(primary.id) }
         ).catch(e => console.warn('[mergeDup photos]', e));
@@ -5639,6 +5794,7 @@ async function doSync() {
   setSyncState('syncing', 'Synchronizuji…');
   await Promise.all([loadCards(), loadAlbums()]);
   await loadSharedAlbums();
+  await loadFamilyAlbums();
   await loadAllCardPhotos();
   localStorage.setItem(LAST_SYNC_KEY, new Date().toISOString());
   updateLastSyncInfo();
@@ -6500,13 +6656,20 @@ function renderBookView() {
   // Get same filtered cards as grid
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
 
-  // Sdílené album (read-only) — stejná logika jako v render()
+  // Sdílené / Rodinné album (read-only) — stejná logika jako v render()
   const readOnlyShare = activeSharedAlbumId
     ? allSharedAlbums.find(s => s.id === activeSharedAlbumId) : null;
-  const isReadOnly = !!readOnlyShare;
+  const familyAlbum = (activeFamilyAlbumIdx !== null)
+    ? (allFamilyAlbums[activeFamilyAlbumIdx] || null) : null;
+  const isReadOnly = !!(readOnlyShare || familyAlbum);
 
   let rawFiltered;
-  if (isReadOnly) {
+  if (familyAlbum) {
+    rawFiltered = familyAlbum.cards
+      .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
+                          (c.set||'').toLowerCase().includes(q)  ||
+                          (c.number||'').toLowerCase().includes(q));
+  } else if (isReadOnly) {
     rawFiltered = (readOnlyShare.cards_snapshot || []).map(c => ({ ...c, _readOnly: true }))
       .filter(c => !q || (c.name||'').toLowerCase().includes(q) ||
                           (c.set||'').toLowerCase().includes(q)  ||
@@ -7689,7 +7852,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.3);
           border-radius:8px; color:#4ade80; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
-        " onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">🔎 AI Roz</button>
+        " onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">🔎 AI Rozpoznání</button>
         <button onclick="pgmToggleLoupe()" id="pgmLoupeBtn" style="
           background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3);
           border-radius:8px; color:#7dd3fc; font-size:12px; padding:5px 12px;
@@ -8102,7 +8265,7 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
 
       if (!base64Data) {
         resultEl.innerHTML = '<span style="color:#f87171">⚠️ Nepodařilo se načíst obrázek pro rozpoznání.</span>';
-        btn.textContent = '🔎 AI Roz'; btn.disabled = false; return;
+        btn.textContent = '🔎 AI Rozpoznání'; btn.disabled = false; return;
       }
 
       const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
@@ -8148,7 +8311,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 
       if (!identified || identified.error) {
         resultEl.innerHTML = `<span style="color:#f87171">⚠️ AI kartu nerozpoznala: ${identified?.error || 'nečitelná fotka'}. Zkus jiný úhel nebo ostřejší záběr.</span>`;
-        btn.textContent = '🔎 AI Roz'; btn.disabled = false; return;
+        btn.textContent = '🔎 AI Rozpoznání'; btn.disabled = false; return;
       }
 
       // ── Zkontroluj jestli karta existuje v albu ────────
@@ -8195,7 +8358,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba rozpoznání: ${e.message}</span>`;
     }
 
-    btn.textContent = '🔎 AI Roz';
+    btn.textContent = '🔎 AI Rozpoznání';
     btn.disabled    = false;
   };
 
