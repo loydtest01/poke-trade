@@ -8404,7 +8404,20 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       // 6. Aktualizuj interní URL na veřejnou (ne base64)
       photo.url = publicUrl;
       pgmRenderGrid();
+
+      // Přepni hlavní obrázek na finální uloženou URL (ne base64)
+      const mainImg = document.getElementById('pgmMainImg');
+      if (mainImg) { mainImg.src = publicUrl; }
+
       pgmShowSaveStatus('✅ Ořez uložen', 'ok');
+
+      // Obnov panel fotek v detailu karty – jinak by batchJson v onclick
+      // stále odkazoval na starou URL a galerie by při příštím otevření
+      // zobrazila neoříznutou fotografii.
+      if (typeof loadCardRealPhotos === 'function' && typeof _detailCard !== 'undefined' && _detailCard) {
+        const lid = _detailCard.id || _detailCard.local_id;
+        if (lid) loadCardRealPhotos(lid);
+      }
 
     } catch (e) {
       console.error('[pgmUpdateCurrentPhoto]', e);
