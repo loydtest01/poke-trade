@@ -530,6 +530,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
           <button class="quick-btn" onclick="selectCount(7)">7<div class="quick-label">karet</div></button>
           <button class="quick-btn" onclick="selectCount(8)">8<div class="quick-label">karet</div></button>
           <button class="quick-btn" onclick="selectCount(9)">9<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="selectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
         </div>
       </div>
 
@@ -668,6 +669,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
           <button class="quick-btn" onclick="galSelectCount(7)">7<div class="quick-label">karet</div></button>
           <button class="quick-btn" onclick="galSelectCount(8)">8<div class="quick-label">karet</div></button>
           <button class="quick-btn" onclick="galSelectCount(9)">9<div class="quick-label">karet</div></button>
+          <button class="quick-btn" onclick="galSelectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--muted);text-align:center;padding:4px 0">Pro každou kartu zvlášť vybereš přední stranu, detaily a zadní stranu.</div>
@@ -773,8 +775,19 @@ const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 // ─── Auth token – načteme z localStorage, NE z URL ──────────
 let mobileToken = localStorage.getItem('sb_token') || '';
 
+// ─── Service Worker (vyžadováno pro notifikace na Androidu) ──
+let _swReg = null;
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js')
+    .then(reg => {
+      _swReg = reg;
+      console.log('[SW] zaregistrován');
+    })
+    .catch(e => console.warn('[SW] chyba:', e));
+}
+
 // ─── Batch state ─────────────────────────────────────────────
-let totalCards   = 9;
+let totalCards   = 10;
 let currentCard  = 0;
 let captureMode  = 'front';
 let currentCond  = 'NM';
@@ -863,6 +876,7 @@ window.onload = () => {
   if (mobileToken) {
     showScreen('scSetup');
     loadGroqInBackground();
+    startNotifPolling();  // spusť polling i při návratu do appky (ne jen po loginu)
     verifyToken(mobileToken).then(valid => {
       if (!valid) {
         mobileToken = '';
@@ -2552,8 +2566,22 @@ async function requestNotifPermission() {
 
 function showPushNotif(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  try { new Notification(title, { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
-  catch(e) { console.warn('[notif]', e); }
+  // Android Chrome vyžaduje showNotification přes Service Worker registration
+  // (přímý new Notification() na Androidu nefunguje spolehlivě)
+  if (_swReg) {
+    _swReg.showNotification(title || 'PokéTrade', {
+      body: body || '',
+      tag:  tag  || 'pkt',
+      icon:  'icon-aipc-192.png',
+      badge: 'icon-aipc-192.png',
+      renotify: false,
+      data: { url: location.href }
+    }).catch(e => console.warn('[notif SW]', e));
+  } else {
+    // Fallback – desktop nebo SW ještě není připraven
+    try { new Notification(title || 'PokéTrade', { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
+    catch(e) { console.warn('[notif]', e); }
+  }
 }
 
 // ── Notification polling ─────────────────────────────────────
