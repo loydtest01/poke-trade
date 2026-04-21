@@ -775,15 +775,90 @@ const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 // ─── Auth token – načteme z localStorage, NE z URL ──────────
 let mobileToken = localStorage.getItem('sb_token') || '';
 
-// ─── Service Worker (vyžadováno pro notifikace na Androidu) ──
+// ─── VAPID public key (pár vygenerovaný pro tento projekt) ───
+const VAPID_PUBLIC = 'BJQQ3j0RLJKmhZR7_EdpnRWF-rSblz9w5HhAbtKGZoX7OyeJjNC2HuCL-jrhmtbFq6cS2FJAW8gUvV0R8xBZncQ';
+
+// ─── Service Worker + Web Push ────────────────────────────────
+// Android Chrome VYŽADUJE SW pro zobrazení notifikací.
+// Web Push zajistí, že notifikace dorazí I KDYŽ je appka zavřená.
 let _swReg = null;
+let _pushSub = null;
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
     .then(reg => {
       _swReg = reg;
-      console.log('[SW] zaregistrován');
+      console.log('[SW] zaregistrován, scope:', reg.scope);
+      // Pokud má user token a povolení, rovnou se přihlaš k push
+      if (mobileToken && Notification.permission === 'granted') {
+        subscribeToPush(reg);
+      }
     })
-    .catch(e => console.warn('[SW] chyba:', e));
+    .catch(e => console.warn('[SW] registrace selhala:', e));
+}
+
+// Převod base64url → Uint8Array (pro applicationServerKey)
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+
+async function subscribeToPush(reg) {
+  if (!reg || !mobileToken) return;
+  try {
+    // Zjisti stávající subscription nebo vytvoř novou
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC)
+      });
+      console.log('[Push] nová subscription');
+    } else {
+      console.log('[Push] subscription již existuje');
+    }
+    _pushSub = sub;
+    // Ulož subscription do Supabase (tabulka push_subscriptions)
+    await savePushSubscription(sub);
+  } catch(e) {
+    console.warn('[Push] subscribe chyba:', e.message);
+  }
+}
+
+async function savePushSubscription(sub) {
+  if (!mobileToken || !sub) return;
+  try {
+    // Získej user_id
+    const meR = await fetch(`${SB_URL}/auth/v1/user`, {
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
+    });
+    if (!meR.ok) return;
+    const me = await meR.json();
+    const uid = me.id;
+    if (!uid) return;
+
+    const subJson = JSON.parse(JSON.stringify(sub));
+    // Upsert podle endpointu (1 device = 1 řádek)
+    await fetch(`${SB_URL}/rest/v1/push_subscriptions`, {
+      method: 'POST',
+      headers: {
+        'apikey': SB_ANON,
+        'Authorization': 'Bearer ' + mobileToken,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify({
+        user_id:  uid,
+        endpoint: subJson.endpoint,
+        sub_json: subJson
+      })
+    });
+    console.log('[Push] subscription uložena do Supabase');
+  } catch(e) {
+    console.warn('[Push] save chyba:', e.message);
+  }
 }
 
 // ─── Batch state ─────────────────────────────────────────────
@@ -2559,6 +2634,8 @@ async function requestNotifPermission() {
   if (result === 'granted') {
     toast('✅ Notifikace povoleny');
     document.getElementById('notifPermRow').style.display = 'none';
+    // Přihlas zařízení k Web Push (nutné pro notifikace na pozadí)
+    if (_swReg) subscribeToPush(_swReg);
   } else {
     toast('⚠️ Notifikace zamítnuty v nastavení prohlížeče');
   }
