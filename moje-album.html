@@ -2874,8 +2874,18 @@ function cardClick(id) {
     render();
     return;
   }
-  // Open card detail
-  const c = allCards.find(x => String(x.id) === String(id));
+  // Open card detail — search own cards first, then readonly share/family snapshots
+  let c = allCards.find(x => String(x.id) === String(id));
+  if (!c && activeSharedAlbumId) {
+    const share = allSharedAlbums.find(s => s.id === activeSharedAlbumId);
+    if (share) c = (share.cards_snapshot || []).find(x => String(x.id) === String(id));
+    if (c) c = { ...c, _readOnly: true };
+  }
+  if (!c && activeFamilyAlbumIdx != null) {
+    const fam = allFamilyAlbums[activeFamilyAlbumIdx];
+    if (fam) c = (fam.cards || []).find(x => String(x.id || x.local_id) === String(id));
+    if (c) c = { ...c, _readOnly: true };
+  }
   if (c) openCardDetail(c);
 }
 
@@ -2997,9 +3007,12 @@ function openCardDetail(c) {
   // Moje cena
   document.getElementById('cdPriceInp').value = c.price_czk || '';
 
-  // Actions
+  // Actions — skryj editaci pro read-only karty
   const _L = currentLang === 'en';
-  document.getElementById('cdActions').innerHTML = `
+  const isRO = !!c._readOnly;
+  document.getElementById('cdActions').innerHTML = isRO
+    ? `<div style="padding:8px 10px;border-radius:9px;background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.2);font-size:12px;color:rgba(130,190,255,0.8);text-align:center;">👁 Sdílené album — pouze ke čtení</div>`
+    : `
     <button class="cd-act-btn ${c.for_trade?'trade-on':'trade-off'}" onclick="toggleCdTrade()">
       🔄 ${c.for_trade ? (_L?'Cancel trade':'Zrušit výměnu') : (_L?'For trade':'Dát k výměně')}
     </button>
@@ -3007,6 +3020,16 @@ function openCardDetail(c) {
       💰 ${c.for_sell ? (_L?'Cancel sale':'Zrušit prodej') : (_L?'For sale':'Dát k prodeji')}
     </button>
     <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 ${_L?'Delete':'Smazat'}</button>`;
+
+  // Skryj editační sekce pro read-only
+  const editBtn = modal.querySelector('[onclick="openCardEdit()"]')?.closest('div[style*="border-top"]');
+  if (editBtn) editBtn.style.display = isRO ? 'none' : '';
+  const priceRow = document.getElementById('cdPriceInp')?.closest('div');
+  if (priceRow) priceRow.style.display = isRO ? 'none' : '';
+  const tcgSection = modal.querySelector('.cd-tcg-section');
+  if (tcgSection) tcgSection.style.display = isRO ? 'none' : '';
+  const photosPanel = document.getElementById('cdPhotosPanel');
+  if (photosPanel) photosPanel.style.display = isRO ? 'none' : '';
 
   modal.classList.add('open');
   modal.onclick = e => { if (e.target === modal) closeCardDetail(); };
@@ -3037,6 +3060,16 @@ function closeCardDetail() {
   document.getElementById('cdPhotosStrip').innerHTML = '';
   document.getElementById('cdPhotosPanelList').innerHTML =
     '<div style="font-size:11px;color:var(--text3);text-align:center;padding:20px 4px;opacity:.5">Žádné fotky</div>';
+  // Obnov viditelnost editačních panelů pro příští otevření
+  const modal = document.getElementById('cardDetailModal');
+  const editBtn = modal.querySelector('[onclick="openCardEdit()"]')?.closest('div[style*="border-top"]');
+  if (editBtn) editBtn.style.display = '';
+  const priceRow = document.getElementById('cdPriceInp')?.closest('div');
+  if (priceRow) priceRow.style.display = '';
+  const tcgSection = modal.querySelector('.cd-tcg-section');
+  if (tcgSection) tcgSection.style.display = '';
+  const photosPanel = document.getElementById('cdPhotosPanel');
+  if (photosPanel) photosPanel.style.display = '';
   _detailCard = null;
 }
 
