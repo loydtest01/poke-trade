@@ -1391,10 +1391,6 @@ body { background: #06040c; overflow-x: hidden; }
 #cbSetPickerDrop::-webkit-scrollbar-track { background: transparent; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
-#cbSeriesPickerDrop::-webkit-scrollbar { width: 6px; }
-#cbSeriesPickerDrop::-webkit-scrollbar-track { background: transparent; }
-#cbSeriesPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
-#cbSeriesPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
 </style>
 </head>
 <body>
@@ -1495,6 +1491,7 @@ body { background: #06040c; overflow-x: hidden; }
     <div class="sb-divider"></div>
     <div class="sb-section">
       <span class="sb-label">🔧 Správa dat</span>
+      <button class="sb-btn" onclick="mergeDuplicatesInAlbum()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
         🛠️ Opravit vše automaticky
       </button>
@@ -1649,6 +1646,7 @@ body { background: #06040c; overflow-x: hidden; }
         <option value="number" style="background:#0e0c14;color:#f0ece4;">Číslo pokémona</option>
         <option value="series" style="background:#0e0c14;color:#f0ece4;">Série</option>
         <option value="element" style="background:#0e0c14;color:#f0ece4;">Element</option>
+        <option value="evolution" style="background:#0e0c14;color:#f0ece4;">🧬 Evoluční řada</option>
         <option value="price_desc" style="background:#0e0c14;color:#f0ece4;">💰 Nejdražší první</option>
         <option value="price_asc" style="background:#0e0c14;color:#f0ece4;">💰 Nejlevnější první</option>
       </select>
@@ -1678,57 +1676,21 @@ body { background: #06040c; overflow-x: hidden; }
 
     <!-- ══ pokemontcg.io inline browser panel ══ -->
     <div id="tcgPanel" style="display:none;flex-direction:column;gap:10px;">
-      <!-- TCG Toolbar -->
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 0 2px;">
-        <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:200px;">
-          <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
-            style="flex:1;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
-                   border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;" />
-          <!-- Picker: podle série (group) -->
-          <div id="cbSeriesPickerWrap" style="flex:1;min-width:160px;max-width:220px;position:relative;">
-            <div id="cbSeriesPickerBtn" onclick="cbToggleSeriesPicker()"
-              style="display:flex;align-items:center;gap:7px;padding:8px 12px;
-                     background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
-                     color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
-              <span id="cbSeriesPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Podle série —</span>
-              <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
-            </div>
-            <div id="cbSeriesPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
-              background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
-              z-index:2001;max-height:320px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
-              <div id="cbSeriesPickerList"></div>
-            </div>
-          </div>
-          <!-- Picker: konkrétní sada -->
-          <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:280px;position:relative;">
-            <div id="cbSetPickerBtn" onclick="cbToggleSetPicker()"
-              style="display:flex;align-items:center;gap:7px;padding:8px 12px;
-                     background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
-                     color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
-              <span id="cbSetPickerIcon" style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;"></span>
-              <span id="cbSetPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Konkrétní sada —</span>
-              <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
-            </div>
-            <div id="cbSetPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
-              background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
-              z-index:2000;max-height:340px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
-              <div style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);">
-                <input id="cbSetPickerSearch" placeholder="Hledat sadu…" oninput="cbFilterSetPicker()"
-                  style="width:100%;padding:5px 9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
-                         border-radius:7px;color:#f0ece4;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;">
-              </div>
-              <div id="cbSetPickerList"></div>
-            </div>
-            <!-- Hidden native select for value reading -->
-            <select id="cbSetSelect" style="display:none;">
-              <option value="">— Všechny série —</option>
-            </select>
-          </div>
-          <button onclick="cbSearch(1)" style="padding:8px 16px;background:linear-gradient(135deg,#f5c842,#ff8c00);
-            border:none;border-radius:9px;color:#000;font-weight:800;font-size:13px;
-            cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
-        </div>
-        <div id="tcgValueBar" style="font-size:12px;color:rgba(240,232,208,.4);"></div>
+      <!-- ── TAB NAVIGACE ── -->
+      <div style="display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;margin-bottom:2px;flex-wrap:wrap;">
+        <button id="cbTabBtn1" onclick="cbSwitchTab(1)"
+          style="padding:7px 14px;border:1px solid rgba(245,200,66,.5);border-radius:8px;background:linear-gradient(135deg,rgba(245,200,66,.2),rgba(245,200,66,.08));color:#f5c842;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s;">
+          🎴 Vizuální picker
+        </button>
+        <button id="cbTabBtn2" onclick="cbSwitchTab(2)"
+          style="padding:7px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.05);color:rgba(240,236,228,.5);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;">
+          📋 Série select
+        </button>
+        <button id="cbTabBtn3" onclick="cbSwitchTab(3)"
+          style="padding:7px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.05);color:rgba(240,236,228,.5);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;">
+          🌐 TCGdex
+        </button>
+        <div style="flex:1;"></div>
         <button onclick="closeCardBrowser()" style="padding:6px 14px;background:rgba(255,255,255,.06);
           border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(240,236,228,.6);
           font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;"
@@ -1736,43 +1698,173 @@ body { background: #06040c; overflow-x: hidden; }
           ← Zpět na album
         </button>
       </div>
-      <!-- Supertype + element filtry -->
-      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
-        <span style="font-size:10px;color:rgba(240,236,228,.3);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Typ:</span>
-        <button onclick="cbSetSuper('')"   id="cbSuperBtn_all"    class="st-btn active" style="font-size:11px;padding:4px 12px;">Vše</button>
-        <button onclick="cbSetSuper('Pokémon')" id="cbSuperBtn_Pokémon" class="st-btn" style="font-size:11px;padding:4px 12px;">🎴 Pokémoni</button>
-        <button onclick="cbSetSuper('Trainer')" id="cbSuperBtn_Trainer" class="st-btn" style="font-size:11px;padding:4px 12px;">🧑 Trenéři</button>
-        <button onclick="cbSetSuper('Energy')"  id="cbSuperBtn_Energy"  class="st-btn" style="font-size:11px;padding:4px 12px;">⚡ Energie</button>
-        <span style="color:rgba(255,255,255,.15);margin:0 4px;">|</span>
-        <span style="font-size:10px;color:rgba(240,236,228,.3);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Element:</span>
-        <button onclick="cbSetType('')"          id="cbTypeBtn_all"        class="st-btn active" style="font-size:11px;padding:4px 10px;">Vše</button>
-        <button onclick="cbSetType('Fire')"      id="cbTypeBtn_Fire"       class="st-btn" style="font-size:11px;padding:4px 10px;">🔥</button>
-        <button onclick="cbSetType('Water')"     id="cbTypeBtn_Water"      class="st-btn" style="font-size:11px;padding:4px 10px;">💧</button>
-        <button onclick="cbSetType('Grass')"     id="cbTypeBtn_Grass"      class="st-btn" style="font-size:11px;padding:4px 10px;">🌿</button>
-        <button onclick="cbSetType('Lightning')" id="cbTypeBtn_Lightning"  class="st-btn" style="font-size:11px;padding:4px 10px;">⚡</button>
-        <button onclick="cbSetType('Psychic')"   id="cbTypeBtn_Psychic"    class="st-btn" style="font-size:11px;padding:4px 10px;">🔮</button>
-        <button onclick="cbSetType('Fighting')"  id="cbTypeBtn_Fighting"   class="st-btn" style="font-size:11px;padding:4px 10px;">🥊</button>
-        <button onclick="cbSetType('Darkness')"  id="cbTypeBtn_Darkness"   class="st-btn" style="font-size:11px;padding:4px 10px;">🌑</button>
-        <button onclick="cbSetType('Metal')"     id="cbTypeBtn_Metal"      class="st-btn" style="font-size:11px;padding:4px 10px;">⚙️</button>
-        <button onclick="cbSetType('Dragon')"    id="cbTypeBtn_Dragon"     class="st-btn" style="font-size:11px;padding:4px 10px;">🐉</button>
-        <button onclick="cbSetType('Colorless')" id="cbTypeBtn_Colorless"  class="st-btn" style="font-size:11px;padding:4px 10px;">⬜</button>
-      </div>
-      <!-- TCG Grid -->
-      <div id="cbGrid" class="cards-grid"
-        style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;min-height:200px;">
-        <div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
-          Vyber sérii nebo zadej název/číslo a stiskni Hledat
+
+      <!-- ── TAB 1: VIZUÁLNÍ PICKER (pokemontcg.io) ── -->
+      <div id="cbTabContent1" style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 0 2px;">
+          <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:200px;">
+            <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
+              style="flex:1;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
+                     border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;" />
+            <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:300px;position:relative;">
+              <div id="cbSetPickerBtn" onclick="cbToggleSetPicker()"
+                style="display:flex;align-items:center;gap:7px;padding:8px 12px;
+                       background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
+                       color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
+                <span id="cbSetPickerIcon" style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;"></span>
+                <span id="cbSetPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Všechny série —</span>
+                <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
+              </div>
+              <div id="cbSetPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
+                z-index:2000;max-height:340px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
+                <div style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);">
+                  <input id="cbSetPickerSearch" placeholder="Hledat sérii…" oninput="cbFilterSetPicker()"
+                    style="width:100%;padding:5px 9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+                           border-radius:7px;color:#f0ece4;font-size:12px;font-family:inherit;outline:none;">
+                </div>
+                <div id="cbSetPickerList"></div>
+              </div>
+              <!-- Hidden select pro internal use -->
+              <select id="cbSetSelect" style="display:none;">
+                <option value="">— Všechny série —</option>
+              </select>
+            </div>
+            <button onclick="cbSearch(1)" style="padding:8px 16px;background:linear-gradient(135deg,#f5c842,#ff8c00);
+              border:none;border-radius:9px;color:#000;font-weight:800;font-size:13px;
+              cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
+          </div>
+          <div id="tcgValueBar" style="font-size:12px;color:rgba(240,232,208,.4);"></div>
+        </div>
+        <!-- Filtry -->
+        <div id="cbSharedFilters" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:10px;color:rgba(240,236,228,.3);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Typ:</span>
+          <button onclick="cbSetSuper('')"   id="cbSuperBtn_all"    class="st-btn active" style="font-size:11px;padding:4px 12px;">Vše</button>
+          <button onclick="cbSetSuper('Pokémon')" id="cbSuperBtn_Pokémon" class="st-btn" style="font-size:11px;padding:4px 12px;">🎴 Pokémoni</button>
+          <button onclick="cbSetSuper('Trainer')" id="cbSuperBtn_Trainer" class="st-btn" style="font-size:11px;padding:4px 12px;">🧑 Trenéři</button>
+          <button onclick="cbSetSuper('Energy')"  id="cbSuperBtn_Energy"  class="st-btn" style="font-size:11px;padding:4px 12px;">⚡ Energie</button>
+          <span style="color:rgba(255,255,255,.15);margin:0 4px;">|</span>
+          <span style="font-size:10px;color:rgba(240,236,228,.3);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Element:</span>
+          <button onclick="cbSetType('')"          id="cbTypeBtn_all"        class="st-btn active" style="font-size:11px;padding:4px 10px;">Vše</button>
+          <button onclick="cbSetType('Fire')"      id="cbTypeBtn_Fire"       class="st-btn" style="font-size:11px;padding:4px 10px;">🔥</button>
+          <button onclick="cbSetType('Water')"     id="cbTypeBtn_Water"      class="st-btn" style="font-size:11px;padding:4px 10px;">💧</button>
+          <button onclick="cbSetType('Grass')"     id="cbTypeBtn_Grass"      class="st-btn" style="font-size:11px;padding:4px 10px;">🌿</button>
+          <button onclick="cbSetType('Lightning')" id="cbTypeBtn_Lightning"  class="st-btn" style="font-size:11px;padding:4px 10px;">⚡</button>
+          <button onclick="cbSetType('Psychic')"   id="cbTypeBtn_Psychic"    class="st-btn" style="font-size:11px;padding:4px 10px;">🔮</button>
+          <button onclick="cbSetType('Fighting')"  id="cbTypeBtn_Fighting"   class="st-btn" style="font-size:11px;padding:4px 10px;">🥊</button>
+          <button onclick="cbSetType('Darkness')"  id="cbTypeBtn_Darkness"   class="st-btn" style="font-size:11px;padding:4px 10px;">🌑</button>
+          <button onclick="cbSetType('Metal')"     id="cbTypeBtn_Metal"      class="st-btn" style="font-size:11px;padding:4px 10px;">⚙️</button>
+          <button onclick="cbSetType('Dragon')"    id="cbTypeBtn_Dragon"     class="st-btn" style="font-size:11px;padding:4px 10px;">🐉</button>
+          <button onclick="cbSetType('Colorless')" id="cbTypeBtn_Colorless"  class="st-btn" style="font-size:11px;padding:4px 10px;">⬜</button>
+        </div>
+        <!-- Grid + Pager (sdílené pro tab1+tab2) -->
+        <div id="cbGrid" class="cards-grid"
+          style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;min-height:200px;">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
+            Vyber sérii nebo zadej název/číslo a stiskni Hledat
+          </div>
+        </div>
+        <div id="cbPager" style="display:none;gap:8px;justify-content:center;align-items:center;padding:4px 0 12px;flex-wrap:wrap;">
+          <button id="cbPrevBtn" onclick="cbSearch(_cbPage-1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">← Zpět</button>
+          <span id="cbPageInfo" style="color:rgba(240,236,228,.5);font-size:12px;"></span>
+          <button id="cbNextBtn" onclick="cbSearch(_cbPage+1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">Další →</button>
         </div>
       </div>
-      <!-- TCG Pager -->
-      <div id="cbPager" style="display:none;gap:8px;justify-content:center;align-items:center;padding:4px 0 12px;flex-wrap:wrap;">
-        <button id="cbPrevBtn" onclick="cbSearch(_cbPage-1)"
-          style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
-                 border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">← Zpět</button>
-        <span id="cbPageInfo" style="color:rgba(240,236,228,.5);font-size:12px;"></span>
-        <button id="cbNextBtn" onclick="cbSearch(_cbPage+1)"
-          style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
-                 border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">Další →</button>
+
+      <!-- ── TAB 2: SIMPLE SELECT (pokemontcg.io) ── -->
+      <div id="cbTabContent2" style="display:none;flex-direction:column;gap:10px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input id="cbSearchInput2" placeholder="Název karty nebo číslo…" oninput="clearTimeout(_cbSearchTimer);_cbSearchTimer=setTimeout(()=>cbSearch2(1),600)"
+            style="flex:1;min-width:150px;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
+                   border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;"
+            onkeydown="if(event.key==='Enter')cbSearch2(1)" />
+          <select id="cbSetSelect2" onchange="cbSearch2(1)"
+            style="flex:1;min-width:150px;max-width:260px;padding:8px 10px;background:#0e0c14;
+                   border:1px solid rgba(245,200,66,.3);border-radius:9px;color:#f0ece4;
+                   font-size:12px;font-family:inherit;outline:none;">
+            <option value="">— Všechny série —</option>
+          </select>
+          <button onclick="cbSearch2(1)" style="padding:8px 16px;background:linear-gradient(135deg,#f5c842,#ff8c00);
+            border:none;border-radius:9px;color:#000;font-weight:800;font-size:13px;
+            cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
+        </div>
+        <!-- Filtry (kopie) -->
+        <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:10px;color:rgba(240,236,228,.3);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Typ:</span>
+          <button onclick="cb2SetSuper('')"   id="cb2SuperBtn_all"    class="st-btn active" style="font-size:11px;padding:4px 12px;">Vše</button>
+          <button onclick="cb2SetSuper('Pokémon')" id="cb2SuperBtn_Pokémon" class="st-btn" style="font-size:11px;padding:4px 12px;">🎴 Pokémoni</button>
+          <button onclick="cb2SetSuper('Trainer')" id="cb2SuperBtn_Trainer" class="st-btn" style="font-size:11px;padding:4px 12px;">🧑 Trenéři</button>
+          <button onclick="cb2SetSuper('Energy')"  id="cb2SuperBtn_Energy"  class="st-btn" style="font-size:11px;padding:4px 12px;">⚡ Energie</button>
+          <span style="color:rgba(255,255,255,.15);margin:0 4px;">|</span>
+          <button onclick="cb2SetType('')"          id="cb2TypeBtn_all"   class="st-btn active" style="font-size:11px;padding:4px 10px;">Vše</button>
+          <button onclick="cb2SetType('Fire')"      class="st-btn" style="font-size:11px;padding:4px 10px;">🔥</button>
+          <button onclick="cb2SetType('Water')"     class="st-btn" style="font-size:11px;padding:4px 10px;">💧</button>
+          <button onclick="cb2SetType('Grass')"     class="st-btn" style="font-size:11px;padding:4px 10px;">🌿</button>
+          <button onclick="cb2SetType('Lightning')" class="st-btn" style="font-size:11px;padding:4px 10px;">⚡</button>
+          <button onclick="cb2SetType('Psychic')"   class="st-btn" style="font-size:11px;padding:4px 10px;">🔮</button>
+          <button onclick="cb2SetType('Fighting')"  class="st-btn" style="font-size:11px;padding:4px 10px;">🥊</button>
+          <button onclick="cb2SetType('Darkness')"  class="st-btn" style="font-size:11px;padding:4px 10px;">🌑</button>
+          <button onclick="cb2SetType('Metal')"     class="st-btn" style="font-size:11px;padding:4px 10px;">⚙️</button>
+          <button onclick="cb2SetType('Dragon')"    class="st-btn" style="font-size:11px;padding:4px 10px;">🐉</button>
+          <button onclick="cb2SetType('Colorless')" class="st-btn" style="font-size:11px;padding:4px 10px;">⬜</button>
+        </div>
+        <div id="cbGrid2" class="cards-grid"
+          style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;min-height:200px;">
+          <div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
+            Vyber sérii nebo zadej název/číslo a stiskni Hledat
+          </div>
+        </div>
+        <div id="cbPager2" style="display:none;gap:8px;justify-content:center;align-items:center;padding:4px 0 12px;flex-wrap:wrap;">
+          <button onclick="cbSearch2(_cb2Page-1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">← Zpět</button>
+          <span id="cbPageInfo2" style="color:rgba(240,236,228,.5);font-size:12px;"></span>
+          <button onclick="cbSearch2(_cb2Page+1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">Další →</button>
+        </div>
+      </div>
+
+      <!-- ── TAB 3: TCGDEX ── -->
+      <div id="cbTabContent3" style="display:none;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <input id="tcgdexSearchInput" placeholder="Název karty (česky nebo anglicky)…"
+            style="flex:1;min-width:160px;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(99,200,255,.3);
+                   border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;"
+            onkeydown="if(event.key==='Enter')tcgdexSearch()" />
+          <select id="tcgdexLang"
+            style="padding:8px 10px;background:#0e0c14;border:1px solid rgba(99,200,255,.3);border-radius:9px;
+                   color:#f0ece4;font-size:12px;font-family:inherit;outline:none;">
+            <option value="en">🇬🇧 English</option>
+            <option value="cs">🇨🇿 Čeština</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="fr">🇫🇷 Français</option>
+          </select>
+          <button onclick="tcgdexSearch()" style="padding:8px 16px;background:linear-gradient(135deg,#4ac8ff,#0077cc);
+            border:none;border-radius:9px;color:#fff;font-weight:800;font-size:13px;
+            cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
+        </div>
+        <div style="font-size:11px;color:rgba(240,236,228,.35);padding:2px 4px;">
+          Zdroj: <strong style="color:rgba(99,200,255,.7);">TCGdex API</strong> – 
+          alternativní databáze, podporuje češtinu, němčinu a další jazyky
+        </div>
+        <div id="tcgdexStatus" style="font-size:12px;color:rgba(240,236,228,.5);min-height:16px;"></div>
+        <div id="tcgdexGrid" class="cards-grid"
+          style="grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;min-height:100px;">
+        </div>
+        <div id="tcgdexPager" style="display:none;gap:8px;justify-content:center;align-items:center;padding:4px 0;flex-wrap:wrap;">
+          <button id="tcgdexPrevBtn" onclick="tcgdexPage(-1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">← Zpět</button>
+          <span id="tcgdexPageInfo" style="color:rgba(240,236,228,.5);font-size:12px;"></span>
+          <button id="tcgdexNextBtn" onclick="tcgdexPage(1)"
+            style="padding:6px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);
+                   border-radius:8px;color:#f0ece4;font-size:12px;cursor:pointer;font-family:inherit;">Další →</button>
+        </div>
       </div>
     </div>
 
@@ -2393,6 +2485,31 @@ function render() {
   filtered = sortCards(filtered);
   _detailList = filtered; // store for prev/next navigation
 
+  // ── Kontrola duplicit – zobraz banner pokud jsou nalezeny ──────
+  if (!isReadOnly) {
+    const _dupCheck = new Map();
+    for (const c of filtered) {
+      const k = [(c.name||'').toLowerCase().trim(), (c.set||'').toLowerCase().trim(), (c.number||c.num||'').toString().toLowerCase().trim()].join('|');
+      _dupCheck.set(k, (_dupCheck.get(k) || 0) + 1);
+    }
+    const _dupCount = [..._dupCheck.values()].filter(v => v > 1).length;
+    let _dupBanner = document.getElementById('dupWarningBanner');
+    if (_dupCount > 0) {
+      if (!_dupBanner) {
+        _dupBanner = document.createElement('div');
+        _dupBanner.id = 'dupWarningBanner';
+        _dupBanner.style.cssText = 'display:flex;align-items:center;gap:10px;padding:9px 14px;margin-bottom:10px;background:rgba(245,200,66,0.09);border:1px solid rgba(245,200,66,0.25);border-radius:10px;font-size:12px;color:rgba(245,200,66,0.9);';
+        const grid = document.getElementById('cardsGrid');
+        if (grid) grid.before(_dupBanner);
+      }
+      _dupBanner.innerHTML = '⚠️ <strong>V albu jsou duplicitní karty</strong> — ' + _dupCount + ' skupin. '
+        + '<button onclick="mergeDuplicatesInAlbum()" style="margin-left:auto;background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.35);border-radius:7px;color:#f5c842;font-size:11px;font-weight:700;padding:4px 12px;cursor:pointer;font-family:inherit;white-space:nowrap;">🔀 Sloučit nyní</button>';
+      _dupBanner.style.display = 'flex';
+    } else if (_dupBanner) {
+      _dupBanner.style.display = 'none';
+    }
+  }
+
   // Stat chips
   const fChip = document.getElementById('filteredChip');
   document.getElementById('statFiltered').textContent = filtered.length;
@@ -2685,7 +2802,7 @@ function openCardDetail(c) {
   const badges = [];
   if (c.for_trade) badges.push('<span class="cd-badge trade">🔄 K výměně</span>');
   if (c.for_sell)  badges.push('<span class="cd-badge sell">💰 K prodeji</span>');
-  const cond = c.condition || c.cond || c.cond || 'NM';
+  const cond = c.condition || c.cond || 'NM';
   badges.push(`<span class="cd-badge cond">${cond}</span>`);
   document.getElementById('cdBadges').innerHTML = badges.join('');
 
@@ -5020,6 +5137,116 @@ function buildCardData(c) {
   };
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  SLOUČENÍ DUPLICITŮ V ALBU
+//  – Najde karty se stejným name+set+number v aktivním albu
+//  – Ponechá jednu (přidá count), přenese fotky, odstraní duplicity
+// ══════════════════════════════════════════════════════════════════
+async function mergeDuplicatesInAlbum() {
+  const albumCardIds = getActiveAlbumCardIds();
+  if (!albumCardIds) { toast('⚠️ Nejprve vyber album', 'warn'); return; }
+
+  const albumCards = allCards.filter(c => albumCardIds.includes(String(c.id)));
+  if (!albumCards.length) { toast('Album je prázdné', 'warn'); return; }
+
+  // Seskup dle klíče name+set+number
+  const groups = new Map();
+  for (const c of albumCards) {
+    const key = [
+      (c.name   || '').toLowerCase().trim(),
+      (c.set    || '').toLowerCase().trim(),
+      (c.number || c.num || '').toString().toLowerCase().trim(),
+    ].join('|');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  }
+
+  const dupGroups = [...groups.values()].filter(g => g.length > 1);
+  if (!dupGroups.length) {
+    toast('✅ Žádné duplicitní kartičky nenalezeny', 'ok');
+    return;
+  }
+
+  const totalDups = dupGroups.reduce((s, g) => s + g.length - 1, 0);
+  const ok = window.confirm(
+    'Nalezeno ' + dupGroups.length + ' skupin duplicit (' + totalDups + ' nadbytečných karet).\n\n' +
+    dupGroups.map(g => '• ' + g[0].name + ' (' + (g[0].set||'?') + ' #' + (g[0].number||'?') + ') — ' + g.length + '×').join('\n') +
+    '\n\nFotky všech duplicit se přesunou k primární kartičce a nadbytečné záznamy se odstraní z alba.\nPokračovat?'
+  );
+  if (!ok) return;
+
+  setSyncState('syncing', 'Slučuji duplicity…');
+  let merged = 0;
+
+  try {
+    for (const group of dupGroups) {
+      // Primární karta = ta s nejvyšším count nebo nejdřívějším přidáním
+      group.sort((a, b) => (b.count || b.qty || 1) - (a.count || a.qty || 1));
+      const primary    = group[0];
+      const duplicates = group.slice(1);
+
+      // 1. Sečti celkový count
+      const totalCount = group.reduce((s, c) => s + (c.count || c.qty || 1), 0);
+      primary.count = totalCount;
+      primary.qty   = totalCount;
+      primary.updated_at = new Date().toISOString();
+      await saveCardUpdates(primary);
+
+      // 2. Přenés fotky z duplicit na primární kartu
+      for (const dup of duplicates) {
+        const dupId = String(dup.id || dup.local_id || '');
+        if (!dupId) continue;
+
+        await sbReq(
+          'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + encodeURIComponent(dupId),
+          'PATCH',
+          { user_card_local_id: String(primary.id) }
+        ).catch(e => console.warn('[mergeDup photos]', e));
+
+        // Aktualizuj lokální mapu fotek
+        const primaryKey = String(primary.id);
+        const dupPhotos  = allCardPhotosMap[dupId] || [];
+        if (dupPhotos.length) {
+          if (!allCardPhotosMap[primaryKey]) allCardPhotosMap[primaryKey] = [];
+          dupPhotos.forEach(p => { p.user_card_local_id = primaryKey; });
+          allCardPhotosMap[primaryKey].push(...dupPhotos);
+          delete allCardPhotosMap[dupId];
+        }
+      }
+
+      // 3. Odstraň duplicity z card_ids aktivních alb
+      const dupIds = duplicates.map(d => String(d.id || d.local_id || ''));
+      for (const alb of allAlbums) {
+        if ([...activeAlbumIds].includes(alb.id)) {
+          alb.cardIds = alb.cardIds.filter(id => !dupIds.includes(String(id)));
+        }
+      }
+
+      // 4. Odstraň z allCards
+      dupIds.forEach(id => {
+        const idx = allCards.findIndex(x => String(x.id) === id);
+        if (idx >= 0) allCards.splice(idx, 1);
+      });
+
+      merged += duplicates.length;
+    }
+
+    saveAlbumsLocal();
+    await saveAlbumsToServer();
+    saveLocal();
+    renderAlbumList();
+    render();
+
+    setSyncState('ok', 'Sloučeno ' + merged + ' duplicit');
+    toast('✅ Sloučeno ' + merged + ' duplicitních karet · fotky přeneseny', 'ok');
+    setTimeout(() => setSyncState('ok', 'Synchronizováno'), 2500);
+
+  } catch(e) {
+    console.error('[mergeDuplicates]', e);
+    setSyncState('', 'Chyba slučování: ' + e.message);
+  }
+}
+
 // ── Nové album modal ──
 function openNewAlbumModal() {
   editingAlbumId = null;
@@ -5852,6 +6079,351 @@ function getCardElement(c) {
   return 'other';
 }
 
+// ── Evoluční řady ─────────────────────────────────────────────
+// Odstraní TCG přípony z názvu (ex, VMAX, VSTAR, GX…) a regionální prefixy
+function normalizeCardName(rawName) {
+  let n = (rawName || '').trim();
+  // TCG formy a přípony
+  n = n.replace(/\s+(ex|EX|VMAX|VSTAR|GX|V-UNION|BREAK|Prime|Prism Star)\b.*/i, '');
+  n = n.replace(/\s+\bV\b.*/, ''); // "Pokémon V" – jen samostatné V
+  // Mega/Primal prefix
+  n = n.replace(/^(Mega|Primal)\s+/i, '');
+  // Regionální formy
+  n = n.replace(/^(Alolan|Hisuian|Paldean|Galarian|Kantonian|Johtonian)\s+/i, '');
+  // TAG TEAM (vezme jen prvního pokémona)
+  if (n.includes(' & ')) n = n.split(' & ')[0].trim();
+  return n;
+}
+
+// Mapa: jméno pokémona → [rootJméno, stupeň evoluce]
+// Základní formy (root) zde NEJSOU – jejich výchozí je [vlastníJméno, 0]
+const EVO_FAMILY = {
+  // ── Gen 1 ──
+  'Ivysaur':['Bulbasaur',1],'Venusaur':['Bulbasaur',2],
+  'Charmeleon':['Charmander',1],'Charizard':['Charmander',2],
+  'Wartortle':['Squirtle',1],'Blastoise':['Squirtle',2],
+  'Metapod':['Caterpie',1],'Butterfree':['Caterpie',2],
+  'Kakuna':['Weedle',1],'Beedrill':['Weedle',2],
+  'Pidgeotto':['Pidgey',1],'Pidgeot':['Pidgey',2],
+  'Raticate':['Rattata',1],
+  'Fearow':['Spearow',1],
+  'Arbok':['Ekans',1],
+  'Pikachu':['Pichu',1],'Raichu':['Pichu',2],
+  'Sandslash':['Sandshrew',1],
+  'Nidorina':['Nidoran♀',1],'Nidoqueen':['Nidoran♀',2],
+  'Nidorino':['Nidoran♂',1],'Nidoking':['Nidoran♂',2],
+  'Clefairy':['Cleffa',1],'Clefable':['Cleffa',2],
+  'Ninetales':['Vulpix',1],
+  'Jigglypuff':['Igglybuff',1],'Wigglytuff':['Igglybuff',2],
+  'Golbat':['Zubat',1],'Crobat':['Zubat',2],
+  'Gloom':['Oddish',1],'Vileplume':['Oddish',2],'Bellossom':['Oddish',2],
+  'Parasect':['Paras',1],
+  'Venomoth':['Venonat',1],
+  'Dugtrio':['Diglett',1],
+  'Persian':['Meowth',1],
+  'Golduck':['Psyduck',1],
+  'Primeape':['Mankey',1],'Annihilape':['Mankey',2],
+  'Arcanine':['Growlithe',1],
+  'Poliwhirl':['Poliwag',1],'Poliwrath':['Poliwag',2],'Politoed':['Poliwag',2],
+  'Kadabra':['Abra',1],'Alakazam':['Abra',2],
+  'Machoke':['Machop',1],'Machamp':['Machop',2],
+  'Weepinbell':['Bellsprout',1],'Victreebel':['Bellsprout',2],
+  'Tentacruel':['Tentacool',1],
+  'Graveler':['Geodude',1],'Golem':['Geodude',2],
+  'Rapidash':['Ponyta',1],
+  'Slowbro':['Slowpoke',1],'Slowking':['Slowpoke',1],
+  'Magneton':['Magnemite',1],'Magnezone':['Magnemite',2],
+  'Dodrio':['Doduo',1],
+  'Dewgong':['Seel',1],
+  'Muk':['Grimer',1],
+  'Cloyster':['Shellder',1],
+  'Haunter':['Gastly',1],'Gengar':['Gastly',2],
+  'Steelix':['Onix',1],
+  'Hypno':['Drowzee',1],
+  'Kingler':['Krabby',1],
+  'Electrode':['Voltorb',1],
+  'Exeggutor':['Exeggcute',1],
+  'Marowak':['Cubone',1],
+  'Hitmonlee':['Tyrogue',1],'Hitmonchan':['Tyrogue',1],'Hitmontop':['Tyrogue',1],
+  'Lickilicky':['Lickitung',1],
+  'Weezing':['Koffing',1],
+  'Rhydon':['Rhyhorn',1],'Rhyperior':['Rhyhorn',2],
+  'Chansey':['Happiny',1],'Blissey':['Happiny',2],
+  'Tangrowth':['Tangela',1],
+  'Seadra':['Horsea',1],'Kingdra':['Horsea',2],
+  'Seaking':['Goldeen',1],
+  'Starmie':['Staryu',1],
+  'Mr. Rime':['Mr. Mime',1],
+  'Scizor':['Scyther',1],'Kleavor':['Scyther',1],
+  'Jynx':['Smoochum',1],
+  'Electabuzz':['Elekid',1],'Electivire':['Elekid',2],
+  'Magmar':['Magby',1],'Magmortar':['Magby',2],
+  'Gyarados':['Magikarp',1],
+  'Snorlax':['Munchlax',1],
+  'Vaporeon':['Eevee',1],'Jolteon':['Eevee',1],'Flareon':['Eevee',1],
+  'Espeon':['Eevee',1],'Umbreon':['Eevee',1],'Leafeon':['Eevee',1],
+  'Glaceon':['Eevee',1],'Sylveon':['Eevee',1],
+  'Porygon2':['Porygon',1],'Porygon-Z':['Porygon',2],
+  'Omastar':['Omanyte',1],
+  'Kabutops':['Kabuto',1],
+  'Dragonair':['Dratini',1],'Dragonite':['Dratini',2],
+  // ── Gen 2 ──
+  'Bayleef':['Chikorita',1],'Meganium':['Chikorita',2],
+  'Quilava':['Cyndaquil',1],'Typhlosion':['Cyndaquil',2],
+  'Croconaw':['Totodile',1],'Feraligatr':['Totodile',2],
+  'Furret':['Sentret',1],
+  'Noctowl':['Hoothoot',1],
+  'Ledian':['Ledyba',1],
+  'Ariados':['Spinarak',1],
+  'Lanturn':['Chinchou',1],
+  'Togetic':['Togepi',1],'Togekiss':['Togepi',2],
+  'Flaaffy':['Mareep',1],'Ampharos':['Mareep',2],
+  'Marill':['Azurill',1],'Azumarill':['Azurill',2],
+  'Skiploom':['Hoppip',1],'Jumpluff':['Hoppip',2],
+  'Ambipom':['Aipom',1],
+  'Sunflora':['Sunkern',1],
+  'Yanmega':['Yanma',1],
+  'Quagsire':['Wooper',1],'Clodsire':['Wooper',1],
+  'Honchkrow':['Murkrow',1],
+  'Mismagius':['Misdreavus',1],
+  'Wobbuffet':['Wynaut',1],
+  'Forretress':['Pineco',1],
+  'Dudunsparce':['Dunsparce',1],
+  'Gliscor':['Gligar',1],
+  'Granbull':['Snubbull',1],
+  'Weavile':['Sneasel',1],'Sneasler':['Sneasel',1],
+  'Ursaring':['Teddiursa',1],'Ursaluna':['Teddiursa',2],
+  'Magcargo':['Slugma',1],
+  'Piloswine':['Swinub',1],'Mamoswine':['Swinub',2],
+  'Octillery':['Remoraid',1],
+  'Mantine':['Mantyke',1],
+  'Houndoom':['Houndour',1],
+  'Donphan':['Phanpy',1],
+  'Pupitar':['Larvitar',1],'Tyranitar':['Larvitar',2],
+  'Wyrdeer':['Stantler',1],
+  // ── Gen 3 ──
+  'Grovyle':['Treecko',1],'Sceptile':['Treecko',2],
+  'Combusken':['Torchic',1],'Blaziken':['Torchic',2],
+  'Marshtomp':['Mudkip',1],'Swampert':['Mudkip',2],
+  'Mightyena':['Poochyena',1],
+  'Linoone':['Zigzagoon',1],'Obstagoon':['Zigzagoon',2],
+  'Silcoon':['Wurmple',1],'Beautifly':['Wurmple',2],
+  'Cascoon':['Wurmple',1],'Dustox':['Wurmple',2],
+  'Lombre':['Lotad',1],'Ludicolo':['Lotad',2],
+  'Nuzleaf':['Seedot',1],'Shiftry':['Seedot',2],
+  'Swellow':['Taillow',1],
+  'Pelipper':['Wingull',1],
+  'Kirlia':['Ralts',1],'Gardevoir':['Ralts',2],'Gallade':['Ralts',2],
+  'Ninjask':['Nincada',1],'Shedinja':['Nincada',1],
+  'Loudred':['Whismur',1],'Exploud':['Whismur',2],
+  'Hariyama':['Makuhita',1],
+  'Delcatty':['Skitty',1],
+  'Lairon':['Aron',1],'Aggron':['Aron',2],
+  'Medicham':['Meditite',1],
+  'Manectric':['Electrike',1],
+  'Roselia':['Budew',1],'Roserade':['Budew',2],
+  'Swalot':['Gulpin',1],
+  'Sharpedo':['Carvanha',1],
+  'Wailord':['Wailmer',1],
+  'Camerupt':['Numel',1],
+  'Grumpig':['Spoink',1],
+  'Vibrava':['Trapinch',1],'Flygon':['Trapinch',2],
+  'Cacturne':['Cacnea',1],
+  'Altaria':['Swablu',1],
+  'Whiscash':['Barboach',1],
+  'Crawdaunt':['Corphish',1],
+  'Claydol':['Baltoy',1],
+  'Cradily':['Lileep',1],
+  'Armaldo':['Anorith',1],
+  'Milotic':['Feebas',1],
+  'Banette':['Shuppet',1],
+  'Dusclops':['Duskull',1],'Dusknoir':['Duskull',2],
+  'Chimecho':['Chingling',1],
+  'Glalie':['Snorunt',1],'Froslass':['Snorunt',1],
+  'Sealeo':['Spheal',1],'Walrein':['Spheal',2],
+  'Huntail':['Clamperl',1],'Gorebyss':['Clamperl',1],
+  'Shelgon':['Bagon',1],'Salamence':['Bagon',2],
+  'Metang':['Beldum',1],'Metagross':['Beldum',2],
+  // ── Gen 4 ──
+  'Grotle':['Turtwig',1],'Torterra':['Turtwig',2],
+  'Monferno':['Chimchar',1],'Infernape':['Chimchar',2],
+  'Prinplup':['Piplup',1],'Empoleon':['Piplup',2],
+  'Staravia':['Starly',1],'Staraptor':['Starly',2],
+  'Bibarel':['Bidoof',1],
+  'Kricketune':['Kricketot',1],
+  'Luxio':['Shinx',1],'Luxray':['Shinx',2],
+  'Rampardos':['Cranidos',1],
+  'Bastiodon':['Shieldon',1],
+  'Wormadam':['Burmy',1],'Mothim':['Burmy',1],
+  'Vespiquen':['Combee',1],
+  'Floatzel':['Buizel',1],
+  'Cherrim':['Cherubi',1],
+  'Gastrodon':['Shellos',1],
+  'Drifblim':['Drifloon',1],
+  'Lopunny':['Buneary',1],
+  'Gabite':['Gible',1],'Garchomp':['Gible',2],
+  'Lucario':['Riolu',1],
+  'Hippowdon':['Hippopotas',1],
+  'Drapion':['Skorupi',1],
+  'Toxicroak':['Croagunk',1],
+  'Lumineon':['Finneon',1],
+  'Probopass':['Nosepass',1],
+  // ── Gen 5 ──
+  'Servine':['Snivy',1],'Serperior':['Snivy',2],
+  'Pignite':['Tepig',1],'Emboar':['Tepig',2],
+  'Dewott':['Oshawott',1],'Samurott':['Oshawott',2],
+  'Watchog':['Patrat',1],
+  'Herdier':['Lillipup',1],'Stoutland':['Lillipup',2],
+  'Liepard':['Purrloin',1],
+  'Simisage':['Pansage',1],'Simisear':['Pansear',1],'Simipour':['Panpour',1],
+  'Musharna':['Munna',1],
+  'Tranquill':['Pidove',1],'Unfezant':['Pidove',2],
+  'Boldore':['Roggenrola',1],'Gigalith':['Roggenrola',2],
+  'Swoobat':['Woobat',1],
+  'Excadrill':['Drilbur',1],
+  'Gurdurr':['Timburr',1],'Conkeldurr':['Timburr',2],
+  'Palpitoad':['Tympole',1],'Seismitoad':['Tympole',2],
+  'Swadloon':['Sewaddle',1],'Leavanny':['Sewaddle',2],
+  'Whirlipede':['Venipede',1],'Scolipede':['Venipede',2],
+  'Whimsicott':['Cottonee',1],
+  'Lilligant':['Petilil',1],
+  'Krokorok':['Sandile',1],'Krookodile':['Sandile',2],
+  'Crustle':['Dwebble',1],
+  'Scrafty':['Scraggy',1],
+  'Cofagrigus':['Yamask',1],
+  'Carracosta':['Tirtouga',1],
+  'Archeops':['Archen',1],
+  'Garbodor':['Trubbish',1],
+  'Cinccino':['Minccino',1],
+  'Gothorita':['Gothita',1],'Gothitelle':['Gothita',2],
+  'Duosion':['Solosis',1],'Reuniclus':['Solosis',2],
+  'Swanna':['Ducklett',1],
+  'Vanillish':['Vanillite',1],'Vanilluxe':['Vanillite',2],
+  'Sawsbuck':['Deerling',1],
+  'Escavalier':['Karrablast',1],
+  'Amoonguss':['Foongus',1],
+  'Jellicent':['Frillish',1],
+  'Galvantula':['Joltik',1],
+  'Ferrothorn':['Ferroseed',1],
+  'Klang':['Klink',1],'Klinklang':['Klink',2],
+  'Eelektrik':['Tynamo',1],'Eelektross':['Tynamo',2],
+  'Beheeyem':['Elgyem',1],
+  'Lampent':['Litwick',1],'Chandelure':['Litwick',2],
+  'Fraxure':['Axew',1],'Haxorus':['Axew',2],
+  'Beartic':['Cubchoo',1],
+  'Accelgor':['Shelmet',1],
+  'Mienshao':['Mienfoo',1],
+  'Golurk':['Golett',1],
+  'Bisharp':['Pawniard',1],'Kingambit':['Pawniard',2],
+  'Braviary':['Rufflet',1],
+  'Mandibuzz':['Vullaby',1],
+  'Zweilous':['Deino',1],'Hydreigon':['Deino',2],
+  'Volcarona':['Larvesta',1],
+  // ── Gen 6 ──
+  'Quilladin':['Chespin',1],'Chesnaught':['Chespin',2],
+  'Braixen':['Fennekin',1],'Delphox':['Fennekin',2],
+  'Frogadier':['Froakie',1],'Greninja':['Froakie',2],
+  'Fletchinder':['Fletchling',1],'Talonflame':['Fletchling',2],
+  'Spewpa':['Scatterbug',1],'Vivillon':['Scatterbug',2],
+  'Meowstic':['Espurr',1],
+  'Doublade':['Honedge',1],'Aegislash':['Honedge',2],
+  'Aromatisse':['Spritzee',1],
+  'Slurpuff':['Swirlix',1],
+  'Malamar':['Inkay',1],
+  'Barbaracle':['Binacle',1],
+  'Dragalge':['Skrelp',1],
+  'Clawitzer':['Clauncher',1],
+  'Heliolisk':['Helioptile',1],
+  'Tyrantrum':['Tyrunt',1],
+  'Aurorus':['Amaura',1],
+  'Sliggoo':['Goomy',1],'Goodra':['Goomy',2],
+  'Trevenant':['Phantump',1],
+  'Gourgeist':['Pumpkaboo',1],
+  'Avalugg':['Bergmite',1],
+  'Noivern':['Noibat',1],
+  // ── Gen 7 ──
+  'Dartrix':['Rowlet',1],'Decidueye':['Rowlet',2],
+  'Torracat':['Litten',1],'Incineroar':['Litten',2],
+  'Brionne':['Popplio',1],'Primarina':['Popplio',2],
+  'Trumbeak':['Pikipek',1],'Toucannon':['Pikipek',2],
+  'Gumshoos':['Yungoos',1],
+  'Charjabug':['Grubbin',1],'Vikavolt':['Grubbin',2],
+  'Crabominable':['Crabrawler',1],
+  'Lycanroc':['Rockruff',1],
+  'Lurantis':['Fomantis',1],
+  'Shiinotic':['Morelull',1],
+  'Salazzle':['Salandit',1],
+  'Bewear':['Stufful',1],
+  'Golisopod':['Wimpod',1],
+  'Palossand':['Sandygast',1],
+  'Silvally':['Type: Null',1],
+  'Hakamo-o':['Jangmo-o',1],'Kommo-o':['Jangmo-o',2],
+  'Cosmoem':['Cosmog',1],'Solgaleo':['Cosmog',2],'Lunala':['Cosmog',2],
+  'Melmetal':['Meltan',1],
+  // ── Gen 8 ──
+  'Thwackey':['Grookey',1],'Rillaboom':['Grookey',2],
+  'Raboot':['Scorbunny',1],'Cinderace':['Scorbunny',2],
+  'Drizzile':['Sobble',1],'Inteleon':['Sobble',2],
+  'Greedent':['Skwovet',1],
+  'Corvisquire':['Rookidee',1],'Corviknight':['Rookidee',2],
+  'Dottler':['Blipbug',1],'Orbeetle':['Blipbug',2],
+  'Barraskewda':['Arrokuda',1],
+  'Toxtricity':['Toxel',1],
+  'Polteageist':['Sinistea',1],
+  'Hattrem':['Hatenna',1],'Hatterene':['Hatenna',2],
+  'Morgrem':['Impidimp',1],'Grimmsnarl':['Impidimp',2],
+  'Alcremie':['Milcery',1],
+  'Frosmoth':['Snom',1],
+  'Copperajah':['Cufant',1],
+  'Drakloak':['Dreepy',1],'Dragapult':['Dreepy',2],
+  'Urshifu':['Kubfu',1],
+  'Flapple':['Applin',1],'Appletun':['Applin',1],'Dipplin':['Applin',2],'Hydrapple':['Applin',3],
+  'Basculegion':['Basculin',1],
+  'Overqwil':['Qwilfish',1],
+  'Archaludon':['Duraludon',1],
+  // ── Gen 9 ──
+  'Floragato':['Sprigatito',1],'Meowscarada':['Sprigatito',2],
+  'Crocalor':['Fuecoco',1],'Skeledirge':['Fuecoco',2],
+  'Quaxwell':['Quaxly',1],'Quaquaval':['Quaxly',2],
+  'Oinkologne':['Lechonk',1],
+  'Spidops':['Tarountula',1],
+  'Lokix':['Nymble',1],
+  'Pawmo':['Pawmi',1],'Pawmot':['Pawmi',2],
+  'Maushold':['Tandemaus',1],
+  'Dachsbun':['Fidough',1],
+  'Naclstack':['Nacli',1],'Garganacl':['Nacli',2],
+  'Armarouge':['Charcadet',1],'Ceruledge':['Charcadet',1],
+  'Bellibolt':['Tadbulb',1],
+  'Kilowattrel':['Wattrel',1],
+  'Mabosstiff':['Maschiff',1],
+  'Grafaiai':['Shroodle',1],
+  'Brambleghast':['Bramblin',1],
+  'Toedscruel':['Toedscool',1],
+  'Scovillain':['Capsakid',1],
+  'Rabsca':['Rellor',1],
+  'Espathra':['Flittle',1],
+  'Tinkatuff':['Tinkatink',1],'Tinkaton':['Tinkatink',2],
+  'Wugtrio':['Wiglett',1],
+  'Palafin':['Finizen',1],
+  'Revavroom':['Varoom',1],
+  'Glimmora':['Glimmet',1],
+  'Houndstone':['Greavard',1],
+  'Cetitan':['Cetoddle',1],
+  'Gholdengo':['Gimmighoul',1],
+  'Farigiraf':['Girafarig',1],
+  'Dudunsparce':['Dunsparce',1],
+  'Sinistcha':['Poltchageist',1],
+};
+
+function getEvoRoot(name) {
+  const n = normalizeCardName(name);
+  return (EVO_FAMILY[n] || [n, 0])[0];
+}
+function getEvoStage(name) {
+  const n = normalizeCardName(name);
+  return (EVO_FAMILY[n] || [n, 0])[1];
+}
+
 function sortCards(cards) {
   const c = [...cards];
   if (activeSort === 'added')   return c; // původní pořadí
@@ -5877,32 +6449,40 @@ function sortCards(cards) {
     if (pb === 0) return -1;
     return pa - pb;
   });
+  if (activeSort === 'evolution') return c.sort((a,b) => {
+    const ra = getEvoRoot(a.name), rb = getEvoRoot(b.name);
+    const famCmp = ra.localeCompare(rb, 'cs');
+    if (famCmp !== 0) return famCmp;
+    const sa = getEvoStage(a.name), sb = getEvoStage(b.name);
+    if (sa !== sb) return sa - sb;
+    return (a.name||'').localeCompare(b.name||'', 'cs');
+  });
   return c;
 }
 
 // Build flat page array with null-padding for element grouping in book view
 // Each element group starts on a new page (fills remaining slots with null)
 function buildBookPages(cards) {
-  if (activeSort !== 'element') {
+  if (activeSort !== 'element' && activeSort !== 'evolution') {
     // Simple flat layout - pad last page
     return cards;
   }
-  // Group by element, each group starts fresh on a new page
+  // Group by element or evolution family, each group starts fresh on a new page
   const groups = {};
   const order = [];
   for (const c of cards) {
-    const el = getCardElement(c);
-    if (!groups[el]) { groups[el] = []; order.push(el); }
-    groups[el].push(c);
+    const key = activeSort === 'evolution' ? getEvoRoot(c.name) : getCardElement(c);
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(c);
   }
   const result = [];
-  for (const el of order) {
+  for (const key of order) {
     // Pad previous page to fill BOOK_PAGE_SIZE slots
     const rem = result.length % BOOK_PAGE_SIZE;
     if (rem !== 0 && result.length > 0) {
       for (let i = 0; i < BOOK_PAGE_SIZE - rem; i++) result.push(null);
     }
-    result.push(...groups[el]);
+    result.push(...groups[key]);
   }
   return result;
 }
@@ -6192,7 +6772,6 @@ let _cbSets = [];
 let _cbPage = 1;
 let _cbQuery = '';
 let _cbSet   = '';
-let _cbSeriesGroup = ''; // filtr podle skupiny sérií (Scarlet & Violet, Sun & Moon…)
 let _cbType  = '';
 let _cbSuper = '';
 let _cbLoading = false;
@@ -6275,7 +6854,7 @@ async function cbLoadSets() {
     const d = await r.json();
     _cbSets = d.data || [];
 
-    // Naplň hidden native select (pro zpětnou kompatibilitu)
+    // Naplň hidden native select (pro cbSearch value reading)
     const sel = document.getElementById('cbSetSelect');
     if (sel) {
       _cbSets.forEach(s => {
@@ -6286,81 +6865,14 @@ async function cbLoadSets() {
       });
     }
 
-    // Naplň set picker list
+    // Naplň custom picker list
     cbBuildSetPickerList(_cbSets);
-
-    // Naplň series group picker
-    cbBuildSeriesPickerList();
+    cb2PopulateSets(_cbSets);
 
     // Počet sad v sidebaru
     const tcgCnt = document.getElementById('cnt-tcgapi');
     if (tcgCnt) tcgCnt.textContent = _cbSets.length;
   } catch(e) { console.warn('[cbLoadSets]', e); }
-}
-
-function cbBuildSeriesPickerList() {
-  const list = document.getElementById('cbSeriesPickerList');
-  if (!list) return;
-  // Sesbírej unikátní skupiny ze setů (zachovej pořadí)
-  const groups = [];
-  const seen = new Set();
-  _cbSets.forEach(s => {
-    const g = s.series || 'Ostatní';
-    if (!seen.has(g)) { seen.add(g); groups.push(g); }
-  });
-  let html = `<div class="cb-set-item" onclick="cbPickSeriesGroup('','— Podle série —')"
-    style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
-           border-bottom:1px solid rgba(255,255,255,.06);color:rgba(240,236,228,.7);font-size:12px;"
-    onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
-    <span style="font-size:11px;color:rgba(255,255,255,.3);">✕</span>
-    <span>Všechny série</span>
-  </div>`;
-  groups.forEach(g => {
-    // Najdi logo sady z první sady v této skupině
-    const firstSet = _cbSets.find(s => s.series === g);
-    const logo = firstSet?.images?.logo || '';
-    const sym  = firstSet?.images?.symbol || '';
-    const safe = g.replace(/'/g, "\\'");
-    html += `<div class="cb-set-item" onclick="cbPickSeriesGroup('${safe}','${safe}')"
-      style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;
-             color:rgba(240,236,228,.8);font-size:12px;transition:background .1s;"
-      onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
-      ${sym ? `<img src="${sym}" style="width:22px;height:18px;object-fit:contain;flex-shrink:0;filter:brightness(1.5);" onerror="this.style.display='none'">` : '<span style="width:22px;display:inline-block;"></span>'}
-      <span style="flex:1;">${g}</span>
-      <span style="font-size:10px;color:rgba(255,255,255,.3);">${_cbSets.filter(s=>s.series===g).length} sad</span>
-    </div>`;
-  });
-  list.innerHTML = html;
-}
-
-function cbToggleSeriesPicker() {
-  const drop = document.getElementById('cbSeriesPickerDrop');
-  if (!drop) return;
-  // Zavři set picker
-  const sd = document.getElementById('cbSetPickerDrop');
-  if (sd) sd.style.display = 'none';
-  drop.style.display = drop.style.display !== 'none' ? 'none' : 'block';
-}
-
-function cbPickSeriesGroup(group, label) {
-  _cbSeriesGroup = group;
-  _cbSet = '';   // resetuj konkrétní sadu
-  // Resetuj set picker vizuál
-  const si = document.getElementById('cbSetPickerIcon');
-  const sl = document.getElementById('cbSetPickerLabel');
-  if (si) si.innerHTML = '';
-  if (sl) sl.textContent = '— Konkrétní sada —';
-  // Aktualizuj series picker label
-  const lbl = document.getElementById('cbSeriesPickerLabel');
-  if (lbl) lbl.textContent = label || '— Podle série —';
-  // Filtruj set picker list na sady z této skupiny
-  const filtered = group ? _cbSets.filter(s => s.series === group) : _cbSets;
-  cbBuildSetPickerList(filtered);
-  // Zavři dropdown
-  const drop = document.getElementById('cbSeriesPickerDrop');
-  if (drop) drop.style.display = 'none';
-  // Hledej
-  cbSearch(1);
 }
 
 function cbBuildSetPickerList(sets) {
@@ -6424,38 +6936,29 @@ function cbToggleSetPicker() {
 }
 
 function cbPickSet(id, sym, label) {
-  // Nastav hodnotu
+  // Nastav skrytý select
   const sel = document.getElementById('cbSetSelect');
   if (sel) sel.value = id;
   _cbSet = id;
-  if (id) _cbSeriesGroup = ''; // konkrétní sada přebíjí skupinu
-  // Aktualizuj vizuální set picker
-  const iconEl  = document.getElementById('cbSetPickerIcon');
+  // Aktualizuj vizuální picker
+  const iconEl = document.getElementById('cbSetPickerIcon');
   const labelEl = document.getElementById('cbSetPickerLabel');
-  if (iconEl)  iconEl.innerHTML = sym ? `<img src="${sym}" style="width:20px;height:16px;object-fit:contain;filter:brightness(1.5);">` : '';
-  if (labelEl) labelEl.textContent = label || '— Konkrétní sada —';
-  // Pokud reset (id=''), resetuj i series group label
-  if (!id) {
-    const sl = document.getElementById('cbSeriesPickerLabel');
-    if (sl) sl.textContent = '— Podle série —';
-  }
+  if (iconEl) iconEl.innerHTML = sym
+    ? `<img src="${sym}" style="width:20px;height:16px;object-fit:contain;filter:brightness(1.5);">`
+    : '';
+  if (labelEl) labelEl.textContent = label;
   // Zavři dropdown
   const drop = document.getElementById('cbSetPickerDrop');
   if (drop) drop.style.display = 'none';
-  // Hledej
+  // Spusť hledání
   cbSearch(1);
 }
 
-// Zavřít oba pickery klikem mimo
+// Zavřít picker klikem mimo
 document.addEventListener('click', e => {
-  const setWrap    = document.getElementById('cbSetPickerWrap');
-  const seriesWrap = document.getElementById('cbSeriesPickerWrap');
-  if (setWrap && !setWrap.contains(e.target)) {
+  const wrap = document.getElementById('cbSetPickerWrap');
+  if (wrap && !wrap.contains(e.target)) {
     const drop = document.getElementById('cbSetPickerDrop');
-    if (drop) drop.style.display = 'none';
-  }
-  if (seriesWrap && !seriesWrap.contains(e.target)) {
-    const drop = document.getElementById('cbSeriesPickerDrop');
     if (drop) drop.style.display = 'none';
   }
 });
@@ -6485,11 +6988,10 @@ async function cbSearch(page = 1) {
         q.push(`name:"${_cbQuery}*"`);
       }
     }
-    if (_cbSet)         q.push(`set.id:"${_cbSet}"`);
-    else if (_cbSeriesGroup) q.push(`set.series:"${_cbSeriesGroup}"`);
-    if (_cbType)        q.push(`types:${_cbType}`);
-    if (_cbSuper)       q.push(`supertype:"${_cbSuper}"`);
-    if (!q.length)      q.push('hp:[1 TO 999]');
+    if (_cbSet)   q.push(`set.id:"${_cbSet}"`);
+    if (_cbType)  q.push(`types:${_cbType}`);
+    if (_cbSuper) q.push(`supertype:"${_cbSuper}"`);
+    if (!q.length) q.push('hp:[1 TO 999]');
 
     const orderBy = seriesOnly ? 'number' : '-set.releaseDate';
     const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q.join(' '))}`
@@ -6588,6 +7090,233 @@ async function cbSearch(page = 1) {
   }
   _cbLoading = false;
 }
+
+/* ─────────────────────────────────────────────────────────
+   TAB SYSTÉM pro katalog (Tab1=VisPicker, Tab2=Select, Tab3=TCGdex)
+───────────────────────────────────────────────────────── */
+var _cbActiveTab = 1;
+function cbSwitchTab(n) {
+  _cbActiveTab = n;
+  [1,2,3].forEach(function(i) {
+    var content = document.getElementById('cbTabContent'+i);
+    var btn = document.getElementById('cbTabBtn'+i);
+    if (!content || !btn) return;
+    var isActive = i === n;
+    content.style.display = isActive ? 'flex' : 'none';
+    btn.style.background   = isActive ? 'linear-gradient(135deg,rgba(245,200,66,.2),rgba(245,200,66,.08))' : 'rgba(255,255,255,.05)';
+    btn.style.color        = isActive ? '#f5c842' : 'rgba(240,236,228,.5)';
+    btn.style.borderColor  = isActive ? 'rgba(245,200,66,.5)' : 'rgba(255,255,255,.12)';
+    btn.style.fontWeight   = isActive ? '700' : '600';
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
+   TAB 2 – Simple select (pokemontcg.io)
+───────────────────────────────────────────────────────── */
+var _cb2Page = 1, _cb2Query = '', _cb2Set = '', _cb2Super = '', _cb2Type = '', _cb2Loading = false;
+
+async function cbSearch2(page) {
+  page = page || 1;
+  if (_cb2Loading) return;
+  _cb2Loading = true;
+  _cb2Page = page;
+  _cb2Query = (document.getElementById('cbSearchInput2')?.value || '').trim();
+  _cb2Set   = document.getElementById('cbSetSelect2')?.value || '';
+  var SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+  var grid = document.getElementById('cbGrid2');
+  if (!grid) { _cb2Loading=false; return; }
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.4);font-size:13px;">⏳ Načítám karty…</div>';
+
+  try {
+    var q = [];
+    if (_cb2Query) {
+      q.push(/^\d+[a-zA-Z]?$/.test(_cb2Query) ? 'number:'+_cb2Query : 'name:"'+_cb2Query+'*"');
+    }
+    if (_cb2Set)   q.push('set.id:"'+_cb2Set+'"');
+    if (_cb2Type)  q.push('types:'+_cb2Type);
+    if (_cb2Super) q.push('supertype:"'+_cb2Super+'"');
+    if (!q.length) q.push('hp:[1 TO 999]');
+    var PAGE_SIZE = (_cb2Set && !_cb2Query && !_cb2Type && !_cb2Super) ? 250 : 24;
+    var url = 'https://api.pokemontcg.io/v2/cards?q='+encodeURIComponent(q.join(' '))
+      +'&page='+page+'&pageSize='+PAGE_SIZE+'&orderBy=-set.releaseDate';
+    var r = await fetch(url);
+    var d = await r.json();
+    var cards = d.data || [];
+    var total = d.totalCount || 0;
+    var totalPages = Math.ceil(total / PAGE_SIZE);
+
+    if (!cards.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">Žádné karty nenalezeny</div>';
+      var p2 = document.getElementById('cbPager2'); if(p2) p2.style.display='none';
+      _cb2Loading=false; return;
+    }
+
+    grid.innerHTML = cards.map(function(c) {
+      var img = c.images && c.images.small || '';
+      var safeData = encodeURIComponent(JSON.stringify({
+        id:c.id, name:c.name, set:c.set&&c.set.name||'', setCode:c.set&&c.set.id||'',
+        number:c.number, types:c.types||[], hp:c.hp||'', rarity:c.rarity||'',
+        supertype:c.supertype||'', subtypes:c.subtypes||[],
+        imageUrl:c.images&&c.images.small||'', apiSmall:c.images&&c.images.small||'',
+        apiLarge:c.images&&c.images.large||'',
+        pMin:c.cardmarket&&c.cardmarket.prices&&c.cardmarket.prices.lowPrice||0,
+        pTrend:c.cardmarket&&c.cardmarket.prices&&c.cardmarket.prices.trendPrice||0,
+        p30d:c.cardmarket&&c.cardmarket.prices&&c.cardmarket.prices.avg30||0,
+        cardmarketUrl:c.cardmarket&&c.cardmarket.url||'',
+      }));
+      var price = c.cardmarket&&c.cardmarket.prices&&(c.cardmarket.prices.avg30||c.cardmarket.prices.trendPrice)||0;
+      return `<div onclick="cbPickCard('${safeData}')" style="cursor:pointer;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);transition:all .2s;position:relative;" onmouseover="this.style.transform='scale(1.04)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.5)'" onmouseout="this.style.transform='scale(1)';this.style.boxShadow=''">`
+        + (img ? `<img src="${img}" style="width:100%;display:block;" loading="lazy">` : '<div style="aspect-ratio:.716;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.2);font-size:11px;">No img</div>')
+        + `<div style="padding:4px 6px;font-size:10px;color:rgba(240,236,228,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.name||''}</div>`
+        + (price ? `<div style="padding:0 6px 4px;font-size:10px;color:#f5c842;font-weight:700;">${price.toFixed(2)} €</div>` : '')
+        + '</div>';
+    }).join('');
+
+    var pager = document.getElementById('cbPager2');
+    var info  = document.getElementById('cbPageInfo2');
+    if (pager) {
+      pager.style.display = totalPages > 1 ? 'flex' : 'none';
+      if (info) info.textContent = 'Strana '+page+' / '+totalPages+' ('+total+' karet)';
+      var prev = pager.querySelector('button:first-child');
+      var next = pager.querySelector('button:last-child');
+      if (prev) prev.disabled = page <= 1;
+      if (next) next.disabled = page >= totalPages;
+    }
+  } catch(e) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:#f87171;font-size:13px;">❌ Chyba: '+e.message+'</div>';
+  }
+  _cb2Loading = false;
+}
+
+function cb2SetSuper(v) {
+  _cb2Super = v;
+  document.querySelectorAll('[id^=cb2SuperBtn_]').forEach(function(b){b.classList.remove('active')});
+  var btn = document.getElementById('cb2SuperBtn_'+(v||'all'));
+  if (btn) btn.classList.add('active');
+  cbSearch2(1);
+}
+function cb2SetType(v) {
+  _cb2Type = v;
+  cbSearch2(1);
+}
+
+/* ─────────────────────────────────────────────────────────
+   POPULATE cbSetSelect2 (Tab2) alongside cbSetSelect
+───────────────────────────────────────────────────────── */
+var _origCbLoadSets = typeof cbLoadSets === 'function' ? cbLoadSets : null;
+function cb2PopulateSets(sets) {
+  var sel2 = document.getElementById('cbSetSelect2');
+  if (!sel2) return;
+  sel2.innerHTML = '<option value="">— Všechny série —</option>';
+  (sets || []).forEach(function(s) {
+    var opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + ' (' + (s.total||'?') + ')';
+    sel2.appendChild(opt);
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
+   TAB 3 – TCGdex API
+───────────────────────────────────────────────────────── */
+var _tcgdexAllResults = [], _tcgdexPage = 0, _tcgdexPageSize = 24;
+
+async function tcgdexSearch() {
+  var q    = (document.getElementById('tcgdexSearchInput')?.value || '').trim();
+  var lang = document.getElementById('tcgdexLang')?.value || 'en';
+  var status = document.getElementById('tcgdexStatus');
+  var grid   = document.getElementById('tcgdexGrid');
+  var pager  = document.getElementById('tcgdexPager');
+
+  if (!q) { if(status) status.textContent = '⚠️ Zadej název karty'; return; }
+  if (status) status.textContent = '⏳ Hledám na TCGdex…';
+  if (grid) grid.innerHTML = '';
+  if (pager) pager.style.display = 'none';
+
+  try {
+    var url = 'https://api.tcgdex.net/v2/'+lang+'/cards?name='+encodeURIComponent(q)+'&isLegal=true';
+    var r = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error('HTTP '+r.status);
+    var data = await r.json();
+    var cards = Array.isArray(data) ? data : (data.cards || data.data || []);
+
+    if (!cards.length && lang !== 'en') {
+      // Fallback na angličtinu
+      if (status) status.textContent = '⏳ Nenalezeno, zkouším anglicky…';
+      var r2 = await fetch('https://api.tcgdex.net/v2/en/cards?name='+encodeURIComponent(q), { signal: AbortSignal.timeout(8000) });
+      if (r2.ok) {
+        var d2 = await r2.json();
+        cards = Array.isArray(d2) ? d2 : (d2.cards || d2.data || []);
+      }
+    }
+
+    if (!cards.length) {
+      if (status) status.textContent = '😔 Žádné výsledky pro "'+q+'"';
+      return;
+    }
+
+    _tcgdexAllResults = cards;
+    _tcgdexPage = 0;
+    if (status) status.textContent = '✅ Nalezeno '+cards.length+' karet (TCGdex)';
+    tcgdexRenderPage();
+  } catch(e) {
+    if (status) status.textContent = '❌ Chyba: '+e.message;
+  }
+}
+
+function tcgdexRenderPage() {
+  var grid  = document.getElementById('tcgdexGrid');
+  var pager = document.getElementById('tcgdexPager');
+  var info  = document.getElementById('tcgdexPageInfo');
+  if (!grid) return;
+
+  var start = _tcgdexPage * _tcgdexPageSize;
+  var slice = _tcgdexAllResults.slice(start, start + _tcgdexPageSize);
+  var total = _tcgdexAllResults.length;
+  var totalPages = Math.ceil(total / _tcgdexPageSize);
+
+  grid.innerHTML = slice.map(function(c) {
+    var img = c.image ? c.image+'/low.webp' : '';
+    var name = c.name || c.localName || '?';
+    var setName = (c.set && (c.set.name||c.set.id)) || '';
+    var num = c.localId || c.id || '';
+    var safeData = encodeURIComponent(JSON.stringify({
+      id: c.id, name: name, set: setName, number: num,
+      imageUrl: img, apiSmall: img, apiLarge: c.image ? c.image+'/high.webp' : '',
+      types: c.types||[], hp: c.hp||'', rarity: c.rarity||'',
+      supertype: c.category||'', subtypes: [],
+      source: 'tcgdex'
+    }));
+    return `<div onclick="cbPickCard('${safeData}')" `
+      +`style="cursor:pointer;border-radius:10px;overflow:hidden;background:rgba(74,200,255,.04);border:1px solid rgba(74,200,255,.12);transition:all .2s;" `
+      +`onmouseover="this.style.transform='scale(1.04)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.5)'" `
+      +`onmouseout="this.style.transform='scale(1)';this.style.boxShadow=''">`
+      + (img ? `<img src="${img}" style="width:100%;display:block;" loading="lazy" onerror="this.style.display='none'">`
+             : '<div style="aspect-ratio:.716;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.2);font-size:10px;">No img</div>')
+      + `<div style="padding:4px 6px;font-size:10px;color:rgba(240,236,228,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>`
+      + (setName ? `<div style="padding:0 6px 4px;font-size:9px;color:rgba(74,200,255,.6);">${setName}${num?' #'+num:''}</div>` : '')
+      + '</div>';
+  }).join('');
+
+  if (pager) {
+    pager.style.display = totalPages > 1 ? 'flex' : 'none';
+    if (info) info.textContent = 'Strana '+(_tcgdexPage+1)+' / '+totalPages+' ('+total+' karet)';
+    var prev = document.getElementById('tcgdexPrevBtn');
+    var next = document.getElementById('tcgdexNextBtn');
+    if (prev) prev.disabled = _tcgdexPage <= 0;
+    if (next) next.disabled = _tcgdexPage >= totalPages-1;
+  }
+}
+
+function tcgdexPage(dir) {
+  var totalPages = Math.ceil(_tcgdexAllResults.length / _tcgdexPageSize);
+  _tcgdexPage = Math.max(0, Math.min(totalPages-1, _tcgdexPage+dir));
+  tcgdexRenderPage();
+  var panel = document.getElementById('tcgPanel');
+  if (panel) panel.scrollIntoView({behavior:'smooth',block:'start'});
+}
+
 // Pomocné funkce pro filtr elementu a supertypů
 function cbSetType(t) {
   _cbType = t;
@@ -6716,6 +7445,32 @@ async function cbAddCardDirect(encodedData) {
   if (addMsg) addMsg.style.display = 'block';
 
   try {
+    // ── Kontrola duplicit: pokud stejná karta (name+set+number) v aktivním albu už existuje,
+    //    navyš count místo vytváření nového záznamu ─────────────────────────────────────────
+    const albumCardIds = getActiveAlbumCardIds() || [];
+    const existingCard = allCards.find(x =>
+      albumCardIds.includes(String(x.id)) &&
+      (x.name  || '') === (card.name   || '') &&
+      (x.set   || '') === (card.set    || '') &&
+      (x.number|| '') === (card.number || '')
+    );
+
+    if (existingCard) {
+      existingCard.count = (existingCard.count || existingCard.qty || 1) + 1;
+      existingCard.qty   = existingCard.count;
+      existingCard.updated_at = new Date().toISOString();
+      const idx = allCards.findIndex(x => String(x.id) === String(existingCard.id));
+      if (idx >= 0) { allCards[idx].count = existingCard.count; allCards[idx].qty = existingCard.count; }
+      saveLocal();
+      await saveCardUpdates(existingCard);
+      render();
+      closeCardBrowser();
+      _cbToast(`🔢 ${card.name} — počet navýšen na ${existingCard.count}×`);
+      if (addMsg) addMsg.style.display = 'none';
+      return;
+    }
+
+    // ── Nová karta ────────────────────────────────────────────────────────────────────────
     const localId = 'cb_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
 
     await sbReq('rest/v1/user_cards', 'POST', {
@@ -6765,17 +7520,21 @@ async function cbAddCardDirect(encodedData) {
     saveLocal(); render();
 
     closeCardBrowser();
-    const toast = document.createElement('div');
-    toast.textContent = `✅ ${card.name} přidána!`;
-    toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
-      background:#1a1a2e;border:1px solid rgba(245,200,66,.4);color:#f5c842;
-      padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;
-      z-index:99999;box-shadow:0 4px 20px #000a;pointer-events:none;`;
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 2500);
+    _cbToast(`✅ ${card.name} přidána!`);
 
   } catch(e) { alert('Chyba při přidávání karty: ' + e.message); }
   if (addMsg) addMsg.style.display = 'none';
+}
+
+function _cbToast(msg) {
+  const toast = document.createElement('div');
+  toast.textContent = msg;
+  toast.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:#1a1a2e;border:1px solid rgba(245,200,66,.4);color:#f5c842;
+    padding:10px 20px;border-radius:10px;font-size:13px;font-weight:700;
+    z-index:99999;box-shadow:0 4px 20px #000a;pointer-events:none;`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
 }
 
 // Zavřít menu při Escape
@@ -7802,6 +8561,18 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
   cursor: pointer;
 }
 .ce-select option { background: #0e0c14; color: #f0ece4; }
+
+/* ── TCG Catalog Tabs ───────────────────────────────── */
+#cbTabBtn1, #cbTabBtn2, #cbTabBtn3 {
+  transition: all .2s;
+}
+#cbTabBtn1:hover, #cbTabBtn2:hover, #cbTabBtn3:hover {
+  opacity: .85;
+}
+#cbSetPickerDrop::-webkit-scrollbar { width: 6px; }
+#cbSetPickerDrop::-webkit-scrollbar-track { background: transparent; }
+#cbSetPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
+#cbSetPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
 </style>
 
 <script>
