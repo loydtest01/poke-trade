@@ -1385,6 +1385,12 @@ body { background: #06040c; overflow-x: hidden; }
   cursor: pointer; transition: all .2s;
 }
 .btn-groq-save:hover { transform: translateY(-1px); }
+
+/* ── Custom série picker ─────────────────────────── */
+#cbSetPickerDrop::-webkit-scrollbar { width: 6px; }
+#cbSetPickerDrop::-webkit-scrollbar-track { background: transparent; }
+#cbSetPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
+#cbSetPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
 </style>
 </head>
 <body>
@@ -1674,12 +1680,30 @@ body { background: #06040c; overflow-x: hidden; }
           <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
             style="flex:1;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
                    border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;" />
-          <select id="cbSetSelect" onchange="cbOnSetChange()"
-            style="flex:1;min-width:150px;max-width:260px;padding:8px 10px;background:#0e0c14;
-                   border:1px solid rgba(245,200,66,.3);border-radius:9px;color:#f0ece4;
-                   font-size:12px;font-family:inherit;outline:none;">
-            <option value="">— Všechny série —</option>
-          </select>
+          <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:300px;position:relative;">
+            <div id="cbSetPickerBtn" onclick="cbToggleSetPicker()"
+              style="display:flex;align-items:center;gap:7px;padding:8px 12px;
+                     background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
+                     color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
+              <span id="cbSetPickerIcon" style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;"></span>
+              <span id="cbSetPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Všechny série —</span>
+              <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
+            </div>
+            <div id="cbSetPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+              background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
+              z-index:2000;max-height:340px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
+              <div style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);">
+                <input id="cbSetPickerSearch" placeholder="Hledat sérii…" oninput="cbFilterSetPicker()"
+                  style="width:100%;padding:5px 9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
+                         border-radius:7px;color:#f0ece4;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;">
+              </div>
+              <div id="cbSetPickerList"></div>
+            </div>
+            <!-- Hidden native select for value reading -->
+            <select id="cbSetSelect" style="display:none;">
+              <option value="">— Všechny série —</option>
+            </select>
+          </div>
           <button onclick="cbSearch(1)" style="padding:8px 16px;background:linear-gradient(135deg,#f5c842,#ff8c00);
             border:none;border-radius:9px;color:#000;font-weight:800;font-size:13px;
             cursor:pointer;font-family:inherit;white-space:nowrap;">Hledat</button>
@@ -6229,28 +6253,121 @@ async function cbLoadSets() {
     const r = await fetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate&pageSize=250');
     const d = await r.json();
     _cbSets = d.data || [];
+
+    // Naplň hidden native select (pro cbSearch value reading)
     const sel = document.getElementById('cbSetSelect');
     if (sel) {
       _cbSets.forEach(s => {
         const opt = document.createElement('option');
         opt.value = s.id;
-        opt.dataset.symbol = s.images?.symbol || '';
-        opt.textContent = `${s.name} (${s.series}) — ${s.total} karet`;
+        opt.textContent = s.name;
         sel.appendChild(opt);
       });
     }
-    // Zobraz počet sad v sidebaru
+
+    // Naplň custom picker list
+    cbBuildSetPickerList(_cbSets);
+
+    // Počet sad v sidebaru
     const tcgCnt = document.getElementById('cnt-tcgapi');
     if (tcgCnt) tcgCnt.textContent = _cbSets.length;
   } catch(e) { console.warn('[cbLoadSets]', e); }
 }
+
+function cbBuildSetPickerList(sets) {
+  const list = document.getElementById('cbSetPickerList');
+  if (!list) return;
+  // "Vše" položka
+  let html = `<div class="cb-set-item" onclick="cbPickSet('','','— Všechny série —')"
+    style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+           border-bottom:1px solid rgba(255,255,255,.04);color:rgba(240,236,228,.7);font-size:12px;"
+    onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
+    <span style="width:22px;text-align:center;font-size:10px;color:rgba(255,255,255,.3);">—</span>
+    <span>Všechny série</span>
+  </div>`;
+  // Skupiny sérií
+  const groups = {};
+  sets.forEach(s => {
+    const g = s.series || 'Ostatní';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(s);
+  });
+  Object.entries(groups).forEach(([group, items]) => {
+    html += `<div style="padding:5px 12px 2px;font-size:9px;font-weight:700;letter-spacing:.1em;
+               text-transform:uppercase;color:rgba(245,200,66,.4);">${group}</div>`;
+    items.forEach(s => {
+      const sym = s.images?.symbol || '';
+      const symHtml = sym
+        ? `<img src="${sym}" style="width:22px;height:18px;object-fit:contain;flex-shrink:0;filter:brightness(1.5);" onerror="this.style.display='none'">`
+        : `<span style="width:22px;display:inline-block;"></span>`;
+      const label = `${s.name} — ${s.total} karet`;
+      const safeId = s.id.replace(/'/g, "\\'");
+      const safeSym = sym.replace(/'/g, "\\'");
+      const safeName = label.replace(/'/g, "\\'");
+      html += `<div class="cb-set-item" onclick="cbPickSet('${safeId}','${safeSym}','${safeName}')"
+        style="display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;
+               color:rgba(240,236,228,.75);font-size:12px;transition:background .1s;"
+        onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
+        ${symHtml}
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+
+function cbFilterSetPicker() {
+  const q = (document.getElementById('cbSetPickerSearch')?.value || '').toLowerCase();
+  const filtered = q ? _cbSets.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.series||'').toLowerCase().includes(q)
+  ) : _cbSets;
+  cbBuildSetPickerList(filtered);
+}
+
+function cbToggleSetPicker() {
+  const drop = document.getElementById('cbSetPickerDrop');
+  if (!drop) return;
+  const open = drop.style.display !== 'none';
+  drop.style.display = open ? 'none' : 'block';
+  if (!open) {
+    setTimeout(() => document.getElementById('cbSetPickerSearch')?.focus(), 50);
+  }
+}
+
+function cbPickSet(id, sym, label) {
+  // Nastav skrytý select
+  const sel = document.getElementById('cbSetSelect');
+  if (sel) sel.value = id;
+  _cbSet = id;
+  // Aktualizuj vizuální picker
+  const iconEl = document.getElementById('cbSetPickerIcon');
+  const labelEl = document.getElementById('cbSetPickerLabel');
+  if (iconEl) iconEl.innerHTML = sym
+    ? `<img src="${sym}" style="width:20px;height:16px;object-fit:contain;filter:brightness(1.5);">`
+    : '';
+  if (labelEl) labelEl.textContent = label;
+  // Zavři dropdown
+  const drop = document.getElementById('cbSetPickerDrop');
+  if (drop) drop.style.display = 'none';
+  // Spusť hledání
+  cbSearch(1);
+}
+
+// Zavřít picker klikem mimo
+document.addEventListener('click', e => {
+  const wrap = document.getElementById('cbSetPickerWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const drop = document.getElementById('cbSetPickerDrop');
+    if (drop) drop.style.display = 'none';
+  }
+});
 
 async function cbSearch(page = 1) {
   if (_cbLoading) return;
   _cbLoading = true;
   _cbPage = page;
   _cbQuery = (document.getElementById('cbSearchInput')?.value || '').trim();
-  _cbSet   = document.getElementById('cbSetSelect')?.value || '';
+  // _cbSet je nastaven přímo přes cbPickSet(), nemusíme číst z DOM
 
   const grid = document.getElementById('cbGrid');
   if (!grid) { _cbLoading = false; return; }
