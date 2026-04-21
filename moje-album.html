@@ -1391,6 +1391,10 @@ body { background: #06040c; overflow-x: hidden; }
 #cbSetPickerDrop::-webkit-scrollbar-track { background: transparent; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
+#cbSeriesPickerDrop::-webkit-scrollbar { width: 6px; }
+#cbSeriesPickerDrop::-webkit-scrollbar-track { background: transparent; }
+#cbSeriesPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
+#cbSeriesPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
 </style>
 </head>
 <body>
@@ -1680,20 +1684,36 @@ body { background: #06040c; overflow-x: hidden; }
           <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
             style="flex:1;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
                    border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;" />
-          <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:300px;position:relative;">
+          <!-- Picker: podle série (group) -->
+          <div id="cbSeriesPickerWrap" style="flex:1;min-width:160px;max-width:220px;position:relative;">
+            <div id="cbSeriesPickerBtn" onclick="cbToggleSeriesPicker()"
+              style="display:flex;align-items:center;gap:7px;padding:8px 12px;
+                     background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
+                     color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
+              <span id="cbSeriesPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Podle série —</span>
+              <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
+            </div>
+            <div id="cbSeriesPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+              background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
+              z-index:2001;max-height:320px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
+              <div id="cbSeriesPickerList"></div>
+            </div>
+          </div>
+          <!-- Picker: konkrétní sada -->
+          <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:280px;position:relative;">
             <div id="cbSetPickerBtn" onclick="cbToggleSetPicker()"
               style="display:flex;align-items:center;gap:7px;padding:8px 12px;
                      background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:9px;
                      color:#f0ece4;font-size:12px;cursor:pointer;user-select:none;min-height:38px;">
               <span id="cbSetPickerIcon" style="flex-shrink:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;"></span>
-              <span id="cbSetPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Všechny série —</span>
+              <span id="cbSetPickerLabel" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">— Konkrétní sada —</span>
               <span style="color:rgba(245,200,66,.5);font-size:10px;">▾</span>
             </div>
             <div id="cbSetPickerDrop" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
               background:#0e0c14;border:1px solid rgba(245,200,66,.3);border-radius:10px;
               z-index:2000;max-height:340px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.7);">
               <div style="padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);">
-                <input id="cbSetPickerSearch" placeholder="Hledat sérii…" oninput="cbFilterSetPicker()"
+                <input id="cbSetPickerSearch" placeholder="Hledat sadu…" oninput="cbFilterSetPicker()"
                   style="width:100%;padding:5px 9px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);
                          border-radius:7px;color:#f0ece4;font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;">
               </div>
@@ -6172,6 +6192,7 @@ let _cbSets = [];
 let _cbPage = 1;
 let _cbQuery = '';
 let _cbSet   = '';
+let _cbSeriesGroup = ''; // filtr podle skupiny sérií (Scarlet & Violet, Sun & Moon…)
 let _cbType  = '';
 let _cbSuper = '';
 let _cbLoading = false;
@@ -6254,7 +6275,7 @@ async function cbLoadSets() {
     const d = await r.json();
     _cbSets = d.data || [];
 
-    // Naplň hidden native select (pro cbSearch value reading)
+    // Naplň hidden native select (pro zpětnou kompatibilitu)
     const sel = document.getElementById('cbSetSelect');
     if (sel) {
       _cbSets.forEach(s => {
@@ -6265,13 +6286,81 @@ async function cbLoadSets() {
       });
     }
 
-    // Naplň custom picker list
+    // Naplň set picker list
     cbBuildSetPickerList(_cbSets);
+
+    // Naplň series group picker
+    cbBuildSeriesPickerList();
 
     // Počet sad v sidebaru
     const tcgCnt = document.getElementById('cnt-tcgapi');
     if (tcgCnt) tcgCnt.textContent = _cbSets.length;
   } catch(e) { console.warn('[cbLoadSets]', e); }
+}
+
+function cbBuildSeriesPickerList() {
+  const list = document.getElementById('cbSeriesPickerList');
+  if (!list) return;
+  // Sesbírej unikátní skupiny ze setů (zachovej pořadí)
+  const groups = [];
+  const seen = new Set();
+  _cbSets.forEach(s => {
+    const g = s.series || 'Ostatní';
+    if (!seen.has(g)) { seen.add(g); groups.push(g); }
+  });
+  let html = `<div class="cb-set-item" onclick="cbPickSeriesGroup('','— Podle série —')"
+    style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;
+           border-bottom:1px solid rgba(255,255,255,.06);color:rgba(240,236,228,.7);font-size:12px;"
+    onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
+    <span style="font-size:11px;color:rgba(255,255,255,.3);">✕</span>
+    <span>Všechny série</span>
+  </div>`;
+  groups.forEach(g => {
+    // Najdi logo sady z první sady v této skupině
+    const firstSet = _cbSets.find(s => s.series === g);
+    const logo = firstSet?.images?.logo || '';
+    const sym  = firstSet?.images?.symbol || '';
+    const safe = g.replace(/'/g, "\\'");
+    html += `<div class="cb-set-item" onclick="cbPickSeriesGroup('${safe}','${safe}')"
+      style="display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;
+             color:rgba(240,236,228,.8);font-size:12px;transition:background .1s;"
+      onmouseover="this.style.background='rgba(245,200,66,.08)'" onmouseout="this.style.background=''">
+      ${sym ? `<img src="${sym}" style="width:22px;height:18px;object-fit:contain;flex-shrink:0;filter:brightness(1.5);" onerror="this.style.display='none'">` : '<span style="width:22px;display:inline-block;"></span>'}
+      <span style="flex:1;">${g}</span>
+      <span style="font-size:10px;color:rgba(255,255,255,.3);">${_cbSets.filter(s=>s.series===g).length} sad</span>
+    </div>`;
+  });
+  list.innerHTML = html;
+}
+
+function cbToggleSeriesPicker() {
+  const drop = document.getElementById('cbSeriesPickerDrop');
+  if (!drop) return;
+  // Zavři set picker
+  const sd = document.getElementById('cbSetPickerDrop');
+  if (sd) sd.style.display = 'none';
+  drop.style.display = drop.style.display !== 'none' ? 'none' : 'block';
+}
+
+function cbPickSeriesGroup(group, label) {
+  _cbSeriesGroup = group;
+  _cbSet = '';   // resetuj konkrétní sadu
+  // Resetuj set picker vizuál
+  const si = document.getElementById('cbSetPickerIcon');
+  const sl = document.getElementById('cbSetPickerLabel');
+  if (si) si.innerHTML = '';
+  if (sl) sl.textContent = '— Konkrétní sada —';
+  // Aktualizuj series picker label
+  const lbl = document.getElementById('cbSeriesPickerLabel');
+  if (lbl) lbl.textContent = label || '— Podle série —';
+  // Filtruj set picker list na sady z této skupiny
+  const filtered = group ? _cbSets.filter(s => s.series === group) : _cbSets;
+  cbBuildSetPickerList(filtered);
+  // Zavři dropdown
+  const drop = document.getElementById('cbSeriesPickerDrop');
+  if (drop) drop.style.display = 'none';
+  // Hledej
+  cbSearch(1);
 }
 
 function cbBuildSetPickerList(sets) {
@@ -6335,29 +6424,38 @@ function cbToggleSetPicker() {
 }
 
 function cbPickSet(id, sym, label) {
-  // Nastav skrytý select
+  // Nastav hodnotu
   const sel = document.getElementById('cbSetSelect');
   if (sel) sel.value = id;
   _cbSet = id;
-  // Aktualizuj vizuální picker
-  const iconEl = document.getElementById('cbSetPickerIcon');
+  if (id) _cbSeriesGroup = ''; // konkrétní sada přebíjí skupinu
+  // Aktualizuj vizuální set picker
+  const iconEl  = document.getElementById('cbSetPickerIcon');
   const labelEl = document.getElementById('cbSetPickerLabel');
-  if (iconEl) iconEl.innerHTML = sym
-    ? `<img src="${sym}" style="width:20px;height:16px;object-fit:contain;filter:brightness(1.5);">`
-    : '';
-  if (labelEl) labelEl.textContent = label;
+  if (iconEl)  iconEl.innerHTML = sym ? `<img src="${sym}" style="width:20px;height:16px;object-fit:contain;filter:brightness(1.5);">` : '';
+  if (labelEl) labelEl.textContent = label || '— Konkrétní sada —';
+  // Pokud reset (id=''), resetuj i series group label
+  if (!id) {
+    const sl = document.getElementById('cbSeriesPickerLabel');
+    if (sl) sl.textContent = '— Podle série —';
+  }
   // Zavři dropdown
   const drop = document.getElementById('cbSetPickerDrop');
   if (drop) drop.style.display = 'none';
-  // Spusť hledání
+  // Hledej
   cbSearch(1);
 }
 
-// Zavřít picker klikem mimo
+// Zavřít oba pickery klikem mimo
 document.addEventListener('click', e => {
-  const wrap = document.getElementById('cbSetPickerWrap');
-  if (wrap && !wrap.contains(e.target)) {
+  const setWrap    = document.getElementById('cbSetPickerWrap');
+  const seriesWrap = document.getElementById('cbSeriesPickerWrap');
+  if (setWrap && !setWrap.contains(e.target)) {
     const drop = document.getElementById('cbSetPickerDrop');
+    if (drop) drop.style.display = 'none';
+  }
+  if (seriesWrap && !seriesWrap.contains(e.target)) {
+    const drop = document.getElementById('cbSeriesPickerDrop');
     if (drop) drop.style.display = 'none';
   }
 });
@@ -6387,10 +6485,11 @@ async function cbSearch(page = 1) {
         q.push(`name:"${_cbQuery}*"`);
       }
     }
-    if (_cbSet)   q.push(`set.id:"${_cbSet}"`);
-    if (_cbType)  q.push(`types:${_cbType}`);
-    if (_cbSuper) q.push(`supertype:"${_cbSuper}"`);
-    if (!q.length) q.push('hp:[1 TO 999]');
+    if (_cbSet)         q.push(`set.id:"${_cbSet}"`);
+    else if (_cbSeriesGroup) q.push(`set.series:"${_cbSeriesGroup}"`);
+    if (_cbType)        q.push(`types:${_cbType}`);
+    if (_cbSuper)       q.push(`supertype:"${_cbSuper}"`);
+    if (!q.length)      q.push('hp:[1 TO 999]');
 
     const orderBy = seriesOnly ? 'number' : '-set.releaseDate';
     const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q.join(' '))}`
