@@ -511,6 +511,29 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .btn-send:hover { background: rgba(74,158,255,0.35); }
 .btn-send:disabled { opacity: 0.3; cursor: default; }
 
+/* ── Emoji picker ── */
+.emoji-btn { width:38px;height:38px;border-radius:10px;flex-shrink:0;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text3);font-size:18px;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center; }
+.emoji-btn:hover { border-color:var(--border2);background:rgba(255,255,255,0.08); }
+.emoji-picker {
+  position:absolute;bottom:60px;left:0;right:0;
+  background:rgba(22,26,35,0.98);border:1px solid var(--border);
+  border-radius:14px;padding:10px;z-index:200;
+  display:none;flex-direction:column;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.4);
+}
+.emoji-picker.open { display:flex; }
+.emoji-categories { display:flex;gap:4px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none; }
+.emoji-categories::-webkit-scrollbar { display:none; }
+.emoji-cat-btn { flex-shrink:0;padding:4px 8px;border-radius:8px;border:none;background:transparent;cursor:pointer;font-size:16px;opacity:.6;transition:all .1s; }
+.emoji-cat-btn.active,.emoji-cat-btn:hover { background:rgba(255,255,255,.1);opacity:1; }
+.emoji-grid { display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:160px;overflow-y:auto;scrollbar-width:thin; }
+.emoji-item { font-size:22px;text-align:center;padding:4px;border-radius:8px;cursor:pointer;transition:background .1s;line-height:1.3; }
+.emoji-item:hover { background:rgba(255,255,255,.12); }
+
+/* ── Kamera btn ── */
+.btn-camera { width:38px;height:38px;border-radius:10px;flex-shrink:0;border:1px solid var(--border);background:rgba(255,255,255,0.04);color:var(--text3);font-size:17px;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center; }
+.btn-camera:hover { border-color:var(--border2);color:var(--text2);background:rgba(255,255,255,0.08); }
+
 /* ═══ LISTING PICKER MODAL ═══ */
 .modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 500;
@@ -1009,10 +1032,20 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         </div>
         <span style="font-size:11px;color:rgba(240,236,228,.4)">Karta připravena k analýze 🃏</span>
       </div>
+      <!-- Emoji picker -->
+      <div class="emoji-picker" id="emojiPicker">
+        <div class="emoji-categories" id="emojiCats"></div>
+        <div class="emoji-grid" id="emojiGrid"></div>
+      </div>
       <div class="chat-input-row">
         <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku / kartičku z alba" id="btnAttachListing">
           🃏
         </button>
+        <!-- Emoji -->
+        <button class="emoji-btn" onclick="toggleEmojiPicker(event)" title="Emoji" id="btnEmoji">😊</button>
+        <!-- Fotoaparát - přímé focení -->
+        <button class="btn-camera" onclick="document.getElementById('chatCamInput').click()" title="Vyfotit">📷</button>
+        <input type="file" id="chatCamInput" accept="image/*" capture="environment" style="display:none" onchange="chatImgSelected(this)">
         <!-- Obrázek z PC do chatu -->
         <button class="btn-img-upload" id="btnChatImg" onclick="document.getElementById('chatImgFileInput').click()" title="Přiložit obrázek z PC">
           🖼️
@@ -3813,6 +3846,68 @@ function renderFakeResult(result) {
   };
 
 })();
+</script>
+
+<script>
+// ── Emoji Picker ─────────────────────────────────────────────
+const EMOJI_DATA = {
+  '😊': ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓'],
+  '👍': ['👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👋','🤚','🖐️','✋','🖖','💪','🦾','🙏','👏','🤲','🤝','✍️','💅','🫶','❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟'],
+  '🔥': ['🔥','⭐','✨','💥','💫','🎉','🎊','🏆','🥇','🎯','🎮','🃏','🎴','🀄','🎲','🎰','🎳','⚽','🏀','🏈','⚾','🥎','🏐','🏉','🎾','🏸','🏒','🥍','🏓','🏸','🥊','🛡️','🔮','💎','👑','🌟','🌈','☄️','💯','✅','❌','⚡','🌊','🍀'],
+  '😂': ['😂','😹','🤣','😆','😝','😜','🤪','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','💫','🤯','🤠','🥸','🤡','👹','👺','💀','☠️','👻','👽','👾','🤖','😺','😸','😹','😻','😼','😽','🙀','😿','😾'],
+  '🌍': ['🌍','🌎','🌏','🌐','🗺️','🧭','🏔️','⛰️','🌋','🗻','🏕️','🏖️','🏜️','🏝️','🏞️','🏟️','🏛️','🏗️','🏘️','🏚️','🏠','🏡','🏢','🏣','🏤','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒','🗼','🗽','⛪','🕌','🕍','🛕','⛩️','🕋'],
+};
+const EMOJI_CATS = Object.keys(EMOJI_DATA);
+let _emojiCat = EMOJI_CATS[0];
+let _emojiOpen = false;
+
+function initEmojiPicker() {
+  const cats = document.getElementById('emojiCats');
+  if (!cats) return;
+  cats.innerHTML = EMOJI_CATS.map(c =>
+    `<button class="emoji-cat-btn${c===_emojiCat?' active':''}" onclick="setEmojiCat('${c}')">${c}</button>`
+  ).join('');
+  renderEmojiGrid();
+}
+
+function setEmojiCat(cat) {
+  _emojiCat = cat;
+  document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.toggle('active', b.textContent === cat));
+  renderEmojiGrid();
+}
+
+function renderEmojiGrid() {
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  grid.innerHTML = EMOJI_DATA[_emojiCat].map(e =>
+    `<div class="emoji-item" onclick="insertEmoji('${e}')">${e}</div>`
+  ).join('');
+}
+
+function toggleEmojiPicker(e) {
+  e.stopPropagation();
+  _emojiOpen = !_emojiOpen;
+  const picker = document.getElementById('emojiPicker');
+  picker.classList.toggle('open', _emojiOpen);
+  if (_emojiOpen) initEmojiPicker();
+}
+
+function insertEmoji(emoji) {
+  const ta = document.getElementById('chatInput');
+  if (!ta) return;
+  const s = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, s) + emoji + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = s + emoji.length;
+  ta.focus();
+  autoGrow(ta);
+}
+
+document.addEventListener('click', function(e) {
+  if (_emojiOpen && !document.getElementById('emojiPicker').contains(e.target) && e.target.id !== 'btnEmoji') {
+    _emojiOpen = false;
+    document.getElementById('emojiPicker').classList.remove('open');
+  }
+});
 </script>
 <script src="site-tracking.js"></script>
 </body>

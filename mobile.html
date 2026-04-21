@@ -304,6 +304,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .chat-input-m textarea{flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;padding:9px 12px;resize:none;font-family:inherit;max-height:80px}
 .chat-input-m textarea:focus{outline:none;border-color:var(--accent)}
 .chat-send-btn{background:var(--accent);border:none;border-radius:10px;color:#fff;width:42px;font-size:20px;cursor:pointer;flex-shrink:0}
+.chat-input-m textarea:focus{outline:none;border-color:var(--accent)}
+.chat-icon-btn{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:10px;color:var(--text2);width:38px;height:38px;font-size:17px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.chat-icon-btn:active{background:rgba(255,255,255,0.12)}
+.m-emoji-picker{position:absolute;bottom:62px;left:0;right:0;background:rgba(18,22,30,0.98);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:10px;z-index:300;display:none;flex-direction:column;gap:8px}
+.m-emoji-picker.open{display:flex}
+.m-emoji-cats{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.m-emoji-cats::-webkit-scrollbar{display:none}
+.m-emoji-cat-btn{flex-shrink:0;padding:4px 8px;border-radius:8px;border:none;background:transparent;cursor:pointer;font-size:16px;opacity:.6}
+.m-emoji-cat-btn.active,.m-emoji-cat-btn:hover{background:rgba(255,255,255,.12);opacity:1}
+.m-emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;max-height:150px;overflow-y:auto}
+.m-emoji-item{font-size:24px;text-align:center;padding:4px;border-radius:8px;cursor:pointer;line-height:1.3}
+.m-emoji-item:active{background:rgba(255,255,255,.15)}
 .chat-send-btn:active{opacity:.8}
 .msgs-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--muted);text-align:center;gap:8px;padding:40px 20px;font-size:13px}
 </style>
@@ -2859,11 +2871,22 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   const b = document.getElementById('msgsBody');
   b.innerHTML = `<div class="chat-thread">
     <div class="chat-msgs-m" id="chatMsgsM"></div>
-    <div class="chat-input-m">
-      <textarea id="chatInputM" placeholder="Napsat zprávu…" rows="1"
-        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
-        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMobileMsg()}"></textarea>
-      <button class="chat-send-btn" onclick="sendMobileMsg()">↑</button>
+    <div style="position:relative">
+      <div class="m-emoji-picker" id="mEmojiPicker">
+        <div class="m-emoji-cats" id="mEmojiCats"></div>
+        <div class="m-emoji-grid" id="mEmojiGrid"></div>
+      </div>
+      <div class="chat-input-m">
+        <button class="chat-icon-btn" onclick="toggleMobileEmoji(event)" id="mBtnEmoji">😊</button>
+        <button class="chat-icon-btn" onclick="document.getElementById('mChatCam').click()" title="Fotoaparát">📷</button>
+        <input type="file" id="mChatCam" accept="image/*" capture="environment" style="display:none" onchange="mChatImgSelected(this)">
+        <button class="chat-icon-btn" onclick="document.getElementById('mChatGallery').click()" title="Galerie">🖼️</button>
+        <input type="file" id="mChatGallery" accept="image/*" multiple style="display:none" onchange="mChatImgSelected(this)">
+        <textarea id="chatInputM" placeholder="Napsat zprávu…" rows="1"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMobileMsg()}"></textarea>
+        <button class="chat-send-btn" onclick="sendMobileMsg()">↑</button>
+      </div>
     </div>
   </div>`;
 
@@ -2927,6 +2950,109 @@ function renderMsgsThread(silent = false) {
   if (!html) html = `<div class="msgs-empty"><div style="font-size:28px">👋</div><div>Začni konverzaci!</div></div>`;
   el.innerHTML = html;
   if (!silent || wasAtBottom) el.scrollTop = el.scrollHeight;
+}
+
+
+// ── Mobile Chat Emoji + Foto ──────────────────────────────────
+const M_EMOJI = {
+  '😊':['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','😉','😌','😍','🥰','😘','😋','😛','😝','😜','😎','🥳','😏','😒','😞','😔','😟','😕','😣','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','😱','😰','😥','😓','🥹'],
+  '👍':['👍','👎','👌','✌️','🤞','🤟','🤘','🤙','👋','💪','🙏','👏','🤝','❤️','🧡','💛','💚','💙','💜','🖤','🤍','💔','💕','💞','💓','💗','💖','💘','💝','🫶'],
+  '🔥':['🔥','⭐','✨','💥','💫','🎉','🎊','🏆','🥇','🎯','💎','👑','🌟','🌈','☄️','💯','✅','❌','⚡','🌊','🍀','🎮','🃏','🎲','🏅','🎖️','🚀','🌙','☀️','⛄'],
+  '😹':['😺','😸','😹','😻','😼','😽','🙀','😿','😾','👻','💀','☠️','👽','👾','🤖','🎃','🦄','🐉','🐲','🦊','🐺','🐻','🐼','🐨','🦁','🐯','🐮','🐷','🐸','🐙'],
+};
+const M_EMOJI_CATS = Object.keys(M_EMOJI);
+let _mEmojiCat = M_EMOJI_CATS[0];
+let _mEmojiOpen = false;
+
+function initMobileEmoji() {
+  const cats = document.getElementById('mEmojiCats');
+  if (!cats) return;
+  cats.innerHTML = M_EMOJI_CATS.map(c =>
+    `<button class="m-emoji-cat-btn${c===_mEmojiCat?' active':''}" onclick="setMEmojiCat('${c}')">${c}</button>`
+  ).join('');
+  renderMEmojiGrid();
+}
+
+function setMEmojiCat(cat) {
+  _mEmojiCat = cat;
+  document.querySelectorAll('.m-emoji-cat-btn').forEach(b => b.classList.toggle('active', b.textContent.trim() === cat));
+  renderMEmojiGrid();
+}
+
+function renderMEmojiGrid() {
+  const grid = document.getElementById('mEmojiGrid');
+  if (!grid) return;
+  grid.innerHTML = M_EMOJI[_mEmojiCat].map(e =>
+    `<div class="m-emoji-item" onclick="insertMEmoji('${e}')">${e}</div>`
+  ).join('');
+}
+
+function toggleMobileEmoji(e) {
+  e.stopPropagation();
+  _mEmojiOpen = !_mEmojiOpen;
+  const picker = document.getElementById('mEmojiPicker');
+  if (picker) {
+    picker.classList.toggle('open', _mEmojiOpen);
+    if (_mEmojiOpen) initMobileEmoji();
+  }
+}
+
+function insertMEmoji(emoji) {
+  const ta = document.getElementById('chatInputM');
+  if (!ta) return;
+  const s = ta.selectionStart, end = ta.selectionEnd;
+  ta.value = ta.value.slice(0, s) + emoji + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = s + emoji.length;
+  ta.focus();
+  ta.style.height = 'auto';
+  ta.style.height = Math.min(ta.scrollHeight, 80) + 'px';
+}
+
+document.addEventListener('click', function(e) {
+  if (!_mEmojiOpen) return;
+  const picker = document.getElementById('mEmojiPicker');
+  const btn = document.getElementById('mBtnEmoji');
+  if (picker && !picker.contains(e.target) && e.target !== btn) {
+    _mEmojiOpen = false;
+    picker.classList.remove('open');
+  }
+});
+
+// ── Obrázky v mobilním chatu ──────────────────────────────────
+async function mChatImgSelected(input) {
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  if (!_msgsActiveId || !_msgsUserId) { toast('Nejprve otevři konverzaci'); return; }
+
+  for (const file of files) {
+    try {
+      // Upload do Supabase Storage
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `chat/${_msgsUserId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const upRes = await fetch(`${SB_URL}/storage/v1/object/chat-images/${path}`, {
+        method: 'POST',
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken, 'Content-Type': file.type },
+        body: file
+      });
+      if (!upRes.ok) { toast('Nepodařilo se nahrát obrázek'); continue; }
+      const imgUrl = `${SB_URL}/storage/v1/object/public/chat-images/${path}`;
+
+      // Pošli jako zprávu s URL obrázku
+      await fetch(`${SB_URL}/rest/v1/chat_messages`, {
+        method: 'POST',
+        headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: _msgsActiveId,
+          sender_id: _msgsUserId,
+          sender_username: localStorage.getItem('sb_username') || '',
+          text: '📷 ' + imgUrl,
+          listing_refs: []
+        })
+      });
+    } catch(err) { toast('Chyba při odesílání obrázku'); }
+  }
+  input.value = '';
+  await loadMsgsThread();
 }
 
 async function sendMobileMsg() {
