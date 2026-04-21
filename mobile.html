@@ -296,7 +296,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .msg-bubble{max-width:78%;padding:9px 13px;border-radius:16px;font-size:13px;line-height:1.4;word-break:break-word}
 .msg-bubble.me{align-self:flex-end;background:var(--accent);color:#fff;border-bottom-right-radius:4px}
 .msg-bubble.them{align-self:flex-start;background:var(--card);color:var(--text);border-bottom-left-radius:4px}
-.msg-time-m{font-size:10px;color:var(--muted);margin-top:2px}
+.msg-time-m{font-size:10px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:3px}
+.msg-ticks{display:inline-flex;align-items:center;line-height:1;flex-shrink:0}
+.msg-ticks.delivered{color:var(--muted)}
+.msg-ticks.read{color:var(--green)}
+.msg-ticks svg{display:block}
 .msg-row-me{display:flex;flex-direction:column;align-items:flex-end}
 .msg-row-them{display:flex;flex-direction:column;align-items:flex-start}
 .msg-date-sep-m{text-align:center;font-size:10px;color:var(--muted);padding:6px 0;font-weight:600}
@@ -2659,22 +2663,26 @@ async function requestNotifPermission() {
 
 function showPushNotif(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  // Android Chrome vyžaduje showNotification přes Service Worker registration
-  // (přímý new Notification() na Androidu nefunguje spolehlivě)
+  // Vždy přes SW registration – zabraňuje otevření webového prohlížeče místo PWA.
+  // new Notification() se záměrně NEPOUŽÍVÁ – na Android Chrome otevírá prohlížeč.
+  const appUrl = location.origin + location.pathname;
+  const opts = {
+    body: body || '', tag: tag || 'pkt',
+    icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png',
+    renotify: false, vibrate: [200, 100, 200],
+    data: { url: appUrl }
+  };
   if (_swReg) {
-    _swReg.showNotification(title || 'PokéTrade', {
-      body: body || '',
-      tag:  tag  || 'pkt',
-      icon:  'icon-aipc-192.png',
-      badge: 'icon-aipc-192.png',
-      renotify: false,
-      data: { url: location.href }
-    }).catch(e => console.warn('[notif SW]', e));
-  } else {
-    // Fallback – desktop nebo SW ještě není připraven
-    try { new Notification(title || 'PokéTrade', { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
-    catch(e) { console.warn('[notif]', e); }
+    _swReg.showNotification(title || 'PokéTrade', opts)
+      .catch(e => console.warn('[notif SW]', e));
+  } else if ('serviceWorker' in navigator) {
+    // _swReg ještě není nastaven (závod při startu) – použij navigator.serviceWorker.ready
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title || 'PokéTrade', opts)
+        .catch(e => console.warn('[notif SW ready]', e));
+    }).catch(e => console.warn('[notif SW ready err]', e));
   }
+  // Záměrně žádný fallback new Notification() – otevírá prohlížeč na Androidu
 }
 
 // ── Notification polling ─────────────────────────────────────
@@ -2973,9 +2981,30 @@ function renderMsgsThread(silent = false) {
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
     const rawTxt = m.text || m.content || m.message || m.body || '';
     const txt = renderMobileMsgText(rawTxt);
+
+    // Read receipt – pouze u odeslaných zpráv (isMe)
+    let ticksHtml = '';
+    if (isMe) {
+      if (m.read_at) {
+        // ✓✓ zelená – přečteno, zobraz čas přečtení v title
+        const readTime = new Date(m.read_at).toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});
+        ticksHtml = `<span class="msg-ticks read" title="Přečteno v ${readTime}">` +
+          `<svg width="16" height="11" viewBox="0 0 16 11" fill="none">` +
+          `<path d="M1 5.5L4.5 9L10 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `<path d="M5 5.5L8.5 9L14 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</svg></span>`;
+      } else if (m.id) {
+        // ✓ šedá – doručeno (uloženo na serveru)
+        ticksHtml = `<span class="msg-ticks delivered">` +
+          `<svg width="9" height="11" viewBox="0 0 9 11" fill="none">` +
+          `<path d="M1 5.5L4 8.5L8 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</svg></span>`;
+      }
+    }
+
     html += `<div class="msg-row-${isMe?'me':'them'}">
       <div class="msg-bubble ${isMe?'me':'them'}">${txt}</div>
-      <div class="msg-time-m">${time}</div>
+      <div class="msg-time-m">${time}${ticksHtml}</div>
     </div>`;
   });
   if (!html) html = `<div class="msgs-empty"><div style="font-size:28px">👋</div><div>Začni konverzaci!</div></div>`;
@@ -3144,12 +3173,24 @@ async function markConvRead(convId) {
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json'},
       body: JSON.stringify({ p_conversation_id: convId, p_user_id: _msgsUserId })
     });
-    // 2. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
+    // 2. Nastav read_at na zprávy od partnera (které já právě čtu)
+    //    → partner uvidí ✓✓ u svých odeslaných zpráv
+    if (_msgsPartner?.id) {
+      fetch(
+        `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${convId}&sender_id=eq.${_msgsPartner.id}&read_at=is.null`,
+        {
+          method: 'PATCH',
+          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
+          body: JSON.stringify({ read_at: new Date().toISOString() })
+        }
+      ).catch(()=>{});
+    }
+    // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
       `${SB_URL}/rest/v1/notifications?user_id=eq.${_msgsUserId}&type=eq.message&read=eq.false`,
       { method: 'PATCH', headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({read:true}) }
     ).catch(()=>{});
-    // 3. Refresh _msgsConvs ze serveru aby badge reflektovala aktualni stav
+    // 4. Refresh _msgsConvs ze serveru aby badge reflektovala aktualni stav
     loadMsgsConversations();
   } catch {}
 }
