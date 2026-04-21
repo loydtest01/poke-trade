@@ -16,7 +16,7 @@ self.addEventListener('push', e => {
   const opts = {
     body:      data.body  || '',
     icon:      data.icon  || 'https://pokemon-trade-ruddy.vercel.app/icon-aipc-192.png',
-    badge:     'https://pokemon-trade-ruddy.vercel.app/icon-aipc-192.png',
+    badge:     'https://pokemon-trade-ruddy.vercel.app/badge-96.png',
     tag:       data.tag   || 'pkt',
     renotify:  false,
     vibrate:   [200, 100, 200],
