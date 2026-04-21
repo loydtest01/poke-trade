@@ -2820,7 +2820,7 @@ async function loadMsgsConversations() {
       `${SB_URL}/rest/v1/conversations?or=(user1_id.eq.${_msgsUserId},user2_id.eq.${_msgsUserId})&order=last_message_at.desc&limit=50`,
       { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
     );
-    if (!r.ok) { renderMsgsEmpty('⚠️ Nepodařilo se načíst zprávy'); return; }
+    if (!r.ok) { if (!_msgsActiveId) renderMsgsEmpty('⚠️ Nepodařilo se načíst zprávy'); return; }
     _msgsConvs = await r.json();
     renderMsgsConvList();
     updateMsgsUnreadBadge();
@@ -2833,6 +2833,8 @@ function renderMsgsEmpty(msg) {
 }
 
 function renderMsgsConvList() {
+  // Pokud je aktivní vlákno, nepřepisuj ho (race condition fix)
+  if (_msgsActiveId) return;
   const b = document.getElementById('msgsBody');
   document.getElementById('msgsPanelTitle').textContent = 'Zprávy';
 
