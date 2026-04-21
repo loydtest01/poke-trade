@@ -1,10 +1,10 @@
-// PokéTrade PhotoBridge – Service Worker v1.1
+// PokéTrade PhotoBridge – Service Worker v1.2
 // Nutný pro notifikace na Android Chrome PWA
 
 self.addEventListener('install',  () => self.skipWaiting());
 self.addEventListener('activate', e  => e.waitUntil(clients.claim()));
 
-// ── Push přijatý ze serveru (push-sender.js) ─────────────────
+// ── Push přijatý ze serveru ──────────────────────────────────
 self.addEventListener('push', e => {
   let data = {};
   try {
@@ -15,8 +15,8 @@ self.addEventListener('push', e => {
   const title = data.title || 'PokéTrade';
   const opts = {
     body:      data.body  || '',
-    icon:      'https://poke-trade-ruddy.vercel.app/icon-aipc-192.png',
-    badge:     'https://poke-trade-ruddy.vercel.app/icon-aipc-192.png',
+    icon:      data.icon  || 'https://pokemon-trade-ruddy.vercel.app/icon-aipc-192.png',
+    badge:     'https://pokemon-trade-ruddy.vercel.app/icon-aipc-192.png',
     tag:       data.tag   || 'pkt',
     renotify:  false,
     vibrate:   [200, 100, 200],
@@ -41,5 +41,4 @@ self.addEventListener('notificationclick', e => {
   );
 });
 
-// Fetch handler – musí být přítomen aby Chrome povolil showNotification přes SW
 self.addEventListener('fetch', () => {});
