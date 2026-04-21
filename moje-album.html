@@ -2551,32 +2551,11 @@ function render() {
     return;
   }
 
-  // ── Stránkování mřížky (200 karet/stránka) ────────────────
+  // ── Render grid (bez stránkování) ────────────────────
   if (bookViewMode !== 'book') {
-    const totalPages = Math.ceil(filtered.length / GRID_PAGE_SIZE);
-    if (_gridPage >= totalPages) _gridPage = Math.max(0, totalPages - 1);
-    const pageCards = filtered.slice(_gridPage * GRID_PAGE_SIZE, (_gridPage + 1) * GRID_PAGE_SIZE);
-    document.getElementById('cardsGrid').innerHTML = pageCards.map(c => renderCard(c, albumCardIds)).join('');
-    let pagerEl = document.getElementById('gridPager');
-    if (!pagerEl) {
-      pagerEl = document.createElement('div');
-      pagerEl.id = 'gridPager';
-      pagerEl.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;padding:16px 0 6px;flex-wrap:wrap;';
-      document.getElementById('cardsGrid').after(pagerEl);
-    }
-    if (totalPages <= 1) {
-      pagerEl.style.display = 'none';
-    } else {
-      pagerEl.style.display = 'flex';
-      let html = `<button onclick="setGridPage(${_gridPage-1})" ${_gridPage<=0?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(240,236,228,.6);font-size:12px;cursor:pointer;font-family:inherit;${_gridPage<=0?'opacity:.3':''}">← Zpět</button>`;
-      for (let p = 0; p < totalPages; p++) {
-        const act = p === _gridPage;
-        const s = p * GRID_PAGE_SIZE + 1, e = Math.min((p+1)*GRID_PAGE_SIZE, filtered.length);
-        html += `<button onclick="setGridPage(${p})" style="padding:6px 14px;border-radius:8px;border:1px solid ${act?'rgba(245,200,66,.6)':'rgba(255,255,255,.12)'};background:${act?'rgba(245,200,66,.18)':'rgba(255,255,255,.04)'};color:${act?'#f5c842':'rgba(240,236,228,.6)'};font-size:12px;font-weight:${act?'800':'500'};cursor:pointer;font-family:inherit;">${p+1} <span style="font-size:10px;opacity:.6;">${s}–${e}</span></button>`;
-      }
-      html += `<button onclick="setGridPage(${_gridPage+1})" ${_gridPage>=totalPages-1?'disabled':''} style="padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:rgba(240,236,228,.6);font-size:12px;cursor:pointer;font-family:inherit;${_gridPage>=totalPages-1?'opacity:.3':''}">Další →</button>`;
-      pagerEl.innerHTML = html;
-    }
+    document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
+    const pagerEl = document.getElementById('gridPager');
+    if (pagerEl) pagerEl.style.display = 'none';
   } else {
     document.getElementById('cardsGrid').innerHTML = filtered.map(c => renderCard(c, albumCardIds)).join('');
     const pagerEl = document.getElementById('gridPager');
@@ -7711,6 +7690,11 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           border-radius:8px; color:#4ade80; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
         " onmouseover="this.style.background='rgba(34,197,94,0.2)'" onmouseout="this.style.background='rgba(34,197,94,0.1)'">🔎 AI Roz</button>
+        <button onclick="pgmToggleLoupe()" id="pgmLoupeBtn" style="
+          background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.3);
+          border-radius:8px; color:#7dd3fc; font-size:12px; padding:5px 12px;
+          cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
+        " onmouseover="this.style.background='rgba(56,189,248,0.2)'" onmouseout="this.style.background='rgba(56,189,248,0.1)'" title="Lupa – zvětšení detailů fotky">🔍 Lupa</button>
         <button onclick="closePhotoGallery()" style="
           background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1);
           border-radius:8px; color:#fff; font-size:16px; padding:4px 11px;
@@ -7735,6 +7719,12 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
             max-width:100%; max-height:100%; object-fit:contain;
             border-radius:8px; display:block; transition:opacity .2s;
           ">
+          <!-- Lupa overlay canvas -->
+          <canvas id="pgmLoupeCanvas" style="
+            display:none; position:absolute; inset:0;
+            width:100%; height:100%; border-radius:12px;
+            cursor:crosshair; pointer-events:none;
+          "></canvas>
         </div>
 
         <!-- Info o fotce -->
@@ -7820,6 +7810,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     document.getElementById('pgmAIResult').style.display = 'none';
     document.getElementById('pgmFakeResult').style.display = 'none';
     document.getElementById('pgmRecognizeResult').style.display = 'none';
+    if (_loupeActive) pgmToggleLoupe();
   };
 
   // ── Grid fotek vpravo ───────────────────────────────
@@ -8402,7 +8393,6 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
             url:                 publicUrl,
             side:                photo.side  || 'front',
             batch_id:            photo.batch_id || null,
-            note:                photo.note  || null,
           });
           if (insertRes && insertRes._err) throw new Error('Vložení záznamu selhalo: ' + insertRes._err);
           // Aktualizuj ID na nový záznam
@@ -8420,6 +8410,92 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       pgmShowSaveStatus('❌ Nepodařilo se uložit: ' + e.message, 'error');
     }
   };
+
+  // ── LUPA ────────────────────────────────────────────
+  let _loupeActive = false;
+  const LOUPE_SIZE = 140;
+  const LOUPE_ZOOM = 3.5;
+
+  window.pgmToggleLoupe = function() {
+    _loupeActive = !_loupeActive;
+    const btn    = document.getElementById('pgmLoupeBtn');
+    const canvas = document.getElementById('pgmLoupeCanvas');
+    const wrap   = document.getElementById('pgmMainWrap');
+    if (_loupeActive) {
+      canvas.style.display = 'block';
+      wrap.style.cursor    = 'crosshair';
+      if (btn) {
+        btn.style.background  = 'rgba(56,189,248,0.25)';
+        btn.style.borderColor = 'rgba(56,189,248,0.7)';
+        btn.style.color       = '#bae6fd';
+        btn.textContent       = '🔍 Lupa ON';
+      }
+      wrap.addEventListener('mousemove', _loupeOnMove);
+      wrap.addEventListener('mouseleave', _loupeOnLeave);
+    } else {
+      canvas.style.display = 'none';
+      wrap.style.cursor    = '';
+      if (btn) {
+        btn.style.background  = 'rgba(56,189,248,0.1)';
+        btn.style.borderColor = 'rgba(56,189,248,0.3)';
+        btn.style.color       = '#7dd3fc';
+        btn.textContent       = '🔍 Lupa';
+      }
+      wrap.removeEventListener('mousemove', _loupeOnMove);
+      wrap.removeEventListener('mouseleave', _loupeOnLeave);
+    }
+  };
+
+  function _loupeOnLeave() {
+    const canvas = document.getElementById('pgmLoupeCanvas');
+    if (canvas) { const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height); }
+  }
+
+  function _loupeOnMove(e) {
+    const imgEl  = document.getElementById('pgmMainImg');
+    const canvas = document.getElementById('pgmLoupeCanvas');
+    if (!imgEl || !imgEl.complete || !imgEl.naturalWidth || !canvas) return;
+    const wrap  = document.getElementById('pgmMainWrap');
+    const wRect = wrap.getBoundingClientRect();
+    const iRect = imgEl.getBoundingClientRect();
+    const mx = e.clientX - iRect.left;
+    const my = e.clientY - iRect.top;
+    if (mx < 0 || my < 0 || mx > iRect.width || my > iRect.height) { _loupeOnLeave(); return; }
+    const cx = e.clientX - wRect.left;
+    const cy = e.clientY - wRect.top;
+    if (canvas.width !== Math.round(wRect.width) || canvas.height !== Math.round(wRect.height)) {
+      canvas.width  = Math.round(wRect.width);
+      canvas.height = Math.round(wRect.height);
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const R    = LOUPE_SIZE / 2;
+    const srcX = (mx / iRect.width)  * imgEl.naturalWidth;
+    const srcY = (my / iRect.height) * imgEl.naturalHeight;
+    const srcW = imgEl.naturalWidth  / LOUPE_ZOOM;
+    const srcH = imgEl.naturalHeight / LOUPE_ZOOM;
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(cx - R, cy - R, R*2, R*2);
+    ctx.drawImage(
+      imgEl,
+      Math.max(0, srcX - srcW/2), Math.max(0, srcY - srcH/2), srcW, srcH,
+      cx - R, cy - R, R*2, R*2
+    );
+    ctx.restore();
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.strokeStyle = '#f5c842'; ctx.lineWidth = 2.5; ctx.stroke();
+    ctx.strokeStyle = 'rgba(245,200,66,0.5)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx-8,cy); ctx.lineTo(cx+8,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-8); ctx.lineTo(cx,cy+8); ctx.stroke();
+    ctx.restore();
+  }
+
 })();
 </script>
 <!-- ═══════════════════════════════════════════════════════════════
