@@ -4255,6 +4255,7 @@ function renderAlbumList() {
 //  ALBUM CRUD
 // ══════════════════════════════════════════════════════════════════
 function setAlbum(id) {
+  if (_tcgMode) closeCardBrowser();
   // Speciální alba vypnout při výběru user alba
   [...activeAlbumIds].forEach(aid => {
     const a = allAlbums.find(x => x.id === aid);
@@ -4284,6 +4285,7 @@ function setAlbum(id) {
 
 /** Přepne na album podle jména (pro speciální tlačítka Výměna/Obchod) */
 function setAlbumByName(name) {
+  if (_tcgMode) closeCardBrowser();
   const alb = allAlbums.find(a => a.name === name);
   if (!alb) return;
   if (activeAlbumIds.has(alb.id)) {
@@ -6256,10 +6258,11 @@ async function cbSearch(page = 1) {
     ⏳ Načítám karty…</div>`;
 
   try {
-    const PAGE_SIZE = 24;
+    // Při vybrané sérii bez dalšího filtru → načti vše najednou (max 250 per API call)
+    const seriesOnly = _cbSet && !_cbQuery && !_cbType && !_cbSuper;
+    const PAGE_SIZE = seriesOnly ? 250 : 24;
     let q = [];
 
-    // Rozlišení: číslo karty vs. jméno
     if (_cbQuery) {
       if (/^\d+[a-zA-Z]?$/.test(_cbQuery)) {
         q.push(`number:${_cbQuery}`);
@@ -6272,8 +6275,9 @@ async function cbSearch(page = 1) {
     if (_cbSuper) q.push(`supertype:"${_cbSuper}"`);
     if (!q.length) q.push('hp:[1 TO 999]');
 
+    const orderBy = seriesOnly ? 'number' : '-set.releaseDate';
     const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q.join(' '))}`
-      + `&page=${page}&pageSize=${PAGE_SIZE}&orderBy=-set.releaseDate`;
+      + `&page=${page}&pageSize=${PAGE_SIZE}&orderBy=${orderBy}`;
     const r = await fetch(url);
     const d = await r.json();
     const cards = d.data || [];
@@ -6284,6 +6288,8 @@ async function cbSearch(page = 1) {
       grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
         Žádné karty nenalezeny</div>`;
       document.getElementById('cbPager').style.display = 'none';
+      const bar = document.getElementById('tcgValueBar');
+      if (bar) bar.innerHTML = '';
       _cbLoading = false; return;
     }
 
@@ -6316,9 +6322,6 @@ async function cbSearch(page = 1) {
           ${img
             ? `<img src="${img}" alt="${name}" loading="lazy" style="width:100%;aspect-ratio:63/88;object-fit:cover;display:block;">`
             : `<div style="width:100%;aspect-ratio:63/88;background:rgba(255,255,255,.06);display:flex;align-items:center;justify-content:center;font-size:28px;">🃏</div>`}
-          ${setSymbol ? `<img src="${setSymbol}" alt="${setName}" title="${setName}"
-            style="position:absolute;bottom:5px;left:5px;width:20px;height:20px;
-                   object-fit:contain;filter:drop-shadow(0 0 3px rgba(0,0,0,.9)) brightness(1.6);">` : ''}
           ${price > 0 ? `<div style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.75);
             border:1px solid rgba(245,200,66,.3);border-radius:6px;padding:1px 5px;
             font-size:9px;font-weight:800;color:#f5c842;">${price.toFixed(2)} €</div>` : ''}
@@ -6326,18 +6329,42 @@ async function cbSearch(page = 1) {
         <div style="padding:5px 6px 6px;display:flex;flex-direction:column;gap:2px;">
           <div style="font-size:10px;font-weight:700;color:#f0ece4;line-height:1.2;
                       overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${name}</div>
-          <div style="font-size:8px;color:rgba(240,236,228,.35);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${setName} #${num}</div>
+          <div style="display:flex;align-items:center;gap:3px;overflow:hidden;min-width:0;">
+            ${setSymbol ? `<img src="${setSymbol}" style="width:11px;height:11px;flex-shrink:0;object-fit:contain;filter:brightness(1.6);" title="${setName}">` : ''}
+            <span style="font-size:8px;color:rgba(240,236,228,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${setName} #${num}</span>
+          </div>
           ${types ? `<div style="font-size:8px;color:rgba(245,200,66,.55);">${types}</div>` : ''}
         </div>
       </div>`;
     }).join('');
 
-    // Pager
+    // Info bar – název série nebo počet karet
+    const bar = document.getElementById('tcgValueBar');
+    if (bar) {
+      if (seriesOnly) {
+        const setObj = _cbSets.find(s => s.id === _cbSet);
+        const sym = setObj?.images?.symbol || '';
+        bar.innerHTML = sym
+          ? `<img src="${sym}" style="height:16px;vertical-align:middle;margin-right:5px;filter:brightness(1.6);">${setObj?.name || ''} — ${total} karet`
+          : `${setObj?.name || ''} — ${total} karet`;
+      } else {
+        bar.textContent = total > PAGE_SIZE
+          ? `Zobrazeno ${cards.length} z ${total.toLocaleString('cs-CZ')} karet`
+          : `${total.toLocaleString('cs-CZ')} karet`;
+      }
+    }
+
+    // Pager – zobraz jen pokud je víc stránek
     const pager = document.getElementById('cbPager');
-    pager.style.display = total > PAGE_SIZE ? 'flex' : 'none';
-    document.getElementById('cbPageInfo').textContent = `Strana ${page} / ${totalPages}  (${total.toLocaleString('cs')} karet)`;
-    document.getElementById('cbPrevBtn').disabled = page <= 1;
-    document.getElementById('cbNextBtn').disabled = page >= totalPages;
+    if (totalPages <= 1) {
+      pager.style.display = 'none';
+    } else {
+      pager.style.display = 'flex';
+      document.getElementById('cbPageInfo').textContent =
+        `Strana ${page} / ${totalPages}  (${total.toLocaleString('cs-CZ')} karet)`;
+      document.getElementById('cbPrevBtn').disabled = page <= 1;
+      document.getElementById('cbNextBtn').disabled = page >= totalPages;
+    }
 
   } catch(e) {
     grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:#ff6b6b;font-size:13px;">
@@ -6345,7 +6372,6 @@ async function cbSearch(page = 1) {
   }
   _cbLoading = false;
 }
-
 // Pomocné funkce pro filtr elementu a supertypů
 function cbSetType(t) {
   _cbType = t;
