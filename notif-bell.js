@@ -96,7 +96,7 @@
     const t = getToken(), uid = getUid(), url = getSbUrl();
     if (!t || !uid || !url) return;
     try {
-      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false&select=id`, { headers: sbH(t) });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false&type=neq.message&select=id`, { headers: sbH(t) });
       if (!r.ok) return;
       const d = await r.json();
       updateBadge(Array.isArray(d) ? d.length : 0);
@@ -107,7 +107,7 @@
     const t = getToken(), uid = getUid(), url = getSbUrl();
     if (!t || !uid || !url) return [];
     try {
-      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&order=created_at.desc&limit=10&select=id,title,body,link,read,created_at`, { headers: sbH(t) });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&order=created_at.desc&limit=10&type=neq.message&select=id,title,body,link,read,created_at`, { headers: sbH(t) });
       if (!r.ok) return [];
       return await r.json() || [];
     } catch { return []; }
