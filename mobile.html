@@ -329,6 +329,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
           <div style="color:var(--muted);margin-bottom:8px">Pro upozornění musíš nejdříve povolit notifikace v prohlížeči.</div>
           <button onclick="requestNotifPermission()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer">Povolit notifikace</button>
         </div>
+        <!-- Diagnostika + test -->
+        <div id="notifDiag" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px">
+          <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;color:var(--text)">Stav systému</div>
+          <div id="diagSW">⏳ Service Worker: …</div>
+          <div id="diagPerm">⏳ Oprávnění: …</div>
+          <div id="diagSub">⏳ Push subscription: …</div>
+        </div>
+        <button onclick="testNotification()" style="width:100%;background:rgba(79,142,247,.15);border:1.5px solid rgba(79,142,247,.4);color:var(--accent);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:12px">🔔 Otestovat notifikaci</button>
         <div class="notif-row">
           <div class="notif-icon">💬</div>
           <div class="notif-label">
@@ -784,17 +792,32 @@ const VAPID_PUBLIC = 'BJQQ3j0RLJKmhZR7_EdpnRWF-rSblz9w5HhAbtKGZoX7OyeJjNC2HuCL-j
 let _swReg = null;
 let _pushSub = null;
 
+// Čeká až bude SW skutečně aktivní (ne jen registered)
+function _waitForActiveSW(reg) {
+  return new Promise(resolve => {
+    if (reg.active) { resolve(reg); return; }
+    const sw = reg.installing || reg.waiting;
+    if (!sw) { resolve(reg); return; }
+    sw.addEventListener('statechange', function onState() {
+      if (sw.state === 'activated') {
+        sw.removeEventListener('statechange', onState);
+        resolve(reg);
+      }
+    });
+  });
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
-    .then(reg => {
+    .then(async reg => {
+      await _waitForActiveSW(reg);
       _swReg = reg;
-      console.log('[SW] zaregistrován, scope:', reg.scope);
-      // Pokud má user token a povolení, rovnou se přihlaš k push
+      console.log('[SW] aktivní, scope:', reg.scope);
       if (mobileToken && Notification.permission === 'granted') {
         subscribeToPush(reg);
       }
     })
-    .catch(e => console.warn('[SW] registrace selhala:', e));
+    .catch(e => console.warn('[SW] registrace selhala:', e.message));
 }
 
 // Převod base64url → Uint8Array (pro applicationServerKey)
@@ -2562,6 +2585,8 @@ function openSettings() {
   } else {
     document.getElementById('notifPermRow').style.display = 'none';
   }
+  // Refresh diagnostics
+  refreshNotifDiag();
 }
 function closeSettings() {
   document.getElementById('settingsDrawer').classList.remove('open');
@@ -2643,21 +2668,84 @@ async function requestNotifPermission() {
 
 function showPushNotif(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  // Android Chrome vyžaduje showNotification přes Service Worker registration
-  // (přímý new Notification() na Androidu nefunguje spolehlivě)
-  if (_swReg) {
-    _swReg.showNotification(title || 'PokéTrade', {
-      body: body || '',
-      tag:  tag  || 'pkt',
-      icon:  'icon-aipc-192.png',
-      badge: 'icon-aipc-192.png',
-      renotify: false,
-      data: { url: location.href }
-    }).catch(e => console.warn('[notif SW]', e));
+  const opts = {
+    body:     body || '',
+    tag:      tag  || 'pkt',
+    icon:     'icon-aipc-192.png',
+    badge:    'icon-aipc-192.png',
+    renotify: false,
+    vibrate:  [200, 100, 200],
+    data:     { url: location.href }
+  };
+  // navigator.serviceWorker.ready je SPOLEHLIVĚJŠÍ než _swReg na Androidu
+  // – čeká dokud není SW opravdu aktivní, i po studeném startu
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready
+      .then(reg => reg.showNotification(title || 'PokéTrade', opts))
+      .catch(e => {
+        console.warn('[notif SW]', e);
+        // poslední záchrana – přímé Notification (funguje na desktopu/iOS)
+        try { new Notification(title || 'PokéTrade', opts); } catch {}
+      });
   } else {
-    // Fallback – desktop nebo SW ještě není připraven
-    try { new Notification(title || 'PokéTrade', { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
-    catch(e) { console.warn('[notif]', e); }
+    try { new Notification(title || 'PokéTrade', opts); } catch(e) { console.warn('[notif]', e); }
+  }
+}
+
+// ── Diagnostika notifikací ────────────────────────────────────
+async function refreshNotifDiag() {
+  const swEl   = document.getElementById('diagSW');
+  const permEl = document.getElementById('diagPerm');
+  const subEl  = document.getElementById('diagSub');
+  if (!swEl) return;
+  if (!('serviceWorker' in navigator)) {
+    swEl.textContent = '❌ Service Worker: nepodporován';
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('./sw.js');
+      if (!reg) {
+        swEl.textContent = '❌ SW: nenalezen – ověř že sw.js je na serveru';
+      } else {
+        const state = (reg.active || reg.waiting || reg.installing)?.state || '?';
+        swEl.textContent = state === 'activated' ? '✅ SW: aktivní' : '⚠️ SW: ' + state;
+      }
+    } catch(e) { swEl.textContent = '❌ SW: ' + e.message; }
+  }
+  if (!('Notification' in window)) {
+    permEl.textContent = '❌ Oprávnění: prohlížeč nepodporuje notifikace';
+  } else {
+    const p = Notification.permission;
+    permEl.textContent = p === 'granted' ? '✅ Oprávnění: povoleno'
+      : p === 'denied'  ? '❌ Oprávnění: ZAMÍTNUTO – obnov v Chrome → Nastavení → Oprávnění'
+      : '⚠️ Oprávnění: neuděleno – klepni Povolit níže';
+  }
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    subEl.textContent = '❌ Push: nepodporován';
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration('./sw.js');
+      if (!reg) { subEl.textContent = '⚠️ Push: SW není registrován'; return; }
+      const sub = await reg.pushManager.getSubscription();
+      subEl.textContent = sub ? '✅ Push sub: zaregistrována' : '⚠️ Push sub: chybí – klepni Povolit';
+    } catch(e) { subEl.textContent = '⚠️ Push: ' + e.message; }
+  }
+}
+
+async function testNotification() {
+  if (!('Notification' in window)) { toast('Prohlížeč nepodporuje notifikace'); return; }
+  if (Notification.permission !== 'granted') {
+    toast('⚠️ Nejprve povol notifikace výše'); return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('🔔 PokéTrade test', {
+      body: 'Notifikace fungují správně! ✅',
+      icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png',
+      tag: 'pkt-test', vibrate: [200,100,200], data: { url: location.href }
+    });
+    toast('✅ Testovací notifikace odeslána');
+  } catch(e) {
+    toast('❌ ' + e.message); console.error('[test notif]', e);
   }
 }
 
