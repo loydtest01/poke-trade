@@ -427,6 +427,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <div class="drawer-section">
         <div class="drawer-section-title">👤 Účet</div>
         <button onclick="doMobileLogout();closeSettings();" style="width:100%;background:transparent;border:1.5px solid rgba(248,113,113,.4);color:var(--red);border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔓 Odhlásit se</button>
+        <button onclick="openChangePassword()" style="width:100%;margin-top:8px;background:transparent;border:1.5px solid rgba(79,142,247,.4);color:#60a5fa;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">🔑 Změnit heslo</button>
         <button id="chipInstall" onclick="installPWA()" style="display:none;width:100%;margin-top:8px;background:rgba(59,130,246,.15);border:1.5px solid rgba(59,130,246,.4);color:#60a5fa;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">📲 Přidat na plochu</button>
       </div>
     </div>
@@ -504,6 +505,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         <button id="loginBtn" class="btn btn-primary" onclick="doMobileLogin()" style="margin-top:14px">
           → Přihlásit se
         </button>
+        <div style="text-align:center;margin-top:12px">
+          <button onclick="openForgotPassword()" style="background:none;border:none;color:var(--accent);font-size:13px;cursor:pointer;text-decoration:underline;font-family:inherit">Zapomenuté heslo?</button>
+        </div>
       </div>
 
       <div style="text-align:center;font-size:12px;color:var(--muted);padding:8px 0">
@@ -2841,7 +2845,8 @@ function renderMsgsConvList() {
     const isU1   = c.user1_id === _msgsUserId;
     const partner = isU1 ? c.user2_username : c.user1_username;
     const unread  = isU1 ? (c.unread_user1||0) : (c.unread_user2||0);
-    const last    = c.last_message_text || 'Nová konverzace';
+    const lastRaw = c.last_message_text || 'Nová konverzace';
+    const last = lastRaw.match(/^\[IMG:/) ? '📷 Obrázek' : lastRaw;
     const time    = formatMsgsTime(c.last_message_at);
     const init    = (partner||'?')[0].toUpperCase();
     // skip hidden
@@ -3355,5 +3360,29 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
 
 </script>
 <script src="site-tracking.js"></script>
+
+<!-- ── Modal: Zapomenuté heslo ── -->
+<div id="forgotModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border-radius:16px;padding:24px;width:100%;max-width:360px;border:1px solid var(--border)">
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px">🔑 Zapomenuté heslo</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Pošleme ti e-mail s odkazem pro reset hesla.</div>
+    <input id="forgotEmail" type="email" placeholder="Tvůj e-mail" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box">
+    <button onclick="doForgotPassword()" style="width:100%;margin-top:12px;background:var(--accent);border:none;border-radius:10px;color:#fff;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Odeslat reset e-mail</button>
+    <button onclick="closeForgotPassword()" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);padding:11px;font-size:13px;cursor:pointer;font-family:inherit">Zrušit</button>
+  </div>
+</div>
+
+<!-- ── Modal: Změna hesla ── -->
+<div id="changePassModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:var(--card);border-radius:16px;padding:24px;width:100%;max-width:360px;border:1px solid var(--border)">
+    <div style="font-size:18px;font-weight:700;margin-bottom:6px">🔑 Změnit heslo</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:16px">Zadej nové heslo pro svůj účet.</div>
+    <input id="newPass1" type="password" placeholder="Nové heslo" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box">
+    <input id="newPass2" type="password" placeholder="Znovu nové heslo" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box;margin-top:10px">
+    <button onclick="doChangePassword()" style="width:100%;margin-top:12px;background:var(--accent);border:none;border-radius:10px;color:#fff;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Uložit nové heslo</button>
+    <button onclick="closeChangePassword()" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);padding:11px;font-size:13px;cursor:pointer;font-family:inherit">Zrušit</button>
+  </div>
+</div>
+
 </body>
 </html>
