@@ -2929,6 +2929,22 @@ async function loadMsgsThread(silent = false) {
   } catch {}
 }
 
+
+function renderMobileMsgText(raw) {
+  const str = String(raw || '');
+  // [IMG:url] format
+  const parts = str.split(/(\[IMG:[^\]]+\])/g);
+  return parts.map(p => {
+    const m = p.match(/^\[IMG:(.+)\]$/);
+    if (m) {
+      const url = m[1];
+      return `<a href="${url}" target="_blank" style="display:block;margin:2px 0">` +
+             `<img src="${url}" alt="Obrázek" style="max-width:220px;max-height:220px;border-radius:10px;display:block;border:1px solid rgba(255,255,255,.12)"></a>`;
+    }
+    return escHtml(p);
+  }).join('');
+}
+
 function renderMsgsThread(silent = false) {
   const el = document.getElementById('chatMsgsM');
   if (!el) return;
@@ -2941,7 +2957,8 @@ function renderMsgsThread(silent = false) {
     if (ds !== lastDate) { html += `<div class="msg-date-sep-m">${ds}</div>`; lastDate = ds; }
     const isMe = m.sender_id === _msgsUserId;
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
-    const txt = escHtml(m.text || m.content || m.message || m.body || '');
+    const rawTxt = m.text || m.content || m.message || m.body || '';
+    const txt = renderMobileMsgText(rawTxt);
     html += `<div class="msg-row-${isMe?'me':'them'}">
       <div class="msg-bubble ${isMe?'me':'them'}">${txt}</div>
       <div class="msg-time-m">${time}</div>
@@ -3045,7 +3062,7 @@ async function mChatImgSelected(input) {
           conversation_id: _msgsActiveId,
           sender_id: _msgsUserId,
           sender_username: localStorage.getItem('sb_username') || '',
-          text: '📷 ' + imgUrl,
+          text: '[IMG:' + imgUrl + ']',
           listing_refs: []
         })
       });
