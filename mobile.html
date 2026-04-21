@@ -2722,16 +2722,16 @@ async function checkNotifications() {
 
   try {
     // Stejný dotaz jako notif-bell.js — tabulka notifications, nepřečtené
+    // FIX: filtruj type=neq.message → zprávy řídí badge přes conversations tabulku
     const r = await fetch(
-      `${SB_URL}/rest/v1/notifications?user_id=eq.${_notifUserId}&read=eq.false&order=created_at.desc&limit=20&select=id,title,body,link,created_at`,
+      `${SB_URL}/rest/v1/notifications?user_id=eq.${_notifUserId}&read=eq.false&type=neq.message&order=created_at.desc&limit=20&select=id,title,body,link,created_at`,
       { headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken } }
     );
     if (!r.ok) return;
     const items = await r.json();
     if (!Array.isArray(items)) return;
 
-    // Počet nepřečtených → badge na 💬 ikoně
-    updateNotifBadge(items.length);
+    // updateNotifBadge se zde záměrně nevolá — badge 💬 řídí updateMsgsUnreadBadge() níže
 
     // Browser push notifikace jen pro nové (dosud neviděné)
     const newItems = items.filter(n => !_notifSeenIds.has(n.id));
@@ -3136,11 +3136,19 @@ async function sendMobileMsg() {
 async function markConvRead(convId) {
   if (!_msgsUserId) return;
   try {
+    // 1. Označ konverzaci přečtenou (unread_user1/2 -> 0)
     await fetch(`${SB_URL}/rest/v1/rpc/mark_conversation_read`, {
       method: 'POST',
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json'},
       body: JSON.stringify({ p_conversation_id: convId, p_user_id: _msgsUserId })
     });
+    // 2. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
+    fetch(
+      `${SB_URL}/rest/v1/notifications?user_id=eq.${_msgsUserId}&type=eq.message&read=eq.false`,
+      { method: 'PATCH', headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({read:true}) }
+    ).catch(()=>{});
+    // 3. Refresh _msgsConvs ze serveru aby badge reflektovala aktualni stav
+    loadMsgsConversations();
   } catch {}
 }
 
