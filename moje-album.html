@@ -5332,11 +5332,30 @@ async function mergeDuplicatesInAlbum() {
         const dupId = String(dup.id || dup.local_id || '');
         if (!dupId) continue;
 
-        await sbReq(
-          'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + dupId,
-          'PATCH',
-          { user_card_local_id: String(primary.id) }
-        ).catch(e => console.warn('[mergeDup photos]', e));
+        // PATCH user_card_local_id pravděpodobně selže kvůli RLS policy (viz stejný pattern jinde).
+        // Místo toho: načti fotky duplikátu → vlož kopie pod primární ID → smaž originály.
+        const dupServerPhotos = await sbReq(
+          'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + dupId
+        ).catch(() => null);
+
+        if (Array.isArray(dupServerPhotos) && dupServerPhotos.length) {
+          const primaryKey = String(primary.id);
+          for (const photo of dupServerPhotos) {
+            await sbReq('rest/v1/user_card_photos', 'POST', {
+              user_id:            photo.user_id,
+              user_card_local_id: primaryKey,
+              url:                photo.url,
+              storage_path:       photo.storage_path || null,
+              side:               photo.side || 'front',
+              batch_id:           photo.batch_id || null,
+            }).catch(e => console.warn('[mergeDup photo insert]', e));
+          }
+          // Smaž fotky duplikátu
+          await sbReq(
+            'rest/v1/user_card_photos?user_id=eq.' + userId + '&user_card_local_id=eq.' + dupId,
+            'DELETE'
+          ).catch(e => console.warn('[mergeDup photo delete]', e));
+        }
 
         // Aktualizuj lokální mapu fotek
         const primaryKey = String(primary.id);
