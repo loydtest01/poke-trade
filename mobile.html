@@ -329,14 +329,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
           <div style="color:var(--muted);margin-bottom:8px">Pro upozornění musíš nejdříve povolit notifikace v prohlížeči.</div>
           <button onclick="requestNotifPermission()" style="background:var(--accent);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer">Povolit notifikace</button>
         </div>
-        <!-- Diagnostika + test -->
-        <div id="notifDiag" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px">
-          <div style="font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px;color:var(--text)">Stav systému</div>
-          <div id="diagSW">⏳ Service Worker: …</div>
-          <div id="diagPerm">⏳ Oprávnění: …</div>
-          <div id="diagSub">⏳ Push subscription: …</div>
-        </div>
-        <button onclick="testNotification()" style="width:100%;background:rgba(79,142,247,.15);border:1.5px solid rgba(79,142,247,.4);color:var(--accent);border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:12px">🔔 Otestovat notifikaci</button>
         <div class="notif-row">
           <div class="notif-icon">💬</div>
           <div class="notif-label">
@@ -416,7 +408,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         <div style="margin-top:12px">
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Stav AI</div>
           <div id="chipAI_drawer" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
-          <div id="chipPC_drawer" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">💻 PC…</div>
+          <div id="chipPC_drawer" style="margin-top:6px;padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🌐 WEB…</div>
         </div>
       </div>
 
@@ -472,7 +464,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <div class="hdr-chips">
       <button id="chipFake" onclick="toggleFakeMode()" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;cursor:pointer;font-family:inherit">🃏 FAKE</button>
       <div id="chipAI" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🤖 AI…</div>
-      <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">💻 PC…</div>
+      <div id="chipPC" style="padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;white-space:nowrap;text-align:center">🌐 WEB…</div>
       <button id="chipInstall" onclick="installPWA()" style="display:none;padding:2px 6px;border-radius:10px;font-size:9px;font-weight:700;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#60a5fa;white-space:nowrap;cursor:pointer;text-align:center;font-family:inherit">📲 Plocha</button>
     </div>
   </div>
@@ -524,7 +516,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <!-- ══ SETUP ══ -->
     <div class="screen" id="scSetup">
       <div class="setup-headline">PhotoBridge</div>
-      <div class="setup-sub">Vyfotíš přední strany, pak zadní.<br>PC zpracuje vše najednou.</div>
+      <div class="setup-sub">Vyfotíš přední strany, pak zadní.<br>WEB zpracuje vše najednou.</div>
 
       <div class="panel">
         <div class="panel-title">Počet kartiček</div>
@@ -655,7 +647,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         <div class="panel-title">Přehled karet k odeslání</div>
         <div id="reviewList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
-      <button class="btn btn-green" onclick="sendAll()">📤 Odeslat vše na PC</button>
+      <button class="btn btn-green" onclick="sendAll()">📤 Odeslat na WEB</button>
       <button class="btn btn-secondary" onclick="goBack()">← Zpět</button>
     </div>
 
@@ -734,14 +726,14 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         <div class="panel-title">Karty k odeslání</div>
         <div id="galReviewList" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
-      <button class="btn btn-green" onclick="sendGallery()">📤 Odeslat vše na PC</button>
+      <button class="btn btn-green" onclick="sendGallery()">📤 Odeslat na WEB</button>
     </div>
 
     <!-- ══ SENDING ══ -->
     <div class="screen" id="scSending">
       <div style="text-align:center;padding:40px 0">
         <div style="font-size:48px;margin-bottom:16px">📤</div>
-        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Odesílám na PC…</div>
+        <div style="font-size:18px;font-weight:700;margin-bottom:8px">Odesílám na WEB…</div>
         <div id="sendProgress" style="color:var(--muted);font-size:13px">0 / 0</div>
         <div style="margin-top:20px;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
           <div id="sendBar" style="height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%;transition:width .3s"></div>
@@ -753,7 +745,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     <div class="screen" id="scDone">
       <div class="done-icon">✅</div>
       <div class="done-title">Odesláno!</div>
-      <div class="done-sub">PC zpracovává karty.<br>Potvrd je v aplikaci na počítači.</div>
+      <div class="done-sub">WEB zpracovává karty.<br>Karty se zpracovávají automaticky.</div>
       <div class="stat-row" id="doneStats"></div>
       <button class="btn btn-secondary" onclick="restartBatch()" style="margin-top:8px">📷 Nová dávka</button>
     </div>
@@ -792,32 +784,17 @@ const VAPID_PUBLIC = 'BJQQ3j0RLJKmhZR7_EdpnRWF-rSblz9w5HhAbtKGZoX7OyeJjNC2HuCL-j
 let _swReg = null;
 let _pushSub = null;
 
-// Čeká až bude SW skutečně aktivní (ne jen registered)
-function _waitForActiveSW(reg) {
-  return new Promise(resolve => {
-    if (reg.active) { resolve(reg); return; }
-    const sw = reg.installing || reg.waiting;
-    if (!sw) { resolve(reg); return; }
-    sw.addEventListener('statechange', function onState() {
-      if (sw.state === 'activated') {
-        sw.removeEventListener('statechange', onState);
-        resolve(reg);
-      }
-    });
-  });
-}
-
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js')
-    .then(async reg => {
-      await _waitForActiveSW(reg);
+    .then(reg => {
       _swReg = reg;
-      console.log('[SW] aktivní, scope:', reg.scope);
+      console.log('[SW] zaregistrován, scope:', reg.scope);
+      // Pokud má user token a povolení, rovnou se přihlaš k push
       if (mobileToken && Notification.permission === 'granted') {
         subscribeToPush(reg);
       }
     })
-    .catch(e => console.warn('[SW] registrace selhala:', e.message));
+    .catch(e => console.warn('[SW] registrace selhala:', e));
 }
 
 // Převod base64url → Uint8Array (pro applicationServerKey)
@@ -1192,7 +1169,7 @@ function updateStatusChips() {
     pcBadge.style.background  = ok ? 'rgba(74,222,128,.12)' : 'rgba(248,113,113,.1)';
     pcBadge.style.borderColor = ok ? 'rgba(74,222,128,.3)'  : 'rgba(248,113,113,.3)';
     pcBadge.style.color       = ok ? '#4ade80'              : '#f87171';
-    pcBadge.textContent       = ok ? '💻 PC ✓'             : '💻 PC ✗';
+    pcBadge.textContent       = ok ? '🌐 WEB ✓'             : '🌐 WEB ✗';
   });
 }
 
@@ -1534,7 +1511,7 @@ async function sendGallery() {
   } else {
     document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
     document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
-    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'WEB zpracovává karty.\nKarty se zpracovávají automaticky.';
   }
 
   document.getElementById('doneStats').innerHTML =
@@ -2247,7 +2224,7 @@ async function sendAll() {
   } else {
     document.getElementById('scDone').querySelector('.done-icon').textContent  = '✅';
     document.getElementById('scDone').querySelector('.done-title').textContent = 'Odesláno!';
-    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'PC zpracovává karty.\nPotvrd je v aplikaci na počítači.';
+    document.getElementById('scDone').querySelector('.done-sub').textContent   = 'WEB zpracovává karty.\nKarty se zpracovávají automaticky.';
   }
 
   document.getElementById('doneStats').innerHTML =
@@ -2585,8 +2562,6 @@ function openSettings() {
   } else {
     document.getElementById('notifPermRow').style.display = 'none';
   }
-  // Refresh diagnostics
-  refreshNotifDiag();
 }
 function closeSettings() {
   document.getElementById('settingsDrawer').classList.remove('open');
@@ -2668,84 +2643,21 @@ async function requestNotifPermission() {
 
 function showPushNotif(title, body, tag) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const opts = {
-    body:     body || '',
-    tag:      tag  || 'pkt',
-    icon:     'icon-aipc-192.png',
-    badge:    'icon-aipc-192.png',
-    renotify: false,
-    vibrate:  [200, 100, 200],
-    data:     { url: location.href }
-  };
-  // navigator.serviceWorker.ready je SPOLEHLIVĚJŠÍ než _swReg na Androidu
-  // – čeká dokud není SW opravdu aktivní, i po studeném startu
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready
-      .then(reg => reg.showNotification(title || 'PokéTrade', opts))
-      .catch(e => {
-        console.warn('[notif SW]', e);
-        // poslední záchrana – přímé Notification (funguje na desktopu/iOS)
-        try { new Notification(title || 'PokéTrade', opts); } catch {}
-      });
+  // Android Chrome vyžaduje showNotification přes Service Worker registration
+  // (přímý new Notification() na Androidu nefunguje spolehlivě)
+  if (_swReg) {
+    _swReg.showNotification(title || 'PokéTrade', {
+      body: body || '',
+      tag:  tag  || 'pkt',
+      icon:  'icon-aipc-192.png',
+      badge: 'icon-aipc-192.png',
+      renotify: false,
+      data: { url: location.href }
+    }).catch(e => console.warn('[notif SW]', e));
   } else {
-    try { new Notification(title || 'PokéTrade', opts); } catch(e) { console.warn('[notif]', e); }
-  }
-}
-
-// ── Diagnostika notifikací ────────────────────────────────────
-async function refreshNotifDiag() {
-  const swEl   = document.getElementById('diagSW');
-  const permEl = document.getElementById('diagPerm');
-  const subEl  = document.getElementById('diagSub');
-  if (!swEl) return;
-  if (!('serviceWorker' in navigator)) {
-    swEl.textContent = '❌ Service Worker: nepodporován';
-  } else {
-    try {
-      const reg = await navigator.serviceWorker.getRegistration('./sw.js');
-      if (!reg) {
-        swEl.textContent = '❌ SW: nenalezen – ověř že sw.js je na serveru';
-      } else {
-        const state = (reg.active || reg.waiting || reg.installing)?.state || '?';
-        swEl.textContent = state === 'activated' ? '✅ SW: aktivní' : '⚠️ SW: ' + state;
-      }
-    } catch(e) { swEl.textContent = '❌ SW: ' + e.message; }
-  }
-  if (!('Notification' in window)) {
-    permEl.textContent = '❌ Oprávnění: prohlížeč nepodporuje notifikace';
-  } else {
-    const p = Notification.permission;
-    permEl.textContent = p === 'granted' ? '✅ Oprávnění: povoleno'
-      : p === 'denied'  ? '❌ Oprávnění: ZAMÍTNUTO – obnov v Chrome → Nastavení → Oprávnění'
-      : '⚠️ Oprávnění: neuděleno – klepni Povolit níže';
-  }
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    subEl.textContent = '❌ Push: nepodporován';
-  } else {
-    try {
-      const reg = await navigator.serviceWorker.getRegistration('./sw.js');
-      if (!reg) { subEl.textContent = '⚠️ Push: SW není registrován'; return; }
-      const sub = await reg.pushManager.getSubscription();
-      subEl.textContent = sub ? '✅ Push sub: zaregistrována' : '⚠️ Push sub: chybí – klepni Povolit';
-    } catch(e) { subEl.textContent = '⚠️ Push: ' + e.message; }
-  }
-}
-
-async function testNotification() {
-  if (!('Notification' in window)) { toast('Prohlížeč nepodporuje notifikace'); return; }
-  if (Notification.permission !== 'granted') {
-    toast('⚠️ Nejprve povol notifikace výše'); return;
-  }
-  try {
-    const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('🔔 PokéTrade test', {
-      body: 'Notifikace fungují správně! ✅',
-      icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png',
-      tag: 'pkt-test', vibrate: [200,100,200], data: { url: location.href }
-    });
-    toast('✅ Testovací notifikace odeslána');
-  } catch(e) {
-    toast('❌ ' + e.message); console.error('[test notif]', e);
+    // Fallback – desktop nebo SW ještě není připraven
+    try { new Notification(title || 'PokéTrade', { body, tag, icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png' }); }
+    catch(e) { console.warn('[notif]', e); }
   }
 }
 
@@ -3078,13 +2990,18 @@ async function markConvRead(convId) {
 }
 
 function updateMsgsUnreadBadge() {
-  // Jen aktualizuje konverzační seznam — badge na ikoně řídí updateNotifBadge()
-  // (notif-bell tabulka je source of truth pro badge)
   const total = _msgsConvs.reduce((s,c) => {
     return s + (c.user1_id === _msgsUserId ? (c.unread_user1||0) : (c.unread_user2||0));
   }, 0);
-  // Badge přepíše notif count pouze pokud notifikační polling není aktivní
-  if (!_notifPollTimer) updateNotifBadge(total);
+  // Badge zpráv vždy ukazuje počet nepřečtených zpráv (nezávisle na notifikacích)
+  const dot = document.getElementById('hdrUnreadDot');
+  if (!dot) return;
+  if (total > 0) {
+    dot.textContent = total > 99 ? '99+' : total;
+    dot.style.display = '';
+  } else if (!_notifPollTimer) {
+    dot.style.display = 'none';
+  }
 }
 
 function formatMsgsTime(iso) {
