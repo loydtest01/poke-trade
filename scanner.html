@@ -2468,6 +2468,10 @@ async function saveSelected() {
       p.saveSelected = false;
       p.status = 'identified';
       dupMap.set(dupId, p);
+      // Ulož fotku i ke stávající (duplikátní) kartě
+      if (p.isUrl && p.dataUrl) {
+        _savePhotoToCard(p, dupId).catch(e => console.warn('[photo link dup]', e));
+      }
       saved++;
     } else {
       const entry = {
