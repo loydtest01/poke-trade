@@ -2430,6 +2430,7 @@ async function loadFamilyAlbums() {
     const conns = await sbReq(
       `rest/v1/family_connections?or=(user_id.eq.${userId},member_id.eq.${userId})&status=eq.accepted&select=user_id,member_id`
     );
+    // Tabulka ještě neexistuje (404) nebo žádná spojení → tiše přeskoč
     if (!Array.isArray(conns) || !conns.length) { renderFamilyAlbumList(); return; }
 
     // 2) Pro každého člena načti sdílená alba
@@ -5478,26 +5479,79 @@ function setTrainerSub(t) {
 
 function matchRarity(c, r) {
   const cr = (c.rarity || c.rarityCz || '').toLowerCase();
-  if (r === 'common')   return cr.includes('common') || cr === 'běžná';
-  if (r === 'uncommon') return cr.includes('uncommon') || cr === 'neobvyklá';
-  if (r === 'rare')     return (cr.includes('rare') || cr.includes('vzácná')) && !cr.includes('ultra') && !cr.includes('secret') && !cr.includes('holo');
-  if (r === 'holo')     return cr.includes('holo');
-  if (r === 'ultra')    return cr.includes('ultra') || cr.includes('illustration') || cr.includes('vmax') || cr.includes('vstar') || cr.includes(' ex') || cr.includes(' gx') || cr.includes(' v ');
-  if (r === 'secret')   return cr.includes('secret') || cr.includes('hyper') || cr.includes('special art');
-  if (r === 'fullart')  return cr.includes('full') || cr.includes('illustration');
+  const name = (c.name || '').toLowerCase();
+  if (!r) return true;
+  if (r === 'common')   return cr === 'common' || cr === 'běžná' || cr.startsWith('common');
+  if (r === 'uncommon') return cr === 'uncommon' || cr === 'neobvyklá' || cr.startsWith('uncommon');
+  if (r === 'rare')     return cr === 'rare' || cr === 'vzácná' ||
+                               (cr.includes('rare') && !cr.includes('holo') && !cr.includes('ultra') &&
+                                !cr.includes('secret') && !cr.includes('illustration') && !cr.includes('special') &&
+                                !cr.includes('double') && !cr.includes('hyper'));
+  if (r === 'holo')     return cr.includes('holo') && !cr.includes('ultra') && !cr.includes('secret') &&
+                               !cr.includes('illustration') && !cr.includes('double');
+  if (r === 'ultra')    return cr.includes('ultra') || cr.includes('illustration rare') ||
+                               cr.includes('double rare') || cr.includes('ace spec') ||
+                               cr.includes('rare holo gx') || cr.includes('rare holo vmax') ||
+                               cr.includes('rare holo vstar') || cr.includes('rare holo v') ||
+                               cr.includes('rare holo ex') ||
+                               (cr === '' && (name.includes(' gx') || name.includes(' vmax') || name.includes(' vstar')));
+  if (r === 'secret')   return cr.includes('secret') || cr.includes('hyper') || cr.includes('special illustration') ||
+                               cr.includes('special art');
+  if (r === 'fullart')  return cr.includes('full art') || cr.includes('illustration rare') ||
+                               cr.includes('special illustration');
   if (r === 'gold')     return cr.includes('gold') || cr.includes('hyper');
   if (r === 'promo')    return cr.includes('promo');
   if (r === 'basic_energy')      return cr.includes('common') || cr === '' || cr.includes('basic');
   if (r === 'special_energy')    return cr.includes('uncommon') || cr.includes('special');
-  if (r === 'collector_energy')  return cr.includes('rare') || cr.includes('holo') || cr.includes('illustration') || cr.includes('ultra');
+  if (r === 'collector_energy')  return cr.includes('rare') || cr.includes('holo') ||
+                                        cr.includes('illustration') || cr.includes('ultra');
   return true;
 }
 
 function matchTrainerSub(c, t) {
-  const subs = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])).map(s => (s||'').toLowerCase());
-  const cat  = (c.category || c.subtype || '').toLowerCase();
-  if (t === 'Tool') return subs.some(s => s.includes('tool')) || cat.includes('tool');
-  return subs.some(s => s.includes(t.toLowerCase())) || cat.includes(t.toLowerCase());
+  if (!t) return true;
+  const tl = t.toLowerCase();
+
+  // Všechna pole kde se může vyskytovat subtyp
+  const subs    = ((c.subtypes || []).concat(c.subtype ? [c.subtype] : [])
+                    .concat(c.variant   ? [c.variant]   : [])
+                    .concat(c.subtypesStr ? [c.subtypesStr] : [])
+                  ).map(s => (s||'').toLowerCase());
+  const cat     = (c.category  || '').toLowerCase();
+  const name    = (c.name      || '').toLowerCase();
+  const rarity  = (c.rarity   || c.rarityCz || '').toLowerCase();
+  const variant = (c.variant   || '').toLowerCase();
+
+  // Přesné porovnání v subs
+  if (subs.some(s => s === tl || s.includes(tl))) return true;
+  if (cat.includes(tl)) return true;
+
+  // Speciální edice Pokémonů — hledáme v názvu a variantě
+  // Pozor: 'ex' lowercase ≠ 'EX' uppercase (různé generace karet)
+  if (t === 'GX')      return name.includes(' gx') || name.endsWith('-gx') || variant === 'gx' || rarity.includes('gx');
+  if (t === 'EX')      return (name.includes(' ex') && !name.includes(' ex)')) && !name.includes(' ex ') || // "Charizard EX" ale ne "ex" moderní
+                              name.endsWith(' ex') || variant === 'ex-old' || rarity.includes('ex') && !rarity.includes('double') ||
+                              subs.some(s => s === 'ex' || s === 'pokemon ex');
+  if (t === 'ex')      return name.endsWith('-ex') || name.endsWith(' ex') && !rarity.includes('rare holo ex') ||
+                              variant === 'ex' || subs.some(s => s === 'ex' || s === 'pokémon ex');
+  if (t === 'VMAX')    return name.includes(' vmax') || name.endsWith('-vmax') || variant === 'vmax' || rarity.includes('vmax');
+  if (t === 'VSTAR')   return name.includes(' vstar') || name.endsWith('-vstar') || variant === 'vstar' || rarity.includes('vstar');
+  if (t === 'V')       return (name.endsWith(' v') || name.includes(' v ') || name.endsWith('-v')) &&
+                              !name.includes('vmax') && !name.includes('vstar') && !name.includes('vunion') ||
+                              variant === 'v' || subs.some(s => s === 'v' || s === 'basic v');
+  if (t === 'Tera')    return name.includes('tera') || variant.includes('tera') || rarity.includes('tera') ||
+                              subs.some(s => s.includes('tera'));
+  if (t === 'TAG TEAM') return name.includes('&') || name.includes('tag team') || subs.some(s => s.includes('tag team'));
+  if (t === 'Basic')   return subs.some(s => s === 'basic') || (!subs.some(s =>
+                              ['stage 1','stage 2','gx','ex','vmax','vstar','mega','break','prime'].includes(s)) &&
+                              cat === 'pokemon' && !name.includes(' gx') && !name.includes(' vmax') &&
+                              !name.includes(' vstar') && !name.includes(' ex') && !name.includes(' v'));
+  if (t === 'Stage 1') return subs.some(s => s === 'stage 1' || s.includes('stage1'));
+  if (t === 'Stage 2') return subs.some(s => s === 'stage 2' || s.includes('stage2'));
+  if (t === 'Tool')    return subs.some(s => s.includes('tool')) || cat.includes('tool');
+
+  // Fallback pro trenérské subtypy (Supporter, Item, Stadium...)
+  return subs.some(s => s.includes(tl)) || cat.includes(tl) || name.includes(tl);
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -6165,7 +6219,18 @@ async function sbReq(path, method = 'GET', body = null) {
 }
 
 function matchType(c, t) {
-  return [c.type, ...(c.types||[])].some(x => (x||'').toLowerCase().includes(t));
+  if (!t) return true;
+  const tl = t.toLowerCase();
+  // Kontroluj type, types[], a také energyType pro energetické karty
+  const typeList = [c.type, ...(c.types||[]), c.energyType, c.element]
+    .filter(Boolean)
+    .map(x => (x||'').toLowerCase());
+  // 'lightning' = 'electric' alias
+  if (tl === 'lightning') return typeList.some(x => x.includes('lightning') || x.includes('electric'));
+  if (tl === 'darkness')  return typeList.some(x => x.includes('darkness') || x.includes('dark'));
+  if (tl === 'metal')     return typeList.some(x => x.includes('metal') || x.includes('steel'));
+  if (tl === 'colorless') return typeList.some(x => x.includes('colorless') || x.includes('normal'));
+  return typeList.some(x => x.includes(tl));
 }
 
 function typeEmoji(t) {
@@ -8329,6 +8394,9 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
             ⚠️ V albu už existuje <strong>${esc(existing.name)}</strong> · ${esc(existing.set||'?')} — po potvrzení se automaticky sloučí.
            </div>` : '';
 
+      // Ulož data do window proměnné — NIKDY nevkládej encodeURIComponent do onclick atributu!
+      window._pgmAiIdentified = identified;
+
       resultEl.innerHTML = `
         <div style="font-weight:700;font-size:13px;color:#4ade80;margin-bottom:8px;">🔎 AI rozpoznala kartu:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:10px;">
@@ -8341,7 +8409,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
         </div>
         ${dupWarn}
         <div style="display:flex;gap:8px;margin-top:10px;">
-          <button id="pgmRozConfirmBtn" onclick="pgmConfirmRecognize(${encodeURIComponent(JSON.stringify(identified))})" style="
+          <button id="pgmRozConfirmBtn" onclick="pgmConfirmRecognize()" style="
             flex:1;padding:8px 0;border-radius:8px;background:linear-gradient(135deg,#22c55e,#16a34a);
             border:none;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;">
             ✓ Potvrdit a aktualizovat
@@ -8363,9 +8431,10 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
   };
 
   // ── Potvrzení rozpoznání ────────────────────────────
-  window.pgmConfirmRecognize = async function(encodedData) {
-    let identified;
-    try { identified = JSON.parse(decodeURIComponent(encodedData)); } catch { return; }
+  window.pgmConfirmRecognize = async function() {
+    // Data jsou uložena v window._pgmAiIdentified (ne jako URL-encodovaný parametr)
+    const identified = window._pgmAiIdentified;
+    if (!identified) { console.error('[AI Rozpoznání] Chybí data identified'); return; }
 
     const confirmBtn = document.getElementById('pgmRozConfirmBtn');
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '⏳ Ukládám…'; }
