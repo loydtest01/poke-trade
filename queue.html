@@ -574,7 +574,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 <!-- TOP BAR -->
 <script>window.TOPBAR_ACTIVE = 'queue';</script>
-<script src="i18n.js"></script>
+<script src="card-search.js"></script>
+  <script src="i18n.js"></script>
   <script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
@@ -2344,7 +2345,13 @@ async function tcgSearch(gi, autoMode = false) {
 
       const parts = [];
       if (enName) parts.push(`name:"${enName}"`);
-      if (ai.set)  parts.push(`set.name:"${ai.set}"`);
+      // OPRAVA: Detekce set kódu vs. set názvu (M24EN, BRS → ptcgoCode; jinak name)
+      if (ai.set) {
+        const _sType = PkSearch.detectSetType(ai.set);
+        if (_sType === 'ptcgoCode') parts.push(`set.ptcgoCode:"${ai.set}"`);
+        else if (_sType === 'id')   parts.push(`set.id:"${ai.set}"`);
+        else                         parts.push(`set.name:"${ai.set.replace(/"/g,'')}"`);
+      }
       if (cardNumber) parts.push(`number:${cardNumber}`);
 
       // Krok 1: přesný dotaz (name + set + číslo)

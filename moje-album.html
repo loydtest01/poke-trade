@@ -1453,6 +1453,7 @@ body { background: #06040c; overflow-x: hidden; }
 <!-- Top bar -->
 <script>window.TOPBAR_ACTIVE = 'moje-album';</script>
 <script src="i18n.js"></script>
+  <script src="card-search.js"></script>
   <script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="index.html" class="app-logo">
@@ -7700,40 +7701,47 @@ async function tcgdexSearch() {
   var pager  = document.getElementById('tcgdexPager');
 
   if (!q) { if(status) status.textContent = '⚠️ Zadej název karty'; return; }
-  if (status) status.textContent = '⏳ Hledám na TCGdex…';
+  if (status) status.textContent = '⏳ Hledám…';
   if (grid) grid.innerHTML = '';
   if (pager) pager.style.display = 'none';
 
   try {
-    var url = 'https://api.tcgdex.net/v2/'+lang+'/cards?name='+encodeURIComponent(q)+'&isLegal=true';
-    var r = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!r.ok) throw new Error('HTTP '+r.status);
-    var data = await r.json();
-    var cards = Array.isArray(data) ? data : (data.cards || data.data || []);
+    // Použijeme PkSearch (card-search.js) – hledá pokemontcg.io + TCGdex
+    const langUpper = lang.toUpperCase() === 'JA' ? 'JP' : lang.toUpperCase();
+    const results = await PkSearch.search(q, {
+      lang: langUpper,
+      pageSize: 60,
+      onStatus: msg => { if (status) status.textContent = msg; }
+    });
 
-    if (!cards.length && lang !== 'en') {
-      // Fallback na angličtinu
-      if (status) status.textContent = '⏳ Nenalezeno, zkouším anglicky…';
-      var r2 = await fetch('https://api.tcgdex.net/v2/en/cards?name='+encodeURIComponent(q), { signal: AbortSignal.timeout(8000) });
-      if (r2.ok) {
-        var d2 = await r2.json();
-        cards = Array.isArray(d2) ? d2 : (d2.cards || d2.data || []);
-      }
-    }
-
-    if (!cards.length) {
-      if (status) status.textContent = '😔 Žádné výsledky pro "'+q+'"';
+    if (!results.length) {
+      if (status) status.textContent = '😔 Žádné výsledky pro "'+q+'" — zkus jiný název nebo přepni jazyk';
       return;
     }
 
-    _tcgdexAllResults = cards;
+    // Převeď unified karty na formát kompatibilní se starým renderem
+    _tcgdexAllResults = results.map(c => ({
+      id:       c.apiId,
+      name:     c.name,
+      localId:  c.number,
+      set:      { name: c.set, id: c.setCode },
+      image:    (c.apiLarge || '').replace(/\/high\.webp$|\/low\.webp$/, '').replace(/\.jpg$|\.png$/, ''),
+      hp:       c.hp,
+      types:    c.types,
+      rarity:   c.rarity,
+      category: c.supertype,
+      // Pro renderPage
+      _unified: c,
+    }));
     _tcgdexPage = 0;
-    if (status) status.textContent = '✅ Nalezeno '+cards.length+' karet (TCGdex)';
+    if (status) status.textContent = '✅ Nalezeno '+results.length+' karet';
     tcgdexRenderPage();
   } catch(e) {
     if (status) status.textContent = '❌ Chyba: '+e.message;
+    console.error('[tcgdexSearch]', e);
   }
 }
+
 
 function tcgdexRenderPage() {
   var grid  = document.getElementById('tcgdexGrid');
@@ -7747,7 +7755,7 @@ function tcgdexRenderPage() {
   var totalPages = Math.ceil(total / _tcgdexPageSize);
 
   grid.innerHTML = slice.map(function(c) {
-    var img = c.image ? c.image+'/low.webp' : '';
+    var img = (c._unified?.apiSmall) || (c.image ? c.image+'/low.webp' : '');
     var name = c.name || c.localName || '?';
     var setName = (c.set && (c.set.name||c.set.id)) || '';
     var num = c.localId || c.id || '';

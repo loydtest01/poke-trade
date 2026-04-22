@@ -2404,9 +2404,18 @@ async function searchCards(){
   wrap.innerHTML = '<div class="csb-loading">⏳ Hledám...</div>';
 
   try {
-    let q = '';
-    if(name) q += `name:"${name}"`;
-    if(set)  q += (q?' ':'') + `set.name:"${set}"`;
+    // OPRAVA: Detekce set kódu (M24EN, BRS → ptcgoCode; jinak name)
+    const _buildQ = (n, s) => {
+      let q = n ? `name:"${n.replace(/"/g,'')}"` : '';
+      if (s) {
+        const t = (typeof PkSearch !== 'undefined') ? PkSearch.detectSetType(s) : 'name';
+        if (t === 'ptcgoCode') q += (q?' ':'') + `set.ptcgoCode:"${s}"`;
+        else if (t === 'id')   q += (q?' ':'') + `set.id:"${s}"`;
+        else                   q += (q?' ':'') + `set.name:"${s.replace(/"/g,'')}"`;
+      }
+      return q;
+    };
+    let q = _buildQ(name, set);
 
     // Also try partial match if exact fails
     let url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=name`;
