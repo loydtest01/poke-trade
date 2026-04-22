@@ -1981,7 +1981,7 @@ async function extractJPNameFromDetail(dataUrl) {
     const resp = await groqFetch(body);
     if (!resp.ok) return null;
     const data = await resp.json();
-    const raw = (data.choices?.[0]?.message?.content || '').trim().replace(/^["\'「]|["\'」]$/g, '');
+    const raw = cleanPokemonName((data.choices?.[0]?.message?.content || '').trim());
     return raw || null;
   } catch { return null; }
 }
@@ -2539,6 +2539,7 @@ async function identifyCard(dataUrl) {
 
   const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
 CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
+WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write English sentences like "The Japanese name is X" or "The card reads X". ONLY the raw name characters.
 If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
@@ -2572,7 +2573,7 @@ Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English
       const data = await resp.json();
       lastRaw = data.choices?.[0]?.message?.content || '';
       const p = parseJson(lastRaw);
-      if (p?.name) return p;
+      if (p?.name) { p.name = cleanPokemonName(p.name); return p; }
 
       lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
     } catch (e) {
@@ -2622,6 +2623,21 @@ If card is unreadable return: {"name":null}` },
 function splitDataUrl(dataUrl) {
   const m = dataUrl.match(/^data:(image\/[a-z]+);base64,/);
   return { mt: m ? m[1] : 'image/jpeg', b64: m ? dataUrl.substring(m[0].length) : dataUrl };
+}
+
+
+// -- Odstrani anglicky popis z nazvu JP karty -------------------
+// Groq nekdy vrati "The Japanese name on the card reads: X" -> oprava
+function cleanPokemonName(raw) {
+  if (!raw) return raw;
+  let s = raw.trim();
+  // Strip "The [Japanese] [Pokemon] name [on the card] [reads|is]: "
+  s = s.replace(/^(?:The\s+)?(?:Japanese\s+)?(?:Pok[e\u00e9]mon\s+)?(?:TCG\s+)?(?:card\s+)?name(?:\s+on\s+the\s+(?:Pok[e\u00e9]mon\s+TCG\s+)?card)?[\s]+(?:reads|is|says|printed)[\s:]+/i, '');
+  // Strip "However, based on ... be: X" suffix
+  s = s.replace(/\s+However,[\s\S]*$/i, '');
+  // Strip surrounding quotes/brackets
+  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d]+|[\u0022\u0027\u201c\u201d\u300c\u300d]+$/g, '');
+  return s.trim() || raw.trim();
 }
 
 function parseJson(raw) {

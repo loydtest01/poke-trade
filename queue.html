@@ -792,6 +792,17 @@ Respond ONLY as JSON (no other text):
   "confidence": "high or medium or low"
 }`;
 
+
+// -- Odstrani anglicky popis z nazvu JP karty -------------------
+function cleanPokemonName(raw) {
+  if (!raw) return raw;
+  let s = raw.trim();
+  s = s.replace(/^(?:The\s+)?(?:Japanese\s+)?(?:Pok[e\u00e9]mon\s+)?(?:TCG\s+)?(?:card\s+)?name(?:\s+on\s+the\s+(?:Pok[e\u00e9]mon\s+TCG\s+)?card)?[\s]+(?:reads|is|says|printed)[\s:]+/i, '');
+  s = s.replace(/\s+However,[\s\S]*$/i, '');
+  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d]+|[\u0022\u0027\u201c\u201d\u300c\u300d]+$/g, '');
+  return s.trim() || raw.trim();
+}
+
 function _getGroqKey() {
   // Sdílí se se scanner.html – klíč je uložen jako 'groqApiKey'
   return localStorage.getItem('groqApiKey') || '';
@@ -1225,6 +1236,7 @@ async function retryAi(gi) {
     const match   = content.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('AI nevrátila JSON');
     const result = JSON.parse(match[0]);
+    if (result.name) result.name = cleanPokemonName(result.name);
 
     if (!result.name) throw new Error('AI nenašla název karty');
 
