@@ -3025,7 +3025,7 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   _msgsPollTimer = setInterval(async () => {
     await loadMsgsThread(true);
     updateMsgsUnreadBadge();
-  }, 5000);
+  }, 2000);
 
   // Typing indicator via Supabase Realtime
   initTypingRealtime(convId);
@@ -3290,7 +3290,10 @@ async function markConvRead(convId) {
           headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
           body: JSON.stringify({ read_at: new Date().toISOString() })
         }
-      ).catch(()=>{});
+      ).then(() => {
+        // Pošli broadcast partnerovi aby okamžitě viděl ✓✓
+        _broadcastMessagesRead(convId);
+      }).catch(()=>{});
     }
     // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
@@ -3488,6 +3491,7 @@ let _typingWsRef        = 0;
 let _typingDebounce     = null;  // timer pro odesílání
 let _typingClearTimer   = null;  // timer pro skrytí indikátoru
 let _typingChannelTopic = '';
+let _pendingReadBroadcast = null; // convId čekající na WS join
 
 function initTypingRealtime(convId) {
   closeTypingRealtime();
@@ -3524,13 +3528,38 @@ function initTypingRealtime(convId) {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-        if (msg.topic === _typingChannelTopic
-          && msg.event === 'broadcast'
-          && msg.payload?.event === 'typing') {
-          const p = msg.payload.payload || {};
-          // Zobraz jen pokud je to od partnera, ne od nás
+
+        // phx_reply = server potvrdil join → flush pending read broadcast
+        if (msg.event === 'phx_reply' && msg.payload?.status === 'ok' && _pendingReadBroadcast) {
+          const cid = _pendingReadBroadcast;
+          _pendingReadBroadcast = null;
+          _broadcastMessagesRead(cid);
+          return;
+        }
+
+        if (msg.topic !== _typingChannelTopic || msg.event !== 'broadcast') return;
+        const p = msg.payload?.payload || {};
+
+        // Typing indicator
+        if (msg.payload?.event === 'typing') {
           if (p.uid && p.uid !== _msgsUserId) {
             _showPartnerTyping(p.name || _msgsPartner?.name || 'Uživatel');
+          }
+          return;
+        }
+
+        // ✓✓ – partner přečetl naše zprávy
+        if (msg.payload?.event === 'messages_read') {
+          if (p.uid && p.uid !== _msgsUserId && p.conv_id === _msgsActiveId) {
+            const now = new Date().toISOString();
+            let changed = false;
+            (_msgsMessages || []).forEach(m => {
+              if (m.sender_id === _msgsUserId && !m.read_at) {
+                m.read_at = now;
+                changed = true;
+              }
+            });
+            if (changed) renderMsgsThread(true);
           }
         }
       } catch {}
@@ -3556,6 +3585,25 @@ function onChatInputTyping() {
   clearTimeout(_typingDebounce);
   _typingDebounce = setTimeout(_sendTypingBroadcast, 600);
 }
+
+function _broadcastMessagesRead(convId) {
+  // Pokud WS ještě není ready, ulož convId – flush proběhne po phx_reply
+  if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) {
+    _pendingReadBroadcast = convId;
+    return;
+  }
+  _typingWs.send(JSON.stringify({
+    topic: _typingChannelTopic,
+    event: 'broadcast',
+    payload: {
+      type: 'broadcast',
+      event: 'messages_read',
+      payload: { uid: _msgsUserId, conv_id: convId }
+    },
+    ref: String(++_typingWsRef)
+  }));
+}
+
 
 function _sendTypingBroadcast() {
   if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) return;
