@@ -1004,7 +1004,6 @@ window.onload = () => {
   if (mobileToken) {
     showScreen('scSetup');
     loadGroqInBackground();
-    startPHashDBLoad();  // Načíst pHash DB na pozadí
     startNotifPolling();
   // Pokud přišel deep-link z notifikace před přihlášením, otevři teď
   if (_pendingOpenConv) _handleNotifOpenConv(_pendingOpenConv);  // spusť polling i při návratu do appky (ne jen po loginu)
@@ -1208,7 +1207,6 @@ async function doMobileLogin() {
     showScreen('scSetup');
     updateStatusChips();
     loadGroqInBackground();
-    startPHashDBLoad();  // Načíst pHash DB na pozadí
     startNotifPolling();
   } catch(e) {
     errEl.textContent = 'Chyba připojení: ' + e.message; errEl.style.display = '';
@@ -1757,7 +1755,7 @@ async function processFrontPhoto(dataUrl) {
       await Promise.race([_groqReadyPromise, delay(8000)]);
     }
     if (groqKey || useSharedProxy) {
-      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Rozpoznávám kartu…</div>';
+      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
       const result = await identifyCard(dataUrl);
 
       // Výsledek vždy ulož do SPRÁVNÉ karty (i když user mezitím přešel jinam)
@@ -2056,7 +2054,6 @@ function showAiResult(r) {
   const confRaw = r.confidence || 0;
   const confPct = typeof confRaw === 'number' ? Math.round(confRaw * 100) : (confRaw === 'high' ? 92 : confRaw === 'medium' ? 65 : 40);
   const confLabel = confRaw === 'high' || confPct >= 75 ? '🟢 Vysoká' : confRaw === 'medium' || confPct >= 50 ? '🟡 Střední' : '🔴 Nízká';
-  const phashBadge = r._phash ? ` · <span style="color:#a78bfa;font-weight:800" title="Identifikováno přes perceptuální hash (dist=${r._phashDist})">⚡ Hash</span>` : '';
   // Condition color
   const condColors = { NM:'#4ade80', LP:'#a3e635', MP:'#facc15', HP:'#fb923c', D:'#f87171' };
   const condCol = condColors[r.condition] || '#94a3b8';
@@ -2086,12 +2083,20 @@ function showAiResult(r) {
         `<span style="color:${condCol};font-size:12px;font-weight:700">${escHtml(condText)}</span>` +
         `</div>` : '') +
     `</div>` +
-    `<div style="background:rgba(15,17,23,.5);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:10px">` +
-      `<div style="font-size:15px;font-weight:800;color:var(--accent)">${escHtml(r.name)}</div>` +
-      `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.set||'')}${r.number?' · #'+r.number:''}</div>` +
-      `<div style="font-size:11px;color:${condCol};margin-top:4px">📋 ${escHtml(condText || 'Stav neznámý')}</div>` +
+    `<div style="background:rgba(15,17,23,.5);border:1px solid rgba(79,142,247,.2);border-radius:8px;padding:10px;display:flex;gap:10px;align-items:flex-start">` +
+      `<div style="flex:1;min-width:0">` +
+        `<div style="font-size:15px;font-weight:800;color:var(--accent)">${escHtml(r.name)}</div>` +
+        `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(r.set||'')}${r.number?' · #'+r.number:''}</div>` +
+        `<div style="font-size:11px;color:${condCol};margin-top:4px">📋 ${escHtml(condText || 'Stav neznámý')}</div>` +
+      `</div>` +
+      `<div id="aiCardPreview" style="width:62px;flex-shrink:0;border-radius:6px;overflow:hidden;background:rgba(255,255,255,.04);border:1px dashed var(--border);min-height:86px;display:flex;align-items:center;justify-content:center">` +
+        `<div style="width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite"></div>` +
+      `</div>` +
     `</div>` +
-    `<div style="text-align:right;margin-top:6px;font-size:10px;color:var(--muted)">${confLabel} · ${confPct}%${phashBadge}</div>`;
+    `<div style="text-align:right;margin-top:6px;font-size:10px;color:var(--muted)">${confLabel} · ${confPct}%</div>`;
+
+  // Načíst náhled karty z pokemontcg.io na pozadí
+  _loadCardPreview(r.nameEN || r.name, r.number);
 
   // Auto-select stav tlačítko z AI výsledku
   if (r.condition) {
@@ -2107,6 +2112,45 @@ function selectCond(btn) {
   document.querySelectorAll('.cond-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   currentCond = btn.dataset.cond;
+}
+
+// ── Náhled karty z pokemontcg.io ──────────────────────────────
+async function fetchCardPreview(nameEN, number) {
+  if (!nameEN || /^[　-鿿＀-￯]/.test(nameEN)) return null;
+  try {
+    // Číslo: "052/153" → "52"
+    const numOnly = number ? parseInt(number.split('/')[0], 10) : null;
+    let q = 'name:"' + nameEN.trim().replace(/"/g, '') + '"';
+    if (numOnly && !isNaN(numOnly)) q += ' number:' + numOnly;
+    const url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q) + '&pageSize=1&select=id,name,images,number,set';
+    const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!r.ok) return null;
+    const d = await r.json();
+    return d.data?.[0] || null;
+  } catch { return null; }
+}
+
+async function _loadCardPreview(nameEN, number) {
+  const box = document.getElementById('aiCardPreview');
+  if (!box) return;
+  const card = await fetchCardPreview(nameEN, number);
+  const el = document.getElementById('aiCardPreview');  // re-check po awaitu
+  if (!el) return;
+  if (!card?.images?.small) {
+    el.innerHTML = '';  // prázdné – žádný spinner
+    el.style.display = 'none';
+    return;
+  }
+  const img = document.createElement('img');
+  img.src = card.images.small;
+  img.alt = card.name || '';
+  img.style.cssText = 'width:100%;display:block;border-radius:6px';
+  img.onerror = () => { el.style.display = 'none'; };
+  el.innerHTML = '';
+  el.appendChild(img);
+  el.style.border = 'none';
+  el.style.background = 'transparent';
+  el.style.minHeight = '0';
 }
 
 // ── Zkusit AI znovu na stejné fotce ──────────────────────────
@@ -2549,240 +2593,18 @@ async function getVisionModels() {
 }
 
 // ══════════════════════════════════════════════
-// PHASH – perceptuální hash matching karet
-// ══════════════════════════════════════════════
-
-const PHASH_DB_URL = 'https://raw.githubusercontent.com/em4go/PokeCard-TCG-detector/main/card_hashes_32b.csv';
-const PHASH_THRESHOLD = 15;  // max Hammingova vzdálenost (z 63 bitů) pro shodu
-
-let _phashDB = null;
-let _phashDBPromise = null;
-
-// ── 1D DCT-II (normalizovaná) ─────────────────────────────────
-function _dct1d(pixels) {
-  const N = pixels.length;
-  const out = new Float32Array(N);
-  const piN2 = Math.PI / (2 * N);
-  for (let k = 0; k < N; k++) {
-    const c = k === 0 ? Math.sqrt(1 / N) : Math.sqrt(2 / N);
-    let sum = 0;
-    for (let n = 0; n < N; n++) sum += pixels[n] * Math.cos(k * (2 * n + 1) * piN2);
-    out[k] = sum * c;
-  }
-  return out;
-}
-
-// ── Popcount 32-bit (bit trick) ───────────────────────────────
-function _popcount32(n) {
-  n = n >>> 0;
-  n -= (n >> 1) & 0x55555555;
-  n = (n & 0x33333333) + ((n >> 2) & 0x33333333);
-  n = ((n + (n >> 4)) & 0x0f0f0f0f);
-  return ((n * 0x01010101) >>> 24) & 0xff;
-}
-
-// ── Výpočet pHash – vrátí { lo, hi } (63bitový hash jako 2× int32) ──
-async function computePHash(dataUrl) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        const S = 32, D = 8;
-        const canvas = document.createElement('canvas');
-        canvas.width = S; canvas.height = S;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, S, S);
-        const px = ctx.getImageData(0, 0, S, S).data;
-
-        // Grayscale 32×32
-        const gray = new Float32Array(S * S);
-        for (let i = 0; i < S * S; i++)
-          gray[i] = 0.299 * px[i*4] + 0.587 * px[i*4+1] + 0.114 * px[i*4+2];
-
-        // 2D DCT přes oddělené 1D DCT (po řádcích, pak sloupcích)
-        const tmp = new Float32Array(S * S);
-        for (let y = 0; y < S; y++) tmp.set(_dct1d(gray.slice(y*S, y*S+S)), y*S);
-        const dct2 = new Float32Array(S * S);
-        for (let x = 0; x < S; x++) {
-          const col = new Float32Array(S);
-          for (let y = 0; y < S; y++) col[y] = tmp[y*S+x];
-          const d = _dct1d(col);
-          for (let y = 0; y < S; y++) dct2[y*S+x] = d[y];
-        }
-
-        // Top-left 8×8 DCT hodnoty, přeskočit DC (0,0)
-        const vals = [];
-        for (let y = 0; y < D; y++)
-          for (let x = 0; x < D; x++)
-            if (x || y) vals.push(dct2[y*S+x]);  // 63 hodnot
-
-        const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
-
-        // 63-bit hash jako 2× int32 (lo = bity 0–31, hi = bity 32–62)
-        let lo = 0, hi = 0;
-        for (let i = 0; i < 32; i++) if (vals[i] > mean) lo |= (1 << i);
-        for (let i = 32; i < 63; i++) if (vals[i] > mean) hi |= (1 << (i - 32));
-
-        resolve({ lo: lo >>> 0, hi: hi >>> 0 });
-      } catch (e) {
-        dbg('[pHash] compute error: ' + e.message);
-        resolve(null);
-      }
-    };
-    img.onerror = () => resolve(null);
-    img.src = dataUrl;
-  });
-}
-
-// ── Hammingova vzdálenost pro 2× int32 ───────────────────────
-function _hammingDist(aLo, aHi, bLo, bHi) {
-  return _popcount32(aLo ^ bLo) + _popcount32(aHi ^ bHi);
-}
-
-// ── Načtení hash DB ze GitHubu (lazy, s cache) ───────────────
-async function loadPHashDB() {
-  if (_phashDB !== null) return _phashDB;
-  if (_phashDBPromise) return _phashDBPromise;
-  _phashDBPromise = (async () => {
-    try {
-      dbg('[pHash] Stahuji hash DB…');
-      const r = await fetch(PHASH_DB_URL, { signal: AbortSignal.timeout(25000) });
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      const text = await r.text();
-      const lines = text.trim().split('\n');
-      if (lines.length < 2) throw new Error('Prázdný CSV');
-
-      const hdr = lines[0].toLowerCase().replace(/\r/g, '').split(',');
-      const find = (...names) => hdr.findIndex(h => names.includes(h));
-      const hIdx   = find('hash', 'phash', 'pHash');
-      const nIdx   = find('name', 'card_name', 'pokemon_name', 'pokemon');
-      const neIdx  = find('name_en', 'name_english', 'english_name');
-      const iIdx   = find('id', 'card_id');
-      const sIdx   = find('set', 'set_name', 'set_id');
-      const numIdx = find('number', 'num', 'card_number');
-      const nJIdx  = find('name_jp', 'name_ja', 'japanese_name');
-
-      dbg(`[pHash] CSV header: ${hdr.join(',')} | hash@${hIdx} name@${nIdx}`);
-      if (hIdx < 0) throw new Error('Sloupec hash nenalezen v CSV');
-
-      _phashDB = lines.slice(1).reduce((acc, line) => {
-        const cols = line.replace(/\r/g, '').split(',');
-        const rawH = (cols[hIdx] || '').trim().replace(/^0x/i, '');
-        if (!rawH) return acc;
-        let bigH;
-        try { bigH = rawH.match(/^[0-9a-f]+$/i) ? BigInt('0x' + rawH) : BigInt(rawH); }
-        catch { return acc; }
-        acc.push({
-          lo:  Number(bigH & 0xFFFFFFFFn) >>> 0,
-          hi:  Number((bigH >> 32n) & 0x7FFFFFFFn) >>> 0,
-          name:   (nIdx  >= 0 ? cols[nIdx]  : '').trim(),
-          nameEN: (neIdx >= 0 ? cols[neIdx] : '').trim(),
-          nameJP: (nJIdx >= 0 ? cols[nJIdx] : '').trim(),
-          id:     (iIdx  >= 0 ? cols[iIdx]  : '').trim(),
-          set:    (sIdx  >= 0 ? cols[sIdx]  : '').trim(),
-          number: (numIdx>= 0 ? cols[numIdx]: '').trim(),
-        });
-        return acc;
-      }, []);
-
-      dbg(`[pHash] DB načtena: ${_phashDB.length} karet`);
-    } catch (e) {
-      dbg('[pHash] DB selhala: ' + e.message);
-      _phashDB = [];  // prázdné → příště nekusíme znovu
-    }
-    return _phashDB;
-  })();
-  return _phashDBPromise;
-}
-
-// ── Spustit načítání DB na pozadí (zavolat po přihlášení) ─────
-function startPHashDBLoad() {
-  loadPHashDB().catch(() => {});
-}
-
-// ── Vyhledat kartu v hash DB ──────────────────────────────────
-async function pHashMatch(dataUrl) {
-  const [hashObj, db] = await Promise.all([
-    computePHash(dataUrl),
-    loadPHashDB()
-  ]);
-  if (!hashObj || !db.length) return null;
-
-  const { lo: qLo, hi: qHi } = hashObj;
-  let best = null, bestDist = Infinity;
-
-  for (const entry of db) {
-    const d = _hammingDist(qLo, qHi, entry.lo, entry.hi);
-    if (d < bestDist) { bestDist = d; best = entry; }
-  }
-
-  dbg(`[pHash] Best: "${best?.name}" dist=${bestDist}/${PHASH_THRESHOLD}`);
-  if (bestDist > PHASH_THRESHOLD) return null;
-  return { ...best, phashDist: bestDist };
-}
-
-// ── AI: pouze stav karty (rychlé, když identita je z pHash) ───
-async function identifyConditionOnly(dataUrl, cardInfo) {
-  if (!groqKey && !useSharedProxy) return null;
-  const compressed = await compressImage(dataUrl, 800, 0.75);
-  const { mt, b64 } = splitDataUrl(compressed);
-  const cardDesc = [cardInfo.name, cardInfo.set, cardInfo.number ? '#' + cardInfo.number : ''].filter(Boolean).join(' ');
-  const body = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    max_tokens: 80, temperature: 0.05,
-    messages: [{ role: 'user', content: [
-      { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
-      { type: 'text', text: `Pokemon karta: ${cardDesc}. Ohodnoť POUZE fyzický stav. Sleduj: bělení okrajů, škrábance, ohyby, opotřebení povrchu. Vrať POUZE JSON (bez markdown): {"condition":"NM","conditionNotes":"stručná poznámka česky"}` }
-    ]}]
-  };
-  try {
-    const resp = await groqFetch(body);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return parseJson(data.choices?.[0]?.message?.content || '');
-  } catch { return null; }
-}
-
-// ══════════════════════════════════════════════
 // AI – identifikace karty (batch, bez stavu)
 // ══════════════════════════════════════════════
 async function identifyCard(dataUrl) {
   if (!groqKey && !useSharedProxy) return { _error: 'AI není k dispozici – přihlas se' };
   dbg('identifyCard START: groqKey=' + (groqKey?.slice(0,8)||'null') + ' proxy=' + useSharedProxy);
 
-  // ── Krok 1: zkus pHash matching (rychlé, offline-ready) ──────
-  const phashResult = await Promise.race([
-    pHashMatch(dataUrl),
-    delay(5000).then(() => null)  // timeout 5s – nečekej donekonečna
-  ]);
-
-  if (phashResult?.name) {
-    dbg(`[pHash] ✅ Nalezeno: "${phashResult.name}" (dist=${phashResult.phashDist})`);
-    // Známe kartu → AI jen pro stav (rychlejší, méně tokenů)
-    const cond = await identifyConditionOnly(dataUrl, phashResult);
-    const confidence = phashResult.phashDist < 6 ? 'high' : phashResult.phashDist < 11 ? 'medium' : 'low';
-    return {
-      name:      phashResult.nameEN || phashResult.name,
-      nameEN:    phashResult.nameEN || phashResult.name,
-      set:       phashResult.set || '',
-      number:    phashResult.number || '',
-      lang:      'EN',
-      condition: cond?.condition || 'NM',
-      conditionNotes: cond?.conditionNotes || '',
-      confidence,
-      _phash: true,
-      _phashDist: phashResult.phashDist,
-    };
-  }
-
-  // ── Krok 2: fallback – plná Groq AI identifikace ─────────────
-  dbg('[pHash] Žádná shoda → Groq AI');
   const compressed = await compressImage(dataUrl, 1200, 0.80);
   const { mt, b64 } = splitDataUrl(compressed);
 
   const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
 CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
-WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write English sentences like "The Japanese name is X" or "The card reads X". ONLY the raw name characters.
+WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write sentences like "The Japanese name is X", "The card reads X", "The name on the card reads X". Output ONLY the raw characters themselves (e.g. "ギャロップ" or "炎兔儿"), nothing else before or after.
 If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
@@ -2874,12 +2696,28 @@ function splitDataUrl(dataUrl) {
 function cleanPokemonName(raw) {
   if (!raw) return raw;
   let s = raw.trim();
-  // Strip "The [Japanese] [Pokemon] name [on the card] [reads|is]: "
-  s = s.replace(/^(?:The\s+)?(?:Japanese\s+)?(?:Pok[e\u00e9]mon\s+)?(?:TCG\s+)?(?:card\s+)?name(?:\s+on\s+the\s+(?:Pok[e\u00e9]mon\s+TCG\s+)?card)?[\s]+(?:reads|is|says|printed)[\s:]+/i, '');
-  // Strip "However, based on ... be: X" suffix
-  s = s.replace(/\s+However,[\s\S]*$/i, '');
-  // Strip surrounding quotes/brackets
-  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d]+|[\u0022\u0027\u201c\u201d\u300c\u300d]+$/g, '');
+
+  // ── 1. Smaž všechny prefixové fráze typu "The Japanese name on the card reads: X" ──
+  // Pokrývá varianty: Japanese/Chinese/Korean, Pokemon TCG, card reads/is/says
+  s = s.replace(/^(?:the\s+)?(?:(?:japanese|chinese|korean|english)\s+)?(?:pok[eé]mon\s+)?(?:tcg\s+)?(?:card\s+)?name(?:\s+on\s+(?:the\s+)?(?:pok[eé]mon\s+tcg\s+)?card)?[\s]+(?:reads|is|says|printed|shown|written|displayed)[\s:]+/i, '');
+
+  // ── 2. Smaž "Based on / According to / Note: X" typy sufixů ──
+  s = s.replace(/[\s.,;]+(?:however|note|based on|according to|please note|this is|it appears)[\s\S]*$/i, '');
+
+  // ── 3. Záchranná síť: pokud stále začíná latinkou ale obsahuje CJK znaky,
+  //        vytáhni jen CJK část (e.g. "Reads: ギャロップ" → "ギャロップ") ──
+  if (/[A-Za-z]/.test(s.slice(0, 4))) {
+    // Najdi první výskyt CJK znaku
+    const cjkIdx = s.search(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/);
+    if (cjkIdx > 0) {
+      // Vezmi od CJK znaku dál, smaž případný latinský suffix (suffix označení jako "ex", "GX" necháme)
+      s = s.slice(cjkIdx).trim();
+    }
+  }
+
+  // ── 4. Smaž obklopující uvozovky / závorky ──
+  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+|[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+$/g, '');
+
   return s.trim() || raw.trim();
 }
 
