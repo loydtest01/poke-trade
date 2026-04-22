@@ -1013,6 +1013,9 @@ function _closeLangDrop() {
   var d = document.getElementById('langDrop');
   if (d) d.style.display = 'none';
 }
+// Vystavit globálně — inline onclick atributy v HTML je potřebují jako window.*
+window._closeLangDrop  = _closeLangDrop;
+window._toggleLangDrop = _toggleLangDrop;
 
 // Reagovat na změnu jazyka
 document.addEventListener('i18n:changed', function() { _updateLangBtn(); renderNav(); });
