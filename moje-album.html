@@ -2105,10 +2105,12 @@ function tcgFetch(url) {
   const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
   if (!m) return fetch(url);
   const segment = m[1]; const qs = m[2] || '';
+  const _hdr = { 'apikey': (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : ''),
+                 'Authorization': 'Bearer ' + (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') };
   const idM = segment.match(/^cards\/(.+)$/);
-  if (idM) return fetch(_TCG_PROXY + '?id=' + encodeURIComponent(idM[1]));
+  if (idM) return fetch(_TCG_PROXY + '?id=' + encodeURIComponent(idM[1]), { headers: _hdr });
   const p = new URLSearchParams(qs.replace(/^\?/, '')); p.set('path', segment);
-  return fetch(_TCG_PROXY + '?' + p.toString());
+  return fetch(_TCG_PROXY + '?' + p.toString(), { headers: _hdr });
 }
 // ─────────────────────────────────────────────────────────────────
 
