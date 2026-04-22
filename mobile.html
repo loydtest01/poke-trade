@@ -331,6 +331,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .typing-dots span:nth-child(2){animation-delay:.2s}
 .typing-dots span:nth-child(3){animation-delay:.4s}
 @keyframes tdot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
+
+/* ── CHAR FIX MODAL ── */
+#charFixModal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;flex-direction:column;align-items:stretch;justify-content:flex-end}
+#charFixModal.open{display:flex}
+.cfm-sheet{background:var(--card);border-radius:22px 22px 0 0;border-top:1px solid var(--border);padding:20px 16px 36px;display:flex;flex-direction:column;gap:14px;max-height:88vh;overflow-y:auto}
+.cfm-drag{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto -6px}
+.cfm-title{font-size:14px;font-weight:800;color:var(--text)}
+.cfm-chars{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.cfm-char{min-width:40px;height:44px;padding:0 6px;border-radius:8px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.cfm-char:active{transform:scale(.9)}
+.cfm-char.target{border-color:#facc15;background:rgba(250,204,21,.18);color:#facc15;box-shadow:0 0 12px rgba(250,204,21,.25)}
+.cfm-char.suffix{font-size:13px;color:var(--muted);border-style:dashed}
+.cfm-big{font-size:80px;font-weight:900;text-align:center;color:#facc15;line-height:1;padding:4px 0}
+.cfm-question{text-align:center;font-size:13px;color:var(--muted);line-height:1.4}
+.cfm-scanning{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0}
+.cfm-scan-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
+.cfm-alts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cfm-alt{padding:14px 4px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:30px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+.cfm-alt:active{transform:scale(.92);background:rgba(79,142,247,.2);border-color:var(--accent)}
+.cfm-alt-label{font-size:9px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
@@ -628,9 +648,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
           <div class="jp-name-box" id="jpNameBox" onclick="triggerCapture('jpname')">
             <div class="ph-hint"><span style="font-size:22px">🔍</span> Klepni pro záběr názvu</div>
           </div>
-          <div id="jpRetakeRow" style="display:none;margin-top:8px;text-align:center">
-            <button class="btn btn-secondary" style="font-size:12px;padding:6px 16px" onclick="retakeJpNamePhoto()">🔄 Vyfotit znovu</button>
-            <div id="jpExtractedName" style="font-size:12px;color:#facc15;margin-top:4px;font-weight:700"></div>
+          <div id="jpRetakeRow" style="display:none;margin-top:8px">
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-secondary" style="font-size:12px;padding:8px 12px" onclick="retakeJpNamePhoto()">🔄 Znovu</button>
+              <button class="btn" id="cfmOpenBtn" style="font-size:12px;padding:8px 12px;flex:1;background:rgba(250,204,21,.12);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:10px;display:none" onclick="openCharFix()">✏️ Opravit znak</button>
+            </div>
+            <div id="jpExtractedName" style="font-size:13px;color:#facc15;margin-top:6px;font-weight:800;text-align:center;letter-spacing:.05em"></div>
           </div>
         </div>
       </div>
@@ -1694,6 +1717,7 @@ function handleCapture(input) {
     else if (captureMode === 'detail') processDetailPhoto(e.target.result);
     else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
     else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
+    else if (captureMode === 'charfix') processCharFixPhoto(e.target.result);
     else processBackPhoto(e.target.result);
   };
   reader.readAsDataURL(file);
@@ -1708,6 +1732,7 @@ function handleGalleryPick(input) {
     else if (captureMode === 'detail') processDetailPhoto(e.target.result);
     else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
     else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
+    else if (captureMode === 'charfix') processCharFixPhoto(e.target.result);
     else processBackPhoto(e.target.result);
   };
   reader.readAsDataURL(file);
@@ -1937,6 +1962,9 @@ function processJpNamePhoto(dataUrl) {
       // Aktualizovat JP box – nahradit loading textem s přečteným jménem
       box.innerHTML = `<img src="${dataUrl}" alt="jp-name"><div style="position:absolute;bottom:0;left:0;right:0;text-align:center;font-size:13px;font-weight:800;color:#facc15;background:rgba(0,0,0,.75);padding:4px 6px;border-radius:0 0 8px 8px">${escHtml(name)}</div>`;
       document.getElementById('jpExtractedName').textContent = name;
+      // Zobrazit tlačítko pro opravu znaku
+      const cfmBtn = document.getElementById('cfmOpenBtn');
+      if (cfmBtn) { cfmBtn.style.display = ''; _cfmCurrentName = name; }
       toast('🇯🇵 Název: ' + name + ' ✓');
     }).catch(() => {
       toast('⚠️ Chyba při čtení názvu', '');
@@ -3876,12 +3904,213 @@ function installPWA() {
   }
 }
 
-// iOS: vždy ukaž tlačítko (nemají beforeinstallprompt)
-if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
-  var _iosBtn = document.getElementById('chipInstall');
-  if (_iosBtn) _iosBtn.style.display = '';
+// ── CHAR FIX – oprava jednotlivého znaku v JP názvu ───────────────────────
+let _cfmCurrentName = '';   // celý název (string)
+let _cfmCharIndex   = -1;   // index opravovaného znaku
+let _cfmDetected    = '';   // co AI přečetla
+let _cfmChars       = [];   // pole znaků z _cfmCurrentName
+
+// Tabulka vizuálně podobných katakana znaků
+const _CFM_CONFUSABLES = {
+  'ン':['ソ','リ','ノ','ン'],'ソ':['ン','ノ','リ','ソ'],'ノ':['ン','ソ','ノ'],
+  'シ':['ツ','リ','シ'],'ツ':['シ','ソ','ノ','ツ'],
+  'ク':['フ','ア','グ','ク'],'フ':['ク','ブ','プ','フ'],'ア':['マ','ア'],
+  'ー':['一','ニ','ー'],'ニ':['二','ー','ニ'],'二':['ニ','二'],
+  'テ':['チ','テ'],'チ':['テ','チ'],'ナ':['メ','ネ','ナ'],'メ':['ナ','ネ','メ'],
+  'ネ':['メ','ナ','ネ'],'マ':['ア','マ'],'ロ':['ヨ','口','ロ'],'ヨ':['ロ','ヨ'],
+  'ヌ':['ス','ヌ'],'ス':['ヌ','ス'],'コ':['ユ','ゴ','コ'],'ユ':['コ','ユ'],
+  'ウ':['ヴ','ワ','ウ'],'ヴ':['ウ','ヴ'],'ワ':['ウ','ワ'],
+  'ル':['レ','ル'],'レ':['ル','レ'],'リ':['ン','ソ','リ'],
+  'カ':['ガ','カ'],'ガ':['カ','ガ'],'キ':['ギ','キ'],'ギ':['キ','ギ'],
+  'グ':['ク','グ'],'ケ':['ゲ','ケ'],'ゲ':['ケ','ゲ'],
+  'ゴ':['コ','ゴ'],'サ':['ザ','サ'],'ザ':['サ','ザ'],
+  'タ':['ダ','タ'],'ダ':['タ','ダ'],'ト':['ド','ト'],'ド':['ト','ド'],
+  'ハ':['バ','パ','ハ'],'バ':['ハ','パ','バ'],'パ':['ハ','バ','パ'],
+  'ヒ':['ビ','ピ','ヒ'],'ビ':['ヒ','ピ','ビ'],'ピ':['ヒ','ビ','ピ'],
+  'ブ':['フ','プ','ブ'],'プ':['フ','ブ','プ'],
+  'ヘ':['ベ','ペ','ヘ'],'ベ':['ヘ','ペ','ベ'],'ペ':['ヘ','ベ','ペ'],
+  'ホ':['ボ','ポ','ホ'],'ボ':['ホ','ポ','ボ'],'ポ':['ホ','ボ','ポ'],
+  'オ':['ユ','オ'],'ヲ':['ウ','ヲ'],'ラ':['テ','ラ'],
+  'ミ':['ミ','ニ'],'モ':['モ','マ'],'ム':['ム','ア'],
+  // Hiragana záměny
+  'ん':['そ','り','ん'],'そ':['ん','の','そ'],'し':['つ','り','し'],
+  'つ':['し','そ','つ'],'く':['ふ','く'],'ふ':['く','ふ'],
+};
+
+function _cfmGetAlternatives(char) {
+  const alts = _CFM_CONFUSABLES[char] || [];
+  // Přidej sousední znaky v unicode pro katakana blok
+  const code = char.codePointAt(0);
+  const extras = [];
+  if (code >= 0x30A0 && code <= 0x30FF) {
+    for (let d = -2; d <= 2; d++) {
+      if (d === 0) continue;
+      const c = String.fromCodePoint(code + d);
+      if (!alts.includes(c) && !extras.includes(c)) extras.push(c);
+    }
+  }
+  // Spoj, odstraň duplicity a původní znak dej nakonec jako "Jiný..."
+  const combined = [...new Set([...alts, ...extras.slice(0,4)])];
+  if (!combined.includes(char)) combined.push(char);
+  return combined.slice(0, 12);
 }
 
+function openCharFix() {
+  const name = document.getElementById('jpExtractedName').textContent.trim();
+  if (!name) return;
+  _cfmCurrentName = name;
+
+  // Rozlož název na znaky (emoji-safe)
+  const suffixRe = /\s*(VMAX|VSTAR|GX|EX|ex|V)\s*$/i;
+  const suffixMatch = name.match(suffixRe);
+  const suffix = suffixMatch ? suffixMatch[0] : '';
+  const base   = suffix ? name.slice(0, -suffix.length) : name;
+  _cfmChars = [...base]; // pole unicode kódových bodů
+
+  // Výchozí výběr = poslední znak
+  _cfmCharIndex = _cfmChars.length - 1;
+
+  _cfmRenderPhase1(suffix);
+  document.getElementById('charFixModal').classList.add('open');
+}
+
+function _cfmRenderPhase1(suffix) {
+  document.getElementById('cfmPhase1').style.display = '';
+  document.getElementById('cfmPhase2').style.display = 'none';
+  document.getElementById('cfmPhase3').style.display = 'none';
+
+  const container = document.getElementById('cfmChars');
+  container.innerHTML = '';
+  _cfmChars.forEach((ch, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'cfm-char' + (i === _cfmCharIndex ? ' target' : '');
+    btn.textContent = ch;
+    btn.onclick = () => {
+      _cfmCharIndex = i;
+      container.querySelectorAll('.cfm-char').forEach((b, j) => {
+        b.className = 'cfm-char' + (j === _cfmCharIndex ? ' target' : '');
+      });
+    };
+    container.appendChild(btn);
+  });
+  if (suffix) {
+    const s = document.createElement('span');
+    s.className = 'cfm-char suffix';
+    s.textContent = suffix.trim();
+    container.appendChild(s);
+  }
+}
+
+function closeCharFix() {
+  document.getElementById('charFixModal').classList.remove('open');
+}
+
+function startCharScan() {
+  document.getElementById('cfmPhase1').style.display = 'none';
+  // Zobraz scanning stav
+  document.getElementById('cfmPhase2').style.display = '';
+  document.getElementById('cfmDetected').textContent = '…';
+  document.getElementById('cfmQ').textContent = 'Foť záběr znaku – zpracovávám…';
+  document.getElementById('charFixModal').querySelectorAll('.btn-row')[0].style.display = 'none';
+  document.getElementById('cfmPhase3').style.display = 'none';
+
+  // Spustit fotoaparát
+  triggerCapture('charfix');
+}
+
+async function processCharFixPhoto(dataUrl) {
+  const targetChar = _cfmChars[_cfmCharIndex] || '?';
+  const compressed = await compressImage(dataUrl, 1200, 0.92);
+  const { mt, b64 } = splitDataUrl(compressed);
+
+  const prompt = `This is a close-up photo of a SINGLE Japanese character (katakana, hiragana, or kanji) from a Pokémon TCG card.
+The current recognition thinks this character is: "${targetChar}"
+Task: Look at the character in the photo and output ONLY the single character you see. Nothing else — no words, no explanation.
+If you cannot read it clearly, output "${targetChar}".`;
+
+  const body = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    max_tokens: 10, temperature: 0.0,
+    messages: [
+      { role: 'system', content: 'You are a Japanese OCR specialist. Output only the single character you see in the image, nothing else.' },
+      { role: 'user', content: [
+        { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+        { type: 'text', text: prompt }
+      ]}
+    ]
+  };
+
+  try {
+    const resp = await groqFetch(body);
+    const data = resp.ok ? await resp.json() : null;
+    const raw = (data?.choices?.[0]?.message?.content || '').trim();
+    // Vezmi první unicode sign point
+    _cfmDetected = [...raw][0] || targetChar;
+  } catch {
+    _cfmDetected = targetChar;
+  }
+
+  // Zobraz fázi 2 – YES/NO
+  document.getElementById('cfmDetected').textContent = _cfmDetected;
+  document.getElementById('cfmQ').textContent = 'Je toto správný znak?';
+  const btnRow = document.getElementById('charFixModal').querySelectorAll('.btn-row')[0];
+  if (btnRow) btnRow.style.display = '';
+}
+
+function cfmAccept() {
+  _cfmApplyChar(_cfmDetected);
+}
+
+function cfmReject() {
+  // Zobraz alternativy
+  document.getElementById('cfmPhase2').style.display = 'none';
+  document.getElementById('cfmPhase3').style.display = '';
+  const alts = _cfmGetAlternatives(_cfmDetected || _cfmChars[_cfmCharIndex] || '');
+  const grid = document.getElementById('cfmAlts');
+  grid.innerHTML = '';
+  alts.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'cfm-alt';
+    btn.innerHTML = `<div>${ch}</div><div class="cfm-alt-label">${ch === (_cfmDetected||'') ? 'AI návrh' : ''}</div>`;
+    btn.onclick = () => _cfmApplyChar(ch);
+    grid.appendChild(btn);
+  });
+}
+
+function cfmBackToScan() {
+  document.getElementById('cfmPhase3').style.display = 'none';
+  document.getElementById('cfmPhase1').style.display = '';
+  _cfmRenderPhase1('');
+}
+
+function _cfmApplyChar(char) {
+  const newChars = [..._cfmChars];
+  newChars[_cfmCharIndex] = char;
+  const suffixRe = /\s*(VMAX|VSTAR|GX|EX|ex|V)\s*$/i;
+  const suffixMatch = _cfmCurrentName.match(suffixRe);
+  const suffix = suffixMatch ? suffixMatch[0] : '';
+  const newName = newChars.join('') + suffix;
+
+  // Aktualizuj název v kartě
+  const cardIdx = currentCard;
+  _cfmCurrentName = newName;
+  _cfmChars = newChars;
+  if (!cards[cardIdx].frontAI) cards[cardIdx].frontAI = {};
+  cards[cardIdx].frontAI.name = newName;
+  document.getElementById('jpExtractedName').textContent = newName;
+
+  // Aktualizuj overlay na fotce
+  const box = document.getElementById('jpNameBox');
+  const overlay = box.querySelector('div');
+  if (overlay) overlay.textContent = newName;
+
+  // Aktualizuj AI result box
+  showAiResult(cards[cardIdx].frontAI);
+
+  closeCharFix();
+  haptic([30, 40, 60]);
+  toast('✅ Znak opraven → ' + newName);
+}
 </script>
 <script src="site-tracking.js"></script>
 
@@ -3905,6 +4134,48 @@ if (/iphone|ipad|ipod/i.test(navigator.userAgent)) {
     <input id="newPass2" type="password" placeholder="Znovu nové heslo" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;padding:11px 13px;font-family:inherit;box-sizing:border-box;margin-top:10px">
     <button onclick="doChangePassword()" style="width:100%;margin-top:12px;background:var(--accent);border:none;border-radius:10px;color:#fff;padding:12px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">Uložit nové heslo</button>
     <button onclick="closeChangePassword()" style="width:100%;margin-top:8px;background:transparent;border:1px solid var(--border);border-radius:10px;color:var(--muted);padding:11px;font-size:13px;cursor:pointer;font-family:inherit">Zrušit</button>
+  </div>
+</div>
+
+<!-- ── Modal: Oprava znaku v JP názvu ── -->
+<div id="charFixModal">
+  <div class="cfm-sheet">
+    <div class="cfm-drag"></div>
+    <div class="cfm-title">✏️ Opravit znak v názvu</div>
+
+    <!-- Fáze 1: Výběr znaku + spuštění kamery -->
+    <div id="cfmPhase1">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Klepni na znak, který chceš opravit (výchozí = poslední), pak vyfoť záběr jen tohoto znaku:</div>
+      <div class="cfm-chars" id="cfmChars"></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;background:rgba(250,204,21,.06);border-radius:8px;padding:8px;border:1px solid rgba(250,204,21,.15)">
+        💡 Přibliž foťák jen na <strong style="color:#facc15">jeden znak</strong> (detail) – AI ho porovná a navrhne opravu.
+      </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
+        <button class="btn" style="font-size:13px;background:rgba(250,204,21,.15);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:10px" onclick="startCharScan()">📷 Vyfotit znak</button>
+      </div>
+    </div>
+
+    <!-- Fáze 2: AI výsledek – ANO / NE -->
+    <div id="cfmPhase2" style="display:none">
+      <div class="cfm-question" id="cfmQ">Foť záběr znaku…</div>
+      <div class="cfm-big" id="cfmDetected">…</div>
+      <div class="btn-row">
+        <button class="btn btn-danger" onclick="cfmReject()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✗ &nbsp;Ne</button>
+        <button class="btn btn-green"  onclick="cfmAccept()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✓ &nbsp;Ano</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">„Ne" zobrazí vizuálně podobné alternativy</div>
+    </div>
+
+    <!-- Fáze 3: Výběr z alternativ -->
+    <div id="cfmPhase3" style="display:none">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Vyber správný znak:</div>
+      <div class="cfm-alts" id="cfmAlts"></div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-secondary" style="font-size:13px" onclick="cfmBackToScan()">📷 Vyfotit znovu</button>
+        <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
+      </div>
+    </div>
   </div>
 </div>
 
