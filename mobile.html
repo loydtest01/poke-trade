@@ -4245,19 +4245,28 @@ function startCharScan() {
 
 async function processCharFixPhoto(dataUrl) {
   const targetChar = _cfmChars[_cfmCharIndex] || '?';
-  const compressed = await compressImage(dataUrl, 1200, 0.92);
+  // Higher quality for rare kanji — more detail preserved
+  const compressed = await compressImage(dataUrl, 1600, 0.96);
   const { mt, b64 } = splitDataUrl(compressed);
 
-  const prompt = `This is a close-up photo of a SINGLE Japanese character (katakana, hiragana, or kanji) from a Pokémon TCG card.
-The current recognition thinks this character is: "${targetChar}"
-Task: Look at the character in the photo and output ONLY the single character you see. Nothing else — no words, no explanation.
-If you cannot read it clearly, output "${targetChar}".`;
+  const context = _cfmChars.length > 1
+    ? `\nFull name context (other characters already recognized): "${_cfmChars.join('')}" — you are identifying position ${_cfmCharIndex + 1} of ${_cfmChars.length}.`
+    : '';
+
+  const prompt = `You are reading a SINGLE Japanese character from a Pokémon TCG card photo.
+Previous OCR guessed this character as: "${targetChar}" — but that may be WRONG.${context}
+
+IMPORTANT: This may be a KANJI (漢字), not katakana or hiragana. Common Pokémon kanji include:
+龍竜鬼妖神魔闇光炎氷水草雷岩鋼飛超霊虫毒闘力天地風花王皇帝将剣盾輝幻影大小古新白黒赤青金銀森海山空星月日火土木兒児鷹鳥熊犬猫狐狼亀騎士兵戦爆爪翼牙甲殻刃紋術気精霧嵐雪夢幸勇愛命魂心
+
+Look carefully at the shape of the character in the image.
+Output ONLY the single character — nothing else, no explanation, no spaces.`;
 
   const body = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
     max_tokens: 10, temperature: 0.0,
     messages: [
-      { role: 'system', content: 'You are a Japanese OCR specialist. Output only the single character you see in the image, nothing else.' },
+      { role: 'system', content: 'You are a Japanese OCR specialist. You excel at recognizing rare and traditional kanji. Output only the single character, nothing else.' },
       { role: 'user', content: [
         { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
         { type: 'text', text: prompt }
