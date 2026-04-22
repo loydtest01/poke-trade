@@ -3294,12 +3294,11 @@ async function markConvRead(convId) {
         `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${convId}&sender_id=eq.${_msgsPartner.id}&read_at=is.null`,
         {
           method: 'PATCH',
-          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=representation'},
+          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
           body: JSON.stringify({ read_at: new Date().toISOString() })
         }
       ).then(async r => {
-        const txt = await r.text();
-        console.log('[✓✓ DEBUG] PATCH status:', r.status, 'body:', txt.slice(0,200));
+        if (!r.ok) console.warn('[✓✓ DEBUG] PATCH read_at failed:', r.status);
         _broadcastMessagesRead(convId);
       }).catch(err => console.error('[✓✓ DEBUG] PATCH error:', err));
     }
