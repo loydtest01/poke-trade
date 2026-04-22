@@ -550,16 +550,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <div class="panel">
         <div class="panel-title">Počet kartiček</div>
         <div class="quick-grid">
-          <button class="quick-btn selected" onclick="selectCount(1)">1<div class="quick-label">karta</div></button>
-          <button class="quick-btn" onclick="selectCount(2)">2<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="selectCount(3)">3<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="selectCount(4)">4<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="selectCount(5)">5<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="selectCount(6)">6<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="selectCount(7)">7<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="selectCount(8)">8<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="selectCount(9)">9<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="selectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
+          <button class="quick-btn selected" data-count="1"  onclick="selectCount(1)">1<div class="quick-label">karta</div></button>
+          <button class="quick-btn" data-count="2"  onclick="selectCount(2)">2<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="3"  onclick="selectCount(3)">3<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="4"  onclick="selectCount(4)">4<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="5"  onclick="selectCount(5)">5<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="6"  onclick="selectCount(6)">6<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="7"  onclick="selectCount(7)">7<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="8"  onclick="selectCount(8)">8<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="9"  onclick="selectCount(9)">9<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="10" onclick="selectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
+          <button class="quick-btn" data-count="18" onclick="selectCount(18)" style="border-color:rgba(167,139,250,.5);color:#a78bfa">18<div class="quick-label" style="color:#a78bfa">karet</div></button>
+          <button class="quick-btn" data-count="20" onclick="selectCount(20)" style="border-color:rgba(248,113,113,.5);color:#f87171">20<div class="quick-label" style="color:#f87171">max</div></button>
         </div>
       </div>
 
@@ -663,11 +665,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         </div>
         <div id="backAiBox" class="ai-result" style="display:none"></div>
       </div>
+
+      <!-- Detail thumbnails strip pro zadní stranu -->
+      <div id="backDetailPanel" style="display:none;padding:0 2px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">🔍 Detaily zadní strany</span>
+          <span id="backDetailCount" style="font-size:10px;color:var(--purple);font-weight:700;background:rgba(167,139,250,.15);border-radius:6px;padding:1px 6px">0/10</span>
+        </div>
+        <div class="detail-grid" id="backDetailGrid"></div>
+      </div>
+
       <div class="btn-row">
         <button class="btn btn-danger" onclick="skipBack()">Přeskočit tuto</button>
         <button class="btn btn-secondary" onclick="skipAllBacks()">Přeskočit vše</button>
       </div>
-      <button class="btn btn-primary" id="backNextBtn" onclick="confirmBack()" style="display:none">Uložit a další →</button>
+      <div class="btn-row" id="backNextRow" style="display:none">
+        <button class="btn btn-secondary" onclick="triggerGallery('back')" style="flex:0.6;font-size:13px" title="Nahradit z galerie">🖼️</button>
+        <button class="btn btn-purple" id="addBackDetailBtn" onclick="triggerCapture('back-detail')">🔍 Fotodetail</button>
+        <button class="btn btn-primary" id="backNextBtn" onclick="confirmBack()">Uložit a další →</button>
+      </div>
     </div>
 
     <!-- ══ REVIEW (batch) ══ -->
@@ -689,16 +705,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       <div class="panel">
         <div class="panel-title">Kolik karet budeš vkládat?</div>
         <div class="quick-grid">
-          <button class="quick-btn selected" onclick="galSelectCount(1)">1<div class="quick-label">karta</div></button>
-          <button class="quick-btn" onclick="galSelectCount(2)">2<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="galSelectCount(3)">3<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="galSelectCount(4)">4<div class="quick-label">karty</div></button>
-          <button class="quick-btn" onclick="galSelectCount(5)">5<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="galSelectCount(6)">6<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="galSelectCount(7)">7<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="galSelectCount(8)">8<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="galSelectCount(9)">9<div class="quick-label">karet</div></button>
-          <button class="quick-btn" onclick="galSelectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
+          <button class="quick-btn selected" data-count="1"  onclick="galSelectCount(1)">1<div class="quick-label">karta</div></button>
+          <button class="quick-btn" data-count="2"  onclick="galSelectCount(2)">2<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="3"  onclick="galSelectCount(3)">3<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="4"  onclick="galSelectCount(4)">4<div class="quick-label">karty</div></button>
+          <button class="quick-btn" data-count="5"  onclick="galSelectCount(5)">5<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="6"  onclick="galSelectCount(6)">6<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="7"  onclick="galSelectCount(7)">7<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="8"  onclick="galSelectCount(8)">8<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="9"  onclick="galSelectCount(9)">9<div class="quick-label">karet</div></button>
+          <button class="quick-btn" data-count="10" onclick="galSelectCount(10)" style="border-color:rgba(250,204,21,.5);color:#facc15">10<div class="quick-label" style="color:#facc15">balíček</div></button>
+          <button class="quick-btn" data-count="18" onclick="galSelectCount(18)" style="border-color:rgba(167,139,250,.5);color:#a78bfa">18<div class="quick-label" style="color:#a78bfa">karet</div></button>
+          <button class="quick-btn" data-count="20" onclick="galSelectCount(20)" style="border-color:rgba(248,113,113,.5);color:#f87171">20<div class="quick-label" style="color:#f87171">max</div></button>
         </div>
       </div>
       <div style="font-size:12px;color:var(--muted);text-align:center;padding:4px 0">Pro každou kartu zvlášť vybereš přední stranu, detaily a zadní stranu.</div>
@@ -1275,15 +1293,15 @@ function toggleFakeMode() {
 
 function selectCount(n, silent) {
   totalCards = n;
-  document.querySelectorAll('.quick-btn').forEach((b, i) => {
-    b.classList.toggle('selected', i + 1 === n);
+  document.querySelectorAll('#scSetup .quick-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.count) === n);
   });
   if (!silent) toast(`Vybráno ${n} ${n===1?'karta':n<5?'karty':'karet'}`);
 }
 
 function startBatch() {
   cards = Array.from({ length: totalCards }, () => ({
-    frontPhoto: null, frontAI: null, condition: 'NM', note: '', backPhoto: null, backAI: null, detailPhotos: [], jpNamePhoto: null, isFakeTraining: fakeMode
+    frontPhoto: null, frontAI: null, condition: 'NM', note: '', backPhoto: null, backAI: null, detailPhotos: [], backDetailPhotos: [], jpNamePhoto: null, isFakeTraining: fakeMode
   }));
   currentCard = 0;
   batchId = Date.now().toString(36);
@@ -1305,15 +1323,15 @@ function openGalleryMode() {
   galWizardTotal = 1;
   showScreen('scGalSetup');
   // Reset počet tlačítek
-  document.querySelectorAll('#scGalSetup .quick-btn').forEach((b, i) => {
-    b.classList.toggle('selected', i === 0);
+  document.querySelectorAll('#scGalSetup .quick-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.count) === 1);
   });
 }
 
 function galSelectCount(n) {
   galWizardTotal = n;
-  document.querySelectorAll('#scGalSetup .quick-btn').forEach((b, i) => {
-    b.classList.toggle('selected', i + 1 === n);
+  document.querySelectorAll('#scGalSetup .quick-btn').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.count) === n);
   });
 }
 
@@ -1675,6 +1693,7 @@ function handleCapture(input) {
     if (captureMode === 'front') processFrontPhoto(e.target.result);
     else if (captureMode === 'detail') processDetailPhoto(e.target.result);
     else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
+    else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
     else processBackPhoto(e.target.result);
   };
   reader.readAsDataURL(file);
@@ -1688,6 +1707,7 @@ function handleGalleryPick(input) {
     if (captureMode === 'front') processFrontPhoto(e.target.result);
     else if (captureMode === 'detail') processDetailPhoto(e.target.result);
     else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
+    else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
     else processBackPhoto(e.target.result);
   };
   reader.readAsDataURL(file);
@@ -1825,6 +1845,51 @@ function removeDetailPhoto(idx) {
   cards[currentCard].detailPhotos.splice(idx, 1);
   renderDetailPanel(currentCard);
   updateAddDetailBtn();
+}
+
+// ── Back side detail photos ───────────────────────────────────
+function renderBackDetailPanel(cardIdx) {
+  const data = cards[cardIdx];
+  if (!data.backDetailPhotos) data.backDetailPhotos = [];
+  const panel = document.getElementById('backDetailPanel');
+  const count = data.backDetailPhotos.length;
+  panel.style.display = count > 0 ? '' : 'none';
+  document.getElementById('backDetailCount').textContent = `${count}/10`;
+  const grid = document.getElementById('backDetailGrid');
+  grid.innerHTML = '';
+  data.backDetailPhotos.forEach((url, i) => {
+    const el = document.createElement('div');
+    el.className = 'detail-item';
+    el.innerHTML = `<img src="${url}" alt=""><div class="det-num">${i + 1}</div><div class="det-del" onclick="removeBackDetailPhoto(${i})">✕</div>`;
+    grid.appendChild(el);
+  });
+}
+
+function updateAddBackDetailBtn() {
+  const btn = document.getElementById('addBackDetailBtn');
+  if (!btn) return;
+  const count = (cards[currentCard]?.backDetailPhotos || []).length;
+  const full = count >= 10;
+  btn.disabled = full;
+  btn.textContent = full ? '🔍 Max 10' : '🔍 Fotodetail';
+}
+
+function processBackDetailPhoto(dataUrl) {
+  haptic(40);
+  const _cardIdx = currentCard;
+  if (!cards[_cardIdx].backDetailPhotos) cards[_cardIdx].backDetailPhotos = [];
+  if (cards[_cardIdx].backDetailPhotos.length >= 10) return;
+  cards[_cardIdx].backDetailPhotos.push(dataUrl);
+  renderBackDetailPanel(_cardIdx);
+  updateAddBackDetailBtn();
+  const n = cards[_cardIdx].backDetailPhotos.length;
+  toast(`📷 Detail zadní ${n}/10 přidán`);
+}
+
+function removeBackDetailPhoto(idx) {
+  cards[currentCard].backDetailPhotos.splice(idx, 1);
+  renderBackDetailPanel(currentCard);
+  updateAddBackDetailBtn();
 }
 
 // ── JP name photo ─────────────────────────────────────────────
@@ -2096,14 +2161,18 @@ function showBackScreen() {
   document.getElementById('backTitle').textContent = `Karta ${currentCard + 1} / ${totalCards} – zadní strana`;
   const box  = document.getElementById('backPhotoBox');
   const data = cards[currentCard];
+  if (!data.backDetailPhotos) data.backDetailPhotos = [];
   if (data.backPhoto) {
     setPhotoBox(box, data.backPhoto);
-    document.getElementById('backNextBtn').style.display = '';
+    document.getElementById('backNextRow').style.display = '';
+    renderBackDetailPanel(currentCard);
+    updateAddBackDetailBtn();
     if (data.backAI) showBackAiResult(data.backAI, data);
   } else {
     box.innerHTML = `<div class="ph-hint"><div class="icon">🔄</div><div class="txt">Klepni pro vyfocení<br>zadní strany karty</div></div>`;
     box.classList.remove('has-photo');
-    document.getElementById('backNextBtn').style.display = 'none';
+    document.getElementById('backNextRow').style.display = 'none';
+    document.getElementById('backDetailPanel').style.display = 'none';
     document.getElementById('backAiBox').style.display = 'none';
   }
 }
@@ -2112,9 +2181,12 @@ async function processBackPhoto(dataUrl) {
   haptic(50);
   // ── Zachyť index PŘED jakýmkoliv await ──────────────────────
   const _backIdx = currentCard;
+  if (!cards[_backIdx].backDetailPhotos) cards[_backIdx].backDetailPhotos = [];
   cards[_backIdx].backPhoto = dataUrl;
   setPhotoBox(document.getElementById('backPhotoBox'), dataUrl);
-  document.getElementById('backNextBtn').style.display = '';
+  document.getElementById('backNextRow').style.display = '';
+  renderBackDetailPanel(_backIdx);
+  updateAddBackDetailBtn();
 
   if (groqKey || useSharedProxy) {
     const backAiBox = document.getElementById('backAiBox');
@@ -2240,11 +2312,14 @@ async function sendAll() {
     // Komprese před odesláním (15–30× menší soubor, pod Vercel limit 4.5 MB)
     const frontComp  = await compressImage(c.frontPhoto);
     const backComp   = await compressImage(c.backPhoto);
+    const jpComp     = await compressImage(c.jpNamePhoto);
     const detailComps = await Promise.all((c.detailPhotos || []).map(dp => compressImage(dp)));
+    const backDetailComps = await Promise.all((c.backDetailPhotos || []).map(dp => compressImage(dp)));
 
-    // batchComplete: true pouze na skutečně posledním požadavku dávky
-    const hasBack    = !!c.backPhoto;
-    const hasDetails = !!(c.detailPhotos?.length);
+    const hasBack        = !!c.backPhoto;
+    const hasJp          = !!c.jpNamePhoto;
+    const hasDetails     = detailComps.length > 0;
+    const hasBackDetails = backDetailComps.length > 0;
 
     if (c.frontPhoto) {
       cardReqs.push(postPhoto({
@@ -2256,31 +2331,40 @@ async function sendAll() {
         confidence: ai.confidence || null,
         notes: ai.notes || c.note || '',
         lang: ai.lang || 'EN',
-        jpNamePhotoDataUrl: c.jpNamePhoto || null,
         photoDataUrl: frontComp,
         photo: frontComp, side: 'front',
         cardIndex: i + 1, totalCards: total, batchId,
         isFakeTraining: c.isFakeTraining || false,
-        batchComplete: isLast && !hasBack && !hasDetails,
+        batchComplete: isLast && !hasDetails && !hasJp && !hasBack && !hasBackDetails,
       }).catch(e => { failCount++; lastErr = e.message; }));
     }
 
-    // Detail photos – parallel with front
+    // Front detail photos – parallel with front
     detailComps.forEach((dp, d) => {
       const isLastDetail = (d === detailComps.length - 1);
       cardReqs.push(postPhoto({
         photo: dp, side: 'detail', detailIndex: d + 1,
         cardIndex: i + 1, totalCards: total, batchId,
-        batchComplete: isLast && !hasBack && isLastDetail,
+        batchComplete: isLast && isLastDetail && !hasJp && !hasBack && !hasBackDetails,
       }).catch(e => { failCount++; lastErr = e.message; }));
     });
+
+    // JP name photo – samostatná fotka (side: 'jpname')
+    if (hasJp) {
+      cardReqs.push(postPhoto({
+        photo: jpComp, side: 'jpname',
+        lang: ai.lang || 'JP',
+        cardIndex: i + 1, totalCards: total, batchId,
+        batchComplete: isLast && !hasBack && !hasBackDetails,
+      }).catch(e => { failCount++; lastErr = e.message; }));
+    }
 
     // Back photo – parallel with front+details
     if (hasBack) {
       cardReqs.push(postPhoto({
         photo: backComp, side: 'back',
         cardIndex: i + 1, totalCards: total, batchId,
-        batchComplete: isLast,
+        batchComplete: isLast && !hasBackDetails,
         isFakeTraining: c.isFakeTraining || false,
         condition: c.condition,
         backCondition: c.backAI?.condition || null,
@@ -2288,6 +2372,16 @@ async function sendAll() {
         backNotes: c.backAI?.notes || '',
       }).catch(e => { failCount++; lastErr = e.message; }));
     }
+
+    // Back detail photos
+    backDetailComps.forEach((dp, d) => {
+      const isLastBackDetail = (d === backDetailComps.length - 1);
+      cardReqs.push(postPhoto({
+        photo: dp, side: 'back-detail', detailIndex: d + 1,
+        cardIndex: i + 1, totalCards: total, batchId,
+        batchComplete: isLast && isLastBackDetail,
+      }).catch(e => { failCount++; lastErr = e.message; }));
+    });
 
     await Promise.all(cardReqs);
 
