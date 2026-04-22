@@ -24,14 +24,29 @@ self.addEventListener('push', e => {
   };
 
   e.waitUntil(
-    // Zkontroluj jestli je appka otevřená a viditelná (uživatel ji právě používá)
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const appVisible = list.some(c =>
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // Je appka vůbec otevřena?
+      const appOpen = windowClients.some(c => c.url.startsWith(self.registration.scope));
+      if (!appOpen) {
+        // Appka zavřená → vždy zobraz notifikaci
+        return self.registration.showNotification(title, opts);
+      }
+
+      // Appka je otevřená – zjisti jestli je aktivní (viditelná)
+      const appVisible = windowClients.some(c =>
         c.url.startsWith(self.registration.scope) && c.visibilityState === 'visible'
       );
-      // Pokud je appka otevřená a viditelná → notifikaci nezobrazuj
-      // Uživatel zprávu vidí přímo v chatu
-      if (appVisible) return;
+
+      // Je to chatová notifikace?
+      const combined = ((title || '') + ' ' + (data.body || '')).toLowerCase();
+      const isChatNotif = combined.includes('zpráv') || combined.includes('message') || combined.includes('chat') || combined.includes('píše');
+
+      if (isChatNotif && appVisible) {
+        // Chat je otevřený a viditelný → uživatel zprávu vidí přímo, notifikaci nezobrazuj
+        return;
+      }
+
+      // Jiná notifikace (prodej, výměna...) nebo appka je na pozadí → zobraz
       return self.registration.showNotification(title, opts);
     })
   );
