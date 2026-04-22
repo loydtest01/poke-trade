@@ -1443,6 +1443,93 @@ function showMain() {
 }
 
 /* ═══════════════════════════════════════════════════════
+   QR PANEL – generuje QR kód s odkazem na mobile.html
+═══════════════════════════════════════════════════════ */
+function getMobileUrl() {
+  if (!currentUser?.id) return MOBILE_BASE + '?uid=' + 'guest';
+  return MOBILE_BASE + '?uid=' + encodeURIComponent(currentUser.id);
+}
+
+function showQrPanel() {
+  var url = getMobileUrl();
+  // QR v panelu (malý)
+  var box = document.getElementById('qrCodeBox');
+  if (box) {
+    box.innerHTML = '';
+    try {
+      new QRCode(box, {
+        text: url,
+        width: 114,
+        height: 114,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {
+      box.textContent = '⚠️ QR nelze vygenerovat';
+    }
+  }
+}
+
+function openQrModal() {
+  var modal = document.getElementById('qrModal');
+  if (modal) modal.classList.add('open');
+  // QR v modalu (velký)
+  var box = document.getElementById('qrModalCode');
+  if (box) {
+    box.innerHTML = '';
+    try {
+      new QRCode(box, {
+        text: getMobileUrl(),
+        width: 200,
+        height: 200,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    } catch(e) {
+      box.textContent = '⚠️ QR nelze vygenerovat';
+    }
+  }
+}
+
+function closeQrModal() {
+  var modal = document.getElementById('qrModal');
+  if (modal) modal.classList.remove('open');
+}
+
+function closeQrOutside(e) {
+  if (e.target.id === 'qrModal') closeQrModal();
+}
+
+async function copyMobileUrl() {
+  var url = getMobileUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    toast('✅ Odkaz zkopírován do schránky', 'success');
+  } catch(e) {
+    // fallback
+    var ta = document.createElement('textarea');
+    ta.value = url;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); toast('✅ Odkaz zkopírován', 'success'); }
+    catch(e2) { toast('❌ Nepodařilo se kopírovat: ' + url, 'error'); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════
+   POLLING – pravidelně kontroluje nové fotky z telefonu
+═══════════════════════════════════════════════════════ */
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollNewPhotos();
+  pollInterval = setInterval(pollNewPhotos, 8000);
+}
+
+/* ═══════════════════════════════════════════════════════
    ALBA – načtení a výchozí výběr
 ═══════════════════════════════════════════════════════ */
 async function loadAlbums() {

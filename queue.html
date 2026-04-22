@@ -299,6 +299,70 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
 }
 .cg-search-card.selected .sc-name { color: #f5c842; }
+
+/* ═══ SOURCE TOGGLE BUTTONS ═══ */
+.src-toggles {
+  display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.src-toggles-label {
+  font-size: 10px; color: rgba(240,232,208,.35); letter-spacing: .06em;
+  font-weight: 700; text-transform: uppercase; margin-right: 2px;
+}
+.src-toggle-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+  cursor: pointer; font-family: inherit; transition: all .17s;
+  border: 1px solid; white-space: nowrap;
+}
+.src-toggle-btn.src-on {
+  background: rgba(74,222,128,.12); border-color: rgba(74,222,128,.4); color: #4ade80;
+}
+.src-toggle-btn.src-off {
+  background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.1); color: rgba(240,232,208,.3);
+  text-decoration: line-through;
+}
+.src-toggle-btn:hover { filter: brightness(1.15); }
+.src-toggle-btn .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+
+/* ═══ SCORE & BADGE ═══ */
+.sc-score-bar {
+  height: 2px; width: 100%; margin: 0; border-radius: 0;
+  background: rgba(255,255,255,.05);
+}
+.sc-score-bar-fill {
+  height: 2px; border-radius: 0;
+  background: linear-gradient(90deg,#4ade80,#f5c842);
+  transition: width .3s ease;
+}
+.sc-badge-row {
+  display: flex; gap: 2px; flex-wrap: wrap; padding: 2px 3px 0;
+  min-height: 0;
+}
+.sc-badge {
+  font-size: 8px; font-weight: 800; padding: 1px 4px; border-radius: 3px;
+  line-height: 1.5; white-space: nowrap;
+}
+.sc-badge-learned { background: rgba(168,85,247,.25); color: #d07ef7; }
+.sc-badge-photo   { background: rgba(79,142,247,.25); color: #7ab8ff; }
+.sc-badge-top     { background: rgba(245,200,66,.2);  color: #f5c842; }
+
+/* ═══ LEARN STATS FOOTER ═══ */
+.learn-stats-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 18px; border-top: 1px solid rgba(255,255,255,.04);
+  background: rgba(0,0,0,.1);
+}
+.learn-stats-text { font-size: 10px; color: rgba(240,232,208,.28); }
+.learn-stats-btn {
+  font-size: 10px; color: rgba(240,232,208,.3); background: none;
+  border: none; cursor: pointer; font-family: inherit; padding: 0;
+  text-decoration: underline dotted;
+}
+.learn-stats-btn:hover { color: #f87171; }
 .cg-card-url label { font-size: 11px; font-weight: 700; color: rgba(240,232,208,0.4); display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: .06em; }
 .cg-card-url input[type="url"] {
   width: 100%; box-sizing: border-box; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
@@ -575,6 +639,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <!-- TOP BAR -->
 <script>window.TOPBAR_ACTIVE = 'queue';</script>
 <script src="card-search.js"></script>
+<script src="card-matcher.js"></script>
   <script src="i18n.js"></script>
   <script src="topbar.js"></script>
 <header class="app-topbar">
@@ -988,8 +1053,16 @@ async function loadQueue() {
       if (side === 'front' && meta.name) {
         groups[key].aiResult = meta;
       }
-      if (side === 'back' && (meta.condition || meta.issues)) {
+      if (side === 'back' && (meta.condition || meta.backCondition || meta.backIssues || meta.issues || meta.backNotes)) {
         groups[key].backAi = meta;
+      }
+      if (side === 'jpname') {
+        // JP name photo potvrzuje jazyk karty
+        if (!groups[key].aiResult) groups[key].aiResult = {};
+        if (!groups[key].aiResult.lang || groups[key].aiResult.lang === 'EN') {
+          groups[key].aiResult.lang = meta.lang || 'JP';
+        }
+        groups[key].jpnameMeta = meta;
       }
     }
 
@@ -1013,9 +1086,9 @@ async function loadQueue() {
           });
         } catch {}
       }
-      // Seřaď: front → detail(y) → back
+      // Seřaď: front → detail(y) → jpname → back → back-detail
       g.photos.sort((a,b) => {
-        const order = { front: 0, detail: 1, back: 2 };
+        const order = { front: 0, detail: 1, jpname: 2, back: 3, 'back-detail': 4 };
         return (order[a.side] ?? 1) - (order[b.side] ?? 1);
       });
     }
@@ -1070,6 +1143,8 @@ function renderGroups() {
   cardGroups.forEach((g, gi) => {
     area.appendChild(buildGroupEl(g, gi));
   });
+  // Inicializuj toggle tlačítka zdrojů pro každou skupinu
+  cardGroups.forEach((_, gi) => _renderSrcToggles(gi));
   // Auto-search na pozadí pro karty s AI daty
   setTimeout(autoSearchAll, 400);
 }
@@ -1193,7 +1268,7 @@ function buildGroupEl(g, gi) {
   el.id = `group-${gi}`;
 
   // Build photos HTML
-  const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', back: '🔄 Zadní' };
+  const sideLabels = { front: '📷 Přední', detail: '🔍 Detail', jpname: '🇯🇵 JP jméno', back: '🔄 Zadní', 'back-detail': '🔍 Zadní det.' };
   const photosHtml = g.photos.map((p, pi) => {
     const imgSrc = p.croppedUrl || p.url || '';
     const sp = (p.storagePath || '').replace(/'/g, "\\'");
@@ -1401,6 +1476,9 @@ function buildGroupEl(g, gi) {
 
       <!-- Vyhledávání v TCG API -->
       <div class="cg-search">
+        <!-- Source toggle buttons (rendered by JS after init) -->
+        <div class="src-toggles" id="srcToggles-${gi}"></div>
+
         <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
           🔍 Vyhledat v databázi
         </button>
@@ -1408,6 +1486,8 @@ function buildGroupEl(g, gi) {
           ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
         </div>
         <div class="cg-search-grid" id="searchGrid-${gi}"></div>
+        <!-- Learn stats -->
+        <div class="learn-stats-bar" id="learnStats-${gi}" style="display:none"></div>
       </div>
 
       <!-- Zadní strana AI -->
@@ -1617,6 +1697,7 @@ async function doAssign(groups, albumId) {
           supertype: rc?.supertype || '',
           rarity:    rc?.rarity   || ai.rarity || '',
           note:      g.comment    || ai.notes || '',
+          conditionNotes: ai.conditionNotes || '',
           photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.url || ''; })(),
           allPhotos: g.photos.length > 1 ? g.photos.map(p => ({ url: p.url, side: p.side || 'front', storagePath: p.storagePath || null })) : null,
           imageUrl:  g._origImageSmall || g._origImage || rc?.imageUrl || '',
@@ -1962,9 +2043,50 @@ async function tcgSwitchSource(gi, source) {
   gridEl.innerHTML = _renderCardGrid(gi, cards);
 }
 
+// ── Render source toggle buttons ──────────────────────────────────────────────
+function _renderSrcToggles(gi) {
+  const el = document.getElementById(`srcToggles-${gi}`);
+  if (!el || typeof PkSearch === 'undefined') return;
+  const s = PkSearch.config.sources;
+
+  const makeBtn = (key, label, emoji) => {
+    const on = s[key] !== false;
+    return `<button class="src-toggle-btn ${on ? 'src-on' : 'src-off'}"
+      data-src-toggle="${key}"
+      onclick="PkSearch.config.toggle('${key}'); _renderSrcToggles(${gi})"
+      title="${on ? 'Klikni pro vypnutí' : 'Klikni pro zapnutí'}">
+      <span class="dot"></span>${emoji} ${label}
+    </button>`;
+  };
+
+  el.innerHTML =
+    `<span class="src-toggles-label">Zdroje:</span>` +
+    makeBtn('tcgio',       'pokemontcg.io', '🟡') +
+    makeBtn('tcgdex',      'TCGdex',        '🔵') +
+    makeBtn('imageSearch', 'Foto shoda',    '🖼');
+}
+
+// ── Render learn stats bar ─────────────────────────────────────────────────────
+function _renderLearnStats(gi) {
+  const el = document.getElementById(`learnStats-${gi}`);
+  if (!el || typeof PkSearch === 'undefined') return;
+  const { count, max } = PkSearch.learnStats();
+  if (count === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `
+    <span class="learn-stats-text">🧠 ${count} naučených shod (max ${max})</span>
+    <button class="learn-stats-btn" onclick="if(confirm('Vymazat ${count} naučených shod?')){PkSearch.clearLearnedMatches();_renderLearnStats(${gi})}">
+      Vymazat
+    </button>`;
+}
+
 // ── Pomocná funkce pro render gridu (sdílená tcgSearch + tcgSwitchSource) ───
 function _renderCardGrid(gi, cards) {
   const g = cardGroups[gi];
+
+  // Spočítej max skóre pro normalizaci šířky progress baru
+  const maxScore = cards.reduce((m, c) => Math.max(m, c._score || 0), 1);
+
   return cards.map((c, idx) => {
     const isDex  = c._source === 'tcgdex';
     const img    = c.apiSmall || c.imageUrl || '';
@@ -1973,9 +2095,24 @@ function _renderCardGrid(gi, cards) {
     const cSet   = c.set || '';
     const cId    = c.apiId || `dex-${idx}`;
     const alreadySelected = g?.resolvedCard?.apiId === cId;
-    const badge  = isDex
+    const score  = c._score || 0;
+    const scorePct = Math.min(100, Math.round((score / maxScore) * 100));
+
+    // ── Badges ─────────────────────────────────────────────────────────────
+    const langBadge = isDex
       ? `<span style="position:absolute;top:3px;left:3px;background:rgba(239,68,68,.85);color:#fff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;line-height:1.4">🇯🇵 JP</span>`
       : '';
+
+    const scBadges = [];
+    if (c._learned)         scBadges.push(`<span class="sc-badge sc-badge-learned">🧠 Naučeno</span>`);
+    if (c._imagePick)       scBadges.push(`<span class="sc-badge sc-badge-photo">📸 Foto</span>`);
+    if (idx === 0 && !c._learned) scBadges.push(`<span class="sc-badge sc-badge-top">⭐ Nejlepší</span>`);
+    const badgeRow = scBadges.length
+      ? `<div class="sc-badge-row">${scBadges.join('')}</div>` : '';
+
+    // ── Score bar ───────────────────────────────────────────────────────────
+    const scoreBar = `<div class="sc-score-bar"><div class="sc-score-bar-fill" style="width:${scorePct}%"></div></div>`;
+
     const cardPayload = JSON.stringify({
       _source:   c._source || 'pokemontcg',
       apiId:     cId,
@@ -1996,13 +2133,17 @@ function _renderCardGrid(gi, cards) {
       cardmarketUrl: c.cardmarketUrl || '',
       setCode:   c.setCode || '',
     }).replace(/'/g, "&#39;");
+
     return `<div class="cg-search-card${alreadySelected?' selected':''}"
         id="sc-${gi}-${idx}"
         onclick="tcgSelectCard(${gi},${idx})"
         style="position:relative"
+        title="Skóre shody: ${score} / ${maxScore}"
         data-card='${cardPayload}'>
       ${img ? `<img src="${img}" alt="${esc(cName)}" loading="lazy">` : '<div style="height:110px;background:rgba(255,255,255,.05)"></div>'}
-      ${badge}
+      ${langBadge}
+      ${scoreBar}
+      ${badgeRow}
       <div class="sc-name">${esc(cName)}<br><span style="opacity:.6">#${esc(cNum)} · ${esc(cSet)}</span></div>
     </div>`;
   }).join('');
@@ -2018,14 +2159,8 @@ async function tcgSearch(gi, autoMode = false) {
   const gridEl   = document.getElementById(`searchGrid-${gi}`);
   if (!btn || !statusEl || !gridEl) return;
 
-  // Pokud uživatel předem vybral TCGdex, přesměruj přímo
-  const _preSrc = (window._tcgSrc || {})[gi];
-  if (_preSrc === 'tcgdex') {
-    btn.disabled = true;
-    await tcgSwitchSource(gi, 'tcgdex');
-    btn.disabled = false;
-    return;
-  }
+  // Inicializuj toggle tlačítka zdrojů (pokud ještě nejsou)
+  _renderSrcToggles(gi);
 
   const ai = g.aiResult || {};
   const isNonEn = /[\u3000-\u9fff\uff00-\uffef]/.test(ai.name || '') || (ai.lang && ai.lang !== 'EN');
@@ -2037,7 +2172,83 @@ async function tcgSearch(gi, autoMode = false) {
   gridEl.innerHTML = '';
 
   try {
-    // ── KROK 1: Pro non-EN karty – získej JP/orig obrázek + EN název via PkSearch ──
+    // ── KROK 0: CardMatcher – kolektivní Supabase cache + pHash ───────────
+    // Pokud uživatel (nebo někdo jiný dřív) tuto kartu již potvrdil,
+    // vrátí se okamžitě bez volání TCG API.
+    if (typeof CardMatcher !== 'undefined') {
+      const frontPhoto0 = g.photos?.find(p => p.side === 'front') || g.photos?.[0];
+      const photoUrl0   = frontPhoto0?.croppedUrl || frontPhoto0?.url || '';
+      if (photoUrl0) {
+        statusEl.textContent = '🔍 Hledám v kolektivní paměti…';
+        let matchResult = null;
+        try {
+          matchResult = await CardMatcher.match(photoUrl0, {
+            name:   (ai.nameEN || ai.name || '').trim(),
+            set:    ai.set    || '',
+            number: cardNumber,
+            lang:   ai.lang   || 'EN',
+            hp:     ai.hp     || '',
+          });
+        } catch (matchErr) {
+          console.warn('[tcgSearch] CardMatcher.match selhalo:', matchErr.message);
+        }
+
+        // Ulož phash pro pozdější confirm() – i když nenašel shodu
+        if (matchResult?.phash) g._phash = matchResult.phash;
+
+        // Pokud máme vysoce důvěryhodnou shodu → auto-select, přeskoč PkSearch pipeline
+        if (matchResult && matchResult.source !== 'none' && matchResult.confidence >= 0.85) {
+          const srcLabel = {
+            cache: '🧠 Kolektivní paměť',
+            phash: '🖼 Vizuální shoda',
+            fuzzy: '🔤 Textová shoda',
+            groq:  '🤖 Groq vision',
+          }[matchResult.source] || matchResult.source;
+
+          statusEl.className = 'cg-search-status ok';
+          statusEl.innerHTML = `✅ ${srcLabel} · ${matchResult.name || matchResult.cardId} `
+            + `<small style="opacity:.6">(${Math.round(matchResult.confidence * 100)} %)</small>`;
+
+          // Sestav resolvedCard ze shody
+          g.resolvedCard = {
+            _source:       matchResult.source,
+            apiId:         matchResult.cardId  || '',
+            name:          matchResult.name     || '',
+            set:           matchResult.setId    || '',
+            number:        matchResult.number   || '',
+            imageUrl:      matchResult.imageUrl || '',
+            apiSmall:      matchResult.imageUrl || '',
+            apiLarge:      matchResult.imageUrl || '',
+            hp:            ai.hp || '',
+            types:         ai.type ? [ai.type] : [],
+            supertype:     '',
+            rarity:        '',
+            sourceUrl:     '',
+            pMin: 0, pTrend: 0, p30d: 0,
+            cardmarketUrl: '',
+            setCode:       matchResult.setId    || '',
+          };
+
+          // Aktualizuj thumbnail v hlavičce skupiny
+          if (matchResult.imageUrl) {
+            const thumb0 = document.querySelector(`#group-${gi} .cg-thumb`);
+            if (thumb0) thumb0.src = matchResult.imageUrl;
+          }
+          const nameEl0 = document.querySelector(`#group-${gi} .cg-name`);
+          if (nameEl0 && matchResult.name) nameEl0.textContent = matchResult.name;
+
+          btn.disabled = false;
+          return; // ✓ hotovo, nepokračuj do PkSearch pipeline
+        }
+
+        // Shoda s nízkou důvěrou → jen loguj a pokračuj do PkSearch
+        if (matchResult && matchResult.source !== 'none') {
+          console.log(`[tcgSearch] CardMatcher: nízká důvěra (${(matchResult.confidence*100).toFixed(0)} %) – pokračuji do PkSearch`);
+        }
+      }
+    }
+
+    // ── KROK 1: Pro non-EN – získej JP/orig obrázek + EN název ────────────
     if (isNonEn && ai.name && ai.lang) {
       const t = await PkSearch.translateViaLang(ai.name, ai.lang, ai.hp);
       if (t) {
@@ -2052,17 +2263,18 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── KROK 2: Hledej přes PkSearch ──────────────────────────────────────────
-    // Pro JP/non-EN: hledáme dle EN názvu (JP číslo ≠ EN číslo)
-    // Pro EN: hledáme dle jména + série + čísla
+    // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
     const searchName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
 
     let cards = await PkSearch.search(searchName, {
       set:      isNonEn ? '' : (ai.set || ''),
       number:   isNonEn ? '' : cardNumber,
-      lang:     ai.lang || 'EN',
-      hp:       ai.hp   || null,
-      pageSize: 20,
+      lang:     ai.lang    || 'EN',
+      hp:       ai.hp      || null,
+      variant:  ai.variant || '',
+      rarity:   ai.rarity  || '',
+      types:    ai.type ? [ai.type] : [],
+      pageSize: 24,
       onStatus: msg => { statusEl.textContent = msg; },
     });
 
@@ -2073,58 +2285,36 @@ async function tcgSearch(gi, autoMode = false) {
       return;
     }
 
-    // ── KROK 3: HP post-filter – karty se správným HP první ────────────────
-    const _aiHpNum = ai.hp ? parseInt(String(ai.hp).replace(/[^0-9]/g,''), 10) : 0;
-    if (_aiHpNum > 0 && cards.length > 1) {
-      cards = [...cards].sort((a, b) => {
-        const aMatch = parseInt(a.hp || '0') === _aiHpNum ? 0 : 1;
-        const bMatch = parseInt(b.hp || '0') === _aiHpNum ? 0 : 1;
-        return aMatch - bMatch;
-      });
+    // ── KROK 3: Foto shoda (Groq vision) ──────────────────────────────────
+    if (PkSearch.config.isEnabled('imageSearch') && cards.length > 1) {
+      const groqKey = _getGroqKey();
+      const frontPhoto = g.photos?.find(p => p.side === 'front') || g.photos?.[0];
+      const photoUrl   = frontPhoto?.croppedUrl || frontPhoto?.url || '';
+      if (groqKey && photoUrl) {
+        statusEl.textContent = '🖼 Porovnávám s fotkou…';
+        cards = await PkSearch.scoreByImage(
+          photoUrl, cards, GROQ_PROXY, groqKey,
+          msg => { statusEl.textContent = msg; }
+        );
+      }
     }
 
     const totalCount = cards.length;
     const g2 = cardGroups[gi];
     const isJP = g2?.aiResult?.lang === 'JP';
 
-    // ── Auto-mód: předvyber nejlepší shodu ────────────────────────────────
+    // ── KROK 4: Auto-mód – předvyber nejlepší shodu ────────────────────────
+    // Díky skórovacímu systému v2 je cards[0] already nejlepší shoda.
+    // Zachováváme extra logiku jen jako pojistku pro edge cases.
     if (autoMode && cards.length && !g2._manuallySelected && !g2.resolvedCard) {
-      const aiVariant = (g2?.aiResult?.variant || '').toLowerCase();
-      const aiRarity  = (g2?.aiResult?.rarity  || '').toLowerCase();
-      const variantRarityKeywords = {
-        'full art':                  ['illustration rare','full art','ultra rare','rare ultra'],
-        'special illustration rare': ['special illustration rare'],
-        'alt art':                   ['special illustration rare','alt art'],
-        'rainbow':                   ['rainbow','hyper rare','rare rainbow'],
-        'gold':                      ['gold','rare secret'],
-        'secret':                    ['secret rare','rainbow','gold','rare rainbow','rare secret'],
-        'holo':                      ['holo rare'],
-        'reverse holo':              ['reverse holo'],
-      };
+      let best = cards[0]; // Skórovací systém již vybral nejlepší
 
-      let best = null;
-      // JP karta: preferuj TCGdex výsledek
-      if (isJP) {
+      // Pojistka JP: preferuj TCGdex pokud je first place non-tcgdex
+      if (isJP && best._source !== 'tcgdex') {
         const dexCards = cards.filter(c => c._source === 'tcgdex');
         if (dexCards.length) best = dexCards[0];
       }
-      // Shoda dle varianty/rarity
-      if (!best) {
-        for (const [key, rarities] of Object.entries(variantRarityKeywords)) {
-          if (aiVariant.includes(key) || aiRarity.includes(key)) {
-            best = cards.find(c => c._source !== 'tcgdex' && rarities.some(r => (c.rarity || '').toLowerCase().includes(r)));
-            if (best) break;
-          }
-        }
-      }
-      // Fallback full art
-      if (!best && (aiVariant.includes('full art') || aiVariant.includes('alt art') || aiVariant.includes('special'))) {
-        const pool = cards.filter(c => c._source !== 'tcgdex' && !/rainbow|hyper rare|rare rainbow|rare secret/i.test(c.rarity || ''));
-        if (pool.length) best = [...pool].sort((a,b) => (parseInt(b.number)||0)-(parseInt(a.number)||0))[0];
-      }
-      if (!best) best = cards[0];
 
-      // Sestav resolvedCard z unified formátu (PkSearch již normalizoval)
       const origImg  = g2._origImageSmall || g2._origImage || '';
       const origImgL = g2._origImage || '';
       const displayImg  = origImg  || best.apiSmall || '';
@@ -2162,7 +2352,6 @@ async function tcgSearch(gi, autoMode = false) {
         }
       }
 
-      // Thumb: aktualizuj jen pokud karta nemá reálnou fotku
       const hasRealPhoto = g2.photos && g2.photos.length > 0;
       if (!hasRealPhoto) {
         const thumb = document.querySelector(`#group-${gi} .cg-thumb`);
@@ -2171,7 +2360,6 @@ async function tcgSearch(gi, autoMode = false) {
       const nameEl = document.querySelector(`#group-${gi} .cg-name`);
       if (nameEl && best.name) nameEl.textContent = best.name;
 
-      // JP upload area
       if (g2._origImage || g2._origImageSmall) {
         const previewEl = document.getElementById(`uploadPreview-${gi}`);
         const statusEl2 = document.getElementById(`uploadStatus-${gi}`);
@@ -2184,37 +2372,32 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── Render grid ────────────────────────────────────────────────────────
-    const dexCount = cards.filter(c => c._source === 'tcgdex').length;
-    const enCount  = cards.filter(c => c._source !== 'tcgdex').length;
+    // ── KROK 5: Render výsledků ────────────────────────────────────────────
+    const dexCount    = cards.filter(c => c._source === 'tcgdex').length;
+    const enCount     = cards.filter(c => c._source !== 'tcgdex').length;
+    const learnedCount = cards.filter(c => c._learned).length;
+    const imgCount    = cards.filter(c => c._imagePick).length;
     const isNonEnLang = g2?.aiResult?.lang && g2?.aiResult?.lang !== 'EN';
-    const countStr = isNonEnLang && dexCount
+
+    let countStr = isNonEnLang && dexCount
       ? `🌐 ${dexCount} TCGdex${enCount ? ' + 🇬🇧 '+enCount+' EN' : ''}`
       : String(cards.length);
 
+    const hints = [];
+    if (learnedCount) hints.push('🧠 naučená shoda nahoře');
+    if (imgCount)     hints.push('📸 seřazeno dle fotky');
+    if (hints.length) countStr += ` · ${hints.join(', ')}`;
+
     window._tcgSrc = window._tcgSrc || {};
-    const curSrc = window._tcgSrc[gi] || (dexCount && !enCount ? 'tcgdex' : 'tcgio');
-    window._tcgSrc[gi] = curSrc;
+    window._tcgSrc[gi] = dexCount && !enCount ? 'tcgdex' : 'tcgio';
 
-    statusEl.textContent = `Nalezeno ${countStr} karet – ${autoMode ? 'automaticky předvybrána nejlepší shoda, uprav pokud nesedí' : 'vyber správnou'}:`;
-
-    // Zdroj toggle bar (po výsledcích)
-    const toggleId = `srcToggle-${gi}`;
-    let toggleEl = document.getElementById(toggleId);
-    if (!toggleEl) {
-      toggleEl = document.createElement('div');
-      toggleEl.id = toggleId;
-      toggleEl.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;';
-      statusEl.after(toggleEl);
-    }
-    const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
-    toggleEl.innerHTML =
-      `<span style="font-size:10px;color:rgba(240,232,208,.35);letter-spacing:.06em;">ZDROJ:</span>` +
-      `<button style="${_btnStyle(curSrc==='tcgio')}"  onclick="tcgSwitchSource(${gi},'tcgio')">pokemontcg.io</button>` +
-      `<button style="${_btnStyle(curSrc==='tcgdex')}" onclick="tcgSwitchSource(${gi},'tcgdex')">🔵 TCGdex</button>`;
+    statusEl.textContent = `Nalezeno ${countStr} karet – ${autoMode ? 'nejlepší shoda předvybrána, uprav pokud nesedí' : 'vyber správnou'}:`;
 
     _tcgPageState[gi] = { query: searchName, page: 1, totalCount, cards: [...cards], autoMode };
     gridEl.innerHTML = _renderCardGrid(gi, cards);
+
+    // Ukáže learn stats bar
+    _renderLearnStats(gi);
 
   } catch(e) {
     statusEl.className = 'cg-search-status err';
@@ -2348,6 +2531,26 @@ function tcgSelectCard(gi, idx) {
   g.resolvedCard = cardData;
   g._manuallySelected = true; // Pojistka: zabrání autoSearchAll přepsat ruční výběr
   g.cardUrl = ''; // URL input není potřeba
+
+  // ── AI učení: zapamatuj správnou shodu pro příště ──────────────────────
+  if (typeof PkSearch !== 'undefined' && cardData.apiId) {
+    const ai = g.aiResult || {};
+    const searchName = (ai.nameEN || ai.name || '').trim();
+    const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
+    PkSearch.recordMatch(searchName, ai.set || '', cardNumber, cardData);
+    // Aktualizuj learn stats bar
+    _renderLearnStats(gi);
+  }
+
+  // ── Kolektivní paměť: ulož potvrzení do Supabase (CardMatcher) ────────
+  // Příště bude tato karta okamžitě nalezena bez volání TCG API.
+  if (typeof CardMatcher !== 'undefined' && g._phash && cardData.apiId) {
+    CardMatcher.confirm(g._phash, cardData.apiId)
+      .then(ok => {
+        if (ok) console.log(`[tcgSelectCard] ✅ CardMatcher.confirm: ${cardData.apiId} uloženo do kolektivní paměti`);
+      })
+      .catch(e => console.warn('[tcgSelectCard] CardMatcher.confirm selhalo:', e.message));
+  }
 
   // Aktualizovat status
   statusEl.className = 'cg-search-status';

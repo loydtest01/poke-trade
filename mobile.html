@@ -2323,7 +2323,7 @@ async function sendAll() {
 
     if (c.frontPhoto) {
       cardReqs.push(postPhoto({
-        name: ai.name || null, set: ai.set || null, number: ai.number || null,
+        name: ai.name || null, nameEN: ai.nameEN || null, set: ai.set || null, number: ai.number || null,
         type: ai.type || null, hp: ai.hp || null, category: ai.category || null,
         subtype: ai.subtype || null, variant: ai.variant || null,
         condition: ai.condition || c.condition || 'NM',
@@ -2542,7 +2542,7 @@ CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write 
 If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-Respond ONLY with valid JSON, no markdown: {"name":"","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
+Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
 
   const MODELS = await getVisionModels();
 
