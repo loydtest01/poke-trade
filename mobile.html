@@ -3023,7 +3023,13 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   // Poll while thread open
   if (_msgsPollTimer) clearInterval(_msgsPollTimer);
   _msgsPollTimer = setInterval(async () => {
+    const prevCount = (_msgsMessages || []).length;
     await loadMsgsThread(true);
+    // Pokud přišly nové zprávy od partnera → ihned označ přečtené → partner uvidí ✓✓
+    const hasUnreadFromPartner = (_msgsMessages || []).some(
+      m => m.sender_id === _msgsPartner?.id && !m.read_at
+    );
+    if (hasUnreadFromPartner) markConvRead(_msgsActiveId);
     updateMsgsUnreadBadge();
   }, 2000);
 
@@ -3283,17 +3289,19 @@ async function markConvRead(convId) {
     // 2. Nastav read_at na zprávy od partnera (které já právě čtu)
     //    → partner uvidí ✓✓ u svých odeslaných zpráv
     if (_msgsPartner?.id) {
+      console.log('[✓✓ DEBUG] PATCH read_at – partner:', _msgsPartner.id, 'conv:', convId);
       fetch(
         `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${convId}&sender_id=eq.${_msgsPartner.id}&read_at=is.null`,
         {
           method: 'PATCH',
-          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
+          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=representation'},
           body: JSON.stringify({ read_at: new Date().toISOString() })
         }
-      ).then(() => {
-        // Pošli broadcast partnerovi aby okamžitě viděl ✓✓
+      ).then(async r => {
+        const txt = await r.text();
+        console.log('[✓✓ DEBUG] PATCH status:', r.status, 'body:', txt.slice(0,200));
         _broadcastMessagesRead(convId);
-      }).catch(()=>{});
+      }).catch(err => console.error('[✓✓ DEBUG] PATCH error:', err));
     }
     // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
@@ -3531,6 +3539,7 @@ function initTypingRealtime(convId) {
 
         // phx_reply = server potvrdil join → flush pending read broadcast
         if (msg.event === 'phx_reply' && msg.payload?.status === 'ok' && _pendingReadBroadcast) {
+          console.log('[✓✓ DEBUG] phx_reply ok, flushing pending broadcast for', _pendingReadBroadcast);
           const cid = _pendingReadBroadcast;
           _pendingReadBroadcast = null;
           _broadcastMessagesRead(cid);
@@ -3550,6 +3559,7 @@ function initTypingRealtime(convId) {
 
         // ✓✓ – partner přečetl naše zprávy
         if (msg.payload?.event === 'messages_read') {
+          console.log('[✓✓ DEBUG] Received messages_read:', p);
           if (p.uid && p.uid !== _msgsUserId && p.conv_id === _msgsActiveId) {
             const now = new Date().toISOString();
             let changed = false;
@@ -3589,9 +3599,11 @@ function onChatInputTyping() {
 function _broadcastMessagesRead(convId) {
   // Pokud WS ještě není ready, ulož convId – flush proběhne po phx_reply
   if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) {
+    console.log('[✓✓ DEBUG] WS not ready, queuing broadcast for', convId);
     _pendingReadBroadcast = convId;
     return;
   }
+  console.log('[✓✓ DEBUG] Sending messages_read broadcast on channel', _typingChannelTopic);
   _typingWs.send(JSON.stringify({
     topic: _typingChannelTopic,
     event: 'broadcast',
