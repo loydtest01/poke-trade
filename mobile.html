@@ -2032,17 +2032,18 @@ async function extractJPNameFromDetail(dataUrl, hint) {
   const compressed = await compressImage(dataUrl, 1600, 0.90);
   const { mt, b64 } = splitDataUrl(compressed);
   const hintText = hint ? `\nThe full-card photo already recognized the name as: "${hint}". Confirm or correct it based on what you see in this close-up.` : '';
-  const promptText = `This is a close-up photo of the NAME LINE of a Japanese Pokémon TCG card (top of the card).${hintText}
-Task: Read the Pokémon name EXACTLY as printed in Japanese characters (katakana/hiragana/kanji). Include suffix if present (V, VMAX, VSTAR, ex, GX, EX).
+  const promptText = `This is a close-up photo of the NAME LINE of a Pokémon TCG card (top of the card).${hintText}
+Task: Read the Pokémon name EXACTLY as printed. Include suffix if present (V, VMAX, VSTAR, ex, GX, EX).
 RULES:
-- Return ONLY the Japanese name characters + optional suffix (e.g. "リザードン", "ピカチュウex", "ガルダマンネギ")
+- Return ONLY the name characters + optional suffix (e.g. "リザードン", "ピカチュウex", "炎兔兒")
+- If the card is in Traditional Chinese (Taiwan): use TRADITIONAL characters — 兒 not 儿, 龍 not 龙
 - NO English explanation, NO translation, NO punctuation
 - If the image is blurry or unreadable, return the hint name if provided`;
   const body = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
     max_tokens: 40, temperature: 0.0,
     messages: [
-      { role: 'system', content: 'You are a Japanese OCR specialist for Pokémon cards. Output only the exact characters you see, nothing else.' },
+      { role: 'system', content: 'You are an OCR specialist for Pokémon cards in Japanese and Traditional Chinese. Output only the exact characters you see, nothing else. For Traditional Chinese (Taiwan) cards, always use traditional character forms, never simplified.' },
       { role: 'user', content: [
         { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
         { type: 'text', text: promptText }
@@ -2665,12 +2666,13 @@ async function identifyCard(dataUrl) {
   const { mt, b64 } = splitDataUrl(compressed);
 
   const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
-CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
-WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write sentences like "The Japanese name is X", "The card reads X", "The name on the card reads X". Output ONLY the raw characters themselves (e.g. "ギャロップ" or "炎兔儿"), nothing else before or after.
+CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), set lang="JP". If the card text is in Traditional Chinese (used on Taiwan cards — complex characters, not simplified), set lang="ZH-TW". If English, set lang="EN".
+TRADITIONAL CHINESE WARNING: Taiwan Pokémon cards use TRADITIONAL Chinese characters. Always use traditional forms, NOT simplified. Key distinctions: 兒(traditional) NOT 儿, 龍 NOT 龙, 愛 NOT 爱, 發 NOT 发. Write the name with traditional characters exactly as printed.
+WARNING: The "name" field must contain ONLY the characters as printed (e.g. "ガルダマンネギ" or "炎兔兒"). NEVER write sentences like "The Japanese name is X". Output ONLY the raw characters themselves, nothing else before or after.
 If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
+Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH-TW/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
 
   const MODELS = await getVisionModels();
 
@@ -2723,6 +2725,7 @@ async function identifyCardWithCondition(dataUrl) {
     messages: [
       { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
 If card text is Japanese, write name in Japanese (katakana/kanji) exactly as printed and set lang="JP".
+If card text is Traditional Chinese (Taiwan cards), write name in Traditional Chinese exactly as printed and set lang="ZH-TW". IMPORTANT: Taiwan cards use TRADITIONAL characters — use 兒 not 儿, 龍 not 龙, etc.
 If card text is English, write name in English exactly as printed and set lang="EN".
 Also assess physical condition carefully.
 Return ONLY raw JSON (no markdown, no fences):
@@ -4253,11 +4256,14 @@ async function processCharFixPhoto(dataUrl) {
     ? `\nFull name context (other characters already recognized): "${_cfmChars.join('')}" — you are identifying position ${_cfmCharIndex + 1} of ${_cfmChars.length}.`
     : '';
 
-  const prompt = `You are reading a SINGLE Japanese character from a Pokémon TCG card photo.
+  const prompt = `You are reading a SINGLE character from a Pokémon TCG card photo.
 Previous OCR guessed this character as: "${targetChar}" — but that may be WRONG.${context}
 
-IMPORTANT: This may be a KANJI (漢字), not katakana or hiragana. Common Pokémon kanji include:
-龍竜鬼妖神魔闇光炎氷水草雷岩鋼飛超霊虫毒闘力天地風花王皇帝将剣盾輝幻影大小古新白黒赤青金銀森海山空星月日火土木兒児鷹鳥熊犬猫狐狼亀騎士兵戦爆爪翼牙甲殻刃紋術気精霧嵐雪夢幸勇愛命魂心
+IMPORTANT: This card may be Japanese OR Traditional Chinese (Taiwan). Taiwan cards use TRADITIONAL characters.
+Key traditional vs simplified distinctions: 兒(✓) vs 儿(✗), 龍(✓) vs 龙(✗), 愛(✓) vs 爱(✗).
+
+Common Pokémon kanji/hanzi include:
+龍竜鬼妖神魔闇光炎氷水草雷岩鋼飛超霊虫毒闘力天地風花王皇帝将剣盾輝幻影大小古新白黒赤青金銀森海山空星月日火土木兒児鷹鳥熊犬猫狐狼亀騎士兵戦爆爪翼牙甲殻刃紋術気精霧嵐雪夢幸勇愛命魂心兔
 
 Look carefully at the shape of the character in the image.
 Output ONLY the single character — nothing else, no explanation, no spaces.`;
