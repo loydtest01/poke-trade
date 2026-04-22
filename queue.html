@@ -1401,19 +1401,9 @@ function buildGroupEl(g, gi) {
 
       <!-- Vyhledávání v TCG API -->
       <div class="cg-search">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})" style="flex:1;min-width:160px;">
-            🔍 Vyhledat v databázi
-          </button>
-          <div style="display:flex;border-radius:7px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);flex-shrink:0;">
-            <button id="srcPre-tcgio-${gi}" onclick="queueSetSrc(${gi},'tcgio')"
-              style="padding:5px 10px;border:none;cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;transition:all .15s;background:rgba(245,200,66,0.18);color:#f5c842;"
-              title="Hledat na pokemontcg.io (EN karty, ceny)">TCG.io</button>
-            <button id="srcPre-tcgdex-${gi}" onclick="queueSetSrc(${gi},'tcgdex')"
-              style="padding:5px 10px;border:none;cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;transition:all .15s;background:rgba(255,255,255,0.05);color:rgba(240,236,228,0.4);"
-              title="Hledat na TCGdex (JP/DE/FR karty)">TCGdex</button>
-          </div>
-        </div>
+        <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
+          🔍 Vyhledat v databázi
+        </button>
         <div class="cg-search-status" id="searchStatus-${gi}">
           ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
         </div>
@@ -2150,29 +2140,6 @@ async function _tcgFetch(url, retries = 3) {
 // ── Přepínání zdroje API (pokemontcg.io ↔ TCGdex) ──────────────
 window._tcgSrc = window._tcgSrc || {};
 
-/** Nastaví zdroj pro danou skupinu a vizuálně aktualizuje toggle před vyhledáváním */
-function queueSetSrc(gi, source) {
-  window._tcgSrc = window._tcgSrc || {};
-  window._tcgSrc[gi] = source;
-  const btnTcgio  = document.getElementById('srcPre-tcgio-' + gi);
-  const btnTcgdex = document.getElementById('srcPre-tcgdex-' + gi);
-  if (btnTcgio) {
-    btnTcgio.style.background = source === 'tcgio'  ? 'rgba(245,200,66,0.18)' : 'rgba(255,255,255,0.05)';
-    btnTcgio.style.color      = source === 'tcgio'  ? '#f5c842' : 'rgba(240,236,228,0.4)';
-  }
-  if (btnTcgdex) {
-    btnTcgdex.style.background = source === 'tcgdex' ? 'rgba(74,200,255,0.18)' : 'rgba(255,255,255,0.05)';
-    btnTcgdex.style.color      = source === 'tcgdex' ? '#4ac8ff' : 'rgba(240,236,228,0.4)';
-  }
-  // Vymaž staré výsledky při změně zdroje
-  const grid   = document.getElementById('searchGrid-' + gi);
-  const status = document.getElementById('searchStatus-' + gi);
-  if (grid)   grid.innerHTML = '';
-  if (status) status.textContent = '';
-  const oldToggle = document.getElementById('srcToggle-' + gi);
-  if (oldToggle) oldToggle.remove();
-}
-
 async function tcgSwitchSource(gi, source) {
   const g = cardGroups[gi];
   if (!g) return;
@@ -2210,11 +2177,6 @@ async function tcgSwitchSource(gi, source) {
     }
   } catch(e) { console.warn('[tcgSwitchSource]', e); }
 
-  // Sync pre-search toggle buttons
-  const _preT = document.getElementById('srcPre-tcgio-' + gi);
-  const _preTd = document.getElementById('srcPre-tcgdex-' + gi);
-  if (_preT)  { _preT.style.background  = source==='tcgio'  ? 'rgba(245,200,66,0.18)' : 'rgba(255,255,255,0.05)'; _preT.style.color  = source==='tcgio'  ? '#f5c842' : 'rgba(240,236,228,0.4)'; }
-  if (_preTd) { _preTd.style.background = source==='tcgdex' ? 'rgba(74,200,255,0.18)' : 'rgba(255,255,255,0.05)'; _preTd.style.color = source==='tcgdex' ? '#4ac8ff' : 'rgba(240,236,228,0.4)'; }
   // Aktualizuj toggle bar
   const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
   if (toggleEl) toggleEl.innerHTML =
@@ -2280,17 +2242,6 @@ async function tcgSearch(gi, autoMode = false) {
 
   // Číslo karty – odstraníme část za lomítkem (007/067 → 007)
   const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
-
-  // ── Pokud uživatel předem vybral TCGdex, přesměruj přímo ───
-  const _preSrc = (window._tcgSrc || {})[gi];
-  if (_preSrc === 'tcgdex') {
-    btn.disabled = true;
-    statusEl.textContent = '⏳ Hledám v TCGdex…';
-    gridEl.innerHTML = '';
-    await tcgSwitchSource(gi, 'tcgdex');
-    btn.disabled = false;
-    return;
-  }
 
   btn.disabled = true;
   statusEl.className = 'cg-search-status';
@@ -2447,22 +2398,48 @@ async function tcgSearch(gi, autoMode = false) {
 
       // ── FÁZE 4: pokemontcg.io – POUZE dle EN jména (bez JP čísla!) ─
       // JP číslo karty ≠ EN číslo → NIKDY neposílat number: do EN databáze
+      const _hp = ai.hp ? String(ai.hp).replace(/\D/g,'') : '';
       if (resolvedEnName) {
-        _lastQuery = `name:"${resolvedEnName}"`;
-        statusEl.textContent = `🔍 Hledám EN ekvivalent: ${resolvedEnName}…`;
+        // Přidej HP filtr pokud ho máme – dramaticky zúžuje výsledky
+        const _hpPart = _hp ? ` hp:${_hp}` : '';
+        _lastQuery = `name:"${resolvedEnName}"${_hpPart}`;
+        statusEl.textContent = `🔍 Hledám EN ekvivalent: ${resolvedEnName}${_hp?' (HP:'+_hp+')':''}…`;
         const r1 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
         cards = r1?.data || [];
         totalCount = r1?.totalCount || cards.length;
+        // Krok 4a: bez HP filtru pokud nic – HP nemusí sedět přesně (AI může špatně přečíst)
+        if (!cards.length && _hp) {
+          _lastQuery = `name:"${resolvedEnName}"`;
+          const r1b = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+          cards = r1b?.data || [];
+          totalCount = r1b?.totalCount || cards.length;
+        }
       }
 
-      // Krok 4b: wildcard na první slovo pokud nic
+      // Krok 4b: wildcard – použij VŠECHNA smysluplná slova (ne jen první!)
+      // "Galarian Yamask V" → hledej "Galarian Yamask" (bez suffixů V/GX/ex)
       if (!cards.length && resolvedEnName) {
-        const firstWord = resolvedEnName.split(' ')[0];
-        _lastQuery = `name:${firstWord}*`;
-        statusEl.textContent = `🔍 Zkouším: ${firstWord}*…`;
-        const r2 = await _tcgFetch(`/api/tcg?q=name:${encodeURIComponent(firstWord)}*&pageSize=20&orderBy=-set.releaseDate`);
+        const _nameParts = resolvedEnName.trim().split(/\s+/);
+        // Odstraň poslední slovo jen pokud je to suffix (V, GX, EX, ex, VMAX, VSTAR, TAG…)
+        const _suffixes = /^(V|GX|EX|ex|VMAX|VSTAR|VStar|TAG|TEAM|V-UNION)$/i;
+        const _baseWords = _nameParts[_nameParts.length-1].match(_suffixes) && _nameParts.length > 1
+          ? _nameParts.slice(0,-1)
+          : _nameParts;
+        const _baseQuery = _baseWords.length >= 2
+          ? `name:"${_baseWords.join(' ')}"` // přesné hledání bez suffixu
+          : `name:${_baseWords[0]}*`;         // wildcard jen pokud je 1 slovo
+        const _hpPart = _hp ? ` hp:${_hp}` : '';
+        _lastQuery = _baseQuery + _hpPart;
+        statusEl.textContent = `🔍 Zkouším: ${_baseQuery}…`;
+        const r2 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
         cards = r2?.data || [];
         totalCount = r2?.totalCount || cards.length;
+        // bez HP pokud pořád nic
+        if (!cards.length && _hp) {
+          const r2b = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_baseQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+          cards = r2b?.data || [];
+          totalCount = r2b?.totalCount || cards.length;
+        }
       }
 
       // ── FÁZE 5: Přidat TCGdex výsledky DO gridu (JP originály) ──
@@ -2475,7 +2452,8 @@ async function tcgSearch(gi, autoMode = false) {
       }
 
     } else {
-      // ── EN karta – původní logika ─────────────────────────────
+      // ── EN karta ─────────────────────────────────────────────
+      const _enHp = ai.hp ? String(ai.hp).replace(/[^0-9]/g,'') : '';
 
       const parts = [];
       if (enName) parts.push(`name:"${enName}"`);
@@ -2496,21 +2474,44 @@ async function tcgSearch(gi, autoMode = false) {
         totalCount = r1?.totalCount || cards.length;
       }
 
-      // Krok 2: jen jméno
+      // Krok 2: jméno + HP (pokud máme HP – razantní filtr)
       if (!cards.length && enName) {
-        _lastQuery = `name:"${enName}"`;
-        const r2 = await _tcgFetch(`/api/tcg?q=name:"${encodeURIComponent(enName)}"&pageSize=20&orderBy=-set.releaseDate`);
+        const _hpPart = _enHp ? ` hp:${_enHp}` : '';
+        _lastQuery = `name:"${enName}"${_hpPart}`;
+        const r2 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
         cards = r2?.data || [];
         totalCount = r2?.totalCount || cards.length;
+        // Krok 2b: bez HP pokud pořád nic (AI mohla špatně přečíst HP)
+        if (!cards.length && _enHp) {
+          _lastQuery = `name:"${enName}"`;
+          const r2b = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_lastQuery)}&pageSize=20&orderBy=-set.releaseDate`);
+          cards = r2b?.data || [];
+          totalCount = r2b?.totalCount || cards.length;
+        }
       }
 
-      // Krok 3: wildcard na první slovo
+      // Krok 3: wildcard – použij všechna slova kromě suffix (V/GX/EX/ex/VMAX…)
       if (!cards.length && enName) {
-        const namePart = enName.split(' ')[0];
-        _lastQuery = `name:${namePart}*`;
-        const r3 = await _tcgFetch(`/api/tcg?q=name:${encodeURIComponent(namePart)}*&pageSize=20&orderBy=-set.releaseDate`);
+        const _enParts = enName.trim().split(/\s+/);
+        const _enSuffix = /^(V|GX|EX|ex|VMAX|VSTAR|VStar|TAG|TEAM|V-UNION)$/i;
+        const _enBase = _enParts[_enParts.length-1].match(_enSuffix) && _enParts.length > 1
+          ? _enParts.slice(0,-1)
+          : _enParts;
+        const _wq = _enBase.length >= 2
+          ? `name:"${_enBase.join(' ')}"${_enHp ? ' hp:'+_enHp : ''}`
+          : `name:${_enBase[0]}*${_enHp ? ' hp:'+_enHp : ''}`;
+        _lastQuery = _wq;
+        statusEl.textContent = `🔍 Zkouším: ${_enBase.join(' ')}…`;
+        const r3 = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_wq)}&pageSize=20&orderBy=-set.releaseDate`);
         cards = r3?.data || [];
         totalCount = r3?.totalCount || cards.length;
+        // bez HP pokud pořád nic
+        if (!cards.length && _enHp) {
+          const _wqNoHp = _enBase.length >= 2 ? `name:"${_enBase.join(' ')}"` : `name:${_enBase[0]}*`;
+          const r3b = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(_wqNoHp)}&pageSize=20&orderBy=-set.releaseDate`);
+          cards = r3b?.data || [];
+          totalCount = r3b?.totalCount || cards.length;
+        }
       }
 
       // Krok 4: pokud stále prázdno → auto-fallback na TCGdex
@@ -2535,6 +2536,23 @@ async function tcgSearch(gi, autoMode = false) {
         + ' — uprav název nebo vlož odkaz ručně.';
       btn.disabled = false;
       return;
+    }
+
+    // ── POST-FILTER: seřaď výsledky podle shody HP (pokud AI vrátila HP) ─────
+    // Karty se správným HP budou první, zbytek na konci – ale NEMAZÁME je
+    {
+      const _aiHpNum = ai.hp ? parseInt(String(ai.hp).replace(/[^0-9]/g,''), 10) : 0;
+      if (_aiHpNum > 0 && cards.length > 1) {
+        cards.sort((a, b) => {
+          const aHp = parseInt(a.hp || a.HP || '0', 10);
+          const bHp = parseInt(b.hp || b.HP || '0', 10);
+          const aMatch = aHp === _aiHpNum ? 0 : 1;
+          const bMatch = bHp === _aiHpNum ? 0 : 1;
+          if (aMatch !== bMatch) return aMatch - bMatch;
+          // stejná shoda HP → seřaď podle data vydání (nejnovější první)
+          return 0;
+        });
+      }
     }
 
     const g2 = cardGroups[gi];
