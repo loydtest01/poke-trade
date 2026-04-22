@@ -3286,22 +3286,16 @@ async function markConvRead(convId) {
       headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json'},
       body: JSON.stringify({ p_conversation_id: convId, p_user_id: _msgsUserId })
     });
-    // 2. Nastav read_at na zprávy od partnera (které já právě čtu)
+    // 2. Nastav read_at na zprávy od partnera přes RPC (SECURITY DEFINER obchází RLS)
     //    → partner uvidí ✓✓ u svých odeslaných zpráv
-    if (_msgsPartner?.id) {
-      console.log('[✓✓ DEBUG] PATCH read_at – partner:', _msgsPartner.id, 'conv:', convId);
-      fetch(
-        `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${convId}&sender_id=eq.${_msgsPartner.id}&read_at=is.null`,
-        {
-          method: 'PATCH',
-          headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
-          body: JSON.stringify({ read_at: new Date().toISOString() })
-        }
-      ).then(async r => {
-        if (!r.ok) console.warn('[✓✓ DEBUG] PATCH read_at failed:', r.status);
-        _broadcastMessagesRead(convId);
-      }).catch(err => console.error('[✓✓ DEBUG] PATCH error:', err));
-    }
+    fetch(`${SB_URL}/rest/v1/rpc/mark_conv_read`, {
+      method: 'POST',
+      headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json'},
+      body: JSON.stringify({ p_conv_id: convId, p_reader_id: _msgsUserId })
+    }).then(r => {
+      if (!r.ok) console.warn('[✓✓] mark_conv_read RPC failed:', r.status);
+      _broadcastMessagesRead(convId);
+    }).catch(err => console.error('[✓✓] mark_conv_read error:', err));
     // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
       `${SB_URL}/rest/v1/notifications?user_id=eq.${_msgsUserId}&type=eq.message&read=eq.false`,

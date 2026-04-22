@@ -1484,17 +1484,12 @@ async function openConversation(conv) {
     p_user_id: userId
   });
 
-  // Nastav read_at na zprávy od partnera (aby partner viděl ✓✓)
-  if (activePartner?.id) {
-    fetch(`${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${conv.id}&sender_id=eq.${activePartner.id}&read_at=is.null`, {
-      method: 'PATCH',
-      headers: {
-        'apikey': SB_ANON, 'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({ read_at: new Date().toISOString() })
-    }).catch(() => {});
-  }
+  // Nastav read_at na zprávy od partnera přes RPC (SECURITY DEFINER obchází RLS)
+  fetch(`${SB_URL}/rest/v1/rpc/mark_conv_read`, {
+    method: 'POST',
+    headers: {'apikey':SB_ANON,'Authorization':'Bearer '+token,'Content-Type':'application/json'},
+    body: JSON.stringify({ p_conv_id: conv.id, p_reader_id: userId })
+  }).catch(() => {});
 
   // Typing indicator – Supabase Realtime
   initTypingRealtime(conv.id);
