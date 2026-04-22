@@ -2222,6 +2222,12 @@ let editingAlbumId = null;
   autoSync();
   // Init language
   setLang(localStorage.getItem('pkc_lang') || 'cz');
+  // ── Zpracuj ?add_from_listing=ID (odkaz z chatu kupujícímu po prodeji) ──
+  const _addListingId = new URLSearchParams(location.search).get('add_from_listing');
+  if (_addListingId) {
+    history.replaceState(null, '', location.pathname);
+    setTimeout(() => showAddFromListingModal(_addListingId), 600);
+  }
 })();
 
 // ══════════════════════════════════════════════════════════════════
@@ -4931,8 +4937,12 @@ async function syncObchodAlbum() {
 /**
  * Zkontroluje localStorage frontu "Čeká na vystavení" a doplní
  * všechny karty s for_sell=true, které tam ještě nejsou (porovnání dle id).
+ * Spouští se JEDNOU za session – zabraňuje tomu, aby přidání jedné karty
+ * automaticky přidalo do fronty i všechny ostatní karty označené k prodeji.
  */
 function reconcilePendingQueue() {
+  if (sessionStorage.getItem('pkt_reconcile_done')) return;
+  sessionStorage.setItem('pkt_reconcile_done', '1');
   try {
     const PENDING_KEY = 'pkt_pending_listings';
     const q = JSON.parse(localStorage.getItem(PENDING_KEY) || '[]');
@@ -9726,6 +9736,150 @@ function _pgmDrawTri(ctx, img, s0,s1,s2, d0,d1,d2, iw, ih) {
   ctx.restore();
 }
 </script>
+
+<script>
+// ── Přidat kartu z marketplace (kupující) ──────────────────────
+let _aflListingData = null;
+
+function _esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function showAddFromListingModal(listingId) {
+  try {
+    const SUPA_URL  = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+    const SUPA_ANON = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+    const hdrs = { 'Content-Type':'application/json', 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + (token || SUPA_ANON) };
+
+    const res = await fetch(`${SUPA_URL}/rest/v1/listings?id=eq.${listingId}&select=*`, { headers: hdrs });
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return;
+    const l = data[0];
+    const first = (l.cards_data||[])[0] || {};
+    const cardName = l.card_name || first.name || '?';
+    const cardImg  = l.api_image_url || first?.images?.small || '';
+    _aflListingData = { l, first, cardName, cardImg };
+
+    document.getElementById('aflSubtitle').textContent = `Zakoupil(a) jsi kartu od @${l.username || '?'}`;
+    document.getElementById('aflCardName').textContent = cardName;
+    document.getElementById('aflCardMeta').textContent = [
+      first.set?.name || (typeof first.set === 'string' ? first.set : '') || '',
+      first.number ? '#' + first.number : ''
+    ].filter(Boolean).join(' · ');
+    const imgEl = document.getElementById('aflCardImg');
+    imgEl.src = cardImg; imgEl.style.display = cardImg ? '' : 'none';
+
+    // Načti alba
+    const albRes = await fetch(`${SUPA_URL}/rest/v1/user_albums?user_id=eq.${userId}&select=id,name&order=created_at.asc`, { headers: hdrs });
+    const albums = await albRes.json();
+    const list = document.getElementById('aflAlbumList');
+    const filtered = Array.isArray(albums) ? albums.filter(a => !['Obchod','Výměna'].includes(a.name)) : [];
+    list.innerHTML = [
+      ...filtered.map(a =>
+        `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(245,200,66,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)'">
+          <input type="radio" name="aflAlbum" value="${_esc(String(a.id))}" style="accent-color:#f5c842;width:15px;height:15px;flex-shrink:0">
+          <span style="font-size:13px;color:rgba(240,236,228,0.85)">📒 ${_esc(a.name)}</span>
+        </label>`
+      ),
+      `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer">
+        <input type="radio" name="aflAlbum" value="__none__" style="accent-color:#f5c842;width:15px;height:15px;flex-shrink:0">
+        <span style="font-size:13px;color:rgba(240,236,228,0.5)">📚 Jen do sbírky (bez alba)</span>
+      </label>`,
+    ].join('');
+
+    document.getElementById('addFromListingModal').style.display = 'flex';
+  } catch(e) { console.warn('[addFromListing]', e); }
+}
+
+function closeAddFromListingModal() {
+  document.getElementById('addFromListingModal').style.display = 'none';
+  _aflListingData = null;
+}
+
+async function confirmAddFromListing() {
+  if (!_aflListingData) return;
+  const { first, cardName } = _aflListingData;
+  const sel = document.querySelector('input[name="aflAlbum"]:checked');
+  closeAddFromListingModal();
+
+  const SUPA_URL  = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  const SUPA_ANON = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  const hdrs = { 'Content-Type':'application/json', 'apikey': SUPA_ANON, 'Authorization': 'Bearer ' + (token || SUPA_ANON) };
+
+  const newId = 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2,7);
+  const cardPayload = [{
+    local_id: newId,
+    updated_at: new Date().toISOString(),
+    for_trade: false, for_sell: false, price_czk: null,
+    card_data: {
+      name: first.name || cardName,
+      set: first.set?.name || (typeof first.set === 'string' ? first.set : '') || '',
+      number: first.number || '',
+      condition: first.condition || 'NM',
+      category: first.category || 'pokemon',
+      type: (first.types||[])[0] || first.type || '',
+      types: first.types || [],
+      supertype: first.supertype || '',
+      imageUrl: first.images?.small || first.imageUrl || null,
+      apiSmall: first.images?.small || first.apiSmall || null,
+      images: first.images || null,
+      count: 1, note: '', hp: first.hp || null, tags: [],
+    }
+  }];
+
+  // Ulož kartu
+  await fetch(`${SUPA_URL}/rest/v1/rpc/upsert_user_cards`, {
+    method: 'POST', headers: hdrs,
+    body: JSON.stringify({ p_user_id: userId, p_cards: cardPayload })
+  });
+
+  // Přidej do alba
+  if (sel && sel.value !== '__none__') {
+    const albRes = await fetch(`${SUPA_URL}/rest/v1/user_albums?id=eq.${encodeURIComponent(sel.value)}&select=id,card_ids`, { headers: hdrs });
+    const albs = await albRes.json();
+    if (Array.isArray(albs) && albs.length) {
+      const newIds = [...new Set([...(albs[0].card_ids||[]), newId])];
+      await fetch(`${SUPA_URL}/rest/v1/user_albums?id=eq.${encodeURIComponent(sel.value)}`, {
+        method: 'PATCH', headers: { ...hdrs, 'Prefer': 'return=minimal' },
+        body: JSON.stringify({ card_ids: newIds })
+      });
+    }
+  }
+
+  // Obnov data a zobraz
+  await loadCards(); await loadAlbums(); render();
+
+  const toast = document.createElement('div');
+  toast.textContent = `✅ ${cardName} přidána do sbírky!`;
+  Object.assign(toast.style, {
+    position:'fixed', bottom:'24px', left:'50%', transform:'translateX(-50%)',
+    zIndex:'9999', background:'rgba(14,12,20,0.97)',
+    border:'1px solid rgba(74,222,128,0.3)', borderRadius:'10px',
+    padding:'12px 22px', fontWeight:'700', color:'#4ade80',
+    fontSize:'13px', pointerEvents:'none', whiteSpace:'nowrap'
+  });
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+</script> -->
+<div id="addFromListingModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.87);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeAddFromListingModal()">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px;max-width:420px;width:100%;position:relative">
+    <button onclick="closeAddFromListingModal()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.08);border:none;color:#f0ece4;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px">✕</button>
+    <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#f0ece4;margin-bottom:6px">🎉 Karta je tvoje!</div>
+    <div id="aflSubtitle" style="font-size:13px;color:rgba(240,236,228,0.55);margin-bottom:16px"></div>
+    <div id="aflCardPreview" style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border-radius:12px;padding:10px 14px;margin-bottom:18px">
+      <img id="aflCardImg" src="" style="width:48px;height:67px;border-radius:7px;object-fit:cover;flex-shrink:0">
+      <div>
+        <div id="aflCardName" style="font-size:13px;font-weight:600;color:#f0ece4"></div>
+        <div id="aflCardMeta" style="font-size:11px;color:rgba(240,236,228,0.45);margin-top:2px"></div>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:rgba(240,236,228,0.4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Přidat do alba</div>
+    <div id="aflAlbumList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="confirmAddFromListing()" style="flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:#f5c842;cursor:pointer;font-family:inherit">Přidat do sbírky →</button>
+      <button onclick="closeAddFromListingModal()" style="padding:11px 18px;border-radius:10px;font-size:13px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(240,236,228,0.5);cursor:pointer;font-family:inherit">Přeskočit</button>
+    </div>
+  </div>
+</div>
 
 <script src="site-tracking.js"></script>
 </body>

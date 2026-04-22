@@ -4482,23 +4482,40 @@ async function confirmSale() {
 
   // 2. Vytvoř transakci
   const first = (l.cards_data||[])[0] || {};
+  const cardName = l.card_name || first.name || l.title || '?';
+  const cardImg  = l.api_image_url || first?.images?.small || first?.images?.large || '';
   const txRes = await sbReq('rest/v1/transactions', 'POST', {
     listing_id:        l.id,
     seller_id:         l.user_id,
     buyer_id:          l.reserved_by_user_id,
     seller_username:   l.username,
     buyer_username:    l.reserved_by_username,
-    card_name:         l.card_name || first.name || l.title || '?',
-    card_image_url:    l.api_image_url || first?.images?.small || first?.images?.large || '',
+    card_name:         cardName,
+    card_image_url:    cardImg,
     price_czk:         l.price_czk || null,
     status:            'completed',
     seller_reviewed:   false,
     buyer_reviewed:    false,
   }, token);
-  if (txRes && txRes._err) { alert('Transakce se neuložila: ' + txRes._err); }
+  if (txRes && txRes._err) { console.warn('Transakce se neuložila:', txRes._err); }
 
-  showMktToast('✅ Prodej potvrzen! Oba nyní můžete zanechat hodnocení v Moje transakce.');
+  // 3. Pošli kupujícímu chat zprávu s odkazem na přidání do alba
+  try {
+    const buyerLink = `${location.origin}${location.pathname.replace('marketplace.html','moje-album.html')}?add_from_listing=${encodeURIComponent(l.id)}`;
+    const notifText = `✅ Prodej potvrzen! Karta „${cardName}" je tvoje 🎉\nPřidej ji do své sbírky: ${buyerLink}`;
+    await sbReq('rest/v1/messages', 'POST', {
+      listing_id:        l.id,
+      sender_id:         userId,
+      receiver_id:       l.reserved_by_user_id,
+      sender_username:   username,
+      receiver_username: l.reserved_by_username || '',
+      text:              notifText,
+    }, token);
+  } catch(e) { console.warn('[notif buyer]', e); }
+
   showList(); loadListings();
+  // 4. Zobraz album picker prodejci
+  setTimeout(() => showSellerAlbumPicker(l), 400);
 }
 
 // Seller vrátí kartu zpět do nabídky (zruší rezervaci)
@@ -4968,4 +4985,103 @@ async function czlSave() {
     saveBtn.style.background = '';
     saveBtn.disabled = false;
   }, 2200);
+}
+
+// ── Album picker po potvrzení prodeje (prodejce) ──────────────
+let _apmCallback = null;
+
+async function showSellerAlbumPicker(l) {
+  const first     = (l.cards_data||[])[0] || {};
+  const cardLocalId = first.id || first.local_id || null;
+  const cardName  = l.card_name || first.name || '?';
+  const cardImg   = l.api_image_url || first?.images?.small || '';
+
+  // Načti alba prodejce
+  let albums = [];
+  try {
+    const res = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&select=id,name,card_ids&order=created_at.asc`, 'GET', null, token);
+    if (Array.isArray(res)) albums = res;
+  } catch(e) {}
+
+  const modal = document.getElementById('albumPickerModal');
+  if (!modal) { console.warn('[sellerAlbumPicker] modal nenalezen'); return; }
+
+  document.getElementById('alpTitle').textContent    = '✅ Prodej potvrzen!';
+  document.getElementById('alpSubtitle').textContent = `Chceš přesunout „${cardName}" do jiného alba?`;
+
+  const imgEl = document.getElementById('alpCardImg');
+  if (imgEl) { imgEl.src = cardImg; imgEl.style.display = cardImg ? '' : 'none'; }
+  document.getElementById('alpCardName').textContent = cardName;
+
+  const userAlbsFilt = albums.filter(a => !['Obchod','Výměna'].includes(a.name));
+  const list = document.getElementById('alpAlbumList');
+  list.innerHTML = [
+    ...userAlbsFilt.map(a =>
+      `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer;transition:border-color .15s" onmouseover="this.style.borderColor='rgba(245,200,66,0.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.07)'">
+        <input type="radio" name="alpAlbum" value="${esc(String(a.id))}" style="accent-color:#f5c842;width:15px;height:15px;flex-shrink:0">
+        <span style="font-size:13px;color:rgba(240,236,228,0.85)">📒 ${esc(a.name)}</span>
+      </label>`),
+    `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer">
+      <input type="radio" name="alpAlbum" value="__prodano__" style="accent-color:#f5c842;width:15px;height:15px;flex-shrink:0">
+      <span style="font-size:13px;color:rgba(240,236,228,0.85)">🏷️ Album „Prodáno" (vytvořit / použít)</span>
+    </label>`,
+    `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;border:1.5px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.03);cursor:pointer">
+      <input type="radio" name="alpAlbum" value="__none__" checked style="accent-color:#f5c842;width:15px;height:15px;flex-shrink:0">
+      <span style="font-size:13px;color:rgba(240,236,228,0.5)">🚫 Nechat bez změny</span>
+    </label>`,
+  ].join('');
+
+  _apmCallback = async (albumId) => {
+    if (!albumId || albumId === '__none__' || !cardLocalId) return;
+    const allAlbs = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}&select=id,name,card_ids`, 'GET', null, token);
+    if (!Array.isArray(allAlbs)) return;
+
+    // Odeber z Obchod + Výměna
+    for (const sName of ['Obchod','Výměna']) {
+      const alb = allAlbs.find(a => a.name === sName);
+      if (alb && Array.isArray(alb.card_ids)) {
+        const cleaned = alb.card_ids.filter(id => String(id) !== String(cardLocalId));
+        if (cleaned.length !== alb.card_ids.length)
+          await sbReq(`rest/v1/user_albums?id=eq.${alb.id}`, 'PATCH', { card_ids: cleaned }, token);
+      }
+    }
+    // Odeber for_sell/for_trade z karty
+    await sbReq(`rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${cardLocalId}`, 'PATCH', { for_sell: false, for_trade: false }, token);
+
+    if (albumId === '__prodano__') {
+      let prodano = allAlbs.find(a => a.name === 'Prodáno');
+      if (!prodano) {
+        await sbReq('rest/v1/user_albums', 'POST', {
+          user_id: userId, name: 'Prodáno', color: '#22c55e', icon: '✅',
+          card_ids: [String(cardLocalId)]
+        }, token);
+      } else {
+        const newIds = [...new Set([...(prodano.card_ids||[]), String(cardLocalId)])];
+        await sbReq(`rest/v1/user_albums?id=eq.${prodano.id}`, 'PATCH', { card_ids: newIds }, token);
+      }
+      showMktToast('✅ Karta přesunuta do alba „Prodáno"');
+    } else {
+      const tgt = allAlbs.find(a => String(a.id) === String(albumId));
+      if (tgt) {
+        const newIds = [...new Set([...(tgt.card_ids||[]), String(cardLocalId)])];
+        await sbReq(`rest/v1/user_albums?id=eq.${tgt.id}`, 'PATCH', { card_ids: newIds }, token);
+        showMktToast(`✅ Karta přesunuta do alba „${tgt.name}"`);
+      }
+    }
+  };
+
+  modal.style.display = 'flex';
+}
+
+function closeAlbumPicker() {
+  const m = document.getElementById('albumPickerModal');
+  if (m) m.style.display = 'none';
+  _apmCallback = null;
+}
+
+async function confirmAlbumPick() {
+  const sel = document.querySelector('input[name="alpAlbum"]:checked');
+  if (!sel) { showMktToast('Vyber album nebo „Bez změny"'); return; }
+  closeAlbumPicker();
+  if (_apmCallback) await _apmCallback(sel.value);
 }

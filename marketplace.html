@@ -1300,5 +1300,24 @@ document.addEventListener('change', function(e) {
 });
 </script>
 <script src="site-tracking.js"></script>
+<!-- ── Album picker po potvrzení prodeje (prodejce) ── -->
+<div id="albumPickerModal" style="display:none;position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeAlbumPicker()">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;position:relative">
+    <button onclick="closeAlbumPicker()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.08);border:none;color:#f0ece4;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px;line-height:1;font-family:inherit">✕</button>
+    <div id="alpTitle" style="font-family:'Unbounded',sans-serif;font-size:17px;font-weight:800;color:#f0ece4;margin-bottom:6px">✅ Prodej potvrzen!</div>
+    <div id="alpSubtitle" style="font-size:13px;color:rgba(240,236,228,0.55);margin-bottom:16px"></div>
+    <div style="display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.04);border-radius:12px;padding:10px 14px;margin-bottom:18px">
+      <img id="alpCardImg" src="" style="width:48px;height:67px;border-radius:7px;object-fit:cover;flex-shrink:0">
+      <div id="alpCardName" style="font-size:13px;font-weight:600;color:#f0ece4"></div>
+    </div>
+    <div style="font-size:11px;font-weight:700;color:rgba(240,236,228,0.4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">Přesunout do alba</div>
+    <div id="alpAlbumList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:20px"></div>
+    <div style="display:flex;gap:8px">
+      <button onclick="confirmAlbumPick()" style="flex:1;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:#f5c842;cursor:pointer;font-family:inherit;transition:background .15s" onmouseover="this.style.background='rgba(245,200,66,0.26)'" onmouseout="this.style.background='rgba(245,200,66,0.15)'">Přesunout →</button>
+      <button onclick="closeAlbumPicker()" style="padding:11px 18px;border-radius:10px;font-size:13px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(240,236,228,0.5);cursor:pointer;font-family:inherit">Přeskočit</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
