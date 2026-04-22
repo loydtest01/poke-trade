@@ -1551,6 +1551,11 @@ async function _uploadCroppedPhoto(croppedDataUrl, originalPath) {
 async function doAssign(groups, albumId) {
   let ok = 0, fail = 0;
   const newCardIds = [];
+  // Načteme kandidáty PRO DEDUP jen jednou před smyčkou – ne uvnitř iterací.
+  // Jinak by karta vložená v iteraci 1 byla nalezena jako „duplikát" v iteraci 2.
+  let dedupCandidates = null;
+  const normNum = n => String(n||'').replace(/^0+/,'').split('/')[0].trim();
+
   for (const g of groups) {
     try {
       const ai = g.aiResult || {};
@@ -1563,14 +1568,16 @@ async function doAssign(groups, albumId) {
       const cardName   = rc?.name   || ai.name   || '';
       const cardSet    = rc?.set    || ai.set    || '';
       const cardNumber = ai.number  || rc?.number || '';
-      const normNum = n => String(n||'').replace(/^0+/,'').split('/')[0].trim();
       let existingId = null;
       let dupCardData = null;  // card_data existující karty při duplikátu
       if (cardName) {
-        const candidates = await sbReq(
-          `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
-        ).catch(()=>[]);
-        const dup = Array.isArray(candidates) && candidates.find(r => {
+        // Načti kandidáty jen jednou pro celou dávku (vyhne se cross-match uvnitř dávky)
+        if (!dedupCandidates) {
+          dedupCandidates = await sbReq(
+            `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
+          ).catch(()=>[]);
+        }
+        const dup = Array.isArray(dedupCandidates) && dedupCandidates.find(r => {
           const d = r.card_data || {};
           return d.name === cardName
             && d.set  === cardSet

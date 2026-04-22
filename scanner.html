@@ -1818,11 +1818,8 @@ function renderPhotoGrid() {
    RECOGNITION
 ═══════════════════════════════════════════════════════ */
 async function recognizeAll() {
-  if (!hasGroqKey()) {
-    toast('Nastav Groq API klíč v ⚙️ Nastavení', 'error');
-    openSettings();
-    return;
-  }
+  // Groq klíč není potřeba – callGroq() použije sdílený klíč přes Bearer token (20/den zdarma)
+  // Osobní klíč z Nastavení → neomezeno; bez klíče → sdílený limit
 
   const pending = photos.filter(p => p.status === 'pending');
   if (!pending.length) { toast('Vše je již zpracováno'); return; }
@@ -1938,9 +1935,19 @@ async function callGroq(dataUrl) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    if (res.status === 401) toast('❌ Neplatný Groq API klíč', 'error');
-    else if (res.status === 429) toast('⚠️ Groq rate limit – počkej chvíli');
-    else toast('⚠️ Groq chyba: ' + res.status);
+    if (res.status === 401) {
+      toast('❌ Groq: Neplatný token nebo klíč', 'error');
+    } else if (res.status === 429) {
+      const errMsg = err?.error || err?.message || '';
+      const isLimit = errMsg.includes('Denní limit') || err?.code === 'RATE_LIMITED';
+      if (isLimit) {
+        toast('🔒 Denní limit AI rozpoznávání (20/den) vyčerpán. Zadej vlastní klíč zdarma na console.groq.com nebo počkej do půlnoci.', 'error');
+      } else {
+        toast('⚠️ Groq rate limit – počkej chvíli a zkus znovu', 'error');
+      }
+    } else {
+      toast('⚠️ Groq chyba: ' + (err?.error || res.status), 'error');
+    }
     return null;
   }
 
