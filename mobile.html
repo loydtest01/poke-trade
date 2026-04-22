@@ -367,6 +367,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .cfm-alt.ai-pick{border-color:#facc15;box-shadow:0 0 10px rgba(250,204,21,.3)}
 .cfm-alt-label{font-size:8px;color:#facc15;margin-top:1px;font-weight:700}
 .cfm-alt-page{font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px}
+/* ── KANA TABLE PICKER ── */
+.cfm-table-wrap{display:flex;flex-direction:column;gap:0;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.cfm-table-tabs{display:flex;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;flex-shrink:0;margin-bottom:10px}
+.cfm-table-tab{flex:1;padding:8px 4px;font-size:14px;font-weight:700;cursor:pointer;background:var(--surface);color:var(--muted);border:none;font-family:inherit;transition:all .15s}
+.cfm-table-tab.active{background:rgba(79,142,247,.2);color:var(--accent)}
+.cfm-table-section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 0 4px;border-top:1px solid var(--border);margin-top:4px}
+.cfm-table-section:first-child{border-top:none;margin-top:0;padding-top:2px}
+.cfm-table-row{display:flex;gap:5px;margin-bottom:5px;align-items:center}
+.cfm-table-btn{flex:1;height:46px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;min-width:0}
+.cfm-table-btn:active{transform:scale(.86);background:rgba(79,142,247,.25);border-color:var(--accent)}
+.cfm-table-btn.empty{background:transparent;border-color:transparent;pointer-events:none}
+.btn-table{font-size:13px;background:rgba(167,139,250,.12);border:1.5px solid rgba(167,139,250,.4);color:var(--purple);border-radius:10px;padding:10px;cursor:pointer;width:100%;font-family:inherit;font-weight:700;transition:all .15s;margin-top:4px}
+.btn-table:active{opacity:.8}
 </style>
 </head>
 <body>
@@ -4029,121 +4042,20 @@ function cfmClearCanvas() {
   _cfmHasStrokes = false;
 }
 
-// ── LOCAL PIXEL RECOGNITION ────────────────────────────────────────────────
-// Normalize canvas: find bounding box of drawn strokes, crop & scale to targetSize
-function cfmNormalizeCanvas(srcCanvas, targetSize) {
-  const sw = srcCanvas.width, sh = srcCanvas.height;
-  const imgData = srcCanvas.getContext('2d').getImageData(0, 0, sw, sh).data;
-
-  let minX = sw, maxX = -1, minY = sh, maxY = -1;
-  for (let y = 0; y < sh; y++) {
-    for (let x = 0; x < sw; x++) {
-      if (imgData[(y * sw + x) * 4] < 160) { // dark pixel
-        if (x < minX) minX = x; if (x > maxX) maxX = x;
-        if (y < minY) minY = y; if (y > maxY) maxY = y;
-      }
-    }
-  }
-  const out = document.createElement('canvas');
-  out.width = out.height = targetSize;
-  const ctx = out.getContext('2d');
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, targetSize, targetSize);
-  if (maxX < 0) return out; // nothing drawn
-
-  const pad  = targetSize * 0.1;
-  const bbW  = maxX - minX + 1, bbH = maxY - minY + 1;
-  const scale = (targetSize - pad * 2) / Math.max(bbW, bbH);
-  const dw = bbW * scale, dh = bbH * scale;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(srcCanvas, minX, minY, bbW, bbH,
-                (targetSize - dw) / 2, (targetSize - dh) / 2, dw, dh);
-  return out;
-}
-
-// Compare drawn canvas against all katakana+hiragana rendered locally
-// Returns [{ ch, diff }] sorted best-first
-function cfmLocalRecognize(drawnCanvas) {
-  const SIZE = 40; // comparison resolution (pixels × pixels)
-  const RENDER = 80; // render reference at 2× then downsample for quality
-
-  // Normalize user drawing once
-  const normUser = cfmNormalizeCanvas(drawnCanvas, SIZE);
-  const userData = normUser.getContext('2d').getImageData(0, 0, SIZE, SIZE).data;
-
-  // Reference render canvases (reused)
-  const refBig  = document.createElement('canvas');
-  refBig.width  = refBig.height = RENDER;
-  const refBigCtx = refBig.getContext('2d');
-
-  const refSmall  = document.createElement('canvas');
-  refSmall.width  = refSmall.height = SIZE;
-  const refSmallCtx = refSmall.getContext('2d');
-  refSmallCtx.imageSmoothingEnabled = true;
-  refSmallCtx.imageSmoothingQuality = 'high';
-
-  // Fonts to try – first available wins
-  const fontFace = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",sans-serif';
-  const scored = [];
-
-  const ranges = [[0x30A0, 0x30FF], [0x3041, 0x3096]];
-  for (const [start, end] of ranges) {
-    for (let code = start; code <= end; code++) {
-      const ch = String.fromCodePoint(code);
-      if (!ch.trim() || ch === '゛' || ch === '゜' || ch === 'ヲ') continue;
-
-      // Render big
-      refBigCtx.fillStyle = '#fff';
-      refBigCtx.fillRect(0, 0, RENDER, RENDER);
-      refBigCtx.fillStyle = '#000';
-      refBigCtx.font = `bold ${RENDER * 0.82}px ${fontFace}`;
-      refBigCtx.textAlign = 'center';
-      refBigCtx.textBaseline = 'middle';
-      refBigCtx.fillText(ch, RENDER / 2, RENDER / 2);
-
-      // Normalize reference (same bounding-box crop as user drawing)
-      const normRef = cfmNormalizeCanvas(refBig, SIZE);
-
-      // Pixel distance (red channel is enough; canvas is greyscale white/black)
-      const refData = normRef.getContext('2d').getImageData(0, 0, SIZE, SIZE).data;
-      let diff = 0;
-      for (let i = 0; i < userData.length; i += 4) {
-        const d = userData[i] - refData[i];
-        diff += d * d;
-      }
-      scored.push({ ch, diff });
-    }
-  }
-
-  scored.sort((a, b) => a.diff - b.diff);
-  return scored; // caller slices as needed
-}
-
 async function cfmSubmitDrawing() {
   if (!_cfmHasStrokes) { toast('Nejdřív nakresli znak', ''); return; }
   const canvas = document.getElementById('cfmCanvas');
+  const dataUrl = canvas.toDataURL('image/png');
 
-  // Show phase 2 loading
   document.getElementById('charFixModal').classList.remove('draw-mode');
   document.getElementById('cfmPhase1').style.display = 'none';
   document.getElementById('cfmPhase2').style.display = '';
   document.getElementById('cfmDetected').textContent = '…';
-  document.getElementById('cfmQ').textContent = 'Porovnávám se vzory…';
+  document.getElementById('cfmQ').textContent = 'Rozpoznávám nakresený znak…';
   const p2row = document.getElementById('cfmPhase2').querySelector('.btn-row');
   if (p2row) p2row.style.display = 'none';
-
-  // Run local recognition (synchronous but yield UI paint first)
-  await new Promise(r => requestAnimationFrame(r));
-  const results = cfmLocalRecognize(canvas);
-
-  _cfmDetected = results[0]?.ch || _cfmChars[_cfmCharIndex] || '?';
-  // Pre-build alt pool from pixel similarity (top 60)
-  _cfmAltPool  = results.slice(1, 61).map(r => r.ch);
-  _cfmAltPage  = 0;
-
-  document.getElementById('cfmDetected').textContent = _cfmDetected;
-  document.getElementById('cfmQ').textContent = 'Je toto správný znak?';
-  if (p2row) p2row.style.display = '';
+  _cfmAltPool = []; _cfmAltPage = 0;
+  await processCharFixPhoto(dataUrl);
 }
 
 // ── CHAR FIX – oprava jednotlivého znaku v JP názvu ───────────────────────
@@ -4380,6 +4292,110 @@ function cfmReject() {
   cfmShowAltPage(0);
 }
 
+// ── KANA TABLE ───────────────────────────────────────────────────────────────
+const _KANA_TABLES = {
+  kata: [
+    { label: '基本', rows: [
+      ['ア','イ','ウ','エ','オ'],
+      ['カ','キ','ク','ケ','コ'],
+      ['サ','シ','ス','セ','ソ'],
+      ['タ','チ','ツ','テ','ト'],
+      ['ナ','ニ','ヌ','ネ','ノ'],
+      ['ハ','ヒ','フ','ヘ','ホ'],
+      ['マ','ミ','ム','メ','モ'],
+      ['ヤ', '' ,'ユ', '' ,'ヨ'],
+      ['ラ','リ','ル','レ','ロ'],
+      ['ワ', '' , '' , '' ,'ヲ'],
+      ['ン','ー', '' , '' , '' ],
+    ]},
+    { label: '濁音・半濁音', rows: [
+      ['ガ','ギ','グ','ゲ','ゴ'],
+      ['ザ','ジ','ズ','ゼ','ゾ'],
+      ['ダ','ヂ','ヅ','デ','ド'],
+      ['バ','ビ','ブ','ベ','ボ'],
+      ['パ','ピ','プ','ペ','ポ'],
+    ]},
+    { label: '小字・その他', rows: [
+      ['ァ','ィ','ゥ','ェ','ォ'],
+      ['ッ','ャ','ュ','ョ','ヴ'],
+      ['ヵ','ヶ', '' , '' , '' ],
+    ]},
+  ],
+  hira: [
+    { label: '基本', rows: [
+      ['あ','い','う','え','お'],
+      ['か','き','く','け','こ'],
+      ['さ','し','す','せ','そ'],
+      ['た','ち','つ','て','と'],
+      ['な','に','ぬ','ね','の'],
+      ['は','ひ','ふ','へ','ほ'],
+      ['ま','み','む','め','も'],
+      ['や', '' ,'ゆ', '' ,'よ'],
+      ['ら','り','る','れ','ろ'],
+      ['わ', '' , '' , '' ,'を'],
+      ['ん','ー', '' , '' , '' ],
+    ]},
+    { label: '濁音・半濁音', rows: [
+      ['が','ぎ','ぐ','げ','ご'],
+      ['ざ','じ','ず','ぜ','ぞ'],
+      ['だ','ぢ','づ','で','ど'],
+      ['ば','び','ぶ','べ','ぼ'],
+      ['ぱ','ぴ','ぷ','ぺ','ぽ'],
+    ]},
+    { label: '小字', rows: [
+      ['ぁ','ぃ','ぅ','ぇ','ぉ'],
+      ['っ','ゃ','ゅ','ょ', '' ],
+    ]},
+  ],
+};
+
+let _cfmTableMode = 'kata';
+
+function cfmOpenTable() {
+  ['cfmPhase1','cfmPhase2','cfmPhase3'].forEach(id =>
+    document.getElementById(id).style.display = 'none');
+  document.getElementById('charFixModal').classList.remove('draw-mode');
+  const p4 = document.getElementById('cfmPhase4');
+  p4.style.display = 'flex';
+  cfmRenderTable(_cfmTableMode);
+}
+
+function cfmCloseTable() {
+  document.getElementById('cfmPhase4').style.display = 'none';
+  document.getElementById('cfmPhase1').style.display = '';
+}
+
+function cfmRenderTable(mode) {
+  _cfmTableMode = mode;
+  document.getElementById('cfmTTabKata').classList.toggle('active', mode === 'kata');
+  document.getElementById('cfmTTabHira').classList.toggle('active', mode === 'hira');
+
+  const wrap = document.getElementById('cfmTableWrap');
+  wrap.innerHTML = '';
+  wrap.scrollTop = 0;
+
+  _KANA_TABLES[mode].forEach(section => {
+    const sec = document.createElement('div');
+    sec.className = 'cfm-table-section';
+    sec.textContent = section.label;
+    wrap.appendChild(sec);
+
+    section.rows.forEach(row => {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'cfm-table-row';
+      row.forEach(ch => {
+        const btn = document.createElement('button');
+        btn.className = 'cfm-table-btn' + (ch ? '' : ' empty');
+        btn.textContent = ch;
+        if (ch) btn.onclick = () => _cfmApplyChar(ch);
+        rowEl.appendChild(btn);
+      });
+      wrap.appendChild(rowEl);
+    });
+  });
+}
+
+
 function cfmBackToScan() {
   document.getElementById('cfmPhase3').style.display = 'none';
   document.getElementById('cfmPhase1').style.display = '';
@@ -4483,6 +4499,7 @@ function _cfmApplyChar(char) {
           <button class="btn" style="font-size:13px;background:rgba(250,204,21,.15);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:10px" onclick="startCharScan()">📷 Vyfotit znak</button>
         </div>
       </div>
+      <button class="btn-table" onclick="cfmOpenTable()">📋 Vybrat ze tabulky znaků</button>
     </div>
 
     <!-- Fáze 2: AI výsledek – ANO / NE -->
@@ -4493,7 +4510,8 @@ function _cfmApplyChar(char) {
         <button class="btn btn-danger" onclick="cfmReject()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✗ &nbsp;Ne</button>
         <button class="btn btn-green"  onclick="cfmAccept()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✓ &nbsp;Ano</button>
       </div>
-      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">„Ne" zobrazí vizuálně podobné alternativy</div>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">„Ne" zobrazí alternativy</div>
+      <button class="btn-table" onclick="cfmOpenTable()" style="margin-top:8px">📋 Vybrat ze tabulky znaků</button>
     </div>
 
     <!-- Fáze 3: Výběr z alternativ -->
@@ -4506,10 +4524,24 @@ function _cfmApplyChar(char) {
       <button class="btn" id="cfmNextPageBtn" onclick="cfmNextAltPage()" style="font-size:13px;background:rgba(79,142,247,.12);border:1.5px solid rgba(79,142,247,.35);color:var(--accent);border-radius:10px;margin-top:6px;display:none">
         ➡️ Další znaky
       </button>
-      <div class="btn-row" style="margin-top:10px">
+      <button class="btn-table" onclick="cfmOpenTable()" style="margin-top:6px">📋 Vybrat ze tabulky znaků</button>
+      <div class="btn-row" style="margin-top:8px">
         <button class="btn btn-secondary" style="font-size:13px" onclick="cfmBackToScan()">📷 Vyfotit znovu</button>
         <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
       </div>
+    </div>
+
+    <!-- Fáze 4: Celá tabulka kana -->
+    <div id="cfmPhase4" style="display:none;flex-direction:column;flex:1;min-height:0">
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-bottom:8px">
+        <button onclick="cfmCloseTable()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px">←</button>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">Tabulka znaků</div>
+      </div>
+      <div class="cfm-table-tabs">
+        <button class="cfm-table-tab active" id="cfmTTabKata" onclick="cfmRenderTable('kata')">カタカナ</button>
+        <button class="cfm-table-tab" id="cfmTTabHira" onclick="cfmRenderTable('hira')">ひらがな</button>
+      </div>
+      <div class="cfm-table-wrap" id="cfmTableWrap"></div>
     </div>
   </div>
 </div>
