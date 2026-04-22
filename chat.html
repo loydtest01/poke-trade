@@ -918,6 +918,27 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .album-loading { text-align: center; padding: 30px 20px; color: var(--text3); font-size: 13px; }
 
+/* ── READ RECEIPTS (ticky) ── */
+.msg-ticks { display:inline-flex; align-items:center; line-height:1; flex-shrink:0; vertical-align:middle; margin-left:3px; }
+.msg-ticks.delivered { color: rgba(255,255,255,0.3); }
+.msg-ticks.read      { color: #4ade80; }
+.msg-ticks svg       { display:block; }
+
+/* ── TYPING INDICATOR ── */
+.typing-indicator {
+  padding: 4px 20px 2px; min-height: 22px;
+  font-size: 12px; color: var(--text3); font-style: italic;
+  display: none; align-items: center; gap: 7px;
+}
+.typing-indicator.visible { display: flex; }
+.typing-dots { display:inline-flex; gap:3px; align-items:center; }
+.typing-dots span {
+  width:5px; height:5px; border-radius:50%; background:var(--text3);
+  animation: tdot 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay:.2s; }
+.typing-dots span:nth-child(3) { animation-delay:.4s; }
+@keyframes tdot { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
 </style>
 <style id="embeddedStyle"></style>
 </head>
@@ -1051,6 +1072,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <div class="emoji-categories" id="emojiCats"></div>
         <div class="emoji-grid" id="emojiGrid"></div>
       </div>
+      <!-- Typing indicator -->
+      <div class="typing-indicator" id="typingIndicator">
+        <div class="typing-dots"><span></span><span></span><span></span></div>
+        <span id="typingName"></span>
+      </div>
       <div class="chat-input-row">
         <button class="btn-attach-listing" onclick="openListingPicker()" title="Připojit nabídku / kartičku z alba" id="btnAttachListing">
           🃏
@@ -1074,7 +1100,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         </button>
         <input type="file" id="botImgFileInput" accept="image/*" style="display:none" onchange="botImgSelected(this)">
         <textarea class="chat-textarea" id="chatInput" placeholder="Napište zprávu..." rows="1"
-          oninput="autoGrow(this)" onkeydown="handleInputKey(event)"></textarea>
+          oninput="autoGrow(this);onChatInputTyping()" onkeydown="handleInputKey(event)"></textarea>
         <button class="btn-send" id="btnSend" onclick="sendMessage()" title="Odeslat">
           ➤
         </button>
@@ -1458,6 +1484,21 @@ async function openConversation(conv) {
     p_user_id: userId
   });
 
+  // Nastav read_at na zprávy od partnera (aby partner viděl ✓✓)
+  if (activePartner?.id) {
+    fetch(`${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${conv.id}&sender_id=eq.${activePartner.id}&read_at=is.null`, {
+      method: 'PATCH',
+      headers: {
+        'apikey': SB_ANON, 'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ read_at: new Date().toISOString() })
+    }).catch(() => {});
+  }
+
+  // Typing indicator – Supabase Realtime
+  initTypingRealtime(conv.id);
+
   // Update local unread
   if (isUser1) conv.unread_user1 = 0;
   else conv.unread_user2 = 0;
@@ -1510,6 +1551,32 @@ function renderMessages() {
     const isMe = m.sender_id === userId;
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
     const refs = m.listing_refs || [];
+
+    // ── Read receipt ticky (pouze u odeslaných zpráv) ──
+    let ticksHtml = '';
+    if (isMe && !m.id?.startsWith('temp-')) {
+      if (m.read_at) {
+        const readTime = new Date(m.read_at).toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});
+        ticksHtml = `<span class="msg-ticks read" title="Přečteno v ${readTime}">` +
+          `<svg width="16" height="11" viewBox="0 0 16 11" fill="none">` +
+          `<path d="M1 5.5L4.5 9L10 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `<path d="M5 5.5L8.5 9L14 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</svg></span>`;
+      } else if (m.is_read) {
+        // is_read fallback (starší zprávy bez read_at)
+        ticksHtml = `<span class="msg-ticks read" title="Přečteno">` +
+          `<svg width="16" height="11" viewBox="0 0 16 11" fill="none">` +
+          `<path d="M1 5.5L4.5 9L10 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `<path d="M5 5.5L8.5 9L14 3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</svg></span>`;
+      } else {
+        // Doručeno (uloženo na serveru)
+        ticksHtml = `<span class="msg-ticks delivered">` +
+          `<svg width="9" height="11" viewBox="0 0 9 11" fill="none">` +
+          `<path d="M1 5.5L4 8.5L8 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `</svg></span>`;
+      }
+    }
 
     // ── Album share invite zpráva ────────────────────────────────
     if (m.type === 'album_share_invite' && m.metadata) {
@@ -1581,7 +1648,7 @@ function renderMessages() {
         <div class="msg-bubble"${isMe ? ` oncontextmenu="openMsgCtx(event,'${m.id}')" style="cursor:context-menu"` : ''}>
           ${m.text ? `<span class="msg-text-content" id="mtxt-${m.id}">${renderMsgText(m.text)}</span>` : ''}
           ${listingsHtml}
-          <div class="msg-time">${esc(time)}${isMe && m.is_read ? ' ✓✓' : ''}${m._edited ? ' <span style="font-size:10px;opacity:.5">(upraveno)</span>' : ''}</div>
+          <div class="msg-time">${esc(time)}${ticksHtml}${m._edited ? ' <span style="font-size:10px;opacity:.5">(upraveno)</span>' : ''}</div>
         </div>
       </div>`;
   });
@@ -2484,6 +2551,7 @@ async function startConvWithUser(partnerId, partnerUsername) {
 
 // ═══ MOBILE BACK ═══
 function goBackToList() {
+  closeTypingRealtime();
   document.getElementById('chatWrap').classList.remove('conv-open');
   activeConvId = null;
 }
@@ -3863,6 +3931,113 @@ function renderFakeResult(result) {
 </script>
 
 <script>
+// ═══════════════════════════════════════════════════════════════
+// TYPING INDICATOR – Supabase Realtime broadcast
+// ═══════════════════════════════════════════════════════════════
+let _typingWs           = null;
+let _typingWsRef        = 0;
+let _typingDebounce     = null;
+let _typingClearTimer   = null;
+let _typingChannelTopic = '';
+
+function initTypingRealtime(convId) {
+  closeTypingRealtime();
+  _typingChannelTopic = `realtime:typing-${convId}`;
+
+  const wsUrl = SB_URL.replace('https://', 'wss://')
+    + `/realtime/v1/websocket?vsn=1.0.0&apikey=${SB_ANON}`;
+
+  try {
+    const ws = new WebSocket(wsUrl);
+    _typingWs = ws;
+
+    ws.onopen = () => {
+      ws._hb = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++_typingWsRef) }));
+        }
+      }, 25000);
+
+      ws.send(JSON.stringify({
+        topic: _typingChannelTopic,
+        event: 'phx_join',
+        payload: {
+          config: { broadcast: { self: false }, presence: { key: '' } },
+          access_token: token
+        },
+        ref: String(++_typingWsRef),
+        join_ref: String(_typingWsRef)
+      }));
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.topic === _typingChannelTopic
+          && msg.event === 'broadcast'
+          && msg.payload?.event === 'typing') {
+          const p = msg.payload.payload || {};
+          if (p.uid && p.uid !== userId) {
+            _showPartnerTyping(p.name || activePartner?.username || 'Uživatel');
+          }
+        }
+      } catch {}
+    };
+
+    ws.onerror = () => {};
+    ws.onclose = () => { if (ws._hb) clearInterval(ws._hb); };
+  } catch(e) { console.warn('[typing WS]', e.message); }
+}
+
+function closeTypingRealtime() {
+  if (_typingWs) {
+    try { _typingWs.close(); } catch {}
+    _typingWs = null;
+  }
+  clearTimeout(_typingDebounce);
+  clearTimeout(_typingClearTimer);
+  _hidePartnerTyping();
+}
+
+function onChatInputTyping() {
+  if (isBotMode) return;
+  clearTimeout(_typingDebounce);
+  _typingDebounce = setTimeout(_sendTypingBroadcast, 600);
+}
+
+function _sendTypingBroadcast() {
+  if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) return;
+  _typingWs.send(JSON.stringify({
+    topic: _typingChannelTopic,
+    event: 'broadcast',
+    payload: {
+      type: 'broadcast',
+      event: 'typing',
+      payload: { uid: userId, name: username }
+    },
+    ref: String(++_typingWsRef)
+  }));
+}
+
+function _showPartnerTyping(name) {
+  clearTimeout(_typingClearTimer);
+  _typingClearTimer = setTimeout(_hidePartnerTyping, 5000);
+
+  const el = document.getElementById('typingIndicator');
+  const nm = document.getElementById('typingName');
+  if (!el) return;
+  if (nm) nm.textContent = `${name} píše`;
+  el.classList.add('visible');
+
+  const msgs = document.getElementById('chatMessages');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _hidePartnerTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.classList.remove('visible');
+}
+
 // ── Emoji Picker ─────────────────────────────────────────────
 const EMOJI_DATA = {
   '😊': ['😀','😃','😄','😁','😆','😅','😂','🤣','😊','😇','🙂','🙃','😉','😌','😍','🥰','😘','😗','😙','😚','😋','😛','😝','😜','🤪','🤨','🧐','🤓','😎','🥸','🤩','🥳','😏','😒','😞','😔','😟','😕','🙁','☹️','😣','😖','😫','😩','🥺','😢','😭','😤','😠','😡','🤬','🤯','😳','🥵','🥶','😱','😨','😰','😥','😓'],
