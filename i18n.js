@@ -26,7 +26,7 @@ var _queue   = [];
 /* ── Načtení JSON souboru ── */
 function loadLocale(lang, cb) {
   // cache: 'no-store' → vždy načte aktuální verzi souboru
-  fetch('locales/' + lang + '.json', { cache: 'no-store' })
+  fetch('locate/' + lang + '.json', { cache: 'no-store' })
     .then(function(r) {
       if (!r.ok) throw new Error('Locale ' + lang + ' not found');
       return r.json();
