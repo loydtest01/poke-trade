@@ -10101,6 +10101,16 @@ async function confirmAddFromListing() {
   </div>
 </div>
 
+<script>
+/* Záplata: _closeLangDrop chybí v topbar.js */
+function _closeLangDrop() {
+  var d = document.getElementById('langDropMenu') || document.getElementById('langDrop') || document.getElementById('langDropdown');
+  if (d) { d.style.display = 'none'; d.classList.remove('open'); }
+  var b = document.getElementById('langDropBtn') || document.getElementById('langToggleBtn');
+  if (b) b.setAttribute('aria-expanded','false');
+  document.removeEventListener('click', _closeLangDrop);
+}
+</script>
 <script src="site-tracking.js"></script>
 </body>
 </html>
