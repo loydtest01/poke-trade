@@ -1,4 +1,4 @@
-// PokéTrade PhotoBridge – Service Worker v1.2
+// PokéTrade PhotoBridge – Service Worker v1.3
 // Nutný pro notifikace na Android Chrome PWA
 
 self.addEventListener('install',  () => self.skipWaiting());
@@ -23,7 +23,18 @@ self.addEventListener('push', e => {
     data: { url: data.url || self.registration.scope }
   };
 
-  e.waitUntil(self.registration.showNotification(title, opts));
+  e.waitUntil(
+    // Zkontroluj jestli je appka otevřená a viditelná (uživatel ji právě používá)
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      const appVisible = list.some(c =>
+        c.url.startsWith(self.registration.scope) && c.visibilityState === 'visible'
+      );
+      // Pokud je appka otevřená a viditelná → notifikaci nezobrazuj
+      // Uživatel zprávu vidí přímo v chatu
+      if (appVisible) return;
+      return self.registration.showNotification(title, opts);
+    })
+  );
 });
 
 // ── Klik na notifikaci → otevři / zaměř appku ───────────────

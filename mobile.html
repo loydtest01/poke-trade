@@ -2984,7 +2984,7 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   }
   updateMsgsUnreadBadge();
 
-  // Poll while thread open – 2s fallback (Realtime zajistí okamžité ticky, ale pro jistotu)
+  // Poll while thread open
   if (_msgsPollTimer) clearInterval(_msgsPollTimer);
   _msgsPollTimer = setInterval(async () => {
     await loadMsgsThread(true);
@@ -3247,6 +3247,7 @@ async function markConvRead(convId) {
     // 2. Nastav read_at na zprávy od partnera (které já právě čtu)
     //    → partner uvidí ✓✓ u svých odeslaných zpráv
     if (_msgsPartner?.id) {
+      // Nastav read_at a po úspěchu broadcastuj "messages_read" → partner okamžitě vidí ✓✓
       fetch(
         `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${convId}&sender_id=eq.${_msgsPartner.id}&read_at=is.null`,
         {
@@ -3254,7 +3255,9 @@ async function markConvRead(convId) {
           headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
           body: JSON.stringify({ read_at: new Date().toISOString() })
         }
-      ).catch(()=>{});
+      ).then(r => {
+        if (r.ok) _broadcastMessagesRead(convId);
+      }).catch(()=>{});
     }
     // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
@@ -3449,10 +3452,25 @@ async function startConvWithUser(partnerId, partnerName) {
 // ══════════════════════════════════════════════
 let _typingWs           = null;
 let _typingWsRef        = 0;
-let _typingDebounce     = null;  // (zachováno pro closeTypingRealtime)
+let _typingDebounce     = null;  // zachováno pro closeTypingRealtime
 let _typingClearTimer   = null;  // timer pro skrytí indikátoru
 let _typingChannelTopic = '';
 let _typingLastSent     = 0;     // throttle – čas posledního odeslání
+
+// Broadcastuje partnerovi že jsme přečetli zprávy → okamžitá ✓✓
+function _broadcastMessagesRead(convId) {
+  if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) return;
+  _typingWs.send(JSON.stringify({
+    topic: _typingChannelTopic,
+    event: 'broadcast',
+    payload: {
+      type: 'broadcast',
+      event: 'messages_read',
+      payload: { conv_id: convId, uid: _msgsUserId }
+    },
+    ref: String(++_typingWsRef)
+  }));
+}
 
 function initTypingRealtime(convId) {
   closeTypingRealtime();
@@ -3473,18 +3491,12 @@ function initTypingRealtime(convId) {
         }
       }, 25000);
 
-      // Připojení ke kanálu pro broadcast + postgres_changes (read receipts)
+      // Připojení ke kanálu pro broadcast
       ws.send(JSON.stringify({
         topic: _typingChannelTopic,
         event: 'phx_join',
         payload: {
-          config: {
-            broadcast: { self: false },
-            presence: { key: '' },
-            postgres_changes: [
-              { event: 'UPDATE', schema: 'public', table: 'chat_messages', filter: `conversation_id=eq.${convId}` }
-            ]
-          },
+          config: { broadcast: { self: false }, presence: { key: '' } },
           access_token: mobileToken
         },
         ref: String(++_typingWsRef),
@@ -3496,7 +3508,7 @@ function initTypingRealtime(convId) {
       try {
         const msg = JSON.parse(e.data);
 
-        // Typing broadcast od partnera
+        // Typing od partnera
         if (msg.topic === _typingChannelTopic
           && msg.event === 'broadcast'
           && msg.payload?.event === 'typing') {
@@ -3506,16 +3518,21 @@ function initTypingRealtime(convId) {
           }
         }
 
-        // Postgres_changes – okamžitá aktualizace read_at (2. fajfka)
-        if (msg.event === 'postgres_changes') {
-          const data = msg.payload?.data;
-          if (data?.type === 'UPDATE' && data?.record) {
-            const rec = data.record;
-            const idx = _msgsMessages.findIndex(m => m.id === rec.id);
-            if (idx >= 0 && rec.read_at && !_msgsMessages[idx].read_at) {
-              _msgsMessages[idx].read_at = rec.read_at;
-              renderMsgsThread(true); // překresli ticky bez scrollu
-            }
+        // Partner přečetl → okamžitá ✓✓ bez čekání na poll
+        if (msg.topic === _typingChannelTopic
+          && msg.event === 'broadcast'
+          && msg.payload?.event === 'messages_read') {
+          const p = msg.payload.payload || {};
+          if (p.uid && p.uid !== _msgsUserId && p.conv_id === _msgsActiveId) {
+            const now = new Date().toISOString();
+            let changed = false;
+            _msgsMessages.forEach(m => {
+              if (m.sender_id === _msgsUserId && !m.read_at) {
+                m.read_at = now;
+                changed = true;
+              }
+            });
+            if (changed) renderMsgsThread(true);
           }
         }
       } catch {}
@@ -3536,8 +3553,8 @@ function closeTypingRealtime() {
   _hidePartnerTyping();
 }
 
-// Voláno z oninput textarey – okšamžitý send + throttle 2s
-// (debounce by odeslal až po zastavení psaní; throttle pošle hned na prvním stisku)
+// Voláno z oninput textarey – okamžitý send + throttle 2s
+// debounce by poslal až po zastavení psaní → indikátor by se ukázal pozdě
 function onChatInputTyping() {
   const now = Date.now();
   if (now - _typingLastSent >= 2000) {
