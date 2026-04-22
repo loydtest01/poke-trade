@@ -361,17 +361,43 @@ function injectStyles() {
     .mob-nav-links img.nav-icon { width: 18px; height: 18px; opacity: .75; }
     .mob-nav-links a.active img.nav-icon { opacity: 1; }
 
+    /* ── Tablet landscape 1024px ── */
+    @media (max-width: 1024px) {
+      .nav-lnks a { padding: 5px 9px !important; font-size: 12px !important; }
+      .app-logo { font-size: 13px !important; margin-right: 12px !important; }
+      .app-topbar { padding: 0 14px !important; gap: 4px !important; }
+      .settings-drop { width: 360px !important; right: 0 !important; }
+      .notif-drop { width: 300px !important; right: 0 !important; }
+    }
+    /* ── Tablet portrait 900px ── */
+    @media (max-width: 900px) {
+      .nav-lnks a { padding: 5px 8px !important; font-size: 11.5px !important; }
+      .app-logo { font-size: 12px !important; margin-right: 8px !important; }
+    }
+    /* ── Telefon 768px — zobrazit hamburger ── */
     @media (max-width: 768px) {
       .mob-menu-btn { display: flex !important; align-items: center; justify-content: center; }
       .nav-lnks { display: none !important; }
-      /* Zmenšení loga na mobilu */
-      .app-logo { font-size: 12px !important; margin-right: 0 !important; }
-      /* Topbar padding */
-      .app-topbar { padding: 0 12px !important; gap: 6px !important; }
-      /* Notif dropdown na celou šířku */
-      .notif-drop { width: calc(100vw - 24px) !important; right: -12px !important; }
-      /* Settings dropdown na celou šířku */
-      .settings-drop { width: calc(100vw - 24px) !important; right: -12px !important; }
+      .app-logo { font-size: 12px !important; margin-right: 4px !important; }
+      .app-topbar { padding: 0 12px !important; gap: 6px !important; height: 52px !important; }
+      .chat-icon-btn, .notif-bell-btn { padding: 8px !important; min-width: 36px !important; min-height: 36px !important; }
+      .notif-drop { width: calc(100vw - 20px) !important; right: -8px !important; }
+      .settings-drop { width: calc(100vw - 20px) !important; right: -8px !important; max-height: 80vh !important; }
+    }
+    /* ── Malý telefon 480px ── */
+    @media (max-width: 480px) {
+      .app-topbar { padding: 0 10px !important; gap: 4px !important; }
+      .app-logo { font-size: 11px !important; }
+      .user-chip { padding: 4px 6px !important; }
+      #logoutBtn { font-size: 0 !important; padding: 6px 8px !important; min-width: 36px !important; min-height: 36px !important; }
+    }
+    /* ── Fold složený 320px ── */
+    @media (max-width: 320px) {
+      .app-topbar { padding: 0 8px !important; gap: 3px !important; height: 48px !important; }
+      .app-logo { font-size: 10px !important; gap: 3px !important; }
+      .chat-icon-btn, .notif-bell-btn { padding: 5px !important; min-width: 30px !important; min-height: 30px !important; }
+      .notif-drop, .settings-drop { width: 100vw !important; right: 0 !important; left: 0 !important; position: fixed !important; top: 48px !important; border-radius: 0 0 14px 14px !important; }
+      .mob-menu-btn { padding: 5px 7px !important; }
     }
   `;
   document.head.appendChild(s);
@@ -441,6 +467,9 @@ function closeMobNav() {
   var o = document.getElementById('mobNavOverlay');
   if (o) { o.classList.remove('open'); document.body.style.overflow = ''; }
 }
+// Vystavit globálně — inline onclick je volá jako window.*
+window.openMobNav  = openMobNav;
+window.closeMobNav = closeMobNav;
 
 /* ══════════════════════════════════════════════════════════════
    4. NASTAVENÍ PANEL
