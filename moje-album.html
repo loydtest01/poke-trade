@@ -1021,6 +1021,15 @@ body { background: #06040c; overflow-x: hidden; }
 .cd-tcg-card .no-img { width: 62px; height: 86px; display: flex; align-items: center;
   justify-content: center; font-size: 9px; color: rgba(240,232,208,.25); border-radius: 4px;
   background: rgba(255,255,255,0.03); }
+/* Zoom overlay na obrázku karty */
+.cd-tcg-img-wrap { position: relative; width: 62px; height: 86px; flex-shrink: 0; }
+.cd-tcg-img-wrap img { width: 62px; height: 86px; object-fit: cover; border-radius: 4px; display: block; }
+.cd-tcg-zoom-btn {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0); border-radius: 4px; opacity: 0;
+  transition: opacity .15s, background .15s; cursor: zoom-in; font-size: 18px;
+}
+.cd-tcg-img-wrap:hover .cd-tcg-zoom-btn { opacity: 1; background: rgba(0,0,0,0.45); }
 .cd-tcg-card .tc-set   { font-size: 8px; color: rgba(240,232,208,.35); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62px; }
 .cd-tcg-card .tc-num   { font-size: 8px; color: rgba(240,232,208,.3); }
 .cd-tcg-card .tc-price { font-size: 9px; color: #4ade80; font-weight: 700; }
@@ -3674,11 +3683,18 @@ function _cdTcgRenderGrid(cards, statusEl, gridEl) {
 
   gridEl.innerHTML = cards.map((card, idx) => {
     const img   = card.images?.small || '';
+    const imgLg = card.images?.large || img;
     const price = card.cardmarket?.prices?.trendPrice;
     const prStr = price ? fmtCardPrice(price) : '';
+    const imgHtml = img
+      ? `<div class="cd-tcg-img-wrap" onclick="event.stopPropagation();_cdTcgZoom('${imgLg.replace(/'/g,"\\'")}','${(card.name||'').replace(/'/g,"\\'")}')">
+           <img src="${img}" loading="lazy" alt="${card.name}">
+           <div class="cd-tcg-zoom-btn">🔍</div>
+         </div>`
+      : `<div class="no-img">?</div>`;
     return `<div class="cd-tcg-card" id="cdTcgCard-${idx}" onclick="_cdTcgPickCard(${idx})"
                title="${card.name} · ${card.set?.name} #${card.number}">
-      ${img ? `<img src="${img}" loading="lazy" alt="${card.name}">` : `<div class="no-img">?</div>`}
+      ${imgHtml}
       <div class="tc-set">${card.set?.name||'—'}</div>
       <div class="tc-num">#${card.number||'?'}</div>
       ${prStr ? `<div class="tc-price">${prStr}</div>` : ''}
@@ -3694,6 +3710,16 @@ function _cdTcgPickCard(idx) {
   const bar = document.getElementById('cdTcgConfirmBar');
   if (bar) bar.style.display = '';
   bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function _cdTcgZoom(url, name) {
+  if (!url) return;
+  const lb  = document.getElementById('cdPhotoLightbox');
+  const img = document.getElementById('cdLightboxImg');
+  if (!lb || !img) return;
+  img.src = url;
+  img.alt = name || '';
+  lb.classList.add('open');
 }
 
 async function cdTcgConfirm() {

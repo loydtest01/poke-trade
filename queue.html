@@ -1467,7 +1467,8 @@ async function _uploadCroppedPhoto(croppedDataUrl, originalPath) {
     }
   );
   if (!res.ok) return null;
-  const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${originalPath}`;
+  // Cache-bust: CDN/prohlížeč cachuje URL → přidáme timestamp aby se zobrazila oříznutá verze
+  const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${originalPath}?t=${Date.now()}`;
   return { path: originalPath, url };
 }
 
@@ -1488,6 +1489,7 @@ async function doAssign(groups, albumId) {
       const cardNumber = ai.number  || rc?.number || '';
       const normNum = n => String(n||'').replace(/^0+/,'').split('/')[0].trim();
       let existingId = null;
+      let dupCardData = null;  // card_data existující karty při duplikátu
       if (cardName) {
         const candidates = await sbReq(
           `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
@@ -1500,8 +1502,9 @@ async function doAssign(groups, albumId) {
         });
         if (dup) {
           existingId = dup.local_id;
+          dupCardData = dup.card_data || {};  // ← uložíme pro photoUrl PATCH níže
           // Navýšit count existující karty
-          const od = dup.card_data || {};
+          const od = dupCardData;
           const newCount = (od.count || od.qty || 1) + qty;
           await sbReq(
             `rest/v1/user_cards?local_id=eq.${existingId}&user_id=eq.${userId}`,
@@ -1568,8 +1571,9 @@ async function doAssign(groups, albumId) {
                 finalUrl  = uploaded.url;
                 // ── Aktualizuj photoUrl v user_cards na oříznutou URL ──
                 if ((p.side || 'front') === 'front' && newId) {
-                  const cardRow = Array.isArray(res) ? res[0] : res;
-                  const cd = cardRow?.card_data || {};
+                  // Pro existující kartu použij dupCardData, pro novou res[0]
+                  const cardRow = existingId ? null : (Array.isArray(res) ? res[0] : res);
+                  const cd = dupCardData || cardRow?.card_data || {};
                   sbReq(
                     `rest/v1/user_cards?local_id=eq.${newId}&user_id=eq.${userId}`,
                     'PATCH',
