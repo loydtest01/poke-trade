@@ -30,9 +30,11 @@ export default async function handler(req, res) {
       tcgUrl = `https://api.pokemontcg.io/v2/${ep}${params ? '?' + params : ''}`;
     }
 
-    const upstream = await fetch(tcgUrl, {
-      headers: { 'User-Agent': 'PokeTrade-Proxy/1.0' },
-    });
+    const tcgHeaders = { 'User-Agent': 'PokeTrade-Proxy/1.0' };
+    if (process.env.POKEMONTCG_API_KEY) {
+      tcgHeaders['X-Api-Key'] = process.env.POKEMONTCG_API_KEY;
+    }
+    const upstream = await fetch(tcgUrl, { headers: tcgHeaders });
 
     const data = await upstream.json();
 

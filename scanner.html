@@ -803,7 +803,21 @@ body::after {
 
 <!-- ═══════════════════ MAIN APP ═══════════════════ -->
 <div id="screen-main">
-  <script>window.TOPBAR_ACTIVE = 'scanner';</script>
+  <script>
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
+window.TOPBAR_ACTIVE = 'scanner';</script>
   <script src="i18n.js"></script>
   <script src="topbar.js"></script>
   <header class="app-topbar">
@@ -2600,13 +2614,13 @@ async function queueTcgSearch(photoId) {
     if (set)  parts.push(`set.name:"${set.replace(/"/g,'')}"`)
     if (num)  parts.push(`number:${num.replace(/\D/g,'')}`)
     const q = parts.join(' ');
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
+    const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
     let cards = res.ok ? ((await res.json()).data || []) : [];
 
     // Fuzzy fallback
     if (!cards.length && name) {
       const q2 = `name:${name.split(' ')[0]}*` + (set ? ` set.name:"${set}"` : '');
-      const r2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20&orderBy=-set.releaseDate`);
+      const r2  = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20&orderBy=-set.releaseDate`);
       cards = r2.ok ? ((await r2.json()).data || []) : [];
     }
 

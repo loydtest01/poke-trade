@@ -348,7 +348,21 @@ body {
 }
 
 </style>
-<script>window.TOPBAR_ACTIVE = 'index';</script>
+<script>
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
+window.TOPBAR_ACTIVE = 'index';</script>
 <script src="i18n.js"></script>
   <script src="topbar.js"></script>
 </head>
@@ -754,7 +768,7 @@ function doLogout() {
       var page = Math.floor(Math.random() * 8) + 1;
       var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
               + '&pageSize=60&page=' + page + '&orderBy=-set.releaseDate';
-      var r = await fetch(url);
+      var r = await tcgFetch(url);
       var d = await r.json();
       var pool = (d.data || []).filter(function(c){ return c.images && c.images.large; });
       // Zamíchej Fisher-Yates

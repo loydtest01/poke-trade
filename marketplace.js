@@ -1,3 +1,17 @@
+
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
 // SUPABASE_URL a SUPABASE_ANON jsou načteny z app.js
 
 async function sbReq(path, method='GET', body=null, token=null) {
@@ -170,7 +184,7 @@ async function importFromUrl() {
     if (url.includes('pokemontcg.io')) {
       const idMatch = url.match(/cards\/([a-zA-Z0-9]+-[a-zA-Z0-9]+)/);
       if (idMatch) {
-        const res  = await fetch('https://api.pokemontcg.io/v2/cards/' + idMatch[1]);
+        const res  = await tcgFetch('https://api.pokemontcg.io/v2/cards/' + idMatch[1]);
         const json = await res.json();
         if (json.data) {
           name    = json.data.name || '';
@@ -1194,7 +1208,7 @@ async function searchPokemonTcg(aiResult){
 
   for(const q of queries){
     try {
-      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=8&orderBy=-set.releaseDate`);
+      const res  = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=8&orderBy=-set.releaseDate`);
       const json = await res.json();
       if(json.data?.length){
         json.data.forEach(c=>{ if(!candidates.find(x=>x.id===c.id)) candidates.push(c); });
@@ -1374,12 +1388,12 @@ async function fetchCardForListing(){
     // Search pokemontcg.io with parsed name
     try {
       const q = `name:"${name}"` + (setName ? ` set.name:"${setName}"` : '');
-      const res  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`);
+      const res  = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5`);
       const json = await res.json();
       const card = json?.data?.[0];
       if(card){ applyCardToListing(card); return; }
       // Fallback without set
-      const res2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:"'+name+'"')}&pageSize=1`);
+      const res2  = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:"'+name+'"')}&pageSize=1`);
       const json2 = await res2.json();
       const card2 = json2?.data?.[0];
       if(card2){ applyCardToListing(card2); return; }
@@ -1619,12 +1633,12 @@ async function searchProdSet() {
   wrap.style.display = '';
   wrap.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">⏳ Hledám série...</div>';
   try {
-    const res  = await fetch('https://api.pokemontcg.io/v2/sets?q=name:"'+encodeURIComponent(q)+'"&pageSize=10&orderBy=-releaseDate');
+    const res  = await tcgFetch('https://api.pokemontcg.io/v2/sets?q=name:"'+encodeURIComponent(q)+'"&pageSize=10&orderBy=-releaseDate');
     const json = await res.json();
     const sets = json.data || [];
     if(!sets.length) {
       // Fallback: search without quotes
-      const res2  = await fetch('https://api.pokemontcg.io/v2/sets?q=name:'+encodeURIComponent(q)+'&pageSize=8&orderBy=-releaseDate');
+      const res2  = await tcgFetch('https://api.pokemontcg.io/v2/sets?q=name:'+encodeURIComponent(q)+'&pageSize=8&orderBy=-releaseDate');
       const json2 = await res2.json();
       sets.push(...(json2.data||[]));
     }
@@ -1937,7 +1951,7 @@ function renderPendingList() {
     if (number && setName) q2 = `name:"${name}" number:"${number}" set.name:"${setName}"`;
     else if (number)       q2 = `name:"${name}" number:"${number}"`;
     else if (setName)      q2 = `name:"${name}" set.name:"${setName}"`;
-    fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=1`)
+    tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=1`)
       .then(r => r.json())
       .then(j => {
         const c = j?.data?.[0];
@@ -2082,7 +2096,7 @@ async function _autoFetchFullCardData(pendingCard) {
     // 1. Try exact TCG API id first (e.g. "sv3pt5-197")
     if (tcgApiId && !tcgApiId.includes('-') === false && !/^[0-9a-f]{8}-/.test(tcgApiId)) {
       try {
-        const r = await fetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(tcgApiId)}`);
+        const r = await tcgFetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(tcgApiId)}`);
         const j = await r.json();
         if (j?.data?.name) card = j.data;
       } catch {}
@@ -2098,7 +2112,7 @@ async function _autoFetchFullCardData(pendingCard) {
 
       for (const q of queries) {
         try {
-          const r = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1&orderBy=-set.releaseDate`);
+          const r = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1&orderBy=-set.releaseDate`);
           const j = await r.json();
           if (j?.data?.[0]?.name) { card = j.data[0]; break; }
         } catch {}
@@ -2403,7 +2417,7 @@ async function searchCards(){
     // Fallback: pokud nic, zkus bez uvozovek
     if(!json.data?.length && name){
       const q2 = name + (set ? ` set.name:${set}` : '');
-      res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
+      res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
       json = await res.json();
     }
 
@@ -3294,7 +3308,7 @@ async function handleDemandAiPhoto(file) {
       const aiResult = await callClaudeVision(base64, mime);
       if (aiResult?.name) {
         const q   = `name:"${aiResult.name}"${aiResult.setName ? ` set.name:"${aiResult.setName}"` : ''}`;
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+        const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
         const json = await res.json();
         const card = json?.data?.[0];
         if (card) {
@@ -3954,13 +3968,13 @@ async function addTradeCardUrl(mode) {
       const parts = url.split('/');
       const rawName = parts[parts.length - 1]?.replace(/-/g, ' ') || '';
       const q = `name:"${rawName}"`;
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+      const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
       const json = await res.json();
       card = json?.data?.[0] || null;
     } else {
       // Treat as name search
       const q = `name:"${url}"`;
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+      const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
       const json = await res.json();
       card = json?.data?.[0] || null;
     }

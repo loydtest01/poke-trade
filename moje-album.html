@@ -2098,6 +2098,20 @@ body { background: #06040c; overflow-x: hidden; }
 
 <script src="app.js"></script>
 <script>
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY + '?id=' + encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/, '')); p.set('path', segment);
+  return fetch(_TCG_PROXY + '?' + p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
+
 // ══════════════════════════════════════════════════════════════════
 //  STAV
 // ══════════════════════════════════════════════════════════════════
@@ -2325,7 +2339,7 @@ async function fetchMissingImages() {
         if (set)  q += ` set.name:"${c.set}"`;
         const rawNum = (c.number || c.num || "").toString().split("/")[0]; if (rawNum) q += ` number:${rawNum}`;
         const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
-        const res  = await fetch(url);
+        const res  = await tcgFetch(url);
         if (!res.ok) return;
         const data = await res.json();
         const card = data.data?.[0];
@@ -3568,13 +3582,13 @@ async function cdTcgSearch() {
     if (set)  parts.push(`set.name:"${set.replace(/"/g,'')}"`)
     if (num)  parts.push(`number:${num.replace(/\D/g,'')}`)
     const q = parts.join(' ');
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=30&orderBy=-set.releaseDate`);
+    const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=30&orderBy=-set.releaseDate`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     let cards = (await res.json()).data || [];
     // Fallback: bez přesného názvu pokud nic nenajde
     if (!cards.length && name) {
       const q2 = `name:${name.replace(/"/g,'').split(' ')[0]}*` + (set ? ` set.name:"${set.replace(/"/g,'')}"` : '');
-      const r2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20&orderBy=-set.releaseDate`);
+      const r2 = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20&orderBy=-set.releaseDate`);
       cards = r2.ok ? (await r2.json()).data || [] : [];
     }
     _cdTcgRenderGrid(cards, status, grid);
@@ -3598,7 +3612,7 @@ async function cdTcgLoadUrl() {
     const idMatch = raw.match(/\b([a-z]{2,6}\d*[a-z]?-\d+[a-z]?)\b/i)
                  || raw.match(/cards\/([a-z0-9]+-[a-z0-9]+)/i);
     if (idMatch) {
-      const res = await fetch(`https://api.pokemontcg.io/v2/cards/${idMatch[1]}`);
+      const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards/${idMatch[1]}`);
       if (!res.ok) throw new Error('Karta nenalezena');
       const card = (await res.json()).data;
       _cdTcgRenderGrid([card], status, grid);
@@ -3620,14 +3634,14 @@ async function cdTcgLoadUrl() {
     if (!searchName.trim()) { status.textContent = '❌ Nepodařilo se rozpoznat název z URL'; return; }
 
     const q   = `name:"${searchName.replace(/"/g,'')}"`;
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
+    const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     let cards = (await res.json()).data || [];
 
     // Fuzzy fallback
     if (!cards.length) {
       const fw  = searchName.split(' ')[0];
-      const r2  = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + fw + '*')}&pageSize=20&orderBy=-set.releaseDate`);
+      const r2  = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + fw + '*')}&pageSize=20&orderBy=-set.releaseDate`);
       cards = r2.ok ? (await r2.json()).data || [] : [];
     }
 
@@ -4213,7 +4227,7 @@ async function repairAllCards() {
         let card = null;
         for (const url of cands) {
           try {
-            const res = await fetch(url);
+            const res = await tcgFetch(url);
             if (!res.ok) continue;
             const json = await res.json();
             const hits = json?.data || (json?.id ? [json] : []);
@@ -4369,7 +4383,7 @@ async function fetchLivePrices(c, el) {
     let card = null;
     for (const url of candidates) {
       try {
-        const res  = await fetch(url);
+        const res  = await tcgFetch(url);
         if (!res.ok) continue;
         const json = await res.json();
         const hit  = json?.data ? json.data[0] : (json?.id ? json : null);
@@ -7174,7 +7188,7 @@ function cbOnSetChange() { cbSearch(1); }
 
 async function cbLoadSets() {
   try {
-    const r = await fetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate&pageSize=250');
+    const r = await tcgFetch('https://api.pokemontcg.io/v2/sets?orderBy=-releaseDate&pageSize=250');
     const d = await r.json();
     _cbSets = d.data || [];
 
@@ -7320,7 +7334,7 @@ async function cbSearch(page = 1) {
     const orderBy = seriesOnly ? 'number' : '-set.releaseDate';
     const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q.join(' '))}`
       + `&page=${page}&pageSize=${PAGE_SIZE}&orderBy=${orderBy}`;
-    const r = await fetch(url);
+    const r = await tcgFetch(url);
     const d = await r.json();
     const cards = d.data || [];
     const total = d.totalCount || 0;
@@ -7464,7 +7478,7 @@ async function cbSearch2(page) {
     var PAGE_SIZE = (_cb2Set && !_cb2Query && !_cb2Type && !_cb2Super) ? 250 : 24;
     var url = 'https://api.pokemontcg.io/v2/cards?q='+encodeURIComponent(q.join(' '))
       +'&page='+page+'&pageSize='+PAGE_SIZE+'&orderBy=-set.releaseDate';
-    var r = await fetch(url);
+    var r = await tcgFetch(url);
     var d = await r.json();
     var cards = d.data || [];
     var total = d.totalCount || 0;

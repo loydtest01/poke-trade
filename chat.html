@@ -9,7 +9,21 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
-  <script>window.TOPBAR_ACTIVE = 'chat';</script>
+  <script>
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
+window.TOPBAR_ACTIVE = 'chat';</script>
   <script src="i18n.js"></script>
   <script src="topbar.js"></script>
 <style>
@@ -2835,13 +2849,13 @@ async function fetchPriceContext(query) {
   try {
     // Zkus přímé hledání jménem
     const q = `name:"${cleaned}"`;
-    const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5&orderBy=-set.releaseDate`);
+    const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=5&orderBy=-set.releaseDate`);
     if (!res.ok) return null;
     const data = await res.json();
     const cards = data.data || [];
     if (!cards.length) {
       // Zkus volnější hledání
-      const res2 = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + cleaned + '*')}&pageSize=5&orderBy=-set.releaseDate`);
+      const res2 = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent('name:' + cleaned + '*')}&pageSize=5&orderBy=-set.releaseDate`);
       if (!res2.ok) return null;
       const data2 = await res2.json();
       if (!(data2.data || []).length) return null;

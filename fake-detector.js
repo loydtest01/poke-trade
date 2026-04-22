@@ -1,3 +1,17 @@
+
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
 /**
  * fake-detector.js v3 – PokéTrade Univerzální AI detektor falzifikátů
  *
@@ -297,7 +311,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       // 1. Přímý lookup přes API ID (nejspolehlivější)
       if (cardInfo.apiId || cardInfo.tcgId) {
         const id = cardInfo.apiId || cardInfo.tcgId;
-        const resp = await fetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`);
+        const resp = await tcgFetch(`https://api.pokemontcg.io/v2/cards/${encodeURIComponent(id)}`);
         if (resp.ok) {
           const data = await resp.json();
           if (data.data?.images) return data.data.images.large || data.data.images.small || null;
@@ -311,7 +325,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       // 2. Hledání přes jméno + číslo + sada
       const trySearch = async (parts) => {
         if (!parts.length) return null;
-        const resp = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=3`);
+        const resp = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=3`);
         if (!resp.ok) return null;
         const data = await resp.json();
         const card = data.data?.[0];
