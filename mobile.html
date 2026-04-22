@@ -4028,7 +4028,8 @@ async function cfmSubmitDrawing() {
   document.getElementById('cfmPhase2').style.display = '';
   document.getElementById('cfmDetected').textContent = '…';
   document.getElementById('cfmQ').textContent = 'Rozpoznávám nakreslenný znak…';
-  document.getElementById('charFixModal').querySelectorAll('.btn-row')[0].style.display = 'none';
+  const p2row = document.getElementById('cfmPhase2').querySelector('.btn-row');
+  if (p2row) p2row.style.display = 'none';
   await processCharFixPhoto(dataUrl);
 }
 
@@ -4146,6 +4147,9 @@ function startCharScan() {
   document.getElementById('charFixModal').querySelectorAll('.btn-row')[0].style.display = 'none';
   document.getElementById('cfmPhase3').style.display = 'none';
 
+  // Skryj YES/NO tlačítka dokud AI neodpoví
+  const p2row = document.getElementById('cfmPhase2').querySelector('.btn-row');
+  if (p2row) p2row.style.display = 'none';
   // Spustit fotoaparát
   triggerCapture('charfix');
 }
@@ -4185,7 +4189,7 @@ If you cannot read it clearly, output "${targetChar}".`;
   // Zobraz fázi 2 – YES/NO
   document.getElementById('cfmDetected').textContent = _cfmDetected;
   document.getElementById('cfmQ').textContent = 'Je toto správný znak?';
-  const btnRow = document.getElementById('charFixModal').querySelectorAll('.btn-row')[0];
+  const btnRow = document.getElementById('cfmPhase2').querySelector('.btn-row');
   if (btnRow) btnRow.style.display = '';
 }
 
