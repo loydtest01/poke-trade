@@ -1489,7 +1489,6 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75"><img src="energi/vymeneno.png" class="sb-icon"> Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
       <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
-      <button class="sb-btn" onclick="openTcgBrowser()" id="sbTcgBrowser" style="border:1px solid rgba(245,200,66,.2);background:rgba(245,200,66,.05);">🔍 pokemontcg.io <span class="cnt" id="cnt-tcgapi"></span></button>
     </div>
     <div class="sb-divider"></div>
 
@@ -1501,8 +1500,19 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
+      <span class="sb-label">🔍 API hledání</span>
+      <button class="sb-btn" onclick="openTcgBrowser()" id="sbTcgBrowser" style="border:1px solid rgba(245,200,66,.2);background:rgba(245,200,66,.05);">
+        🌐 pokemontcg.io <span class="cnt" id="cnt-tcgapi"></span>
+      </button>
+      <button class="sb-btn" onclick="openTcgBrowserDex()" id="sbTcgDex" style="border:1px solid rgba(99,200,255,.2);background:rgba(99,200,255,.04);">
+        🔵 TCGdex <span style="font-size:9px;color:rgba(99,200,255,0.5);margin-left:4px;">CS/EN/DE/FR</span>
+      </button>
+    </div>
+    <div class="sb-divider"></div>
+
+    <div class="sb-section">
       <span class="sb-label">🔧 Správa dat</span>
-      <button class="sb-btn" onclick="mergeDuplicatesInAlbum()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
+      <button class="sb-btn" onclick="showMergeDupConfirm()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
         🛠️ Opravit vše automaticky
       </button>
@@ -1685,8 +1695,25 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
     </div>
 
-    <!-- ══ pokemontcg.io inline browser panel ══ -->
+    <!-- ══ API hledání inline browser panel ══ -->
     <div id="tcgPanel" style="display:none;flex-direction:column;gap:10px;">
+
+      <!-- ── HLAVIČKA (stejný styl jako album-header) ── -->
+      <div class="album-header" style="margin-bottom:0;justify-content:space-between;">
+        <span class="album-header-icon">🔍</span>
+        <div style="flex:1;text-align:center;">
+          <div class="album-header-name">API hledání karet</div>
+          <div class="album-header-cnt">pokemontcg.io · TCGdex</div>
+        </div>
+        <button onclick="closeCardBrowser()"
+          style="padding:6px 14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+                 border-radius:8px;color:rgba(240,236,228,.6);font-size:12px;cursor:pointer;
+                 font-family:inherit;white-space:nowrap;transition:all .15s;flex-shrink:0;"
+          onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">
+          ← Zpět na album
+        </button>
+      </div>
+
       <!-- ── TAB NAVIGACE ── -->
       <div style="display:flex;gap:4px;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:8px;margin-bottom:2px;flex-wrap:wrap;">
         <button id="cbTabBtn1" onclick="cbSwitchTab(1)"
@@ -1698,15 +1725,8 @@ body { background: #06040c; overflow-x: hidden; }
           📋 Série select
         </button>
         <button id="cbTabBtn3" onclick="cbSwitchTab(3)"
-          style="padding:7px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.05);color:rgba(240,236,228,.5);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;">
-          🌐 TCGdex
-        </button>
-        <div style="flex:1;"></div>
-        <button onclick="closeCardBrowser()" style="padding:6px 14px;background:rgba(255,255,255,.06);
-          border:1px solid rgba(255,255,255,.1);border-radius:8px;color:rgba(240,236,228,.6);
-          font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;"
-          onmouseover="this.style.background='rgba(255,255,255,.12)'" onmouseout="this.style.background='rgba(255,255,255,.06)'">
-          ← Zpět na album
+          style="padding:7px 14px;border:1px solid rgba(99,200,255,.4);border-radius:8px;background:rgba(99,200,255,.06);color:rgba(99,200,255,.85);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .2s;">
+          🔵 TCGdex
         </button>
       </div>
 
@@ -5320,14 +5340,16 @@ function buildCardData(c) {
 //  – Najde karty se stejným name+set+number v aktivním albu
 //  – Ponechá jednu (přidá count), přenese fotky, odstraní duplicity
 // ══════════════════════════════════════════════════════════════════
-async function mergeDuplicatesInAlbum() {
+// ── Merge duplicates – modal-based (no window.confirm) ──────────────────
+let _mergeDupGroups = null;
+
+function showMergeDupConfirm() {
   const albumCardIds = getActiveAlbumCardIds();
   if (!albumCardIds) { toast('⚠️ Nejprve vyber album', 'warn'); return; }
 
   const albumCards = allCards.filter(c => albumCardIds.includes(String(c.id)));
   if (!albumCards.length) { toast('Album je prázdné', 'warn'); return; }
 
-  // Seskup dle klíče name+set+number
   const groups = new Map();
   for (const c of albumCards) {
     const key = [
@@ -5339,19 +5361,39 @@ async function mergeDuplicatesInAlbum() {
     groups.get(key).push(c);
   }
 
-  const dupGroups = [...groups.values()].filter(g => g.length > 1);
-  if (!dupGroups.length) {
+  _mergeDupGroups = [...groups.values()].filter(g => g.length > 1);
+  if (!_mergeDupGroups.length) {
     toast('✅ Žádné duplicitní kartičky nenalezeny', 'ok');
     return;
   }
 
-  const totalDups = dupGroups.reduce((s, g) => s + g.length - 1, 0);
-  const ok = window.confirm(
-    'Nalezeno ' + dupGroups.length + ' skupin duplicit (' + totalDups + ' nadbytečných karet).\n\n' +
-    dupGroups.map(g => '• ' + g[0].name + ' (' + (g[0].set||'?') + ' #' + (g[0].number||'?') + ') — ' + g.length + '×').join('\n') +
-    '\n\nFotky všech duplicit se přesunou k primární kartičce a nadbytečné záznamy se odstraní z alba.\nPokračovat?'
-  );
-  if (!ok) return;
+  const totalDups = _mergeDupGroups.reduce((s, g) => s + g.length - 1, 0);
+  const lines = _mergeDupGroups.map(g =>
+    '<span style="color:rgba(240,236,228,0.85)">• ' + (g[0].name||'?') +
+    '</span> <span style="color:rgba(240,236,228,0.4)">(' + (g[0].set||'?') + ' #' + (g[0].number||'?') + ')</span>' +
+    ' <span style="color:#f5c842;font-weight:700">— ' + g.length + '×</span>'
+  ).join('<br>');
+
+  const textEl = document.getElementById('mergeDupConfirmText');
+  if (textEl) textEl.innerHTML =
+    '<strong style="color:rgba(240,236,228,0.9)">Nalezeno ' + _mergeDupGroups.length + ' skupin duplicit (' + totalDups + ' nadbytečných karet):</strong><br><br>' +
+    lines +
+    '<br><br><span style="color:rgba(240,236,228,0.4);font-size:11px;">Fotky se přesunou k primární kartičce, nadbytečné záznamy se odstraní z alba.</span>';
+
+  const modal = document.getElementById('mergeDupConfirmModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeMergeDupConfirm() {
+  const modal = document.getElementById('mergeDupConfirmModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function executeMergeDuplicates() {
+  closeMergeDupConfirm();
+  if (!_mergeDupGroups || !_mergeDupGroups.length) return;
+  const dupGroups = _mergeDupGroups;
+  _mergeDupGroups = null;
 
   setSyncState('syncing', 'Slučuji duplicity…');
   let merged = 0;
@@ -7066,14 +7108,11 @@ function openTcgBrowser() {
   const btn = document.getElementById('sbTcgBrowser');
   if (btn) btn.classList.add('active');
 
-  // Skryj normální album obsah
   _tcgAlbumElements().forEach(el => { el._prevDisplay = el.style.display; el.style.display = 'none'; });
 
-  // Zobraz TCG panel
   const panel = document.getElementById('tcgPanel');
   if (panel) panel.style.display = 'flex';
 
-  // Načti sety pokud ještě nejsou
   if (_cbSets.length === 0) {
     cbLoadSets().then(() => cbSearch(1));
   } else {
@@ -7081,22 +7120,36 @@ function openTcgBrowser() {
   }
 }
 
+// Otevře panel rovnou na záložce TCGdex (tab 3)
+function openTcgBrowserDex() {
+  _tcgMode = true;
+  document.querySelectorAll('.sb-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('sbTcgDex');
+  if (btn) btn.classList.add('active');
+
+  _tcgAlbumElements().forEach(el => { el._prevDisplay = el.style.display; el.style.display = 'none'; });
+
+  const panel = document.getElementById('tcgPanel');
+  if (panel) panel.style.display = 'flex';
+
+  cbSwitchTab(3);
+  setTimeout(() => { const inp = document.getElementById('tcgdexSearchInput'); if (inp) inp.focus(); }, 120);
+}
+
 function closeCardBrowser() {
   if (!_tcgMode) {
-    // Zavři modal pokud existuje (legacy)
     const modal = document.getElementById('cardBrowserModal');
     if (modal) modal.style.display = 'none';
   }
   _tcgMode = false;
-  document.querySelectorAll('.sb-btn').forEach(b => {
-    if (b.id === 'sbTcgBrowser') b.classList.remove('active');
+  ['sbTcgBrowser', 'sbTcgDex'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.remove('active');
   });
 
-  // Skryj TCG panel
   const panel = document.getElementById('tcgPanel');
   if (panel) panel.style.display = 'none';
 
-  // Obnov normální album obsah
   _tcgAlbumElements().forEach(el => {
     el.style.display = el._prevDisplay !== undefined ? el._prevDisplay : '';
   });
@@ -7105,9 +7158,11 @@ function closeCardBrowser() {
 }
 
 async function openCardBrowser(autoLoad = false) {
-  // Vždy použij inline TCG panel – žádný modal
   openTcgBrowser();
 }
+
+// Alias pro zpětnou kompatibilitu (inline dup-banner "Sloučit nyní")
+function mergeDuplicatesInAlbum() { showMergeDupConfirm(); }
 
 let _cbSearchTimer = null;
 function cbOnSearch() {
@@ -9860,6 +9915,25 @@ async function confirmAddFromListing() {
   setTimeout(() => toast.remove(), 3500);
 }
 </script> -->
+<!-- ══ Potvrdit sloučení duplicit ══ -->
+<div id="mergeDupConfirmModal" style="display:none;position:fixed;inset:0;z-index:1050;background:rgba(0,0,0,0.87);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px"
+  onclick="if(event.target===this)closeMergeDupConfirm()">
+  <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px;max-width:500px;width:100%;position:relative;">
+    <div style="font-family:'Unbounded',sans-serif;font-size:16px;font-weight:800;color:#f0ece4;margin-bottom:8px;">🔀 Sloučit duplicitní karty</div>
+    <div id="mergeDupConfirmText" style="font-size:13px;color:rgba(240,236,228,0.65);margin-bottom:20px;line-height:1.7;max-height:260px;overflow-y:auto;"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="closeMergeDupConfirm()"
+        style="padding:10px 18px;border-radius:10px;font-size:13px;background:transparent;border:1px solid rgba(255,255,255,0.1);color:rgba(240,236,228,0.5);cursor:pointer;font-family:inherit;">
+        Zrušit
+      </button>
+      <button id="mergeDupConfirmOkBtn" onclick="executeMergeDuplicates()"
+        style="padding:10px 22px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(245,200,66,0.15);border:1px solid rgba(245,200,66,0.4);color:#f5c842;cursor:pointer;font-family:inherit;">
+        ✅ Sloučit
+      </button>
+    </div>
+  </div>
+</div>
+
 <div id="addFromListingModal" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(0,0,0,0.87);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)closeAddFromListingModal()">
   <div style="background:#0e0c14;border:1px solid rgba(255,255,255,0.12);border-radius:20px;padding:28px;max-width:420px;width:100%;position:relative">
     <button onclick="closeAddFromListingModal()" style="position:absolute;top:14px;right:14px;background:rgba(255,255,255,0.08);border:none;color:#f0ece4;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:16px">✕</button>
