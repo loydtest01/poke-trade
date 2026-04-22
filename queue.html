@@ -1401,9 +1401,19 @@ function buildGroupEl(g, gi) {
 
       <!-- Vyhledávání v TCG API -->
       <div class="cg-search">
-        <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
-          🔍 Vyhledat v databázi
-        </button>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})" style="flex:1;min-width:160px;">
+            🔍 Vyhledat v databázi
+          </button>
+          <div style="display:flex;border-radius:7px;overflow:hidden;border:1px solid rgba(255,255,255,0.12);flex-shrink:0;">
+            <button id="srcPre-tcgio-${gi}" onclick="queueSetSrc(${gi},'tcgio')"
+              style="padding:5px 10px;border:none;cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;transition:all .15s;background:rgba(245,200,66,0.18);color:#f5c842;"
+              title="Hledat na pokemontcg.io (EN karty, ceny)">TCG.io</button>
+            <button id="srcPre-tcgdex-${gi}" onclick="queueSetSrc(${gi},'tcgdex')"
+              style="padding:5px 10px;border:none;cursor:pointer;font-family:inherit;font-size:10px;font-weight:700;transition:all .15s;background:rgba(255,255,255,0.05);color:rgba(240,236,228,0.4);"
+              title="Hledat na TCGdex (JP/DE/FR karty)">TCGdex</button>
+          </div>
+        </div>
         <div class="cg-search-status" id="searchStatus-${gi}">
           ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
         </div>
@@ -2140,6 +2150,29 @@ async function _tcgFetch(url, retries = 3) {
 // ── Přepínání zdroje API (pokemontcg.io ↔ TCGdex) ──────────────
 window._tcgSrc = window._tcgSrc || {};
 
+/** Nastaví zdroj pro danou skupinu a vizuálně aktualizuje toggle před vyhledáváním */
+function queueSetSrc(gi, source) {
+  window._tcgSrc = window._tcgSrc || {};
+  window._tcgSrc[gi] = source;
+  const btnTcgio  = document.getElementById('srcPre-tcgio-' + gi);
+  const btnTcgdex = document.getElementById('srcPre-tcgdex-' + gi);
+  if (btnTcgio) {
+    btnTcgio.style.background = source === 'tcgio'  ? 'rgba(245,200,66,0.18)' : 'rgba(255,255,255,0.05)';
+    btnTcgio.style.color      = source === 'tcgio'  ? '#f5c842' : 'rgba(240,236,228,0.4)';
+  }
+  if (btnTcgdex) {
+    btnTcgdex.style.background = source === 'tcgdex' ? 'rgba(74,200,255,0.18)' : 'rgba(255,255,255,0.05)';
+    btnTcgdex.style.color      = source === 'tcgdex' ? '#4ac8ff' : 'rgba(240,236,228,0.4)';
+  }
+  // Vymaž staré výsledky při změně zdroje
+  const grid   = document.getElementById('searchGrid-' + gi);
+  const status = document.getElementById('searchStatus-' + gi);
+  if (grid)   grid.innerHTML = '';
+  if (status) status.textContent = '';
+  const oldToggle = document.getElementById('srcToggle-' + gi);
+  if (oldToggle) oldToggle.remove();
+}
+
 async function tcgSwitchSource(gi, source) {
   const g = cardGroups[gi];
   if (!g) return;
@@ -2177,6 +2210,11 @@ async function tcgSwitchSource(gi, source) {
     }
   } catch(e) { console.warn('[tcgSwitchSource]', e); }
 
+  // Sync pre-search toggle buttons
+  const _preT = document.getElementById('srcPre-tcgio-' + gi);
+  const _preTd = document.getElementById('srcPre-tcgdex-' + gi);
+  if (_preT)  { _preT.style.background  = source==='tcgio'  ? 'rgba(245,200,66,0.18)' : 'rgba(255,255,255,0.05)'; _preT.style.color  = source==='tcgio'  ? '#f5c842' : 'rgba(240,236,228,0.4)'; }
+  if (_preTd) { _preTd.style.background = source==='tcgdex' ? 'rgba(74,200,255,0.18)' : 'rgba(255,255,255,0.05)'; _preTd.style.color = source==='tcgdex' ? '#4ac8ff' : 'rgba(240,236,228,0.4)'; }
   // Aktualizuj toggle bar
   const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
   if (toggleEl) toggleEl.innerHTML =
@@ -2242,6 +2280,17 @@ async function tcgSearch(gi, autoMode = false) {
 
   // Číslo karty – odstraníme část za lomítkem (007/067 → 007)
   const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
+
+  // ── Pokud uživatel předem vybral TCGdex, přesměruj přímo ───
+  const _preSrc = (window._tcgSrc || {})[gi];
+  if (_preSrc === 'tcgdex') {
+    btn.disabled = true;
+    statusEl.textContent = '⏳ Hledám v TCGdex…';
+    gridEl.innerHTML = '';
+    await tcgSwitchSource(gi, 'tcgdex');
+    btn.disabled = false;
+    return;
+  }
 
   btn.disabled = true;
   statusEl.className = 'cg-search-status';
