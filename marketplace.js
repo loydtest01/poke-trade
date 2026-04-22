@@ -2403,58 +2403,131 @@ async function searchCards(){
   const wrap = document.getElementById('csbResults');
   wrap.innerHTML = '<div class="csb-loading">⏳ Hledám...</div>';
 
+  // Zdroj: 'tcgio' nebo 'tcgdex'
+  const forceSrc = document.getElementById('csbSourceToggle')?.dataset?.src || 'tcgio';
+
   try {
-    // OPRAVA: Detekce set kódu (M24EN, BRS → ptcgoCode; jinak name)
-    const _buildQ = (n, s) => {
-      let q = n ? `name:"${n.replace(/"/g,'')}"` : '';
-      if (s) {
-        const t = (typeof PkSearch !== 'undefined') ? PkSearch.detectSetType(s) : 'name';
-        if (t === 'ptcgoCode') q += (q?' ':'') + `set.ptcgoCode:"${s}"`;
-        else if (t === 'id')   q += (q?' ':'') + `set.id:"${s}"`;
-        else                   q += (q?' ':'') + `set.name:"${s.replace(/"/g,'')}"`;
+    let cards = [];
+    let usedSrc = forceSrc;
+
+    if (forceSrc !== 'tcgdex') {
+      // ── pokemontcg.io ──
+      const _buildQ = (n, s) => {
+        let q = n ? `name:"${n.replace(/"/g,'')}"` : '';
+        if (s) {
+          const t = (typeof PkSearch !== 'undefined') ? PkSearch.detectSetType(s) : 'name';
+          if (t === 'ptcgoCode') q += (q?' ':'') + `set.ptcgoCode:"${s}"`;
+          else if (t === 'id')   q += (q?' ':'') + `set.id:"${s}"`;
+          else                   q += (q?' ':'') + `set.name:"${s.replace(/"/g,'')}"`;
+        }
+        return q;
+      };
+      const q = _buildQ(name, set);
+      const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=name`;
+      let res = await fetch(url);
+      let json = await res.json();
+      if (!json.data?.length && name) {
+        const q2 = name + (set ? ` set.name:${set}` : '');
+        const res2 = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
+        const json2 = await res2.json();
+        json = json2;
       }
-      return q;
-    };
-    let q = _buildQ(name, set);
-
-    // Also try partial match if exact fails
-    let url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=20&orderBy=name`;
-
-    let res = await fetch(url);
-    let json = await res.json();
-
-    // Fallback: pokud nic, zkus bez uvozovek
-    if(!json.data?.length && name){
-      const q2 = name + (set ? ` set.name:${set}` : '');
-      res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q2)}&pageSize=20`);
-      json = await res.json();
+      cards = json.data || [];
+      // Auto-fallback na TCGdex pokud nic
+      if (!cards.length && name) {
+        usedSrc = 'tcgdex';
+      }
     }
 
-    const cards = json.data || [];
+    if (usedSrc === 'tcgdex') {
+      // ── TCGdex ──
+      const dexRes = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(name || set)}`);
+      if (dexRes.ok) {
+        const dexJson = await dexRes.json();
+        if (Array.isArray(dexJson)) {
+          cards = dexJson.slice(0, 20).map(c => ({
+            _src: 'tcgdex',
+            id:     c.id || `${c.set?.id}-${c.localId}`,
+            name:   c.name || '',
+            number: c.localId || '',
+            rarity: c.rarity || '',
+            images: { small: c.image ? c.image + '/low.webp' : '', large: c.image ? c.image + '/high.webp' : '' },
+            set:    { name: c.set?.name || c.set?.id || '', id: c.set?.id || '' },
+            hp:     c.hp ? String(c.hp) : '',
+            types:  c.types || [],
+          }));
+        }
+      }
+    }
+
     if(!cards.length){
-      wrap.innerHTML='<div class="csb-empty">Žádné karty nenalezeny. Zkus jiné jméno nebo sérii.</div>';
+      wrap.innerHTML='<div class="csb-empty">Žádné karty nenalezeny ani v pokemontcg.io ani v TCGdex.</div>';
+      _renderCsbToggle(name, usedSrc);
       return;
     }
 
-    wrap.innerHTML = cards.map(c=>{
-      const img = c.images?.small || '';
-      const setName = c.set?.name || '';
-      const num  = c.number || '';
-      const rarity = c.rarity || '';
-      return `<div class="csb-card-row" id="csr-${esc(c.id)}" onclick="selectSearchCard(${JSON.stringify(JSON.stringify(c))})">
-        ${img ? `<img class="csb-card-img" src="${esc(img)}" loading="lazy">` : '<div style="width:40px;height:55px;background:rgba(255,255,255,0.05);border-radius:5px;flex-shrink:0"></div>'}
-        <div class="csb-card-info">
-          <div class="csb-card-name">${esc(c.name)}</div>
-          <div class="csb-card-meta">${esc(setName)}${num?' · #'+esc(num):''}${rarity?' · '+esc(rarity):''}</div>
-        </div>
-        <button class="csb-card-select" onclick="event.stopPropagation();useSearchCard(${JSON.stringify(JSON.stringify(c))})">
-          ${cardSearchMode==='trade' ? 'Nabídnout' : 'Vybrat'}
-        </button>
-      </div>`;
-    }).join('');
+    wrap.innerHTML = [
+      // Zdroj toggle
+      `<div id="csbSourceToggle" data-src="${usedSrc}" style="display:flex;align-items:center;gap:6px;padding:6px 0 10px;flex-wrap:wrap;">
+        <span style="font-size:10px;color:rgba(240,232,208,.35);letter-spacing:.06em;">ZDROJ:</span>
+        <button onclick="_csbSwitch('tcgio')"  style="${_csbBtnStyle(usedSrc==='tcgio')}" >pokemontcg.io</button>
+        <button onclick="_csbSwitch('tcgdex')" style="${_csbBtnStyle(usedSrc==='tcgdex')}">🔵 TCGdex</button>
+        ${usedSrc==='tcgdex' && forceSrc!=='tcgdex' ? '<span style="font-size:10px;color:rgba(100,200,255,.6);">← pokemontcg.io nic nenašlo</span>' : ''}
+      </div>`,
+      ...cards.map(c=>{
+        const img = c.images?.small || '';
+        const setName = c.set?.name || '';
+        const num  = c.number || '';
+        const rarity = c.rarity || '';
+        const isTcgdex = c._src === 'tcgdex' || usedSrc === 'tcgdex';
+        return `<div class="csb-card-row" id="csr-${esc(c.id)}" onclick="selectSearchCard(${JSON.stringify(JSON.stringify(c))})">
+          ${img ? `<img class="csb-card-img" src="${esc(img)}" loading="lazy">` : '<div style="width:40px;height:55px;background:rgba(255,255,255,0.05);border-radius:5px;flex-shrink:0"></div>'}
+          <div class="csb-card-info">
+            <div class="csb-card-name">${esc(c.name)}${isTcgdex?'<span style="margin-left:5px;font-size:9px;background:rgba(30,150,255,.2);color:rgba(100,200,255,.9);border-radius:3px;padding:1px 4px;font-weight:700;">TCGdex</span>':''}</div>
+            <div class="csb-card-meta">${esc(setName)}${num?' · #'+esc(num):''}${rarity?' · '+esc(rarity):''}</div>
+          </div>
+          <button class="csb-card-select" onclick="event.stopPropagation();useSearchCard(${JSON.stringify(JSON.stringify(c))})">
+            ${cardSearchMode==='trade' ? 'Nabídnout' : 'Vybrat'}
+          </button>
+        </div>`;
+      })
+    ].join('');
+
   } catch(e){
     wrap.innerHTML=`<div class="csb-empty">Chyba: ${esc(e.message)}</div>`;
   }
+}
+
+function _csbBtnStyle(active) {
+  return `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
+}
+
+function _renderCsbToggle(name, usedSrc) {
+  const wrap = document.getElementById('csbResults');
+  const toggle = document.getElementById('csbSourceToggle');
+  if (!toggle && wrap) {
+    const div = document.createElement('div');
+    div.id = 'csbSourceToggle';
+    div.dataset.src = usedSrc;
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:0 0 10px;flex-wrap:wrap;';
+    div.innerHTML =
+      `<span style="font-size:10px;color:rgba(240,232,208,.35);">ZDROJ:</span>` +
+      `<button onclick="_csbSwitch('tcgio')"  style="${_csbBtnStyle(usedSrc==='tcgio')}" >pokemontcg.io</button>` +
+      `<button onclick="_csbSwitch('tcgdex')" style="${_csbBtnStyle(usedSrc==='tcgdex')}">🔵 TCGdex</button>`;
+    wrap.prepend(div);
+  }
+}
+
+function _csbSwitch(src) {
+  let toggle = document.getElementById('csbSourceToggle');
+  if (!toggle) {
+    toggle = document.createElement('div');
+    toggle.id = 'csbSourceToggle';
+    const wrap = document.getElementById('csbResults');
+    if (wrap) wrap.prepend(toggle);
+  }
+  toggle.dataset.src = src;
+  searchCards();
 }
 
 function selectSearchCard(jsonStr){

@@ -1630,14 +1630,6 @@ async function doAssign(groups, albumId) {
           p30d:           rc?.p30d          || 0,
           cardmarketUrl:  rc?.cardmarketUrl || '',
           setCode:        rc?.setCode || '',
-          setId:          rc?.setId  || '',
-          setSeries:      rc?.setSeries  || '',
-          setSymbol:      rc?.setSymbol  || '',
-          setLogo:        rc?.setLogo    || '',
-          setTotal:       rc?.setTotal   || null,
-          setReleaseDate: rc?.setReleaseDate || '',
-          evolvesFrom:    rc?.evolvesFrom || '',
-          regulationMark: rc?.regulationMark || '',
           pricesFetchedAt: rc?.pricesFetchedAt || null,
           count: qty, qty, tags: [], for_trade: false, for_sell: false,
           backCondition: g.backAi?.condition || null,
@@ -2145,6 +2137,91 @@ async function _tcgFetch(url, retries = 3) {
   return null;
 }
 
+// ── Přepínání zdroje API (pokemontcg.io ↔ TCGdex) ──────────────
+window._tcgSrc = window._tcgSrc || {};
+
+async function tcgSwitchSource(gi, source) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  window._tcgSrc[gi] = source;
+
+  const gridEl   = document.getElementById(`searchGrid-${gi}`);
+  const statusEl = document.getElementById(`searchStatus-${gi}`);
+  const toggleEl = document.getElementById(`srcToggle-${gi}`);
+  if (!gridEl || !statusEl) return;
+
+  const ai     = g.aiResult || {};
+  const enName = (ai.nameEN || '').trim() || ai.name || '';
+  const hp     = ai.hp || null;
+
+  gridEl.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:rgba(240,232,208,.35);font-size:12px;">⏳ Přepínám zdroj…</div>';
+
+  let cards = [];
+  try {
+    if (source === 'tcgdex') {
+      statusEl.textContent = '🔵 Hledám v TCGdex…';
+      const dexResults = await _tcgDexSearchByName(enName, hp);
+      cards = dexResults.map(_tcgDexToCard);
+    } else {
+      statusEl.textContent = '🔍 Hledám v pokemontcg.io…';
+      const q = enName ? `name:"${enName.replace(/"/g,'')}"` : '';
+      if (q) {
+        const r = await _tcgFetch(`/api/tcg?q=${encodeURIComponent(q)}&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r?.data || [];
+      }
+      // wildcard fallback
+      if (!cards.length && enName) {
+        const r2 = await _tcgFetch(`/api/tcg?q=name:${encodeURIComponent(enName.split(' ')[0])}*&pageSize=20&orderBy=-set.releaseDate`);
+        cards = r2?.data || [];
+      }
+    }
+  } catch(e) { console.warn('[tcgSwitchSource]', e); }
+
+  // Aktualizuj toggle bar
+  const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
+  if (toggleEl) toggleEl.innerHTML =
+    `<span style="font-size:10px;color:rgba(240,232,208,.35);letter-spacing:.06em;">ZDROJ:</span>` +
+    `<button style="${_btnStyle(source==='tcgio')}"  onclick="tcgSwitchSource(${gi},'tcgio')">pokemontcg.io</button>` +
+    `<button style="${_btnStyle(source==='tcgdex')}" onclick="tcgSwitchSource(${gi},'tcgdex')">🔵 TCGdex</button>`;
+
+  if (!cards.length) {
+    statusEl.textContent = source === 'tcgdex'
+      ? '❌ TCGdex nic nenašlo pro toto jméno'
+      : '❌ pokemontcg.io nic nenašlo';
+    gridEl.innerHTML = '';
+    return;
+  }
+
+  statusEl.textContent = `Nalezeno ${cards.length} karet (${source === 'tcgdex' ? 'TCGdex' : 'pokemontcg.io'}) – vyber správnou:`;
+
+  gridEl.innerHTML = cards.map((c, idx) => {
+    const isDex   = c._source === 'tcgdex' || source === 'tcgdex';
+    const img     = c.apiSmall || c.images?.small || '';
+    const cName   = c.name || '';
+    const cNum    = c.number || c.localId || '';
+    const cSet    = (typeof c.set === 'string' ? c.set : c.set?.name) || '';
+    const cId     = c.apiId || c.id || `dex-${idx}`;
+    const alreadySelected = g.resolvedCard?.apiId === cId;
+    const badge   = isDex
+      ? `<span style="position:absolute;top:3px;left:3px;background:rgba(30,150,255,.85);color:#fff;font-size:8px;font-weight:800;border-radius:3px;padding:1px 4px;line-height:1.4">TCGdex</span>`
+      : '';
+    const cardPayload = JSON.stringify({
+      _source: isDex ? 'tcgdex' : 'pokemontcg',
+      apiId: cId, name: cName, set: cSet, number: cNum,
+      imageUrl: img, apiSmall: img, apiLarge: c.apiLarge || c.images?.large || '',
+      hp: String(c.hp || ''), types: c.types || [],
+      supertype: c.supertype || c.category || '', rarity: c.rarity || '',
+      sourceUrl: c.sourceUrl || '',
+    }).replace(/'/g, "&#39;");
+    return `<div class="cg-search-card${alreadySelected?' selected':''}" id="sc-${gi}-${idx}"
+      onclick="tcgSelectCard(${gi},${idx})" style="position:relative" data-card='${cardPayload}'>
+      ${img ? `<img src="${img}" alt="${esc(cName)}" loading="lazy">` : '<div style="height:110px;background:rgba(255,255,255,.05)"></div>'}
+      ${badge}
+      <div class="sc-name">${esc(cName)}<br><span style="opacity:.6">#${esc(cNum)} · ${esc(cSet)}</span></div>
+    </div>`;
+  }).join('');
+}
+
 async function tcgSearch(gi, autoMode = false) {
   const g = cardGroups[gi];
   if (!g) return;
@@ -2386,14 +2463,27 @@ async function tcgSearch(gi, autoMode = false) {
         cards = r3?.data || [];
         totalCount = r3?.totalCount || cards.length;
       }
+
+      // Krok 4: pokud stále prázdno → auto-fallback na TCGdex
+      if (!cards.length) {
+        const dexName = enName || ai.name;
+        if (dexName) {
+          statusEl.textContent = '🔵 pokemontcg.io nic nenašlo — zkouším TCGdex…';
+          const dexResults = await _tcgDexSearchByName(dexName, ai.hp);
+          if (dexResults.length) {
+            cards = dexResults.map(_tcgDexToCard);
+            totalCount = cards.length;
+            window._tcgSrc = window._tcgSrc || {};
+            window._tcgSrc[gi] = 'tcgdex';
+          }
+        }
+      }
     }
 
     if (!cards.length) {
       statusEl.className = 'cg-search-status err';
-      statusEl.innerHTML = '❌ Karta nenalezena v databázi' +
-        (g?.aiResult?.lang && g?.aiResult?.lang !== 'EN'
-          ? ` — uprav EN název nebo vlož odkaz z <strong>Cardmarket</strong> / <strong>pokemontcg.io</strong> do pole níže.`
-          : ' — uprav název nebo sérii v AI výsledcích');
+      statusEl.innerHTML = '❌ Karta nenalezena ani v pokemontcg.io ani v TCGdex'
+        + ' — uprav název nebo vlož odkaz ručně.';
       btn.disabled = false;
       return;
     }
@@ -2514,7 +2604,30 @@ async function tcgSearch(gi, autoMode = false) {
     const countStr = isNonEnLang && dexCount
       ? `🌐 ${dexCount} TCGdex${enCount ? ' + 🇬🇧 '+enCount+' EN' : ''}`
       : `${cards.length}${totalCount > cards.length ? ' z '+totalCount : ''}`;
+
+    // Zaznamenej aktuální zdroj
+    window._tcgSrc = window._tcgSrc || {};
+    const curSrc = window._tcgSrc[gi] || (dexCount && !enCount ? 'tcgdex' : 'tcgio');
+    window._tcgSrc[gi] = curSrc;
+
     statusEl.textContent = `Nalezeno ${countStr} karet – ${autoMode ? 'automaticky předvybrána nejlepší shoda, uprav pokud nesedí' : 'vyber správnou'}:`;
+
+    // ── Zdroj toggle bar ──────────────────────────────────────────
+    const toggleId = `srcToggle-${gi}`;
+    let toggleEl = document.getElementById(toggleId);
+    if (!toggleEl) {
+      toggleEl = document.createElement('div');
+      toggleEl.id = toggleId;
+      toggleEl.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;';
+      statusEl.after(toggleEl);
+    }
+    const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
+    toggleEl.innerHTML =
+      `<span style="font-size:10px;color:rgba(240,232,208,.35);letter-spacing:.06em;">ZDROJ:</span>` +
+      `<button style="${_btnStyle(curSrc==='tcgio')}"  onclick="tcgSwitchSource(${gi},'tcgio')">pokemontcg.io</button>` +
+      `<button style="${_btnStyle(curSrc==='tcgdex')}" onclick="tcgSwitchSource(${gi},'tcgdex')">🔵 TCGdex</button>` +
+      (curSrc==='tcgdex' ? `<span style="font-size:10px;color:rgba(100,200,255,.6);">← pokemontcg.io nic nenašlo</span>` : '');
+    // ─────────────────────────────────────────────────────────────
 
     // Ulož stav stránkování
     _tcgPageState[gi] = { query: _lastQuery, page: 1, totalCount, cards: [...cards], autoMode };

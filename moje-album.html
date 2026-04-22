@@ -7474,6 +7474,26 @@ async function cbSearch(page = 1) {
     const totalPages = Math.ceil(total / PAGE_SIZE);
 
     if (!cards.length) {
+      // Auto-přepnutí na TCGdex tab pokud máme textový dotaz
+      if (_cbQuery && !_cbSet) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:20px;font-size:13px;color:rgba(240,236,228,.35);">
+          ❌ pokemontcg.io nic nenašlo — přepínám na TCGdex…</div>`;
+        const tab3Btn = document.getElementById('cbTabBtn3');
+        if (tab3Btn) {
+          tab3Btn.style.border = '1px solid rgba(100,200,255,.6)';
+          tab3Btn.style.background = 'rgba(100,200,255,.12)';
+          tab3Btn.style.color = 'rgba(100,200,255,.9)';
+        }
+        setTimeout(() => {
+          cbSwitchTab(3);
+          const inp = document.getElementById('tcgdexSearchInput');
+          if (inp) { inp.value = _cbQuery; tcgdexSearch(); }
+        }, 800);
+        document.getElementById('cbPager').style.display = 'none';
+        const bar = document.getElementById('tcgValueBar');
+        if (bar) bar.innerHTML = '';
+        _cbLoading = false; return;
+      }
       grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
         Žádné karty nenalezeny</div>`;
       document.getElementById('cbPager').style.display = 'none';
