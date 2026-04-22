@@ -378,6 +378,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .cfm-table-btn{flex:1;height:46px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;min-width:0}
 .cfm-table-btn:active{transform:scale(.86);background:rgba(79,142,247,.25);border-color:var(--accent)}
 .cfm-table-btn.empty{background:transparent;border-color:transparent;pointer-events:none}
+.cfm-direct-wrap{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-shrink:0}
+.cfm-direct-input{flex:1;height:46px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:26px;font-weight:700;text-align:center;padding:0 8px;font-family:inherit;outline:none;transition:border-color .15s}
+.cfm-direct-input:focus{border-color:var(--accent)}
+.cfm-direct-btn{height:46px;padding:0 16px;border-radius:10px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.cfm-direct-btn:active{opacity:.75}
 .btn-table{font-size:13px;background:rgba(167,139,250,.12);border:1.5px solid rgba(167,139,250,.4);color:var(--purple);border-radius:10px;padding:10px;cursor:pointer;width:100%;font-family:inherit;font-weight:700;transition:all .15s;margin-top:4px}
 .btn-table:active{opacity:.8}
 </style>
@@ -4293,6 +4298,26 @@ function cfmReject() {
 }
 
 // ── KANA TABLE ───────────────────────────────────────────────────────────────
+// Common Pokémon TCG kanji (name components, descriptors, types, suffixes)
+const _KANJI_ROWS = [
+  { label: '名前によく使われる漢字', rows: [
+    ['龍','竜','鬼','妖','神','魔','闇','光','炎','氷'],
+    ['水','草','雷','岩','鋼','飛','超','霊','虫','毒'],
+    ['闘','普','無','悪','フ','力','天','地','風','花'],
+    ['王','皇','帝','将','剣','盾','矢','輝','幻','影'],
+    ['大','小','古','新','白','黒','赤','青','金','銀'],
+    ['森','海','山','空','星','月','日','火','土','木'],
+    ['兒','児','鷹','鳥','熊','犬','猫','狐','狼','龜'],
+    ['亀','竜','騎','士','兵','戦','爆','爪','翼','牙'],
+    ['甲','殻','刃','紋','術','気','精','霧','嵐','雪'],
+    ['夢','幸','勇','愛','命','魂','心','刀','弓','杖'],
+  ]},
+  { label: '数字・記号', rows: [
+    ['一','二','三','四','五','六','七','八','九','十'],
+    ['百','千','万','億','兆','零','型','式','号','版'],
+  ]},
+];
+
 const _KANA_TABLES = {
   kata: [
     { label: '基本', rows: [
@@ -4369,12 +4394,17 @@ function cfmRenderTable(mode) {
   _cfmTableMode = mode;
   document.getElementById('cfmTTabKata').classList.toggle('active', mode === 'kata');
   document.getElementById('cfmTTabHira').classList.toggle('active', mode === 'hira');
+  document.getElementById('cfmTTabKanji').classList.toggle('active', mode === 'kanji');
 
   const wrap = document.getElementById('cfmTableWrap');
   wrap.innerHTML = '';
   wrap.scrollTop = 0;
 
-  _KANA_TABLES[mode].forEach(section => {
+  const rows = mode === 'kanji' ? _KANJI_ROWS : _KANA_TABLES[mode];
+  // For kanji rows use smaller buttons (10 per row)
+  const smallBtn = mode === 'kanji';
+
+  rows.forEach(section => {
     const sec = document.createElement('div');
     sec.className = 'cfm-table-section';
     sec.textContent = section.label;
@@ -4383,9 +4413,11 @@ function cfmRenderTable(mode) {
     section.rows.forEach(row => {
       const rowEl = document.createElement('div');
       rowEl.className = 'cfm-table-row';
+      if (smallBtn) rowEl.style.gap = '3px';
       row.forEach(ch => {
         const btn = document.createElement('button');
         btn.className = 'cfm-table-btn' + (ch ? '' : ' empty');
+        if (smallBtn) { btn.style.height = '40px'; btn.style.fontSize = '18px'; }
         btn.textContent = ch;
         if (ch) btn.onclick = () => _cfmApplyChar(ch);
         rowEl.appendChild(btn);
@@ -4537,9 +4569,17 @@ function _cfmApplyChar(char) {
         <button onclick="cfmCloseTable()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px">←</button>
         <div style="font-size:13px;font-weight:800;color:var(--text)">Tabulka znaků</div>
       </div>
+      <div class="cfm-direct-wrap">
+        <input id="cfmDirectInput" class="cfm-direct-input" type="text" maxlength="1" placeholder="？" inputmode="text"
+          oninput="this.value=this.value.slice(-1)"
+          onkeydown="if(event.key==='Enter'&&this.value){_cfmApplyChar(this.value);this.value=''}">
+        <button class="cfm-direct-btn" onclick="(function(){const v=document.getElementById('cfmDirectInput').value;if(v){_cfmApplyChar(v);document.getElementById('cfmDirectInput').value=''}})()">✓ Použít</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;flex-shrink:0">Napiš libovolný znak klávesnicí (japonská klávesnice → kanji/kana) nebo vyber níže</div>
       <div class="cfm-table-tabs">
         <button class="cfm-table-tab active" id="cfmTTabKata" onclick="cfmRenderTable('kata')">カタカナ</button>
         <button class="cfm-table-tab" id="cfmTTabHira" onclick="cfmRenderTable('hira')">ひらがな</button>
+        <button class="cfm-table-tab" id="cfmTTabKanji" onclick="cfmRenderTable('kanji')">漢字</button>
       </div>
       <div class="cfm-table-wrap" id="cfmTableWrap"></div>
     </div>
