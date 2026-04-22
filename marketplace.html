@@ -193,7 +193,8 @@
 
       <div class="market-toolbar">
         <div class="search-wrap">
-          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." data-i18n-placeholder="marketplace.toolbar.search_placeholder" oninput="applyFilters()" style="padding-right:42px">
+          <input type="text" id="searchInput" placeholder="Hledat kartu, prodejce, sérii..." data-i18n-placeholder="marketplace.toolbar.search_placeholder" oninput="applyFilters()" style="padding-right:80px">
+          <button class="search-img-btn" id="imgSearchBtn" onclick="openImageSearch()" title="Hledat podle fotky karty">📷</button>
           <button class="search-filter-btn" id="advFilterBtn" onclick="toggleAdvFilter()" title="Pokročilé filtry" data-i18n="marketplace.toolbar.adv_filter">▾ Filtr</button>
         </div>
         <select class="sort-sel" id="sortSel" onchange="applyFilters()">
@@ -1016,6 +1017,8 @@
 </div>
 
 <script src="app.js"></script>
+<script src="card-search.js"></script>
+<script src="image-search.js"></script>
 <script src="fake-detector.js"></script>
 <script>
 // ── Fake Detector integrace ──────────────────────────────────
@@ -1318,6 +1321,48 @@ document.addEventListener('change', function(e) {
     </div>
   </div>
 </div>
+
+<script>
+/* ── Image search integration ── */
+function openImageSearch() {
+  if (typeof ImageSearch === 'undefined') {
+    alert('Modul image-search.js není načten.');
+    return;
+  }
+  ImageSearch.open({
+    onResult: function(cards, recognized) {
+      // Vlož název do search baru a zobraz výsledky
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput && recognized?.name) {
+        searchInput.value = recognized.name;
+      }
+
+      // Pokud existuje funkce pro zobrazení výsledků z card search boxu, použij ji
+      if (typeof displayCardSearchResults === 'function') {
+        displayCardSearchResults(cards);
+        return;
+      }
+
+      // Fallback: otevři card search box pokud existuje
+      if (typeof openCardSearch === 'function') {
+        openCardSearch('search');
+        // Předej výsledky přes krátké zpoždění (počkej na inicializaci modálu)
+        setTimeout(() => {
+          if (typeof renderCardSearchResults === 'function') {
+            renderCardSearchResults(cards);
+          }
+        }, 200);
+        return;
+      }
+
+      // Poslední fallback: filtruj marketplace podle jména
+      if (searchInput) {
+        applyFilters();
+      }
+    }
+  });
+}
+</script>
 
 </body>
 </html>
