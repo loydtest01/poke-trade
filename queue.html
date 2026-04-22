@@ -89,6 +89,16 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   background: rgba(245,200,66,0.18); color: #f5c842;
   border: 1px solid rgba(245,200,66,0.3);
   border-radius: 20px; padding: 3px 12px; font-size: 13px;
+}
+.groq-badge {
+  background: rgba(100,200,100,0.13); color: #7ee87e;
+  border: 1px solid rgba(100,200,100,0.28);
+  border-radius: 20px; padding: 3px 11px; font-size: 12px;
+  white-space: nowrap; cursor: default;
+}
+.groq-badge.warn { background: rgba(250,180,50,0.13); color: #f5c842; border-color: rgba(250,180,50,0.3); }
+.groq-badge.vip  { background: rgba(200,100,255,0.13); color: #d07ef7; border-color: rgba(200,100,255,0.3); }
+.groq-badge.own  { background: rgba(100,200,100,0.13); color: #7ee87e; border-color: rgba(100,200,100,0.28); }
   font-family: 'DM Sans', sans-serif; font-weight: 700;
 }
 .head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -609,6 +619,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <span class="page-badge" id="totalBadge" style="display:none">0</span>
     </div>
     <div class="head-actions">
+      <span class="groq-badge" id="groqBadge" title="Denní limit AI rozpoznávání" style="display:none"></span>
       <select id="globalAlbumSel" class="album-sel" onchange="onGlobalAlbumChange(this)">
         <option value="__new__" style="background:#0e0c14;color:#f0ece4;">＋ Nové album…</option>
       </select>
@@ -740,6 +751,61 @@ async function _syncGroqKeyFromSupabase() {
   } catch (e) { console.warn('[queue] Sync Groq klíče selhal:', e); }
 }
 
+/* ── Groq usage badge ──────────────────────────────────────── */
+async function _initGroqBadge() {
+  const badge = document.getElementById('groqBadge');
+  if (!badge || !token || !userId) return;
+
+  try {
+    // 1. Zkontroluj osobní klíč
+    const personalKey = _getGroqKey();
+    if (personalKey) {
+      badge.textContent = '🔑 Vlastní AI klíč ∞';
+      badge.className = 'groq-badge own';
+      badge.style.display = '';
+      return;
+    }
+
+    // 2. Zkontroluj VIP status (přes profile v Supabase)
+    const vipEmails = ['lasovlas@seznam.cz','james.t.kirk1933@gmail.com','adelka.papezova@gmail.com',
+      'loydtest@gmail.com','pan.spock30@gmail.com','papez.ondrej@gmail.com','pokecards.app.info@gmail.com'];
+    const userObj = (() => { try { return JSON.parse(localStorage.getItem('sb_user')||'null'); } catch { return null; } })();
+    const email = userObj?.email || '';
+    if (vipEmails.includes(email)) {
+      badge.textContent = '⭐ VIP – AI hledání ∞';
+      badge.className = 'groq-badge vip';
+      badge.style.display = '';
+      return;
+    }
+
+    // 3. Načti dnešní usage ze Supabase
+    const today = new Date().toISOString().slice(0, 10);
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/groq_usage?user_id=eq.${userId}&date=eq.${today}&select=search_count`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token } }
+    );
+    const rows = await res.json().catch(() => []);
+    const used = Array.isArray(rows) && rows[0] ? (rows[0].search_count || 0) : 0;
+    const limit = 20;
+    const left = Math.max(0, limit - used);
+
+    badge.style.display = '';
+    if (left === 0) {
+      badge.textContent = `🤖 AI hledání: ${used}/${limit} – vyčerpáno`;
+      badge.className = 'groq-badge warn';
+      badge.title = 'Denní limit vyčerpán. Zadej vlastní Groq klíč zdarma na console.groq.com';
+    } else if (left <= 5) {
+      badge.textContent = `🤖 AI hledání: ${used}/${limit}`;
+      badge.className = 'groq-badge warn';
+    } else {
+      badge.textContent = `🤖 AI hledání: ${used}/${limit}`;
+      badge.className = 'groq-badge';
+    }
+  } catch (e) {
+    console.warn('[groqBadge]', e);
+  }
+}
+
 /* ── Auth ──────────────────────────────────────────────────────── */
 let userId = null;
 let token  = null;
@@ -776,6 +842,8 @@ let cardGroups = [];
 
   await loadAlbums();
   await loadQueue();
+  await _syncGroqKeyFromSupabase();
+  _initGroqBadge(); // async, badge se načte na pozadí
 })();
 
 // ── Supabase helper (s token refresh z app.js) ───────────────
@@ -1019,10 +1087,18 @@ async function retryAi(gi) {
   await _syncGroqKeyFromSupabase();
 
   const key = _getGroqKey();
-  if (!key) {
-    toast('❌ Groq API klíč není nastaven – nastav ho v <a href="/profile.html" style="color:#f5c842">Profilu</a>', 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
-    return;
+  // Pokud nemáme osobní klíč, fallback na sdílený přes Bearer token (limit 20/den)
+  const groqHeaders = { 'Content-Type': 'application/json' };
+  if (key) {
+    groqHeaders['X-Groq-Key'] = key;
+  } else {
+    const tok = (window.getValidToken ? await window.getValidToken() : null) || token;
+    if (!tok) {
+      toast('❌ Nejsi přihlášen – přihlas se pro použití AI', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🔄 Znovu AI'; }
+      return;
+    }
+    groqHeaders['Authorization'] = 'Bearer ' + tok;
   }
 
   // Vezmi přední fotku (preferuj ořezanou)
@@ -1045,10 +1121,10 @@ async function retryAi(gi) {
       r.readAsDataURL(blob);
     });
 
-    // Zavolej Groq
+    // Zavolej Groq (osobní klíč nebo sdílený přes Bearer)
     const groqRes = await fetch(GROQ_PROXY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
+      headers: groqHeaders,
       body: JSON.stringify({
         model: GROQ_MODEL,
         messages: [{
@@ -1574,7 +1650,7 @@ async function doAssign(groups, albumId) {
                   // Pro existující kartu použij dupCardData, pro novou res[0]
                   const cardRow = existingId ? null : (Array.isArray(res) ? res[0] : res);
                   const cd = dupCardData || cardRow?.card_data || {};
-                  sbReq(
+                  await sbReq(
                     `rest/v1/user_cards?local_id=eq.${newId}&user_id=eq.${userId}`,
                     'PATCH',
                     { card_data: { ...cd, photoUrl: finalUrl }, updated_at: new Date().toISOString() }
