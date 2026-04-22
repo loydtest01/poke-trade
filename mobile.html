@@ -972,13 +972,20 @@ window.onload = () => {
     showScreen('scSetup');
     loadGroqInBackground();
     startNotifPolling();  // spusť polling i při návratu do appky (ne jen po loginu)
-    verifyToken(mobileToken).then(valid => {
-      if (!valid) {
-        mobileToken = '';
-        localStorage.removeItem('sb_token');
-        showScreen('scLogin');
-        toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
-      }
+    // Ověř token na pozadí — pokud vypršel, zkus refresh PŘED zobrazením login
+    verifyToken(mobileToken).then(async valid => {
+      if (valid) return;
+      // Token neplatný → zkus refresh
+      const refreshed = await tryRefreshToken();
+      if (refreshed) return; // obnoveno, pokračuj
+      // Refresh selhal — ale POUZE odhlásíme pokud je síť dostupná
+      // (mobilní zařízení může mít přechodný výpadek při startu)
+      if (!navigator.onLine) return; // offline → nechej token být, zkusí se znovu
+      mobileToken = '';
+      localStorage.removeItem('sb_token');
+      localStorage.removeItem('sb_refresh');
+      showScreen('scLogin');
+      toast('⚠️ Přihlášení vypršelo, přihlas se znovu');
     });
   }
 };
@@ -1048,10 +1055,14 @@ async function verifyToken(token) {
   try {
     const r = await fetch(`${SB_URL}/auth/v1/user`, {
       headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + token },
-      signal: AbortSignal.timeout(4000)
+      signal: AbortSignal.timeout(8000)   // prodlouženo z 4s na 8s pro pomalé mobilní sítě
     });
     return r.ok;
-  } catch { return false; }
+  } catch(e) {
+    // Timeout nebo síťová chyba — považuj token za platný, nezahlásíme logout
+    // (raději ponecháme přihlášeného uživatele než ho odhlásíme při výpadku)
+    return true;
+  }
 }
 
 // ── Obnovení tokenu přes refresh token ───────────────────────
@@ -1084,7 +1095,8 @@ async function ensureValidToken() {
   // Token vypršel → zkus refresh
   const refreshed = await tryRefreshToken();
   if (refreshed) return true;
-  // Refresh selhal → přihlášení
+  // Refresh selhal → přihlášení (pouze pokud online)
+  if (!navigator.onLine) return true; // offline → tváříme se že token platí
   mobileToken = '';
   localStorage.removeItem('sb_token');
   localStorage.removeItem('sb_refresh');
@@ -1093,18 +1105,32 @@ async function ensureValidToken() {
   return false;
 }
 
+// ── Proaktivní refresh každých 45 min (access token vyprší po 60 min) ──
+(function startProactiveRefresh() {
+  const INTERVAL = 45 * 60 * 1000; // 45 minut
+  setInterval(async () => {
+    if (!mobileToken || !navigator.onLine) return;
+    const refreshed = await tryRefreshToken();
+    if (refreshed) console.log('[auth] token proaktivně obnoven');
+  }, INTERVAL);
+})();
+
 // ── Při návratu do appky zkontroluj token na pozadí ─────────
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && mobileToken) {
+    // Pokud je zařízení offline, vůbec nezkoušej — token je v pořádku
+    if (!navigator.onLine) return;
     verifyToken(mobileToken).then(valid => {
-      if (!valid) tryRefreshToken().then(ok => {
-        if (!ok) {
-          mobileToken = '';
-          localStorage.removeItem('sb_token');
-          localStorage.removeItem('sb_refresh');
-          showScreen('scLogin');
-          toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
-        }
+      if (valid) return;
+      tryRefreshToken().then(ok => {
+        if (ok) return;
+        // Dvojitá kontrola: znovu ověř online stav (mohl se změnit)
+        if (!navigator.onLine) return;
+        mobileToken = '';
+        localStorage.removeItem('sb_token');
+        localStorage.removeItem('sb_refresh');
+        showScreen('scLogin');
+        toast('⚠️ Přihlášení vypršelo – přihlas se znovu');
       });
     });
   }
