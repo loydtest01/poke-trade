@@ -322,6 +322,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .m-emoji-item:active{background:rgba(255,255,255,.15)}
 .chat-send-btn:active{opacity:.8}
 .msgs-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;color:var(--muted);text-align:center;gap:8px;padding:40px 20px;font-size:13px}
+
+/* ── TYPING INDICATOR ── */
+.typing-indicator{padding:6px 14px 2px;min-height:22px;font-size:12px;color:var(--muted);font-style:italic;display:none;align-items:center;gap:6px}
+.typing-indicator.visible{display:flex}
+.typing-dots{display:inline-flex;gap:3px;align-items:center}
+.typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:tdot 1.2s ease-in-out infinite}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes tdot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 </style>
 </head>
 <body>
@@ -896,6 +905,12 @@ let _groqKeys = [];      // pole klíčů po načtení ze serveru
 let _groqKeyIdx = 0;     // index aktuálně použitého klíče
 let useSharedProxy = false; // VIP/běžný uživatel bez osobního klíče → proxy /api/groq
 
+// ─── Groq ready promise – čeká na dokončení loadGroqInBackground ─────────────
+// Zabraňuje race condition: uživatel vyfotí kartu dřív než se načte klíč ze Supabase
+let _groqReady = false;
+let _groqReadyResolve = null;
+const _groqReadyPromise = new Promise(r => { _groqReadyResolve = r; });
+
 function parseGroqKeys(raw) {
   if (!raw) return [];
   const keys = raw.split(',').map(k => k.trim()).filter(k => k.startsWith('gsk_') && k.length > 20);
@@ -996,6 +1011,7 @@ async function loadGroqInBackground() {
     // Není token → použij jen URL klíč
     _groqKeys = parseGroqKeys(groqKey);
     if (_groqKeys.length) groqKey = _groqKeys[0];
+    _groqReady = true; _groqReadyResolve();
     updateStatusChips(); return;
   }
 
@@ -1010,6 +1026,7 @@ async function loadGroqInBackground() {
           _groqKeys = parseGroqKeys(d.key);
           groqKey = _groqKeys[0] || d.key;
           dbg('Ze SERVERU: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
+          _groqReady = true; _groqReadyResolve();
           updateStatusChips(); return;
         }
       }
@@ -1018,7 +1035,7 @@ async function loadGroqInBackground() {
 
   // Pokus 2: Supabase přímo
   try {
-    if (!USER_ID) return;
+    if (!USER_ID) throw new Error('no USER_ID');
     const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
       headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
     });
@@ -1029,6 +1046,7 @@ async function loadGroqInBackground() {
       _groqKeys = parseGroqKeys(rawKey);
       groqKey = _groqKeys[0] || rawKey;
       dbg('Ze SUPABASE: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
+      _groqReady = true; _groqReadyResolve();
       updateStatusChips(); return;
     }
   } catch(e) { dbg('Supabase fetch chyba: ' + e.message); }
@@ -1038,6 +1056,7 @@ async function loadGroqInBackground() {
     _groqKeys = parseGroqKeys(groqKey);
     if (_groqKeys.length) groqKey = _groqKeys[0];
     dbg('Fallback na URL klíč: ' + _groqKeys.length + ' klíčů');
+    _groqReady = true; _groqReadyResolve();
     updateStatusChips();
     return;
   }
@@ -1046,8 +1065,10 @@ async function loadGroqInBackground() {
   if (mobileToken) {
     useSharedProxy = true;
     dbg('Žádný osobní klíč – AI přes sdílenou proxy /api/groq (VIP nebo běžný účet)');
-    updateStatusChips();
   }
+  // Vždy resolve promise na konci (i když nemáme klíč → chip ukáže ✗)
+  _groqReady = true; _groqReadyResolve();
+  updateStatusChips();
 }
 
 
@@ -1201,6 +1222,12 @@ function updateStatusChips() {
       aiBadge.style.borderColor = 'rgba(74,222,128,.4)';
       aiBadge.style.color       = '#4ade80';
       aiBadge.textContent       = useSharedProxy ? '🤖 AI ✓ (sdílená)' : '🤖 AI ✓';
+    } else if (!_groqReady) {
+      // Klíč se ještě načítá – zobraz neutrální stav místo červené
+      aiBadge.style.background  = 'rgba(250,204,21,.1)';
+      aiBadge.style.borderColor = 'rgba(250,204,21,.3)';
+      aiBadge.style.color       = '#facc15';
+      aiBadge.textContent       = '🤖 AI ⏳';
     } else {
       aiBadge.style.background  = 'rgba(248,113,113,.1)';
       aiBadge.style.borderColor = 'rgba(248,113,113,.3)';
@@ -1699,24 +1726,33 @@ async function processFrontPhoto(dataUrl) {
   // ── AI rozpoznávání (async – uživatel může mezitím kliknout Další) ──
   const aiBox = document.getElementById('aiResultBox');
   aiBox.style.display = '';
-  if (groqKey || useSharedProxy) {
-    aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
-    const result = await identifyCard(dataUrl);
+  if (groqKey || useSharedProxy || !_groqReady) {
+    // Pokud klíč ještě není načtený, počkej max 8s (race condition fix)
+    if (!_groqReady) {
+      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Načítám AI…</div>';
+      await Promise.race([_groqReadyPromise, delay(8000)]);
+    }
+    if (groqKey || useSharedProxy) {
+      aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
+      const result = await identifyCard(dataUrl);
 
-    // Výsledek vždy ulož do SPRÁVNÉ karty (i když user mezitím přešel jinam)
-    cards[_cardIdx].frontAI = result?.name ? result : null;
+      // Výsledek vždy ulož do SPRÁVNÉ karty (i když user mezitím přešel jinam)
+      cards[_cardIdx].frontAI = result?.name ? result : null;
 
-    // UI aktualizuj pouze pokud jsme stále na té samé kartě
-    if (currentCard === _cardIdx) {
-      showAiResult(result);
-      // Japonská karta → zobrazit panel pro záběr názvu
-      const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
-      if (isJP) {
-        if (result) result.lang = 'JP';
-        showJpNamePanel(_cardIdx);
-      } else {
-        document.getElementById('jpNamePanel').style.display = 'none';
+      // UI aktualizuj pouze pokud jsme stále na té samé kartě
+      if (currentCard === _cardIdx) {
+        showAiResult(result);
+        // Japonská karta → zobrazit panel pro záběr názvu
+        const isJP = result?.lang === 'JP' || /[\u3000-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(result?.name || '');
+        if (isJP) {
+          if (result) result.lang = 'JP';
+          showJpNamePanel(_cardIdx);
+        } else {
+          document.getElementById('jpNamePanel').style.display = 'none';
+        }
       }
+    } else {
+      aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
     }
   } else {
     aiBox.innerHTML = '<div style="color:var(--muted);font-size:12px">📝 AI nedostupná – zadej stav ručně</div>';
@@ -2835,6 +2871,7 @@ function openMsgsPanel() {
 function closeMsgsPanel() {
   document.getElementById('msgsPanel').classList.remove('open');
   if (_msgsPollTimer) { clearInterval(_msgsPollTimer); _msgsPollTimer = null; }
+  closeTypingRealtime();
   _msgsActiveId = null;
   _msgsPartner  = null;
 }
@@ -2912,6 +2949,10 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   const b = document.getElementById('msgsBody');
   b.innerHTML = `<div class="chat-thread">
     <div class="chat-msgs-m" id="chatMsgsM"></div>
+    <div class="typing-indicator" id="typingIndicator">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span id="typingName"></span>
+    </div>
     <div style="position:relative">
       <div class="m-emoji-picker" id="mEmojiPicker">
         <div class="m-emoji-cats" id="mEmojiCats"></div>
@@ -2924,7 +2965,7 @@ async function openMsgsThread(convId, partnerName, partnerId) {
         <button class="chat-icon-btn" onclick="document.getElementById('mChatGallery').click()" title="Galerie">🖼️</button>
         <input type="file" id="mChatGallery" accept="image/*" multiple style="display:none" onchange="mChatImgSelected(this)">
         <textarea id="chatInputM" placeholder="Napsat zprávu…" rows="1"
-          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px'"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,80)+'px';onChatInputTyping()"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMobileMsg()}"></textarea>
         <button class="chat-send-btn" onclick="sendMobileMsg()">↑</button>
       </div>
@@ -2949,10 +2990,14 @@ async function openMsgsThread(convId, partnerName, partnerId) {
     await loadMsgsThread(true);
     updateMsgsUnreadBadge();
   }, 5000);
+
+  // Typing indicator via Supabase Realtime
+  initTypingRealtime(convId);
 }
 
 function backToConvList() {
   if (_msgsPollTimer) { clearInterval(_msgsPollTimer); _msgsPollTimer = null; }
+  closeTypingRealtime();
   _msgsActiveId = null;
   _msgsPartner  = null;
   document.getElementById('msgsPanelTitle').textContent = 'Zprávy';
@@ -3397,6 +3442,119 @@ async function startConvWithUser(partnerId, partnerName) {
   } catch(e) {
     toast('⚠️ Nepodařilo se otevřít konverzaci');
   }
+}
+
+// ══════════════════════════════════════════════
+// TYPING INDICATOR – Supabase Realtime broadcast
+// ══════════════════════════════════════════════
+let _typingWs           = null;
+let _typingWsRef        = 0;
+let _typingDebounce     = null;  // timer pro odesílání
+let _typingClearTimer   = null;  // timer pro skrytí indikátoru
+let _typingChannelTopic = '';
+
+function initTypingRealtime(convId) {
+  closeTypingRealtime();
+  _typingChannelTopic = `realtime:typing-${convId}`;
+
+  const wsUrl = SB_URL.replace('https://', 'wss://')
+    + `/realtime/v1/websocket?vsn=1.0.0&apikey=${SB_ANON}`;
+
+  try {
+    const ws = new WebSocket(wsUrl);
+    _typingWs = ws;
+
+    ws.onopen = () => {
+      // Heartbeat každých 25s (Supabase vyžaduje)
+      ws._hb = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ topic: 'phoenix', event: 'heartbeat', payload: {}, ref: String(++_typingWsRef) }));
+        }
+      }, 25000);
+
+      // Připojení ke kanálu pro broadcast
+      ws.send(JSON.stringify({
+        topic: _typingChannelTopic,
+        event: 'phx_join',
+        payload: {
+          config: { broadcast: { self: false }, presence: { key: '' } },
+          access_token: mobileToken
+        },
+        ref: String(++_typingWsRef),
+        join_ref: String(_typingWsRef)
+      }));
+    };
+
+    ws.onmessage = (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.topic === _typingChannelTopic
+          && msg.event === 'broadcast'
+          && msg.payload?.event === 'typing') {
+          const p = msg.payload.payload || {};
+          // Zobraz jen pokud je to od partnera, ne od nás
+          if (p.uid && p.uid !== _msgsUserId) {
+            _showPartnerTyping(p.name || _msgsPartner?.name || 'Uživatel');
+          }
+        }
+      } catch {}
+    };
+
+    ws.onerror = () => {};
+    ws.onclose = () => { if (ws._hb) clearInterval(ws._hb); };
+  } catch(e) { console.warn('[typing WS]', e.message); }
+}
+
+function closeTypingRealtime() {
+  if (_typingWs) {
+    try { _typingWs.close(); } catch {}
+    _typingWs = null;
+  }
+  clearTimeout(_typingDebounce);
+  clearTimeout(_typingClearTimer);
+  _hidePartnerTyping();
+}
+
+// Voláno z oninput textarey – debounce 600ms
+function onChatInputTyping() {
+  clearTimeout(_typingDebounce);
+  _typingDebounce = setTimeout(_sendTypingBroadcast, 600);
+}
+
+function _sendTypingBroadcast() {
+  if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) return;
+  const name = localStorage.getItem('sb_username') || _notifUsername || 'Uživatel';
+  _typingWs.send(JSON.stringify({
+    topic: _typingChannelTopic,
+    event: 'broadcast',
+    payload: {
+      type: 'broadcast',
+      event: 'typing',
+      payload: { uid: _msgsUserId, name }
+    },
+    ref: String(++_typingWsRef)
+  }));
+}
+
+function _showPartnerTyping(name) {
+  clearTimeout(_typingClearTimer);
+  // Skryj automaticky po 5s bez další aktivity
+  _typingClearTimer = setTimeout(_hidePartnerTyping, 5000);
+
+  const el = document.getElementById('typingIndicator');
+  const nm = document.getElementById('typingName');
+  if (!el) return;
+  if (nm) nm.textContent = `${name} píše`;
+  el.classList.add('visible');
+
+  // Scrolluj dolů aby byl indikátor vidět
+  const msgs = document.getElementById('chatMsgsM');
+  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+}
+
+function _hidePartnerTyping() {
+  const el = document.getElementById('typingIndicator');
+  if (el) el.classList.remove('visible');
 }
 
 // ── PWA Install – tlačítko "Přidat na plochu" ──────────────
