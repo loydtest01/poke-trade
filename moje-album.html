@@ -886,6 +886,49 @@ body { background: #06040c; overflow-x: hidden; }
   color: #fff; font-size: 18px; padding: 6px 14px; cursor: pointer;
 }
 
+/* ── TCG Comparison Lightbox ── */
+#cdTcgCmpLightbox {
+  display: none; position: fixed; inset: 0; z-index: 910;
+  background: rgba(0,0,0,0.93); align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; padding: 20px;
+}
+#cdTcgCmpLightbox.open { display: flex; }
+.cd-cmp-panels {
+  display: flex; gap: 20px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+}
+.cd-cmp-panel {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.cd-cmp-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: rgba(240,232,208,.45);
+}
+.cd-cmp-panel img {
+  max-width: min(42vw, 280px); max-height: 70vh; border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.7); object-fit: contain;
+}
+.cd-cmp-no-photo {
+  width: min(42vw, 220px); height: 300px; border-radius: 10px;
+  background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: rgba(240,232,208,.25); text-align: center; padding: 16px;
+}
+.cd-cmp-actions {
+  display: flex; gap: 10px; align-items: center;
+}
+.cd-cmp-confirm {
+  padding: 11px 28px; border-radius: 10px; border: none; cursor: pointer;
+  background: linear-gradient(135deg,#22c55e,#16a34a); color: #fff;
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  box-shadow: 0 2px 14px rgba(34,197,94,.4); transition: opacity .15s;
+}
+.cd-cmp-confirm:hover { opacity: .85; }
+.cd-cmp-close {
+  position: absolute; top: 16px; right: 20px;
+  background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+  color: #fff; font-size: 18px; padding: 6px 14px; cursor: pointer;
+}
+
 /* ── Složky (batch skupiny) v panelu fotek ── */
 .cd-batch-folder {
   width: 90px; cursor: pointer; flex-shrink: 0;
@@ -2035,6 +2078,24 @@ body { background: #06040c; overflow-x: hidden; }
 <div id="cdPhotoLightbox">
   <img id="cdLightboxImg" src="" alt="">
   <button onclick="document.getElementById('cdPhotoLightbox').classList.remove('open')">✕</button>
+</div>
+
+<!-- ── TCG Srovnávací lightbox (reálná fotka vs TCG karta) ── -->
+<div id="cdTcgCmpLightbox" onclick="if(event.target===this)closeTcgCmp()">
+  <button class="cd-cmp-close" onclick="closeTcgCmp()">✕</button>
+  <div class="cd-cmp-panels">
+    <div class="cd-cmp-panel">
+      <div class="cd-cmp-label">📷 Moje fotka</div>
+      <div id="cdCmpMyPhoto"></div>
+    </div>
+    <div class="cd-cmp-panel">
+      <div class="cd-cmp-label">🌐 TCG karta</div>
+      <img id="cdCmpTcgImg" src="" alt="">
+    </div>
+  </div>
+  <div class="cd-cmp-actions">
+    <button class="cd-cmp-confirm" id="cdCmpConfirmBtn" onclick="tcgCmpConfirm()">✓ Vybrat tuto kartu</button>
+  </div>
 </div>
 
 <!-- ── Batch složka – detail všech fotek z jednoho focení ──── -->
@@ -3687,7 +3748,7 @@ function _cdTcgRenderGrid(cards, statusEl, gridEl) {
     const price = card.cardmarket?.prices?.trendPrice;
     const prStr = price ? fmtCardPrice(price) : '';
     const imgHtml = img
-      ? `<div class="cd-tcg-img-wrap" onclick="event.stopPropagation();_cdTcgZoom('${imgLg.replace(/'/g,"\\'")}','${(card.name||'').replace(/'/g,"\\'")}')">
+      ? `<div class="cd-tcg-img-wrap" onclick="event.stopPropagation();_cdTcgZoom('${imgLg.replace(/'/g,"\\'")}','${(card.name||'').replace(/'/g,"\\'")}',${idx})">
            <img src="${img}" loading="lazy" alt="${card.name}">
            <div class="cd-tcg-zoom-btn">🔍</div>
          </div>`
@@ -3712,14 +3773,57 @@ function _cdTcgPickCard(idx) {
   bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-function _cdTcgZoom(url, name) {
+function _cdTcgZoom(url, name, idx) {
   if (!url) return;
-  const lb  = document.getElementById('cdPhotoLightbox');
-  const img = document.getElementById('cdLightboxImg');
-  if (!lb || !img) return;
-  img.src = url;
-  img.alt = name || '';
-  lb.classList.add('open');
+
+  // Nastav TCG obrázek
+  const tcgImg = document.getElementById('cdCmpTcgImg');
+  if (tcgImg) { tcgImg.src = url; tcgImg.alt = name || ''; }
+
+  // Nastav reálnou fotku z allCardPhotosMap pro aktuální kartu
+  const myWrap = document.getElementById('cdCmpMyPhoto');
+  if (myWrap) {
+    const localId = String(_detailCard?.id || _detailCard?.local_id || '');
+    const photos  = (allCardPhotosMap[localId] || []);
+    const front   = photos.find(p => p.side === 'front') || photos[0];
+    if (front?.url) {
+      myWrap.innerHTML = `<img src="${front.url}" alt="Moje fotka" style="max-width:min(42vw,280px);max-height:70vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.7);object-fit:contain">`;
+    } else {
+      myWrap.innerHTML = `<div class="cd-cmp-no-photo">📷<br><br>Žádná fotka<br>k této kartě</div>`;
+    }
+  }
+
+  // Ulož idx pro potvrzení
+  window._tcgCmpIdx = (typeof idx === 'number') ? idx : -1;
+
+  // Aktualizuj stav tlačítka
+  const btn = document.getElementById('cdCmpConfirmBtn');
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = '✓ Vybrat tuto kartu';
+  }
+
+  document.getElementById('cdTcgCmpLightbox').classList.add('open');
+}
+
+function closeTcgCmp() {
+  document.getElementById('cdTcgCmpLightbox').classList.remove('open');
+}
+
+async function tcgCmpConfirm() {
+  const idx = window._tcgCmpIdx;
+  if (idx < 0) return;
+  const btn = document.getElementById('cdCmpConfirmBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Ukládám…'; }
+  try {
+    // Vyber kartu v gridu (vizuálně) a ulož
+    _cdTcgPickCard(idx);
+    await cdTcgConfirm();
+    closeTcgCmp();
+  } catch(e) {
+    toast('❌ Chyba při ukládání: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Vybrat tuto kartu'; }
+  }
 }
 
 async function cdTcgConfirm() {
