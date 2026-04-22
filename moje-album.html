@@ -1785,11 +1785,43 @@ body { background: #06040c; overflow-x: hidden; }
 
       <!-- ── TAB 1: VIZUÁLNÍ PICKER (pokemontcg.io) ── -->
       <div id="cbTabContent1" style="display:flex;flex-direction:column;gap:10px;">
+        <!-- API zdroj přepínač -->
+        <div style="display:flex;align-items:center;gap:6px;padding:6px 0 2px;">
+          <span style="font-size:10px;color:rgba(240,236,228,.35);letter-spacing:.08em;text-transform:uppercase;margin-right:2px;">Zdroj API:</span>
+          <button id="cbApiBtn_tcgio" onclick="cbSetApiSource('tcgio')"
+            style="padding:4px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;
+                   font-family:inherit;transition:all .15s;
+                   background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.5);color:#f5c842;">
+            🌐 pokemontcg.io
+          </button>
+          <button id="cbApiBtn_tcgdex" onclick="cbSetApiSource('tcgdex')"
+            style="padding:4px 12px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;
+                   font-family:inherit;transition:all .15s;
+                   background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:rgba(240,236,228,.45);">
+            🔵 TCGdex <span style="font-size:9px;font-weight:400;opacity:.6;">CS/EN/DE/FR</span>
+          </button>
+          <span id="cbApiSourceLabel"
+            style="font-size:10px;color:rgba(245,200,66,.5);margin-left:4px;">EN karty + ceny</span>
+        </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 0 2px;">
           <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:200px;">
             <input id="cbSearchInput" placeholder="Název karty nebo číslo (např. 84)…" oninput="cbOnSearch()"
               style="flex:1;padding:8px 12px;background:rgba(255,255,255,.07);border:1px solid rgba(245,200,66,.3);
                      border-radius:9px;color:#f0ece4;font-size:13px;font-family:inherit;outline:none;" />
+            <!-- Lang select (pouze pro TCGdex režim) -->
+            <select id="cbTcgdexLang" onchange="cbSearch(1)"
+              style="display:none;padding:7px 8px;background:#0e0c14;border:1px solid rgba(100,200,255,.35);
+                     border-radius:9px;color:rgba(100,220,255,.85);font-size:12px;cursor:pointer;font-family:inherit;">
+              <option value="en">🇬🇧 EN</option>
+              <option value="cs">🇨🇿 CS</option>
+              <option value="de">🇩🇪 DE</option>
+              <option value="fr">🇫🇷 FR</option>
+              <option value="ja">🇯🇵 JP</option>
+              <option value="es">🇪🇸 ES</option>
+              <option value="it">🇮🇹 IT</option>
+              <option value="pt">🇵🇹 PT</option>
+              <option value="ko">🇰🇷 KO</option>
+            </select>
             <div id="cbSetPickerWrap" style="flex:1;min-width:180px;max-width:300px;position:relative;">
               <div id="cbSetPickerBtn" onclick="cbToggleSetPicker()"
                 style="display:flex;align-items:center;gap:7px;padding:8px 12px;
@@ -7233,6 +7265,7 @@ let _cbSet   = '';
 let _cbType  = '';
 let _cbSuper = '';
 let _cbLoading = false;
+let _cbApiSource = 'tcgio'; // 'tcgio' = pokemontcg.io | 'tcgdex' = TCGdex
 let _tcgMode = false;   // true = inline TCG browser aktívní
 
 function _tcgAlbumElements() {
@@ -7318,6 +7351,33 @@ function cbOnSearch() {
 }
 
 function cbOnSetChange() { cbSearch(1); }
+
+// ── API zdroj přepínač ─────────────────────────────────────────────────────
+function cbSetApiSource(src) {
+  _cbApiSource = src;
+  // Styly tlačítek
+  const btnTcgio  = document.getElementById('cbApiBtn_tcgio');
+  const btnTcgdex = document.getElementById('cbApiBtn_tcgdex');
+  const label     = document.getElementById('cbApiSourceLabel');
+  const langSel   = document.getElementById('cbTcgdexLang');
+  const setPicker = document.getElementById('cbSetPickerWrap');
+  if (src === 'tcgio') {
+    if (btnTcgio)  { btnTcgio.style.background = 'rgba(245,200,66,.15)'; btnTcgio.style.border = '1px solid rgba(245,200,66,.5)'; btnTcgio.style.color = '#f5c842'; }
+    if (btnTcgdex) { btnTcgdex.style.background = 'rgba(255,255,255,.04)'; btnTcgdex.style.border = '1px solid rgba(255,255,255,.12)'; btnTcgdex.style.color = 'rgba(240,236,228,.45)'; }
+    if (label) { label.textContent = 'EN karty + ceny'; label.style.color = 'rgba(245,200,66,.5)'; }
+    if (langSel) langSel.style.display = 'none';
+    if (setPicker) setPicker.style.display = '';
+    // Reset sérii na pokemontcg.io sety
+    cbLoadSets();
+  } else {
+    if (btnTcgio)  { btnTcgio.style.background = 'rgba(255,255,255,.04)'; btnTcgio.style.border = '1px solid rgba(255,255,255,.12)'; btnTcgio.style.color = 'rgba(240,236,228,.45)'; }
+    if (btnTcgdex) { btnTcgdex.style.background = 'rgba(100,200,255,.12)'; btnTcgdex.style.border = '1px solid rgba(100,200,255,.5)'; btnTcgdex.style.color = 'rgba(100,220,255,.9)'; }
+    if (label) { label.textContent = 'CS/EN/DE/FR + JP'; label.style.color = 'rgba(100,200,255,.6)'; }
+    if (langSel) langSel.style.display = '';
+    if (setPicker) setPicker.style.display = 'none';
+  }
+  cbSearch(1);
+}
 
 async function cbLoadSets() {
   try {
@@ -7446,6 +7506,80 @@ async function cbSearch(page = 1) {
   grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.4);font-size:13px;">
     ⏳ Načítám karty…</div>`;
 
+  // ── Větev TCGdex ─────────────────────────────────────────────────────────
+  if (_cbApiSource === 'tcgdex') {
+    try {
+      const langEl = document.getElementById('cbTcgdexLang');
+      const lang = langEl?.value || 'en';
+      const q = _cbQuery;
+      if (!q) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
+          Zadej název karty pro hledání přes TCGdex</div>`;
+        document.getElementById('cbPager').style.display = 'none';
+        _cbLoading = false; return;
+      }
+      // Použij PkSearch pro TCGdex
+      const results = await PkSearch.search(q, { lang });
+      if (!results.length) {
+        grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
+          🔵 TCGdex: Žádné karty nenalezeny pro „${q}"</div>`;
+        document.getElementById('cbPager').style.display = 'none';
+        _cbLoading = false; return;
+      }
+      const PAGE_SIZE = 24;
+      const totalPages = Math.ceil(results.length / PAGE_SIZE);
+      const pageSlice = results.slice((page-1)*PAGE_SIZE, page*PAGE_SIZE);
+      grid.innerHTML = pageSlice.map(c => {
+        const img = c.apiSmall || c.imageUrl || '';
+        const safeData = encodeURIComponent(JSON.stringify({
+          id: c.apiId || '', name: c.name, set: c.set || '', setCode: c.setCode || '',
+          number: c.number, types: c.types || [], hp: c.hp || '', rarity: c.rarity || '',
+          supertype: c.supertype || '', subtypes: [],
+          imageUrl: c.apiSmall || c.imageUrl || '', apiSmall: c.apiSmall || c.imageUrl || '',
+          apiLarge: c.apiLarge || c.imageUrl || '', setSymbol: '', pMin: 0, pTrend: 0, p30d: 0,
+          cardmarketUrl: '', _source: c._source
+        }));
+        return `<div onclick="cbPickCard('${safeData}')"
+          style="cursor:pointer;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.04);
+                 border:1px solid rgba(255,255,255,.08);transition:border-color .15s,transform .15s;
+                 display:flex;flex-direction:column;position:relative;"
+          onmouseover="this.style.borderColor='rgba(100,200,255,.6)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,.5)'"
+          onmouseout="this.style.borderColor='rgba(255,255,255,.08)';this.style.transform='';this.style.boxShadow=''">
+          <div style="position:relative;overflow:hidden;">
+            ${img ? `<img src="${img}" alt="${c.name}" loading="lazy"
+              style="width:100%;aspect-ratio:3/4;object-fit:cover;display:block;">` : `<div style="width:100%;aspect-ratio:3/4;background:rgba(255,255,255,.05);display:flex;align-items:center;justify-content:center;font-size:28px;">?</div>`}
+            <div style="position:absolute;bottom:0;left:0;right:0;height:32px;
+              background:linear-gradient(transparent,rgba(0,0,0,.6));pointer-events:none;"></div>
+          </div>
+          <div style="padding:5px 6px 7px;flex:1;display:flex;flex-direction:column;gap:2px;">
+            <div style="font-size:10px;font-weight:700;color:#f0ece4;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.name}</div>
+            <div style="font-size:9px;color:rgba(240,236,228,.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${c.set||'—'} #${c.number||'?'}</div>
+            ${(c._source==='tcgdex') ? `<div style="font-size:8px;color:rgba(100,200,255,.5);margin-top:1px;">🔵 TCGdex</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+      const pager = document.getElementById('cbPager');
+      const pageInfo = document.getElementById('cbPageInfo');
+      if (results.length > PAGE_SIZE) {
+        pager.style.display = 'flex';
+        if (pageInfo) pageInfo.textContent = `Strana ${page} / ${totalPages} (${results.length} karet)`;
+        document.getElementById('cbPrevBtn').disabled = page <= 1;
+        document.getElementById('cbNextBtn').disabled = page >= totalPages;
+      } else {
+        pager.style.display = 'none';
+        if (pageInfo) pageInfo.textContent = '';
+      }
+      const bar = document.getElementById('tcgValueBar');
+      if (bar) bar.innerHTML = `<span style="color:rgba(100,200,255,.5);">🔵 TCGdex · ${results.length} karet</span>`;
+    } catch(e) {
+      console.error('cbSearch TCGdex error:', e);
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:rgba(240,236,228,.35);font-size:13px;">
+        ❌ Chyba TCGdex: ${e.message}</div>`;
+    }
+    _cbLoading = false; return;
+  }
+
+  // ── Větev pokemontcg.io (původní kód) ───────────────────────────────────
   try {
     // Při vybrané sérii bez dalšího filtru → načti vše najednou (max 250 per API call)
     const seriesOnly = _cbSet && !_cbQuery && !_cbType && !_cbSuper;
@@ -7870,9 +8004,19 @@ function cbPickCard(encodedData) {
   popup.innerHTML = `
     <div style="background:#1a1728;border-radius:14px;padding:20px;max-width:360px;width:100%;
                 border:1px solid rgba(245,200,66,.25);box-shadow:0 8px 40px #000c;text-align:center;">
-      <div style="position:relative;display:inline-block;margin-bottom:12px;">
+      <div style="position:relative;display:inline-block;margin-bottom:12px;cursor:zoom-in;"
+           onclick="event.stopPropagation();cbZoomCard('${(card.apiLarge||card.apiSmall||card.imageUrl||'').replace(/'/g,"\\'")}')"
+           title="Klikni pro zobrazení ve velkém">
         <img src="${card.apiSmall || card.imageUrl || ''}" alt="${card.name}"
-             style="max-width:150px;border-radius:10px;display:block;box-shadow:0 4px 20px rgba(0,0,0,.6);">
+             style="max-width:160px;border-radius:10px;display:block;box-shadow:0 4px 20px rgba(0,0,0,.6);
+                    transition:transform .2s,box-shadow .2s;"
+             onmouseover="this.style.transform='scale(1.05)';this.style.boxShadow='0 8px 32px rgba(0,0,0,.8)'"
+             onmouseout="this.style.transform='';this.style.boxShadow='0 4px 20px rgba(0,0,0,.6)'">
+        <div style="position:absolute;inset:0;border-radius:10px;display:flex;align-items:center;justify-content:center;
+                    opacity:0;transition:opacity .2s;background:rgba(0,0,0,.35);"
+             onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+          <span style="font-size:28px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.8));">🔍</span>
+        </div>
         ${setSymbol ? `<img src="${setSymbol}" alt="" style="position:absolute;bottom:6px;left:6px;
           width:24px;height:24px;object-fit:contain;
           filter:drop-shadow(0 0 4px rgba(0,0,0,1)) brightness(1.6);">` : ''}
@@ -7932,6 +8076,52 @@ async function cbCopyAndSave(encodedData, btn) {
     btn.textContent = '📋';
     await navigator.clipboard.writeText(cardId).catch(()=>{});
   }
+}
+
+// ── Fullscreen zoom lightbox pro kartu z browseru ────────────────────────
+function cbZoomCard(url) {
+  if (!url) return;
+  const existing = document.getElementById('cbZoomLightbox');
+  if (existing) existing.remove();
+
+  const lb = document.createElement('div');
+  lb.id = 'cbZoomLightbox';
+  lb.style.cssText = `
+    position:fixed;inset:0;z-index:19999;display:flex;align-items:center;justify-content:center;
+    background:rgba(0,0,0,.92);cursor:zoom-out;padding:20px;
+    animation:cbZoomFadeIn .18s ease;
+  `;
+  // CSS animace
+  if (!document.getElementById('cbZoomStyle')) {
+    const st = document.createElement('style');
+    st.id = 'cbZoomStyle';
+    st.textContent = `
+      @keyframes cbZoomFadeIn { from { opacity:0; transform:scale(.88); } to { opacity:1; transform:scale(1); } }
+      @keyframes cbZoomImgIn  { from { opacity:0; transform:scale(.82); } to { opacity:1; transform:scale(1); } }
+      #cbZoomLightbox img { animation: cbZoomImgIn .22s cubic-bezier(.22,1,.36,1); }
+    `;
+    document.head.appendChild(st);
+  }
+
+  lb.innerHTML = `
+    <div style="position:relative;display:flex;align-items:center;justify-content:center;
+                max-width:min(90vw,520px);max-height:90vh;">
+      <img src="${url}" alt="Karta"
+           style="max-width:100%;max-height:90vh;border-radius:14px;
+                  box-shadow:0 20px 80px rgba(0,0,0,.95),0 0 0 1px rgba(255,255,255,.08);
+                  object-fit:contain;">
+      <button onclick="event.stopPropagation();document.getElementById('cbZoomLightbox').remove()"
+        style="position:absolute;top:-14px;right:-14px;width:34px;height:34px;border-radius:50%;
+               background:#1a1728;border:1px solid rgba(255,255,255,.2);color:#f0ece4;
+               font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+               box-shadow:0 4px 16px rgba(0,0,0,.7);font-family:inherit;line-height:1;">✕</button>
+    </div>
+  `;
+  lb.addEventListener('click', e => { if (e.target === lb) lb.remove(); });
+  document.addEventListener('keydown', function escClose(e) {
+    if (e.key === 'Escape') { lb.remove(); document.removeEventListener('keydown', escClose); }
+  });
+  document.body.appendChild(lb);
 }
 
 async function cbAddCardDirect(encodedData) {
