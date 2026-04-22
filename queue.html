@@ -1530,8 +1530,8 @@ async function doAssign(groups, albumId) {
           supertype: rc?.supertype || '',
           rarity:    rc?.rarity   || ai.rarity || '',
           note:      g.comment    || ai.notes || '',
-          photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.croppedUrl || fp?.url || ''; })(),
-          allPhotos: g.photos.length > 1 ? g.photos.map(p => ({ url: p.croppedUrl || p.url, side: p.side || 'front', storagePath: p.storagePath || null })) : null,
+          photoUrl:  (() => { const fp = g.photos.find(p=>p.side==='front'); return fp?.url || ''; })(),
+          allPhotos: g.photos.length > 1 ? g.photos.map(p => ({ url: p.url, side: p.side || 'front', storagePath: p.storagePath || null })) : null,
           imageUrl:  g._origImageSmall || g._origImage || rc?.imageUrl || '',
           apiSmall:  g._origImageSmall || g._origImage || rc?.apiSmall || '',
           apiLarge:  g._origImage || rc?.apiLarge || '',
@@ -1559,11 +1559,24 @@ async function doAssign(groups, albumId) {
           if (!p.storagePath) continue;
           let finalPath = p.storagePath;
           let finalUrl  = p.url;
-          // Pokud má oříznutou verzi → nahraj ji do Storage
+          // Pokud má oříznutou verzi → nahraj ji do Storage (přepíše originál)
           if (p.croppedUrl) {
             try {
               const uploaded = await _uploadCroppedPhoto(p.croppedUrl, p.storagePath);
-              if (uploaded) { finalPath = uploaded.path; finalUrl = uploaded.url; }
+              if (uploaded) {
+                finalPath = uploaded.path;
+                finalUrl  = uploaded.url;
+                // ── Aktualizuj photoUrl v user_cards na oříznutou URL ──
+                if ((p.side || 'front') === 'front' && newId) {
+                  const cardRow = Array.isArray(res) ? res[0] : res;
+                  const cd = cardRow?.card_data || {};
+                  sbReq(
+                    `rest/v1/user_cards?local_id=eq.${newId}&user_id=eq.${userId}`,
+                    'PATCH',
+                    { card_data: { ...cd, photoUrl: finalUrl }, updated_at: new Date().toISOString() }
+                  ).catch(e => console.warn('[photoUrl patch]', e));
+                }
+              }
             } catch(e) { console.warn('[crop upload]', e); }
           }
           sbReq('rest/v1/user_card_photos', 'POST', {
