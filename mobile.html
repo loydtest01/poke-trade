@@ -986,7 +986,9 @@ window.onload = () => {
   if (mobileToken) {
     showScreen('scSetup');
     loadGroqInBackground();
-    startNotifPolling();  // spusť polling i při návratu do appky (ne jen po loginu)
+    startNotifPolling();
+  // Pokud přišel deep-link z notifikace před přihlášením, otevři teď
+  if (_pendingOpenConv) _handleNotifOpenConv(_pendingOpenConv);  // spusť polling i při návratu do appky (ne jen po loginu)
     // Ověř token na pozadí — pokud vypršel, zkus refresh PŘED zobrazením login
     verifyToken(mobileToken).then(async valid => {
       if (valid) return;
@@ -2723,7 +2725,7 @@ async function requestNotifPermission() {
   }
 }
 
-function showPushNotif(title, body, tag) {
+function showPushNotif(title, body, tag, convId) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   // Vždy přes SW registration – zabraňuje otevření webového prohlížeče místo PWA.
   // new Notification() se záměrně NEPOUŽÍVÁ – na Android Chrome otevírá prohlížeč.
@@ -2732,7 +2734,7 @@ function showPushNotif(title, body, tag) {
     body: body || '', tag: tag || 'pkt',
     icon: 'icon-aipc-192.png', badge: 'icon-aipc-192.png',
     renotify: false, vibrate: [200, 100, 200],
-    data: { url: appUrl }
+    data: { url: appUrl, conv_id: convId || null }
   };
   if (_swReg) {
     _swReg.showNotification(title || 'PokéTrade', opts)
@@ -2755,6 +2757,31 @@ let _notifSeenIds   = new Set(JSON.parse(localStorage.getItem('pkt_notif_seen') 
 
 let _notifUserId = '';
 let _notifUsername = '';
+
+// ── Deep-link z notifikace → otevři správný chat ────────────
+// Zachytí jak URL param (?open_conv=UUID) tak postMessage ze SW
+let _pendingOpenConv = new URLSearchParams(location.search).get('open_conv');
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data?.type === 'open_conv' && e.data.conv_id) {
+      _handleNotifOpenConv(e.data.conv_id);
+    }
+  });
+}
+
+async function _handleNotifOpenConv(convId) {
+  if (!convId || !mobileToken) { _pendingOpenConv = convId; return; }
+  openMsgsPanel();
+  // Načti konverzace pokud ještě nejsou
+  if (!_msgsUserId || !_msgsConvs.length) await loadMsgsConversations();
+  const conv = _msgsConvs.find(c => c.id === convId);
+  if (conv) {
+    const isU1 = conv.user1_id === _msgsUserId;
+    openMsgsThread(conv.id, isU1 ? conv.user2_username : conv.user1_username, isU1 ? conv.user2_id : conv.user1_id);
+  }
+  _pendingOpenConv = null;
+}
 
 function startNotifPolling() {
   if (!mobileToken) return;
@@ -2815,7 +2842,16 @@ async function checkNotifications() {
         (cat === 'album'    && s.album)    ||
         (cat === 'other')
       );
-      if (allowed && document.hidden) showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id);
+      if (allowed && document.hidden) {
+        // Zkus vytáhnout conv_id z link pole (formát: ...?conv=UUID nebo ...conversations/UUID)
+        let notifConvId = null;
+        if (n.link) {
+          const m = n.link.match(/[?&/](?:conv|conversation)[_-]?id?[=/]([0-9a-f-]{36})/i)
+                 || n.link.match(/conversations\/([0-9a-f-]{36})/i);
+          if (m) notifConvId = m[1];
+        }
+        showPushNotif(n.title || 'PokéTrade', n.body || '', 'pkt-' + n.id, notifConvId);
+      }
       _notifSeenIds.add(n.id);
     });
 
@@ -2989,7 +3025,7 @@ async function openMsgsThread(convId, partnerName, partnerId) {
   _msgsPollTimer = setInterval(async () => {
     await loadMsgsThread(true);
     updateMsgsUnreadBadge();
-  }, 2000);
+  }, 5000);
 
   // Typing indicator via Supabase Realtime
   initTypingRealtime(convId);
@@ -3254,7 +3290,7 @@ async function markConvRead(convId) {
           headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken,'Content-Type':'application/json','Prefer':'return=minimal'},
           body: JSON.stringify({ read_at: new Date().toISOString() })
         }
-      ).then(r => { if (r.ok) _broadcastMessagesRead(convId); }).catch(()=>{});
+      ).catch(()=>{});
     }
     // 3. FIX: oznac i message notifikace jako prectene -> badge se nesekne po 30s pollingu
     fetch(
@@ -3447,39 +3483,15 @@ async function startConvWithUser(partnerId, partnerName) {
 // ══════════════════════════════════════════════
 // TYPING INDICATOR – Supabase Realtime broadcast
 // ══════════════════════════════════════════════
-let _typingWs              = null;
-let _typingWsRef           = 0;
-let _typingDebounce        = null;
-let _typingClearTimer      = null;
-let _typingChannelTopic    = '';
-let _typingLastSent        = 0;      // throttle – čas posledního odeslání
-let _typingChannelReady    = false;  // true po potvrzení phx_join od serveru
-let _pendingReadBroadcast  = null;   // convId čekající na odeslání po ready
-
-// Broadcast "messages_read" – s frontou pokud kanál ještě není ready
-function _broadcastMessagesRead(convId) {
-  if (_typingChannelReady && _typingWs && _typingWs.readyState === WebSocket.OPEN) {
-    _doSendReadBroadcast(convId);
-  } else {
-    // Kanál se teprve připojuje – zařaď do fronty, odešle se po phx_reply
-    _pendingReadBroadcast = convId;
-  }
-}
-function _doSendReadBroadcast(convId) {
-  if (!_typingWs || _typingWs.readyState !== WebSocket.OPEN) return;
-  _typingWs.send(JSON.stringify({
-    topic: _typingChannelTopic,
-    event: 'broadcast',
-    payload: { type: 'broadcast', event: 'messages_read', payload: { conv_id: convId, uid: _msgsUserId } },
-    ref: String(++_typingWsRef)
-  }));
-}
+let _typingWs           = null;
+let _typingWsRef        = 0;
+let _typingDebounce     = null;  // timer pro odesílání
+let _typingClearTimer   = null;  // timer pro skrytí indikátoru
+let _typingChannelTopic = '';
 
 function initTypingRealtime(convId) {
   closeTypingRealtime();
-  _typingChannelReady   = false;
-  _pendingReadBroadcast = null;
-  _typingChannelTopic   = `realtime:typing-${convId}`;
+  _typingChannelTopic = `realtime:typing-${convId}`;
 
   const wsUrl = SB_URL.replace('https://', 'wss://')
     + `/realtime/v1/websocket?vsn=1.0.0&apikey=${SB_ANON}`;
@@ -3512,40 +3524,13 @@ function initTypingRealtime(convId) {
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
-
-        // ── Kanál potvrzen (phx_join reply) → odešli případnou frontu ──
-        if (msg.event === 'phx_reply' && msg.payload?.status === 'ok') {
-          _typingChannelReady = true;
-          if (_pendingReadBroadcast) {
-            _doSendReadBroadcast(_pendingReadBroadcast);
-            _pendingReadBroadcast = null;
-          }
-        }
-
-        // ── Typing od partnera ──
         if (msg.topic === _typingChannelTopic
           && msg.event === 'broadcast'
           && msg.payload?.event === 'typing') {
           const p = msg.payload.payload || {};
+          // Zobraz jen pokud je to od partnera, ne od nás
           if (p.uid && p.uid !== _msgsUserId) {
             _showPartnerTyping(p.name || _msgsPartner?.name || 'Uživatel');
-          }
-        }
-
-        // ── Partner přečetl → okamžitá ✓✓ ──
-        if (msg.topic === _typingChannelTopic
-          && msg.event === 'broadcast'
-          && msg.payload?.event === 'messages_read') {
-          const p = msg.payload.payload || {};
-          if (p.uid && p.uid !== _msgsUserId && p.conv_id === _msgsActiveId) {
-            const now = new Date().toISOString();
-            let changed = false;
-            _msgsMessages.forEach(m => {
-              if (m.sender_id === _msgsUserId && !m.read_at) {
-                m.read_at = now; changed = true;
-              }
-            });
-            if (changed) renderMsgsThread(true);
           }
         }
       } catch {}
@@ -3561,20 +3546,15 @@ function closeTypingRealtime() {
     try { _typingWs.close(); } catch {}
     _typingWs = null;
   }
-  _typingChannelReady   = false;
-  _pendingReadBroadcast = null;
   clearTimeout(_typingDebounce);
   clearTimeout(_typingClearTimer);
   _hidePartnerTyping();
 }
 
-// Voláno z oninput textarey – okamžitý send + throttle 2s
+// Voláno z oninput textarey – debounce 600ms
 function onChatInputTyping() {
-  const now = Date.now();
-  if (now - _typingLastSent >= 2000) {
-    _typingLastSent = now;
-    _sendTypingBroadcast();
-  }
+  clearTimeout(_typingDebounce);
+  _typingDebounce = setTimeout(_sendTypingBroadcast, 600);
 }
 
 function _sendTypingBroadcast() {
