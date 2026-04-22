@@ -333,12 +333,17 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 @keyframes tdot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 
 /* ── DRAWING CANVAS ── */
-.cfm-canvas-wrap{position:relative;width:100%;aspect-ratio:1/1;max-height:260px;background:#fff;border-radius:14px;border:2px solid var(--border);touch-action:none;overflow:hidden}
+.cfm-canvas-wrap{position:relative;width:100%;aspect-ratio:1/1;max-height:260px;background:#fff;border-radius:14px;border:2px solid var(--border);touch-action:none;overflow:hidden;flex-shrink:0}
 .cfm-canvas-wrap canvas{display:block;width:100%;height:100%}
 .cfm-canvas-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#aaa;pointer-events:none;font-style:italic}
 .cfm-tabs{display:flex;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden}
 .cfm-tab{flex:1;padding:9px 4px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface);color:var(--muted);border:none;font-family:inherit;transition:all .15s}
 .cfm-tab.active{background:rgba(79,142,247,.2);color:var(--accent)}
+
+/* ── DRAW MODE: full-screen canvas ── */
+#charFixModal.draw-mode{justify-content:stretch;align-items:stretch}
+#charFixModal.draw-mode .cfm-sheet{border-radius:0;max-height:100dvh;height:100dvh;padding-top:env(safe-area-inset-top,14px);padding-bottom:env(safe-area-inset-bottom,20px)}
+#charFixModal.draw-mode .cfm-canvas-wrap{flex:1;aspect-ratio:unset;max-height:none;border-radius:0;border-left:none;border-right:none}
 
 /* ── CHAR FIX MODAL ── */
 #charFixModal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;flex-direction:column;align-items:stretch;justify-content:flex-end}
@@ -355,10 +360,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .cfm-question{text-align:center;font-size:13px;color:var(--muted);line-height:1.4}
 .cfm-scanning{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0}
 .cfm-scan-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
-.cfm-alts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.cfm-alt{padding:14px 4px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:30px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
-.cfm-alt:active{transform:scale(.92);background:rgba(79,142,247,.2);border-color:var(--accent)}
-.cfm-alt-label{font-size:9px;color:var(--muted);margin-top:2px}
+.cfm-alts-scroll{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
+.cfm-alts-scroll::-webkit-scrollbar{display:none}
+.cfm-alt{flex-shrink:0;width:58px;height:66px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:32px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;scroll-snap-align:start}
+.cfm-alt:active{transform:scale(.88);background:rgba(79,142,247,.2);border-color:var(--accent)}
+.cfm-alt.ai-pick{border-color:#facc15;box-shadow:0 0 10px rgba(250,204,21,.3)}
+.cfm-alt-label{font-size:8px;color:#facc15;margin-top:1px;font-weight:700}
+.cfm-alt-page{font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px}
 </style>
 </head>
 <body>
@@ -3923,36 +3931,38 @@ function cfmSwitchTab(tab) {
   document.getElementById('cfmTabPhoto').classList.toggle('active', tab === 'photo');
   document.getElementById('cfmDrawPanel').style.display  = tab === 'draw'  ? '' : 'none';
   document.getElementById('cfmPhotoPanel').style.display = tab === 'photo' ? '' : 'none';
-  if (tab === 'draw') cfmInitCanvas();
+  document.getElementById('charFixModal').classList.toggle('draw-mode', tab === 'draw');
+  if (tab === 'draw') requestAnimationFrame(() => requestAnimationFrame(cfmInitCanvas));
 }
 
 function cfmInitCanvas() {
   const wrap = document.getElementById('cfmCanvasWrap');
   const canvas = document.getElementById('cfmCanvas');
   if (!wrap || !canvas) return;
-  const size = wrap.clientWidth || 280;
-  canvas.width  = size;
-  canvas.height = size;
+  const w = wrap.clientWidth  || 280;
+  const h = wrap.clientHeight || w;
+  canvas.width  = w;
+  canvas.height = h;
   _cfmCtx = canvas.getContext('2d');
   _cfmCtx.fillStyle = '#ffffff';
-  _cfmCtx.fillRect(0, 0, size, size);
+  _cfmCtx.fillRect(0, 0, w, h);
   _cfmCtx.strokeStyle = '#111111';
-  _cfmCtx.lineWidth   = size * 0.05;
+  _cfmCtx.lineWidth   = Math.min(w, h) * 0.05;
   _cfmCtx.lineCap     = 'round';
   _cfmCtx.lineJoin    = 'round';
   _cfmHasStrokes = false;
 
-  // Draw faint grid guides
+  // Draw faint cross guides
   _cfmCtx.strokeStyle = 'rgba(0,0,0,0.07)';
   _cfmCtx.lineWidth = 1;
   _cfmCtx.beginPath();
-  _cfmCtx.moveTo(size/2, 0); _cfmCtx.lineTo(size/2, size);
-  _cfmCtx.moveTo(0, size/2); _cfmCtx.lineTo(size, size/2);
+  _cfmCtx.moveTo(w/2, 0); _cfmCtx.lineTo(w/2, h);
+  _cfmCtx.moveTo(0, h/2); _cfmCtx.lineTo(w, h/2);
   _cfmCtx.stroke();
   _cfmCtx.strokeStyle = '#111111';
-  _cfmCtx.lineWidth = size * 0.05;
+  _cfmCtx.lineWidth = Math.min(w, h) * 0.05;
 
-  // Touch events
+  // Touch / mouse events
   canvas.ontouchstart = cfmTouchStart;
   canvas.ontouchmove  = cfmTouchMove;
   canvas.ontouchend   = () => { _cfmDrawing = false; };
@@ -4066,22 +4076,78 @@ const _CFM_CONFUSABLES = {
   'つ':['し','そ','つ'],'く':['ふ','く'],'ふ':['く','ふ'],
 };
 
-function _cfmGetAlternatives(char) {
-  const alts = _CFM_CONFUSABLES[char] || [];
-  // Přidej sousední znaky v unicode pro katakana blok
+// ── Pagination state ─────────────────────────────────────────────────────────
+let _cfmAltPool = [];
+let _cfmAltPage = 0;
+const CFM_PAGE_SIZE = 20;
+
+function _cfmBuildAltPool(char) {
   const code = char.codePointAt(0);
-  const extras = [];
-  if (code >= 0x30A0 && code <= 0x30FF) {
-    for (let d = -2; d <= 2; d++) {
-      if (d === 0) continue;
-      const c = String.fromCodePoint(code + d);
-      if (!alts.includes(c) && !extras.includes(c)) extras.push(c);
+  const confusables = (_CFM_CONFUSABLES[char] || []).filter(c => c !== char);
+
+  // Scored map: lower = more similar → appears first
+  const scored = new Map();
+  confusables.forEach((c, i) => scored.set(c, i));
+
+  const isKatakana = code >= 0x30A0 && code <= 0x30FF;
+  const isHiragana = code >= 0x3040 && code <= 0x309F;
+  const blockStart = isKatakana ? 0x30A0 : isHiragana ? 0x3040 : 0x30A0;
+  const blockEnd   = isKatakana ? 0x30FF : isHiragana ? 0x309F : 0x30FF;
+
+  // Add all chars in the block, score = 100 + unicode distance
+  for (let c = blockStart; c <= blockEnd; c++) {
+    const ch = String.fromCodePoint(c);
+    if (ch === char) continue;
+    // Skip control/spacing chars (カタカナ block has some)
+    if (ch.trim() === '' || ch === '゛' || ch === '゜') continue;
+    if (!scored.has(ch)) scored.set(ch, 100 + Math.abs(c - code));
+  }
+
+  // If original char is kanji / other — fallback to katakana block
+  if (!isKatakana && !isHiragana) {
+    for (let c = 0x30A2; c <= 0x30F6; c += 2) { // only base katakana (every 2 = unvoiced)
+      const ch = String.fromCodePoint(c);
+      if (!scored.has(ch)) scored.set(ch, 200 + c);
     }
   }
-  // Spoj, odstraň duplicity a původní znak dej nakonec jako "Jiný..."
-  const combined = [...new Set([...alts, ...extras.slice(0,4)])];
-  if (!combined.includes(char)) combined.push(char);
-  return combined.slice(0, 12);
+
+  return [...scored.entries()]
+    .sort((a, b) => a[1] - b[1])
+    .map(e => e[0]);
+}
+
+function cfmShowAltPage(page) {
+  _cfmAltPage = page;
+  const start = page * CFM_PAGE_SIZE;
+  const slice = _cfmAltPool.slice(start, start + CFM_PAGE_SIZE);
+  const total = _cfmAltPool.length;
+  const hasMore = start + CFM_PAGE_SIZE < total;
+
+  // Page info
+  const info = document.getElementById('cfmAltPageInfo');
+  const pageCount = Math.ceil(total / CFM_PAGE_SIZE);
+  info.textContent = `strana ${page + 1} / ${pageCount}`;
+
+  // Render horizontal scroll row
+  const grid = document.getElementById('cfmAlts');
+  grid.innerHTML = '';
+  slice.forEach(ch => {
+    const isAiPick = ch === (_cfmDetected || '');
+    const btn = document.createElement('button');
+    btn.className = 'cfm-alt' + (isAiPick ? ' ai-pick' : '');
+    btn.innerHTML = `<div>${ch}</div>${isAiPick ? '<div class="cfm-alt-label">AI</div>' : ''}`;
+    btn.onclick = () => _cfmApplyChar(ch);
+    grid.appendChild(btn);
+  });
+  // Scroll back to start of row
+  grid.scrollLeft = 0;
+
+  // Další button
+  document.getElementById('cfmNextPageBtn').style.display = hasMore ? '' : 'none';
+}
+
+function cfmNextAltPage() {
+  cfmShowAltPage(_cfmAltPage + 1);
 }
 
 function openCharFix() {
@@ -4133,12 +4199,15 @@ function _cfmRenderPhase1(suffix) {
 }
 
 function closeCharFix() {
-  document.getElementById('charFixModal').classList.remove('open');
+  const modal = document.getElementById('charFixModal');
+  modal.classList.remove('open');
+  modal.classList.remove('draw-mode');
   // Reset tabs back to draw
   cfmSwitchTab('draw');
 }
 
 function startCharScan() {
+  document.getElementById('charFixModal').classList.remove('draw-mode');
   document.getElementById('cfmPhase1').style.display = 'none';
   // Zobraz scanning stav
   document.getElementById('cfmPhase2').style.display = '';
@@ -4201,22 +4270,16 @@ function cfmReject() {
   // Zobraz alternativy
   document.getElementById('cfmPhase2').style.display = 'none';
   document.getElementById('cfmPhase3').style.display = '';
-  const alts = _cfmGetAlternatives(_cfmDetected || _cfmChars[_cfmCharIndex] || '');
-  const grid = document.getElementById('cfmAlts');
-  grid.innerHTML = '';
-  alts.forEach(ch => {
-    const btn = document.createElement('button');
-    btn.className = 'cfm-alt';
-    btn.innerHTML = `<div>${ch}</div><div class="cfm-alt-label">${ch === (_cfmDetected||'') ? 'AI návrh' : ''}</div>`;
-    btn.onclick = () => _cfmApplyChar(ch);
-    grid.appendChild(btn);
-  });
+  _cfmAltPool = _cfmBuildAltPool(_cfmDetected || _cfmChars[_cfmCharIndex] || 'ン');
+  cfmShowAltPage(0);
 }
 
 function cfmBackToScan() {
   document.getElementById('cfmPhase3').style.display = 'none';
   document.getElementById('cfmPhase1').style.display = '';
   _cfmRenderPhase1('');
+  _cfmAltPool = [];
+  _cfmAltPage = 0;
   cfmClearCanvas();
 }
 
@@ -4329,9 +4392,15 @@ function _cfmApplyChar(char) {
 
     <!-- Fáze 3: Výběr z alternativ -->
     <div id="cfmPhase3" style="display:none">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Vyber správný znak:</div>
-      <div class="cfm-alts" id="cfmAlts"></div>
-      <div class="btn-row" style="margin-top:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:12px;color:var(--muted)">Vyber správný znak:</div>
+        <div class="cfm-alt-page" id="cfmAltPageInfo" style="margin:0"></div>
+      </div>
+      <div class="cfm-alts-scroll" id="cfmAlts"></div>
+      <button class="btn" id="cfmNextPageBtn" onclick="cfmNextAltPage()" style="font-size:13px;background:rgba(79,142,247,.12);border:1.5px solid rgba(79,142,247,.35);color:var(--accent);border-radius:10px;margin-top:6px;display:none">
+        ➡️ Další znaky
+      </button>
+      <div class="btn-row" style="margin-top:10px">
         <button class="btn btn-secondary" style="font-size:13px" onclick="cfmBackToScan()">📷 Vyfotit znovu</button>
         <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
       </div>
