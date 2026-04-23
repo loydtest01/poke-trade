@@ -387,6 +387,7 @@ No explanation. Just the JSON array.`;
 
     'fusion strike':                           'swsh8',
     'swsh8':                                   'swsh8',
+    's8f':                                     'swsh8',   // ZH Fusion Strike bundle → TCGdex/pokemontcg.io swsh8
 
     'brilliant stars':                         'swsh9',
     'swsh9':                                   'swsh9',
@@ -924,7 +925,13 @@ No explanation. Just the JSON array.`;
 
           // A3: Přímý lookup TCGdex (set + číslo)
           if (set && number) {
-            const setId = set.replace(/EN$|JP$|DE$|FR$/i, '').toLowerCase();
+            // BUG FIX: nahraď prostý replace() voláním _normalizeSet(), který umí převést
+            // ZH kódy (S8F → swsh8) i EN zkratky (FST → swsh8) na TCGdex-kompatibilní ID.
+            // TCGdex používá stejná ID jako pokemontcg.io (swsh8, sv3 …).
+            // Fallback zachová původní chování pro JP sety (S8, S8a), které v SET_ALIAS_MAP
+            // nejsou a v TCGdex žijí pod vlastním namespace (s8, s8a).
+            const setId = _normalizeSet(set)?.id
+                       || set.replace(/EN$|JP$|DE$|FR$|ZH$|CN$|TW$/i, '').toLowerCase();
             const dexCard = await _tcgdexDirect(setId, number, lang);
             if (dexCard) {
               cards.push(_normalizeTcgdex(dexCard));
