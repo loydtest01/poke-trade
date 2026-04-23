@@ -776,10 +776,23 @@ The card can be in ANY language: EN, JP, ZH, KO, DE, FR.
 
 TASK: Read EXACT text from card. For non-English cards also provide the official English name.
 
+CRITICAL — POKÉDEX NUMBER (highest priority signal):
+- ZH/JP cards often print the National Pokédex number directly on the card.
+  ZH format: "全國圖鑑No.631"  JP format: "ぜんこくずかんNo.006"
+- If you can read this number, use it as the PRIMARY source for nameEN.
+  It overrides any visual guess. Example: No.631 = Heatmor, No.323 = Camerupt.
+- Put the number in "pokedexNumber" field (digits only, e.g. "631").
+- If the Pokédex number is present but your nameEN contradicts it, you MUST correct nameEN.
+
+SECONDARY checks:
+- HP value on card must match nameEN (e.g. Heatmor base HP is 110, Camerupt is 110 too — not always reliable alone)
+- Card number + set code can be cross-checked: S8F 016/100 = Heatmor, not Camerupt
+
 Respond ONLY as JSON (no other text):
 {
   "name": "exact name as printed on card (original language)",
-  "nameEN": "official English name of this Pokemon/card — REQUIRED for JP/ZH/KO cards, same as name for EN cards",
+  "nameEN": "official English name — verified against pokedexNumber if visible",
+  "pokedexNumber": "Pokédex number from card text if visible, else empty string",
   "set": "set name or code as printed",
   "number": "card number e.g. 007/067",
   "type": "Pokemon type from icon: Fire/Water/Grass/Lightning/Psychic/Darkness/Dragon/Metal/Fighting/Fairy/Colorless",
