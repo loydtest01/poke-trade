@@ -17,6 +17,26 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Mapování ZH kódů setů → JP kódy setů pro případy, kde pouhé odstranění "F" dá špatný výsledek.
+// ZH "F" sety jsou čínské bundle vydání, která neodpovídají vždy stejnojmennému JP setu.
+// Příklad: ZH S8F (Fusion Strike bundle) → JP S8b (VMAX Climax), NIKOLI S8 (Fusion Arts).
+const ZH_TO_JP_SET = {
+  'S8F': 'S8b',   // ZH Fusion Strike bundle → JP VMAX Climax
+  // Další výjimky přidávej sem ve formátu 'ZH_KÓD_UPPERCASE': 'jp-kód'
+};
+
+/**
+ * Převede ZH/EN kód setu na JP kód pro pokemon-card.com.
+ * Zachovává malá/velká písmena (S8a zůstane S8a, ne S8A).
+ * Pořadí: 1) přesná shodu v lookup tabulce, 2) odstraň koncové F/f.
+ */
+function resolveJpSet(raw) {
+  const key = raw.toUpperCase();
+  if (ZH_TO_JP_SET[key]) return ZH_TO_JP_SET[key];
+  // Fallback: odstraň pouze koncové F (zachovej case zbytku: S8aF → S8a, S6a → S6a)
+  return raw.replace(/[Ff]$/, '');
+}
+
 // Japonské názvy typů → anglické
 const TYPE_MAP = {
   '炎': 'Fire', '水': 'Water', '草': 'Grass', '雷': 'Lightning',
@@ -37,8 +57,10 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Chybí parametry set a num' }));
   }
 
-  // Normalizuj: S8F → S8 (ZH prefix), paduj číslo na 3 cifry
-  const jpSet  = set.toUpperCase().replace(/F$/i, '').replace(/[A-Z]$/, m => m); // S8aF→S8a, S8F→S8
+  // Normalizuj ZH/EN kód setu → JP kód; paduj číslo na 3 cifry
+  // BUG FIXES: (1) toUpperCase() rozbíjel S6a→S6A; (2) pouhé odstranění F dávalo S8F→S8 místo S8b;
+  //            (3) druhý replace byl no-op (nahrazoval znak sebou samým).
+  const jpSet  = resolveJpSet(set);
   const padded = String(parseInt(num, 10)).padStart(3, '0');
 
   // ── OBRÁZEK ─────────────────────────────────────────────────────────────
