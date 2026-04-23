@@ -2413,6 +2413,23 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
+    // ── KROK 1b: Fallback – TCGdex přímo podle set+číslo (pro ZH/JP kdy translateViaLang selže) ──
+    if (isNonEn && !g._origImage && ai.set && ai.number) {
+      try {
+        const rawNum = String(ai.number).split('/')[0].trim();
+        const tcgId  = `${ai.set}-${rawNum}`;
+        const tr = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
+        if (tr.ok) {
+          const td = await tr.json();
+          if (td.image) {
+            g._origImage      = td.image + '/high.webp';
+            g._origImageSmall = td.image + '/low.webp';
+            console.log(`[KROK 1b] TCGdex obrázek nalezen pro ${tcgId}`);
+          }
+        }
+      } catch(e) { console.warn('[KROK 1b] TCGdex přímý dotaz selhal:', e); }
+    }
+
     // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
     const searchName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
 
