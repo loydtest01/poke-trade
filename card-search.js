@@ -685,7 +685,9 @@ No explanation. Just the JSON array.`;
 
   async function _tcgdexByName(name, lang = 'en', hp = null) {
     if (!name) return [];
-    const l = (LANG_TO_TCGDEX[lang?.toUpperCase()] || 'en');
+    const lRaw = LANG_TO_TCGDEX[lang?.toUpperCase()] || 'en';
+    // zh-Hans / zh-Hant: TCGdex nemá data pro japonské/čínské sety → rovnou EN
+    const l = (lRaw === 'zh-Hans' || lRaw === 'zh-Hant') ? 'en' : lRaw;
     let results = await _fetch(`${TCGDEX_BASE}/${l}/cards?name=${encodeURIComponent(name)}`);
     if ((!Array.isArray(results) || !results.length) && l !== 'en') {
       results = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(name)}`);
@@ -701,7 +703,9 @@ No explanation. Just the JSON array.`;
 
   async function _tcgdexDirect(setId, localId, lang = 'en') {
     if (!setId || !localId) return null;
-    const l = LANG_TO_TCGDEX[lang?.toUpperCase()] || 'en';
+    const lRaw = LANG_TO_TCGDEX[lang?.toUpperCase()] || 'en';
+    // zh-Hans / zh-Hant: TCGdex set/{id}/{num} pro japonské sety neexistuje → EN
+    const l = (lRaw === 'zh-Hans' || lRaw === 'zh-Hant') ? 'en' : lRaw;
     const num = String(localId).split('/')[0];
     const padded = num.padStart(3, '0');
     for (const id of [...new Set([padded, num])]) {
@@ -715,16 +719,17 @@ No explanation. Just the JSON array.`;
     if (!origName || !lang) return null;
     const l = LANG_TO_TCGDEX[lang.toUpperCase()];
     if (!l || l === 'en') return null;
-    let results = await _fetch(`${TCGDEX_BASE}/${l}/cards?name=${encodeURIComponent(origName)}`);
-    // ZH karty z japonských setů (S8F, sdbF…) TCGdex zh-Hans nemá – zkus ja locale jako zálohu.
-    // Japonský název se od ZH liší, proto to pomůže jen pokud jméno je shodné (nestane se).
-    // Hlavní přínos: pro ko/tw karty kde TCGdex má data v jiném locale.
-    if ((!Array.isArray(results) || !results.length) && (l === 'zh-Hans' || l === 'zh-Hant')) {
-      // Zkus najít přes EN locale s hp filtrací – ZH karty mají stejné HP jako EN
-      const enResults = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(origName)}`);
-      if (Array.isArray(enResults) && enResults.length) {
-        // Jen pokud EN jméno odpovídá (origName je EN jméno = nameEN od AI)
-        results = enResults;
+    // zh-Hans / zh-Hant: TCGdex nemá ZH karty pro japonské sety → rovnou hledáme přes EN
+    const isZh = l === 'zh-Hans' || l === 'zh-Hant';
+    let results;
+    if (isZh) {
+      // ZH/TW karty z JP setů – TCGdex zh-Hans/zh-Hant endpoint pro tyto sety neexistuje.
+      // Hledáme rovnou přes EN locale (origName je nameEN od AI nebo Pokédex ověření).
+      results = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(origName)}`);
+    } else {
+      results = await _fetch(`${TCGDEX_BASE}/${l}/cards?name=${encodeURIComponent(origName)}`);
+      if (!Array.isArray(results) || !results.length) {
+        results = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(origName)}`);
       }
     }
     if (!Array.isArray(results) || !results.length) return null;
@@ -739,7 +744,8 @@ No explanation. Just the JSON array.`;
     if (!cardId) return null;
     const enCard   = await _fetch(`${TCGDEX_BASE}/en/cards/${cardId}`);
     if (!enCard?.name) return null;
-    const origCard = await _fetch(`${TCGDEX_BASE}/${l}/cards/${cardId}`);
+    // Pro zh-Hans/zh-Hant obrázek zkusíme, ale jen pokud locale není ZH (tam vždy 404)
+    const origCard = (!isZh && l !== 'en') ? await _fetch(`${TCGDEX_BASE}/${l}/cards/${cardId}`) : null;
     return {
       enName:         enCard.name,
       enCard,
