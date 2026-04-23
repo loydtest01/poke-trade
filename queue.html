@@ -790,11 +790,11 @@ SECONDARY checks:
 
 Respond ONLY as JSON (no other text):
 {
-  "name": "exact name as printed on card (original language)",
+  "name": "ONLY the Pokémon name as printed — no sentences, no explanation. For '熔蟻獸' write just '熔蟻獸', not 'The name is: 熔蟻獸'.",
   "nameEN": "official English name — verified against pokedexNumber if visible",
   "pokedexNumber": "Pokédex number from card text if visible, else empty string",
-  "set": "set name or code as printed",
-  "number": "card number e.g. 007/067",
+  "set": "ONLY the set code printed on the card — e.g. S8, S8F, S9, SV1S. Do NOT write a full set name, just the short code. If not visible, empty string.",
+  "number": "card number ONLY digits and slash — e.g. 016/100 or 068/100. No other text.",
   "type": "Pokemon type from icon: Fire/Water/Grass/Lightning/Psychic/Darkness/Dragon/Metal/Fighting/Fairy/Colorless",
   "category": "Pokemon or Trainer or Energy",
   "subtype": "V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera or empty",
@@ -810,9 +810,20 @@ Respond ONLY as JSON (no other text):
 function cleanPokemonName(raw) {
   if (!raw) return raw;
   let s = raw.trim();
-  s = s.replace(/^(?:The\s+)?(?:Japanese\s+)?(?:Pok[e\u00e9]mon\s+)?(?:TCG\s+)?(?:card\s+)?name(?:\s+on\s+the\s+(?:Pok[e\u00e9]mon\s+TCG\s+)?card)?[\s]+(?:reads|is|says|printed)[\s:]+/i, '');
-  s = s.replace(/\s+However,[\s\S]*$/i, '');
+  // Model casto vraci "The name on the card is: X" nebo "...is:\n\nX" misto samotneho jmena
+  // Pokud je tam dvojtecka, vezmi vse za posledni dvojteckou
+  if (s.includes(':')) {
+    const after = s.split(':').pop().trim();
+    if (after.length > 0) s = after;
+  }
+  // Pokud jsou odradkovani, vezmi posledni neprazdny radek
+  if (s.includes('\n')) {
+    const lines = s.split('\n').map(function(l){return l.trim();}).filter(Boolean);
+    if (lines.length > 0) s = lines[lines.length - 1];
+  }
+  // Orezi uvozovky
   s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d]+|[\u0022\u0027\u201c\u201d\u300c\u300d]+$/g, '');
+  s = s.replace(/\s+However,[\s\S]*$/i, '');
   return s.trim() || raw.trim();
 }
 
@@ -1075,6 +1086,7 @@ async function loadQueue() {
       // Ulož AI z přední strany
       const side = meta.side || 'front';
       if (side === 'front' && meta.name) {
+        meta.name = cleanPokemonName(meta.name);
         groups[key].aiResult = meta;
       }
       if (side === 'back' && (meta.condition || meta.backCondition || meta.backIssues || meta.issues || meta.backNotes)) {
@@ -2413,77 +2425,69 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── KROK 1b: Hledej JP/ZH obrázek – přes /api/jp-card proxy ─────────
+    // ── KROK 1b: JP/ZH obrázek přes /api/jp-card proxy ─────────────────
     if (isNonEn && !g._origImage) {
       const _rawNum  = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
       const _padNum  = String(_rawNum).padStart(3, '0');
       const _enName  = (ai.nameEN || '').trim();
-      const _origSet = (ai.set || '').toLowerCase();
-      const _jpSet   = _origSet.replace(/f$/i, '').toUpperCase() || '';  // S8F→S8
+      const _origName = (ai.name  || '').trim();
+      // Set kód: AI vrací S8F (ZH), S8 (JP) → pro JP web potřebujeme S8
+      const _origSet = (ai.set || '').toUpperCase().trim();
+      const _jpSet   = _origSet.replace(/F$/i, '');  // S8F→S8, S9aF→S9a
 
-      // ── Strategie 1: /api/jp-card proxy → pokemon-card.com bez CORS ──────
-      // Vercel funkce stáhne obrázek server-side a vrátí ho přes náš proxy
-      if (!g._origImage && _jpSet && _rawNum) {
+      // ── Strategie 1: /api/jp-card proxy → pokemon-card.com server-side ──
+      if (!g._origImage && _jpSet && !isNaN(_rawNum)) {
         try {
-          // Nejdřív zkontroluj data (JP název, typ, série) – mode=data
-          const dataRes = await fetch(`/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=data`);
+          const dataUrl = `/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=data`;
+          const dataRes = await fetch(dataUrl);
           if (dataRes.ok) {
             const jpData = await dataRes.json();
-            if (jpData.imageUrl) {
-              // imageUrl je /api/jp-card?mode=image → proxy bez CORS
+            if (jpData && !jpData.error && jpData.imageUrl) {
               g._origImage      = jpData.imageUrl;
               g._origImageSmall = jpData.imageUrl;
-              // Doplň JP data pokud chybí
-              if (jpData.nameJP && !ai.name)   ai.name  = jpData.nameJP;
-              if (jpData.typeEN && !ai.type)    ai.type  = jpData.typeEN;
-              if (jpData.series && !ai.set)     ai.set   = jpData.series;
-              console.log('[1b-1] jp-card proxy: ' + jpData.imageUrl + ' | ' + jpData.nameJP);
-            }
-          } else {
-            // mode=data selhal → zkus přímo mode=image (ověř existenci)
-            const imgRes = await fetch(`/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=image`, { method: 'HEAD' });
-            if (imgRes.ok) {
-              const proxyUrl = `/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=image`;
-              g._origImage      = proxyUrl;
-              g._origImageSmall = proxyUrl;
-              console.log('[1b-1b] jp-card proxy (image only): ' + proxyUrl);
+              if (jpData.nameJP && !ai.name)  ai.name = jpData.nameJP;
+              if (jpData.typeEN && !ai.type)  ai.type = jpData.typeEN;
+              console.log('[1b-1] jp-card proxy data:', jpData.imageUrl, jpData.nameJP);
+            } else {
+              // data selhal ale zkus image přímo
+              const imgUrl = `/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=image`;
+              const imgHead = await fetch(imgUrl, { method: 'HEAD' });
+              if (imgHead.ok) {
+                g._origImage = imgUrl; g._origImageSmall = imgUrl;
+                console.log('[1b-1b] jp-card proxy image:', imgUrl);
+              }
             }
           }
         } catch(e) { console.warn('[1b-1] jp-card proxy selhal:', e.message); }
       }
 
-      // ── Strategie 2: Limitless TCG CDN ────────────────────────────────────
-      if (!g._origImage && _rawNum) {
-        const _sets = [...new Set([_jpSet, _origSet.toUpperCase(), (ai.set||'').toUpperCase()])].filter(Boolean);
-        outer2: for (const sid of _sets) {
+      // ── Strategie 2: Limitless TCG CDN (záloha) ───────────────────────
+      if (!g._origImage && !isNaN(_rawNum)) {
+        const sids = [...new Set([_jpSet, _origSet].filter(Boolean))];
+        outer2: for (const sid of sids) {
           for (const n of [_padNum, String(_rawNum)]) {
             const url = `https://limitlesstcg.nyc3.digitaloceanspaces.com/tpci/${sid}/${n}_R_JP_LG.png`;
             try {
               const r = await fetch(url, { method: 'HEAD', mode: 'cors' });
-              if (r.ok) {
-                g._origImage = url; g._origImageSmall = url;
-                console.log('[1b-2] Limitless CDN: ' + url);
-                break outer2;
-              }
+              if (r.ok) { g._origImage = url; g._origImageSmall = url; console.log('[1b-2] Limitless:', url); break outer2; }
             } catch(e) {}
           }
         }
       }
 
-      // ── Strategie 3: TCGdex EN jméno → preferuj JP sety ──────────────────
+      // ── Strategie 3: TCGdex EN jméno → preferuj JP sety ──────────────
       if (!g._origImage && _enName) {
         try {
-          const _r = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enName)}`);
-          if (_r.ok) {
-            const _cards = await _r.json();
-            if (Array.isArray(_cards) && _cards.length) {
-              const _byNum  = _cards.find(c => parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
-              const _jpPref = _cards.find(c => /^s\d/i.test(c.id||'') && parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
-              const _match  = _jpPref || _byNum || _cards.find(c => /^s\d/i.test(c.id||'')) || _cards[0];
-              if (_match?.image) {
-                g._origImage = _match.image + '/high.webp';
-                g._origImageSmall = _match.image + '/low.webp';
-                console.log('[1b-3] TCGdex EN jméno: ' + _match.id);
+          const r = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enName)}`);
+          if (r.ok) {
+            const cards = await r.json();
+            if (Array.isArray(cards) && cards.length) {
+              const byNum  = cards.find(c => parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
+              const jpPref = cards.find(c => /^s\d/i.test(c.id||'') && parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
+              const match  = jpPref || byNum || cards.find(c => /^s\d/i.test(c.id||'')) || cards[0];
+              if (match?.image) {
+                g._origImage = match.image + '/high.webp'; g._origImageSmall = match.image + '/low.webp';
+                console.log('[1b-3] TCGdex EN:', match.id);
               }
             }
           }
