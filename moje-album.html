@@ -2449,10 +2449,32 @@ async function fetchMissingImages() {
       const num  = encodeURIComponent((c.number || c.num || '').toString().split('/')[0]);
       if (!name) return;
       try {
-        // Zkus přesný dotaz (jméno + set + číslo)
+        const rawNum = (c.number || c.num || "").toString().split("/")[0];
+        // Pro JP/ZH/KO karty zkus TCGdex (má JP/ZH obrázky)
+        if (c.lang && c.lang !== 'EN' && c.set && rawNum) {
+          try {
+            const tcgdexId = `${c.set}-${rawNum}`;
+            const tcgRes = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgdexId)}`);
+            if (tcgRes.ok) {
+              const tcgCard = await tcgRes.json();
+              if (tcgCard.image) {
+                c.imageUrl = tcgCard.image + '/low.webp';
+                c.apiSmall = tcgCard.image + '/low.webp';
+                c.apiLarge = tcgCard.image + '/high.webp';
+                if (userId) {
+                  await sbReq(`rest/v1/user_cards?local_id=eq.${c.id}&user_id=eq.${userId}`, 'PATCH', {
+                    card_data: buildCardData(c)
+                  });
+                }
+                return;
+              }
+            }
+          } catch(e) { console.warn('[fetchMissingImages TCGdex]', c.name, e); }
+        }
+        // EN karty nebo fallback: pokemontcg.io podle EN názvu
         let q = `name:"${c.name}"`;
         if (set)  q += ` set.name:"${c.set}"`;
-        const rawNum = (c.number || c.num || "").toString().split("/")[0]; if (rawNum) q += ` number:${rawNum}`;
+        if (rawNum) q += ` number:${rawNum}`;
         const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`;
         const res  = await tcgFetch(url);
         if (!res.ok) return;
@@ -3094,13 +3116,14 @@ function openCardDetail(c) {
 
   // Name → cardmarket link
   const cmUrl = buildCardmarketUrl(c);
+  const _origLabel = c.nameOrig ? ` <span style="font-size:13px;opacity:0.45;font-weight:400">${esc(c.nameOrig)}</span>` : '';
   document.getElementById('cdName').innerHTML =
     `<a href="${esc(cmUrl)}" target="_blank" rel="noopener"
        style="color:inherit;text-decoration:none;border-bottom:2px solid rgba(245,200,66,0.4);
               transition:border-color .15s;cursor:pointer"
        onmouseover="this.style.borderColor='#f5c842'"
        onmouseout="this.style.borderColor='rgba(245,200,66,0.4)'"
-       title="Hledat na Cardmarket">${esc(c.name||'?')} <span style="font-size:12px;opacity:.5">↗</span></a>`;
+       title="Hledat na Cardmarket">${esc(c.name||'?')}${_origLabel} <span style="font-size:12px;opacity:.5">↗</span></a>`;
 
   document.getElementById('cdSet').textContent =
     [c.set, (c.number||c.num) ? '#'+(c.number||c.num) : ''].filter(Boolean).join(' · ');
@@ -4017,11 +4040,12 @@ function _refreshCdModal(c) {
 
   // Jméno + sada
   const cmUrl = buildCardmarketUrl(c);
+  const _origLabel2 = c.nameOrig ? ` <span style="font-size:13px;opacity:0.45;font-weight:400">${esc(c.nameOrig)}</span>` : '';
   document.getElementById('cdName').innerHTML =
     `<a href="${esc(cmUrl)}" target="_blank" rel="noopener"
        style="color:inherit;text-decoration:none;border-bottom:2px solid rgba(245,200,66,0.4);transition:border-color .15s;cursor:pointer"
        onmouseover="this.style.borderColor='#f5c842'" onmouseout="this.style.borderColor='rgba(245,200,66,0.4)'"
-       title="Hledat na Cardmarket">${esc(c.name||'?')} <span style="font-size:12px;opacity:.5">↗</span></a>`;
+       title="Hledat na Cardmarket">${esc(c.name||'?')}${_origLabel2} <span style="font-size:12px;opacity:.5">↗</span></a>`;
   document.getElementById('cdSet').textContent =
     [c.set, (c.number||c.num) ? '#'+(c.number||c.num) : ''].filter(Boolean).join(' · ');
 
