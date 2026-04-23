@@ -2413,48 +2413,91 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── KROK 1b: Fallback – hledej JP/ZH obrázek v TCGdex podle EN jména ──
+    // ── KROK 1b: Hledej JP/ZH obrázek – 4 strategie ────────────────────────
     if (isNonEn && !g._origImage) {
-      const _enNameForImg = (ai.nameEN || '').trim();
-      const _rawNum = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
-      if (_enNameForImg) {
+      const _rawNum  = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
+      const _padNum  = String(_rawNum).padStart(3, '0');
+      const _origName = (ai.name   || '').trim();  // ZH/JP jméno
+      const _enName   = (ai.nameEN || '').trim();  // EN jméno
+      // ZH set kód → JP set kód: S8F→s8, S9aF→s9a, S8bF→s8b ...
+      const _normSet  = (ai.set || '').toLowerCase().replace(/f$/i, '');
+
+      // ── Strategie 1: TCGdex v jazyce karty (ZH-Hant nebo ja) ──────────────
+      if (!g._origImage && _origName) {
+        const _langPath = ai.lang === 'ZH' ? 'zh-Hant' : 'ja';
         try {
-          // 1) Hledej v TCGdex podle jména — vrátí karty ve všech jazycích/setech
-          const _tUrl = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enNameForImg)}&hp=${encodeURIComponent(ai.hp || '')}`;
-          const _tr = await fetch(_tUrl);
-          if (_tr.ok) {
-            const _tCards = await _tr.json();
-            if (Array.isArray(_tCards) && _tCards.length) {
-              // Zkus najít shodu podle čísla
-              const _byNum = _tCards.find(c => parseInt(c.localId, 10) === _rawNum);
-              const _best  = _byNum || _tCards[0];
-              if (_best?.image) {
-                g._origImage      = _best.image + '/high.webp';
-                g._origImageSmall = _best.image + '/low.webp';
-                console.log(`[KROK 1b] TCGdex jméno-shoda: ${_best.id}`);
-              }
-            }
-          }
-        } catch(e) { console.warn('[KROK 1b] TCGdex selhal:', e); }
-      }
-      // 2) Pokud TCGdex nic nenašel, zkus přímý set+číslo (JP kód = ZH kód bez přípony F)
-      if (!g._origImage && ai.set && _rawNum) {
-        try {
-          const _normSet = ai.set.toLowerCase().replace(/f$/i, '');
-          for (const tcgId of [`${_normSet}-${_rawNum}`, `${_normSet}-${String(_rawNum).padStart(3,'0')}`]) {
-            const _tr2 = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
-            if (_tr2.ok) {
-              const _td = await _tr2.json();
-              if (_td?.image) {
-                g._origImage      = _td.image + '/high.webp';
-                g._origImageSmall = _td.image + '/low.webp';
-                console.log(`[KROK 1b] TCGdex set-shoda: ${tcgId}`);
-                break;
+          const _r = await fetch(`https://api.tcgdex.net/v2/${_langPath}/cards?name=${encodeURIComponent(_origName)}`);
+          if (_r.ok) {
+            const _cards = await _r.json();
+            if (Array.isArray(_cards) && _cards.length) {
+              const _match = _cards.find(c => parseInt(c.localId, 10) === _rawNum) || _cards[0];
+              if (_match?.image) {
+                g._origImage = _match.image + '/high.webp';
+                g._origImageSmall = _match.image + '/low.webp';
+                console.log(`[1b-1] TCGdex ${_langPath} jméno: ${_match.id}`);
               }
             }
           }
         } catch(e) {}
       }
+
+      // ── Strategie 2: TCGdex přímý set+číslo (JP kód) ─────────────────────
+      if (!g._origImage && _normSet && _rawNum) {
+        for (const tcgId of [`${_normSet}-${_rawNum}`, `${_normSet}-${_padNum}`]) {
+          try {
+            const _r = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
+            if (_r.ok) {
+              const _td = await _r.json();
+              if (_td?.image) {
+                g._origImage = _td.image + '/high.webp';
+                g._origImageSmall = _td.image + '/low.webp';
+                console.log(`[1b-2] TCGdex set+číslo: ${tcgId}`);
+                break;
+              }
+            }
+          } catch(e) {}
+        }
+      }
+
+      // ── Strategie 3: TCGdex EN jméno (fallback) ───────────────────────────
+      if (!g._origImage && _enName) {
+        try {
+          const _r = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enName)}`);
+          if (_r.ok) {
+            const _cards = await _r.json();
+            if (Array.isArray(_cards) && _cards.length) {
+              // Prefer JP set (set ID začíná 's' = japonský sword&shield)
+              const _jpCard = _cards.find(c => /^s\d/i.test(c.localId || '') || /^s\d/i.test(c.id || ''));
+              const _match  = (_jpCard && parseInt((_jpCard.localId||'').replace(/\D/g,''), 10) === _rawNum)
+                ? _jpCard
+                : (_cards.find(c => parseInt(c.localId, 10) === _rawNum) || _jpCard || _cards[0]);
+              if (_match?.image) {
+                g._origImage = _match.image + '/high.webp';
+                g._origImageSmall = _match.image + '/low.webp';
+                console.log(`[1b-3] TCGdex EN jméno: ${_match.id}`);
+              }
+            }
+          }
+        } catch(e) {}
+      }
+
+      // ── Strategie 4: Oficiální JP web (pokemon-card.com) ──────────────────
+      // URL pattern: /assets/images/card_images/large/{SET}/img_card_{SET}_{NUM}_1.jpg
+      // ZH S8F → JP S8, S9aF → S9a atd.
+      if (!g._origImage && _normSet && _rawNum) {
+        const _jpSet = _normSet.toUpperCase(); // s8 → S8
+        const _imgUrl = `https://www.pokemon-card.com/assets/images/card_images/large/${_jpSet}/img_card_${_jpSet}_${_padNum}_1.jpg`;
+        try {
+          const _r = await fetch(_imgUrl, { method: 'HEAD' });
+          if (_r.ok) {
+            g._origImage = _imgUrl;
+            g._origImageSmall = _imgUrl;
+            console.log(`[1b-4] pokemon-card.com: ${_imgUrl}`);
+          }
+        } catch(e) {}
+      }
+
+      if (!g._origImage) console.warn('[KROK 1b] Žádná strategie nenašla JP/ZH obrázek pro', ai.set, ai.number);
     }
 
     // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
