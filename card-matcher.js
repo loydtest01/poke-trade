@@ -562,18 +562,21 @@ $$;
       hint.number ? `Číslo (z OCR): "${hint.number}"` : '',
     ].filter(Boolean).join('\n');
 
+    const isJP = /^(JP|JA|ZH)$/i.test(hint.lang || '');
+
     const prompt = `You are a Pokemon TCG card identification expert.
 Look at this Pokemon card image and identify it precisely on pokemontcg.io.
 
 ${hintStr ? `OCR hints (may be inaccurate):\n${hintStr}\n` : ''}
-
+${isJP ? 'This card appears to be a Japanese/Asian language card.\n' : ''}
 Return ONLY a valid JSON object, nothing else, no markdown:
 {
   "card_id": "exact pokemontcg.io card ID like sv3pt5-054",
   "name": "exact English card name",
   "set_id": "set ID like sv3pt5",
   "number": "card number like 054",
-  "confidence": 0.0
+  "confidence": 0.0${isJP ? `,
+  "jp_set": "Japanese set code like S8F, S9, S10, SV1S, etc. (null if unknown)"` : ''}
 }
 
 If you cannot identify the card with confidence > 0.6, return: {"card_id": null}`;
@@ -592,13 +595,14 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
 
       if (!json.card_id) return null;
 
-      console.log(`[CardMatcher] Groq vision: "${json.name}" (${json.card_id})`);
+      console.log(`[CardMatcher] Groq vision: "${json.name}" (${json.card_id})${json.jp_set ? ` JP set: ${json.jp_set}` : ''}`);
       return {
         cardId:     json.card_id,
         name:       json.name,
         setId:      json.set_id,
         number:     json.number,
         confidence: json.confidence || 0,
+        jpSet:      json.jp_set || null,
       };
     } catch (e) {
       console.warn('[CardMatcher] Groq vision selhal:', e.message);
@@ -612,6 +616,7 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
 
   /**
    * @typedef {Object} MatchResult
+   * @property {string|null} jpSet       – JP set kód pro /api/jp-card (např. "S8F"), nebo null
    * @property {string|null} cardId      – pokemontcg.io ID nebo null pokud nenalezeno
    * @property {string}      name        – EN jméno karty
    * @property {string}      setId       – set ID
@@ -635,7 +640,7 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
     const result = {
       cardId: null, name: '', setId: '', number: '',
       imageUrl: '', source: 'none', confidence: 0,
-      phash: null, candidates: [],
+      phash: null, candidates: [], jpSet: null,
     };
 
     // ── Výpočet pHash naskenované karty ──────────────────────────────────────
@@ -715,6 +720,8 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
         result.setId      = groqMatch.setId   || details?.setCode || '';
         result.number     = groqMatch.number  || details?.number  || '';
         result.imageUrl   = details?.apiLarge || details?.imageUrl || '';
+        // Pro JP/ZH karty: předej JP set kód pro /api/jp-card
+        result.jpSet      = groqMatch.jpSet || query.set || null;
         result.source     = 'groq';
         result.confidence = groqMatch.confidence;
         return result;
