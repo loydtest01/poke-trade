@@ -715,7 +715,18 @@ No explanation. Just the JSON array.`;
     if (!origName || !lang) return null;
     const l = LANG_TO_TCGDEX[lang.toUpperCase()];
     if (!l || l === 'en') return null;
-    const results = await _fetch(`${TCGDEX_BASE}/${l}/cards?name=${encodeURIComponent(origName)}`);
+    let results = await _fetch(`${TCGDEX_BASE}/${l}/cards?name=${encodeURIComponent(origName)}`);
+    // ZH karty z japonských setů (S8F, sdbF…) TCGdex zh-Hans nemá – zkus ja locale jako zálohu.
+    // Japonský název se od ZH liší, proto to pomůže jen pokud jméno je shodné (nestane se).
+    // Hlavní přínos: pro ko/tw karty kde TCGdex má data v jiném locale.
+    if ((!Array.isArray(results) || !results.length) && (l === 'zh-Hans' || l === 'zh-Hant')) {
+      // Zkus najít přes EN locale s hp filtrací – ZH karty mají stejné HP jako EN
+      const enResults = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(origName)}`);
+      if (Array.isArray(enResults) && enResults.length) {
+        // Jen pokud EN jméno odpovídá (origName je EN jméno = nameEN od AI)
+        results = enResults;
+      }
+    }
     if (!Array.isArray(results) || !results.length) return null;
     let matches = results;
     if (hp) {
@@ -860,15 +871,16 @@ No explanation. Just the JSON array.`;
      */
     async search(name, opts = {}) {
       const {
-        set       = '',
-        number    = '',
-        lang      = 'EN',
-        hp        = null,
-        variant   = '',
-        rarity    = '',
-        types     = [],
-        pageSize  = 24,
-        onStatus  = null,
+        set           = '',
+        number        = '',
+        lang          = 'EN',
+        hp            = null,
+        variant       = '',
+        rarity        = '',
+        types         = [],
+        pageSize      = 24,
+        onStatus      = null,
+        pokedexNumber = '',
       } = opts;
 
       const status  = msg => { if (onStatus) onStatus(msg); };
@@ -883,15 +895,19 @@ No explanation. Just the JSON array.`;
 
       // ── VĚTEV A: ne-anglická karta ──────────────────────────────────────
       if (isNonEn) {
-        let enName = '';
+        let enName = opts._preResolvedEnName || '';  // může být předvyplněno z queue.html (PokéAPI)
 
         if (src.tcgdex) {
-          // A1: Přeložit přes TCGdex
-          status('🌐 Překládám přes TCGdex…');
-          const translated = await _tcgdexTranslate(name, lang, hp);
-          if (translated?.enName) {
-            enName = translated.enName;
-            console.log(`[PkSearch] Překlad: "${name}" (${lang}) → "${enName}"`);
+          // A1: Přeložit přes TCGdex – přeskoč pokud nameEN již ověřen přes PokéAPI
+          if (!enName) {
+            status('🌐 Překládám přes TCGdex…');
+            const translated = await _tcgdexTranslate(name, lang, hp);
+            if (translated?.enName) {
+              enName = translated.enName;
+              console.log(`[PkSearch] Překlad: "${name}" (${lang}) → "${enName}"`);
+            }
+          } else {
+            console.log(`[PkSearch] Překlad přeskočen – nameEN již znám: "${enName}"`);
           }
 
           // A2: Fallback hledání v TCGdex EN

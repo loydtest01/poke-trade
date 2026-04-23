@@ -827,6 +827,48 @@ function cleanPokemonName(raw) {
   return s.trim() || raw.trim();
 }
 
+// ── PokéAPI ověření – opraví nameEN podle Pokédex čísla ──────────────────────
+// Cache: aby se stejné číslo netahovalo víckrát za session
+const _pokeApiCache = {};
+async function _verifyNameWithPokeAPI(pokedexNumber) {
+  if (!pokedexNumber) return null;
+  const num = parseInt(pokedexNumber, 10);
+  if (!num || num < 1 || num > 10000) return null;
+  if (_pokeApiCache[num]) return _pokeApiCache[num];
+  try {
+    const res = await fetch(`https://pokeapi.co/api/v2/pokemon-species/${num}/`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Najdi anglický název
+    const enEntry = (data.names || []).find(n => n.language?.name === 'en');
+    if (!enEntry?.name) return null;
+    const enName = enEntry.name;
+    _pokeApiCache[num] = enName;
+    console.log(`[PokéAPI] #${num} → "${enName}"`);
+    return enName;
+  } catch(e) {
+    console.warn('[PokéAPI] Selhalo:', e.message);
+    return null;
+  }
+}
+
+// Aplikuje PokéAPI ověření na aiResult – opraví nameEN pokud AI spletla jméno
+async function _applyPokeApiVerification(aiResult) {
+  if (!aiResult) return;
+  const num = aiResult.pokedexNumber;
+  if (!num) return;
+  const verifiedName = await _verifyNameWithPokeAPI(num);
+  if (!verifiedName) return;
+  // Pokud se AI-překlad liší od PokéAPI → oprav ho
+  if (aiResult.nameEN && aiResult.nameEN.toLowerCase() !== verifiedName.toLowerCase()) {
+    console.log(`[PokéAPI] Opravuji nameEN: "${aiResult.nameEN}" → "${verifiedName}" (dex #${num})`);
+    aiResult.nameEN = verifiedName;
+  } else if (!aiResult.nameEN) {
+    console.log(`[PokéAPI] Nastavuji nameEN: "${verifiedName}" (dex #${num})`);
+    aiResult.nameEN = verifiedName;
+  }
+}
+
 function _getGroqKey() {
   // Sdílí se se scanner.html – klíč je uložen jako 'groqApiKey'
   return localStorage.getItem('groqApiKey') || '';
@@ -1275,6 +1317,17 @@ async function retryAi(gi) {
     if (result.name) result.name = cleanPokemonName(result.name);
 
     if (!result.name) throw new Error('AI nenašla název karty');
+
+    // ── PokéAPI ověření: oprav nameEN podle Pokédex čísla pokud AI spletla ──
+    if (result.pokedexNumber) {
+      const verified = await _verifyNameWithPokeAPI(result.pokedexNumber);
+      if (verified) {
+        if (result.nameEN && result.nameEN.toLowerCase() !== verified.toLowerCase()) {
+          console.log(`[retryAi] PokéAPI opravuje nameEN: "${result.nameEN}" → "${verified}"`);
+        }
+        result.nameEN = verified;
+      }
+    }
 
     // Ulož nový výsledek
     g.aiResult = { ...result, _retried: true };
@@ -2084,6 +2137,87 @@ async function autoSearchAll() {
       _autoSearchScheduled = false;
       setTimeout(autoSearchAll, 200);
     }
+    // Po dokončení auto-searche: dohledej chybějící JP/ZH obrázky
+    setTimeout(fetchMissingJpImages, 300);
+  }
+}
+
+/**
+ * Pro ZH/JP karty kde auto-search proběhl příliš brzy (ai.set ještě nebyl nastaven)
+ * a výsledek obsahuje EN obrázek místo JP – tato funkce zpětně dohledá JP obrázek.
+ * Spouští se po dokončení autoSearchAll (ai.set je teď správně nastavený).
+ */
+async function fetchMissingJpImages() {
+  for (let gi = 0; gi < cardGroups.length; gi++) {
+    const g = cardGroups[gi];
+    if (!g || g._origImage || g._manuallySelected) continue;
+    const ai = g.aiResult || {};
+    if (!ai.lang || ai.lang === 'EN') continue;
+    if (!ai.set) continue;                    // stále bez set kódu → přeskočit
+
+    const _origSet = (ai.set || '').toUpperCase().trim();
+    const _jpSet   = _origSet.replace(/F$/i, '');   // S8F→S8, sdbF→sdb
+    const _rawNum  = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
+    if (!_jpSet || isNaN(_rawNum)) continue;
+    const _padNum = String(_rawNum).padStart(3, '0');
+
+    let foundUrl = null;
+
+    // Strategie A: /api/jp-card data mode
+    try {
+      const dataRes = await fetch(`/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=data`);
+      if (dataRes.ok) {
+        const jpData = await dataRes.json();
+        if (jpData?.imageUrl && !jpData.error) foundUrl = jpData.imageUrl;
+      }
+    } catch(e) {}
+
+    // Strategie B: /api/jp-card image mode
+    if (!foundUrl) {
+      try {
+        const imgUrl = `/api/jp-card?set=${encodeURIComponent(_jpSet)}&num=${encodeURIComponent(_padNum)}&mode=image`;
+        const r = await fetch(imgUrl, { method: 'HEAD' });
+        if (r.ok) foundUrl = imgUrl;
+      } catch(e) {}
+    }
+
+    // Strategie C: Limitless CDN
+    if (!foundUrl) {
+      outer: for (const sid of [...new Set([_jpSet, _origSet].filter(Boolean))]) {
+        for (const n of [_padNum, String(_rawNum)]) {
+          const url = `https://limitlesstcg.nyc3.digitaloceanspaces.com/tpci/${sid}/${n}_R_JP_LG.png`;
+          try {
+            const r = await fetch(url, { method: 'HEAD', mode: 'cors' });
+            if (r.ok) { foundUrl = url; break outer; }
+          } catch(e) {}
+        }
+      }
+    }
+
+    if (!foundUrl) continue;
+
+    // Ulož JP URL a aktualizuj compare panel + resolvedCard
+    g._origImage      = foundUrl;
+    g._origImageSmall = foundUrl;
+    console.log(`[fetchMissingJpImages] ✅ JP obrázek pro gi=${gi}: ${foundUrl}`);
+
+    const dbSide = document.getElementById(`compareDbSide-${gi}`);
+    if (dbSide) dbSide.innerHTML = `<img src="${foundUrl}" alt="JP/ZH karta" style="max-width:100%;border-radius:6px">`;
+
+    if (g.resolvedCard) {
+      g.resolvedCard.enImageUrl = g.resolvedCard.enImageUrl || g.resolvedCard.apiSmall || '';
+      g.resolvedCard.imageUrl   = foundUrl;
+      g.resolvedCard.apiSmall   = foundUrl;
+      g.resolvedCard.apiLarge   = foundUrl;
+    }
+
+    // Aktualizuj upload preview sekci
+    const previewEl = document.getElementById(`uploadPreview-${gi}`);
+    if (previewEl && !previewEl.innerHTML.trim()) {
+      previewEl.innerHTML = `<img src="${foundUrl}" alt=""><span class="badge-community">🇯🇵 JP karta</span>`;
+    }
+    const uploadArea = document.getElementById(`uploadArea-${gi}`);
+    if (uploadArea) uploadArea.style.display = 'none';  // JP obrázek máme, upload nepotřebujeme
   }
 }
 
@@ -2412,6 +2546,20 @@ async function tcgSearch(gi, autoMode = false) {
 
     // ── KROK 1: Pro non-EN – získej JP/orig obrázek + EN název ────────────
     if (isNonEn && ai.name && ai.lang) {
+      // ── KROK 1.0: PokéAPI ověření – oprav nameEN podle Pokédex čísla ──
+      // Pokédex číslo natištěné na kartě je 100% spolehlivé, AI jméno není
+      if (ai.pokedexNumber) {
+        const pokeVerified = await _verifyNameWithPokeAPI(ai.pokedexNumber);
+        if (pokeVerified) {
+          if (ai.nameEN && ai.nameEN.toLowerCase() !== pokeVerified.toLowerCase()) {
+            console.log(`[KROK 1.0] PokéAPI opravuje nameEN: "${ai.nameEN}" → "${pokeVerified}" (dex #${ai.pokedexNumber})`);
+          }
+          ai.nameEN = pokeVerified;
+          const inp = document.getElementById(`nameEN-${gi}`);
+          if (inp) inp.value = pokeVerified;
+        }
+      }
+
       const t = await PkSearch.translateViaLang(ai.name, ai.lang, ai.hp);
       if (t) {
         if (t.origImage)      g._origImage      = t.origImage;
@@ -2500,20 +2648,27 @@ async function tcgSearch(gi, autoMode = false) {
     const searchName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
 
     let cards = await PkSearch.search(searchName, {
-      set:      isNonEn ? '' : (ai.set || ''),
-      number:   isNonEn ? '' : cardNumber,
-      lang:     ai.lang    || 'EN',
-      hp:       ai.hp      || null,
-      variant:  ai.variant || '',
-      rarity:   ai.rarity  || '',
-      types:    ai.type ? [ai.type] : [],
-      pageSize: 24,
-      onStatus: msg => { statusEl.textContent = msg; },
+      set:                isNonEn ? '' : (ai.set || ''),
+      number:             isNonEn ? '' : cardNumber,
+      lang:               ai.lang    || 'EN',
+      hp:                 ai.hp      || null,
+      variant:            ai.variant || '',
+      rarity:             ai.rarity  || '',
+      types:              ai.type ? [ai.type] : [],
+      pageSize:           24,
+      onStatus:           msg => { statusEl.textContent = msg; },
+      pokedexNumber:      ai.pokedexNumber || '',
+      _preResolvedEnName: isNonEn ? (ai.nameEN || '') : '',
     });
 
     if (!cards.length) {
       statusEl.className = 'cg-search-status err';
       statusEl.innerHTML = '❌ Karta nenalezena — uprav název nebo vlož odkaz ručně.';
+      // Pokud KROK 1b našel JP obrázek, zobraz ho v compare panelu i bez EN shody
+      if (g._origImage) {
+        const dbSide = document.getElementById(`compareDbSide-${gi}`);
+        if (dbSide) dbSide.innerHTML = `<img src="${g._origImage}" alt="JP/ZH karta" style="max-width:100%;border-radius:6px">`;
+      }
       btn.disabled = false;
       return;
     }
@@ -2529,6 +2684,47 @@ async function tcgSearch(gi, autoMode = false) {
           photoUrl, cards, GROQ_PROXY, groqKey,
           msg => { statusEl.textContent = msg; }
         );
+      }
+    }
+
+    // ── KROK 2.5: Záchrana JP/ZH obrázku – zkus znovu pokud KROK 1b selhal ──
+    // Důvod: KROK 1b mohl proběhnout s ai.set=null (AI ještě nedokončila), ale teď
+    // máme ai.set správně nastaven – takže zkusíme jp-card proxy znovu.
+    if (isNonEn && !g._origImage && ai.set) {
+      const _s25    = (ai.set || '').toUpperCase().trim();
+      const _jpS25  = _s25.replace(/F$/i, '');
+      const _n25    = parseInt(String(ai.number || cardNumber).split('/')[0].trim(), 10);
+      const _pad25  = isNaN(_n25) ? null : String(_n25).padStart(3, '0');
+      if (_jpS25 && _pad25) {
+        // A: data mode
+        try {
+          const dr = await fetch(`/api/jp-card?set=${encodeURIComponent(_jpS25)}&num=${encodeURIComponent(_pad25)}&mode=data`);
+          if (dr.ok) {
+            const jpd = await dr.json();
+            if (jpd?.imageUrl && !jpd.error) { g._origImage = jpd.imageUrl; g._origImageSmall = jpd.imageUrl; }
+          }
+        } catch(e) {}
+        // B: image HEAD mode
+        if (!g._origImage) {
+          try {
+            const iu = `/api/jp-card?set=${encodeURIComponent(_jpS25)}&num=${encodeURIComponent(_pad25)}&mode=image`;
+            const rh = await fetch(iu, { method: 'HEAD' });
+            if (rh.ok) { g._origImage = iu; g._origImageSmall = iu; }
+          } catch(e) {}
+        }
+        // C: Limitless CDN fallback
+        if (!g._origImage) {
+          outer25: for (const sid of [...new Set([_jpS25, _s25].filter(Boolean))]) {
+            for (const n of [_pad25, String(_n25)]) {
+              const url = `https://limitlesstcg.nyc3.digitaloceanspaces.com/tpci/${sid}/${n}_R_JP_LG.png`;
+              try {
+                const r = await fetch(url, { method: 'HEAD', mode: 'cors' });
+                if (r.ok) { g._origImage = url; g._origImageSmall = url; console.log('[2.5] Limitless:', url); break outer25; }
+              } catch(e) {}
+            }
+          }
+        }
+        if (g._origImage) console.log('[KROK 2.5] JP obrázek nalezen zpětně:', g._origImage);
       }
     }
 
