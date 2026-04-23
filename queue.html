@@ -2413,88 +2413,113 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── KROK 1b: Hledej JP/ZH obrázek – 4 strategie ────────────────────────
+    // ── KROK 1b: Hledej JP/ZH obrázek – strategie ──────────────────────────
     if (isNonEn && !g._origImage) {
-      const _rawNum  = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
-      const _padNum  = String(_rawNum).padStart(3, '0');
+      const _rawNum   = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
+      const _padNum   = String(_rawNum).padStart(3, '0');
       const _origName = (ai.name   || '').trim();  // ZH/JP jméno
       const _enName   = (ai.nameEN || '').trim();  // EN jméno
-      // ZH set kód → JP set kód: S8F→s8, S9aF→s9a, S8bF→s8b ...
-      const _normSet  = (ai.set || '').toLowerCase().replace(/f$/i, '');
+      const _origSet  = (ai.set || '').toLowerCase();              // s8f (ZH), s8 (JP)
+      const _jpSet    = _origSet.replace(/f$/i, '');               // s8f→s8, s8→s8 (JP ekvivalent)
+      // TCGdex language codes
+      const _tcgLang  = ai.lang === 'ZH' ? 'zh-TW' : 'ja';
 
-      // ── Strategie 1: TCGdex v jazyce karty (ZH-Hant nebo ja) ──────────────
-      if (!g._origImage && _origName) {
-        const _langPath = ai.lang === 'ZH' ? 'zh-Hant' : 'ja';
-        try {
-          const _r = await fetch(`https://api.tcgdex.net/v2/${_langPath}/cards?name=${encodeURIComponent(_origName)}`);
-          if (_r.ok) {
-            const _cards = await _r.json();
-            if (Array.isArray(_cards) && _cards.length) {
-              const _match = _cards.find(c => parseInt(c.localId, 10) === _rawNum) || _cards[0];
-              if (_match?.image) {
-                g._origImage = _match.image + '/high.webp';
-                g._origImageSmall = _match.image + '/low.webp';
-                console.log(`[1b-1] TCGdex ${_langPath} jméno: ${_match.id}`);
-              }
-            }
-          }
-        } catch(e) {}
-      }
-
-      // ── Strategie 2: TCGdex přímý set+číslo (JP kód) ─────────────────────
-      if (!g._origImage && _normSet && _rawNum) {
-        for (const tcgId of [`${_normSet}-${_rawNum}`, `${_normSet}-${_padNum}`]) {
+      // Helper: zkus TCGdex sets endpoint a vrať image URL
+      const _tryTcgSet = async (lang, setId, num) => {
+        for (const n of [num, String(num).padStart(3,'0'), String(num)]) {
           try {
-            const _r = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
-            if (_r.ok) {
-              const _td = await _r.json();
-              if (_td?.image) {
-                g._origImage = _td.image + '/high.webp';
-                g._origImageSmall = _td.image + '/low.webp';
-                console.log(`[1b-2] TCGdex set+číslo: ${tcgId}`);
-                break;
-              }
-            }
+            const r = await fetch(`https://api.tcgdex.net/v2/${lang}/sets/${setId}/${n}`);
+            if (r.ok) { const d = await r.json(); if (d?.image) return d.image; }
           } catch(e) {}
+        }
+        return null;
+      };
+
+      // ── Strategie 1: TCGdex v jazyce karty, přímý set+číslo ──────────────
+      if (!g._origImage && _origSet && _rawNum) {
+        // Zkus: jazyk karty + původní set kód, pak JP jazyk + JP set kód
+        const _candidates = [
+          [_tcgLang, _origSet],
+          ['ja',     _jpSet  ],
+          [_tcgLang, _jpSet  ],
+          ['ja',     _origSet],
+        ];
+        for (const [lang, setId] of _candidates) {
+          if (!setId) continue;
+          const _img = await _tryTcgSet(lang, setId, _rawNum);
+          if (_img) {
+            g._origImage = _img + '/high.webp';
+            g._origImageSmall = _img + '/low.webp';
+            console.log(`[1b-1] TCGdex sets/${setId}/${_rawNum} (${lang})`);
+            break;
+          }
         }
       }
 
-      // ── Strategie 3: TCGdex EN jméno (fallback) ───────────────────────────
+      // ── Strategie 2: TCGdex cards endpoint – ja + en, různé formáty ID ───
+      if (!g._origImage && _rawNum) {
+        const _setIds = [...new Set([_origSet, _jpSet].filter(Boolean))];
+        const _langs  = ['ja', _tcgLang, 'en'];
+        outer2: for (const lang of _langs) {
+          for (const sid of _setIds) {
+            for (const n of [_rawNum, _padNum]) {
+              try {
+                const r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards/${sid}-${n}`);
+                if (r.ok) {
+                  const d = await r.json();
+                  if (d?.image) {
+                    g._origImage = d.image + '/high.webp';
+                    g._origImageSmall = d.image + '/low.webp';
+                    console.log(`[1b-2] TCGdex cards/${sid}-${n} (${lang})`);
+                    break outer2;
+                  }
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      }
+
+      // ── Strategie 3: TCGdex EN jméno → preferuj JP sety ─────────────────
       if (!g._origImage && _enName) {
         try {
           const _r = await fetch(`https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enName)}`);
           if (_r.ok) {
             const _cards = await _r.json();
             if (Array.isArray(_cards) && _cards.length) {
-              // Prefer JP set (set ID začíná 's' = japonský sword&shield)
-              const _jpCard = _cards.find(c => /^s\d/i.test(c.localId || '') || /^s\d/i.test(c.id || ''));
-              const _match  = (_jpCard && parseInt((_jpCard.localId||'').replace(/\D/g,''), 10) === _rawNum)
-                ? _jpCard
-                : (_cards.find(c => parseInt(c.localId, 10) === _rawNum) || _jpCard || _cards[0]);
+              // Upřednostni JP sety (s1–s12), pak shodu čísla
+              const _byNum  = _cards.find(c => parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
+              const _jpPref = _cards.find(c => /^s\d/i.test(c.id||'') && parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum);
+              const _match  = _jpPref || _byNum || _cards.find(c => /^s\d/i.test(c.id||'')) || _cards[0];
               if (_match?.image) {
                 g._origImage = _match.image + '/high.webp';
                 g._origImageSmall = _match.image + '/low.webp';
-                console.log(`[1b-3] TCGdex EN jméno: ${_match.id}`);
+                console.log(`[1b-3] TCGdex EN jméno → ${_match.id}`);
               }
             }
           }
         } catch(e) {}
       }
 
-      // ── Strategie 4: Oficiální JP web (pokemon-card.com) ──────────────────
-      // URL pattern: /assets/images/card_images/large/{SET}/img_card_{SET}_{NUM}_1.jpg
-      // ZH S8F → JP S8, S9aF → S9a atd.
-      if (!g._origImage && _normSet && _rawNum) {
-        const _jpSet = _normSet.toUpperCase(); // s8 → S8
-        const _imgUrl = `https://www.pokemon-card.com/assets/images/card_images/large/${_jpSet}/img_card_${_jpSet}_${_padNum}_1.jpg`;
-        try {
-          const _r = await fetch(_imgUrl, { method: 'HEAD' });
-          if (_r.ok) {
-            g._origImage = _imgUrl;
-            g._origImageSmall = _imgUrl;
-            console.log(`[1b-4] pokemon-card.com: ${_imgUrl}`);
-          }
-        } catch(e) {}
+      // ── Strategie 4: TCGdex ZH/JP jméno ─────────────────────────────────
+      if (!g._origImage && _origName) {
+        for (const lang of [_tcgLang, 'ja']) {
+          try {
+            const _r = await fetch(`https://api.tcgdex.net/v2/${lang}/cards?name=${encodeURIComponent(_origName)}`);
+            if (_r.ok) {
+              const _cards = await _r.json();
+              if (Array.isArray(_cards) && _cards.length) {
+                const _match = _cards.find(c => parseInt((c.localId||'').replace(/\D/g,''),10) === _rawNum) || _cards[0];
+                if (_match?.image) {
+                  g._origImage = _match.image + '/high.webp';
+                  g._origImageSmall = _match.image + '/low.webp';
+                  console.log(`[1b-4] TCGdex ${lang} jméno → ${_match.id}`);
+                  break;
+                }
+              }
+            }
+          } catch(e) {}
+        }
       }
 
       if (!g._origImage) console.warn('[KROK 1b] Žádná strategie nenašla JP/ZH obrázek pro', ai.set, ai.number);
