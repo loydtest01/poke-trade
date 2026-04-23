@@ -151,6 +151,7 @@
       if (qs && (rs || rsName)) {
         if (rs === qs || rsName.includes(qs) || qs.includes(rs)) score += 20;
         else if (rs.includes(qs) || qs.includes(rs)) score += 10;
+        else score -= 12; // ← penalizace za jasnou neshodu série
       }
     }
 
@@ -649,6 +650,26 @@ No explanation. Just the JSON array.`;
                 status(`🔍 Zkouším set.id: ${setLower}…`);
                 tcgCards = await _searchTcgIo(q2, pageSize);
               }
+            }
+
+            // B1c: zkus jen jméno + číslo bez série
+            // Důvod: AI může napsat "Obsidian Flames" ale API set se jmenuje jinak.
+            // Bez B1c spadneme na B2 (jen jméno) a scoring vybere kartu z jiné populárnější série.
+            if (!tcgCards.length && number && enName) {
+              const numClean = String(number).split('/')[0].replace(/\D/g, '');
+              if (numClean) {
+                const q3 = `name:"${enName.replace(/"/g, '')}" number:${numClean}`;
+                status(`🔍 Zkouším jméno + číslo (bez série)…`);
+                tcgCards = await _searchTcgIo(q3, pageSize);
+              }
+            }
+
+            // B1d: zkus set.ptcgoCode přes zkratku (např. "OBF", "MEW", "PAL")
+            // AI někdy vrátí set jako zkratku místo plného názvu
+            if (!tcgCards.length && set && /^[A-Z0-9]{2,6}$/.test(set.trim())) {
+              const q4 = `name:"${enName.replace(/"/g, '')}" set.ptcgoCode:${set.trim()}`;
+              status(`🔍 Zkouším ptcgoCode: ${set.trim()}…`);
+              tcgCards = await _searchTcgIo(q4, pageSize);
             }
             cards = _dedup([...cards, ...tcgCards.map(_normalizeTcgIo).filter(Boolean)]);
           }
