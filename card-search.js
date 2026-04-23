@@ -296,6 +296,295 @@ No explanation. Just the JSON array.`;
     }
   }
 
+
+  // ══════════════════════════════════════════════════════════════
+  //  SET ALIAS MAP – mapování AI názvů → pokemontcg.io set.id
+  //
+  //  Proč: AI čte sadu ze skenované karty a může napsat
+  //  "Dragon Majesty", "Forbidden Light", "Obsidian Flames" apod.
+  //  API používá krátké ID (drm, sm6, sv3). Tato tabulka překládá
+  //  všechny běžné varianty → správné ID, takže vyhledávání najde
+  //  kartu i když AI napíše název sady "po lidsku".
+  //
+  //  Klíče: lowercase, bez diakritiky, bez interpunkce.
+  //  Hodnoty: pokemontcg.io set.id (použito v set.id:"..." query).
+  // ══════════════════════════════════════════════════════════════
+
+  const SET_ALIAS_MAP = {
+    // ── Scarlet & Violet ────────────────────────────────────────
+    'scarlet violet':                          'sv1',
+    'scarlet and violet':                      'sv1',
+    'scarlet & violet':                        'sv1',
+    'scarlet violet base':                     'sv1',
+    'sv base':                                 'sv1',
+    'sv1':                                     'sv1',
+
+    'paldea evolved':                          'sv2',
+    'sv2':                                     'sv2',
+
+    'obsidian flames':                         'sv3',
+    'sv3':                                     'sv3',
+
+    '151':                                     'sv3pt5',
+    'pokemon 151':                             'sv3pt5',
+    'scarlet violet 151':                      'sv3pt5',
+    'sv3pt5':                                  'sv3pt5',
+
+    'paradox rift':                            'sv4',
+    'sv4':                                     'sv4',
+
+    'paldean fates':                           'sv4pt5',
+    'sv4pt5':                                  'sv4pt5',
+
+    'temporal forces':                         'sv5',
+    'sv5':                                     'sv5',
+
+    'twilight masquerade':                     'sv6',
+    'sv6':                                     'sv6',
+
+    'shrouded fable':                          'sv6pt5',
+    'sv6pt5':                                  'sv6pt5',
+
+    'stellar crown':                           'sv7',
+    'sv7':                                     'sv7',
+
+    'surging sparks':                          'sv8',
+    'sv8':                                     'sv8',
+
+    'prismatic evolutions':                    'sv8pt5',
+    'sv8pt5':                                  'sv8pt5',
+
+    // ── Sword & Shield ─────────────────────────────────────────
+    'sword shield':                            'swsh1',
+    'sword and shield':                        'swsh1',
+    'sword & shield':                          'swsh1',
+    'swsh1':                                   'swsh1',
+
+    'rebel clash':                             'swsh2',
+    'swsh2':                                   'swsh2',
+
+    'darkness ablaze':                         'swsh3',
+    'swsh3':                                   'swsh3',
+
+    'champions path':                          'swsh35',
+    "champion's path":                         'swsh35',
+    'swsh35':                                  'swsh35',
+
+    'vivid voltage':                           'swsh4',
+    'swsh4':                                   'swsh4',
+
+    'shining fates':                           'swsh45',
+    'swsh45':                                  'swsh45',
+
+    'battle styles':                           'swsh5',
+    'swsh5':                                   'swsh5',
+
+    'chilling reign':                          'swsh6',
+    'swsh6':                                   'swsh6',
+
+    'evolving skies':                          'swsh7',
+    'swsh7':                                   'swsh7',
+
+    'fusion strike':                           'swsh8',
+    'swsh8':                                   'swsh8',
+
+    'brilliant stars':                         'swsh9',
+    'swsh9':                                   'swsh9',
+
+    'astral radiance':                         'swsh10',
+    'swsh10':                                  'swsh10',
+
+    'pokemon go':                              'swsh10pt5',
+    'pokémon go':                              'swsh10pt5',
+    'swsh10pt5':                               'swsh10pt5',
+
+    'lost origin':                             'swsh11',
+    'swsh11':                                  'swsh11',
+
+    'silver tempest':                          'swsh12',
+    'swsh12':                                  'swsh12',
+
+    'crown zenith':                            'swsh12pt5',
+    'swsh12pt5':                               'swsh12pt5',
+
+    // ── Sun & Moon ─────────────────────────────────────────────
+    'sun moon':                                'sm1',
+    'sun and moon':                            'sm1',
+    'sun & moon':                              'sm1',
+    'sun moon base':                           'sm1',
+    'sm1':                                     'sm1',
+
+    'guardians rising':                        'sm2',
+    'sm2':                                     'sm2',
+
+    'burning shadows':                         'sm3',
+    'sm3':                                     'sm3',
+
+    'shining legends':                         'sm35',
+    'sm35':                                    'sm35',
+
+    'crimson invasion':                        'sm4',
+    'sm4':                                     'sm4',
+
+    'ultra prism':                             'sm5',
+    'sm5':                                     'sm5',
+
+    'forbidden light':                         'sm6',
+    'sm6':                                     'sm6',
+    'fli':                                     'sm6',
+
+    'celestial storm':                         'sm7',
+    'sm7':                                     'sm7',
+
+    'dragon majesty':                          'sm75',
+    'sm75':                                    'sm75',
+    'drm':                                     'sm75',
+
+    'lost thunder':                            'sm8',
+    'sm8':                                     'sm8',
+
+    'team up':                                 'sm9',
+    'sm9':                                     'sm9',
+
+    'unbroken bonds':                          'sm10',
+    'sm10':                                    'sm10',
+
+    'unified minds':                           'sm11',
+    'sm11':                                    'sm11',
+
+    'hidden fates':                            'sm115',
+    'sm115':                                   'sm115',
+
+    'cosmic eclipse':                          'sm12',
+    'sm12':                                    'sm12',
+
+    // ── XY ─────────────────────────────────────────────────────
+    'xy':                                      'xy1',
+    'xy base':                                 'xy1',
+    'xy1':                                     'xy1',
+
+    'flashfire':                               'xy2',
+    'xy2':                                     'xy2',
+
+    'furious fists':                           'xy3',
+    'xy3':                                     'xy3',
+
+    'phantom forces':                          'xy4',
+    'xy4':                                     'xy4',
+
+    'primal clash':                            'xy5',
+    'xy5':                                     'xy5',
+
+    'roaring skies':                           'xy6',
+    'xy6':                                     'xy6',
+
+    'ancient origins':                         'xy7',
+    'xy7':                                     'xy7',
+
+    'breakthrough':                            'xy8',
+    'breakpoint':                              'xy9',
+    'xy8':                                     'xy8',
+    'xy9':                                     'xy9',
+
+    'fates collide':                           'xy10',
+    'xy10':                                    'xy10',
+
+    'steam siege':                             'xy11',
+    'xy11':                                    'xy11',
+
+    'evolutions':                              'xy12',
+    'pokemon evolutions':                      'xy12',
+    'xy12':                                    'xy12',
+
+    // ── Black & White ──────────────────────────────────────────
+    'black white':                             'bw1',
+    'black and white':                         'bw1',
+    'black & white':                           'bw1',
+    'bw1':                                     'bw1',
+
+    'emerging powers':                         'bw2',
+    'noble victories':                         'bw3',
+    'next destinies':                          'bw4',
+    'dark explorers':                          'bw5',
+    'dragons exalted':                         'bw6',
+    'dragon vault':                            'bw62',
+    'boundaries crossed':                      'bw7',
+    'plasma storm':                            'bw8',
+    'plasma freeze':                           'bw9',
+    'plasma blast':                            'bw10',
+    'legendary treasures':                     'bw11',
+
+    // ── Base / WotC ────────────────────────────────────────────
+    'base set':                                'base1',
+    'base':                                    'base1',
+    'jungle':                                  'jungle',
+    'fossil':                                  'fossil',
+    'base set 2':                              'base2',
+    'team rocket':                             'rocket',
+    'gym heroes':                              'gym1',
+    'gym challenge':                           'gym2',
+    'neo genesis':                             'neo1',
+    'neo discovery':                           'neo2',
+    'neo revelation':                          'neo3',
+    'neo destiny':                             'neo4',
+    'expedition':                              'ecard1',
+    'aquapolis':                               'ecard2',
+    'skyridge':                                'ecard3',
+  };
+
+  /**
+   * Normalizuje název sady z AI výstupu na pokemontcg.io set.id.
+   * Odstraní "Sun & Moon -", "Sword & Shield -" prefixes, lowercase, atd.
+   * Vrátí { id, ptcgoCode } nebo null pokud shoda nenalezena.
+   */
+  function _normalizeSet(setStr) {
+    if (!setStr) return null;
+
+    // Odstraň běžné prefixes které AI přidává
+    let s = setStr
+      .replace(/^sun\s*[&and]+\s*moon\s*[-–—:]\s*/i, '')
+      .replace(/^sword\s*[&and]+\s*shield\s*[-–—:]\s*/i, '')
+      .replace(/^scarlet\s*[&and]+\s*violet\s*[-–—:]\s*/i, '')
+      .replace(/^sm\s*[-–—]\s*/i, '')
+      .replace(/^swsh\s*[-–—]\s*/i, '')
+      .replace(/^sv\s*[-–—]\s*/i, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+      // Odstranit interpunkci kromě & a apostrofu
+      .replace(/[.,!?;]/g, '');
+
+    // Přímá shoda
+    if (SET_ALIAS_MAP[s]) return { id: SET_ALIAS_MAP[s] };
+
+    // Fuzzy: zkus originál bez normalizace
+    const orig = setStr.trim().toLowerCase().replace(/[.,!?;]/g, '');
+    if (SET_ALIAS_MAP[orig]) return { id: SET_ALIAS_MAP[orig] };
+
+    // Zkus odebrat koncovky jako "en", "jp", "de", "fr"
+    const stripped = s.replace(/\s*(en|jp|de|fr|cz|it|es|pt|ko)$/i, '').trim();
+    if (SET_ALIAS_MAP[stripped]) return { id: SET_ALIAS_MAP[stripped] };
+
+    // Zkus ptcgoCode (krátké kódy jako OBF, FLI, PAL, MEW...)
+    const upper = setStr.trim().toUpperCase();
+    const PTCGO_MAP = {
+      OBF: 'sv3', PAL: 'sv2', MEW: 'sv3pt5', PAR: 'sv4', TEF: 'sv5', TWM: 'sv6',
+      SFA: 'sv6pt5', SCR: 'sv7', SSP: 'sv8', PRE: 'sv8pt5',
+      CRZ: 'swsh12pt5', SIT: 'swsh12', LOR: 'swsh11', PGO: 'swsh10pt5',
+      ASR: 'swsh10', BST: 'swsh5', CRE: 'swsh6', EVS: 'swsh7', FST: 'swsh8',
+      BRS: 'swsh9', SHF: 'swsh45', VIV: 'swsh4', CPA: 'swsh35', DAA: 'swsh3',
+      RCL: 'swsh2', SSH: 'swsh1', CEC: 'sm12', HIF: 'sm115', UNM: 'sm11',
+      UNB: 'sm10', TEU: 'sm9', LOT: 'sm8', DRM: 'sm75', CES: 'sm7',
+      FLI: 'sm6', UPR: 'sm5', CIN: 'sm4', SHL: 'sm35', BUS: 'sm3',
+      GRI: 'sm2', SUM: 'sm1', XY: 'xy1', FLF: 'xy2', FFI: 'xy3',
+      PHF: 'xy4', PRC: 'xy5', ROS: 'xy6', AOR: 'xy7', BKT: 'xy8',
+      BKP: 'xy9', FCO: 'xy10', STS: 'xy11', EVO: 'xy12',
+    };
+    if (PTCGO_MAP[upper]) return { id: PTCGO_MAP[upper], ptcgoCode: upper };
+
+    return null;
+  }
+
   // ─── Detekce a query builder ─────────────────────────────────────────────────
 
   function _detectSetType(setStr) {
@@ -309,12 +598,21 @@ No explanation. Just the JSON array.`;
 
   function _buildTcgQuery(name, set, number) {
     const parts = [];
-    if (name)   parts.push(`name:"${name.replace(/"/g, '')}"`);
+    if (name) parts.push(`name:"${name.replace(/"/g, '')}"`);
     if (set) {
-      const t = _detectSetType(set);
-      if (t === 'ptcgoCode') parts.push(`set.ptcgoCode:"${set}"`);
-      else if (t === 'id')   parts.push(`set.id:"${set}"`);
-      else                   parts.push(`set.name:"${set.replace(/"/g, '')}"`);
+      // Nejprve zkus normalizovat přes SET_ALIAS_MAP
+      const norm = _normalizeSet(set);
+      if (norm?.ptcgoCode) {
+        parts.push(`set.ptcgoCode:"${norm.ptcgoCode}"`);
+      } else if (norm?.id) {
+        parts.push(`set.id:"${norm.id}"`);
+      } else {
+        // Fallback: původní logika
+        const t = _detectSetType(set);
+        if (t === 'ptcgoCode') parts.push(`set.ptcgoCode:"${set}"`);
+        else if (t === 'id')   parts.push(`set.id:"${set}"`);
+        else                   parts.push(`set.name:"${set.replace(/"/g, '')}"`);
+      }
     }
     if (number) {
       const n = String(number).split('/')[0].replace(/\D/g, '');
@@ -837,6 +1135,7 @@ No explanation. Just the JSON array.`;
 
     /** Helpers */
     detectSetType: _detectSetType,
+    normalizeSet:  _normalizeSet,
     buildQuery:    _buildTcgQuery,
     scoreCard:     _scoreCard,
   };
