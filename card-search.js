@@ -929,11 +929,24 @@ No explanation. Just the JSON array.`;
 
         // A4: Hledej EN ekvivalent na pokemontcg.io
         if (src.tcgio && enName) {
+          // A4a: Nejdřív zkus hledat s původním číslem karty (pokud ZH set indexován)
+          // Pokud ne, hledej bez set filtru ale se jménem
           status(`🔍 Hledám EN ekvivalent: ${enName}…`);
           const q = _buildTcgQuery(enName, '', '');
           const tcgCards = await _searchTcgIo(q, pageSize);
           const normalized = tcgCards.map(_normalizeTcgIo).filter(Boolean);
           cards = _dedup([...cards, ...normalized]);
+
+          // A4b: Zkus přímý lookup s originálním set kódem (ZH sety jsou někdy indexovány)
+          if (set && number && !cards.length) {
+            status(`🔍 Zkouším originální set ${set}…`);
+            const qOrig = _buildTcgQuery(enName, set, number);
+            const origCards = await _searchTcgIo(qOrig, 5);
+            if (origCards.length) {
+              cards = _dedup([...cards, ...origCards.map(_normalizeTcgIo).filter(Boolean)]);
+              console.log(`[Branch A] Nalezena karta přes originální set ${set}: ${origCards[0].name}`);
+            }
+          }
         }
 
         // A5: Wildcard fallback

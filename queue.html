@@ -2644,6 +2644,17 @@ async function tcgSearch(gi, autoMode = false) {
 
       if (!g._origImage) console.warn('[KROK 1b] Žádná strategie nenašla JP/ZH obrázek pro', ai.set, ai.number);
     }
+
+    // ── Ihned zobraz JP/ZH obrázek v compare panelu (non-EN) ──────────────
+    // Bez čekání na KROK 2–5 — uživatel hned vidí správnou verzi karty.
+    if (isNonEn && g._origImage) {
+      const dbSide = document.getElementById(`compareDbSide-${gi}`);
+      const panel  = document.getElementById(`comparePanel-${gi}`);
+      if (dbSide) {
+        dbSide.innerHTML = `<img src="${g._origImage}" alt="JP/ZH karta" style="max-width:100%;border-radius:6px">`;
+        if (panel && !panel.classList.contains('open')) panel.classList.add('open');
+      }
+    }
     // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
     const searchName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
 
@@ -2946,7 +2957,13 @@ function tcgSelectCard(gi, idx) {
   // vybírá stejnou kartu jakou AI rozpoznala (stejné apiId). Ruční výběr jiné karty
   // nesmí dostat obrázek původní naskenované karty → vždy použij obrázek vybrané karty.
   const originalApiId = g.resolvedCard?.apiId || '';
-  const isSameCard = originalApiId && originalApiId === cardData.apiId;
+  const ai = g.aiResult || {};
+  const isNonEnLang = ai.lang && ai.lang !== 'EN';
+  // Pro non-EN karty: pokud máme JP/ZH obrázek, vždy ho přiřaď vybranému výsledku.
+  // Uživatel říká „tato EN karta odpovídá mé ZH kartě" → zobraz ZH obrázek.
+  // Pro EN karty: pouze přiřaď obrázek pokud je to ta PŘESNĚ stejná karta (stejné apiId).
+  const isSameCard = (isNonEnLang && !!(g._origImage || g._origImageSmall)) ||
+                     (originalApiId && originalApiId === cardData.apiId);
   if (isSameCard && (g._origImage || g._origImageSmall)) {
     cardData.enImageUrl = cardData.apiSmall || '';
     cardData.imageUrl  = g._origImageSmall || g._origImage || cardData.imageUrl;
@@ -3007,6 +3024,9 @@ function tcgSelectCard(gi, idx) {
   const dbSide = document.getElementById(`compareDbSide-${gi}`);
   if (dbSide && cardData.apiSmall) {
     dbSide.innerHTML = `<img src="${cardData.apiSmall}" alt="${esc(cardData.name||'')}">`;
+    // Otevři compare panel pokud není otevřený
+    const panel = document.getElementById(`comparePanel-${gi}`);
+    if (panel && !panel.classList.contains('open')) panel.classList.add('open');
   }
   // Aktualizuj search status
   const statusEl2 = document.getElementById(`searchStatus-${gi}`);
