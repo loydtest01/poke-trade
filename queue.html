@@ -1139,6 +1139,17 @@ async function loadQueue() {
 }
 
 // ── Render ────────────────────────────────────────────────────
+// ── Znovu vyrenderuje jednu skupinu (po applyManualCard apod.) ───────────
+function renderGroup(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const old = document.getElementById(`group-${gi}`);
+  if (!old) { renderGroups(); return; }
+  const fresh = buildGroupEl(g, gi);
+  old.replaceWith(fresh);
+  _renderSrcToggles(gi);
+}
+
 function renderGroups() {
   const area = document.getElementById('contentArea');
   if (!cardGroups.length) {
@@ -1522,8 +1533,45 @@ function buildGroupEl(g, gi) {
         <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
           🔍 Vyhledat v databázi
         </button>
+        <button onclick="toggleManualForm(${gi})" id="manualToggleBtn-${gi}"
+          style="background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.4);color:#a78bfa;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s;margin-top:6px"
+          onmouseover="this.style.background='rgba(139,92,246,.25)'" onmouseout="this.style.background='rgba(139,92,246,.15)'">
+          📝 Zadat ručně
+        </button>
+        <!-- Manuální formulář (skrytý dokud user neklikne) -->
+        <div id="manualForm-${gi}" style="display:none;margin-top:10px;padding:12px 14px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.3);border-radius:10px">
+          <div style="font-size:10px;font-weight:700;color:#a78bfa;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">📝 Ručně zadaná karta</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <div style="flex:2;min-width:140px">
+              <label style="font-size:10px;color:rgba(240,232,208,.4);display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Jméno</label>
+              <input type="text" id="manualName-${gi}" placeholder="např. Charizard ex"
+                value="${esc((g.aiResult?.nameEN||g.aiResult?.name)||'')}"
+                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 10px;font-size:12px;color:#f0e8d0;font-family:inherit;color-scheme:dark">
+            </div>
+            <div style="flex:2;min-width:120px">
+              <label style="font-size:10px;color:rgba(240,232,208,.4);display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">Série</label>
+              <input type="text" id="manualSet-${gi}" placeholder="např. Obsidian Flames"
+                value="${esc(g.aiResult?.set||'')}"
+                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 10px;font-size:12px;color:#f0e8d0;font-family:inherit;color-scheme:dark">
+            </div>
+            <div style="width:80px">
+              <label style="font-size:10px;color:rgba(240,232,208,.4);display:block;margin-bottom:4px;font-weight:700;text-transform:uppercase;letter-spacing:.06em"># Číslo</label>
+              <input type="text" id="manualNum-${gi}" placeholder="199"
+                value="${esc(g.aiResult?.number||'')}"
+                style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 10px;font-size:12px;color:#f0e8d0;font-family:inherit;color-scheme:dark">
+            </div>
+          </div>
+          <div style="font-size:10px;color:rgba(248,113,113,.8);margin-bottom:8px">
+            ⚠️ Fotky s ručně zadanými kartami se nepoužijí pro AI trénink.
+          </div>
+          <button onclick="applyManualCard(${gi})"
+            style="background:rgba(139,92,246,.25);border:1px solid rgba(139,92,246,.5);color:#a78bfa;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">
+            ✅ Použít tento název
+          </button>
+        </div>
+        ${g._manualOverride ? '<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(139,92,246,.15);border:1px solid rgba(139,92,246,.3);border-radius:6px;padding:4px 10px;font-size:11px;color:#a78bfa;margin-top:6px">⚠️ Ručně zadáno – nebude trénovat AI</div>' : ''}
         <div class="cg-search-status" id="searchStatus-${gi}">
-          ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
+          ${g.resolvedCard ? (g._manualOverride ? '📝 Ručně: ' : '✅ Vybrána: ') + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
         </div>
         <div class="cg-search-grid" id="searchGrid-${gi}"></div>
         <!-- Learn stats -->
@@ -1578,6 +1626,48 @@ function toggleGroup(gi) {
   const el = document.getElementById(`group-${gi}`);
   if (!el) return;
   el.classList.toggle('expanded');
+}
+
+// ── Manuální zadání karty (bez AI tréninku) ───────────────────
+function toggleManualForm(gi) {
+  const form = document.getElementById(`manualForm-${gi}`);
+  const btn  = document.getElementById(`manualToggleBtn-${gi}`);
+  if (!form) return;
+  const visible = form.style.display !== 'none';
+  form.style.display = visible ? 'none' : 'block';
+  if (btn) btn.textContent = visible ? '📝 Zadat ručně' : '✖ Zavřít formulář';
+}
+
+function applyManualCard(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const name   = (document.getElementById(`manualName-${gi}`)?.value || '').trim();
+  const set    = (document.getElementById(`manualSet-${gi}`)?.value  || '').trim();
+  const number = (document.getElementById(`manualNum-${gi}`)?.value  || '').trim();
+  if (!name) { toast('⚠️ Zadej alespoň jméno karty', 'err'); return; }
+
+  g.resolvedCard = {
+    apiId:    '',
+    name:     name,
+    set:      set,
+    number:   number,
+    imageUrl: '',
+    apiSmall: '',
+    apiLarge: '',
+    hp:       g.aiResult?.hp     || '',
+    rarity:   g.aiResult?.rarity || '',
+    types:    [],
+    _source:  'manual',
+  };
+  g._manuallySelected = true;
+  g._manualOverride   = true;
+
+  const statusEl = document.getElementById(`searchStatus-${gi}`);
+  if (statusEl) statusEl.textContent = `📝 Ručně: ${name}${set ? ' · ' + set : ''}${number ? ' #' + number : ''}`;
+
+  toggleManualForm(gi);
+  renderGroup(gi);
+  toast('📝 Karta zadána ručně – nebude trénovat AI', 'ok');
 }
 
 // ── Assign single group ───────────────────────────────────────
@@ -2580,23 +2670,26 @@ function tcgSelectCard(gi, idx) {
   g.cardUrl = ''; // URL input není potřeba
 
   // ── AI učení: zapamatuj správnou shodu pro příště ──────────────────────
-  if (typeof PkSearch !== 'undefined' && cardData.apiId) {
-    const ai = g.aiResult || {};
-    const searchName = (ai.nameEN || ai.name || '').trim();
-    const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
-    PkSearch.recordMatch(searchName, ai.set || '', cardNumber, cardData);
-    // Aktualizuj learn stats bar
-    _renderLearnStats(gi);
-  }
+  // Přeskočíme pro manuálně zadané karty – aby se špatné fotky nevmísily do tréninku
+  if (!g._manualOverride) {
+    if (typeof PkSearch !== 'undefined' && cardData.apiId) {
+      const ai = g.aiResult || {};
+      const searchName = (ai.nameEN || ai.name || '').trim();
+      const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
+      PkSearch.recordMatch(searchName, ai.set || '', cardNumber, cardData);
+      _renderLearnStats(gi);
+    }
 
-  // ── Kolektivní paměť: ulož potvrzení do Supabase (CardMatcher) ────────
-  // Příště bude tato karta okamžitě nalezena bez volání TCG API.
-  if (typeof CardMatcher !== 'undefined' && g._phash && cardData.apiId) {
-    CardMatcher.confirm(g._phash, cardData.apiId)
-      .then(ok => {
-        if (ok) console.log(`[tcgSelectCard] ✅ CardMatcher.confirm: ${cardData.apiId} uloženo do kolektivní paměti`);
-      })
-      .catch(e => console.warn('[tcgSelectCard] CardMatcher.confirm selhalo:', e.message));
+    // ── Kolektivní paměť: ulož potvrzení do Supabase (CardMatcher) ────────
+    if (typeof CardMatcher !== 'undefined' && g._phash && cardData.apiId) {
+      CardMatcher.confirm(g._phash, cardData.apiId)
+        .then(ok => {
+          if (ok) console.log(`[tcgSelectCard] ✅ CardMatcher.confirm: ${cardData.apiId} uloženo do kolektivní paměti`);
+        })
+        .catch(e => console.warn('[tcgSelectCard] CardMatcher.confirm selhalo:', e.message));
+    }
+  } else {
+    console.log('[tcgSelectCard] ⚠️ Manuální override – AI trénink přeskočen');
   }
 
   // Aktualizovat status

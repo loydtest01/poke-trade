@@ -394,26 +394,99 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
   //  ANALÝZA
   // ══════════════════════════════════════════════════════════════
 
+  // ══════════════════════════════════════════════════════════════
+  //  HUGGING FACE – ResNet34 model (mindwrapped/pokemon-card-checker)
+  //  Funguje PARALELNĚ s Groq analýzou jako nezávislý druhý názor.
+  //  Token se uloží do localStorage pod klíčem 'hf_token'.
+  // ══════════════════════════════════════════════════════════════
+
+  const HF_MODEL = 'https://api-inference.huggingface.co/models/mindwrapped/pokemon-card-checker';
+
+  async function _checkHuggingFace(imageSource) {
+    const token = (() => { try { return localStorage.getItem('hf_token') || ''; } catch { return ''; } })();
+    if (!token) return null;
+
+    try {
+      // Převod na binary blob (HF akceptuje přímý binary, ne JSON base64)
+      let blob;
+      if (typeof imageSource === 'string' && imageSource.startsWith('data:')) {
+        const m = imageSource.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return null;
+        const bytes = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+        blob = new Blob([bytes], { type: m[1] });
+      } else if (imageSource instanceof Blob || imageSource instanceof File) {
+        blob = imageSource;
+      } else if (typeof imageSource === 'string' && imageSource.startsWith('http')) {
+        // Stáhni obrázek a pošli jako binary
+        const r = await fetch(imageSource);
+        if (!r.ok) return null;
+        blob = await r.blob();
+      } else {
+        return null;
+      }
+
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000); // HF má cold start ~20s, ale timeout pro jistotu
+
+      const res = await fetch(HF_MODEL, {
+        method:  'POST',
+        headers: { 'Authorization': 'Bearer ' + token },
+        body:    blob,
+        signal:  ctrl.signal,
+      });
+      clearTimeout(timer);
+
+      if (res.status === 503) {
+        // Model se probouzí (cold start) – vrátíme pending stav
+        return { pending: true, message: 'Model se probouzí (~20s), zkus znovu' };
+      }
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      if (!Array.isArray(data)) return null;
+
+      // data = [{ label: 'real', score: 0.97 }, { label: 'fake', score: 0.03 }]
+      const top     = data.sort((a, b) => b.score - a.score)[0];
+      const realObj = data.find(d => d.label?.toLowerCase() === 'real');
+      const fakeObj = data.find(d => d.label?.toLowerCase() === 'fake');
+
+      return {
+        verdict:   top.label?.toLowerCase() === 'fake' ? 'fake' : 'real',
+        realScore: Math.round((realObj?.score || 0) * 100),
+        fakeScore: Math.round((fakeObj?.score || 0) * 100),
+        confidence: top.score > 0.85 ? 'high' : top.score > 0.60 ? 'med' : 'low',
+        raw: data,
+      };
+    } catch (e) {
+      if (e.name === 'AbortError') return { pending: true, message: 'Timeout – model se probouzí' };
+      console.warn('[FakeDetector HF]', e.message);
+      return null;
+    }
+  }
+
   async function analyze(imageSource, cardInfo) {
     try {
       // 1. Načti komunitní data paralelně s oficiálním obrázkem
-      const [communityStats, officialImgFromApi] = await Promise.all([
+      const [communityStats, officialImgFromApi, hfResult] = await Promise.all([
         getCommunityStats(cardInfo).catch(() => null),
         cardInfo ? _resolveOfficialImage(cardInfo) : Promise.resolve(null),
+        _checkHuggingFace(imageSource).catch(() => null),
       ]);
 
       const officialImg = officialImgFromApi;
 
       if (officialImg) {
-        return analyzeWithComparison(imageSource, officialImg, cardInfo, communityStats);
+        return analyzeWithComparison(imageSource, officialImg, cardInfo, communityStats, hfResult);
       }
 
       // Single image
       const { base64, mimeType } = await toBase64(imageSource);
-      return await _callClaude([
+      const singleResult = await _callClaude([
         { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
         { type: 'text', text: buildPrompt(cardInfo, false, communityStats) }
       ], cardInfo, communityStats);
+      if (hfResult) singleResult.hfResult = hfResult;
+      return singleResult;
     } catch (e) {
       return _errorResult('Chyba analýzy: ' + e.message);
     }
@@ -427,7 +500,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
     return fetchOfficialImage(cardInfo);
   }
 
-  async function analyzeWithComparison(userImg, officialImg, cardInfo, communityStats) {
+  async function analyzeWithComparison(userImg, officialImg, cardInfo, communityStats, hfResult = null) {
     try {
       const user = await toBase64(userImg);
       const official = await toBase64(officialImg);
@@ -435,11 +508,13 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       if (!communityStats && cardInfo) {
         communityStats = await getCommunityStats(cardInfo).catch(() => null);
       }
-      return await _callClaude([
+      const compResult = await _callClaude([
         { type: 'image', source: { type: 'base64', media_type: user.mimeType, data: user.base64 } },
         { type: 'image', source: { type: 'base64', media_type: official.mimeType, data: official.base64 } },
         { type: 'text', text: buildPrompt(cardInfo, true, communityStats) }
       ], cardInfo, communityStats);
+      if (hfResult) compResult.hfResult = hfResult;
+      return compResult;
     } catch (e) {
       // Fallback na single image
       console.warn('[FakeDetector] Comparison failed, fallback:', e);
@@ -597,6 +672,44 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
          </div>`
       : '';
 
+    // HuggingFace ResNet34 badge (pokud byl token nastaven a model odpověděl)
+    const hfBadge = (() => {
+      const hf = result.hfResult;
+      if (!hf) {
+        const hasToken = (() => { try { return !!localStorage.getItem('hf_token'); } catch { return false; } })();
+        if (!hasToken) return `<div style="margin-top:10px;padding:8px 10px;background:rgba(255,200,0,.05);border:1px solid rgba(255,200,0,.15);border-radius:8px;display:flex;align-items:center;gap:8px">
+           <span style="font-size:16px">🤗</span>
+           <div>
+             <div style="font-size:11px;color:rgba(255,200,0,.6);font-weight:600">ResNet34 model dostupný</div>
+             <div style="font-size:10px;color:rgba(240,232,208,.3);margin-top:1px">Nastav HuggingFace token v nastavení pro druhý nezávislý posudek</div>
+           </div>
+           <button onclick="FakeDetector.promptHfToken()" style="margin-left:auto;background:rgba(255,200,0,.1);border:1px solid rgba(255,200,0,.3);color:rgba(255,200,0,.8);border-radius:6px;padding:3px 8px;font-size:10px;cursor:pointer;font-family:inherit;white-space:nowrap">Nastavit token</button>
+         </div>`;
+        return '';
+      }
+      if (hf.pending) return `<div style="margin-top:10px;padding:8px 10px;background:rgba(255,200,0,.05);border:1px solid rgba(255,200,0,.2);border-radius:8px;font-size:11px;color:rgba(255,200,0,.6)">🤗 ResNet34: ${esc(hf.message||'čeká')}</div>`;
+      const hfColor  = hf.verdict === 'real' ? '#22c55e' : hf.verdict === 'fake' ? '#f87171' : '#94a3b8';
+      const hfIcon   = hf.verdict === 'real' ? '✅' : '❌';
+      const confText = { high: 'Vysoká', med: 'Střední', low: 'Nízká' }[hf.confidence] || '';
+      return `<div style="margin-top:10px;padding:8px 10px;background:rgba(255,200,0,.05);border:1px solid rgba(255,200,0,.2);border-radius:8px">
+           <div style="display:flex;align-items:center;gap:8px">
+             <span style="font-size:18px">🤗</span>
+             <div style="flex:1">
+               <div style="font-size:11px;color:rgba(255,200,0,.8);font-weight:600">ResNet34 (mindwrapped/pokemon-card-checker)</div>
+               <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                 <span style="font-size:13px">${hfIcon}</span>
+                 <span style="font-size:12px;color:${hfColor};font-weight:700">${hf.verdict === 'real' ? 'Pravá karta' : 'FALZIFIKÁT'}</span>
+                 <span style="font-size:10px;color:rgba(240,232,208,.35)">${confText} spolehlivost</span>
+               </div>
+             </div>
+             <div style="text-align:right;flex-shrink:0">
+               <div style="font-size:10px;color:#22c55e">✅ ${hf.realScore}%</div>
+               <div style="font-size:10px;color:#f87171;margin-top:2px">❌ ${hf.fakeScore}%</div>
+             </div>
+           </div>
+         </div>`;
+    })();
+
     containerEl.innerHTML = `
       <div style="border:1px solid ${v.border};background:${v.bg};border-radius:14px;padding:16px;margin-top:10px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
@@ -617,6 +730,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
         <div style="margin-top:8px">${flagsHtml}</div>
         ${compNotes}
         ${communityBadge}
+        ${hfBadge}
         <div style="font-size:10px;color:rgba(240,232,208,.2);margin-top:12px;text-align:right">🤖 Claude AI + pokemontcg.io + komunita · Vždy zkontroluj fyzicky</div>
       </div>`;
   }
@@ -742,8 +856,19 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
   // ══════════════════════════════════════════════════════════════
   //  EXPORT
   // ══════════════════════════════════════════════════════════════
+  function promptHfToken() {
+    const cur = (() => { try { return localStorage.getItem('hf_token') || ''; } catch { return ''; } })();
+    const tok = window.prompt('Zadej HuggingFace API token (hf_...):', cur);
+    if (tok === null) return;
+    try {
+      if (tok.trim()) { localStorage.setItem('hf_token', tok.trim()); alert('✅ Token uložen!'); }
+      else            { localStorage.removeItem('hf_token'); alert('Token smazán.'); }
+    } catch { alert('Chyba při ukládání tokenu.'); }
+  }
+
   const FakeDetector = {
     analyze, analyzeWithComparison, fetchOfficialImage,
+    promptHfToken,
     getCommunityStats,
     renderResult, showModal, closeModal, openModal, openModalWithFile,
     getHistory, clearHistory, KNOWLEDGE_BASE,
