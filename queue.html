@@ -2413,33 +2413,48 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
-    // ── KROK 1b: Fallback – TCGdex přímo podle set+číslo (pro ZH/JP kdy translateViaLang selže) ──
-    if (isNonEn && !g._origImage && ai.set && ai.number) {
-      try {
-        const rawNum = parseInt(String(ai.number).split('/')[0].trim(), 10);
-        // ZH set kódy (S8F, S9a…) → TCGdex JP formát (s8, s9a…): odstraň příponu jazyka
-        // ZH Traditional Chinese přidává písmeno za číslem (S8F→s8, S10aF→s10a)
-        const normSet = ai.set.toLowerCase().replace(/f$/, ''); // S8F→s8, S9F→s9…
-        const candidates = [
-          `${normSet}-${rawNum}`,           // s8-16
-          `${ai.set.toLowerCase()}-${rawNum}`, // s8f-16 (přesný kód)
-          `${normSet}-${String(rawNum).padStart(3,'0')}`, // s8-016
-        ];
-        for (const tcgId of candidates) {
-          try {
-            const tr = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
-            if (tr.ok) {
-              const td = await tr.json();
-              if (td.image) {
-                g._origImage      = td.image + '/high.webp';
-                g._origImageSmall = td.image + '/low.webp';
-                console.log(`[KROK 1b] TCGdex obrázek nalezen pro ${tcgId}`);
+    // ── KROK 1b: Fallback – hledej JP/ZH obrázek v TCGdex podle EN jména ──
+    if (isNonEn && !g._origImage) {
+      const _enNameForImg = (ai.nameEN || '').trim();
+      const _rawNum = parseInt(String(ai.number || '').split('/')[0].trim(), 10);
+      if (_enNameForImg) {
+        try {
+          // 1) Hledej v TCGdex podle jména — vrátí karty ve všech jazycích/setech
+          const _tUrl = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(_enNameForImg)}&hp=${encodeURIComponent(ai.hp || '')}`;
+          const _tr = await fetch(_tUrl);
+          if (_tr.ok) {
+            const _tCards = await _tr.json();
+            if (Array.isArray(_tCards) && _tCards.length) {
+              // Zkus najít shodu podle čísla
+              const _byNum = _tCards.find(c => parseInt(c.localId, 10) === _rawNum);
+              const _best  = _byNum || _tCards[0];
+              if (_best?.image) {
+                g._origImage      = _best.image + '/high.webp';
+                g._origImageSmall = _best.image + '/low.webp';
+                console.log(`[KROK 1b] TCGdex jméno-shoda: ${_best.id}`);
+              }
+            }
+          }
+        } catch(e) { console.warn('[KROK 1b] TCGdex selhal:', e); }
+      }
+      // 2) Pokud TCGdex nic nenašel, zkus přímý set+číslo (JP kód = ZH kód bez přípony F)
+      if (!g._origImage && ai.set && _rawNum) {
+        try {
+          const _normSet = ai.set.toLowerCase().replace(/f$/i, '');
+          for (const tcgId of [`${_normSet}-${_rawNum}`, `${_normSet}-${String(_rawNum).padStart(3,'0')}`]) {
+            const _tr2 = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
+            if (_tr2.ok) {
+              const _td = await _tr2.json();
+              if (_td?.image) {
+                g._origImage      = _td.image + '/high.webp';
+                g._origImageSmall = _td.image + '/low.webp';
+                console.log(`[KROK 1b] TCGdex set-shoda: ${tcgId}`);
                 break;
               }
             }
-          } catch(e) {}
-        }
-      } catch(e) { console.warn('[KROK 1b] TCGdex přímý dotaz selhal:', e); }
+          }
+        } catch(e) {}
+      }
     }
 
     // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
