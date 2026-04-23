@@ -1486,6 +1486,34 @@ function buildGroupEl(g, gi) {
           </button>
         </div>`}
 
+      <!-- Ruční override série / čísla -->
+      <div style="padding:0 18px 14px;display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+        <div style="flex:1;min-width:130px">
+          <label style="font-size:10px;font-weight:700;color:rgba(240,232,208,.4);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em">🗂 Série (override)</label>
+          <input type="text" id="overrideSet-${gi}"
+            value="${esc(ai.set||'')}"
+            placeholder="např. Obsidian Flames"
+            oninput="(function(v){var g=cardGroups[${gi}];if(!g)return;if(!g.aiResult)g.aiResult={};g.aiResult.set=v;g.resolvedCard=null;g._manuallySelected=false;})(this.value)"
+            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 10px;font-size:12px;color:#f0e8d0;font-family:inherit;color-scheme:dark;transition:border-color .2s"
+            onfocus="this.style.borderColor='rgba(245,200,66,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
+        </div>
+        <div style="width:90px;flex-shrink:0">
+          <label style="font-size:10px;font-weight:700;color:rgba(240,232,208,.4);display:block;margin-bottom:5px;text-transform:uppercase;letter-spacing:.06em"># Číslo</label>
+          <input type="text" id="overrideNum-${gi}"
+            value="${esc(ai.number||'')}"
+            placeholder="např. 199"
+            oninput="(function(v){var g=cardGroups[${gi}];if(!g)return;if(!g.aiResult)g.aiResult={};g.aiResult.number=v;g.resolvedCard=null;g._manuallySelected=false;})(this.value)"
+            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 10px;font-size:12px;color:#f0e8d0;font-family:inherit;color-scheme:dark;transition:border-color .2s"
+            onfocus="this.style.borderColor='rgba(245,200,66,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'"
+            onkeydown="if(event.key==='Enter')tcgSearch(${gi})">
+        </div>
+        <button onclick="tcgSearch(${gi})"
+          style="flex-shrink:0;background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.4);color:#f5c842;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background .15s"
+          onmouseover="this.style.background='rgba(245,200,66,.25)'" onmouseout="this.style.background='rgba(245,200,66,.15)'">
+          🔍 Znovu hledat
+        </button>
+      </div>
+
       <!-- Vyhledávání v TCG API -->
       <div class="cg-search">
         <!-- Source toggle buttons (rendered by JS after init) -->
@@ -2173,6 +2201,13 @@ async function tcgSearch(gi, autoMode = false) {
 
   // Inicializuj toggle tlačítka zdrojů (pokud ještě nejsou)
   _renderSrcToggles(gi);
+
+  // Sync override inputů → aiResult (pro případ že uživatel upravil set/číslo ručně)
+  const _ovSet = document.getElementById(`overrideSet-${gi}`);
+  const _ovNum = document.getElementById(`overrideNum-${gi}`);
+  if (!g.aiResult) g.aiResult = {};
+  if (_ovSet && _ovSet.value.trim()) g.aiResult.set    = _ovSet.value.trim();
+  if (_ovNum && _ovNum.value.trim()) g.aiResult.number = _ovNum.value.trim();
 
   const ai = g.aiResult || {};
   const isNonEn = /[\u3000-\u9fff\uff00-\uffef]/.test(ai.name || '') || (ai.lang && ai.lang !== 'EN');
