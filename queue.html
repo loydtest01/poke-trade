@@ -2416,16 +2416,28 @@ async function tcgSearch(gi, autoMode = false) {
     // ── KROK 1b: Fallback – TCGdex přímo podle set+číslo (pro ZH/JP kdy translateViaLang selže) ──
     if (isNonEn && !g._origImage && ai.set && ai.number) {
       try {
-        const rawNum = String(ai.number).split('/')[0].trim();
-        const tcgId  = `${ai.set}-${rawNum}`;
-        const tr = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
-        if (tr.ok) {
-          const td = await tr.json();
-          if (td.image) {
-            g._origImage      = td.image + '/high.webp';
-            g._origImageSmall = td.image + '/low.webp';
-            console.log(`[KROK 1b] TCGdex obrázek nalezen pro ${tcgId}`);
-          }
+        const rawNum = parseInt(String(ai.number).split('/')[0].trim(), 10);
+        // ZH set kódy (S8F, S9a…) → TCGdex JP formát (s8, s9a…): odstraň příponu jazyka
+        // ZH Traditional Chinese přidává písmeno za číslem (S8F→s8, S10aF→s10a)
+        const normSet = ai.set.toLowerCase().replace(/f$/, ''); // S8F→s8, S9F→s9…
+        const candidates = [
+          `${normSet}-${rawNum}`,           // s8-16
+          `${ai.set.toLowerCase()}-${rawNum}`, // s8f-16 (přesný kód)
+          `${normSet}-${String(rawNum).padStart(3,'0')}`, // s8-016
+        ];
+        for (const tcgId of candidates) {
+          try {
+            const tr = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgId)}`);
+            if (tr.ok) {
+              const td = await tr.json();
+              if (td.image) {
+                g._origImage      = td.image + '/high.webp';
+                g._origImageSmall = td.image + '/low.webp';
+                console.log(`[KROK 1b] TCGdex obrázek nalezen pro ${tcgId}`);
+                break;
+              }
+            }
+          } catch(e) {}
         }
       } catch(e) { console.warn('[KROK 1b] TCGdex přímý dotaz selhal:', e); }
     }
