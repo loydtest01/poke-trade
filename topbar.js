@@ -702,6 +702,68 @@ var SETTINGS_HTML = [
   '          </div>',
   '        </div>',
   '      </div>',
+  '      <!-- Cerebras -->',
+  '      <div class="sdrop-acc-item" id="sdAccCerebras">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccCerebras\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">⚡</span>',
+  '            <div><div class="sdrop-acc-title">Cerebras AI</div><div class="sdrop-acc-sub" id="accCerebrasSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="cerebrasStatus">',
+  '              <span class="groq-dot loading" id="cerebrasDot"></span>',
+  '              <span id="cerebrasStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>⚡ Ultra-rychlý – stejné modely jako Groq</strong><br>',
+  '              Cerebras používá Llama 4 Scout (vision) a Llama 3.3 70B (text). Free tier = 1M tokenů/den/klíč — přidej více klíčů z různých účtů pro větší kapacitu. Rotace a fallback stejně jako u Groqu.',
+  '              <a href="https://cloud.cerebras.ai" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
+  '            </div>',
+  '            <label class="groq-label-sm">Cerebras API klíče</label>',
+  '            <div id="cerebrasKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="cerebrasKeyInput" class="groq-inp" placeholder="csk-… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="cerebrasAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px">',
+  '              <button class="btn-groq-del-all" id="cerebrasDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="cerebrasFeedback"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
+  '      <!-- OpenRouter -->',
+  '      <div class="sdrop-acc-item" id="sdAccOpenRouter">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccOpenRouter\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">🌐</span>',
+  '            <div><div class="sdrop-acc-title">OpenRouter AI</div><div class="sdrop-acc-sub" id="accOpenRouterSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="openrouterStatus">',
+  '              <span class="groq-dot loading" id="openrouterDot"></span>',
+  '              <span id="openrouterStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>🌐 Nejlepší pro asijské karty (JP/ZH)</strong><br>',
+  '              OpenRouter dává přístup ke Qwen 2.5-VL 72B (nativní čínský vision model) — výrazně přesnější na JP/ZH znaky než Llama. Free tier = 200 req/den/klíč/model. Pro JP/ZH karty se automaticky preferuje před Groqem.',
+  '              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
+  '            </div>',
+  '            <label class="groq-label-sm">OpenRouter API klíče</label>',
+  '            <div id="openrouterKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="openrouterKeyInput" class="groq-inp" placeholder="sk-or-v1-… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="openrouterAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px">',
+  '              <button class="btn-groq-del-all" id="openrouterDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="openrouterFeedback"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
   '      <!-- Účet -->',
   '      <div class="sdrop-acc-item" id="sdAccAccount">',
   '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccAccount\')">',
@@ -1089,6 +1151,8 @@ function init() {
   injectAuthChip();
   injectLangSwitch();
   initGroqPanel();
+  initCerebrasPanel();
+  initOpenRouterPanel();
 }
 
 if (document.readyState === 'loading') {
@@ -1424,6 +1488,185 @@ function _groqInitEvents() {
 
 function initGroqPanel() {
   _groqLoad().then(function() { _groqInitEvents(); }).catch(function(e) { console.warn('[Groq topbar init]', e); });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   9b. Generická továrna pro další AI providery (Cerebras, OpenRouter)
+   Sdílí styly a chování s Groq sekcí, ale ukládá do vlastních
+   sloupců (cerebras_key, openrouter_key) tabulky user_api_keys.
+   ══════════════════════════════════════════════════════════════ */
+function _initProviderPanel(cfg) {
+  // cfg = { prefix, name, field, keyPrefix, minLen, countNoun: [jeden, málo, mnoho] }
+  var state = { keys: [] };
+
+  function $(id) { return document.getElementById(id); }
+  function el(idSuffix) { return $(cfg.prefix + idSuffix); }
+
+  function mask(k) { return k.slice(0, 8) + '•'.repeat(Math.min(24, k.length - 8)); }
+  function parse(raw) {
+    if (!raw) return [];
+    return raw.split(',').map(function(k){ return k.trim(); }).filter(function(k){ return k.length > 10; });
+  }
+
+  function render() {
+    var list = el('KeysList');
+    if (!list) return;
+    if (!state.keys.length) {
+      list.innerHTML = '<div style="font-size:12px;color:rgba(240,236,228,.35);padding:4px 0">Zatím žádné klíče – přidej první výše</div>';
+      return;
+    }
+    list.innerHTML = state.keys.map(function(k, i) {
+      return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
+        + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
+        + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mask(k) + '</span>'
+        + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + (i === 0 ? '🟢 aktivní' : '⏳ záloha') + '</span>'
+        + '<button onclick="window._' + cfg.prefix + 'RemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  function updateStatus() {
+    var n = state.keys.length;
+    var dot    = el('Dot');
+    var txt    = el('StatusText');
+    var sub    = $('acc' + cfg.prefix.charAt(0).toUpperCase() + cfg.prefix.slice(1) + 'Sub');
+    var delBtn = el('DeleteBtn');
+    if (!dot) return;
+    if (n > 0) {
+      dot.className = 'groq-dot active';
+      var nounForm = n === 1 ? cfg.countNoun[0] : (n < 5 ? cfg.countNoun[1] : cfg.countNoun[2]);
+      if (txt) txt.textContent = cfg.name + ' aktivní – ' + n + ' ' + nounForm;
+      if (sub) sub.textContent = 'Aktivní (' + n + '×)';
+      if (delBtn) delBtn.style.display = '';
+    } else {
+      dot.className = 'groq-dot';
+      if (txt) txt.textContent = cfg.name + ' není nakonfigurováno';
+      if (sub) sub.textContent = 'Nekonfigurováno';
+      if (delBtn) delBtn.style.display = 'none';
+    }
+  }
+
+  function setFb(msg, type) {
+    var fb = el('Feedback');
+    if (!fb) return;
+    fb.textContent = msg;
+    fb.className = 'groq-fb' + (type ? ' ' + type : '');
+  }
+
+  async function saveAll() {
+    var uid = _getUid();
+    if (!uid) throw new Error('Nepřihlášen');
+    var keyStr = state.keys.join(',');
+    var patch = {};
+    patch[cfg.field] = keyStr;
+    patch.user_id   = uid;
+    var existing = await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid + '&select=id', 'GET');
+    var hasRow = Array.isArray(existing) && existing.length > 0;
+    var res = await _groqSbReq(
+      hasRow ? 'rest/v1/user_api_keys?user_id=eq.' + uid : 'rest/v1/user_api_keys',
+      hasRow ? 'PATCH' : 'POST',
+      patch
+    );
+    if (res && res.error) throw new Error(res.error.message || 'Chyba uložení');
+    if (window.GroqClient && typeof GroqClient.loadKey === 'function') GroqClient.loadKey();
+  }
+
+  async function load() {
+    var uid = _getUid();
+    var dot = el('Dot');
+    var txt = el('StatusText');
+    if (!dot) return;
+    dot.className = 'groq-dot loading';
+    if (txt) txt.textContent = 'Načítám nastavení…';
+    if (!uid) { state.keys = []; render(); updateStatus(); return; }
+    try {
+      var res = await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid + '&select=' + cfg.field, 'GET');
+      var data = Array.isArray(res) ? res[0] : null;
+      if (data && data[cfg.field]) {
+        state.keys = parse(data[cfg.field]);
+      } else {
+        state.keys = [];
+      }
+    } catch(e) {
+      console.warn('[' + cfg.name + ' topbar] Chyba načítání:', e);
+      state.keys = [];
+    }
+    render();
+    updateStatus();
+  }
+
+  window['_' + cfg.prefix + 'RemoveKey'] = async function(idx) {
+    if (!confirm('Odebrat klíč #' + (idx+1) + '?')) return;
+    state.keys.splice(idx, 1);
+    try {
+      await saveAll();
+      render(); updateStatus();
+      setFb(state.keys.length ? '✅ Klíč odebrán' : 'Všechny klíče odebrány', 'ok');
+    } catch(e) { setFb('❌ ' + e.message, 'err'); }
+  };
+
+  function initEvents() {
+    var addBtn = el('AddBtn');
+    var delBtn = el('DeleteBtn');
+    if (addBtn && !addBtn._providerBound) {
+      addBtn._providerBound = true;
+      addBtn.addEventListener('click', async function() {
+        var keyInput = el('KeyInput');
+        var key = keyInput ? keyInput.value.trim() : '';
+        if (!key || key.length < (cfg.minLen || 20)) {
+          setFb('Zadej platný ' + cfg.name + ' API klíč (začíná ' + cfg.keyPrefix + '…)', 'err'); return;
+        }
+        if (state.keys.indexOf(key) !== -1) { setFb('Tento klíč už je přidán.', 'err'); return; }
+        addBtn.disabled = true; addBtn.textContent = '⏳'; setFb('', '');
+        try {
+          state.keys.push(key);
+          await saveAll();
+          render(); updateStatus();
+          if (keyInput) keyInput.value = '';
+          setFb('✅ Klíč #' + state.keys.length + ' přidán', 'ok');
+        } catch(e) { state.keys.pop(); setFb('❌ ' + e.message, 'err'); }
+        finally { addBtn.disabled = false; addBtn.textContent = '+ Přidat'; }
+      });
+    }
+    if (delBtn && !delBtn._providerBound) {
+      delBtn._providerBound = true;
+      delBtn.addEventListener('click', async function() {
+        if (!confirm('Odebrat všechny ' + cfg.name + ' klíče? Tato služba přestane fungovat.')) return;
+        var uid = _getUid(); if (!uid) return;
+        try {
+          var payload = {}; payload[cfg.field] = null;
+          await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid, 'PATCH', payload);
+          state.keys = []; render(); updateStatus();
+          setFb('Všechny klíče byly odebrány.', 'ok');
+          if (window.GroqClient && typeof GroqClient.loadKey === 'function') GroqClient.loadKey();
+        } catch(e) { setFb('❌ ' + e.message, 'err'); }
+      });
+    }
+  }
+
+  load().then(function() { initEvents(); }).catch(function(e) { console.warn('[' + cfg.name + ' topbar init]', e); });
+}
+
+function initCerebrasPanel() {
+  _initProviderPanel({
+    prefix:    'cerebras',
+    name:      'Cerebras AI',
+    field:     'cerebras_key',
+    keyPrefix: 'csk-',
+    minLen:    20,
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+  });
+}
+
+function initOpenRouterPanel() {
+  _initProviderPanel({
+    prefix:    'openrouter',
+    name:      'OpenRouter AI',
+    field:     'openrouter_key',
+    keyPrefix: 'sk-or-v1-',
+    minLen:    30,
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+  });
 }
 
 })();
