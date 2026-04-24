@@ -64,25 +64,52 @@ export default async function handler(req, res) {
     const userEmail = user.email || '';
     const vip = userEmail === OWNER_EMAIL || await isVip(userEmail);
 
-    // 1. Vlastní klíč uživatele → priorita
+    // 1. Vlastní klíče uživatele → priorita (načti všechny 3 providery)
     const keyRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_enabled`,
+      `${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_enabled,cerebras_key,openrouter_key`,
       { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
     );
     const rows = await keyRes.json();
     const row  = Array.isArray(rows) ? rows[0] : null;
 
-    if (row?.groq_enabled && row?.groq_key) {
-      return res.status(200).json({ key: row.groq_key, enabled: true, source: 'personal', vip });
+    const hasPersonal = row && ((row.groq_key && row.groq_enabled !== false) || row.cerebras_key || row.openrouter_key);
+
+    if (hasPersonal) {
+      return res.status(200).json({
+        // Nový formát: všechny 3 providery
+        groq_key:       (row.groq_enabled !== false) ? (row.groq_key || null) : null,
+        cerebras_key:   row.cerebras_key   || null,
+        openrouter_key: row.openrouter_key || null,
+        // Legacy kompatibilita pro starší klienty:
+        key:            (row.groq_enabled !== false) ? (row.groq_key || null) : null,
+        enabled:        true,
+        source:         'personal',
+        vip,
+      });
     }
 
-    // 2. Sdílený klíč pro všechny přihlášené
+    // 2. Sdílený klíč pro všechny přihlášené (jen Groq v env)
     const sharedKey = (process.env.GROQ_API_KEY || '').trim();
     if (sharedKey) {
-      return res.status(200).json({ key: sharedKey, enabled: true, source: 'shared', vip });
+      return res.status(200).json({
+        groq_key:       sharedKey,
+        cerebras_key:   null,
+        openrouter_key: null,
+        key:            sharedKey,  // legacy
+        enabled:        true,
+        source:         'shared',
+        vip,
+      });
     }
 
-    return res.status(200).json({ key: null, enabled: false, vip });
+    return res.status(200).json({
+      groq_key:       null,
+      cerebras_key:   null,
+      openrouter_key: null,
+      key:            null,
+      enabled:        false,
+      vip,
+    });
 
   } catch (err) {
     console.error('groq-key error:', err);
