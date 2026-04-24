@@ -793,13 +793,35 @@ Respond ONLY as JSON (no other text):
 }`;
 
 
-// -- Odstrani anglicky popis z nazvu JP karty -------------------
+// -- Odstrani anglicky popis z nazvu JP karty (v3 - se zachrannou siti) -------
+// Groq nekdy vraci "The Japanese name on the card reads: X" → opravime.
+// Verze v3 přidává:
+//   - širší pokrytí frází (shown/written/displayed, of the Pokémon)
+//   - CJK záchrannou síť (pokud zbude latinka + jsou tam CJK znaky, vezmi CJK)
 function cleanPokemonName(raw) {
   if (!raw) return raw;
   let s = raw.trim();
-  s = s.replace(/^(?:The\s+)?(?:Japanese\s+)?(?:Pok[e\u00e9]mon\s+)?(?:TCG\s+)?(?:card\s+)?name(?:\s+on\s+the\s+(?:Pok[e\u00e9]mon\s+TCG\s+)?card)?[\s]+(?:reads|is|says|printed)[\s:]+/i, '');
-  s = s.replace(/\s+However,[\s\S]*$/i, '');
-  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d]+|[\u0022\u0027\u201c\u201d\u300c\u300d]+$/g, '');
+
+  // ── 1. Smaž prefixové fráze: "The Japanese name on the card reads: X" atd. ──
+  s = s.replace(/^(?:the\s+)?(?:(?:japanese|chinese|korean|english)\s+)?(?:pok[eé]mon\s+)?(?:tcg\s+)?(?:card\s+)?name(?:\s+on\s+(?:the\s+)?(?:pok[eé]mon\s+tcg\s+)?card)?[\s]+(?:reads|is|says|printed|shown|written|displayed)[\s:]+/i, '');
+
+  // ── 2. Smaž "Based on / However / Note: X" sufixy ──
+  s = s.replace(/[\s.,;]+(?:however|note|based on|according to|please note|this is|it appears)[\s\S]*$/i, '');
+
+  // ── 3. ZÁCHRANNÁ SÍŤ: pokud stále začíná latinkou ale obsahuje CJK znaky,
+  //        vytáhni jen CJK část. Zachytí varianty jako:
+  //           "The Japanese name of the Pokémon, as printed... is:\n\n鳩嘩鳥"
+  //           "The Pokemon name as printed in Japanese is:\n\nテツノイワシ"
+  if (/[A-Za-z]/.test(s.slice(0, 4))) {
+    const cjkIdx = s.search(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/);
+    if (cjkIdx > 0) {
+      s = s.slice(cjkIdx).trim();
+    }
+  }
+
+  // ── 4. Smaž obklopující uvozovky / japonské závorky ──
+  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+|[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+$/g, '');
+
   return s.trim() || raw.trim();
 }
 
@@ -1062,6 +1084,10 @@ async function loadQueue() {
       // Ulož AI z přední strany
       const side = meta.side || 'front';
       if (side === 'front' && meta.name) {
+        // Defense in depth: očisti název i u dat uložených před opravou cleanPokemonName
+        if (typeof cleanPokemonName === 'function' && meta.name) {
+          meta.name = cleanPokemonName(meta.name);
+        }
         groups[key].aiResult = meta;
       }
       if (side === 'back' && (meta.condition || meta.backCondition || meta.backIssues || meta.issues || meta.backNotes)) {

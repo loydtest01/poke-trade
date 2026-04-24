@@ -1980,6 +1980,33 @@ function setProgress(pct, label) {
   if (label)        document.getElementById('progressLabel').textContent = label;
 }
 
+// -- Odstrani anglicky popis z nazvu Pokemon karty (sdileno mezi scannerem a queue) --
+// Groq nekdy vraci "The Japanese name on the card reads: X" → opravime na "X".
+// Verze v3 - se zachrannou siti pro CJK znaky.
+function cleanPokemonName(raw) {
+  if (!raw) return raw;
+  let s = String(raw).trim();
+
+  // 1. Smaz prefixove fraze typu "The Japanese name on the card reads: X"
+  s = s.replace(/^(?:the\s+)?(?:(?:japanese|chinese|korean|english)\s+)?(?:pok[eé]mon\s+)?(?:tcg\s+)?(?:card\s+)?name(?:\s+on\s+(?:the\s+)?(?:pok[eé]mon\s+tcg\s+)?card)?[\s]+(?:reads|is|says|printed|shown|written|displayed)[\s:]+/i, '');
+
+  // 2. Smaz "However / Note: X" sufixy
+  s = s.replace(/[\s.,;]+(?:however|note|based on|according to|please note|this is|it appears)[\s\S]*$/i, '');
+
+  // 3. ZACHRANNA SIT: pokud zacina latinkou ale jsou tam CJK znaky, vezmi CJK cast
+  if (/[A-Za-z]/.test(s.slice(0, 4))) {
+    const cjkIdx = s.search(/[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/);
+    if (cjkIdx > 0) {
+      s = s.slice(cjkIdx).trim();
+    }
+  }
+
+  // 4. Odstran obklopujici uvozovky / japonske zavorky
+  s = s.replace(/^[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+|[\u0022\u0027\u201c\u201d\u300c\u300d\uff08\uff09]+$/g, '');
+
+  return s.trim() || String(raw).trim();
+}
+
 async function callGroq(dataUrl) {
   const key = getGroqKey();
   let base64 = dataUrl, mediaType = 'image/jpeg';
@@ -2044,7 +2071,11 @@ async function callGroq(dataUrl) {
   const content = data.choices?.[0]?.message?.content || '';
   try {
     const m = content.match(/\{[\s\S]*\}/);
-    return m ? JSON.parse(m[0]) : null;
+    if (!m) return null;
+    const parsed = JSON.parse(m[0]);
+    // Očisti případné ukecané prefixy ("The name on the card reads: X" → "X")
+    if (parsed?.name) parsed.name = cleanPokemonName(parsed.name);
+    return parsed;
   } catch { return null; }
 }
 
