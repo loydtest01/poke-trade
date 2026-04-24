@@ -614,7 +614,14 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
         ],
       }];
 
-      const raw = await GroqClient.chat(messages, { temperature: 0, max_tokens: 200 });
+      // Vision MUSÍ být vision-capable model. _state.model v GroqClient může být
+      // text-only (např. llama-3.3-70b-versatile = uložený v profilu) → Groq vrací
+      // 400 "messages[0].content must be a string". Explicitně hardcode na vision.
+      const raw = await GroqClient.chat(messages, {
+        temperature: 0,
+        max_tokens: 200,
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      });
       const json = JSON.parse(raw.replace(/```json?|```/g, '').trim());
 
       if (!json.card_id) return null;
