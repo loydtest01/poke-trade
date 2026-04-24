@@ -702,91 +702,56 @@ No explanation. Just the JSON array.`;
     return results;
   }
 
+  // ── _tcgdexDirect (v3 — bez probing stormu) ─────────────────────────
+  // Předtím to dělalo až 36 requestů na kartu (4 sety × 3 čísla × 3 locale).
+  // TCGdex JA databáze je sparse → většina dotazů na JP sety vrací 404.
+  // Lepší: 1 pokus, na miss tiše vrátit null → caller padne na pokemontcg.io EN.
   async function _tcgdexDirect(setId, localId, lang = 'en') {
     if (!setId || !localId) return null;
     const lRaw = LANG_TO_TCGDEX[lang?.toUpperCase()] || 'en';
-
-    // ── FIX: ZH/TW/CN karty → použij JA locale (sdílí artwork s JP) ─────
-    // TCGdex zh-Hans/zh-Hant endpoint pro JP sety reálně neexistuje,
-    // ALE JA locale má plné pokrytí všech JP setů i s obrázky.
-    // Protože ZH/TW karty jsou překlady JP karet (stejný artwork, stejné číslo),
-    // vrácení JA karty je správný výsledek pro ZH uživatele.
+    // ZH/TW/CN → JA locale (stejný artwork)
     const l = (lRaw === 'zh-Hans' || lRaw === 'zh-Hant') ? 'ja' : lRaw;
+    // Normalizace set ID: lowercase + odstranit koncové F (pro JA namespace)
+    const sid = (l === 'ja')
+      ? setId.toLowerCase().replace(/f$/, '')
+      : setId.toLowerCase();
+    // Číslo: padded 3-digit (`016`) — TCGdex preferuje
+    const num = String(localId).split('/')[0].padStart(3, '0');
 
-    // ── FIX: Normalizace set ID pro JA ─ odstranit ZH 'F' suffix ────────
-    // Př. S8F → s8, S8aF → s8a, SV1sF → sv1s
-    const rawLower  = setId.toLowerCase();
-    const jaSetId   = (l === 'ja') ? rawLower.replace(/f$/, '') : rawLower;
-    const setsToTry = [...new Set([jaSetId, rawLower])];
-
-    const num      = String(localId).split('/')[0];
-    const unpadded = String(parseInt(num, 10)) || num;
-    const padded   = num.padStart(3, '0');
-    const numsToTry = [...new Set([unpadded, padded, num])];
-
-    // 1) Zkus v preferovaném locale (JA pro ZH/TW, JP pro JP, atd.)
-    for (const s of setsToTry) {
-      for (const n of numsToTry) {
-        const data = await _fetch(`${TCGDEX_BASE}/${l}/sets/${s}/${n}`);
-        if (data?.name) return data;
-      }
+    try {
+      const data = await _fetch(`${TCGDEX_BASE}/${l}/sets/${sid}/${num}`);
+      return (data && data.name) ? data : null;
+    } catch (_) {
+      return null;
     }
-
-    // 2) Fallback na JA (pokud primární locale byl KO/TH/apod. a selhal)
-    if (l !== 'ja' && l !== 'en') {
-      for (const s of setsToTry) {
-        for (const n of numsToTry) {
-          const data = await _fetch(`${TCGDEX_BASE}/ja/sets/${s}/${n}`);
-          if (data?.name) return data;
-        }
-      }
-    }
-
-    // 3) Poslední fallback: EN (pokud náhodou set existuje pod EN namespacem)
-    if (l !== 'en') {
-      for (const s of setsToTry) {
-        for (const n of numsToTry) {
-          const data = await _fetch(`${TCGDEX_BASE}/en/sets/${s}/${n}`);
-          if (data?.name) return data;
-        }
-      }
-    }
-    return null;
   }
 
+  // ── _tcgdexTranslate (v3 — bez probing stormu, bez cross-namespace) ──
+  // Předtím to dělalo až 6 JP-set requestů + lookup `/ja/cards/{enId}`,
+  // což vždy 404-uje (EN ID v JA namespace neexistuje). Spam.
+  // Nově: 1 attempt na JA set (pokud set+number máme), rovnou EN search by name.
+  // Neumím-li přeložit, vrátím null → caller spoléhá na _preResolvedEnName z PokéAPI.
   async function _tcgdexTranslate(origName, lang, hp = null, setHint = '', numberHint = '') {
     if (!origName || !lang) return null;
     const l = LANG_TO_TCGDEX[lang.toUpperCase()];
     if (!l || l === 'en') return null;
     const isZh = l === 'zh-Hans' || l === 'zh-Hant';
 
-    // Pro ZH/TW karty nebo JP karty používáme JA locale (stejný artwork)
-    const imgLocale = (isZh || l === 'ja') ? 'ja' : l;
-
-    // ── KROK 1: Pokud máme set + číslo, zkus přímý lookup v JA (pro ZH/JP) ─
-    // Je to nejrychlejší a nejpřesnější cesta — ZH/JP karty mají stejné
-    // set+číslo jako JP originál.
+    // ── KROK 1: Pro ZH/JP karty se set+number → 1 přímý JA pokus ────────
+    // Pokud trefíme JP set (sparse coverage v TCGdex), získáme i pravý
+    // JP obrázek + dexId pro lookup EN ekvivalentu.
     if ((isZh || l === 'ja') && setHint && numberHint) {
       const jaSetId = String(setHint).toLowerCase().replace(/f$/, '');
-      const num     = String(numberHint).split('/')[0];
-      const nums    = [...new Set([String(parseInt(num, 10)) || num, num.padStart(3, '0'), num])];
+      const num     = String(numberHint).split('/')[0].padStart(3, '0');
 
-      for (const n of nums) {
-        const jaCard = await _fetch(`${TCGDEX_BASE}/ja/sets/${jaSetId}/${n}`);
+      try {
+        const jaCard = await _fetch(`${TCGDEX_BASE}/ja/sets/${jaSetId}/${num}`);
         if (jaCard?.name) {
-          console.log(`[PkSearch] ✓ TCGdex JA hit: ${jaSetId}/${n} → ${jaCard.name}`);
+          console.log(`[PkSearch] ✓ TCGdex JA hit: ${jaSetId}/${num} → ${jaCard.name}`);
 
-          // Najdi EN ekvivalent (pro překlad jména a pokemontcg.io ID)
+          // Najdi EN ekvivalent přes dexId (lepší než cross-namespace by ID)
           let enCard = null;
-
-          // 1a) Zkus stejné ID v EN (některé promo/shared sety)
-          if (jaCard.id) {
-            enCard = await _fetch(`${TCGDEX_BASE}/en/cards/${jaCard.id}`);
-          }
-
-          // 1b) Fallback přes dexId (Pokédex number) → najde jakoukoli EN kartu
-          //     stejného Pokémona se stejným HP. Lepší než nic.
-          if (!enCard && Array.isArray(jaCard.dexId) && jaCard.dexId.length) {
+          if (Array.isArray(jaCard.dexId) && jaCard.dexId.length) {
             const searchHp = hp || jaCard.hp;
             const q = `dexId=${jaCard.dexId[0]}${searchHp ? `&hp=${searchHp}` : ''}`;
             const enList = await _fetch(`${TCGDEX_BASE}/en/cards?${q}`);
@@ -796,20 +761,18 @@ No explanation. Just the JSON array.`;
           }
 
           return {
-            enName:         enCard?.name || jaCard.name,   // fallback na JA name
+            enName:         enCard?.name || jaCard.name,
             enCard:         enCard || null,
             origImage:      jaCard.image ? jaCard.image + '/high.webp' : null,
             origImageSmall: jaCard.image ? jaCard.image + '/low.webp'  : null,
           };
         }
-      }
-      console.log(`[PkSearch] ✗ TCGdex JA miss: ${jaSetId}/${numberHint} — zkouším fallback`);
+      } catch (_) { /* tiše */ }
+      // miss → pokračuj na KROK 2 (search by name)
     }
 
-    // ── KROK 2: Fallback — hledej podle jména ─────────────────────────────
-    // Pro ZH: TCGdex zh-Hans/zh-Hant endpoint pro card search podle jména
-    // většinou selže (není dat) → rovnou zkus JA. Pokud zná název v japonštině,
-    // najde ho. Pokud ne (např. máme jen čínský text), pokračujeme na EN.
+    // ── KROK 2: Hledej podle jména v primárním locale (např. de/fr/it) ──
+    // Pro ZH/JP většinou selže (nejsou data v JA card-search) → tichý pád.
     const searchLocale = isZh ? 'ja' : l;
     let results = await _fetch(`${TCGDEX_BASE}/${searchLocale}/cards?name=${encodeURIComponent(origName)}`);
 
@@ -833,9 +796,9 @@ No explanation. Just the JSON array.`;
     const enCard = await _fetch(`${TCGDEX_BASE}/en/cards/${cardId}`);
     if (!enCard?.name) return null;
 
-    // Načti kartu v imgLocale (JA pro ZH, JP pro JP) pro obrázek
-    const origCard = (imgLocale !== 'en')
-      ? await _fetch(`${TCGDEX_BASE}/${imgLocale}/cards/${cardId}`)
+    // Načti kartu v primárním locale (de/fr/it/...) pro skutečně lokalizovaný obrázek
+    const origCard = (l !== 'en' && !isZh)
+      ? await _fetch(`${TCGDEX_BASE}/${l}/cards/${cardId}`)
       : null;
 
     return {
@@ -881,6 +844,7 @@ No explanation. Just the JSON array.`;
       p30d:           cm.avg30      || null,
       cardmarketUrl:  c.cardmarket?.url || '',
       sourceUrl:      `https://www.pokemontcg.io/cards/${c.id}`,
+      _imageSource:   'en_official',  // pokemontcg.io = EN officiální obrázek
     };
   }
 
@@ -909,6 +873,7 @@ No explanation. Just the JSON array.`;
       pTrend:    null,
       p30d:      null,
       sourceUrl: `https://www.tcgdex.net/database/${c.set?.id || ''}/${c.localId || ''}`,
+      _imageSource: 'tcgdex_native',  // TCGdex (lokální jazyk: ja/de/fr/...)
     };
   }
 
@@ -1014,34 +979,22 @@ No explanation. Just the JSON array.`;
             if (dexEN.length) enName = dexEN[0].name;
           }
 
-          // A3: Přímý lookup TCGdex (set + číslo)
+          // A3: Přímý lookup TCGdex (set + číslo) — JEDEN POKUS
+          //
+          // Předtím to dělalo až 4 set IDs × 3 number variants × 3 locales = 36 requestů
+          // a vesměs spamovalo 404. Teď: jeden pokus podle nejlepší hypotézy.
+          //
+          // Pro ZH/JP karty: zkusíme JA set ID (`s8` z `S8F`) — pokud TCGdex JA
+          // má pokrytí (sparse), získáme JP obrázek. Jinak A4 (pokemontcg.io)
+          // dohledá EN ekvivalent podle jména.
           if (set && number) {
-            // ── FIX: Pro ZH/JP karty zkus JA set ID přímo (strip F, lowercase) ─
-            //
-            // Důvod: _normalizeSet('S8F') vrací 'swsh8' (EN namespace v TCGdex),
-            // ale v JA namespace je to 's8'. Pro ZH karty chceme JA obrázek
-            // (sdílí artwork), proto musíme zkusit JA set ID zvlášť.
-            //
-            // Strategie: zkusíme POSTUPNĚ:
-            //   1) JA set ID (odstraň F → 's8')    — pro ZH/JP karty
-            //   2) Mapovaný EN set ID ('swsh8')    — pokud má ZH set EN ekvivalent
-            //   3) Původní set string v lowercase  — poslední pokus
-            const rawLower = String(set).toLowerCase();
-            const jaSetId  = rawLower.replace(/f$/, '');                    // 's8f' → 's8'
-            const enSetId  = _normalizeSet(set)?.id || '';                  // 's8f' → 'swsh8'
-            const fallback = rawLower.replace(/EN$|JP$|DE$|FR$|ZH$|CN$|TW$/i, '');
-
-            const setsToTry = [...new Set([jaSetId, enSetId, fallback, rawLower].filter(Boolean))];
-
-            for (const sid of setsToTry) {
-              const dexCard = await _tcgdexDirect(sid, number, lang);
-              if (dexCard) {
-                cards.push(_normalizeTcgdex(dexCard));
-                if (!enName && dexCard.name) enName = dexCard.name;
-                console.log(`[PkSearch] A3: TCGdex direct hit pro ${sid}/${number}`);
-                break;
-              }
+            const dexCard = await _tcgdexDirect(set, number, lang);
+            if (dexCard) {
+              cards.push(_normalizeTcgdex(dexCard));
+              if (!enName && dexCard.name) enName = dexCard.name;
+              console.log(`[PkSearch] A3: TCGdex hit → ${dexCard.name}`);
             }
+            // miss = tichý fallback na A4
           }
         }
 
