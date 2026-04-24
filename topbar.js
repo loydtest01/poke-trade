@@ -1143,16 +1143,19 @@ document.addEventListener('i18n:changed', function() { _updateLangBtn(); renderN
 document.addEventListener('i18n:ready',   function() { _updateLangBtn(); renderNav(); });
 
 function init() {
-  injectStyles();
-  renderNav();
-  injectSettings();
-  initSettingsValues();
-  injectBell();
-  injectAuthChip();
-  injectLangSwitch();
-  initGroqPanel();
-  initCerebrasPanel();
-  initOpenRouterPanel();
+  console.log('[topbar] v2-multi-provider loading…');
+  // Každá funkce v try/catch — aby chyba v jedné nezabila ostatní
+  try { injectStyles(); }       catch(e) { console.error('[topbar] injectStyles:', e); }
+  try { renderNav(); }          catch(e) { console.error('[topbar] renderNav:', e); }
+  try { injectSettings(); }     catch(e) { console.error('[topbar] injectSettings:', e); }
+  try { initSettingsValues(); } catch(e) { console.error('[topbar] initSettingsValues:', e); }
+  try { injectBell(); }         catch(e) { console.error('[topbar] injectBell:', e); }
+  try { injectAuthChip(); }     catch(e) { console.error('[topbar] injectAuthChip:', e); }
+  try { injectLangSwitch(); }   catch(e) { console.error('[topbar] injectLangSwitch:', e); }
+  try { initGroqPanel(); }      catch(e) { console.error('[topbar] initGroqPanel:', e); }
+  try { initCerebrasPanel(); }  catch(e) { console.error('[topbar] initCerebrasPanel:', e); }
+  try { initOpenRouterPanel(); }catch(e) { console.error('[topbar] initOpenRouterPanel:', e); }
+  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter)');
 }
 
 if (document.readyState === 'loading') {
