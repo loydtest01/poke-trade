@@ -1,26 +1,24 @@
 /**
- * api/jp-card.js — Vercel Serverless Function  (verze 2 — TCGdex)
+ * api/jp-card.js — Vercel Serverless Function (verze 3 — surgical fix)
  * ════════════════════════════════════════════════════════════════════════
- *  Proxy pro ne-anglické Pokémon karty (JP, ZH-TW, ZH-CN, KO, TH).
+ *  Proxy pro non-EN Pokémon karty (JP, ZH-TW, ZH-CN, KO, TH, DE, FR, ...).
  *
- *  Stará verze volala pokemon-card.com (stránka přepracovaná → 404).
- *  Nová verze používá TCGdex (https://tcgdex.dev) — open-source, zdarma,
- *  bez API klíče, podporuje 14+ jazyků a má CORS povolený na assetech.
+ *  HISTORIE:
+ *    v1: pokemon-card.com (přepracováno → 404)
+ *    v2: TCGdex s probing stormem (3 locales × 3 nums × 2-4 sets = 36 reqs/karta)
+ *    v3: TCGdex jednorázově — 1 pokus, padá tiše (žádný spam v konzoli)
  *
- *  Princip:
- *    • ZH/TW/CN karty = překlady JP → sdílí artwork → mapujeme na JA locale
- *      (S8F → s8, S8aF → s8a …). Uživatel uvidí JP obrázek (stejná ilustrace).
- *    • JP karty → JA locale přímo.
- *    • KO/TH karty → vlastní locale s fallbackem na JA.
+ *  PRINCIP v3:
+ *    • Vezmi (set, num, lang) → spočti JEDNU URL → fetch → vrať/redirect.
+ *    • Žádné fallbacky, žádné variants. Klient (card-search.js) si pak
+ *      sám zařídí EN fallback z pokemontcg.io.
+ *    • Pro `lang=ZH/TW/CN/JP` mapujeme set kód z `S8F` → `s8` (JA namespace).
+ *    • Pro `lang=DE/FR/IT/ES/PT` zachováme set kód a použijeme TCGdex DE/FR/...
  *
  *  Příklady:
- *    /api/jp-card?set=S8F&num=016&lang=ZH&mode=image   → 302 na TCGdex JA image
- *    /api/jp-card?set=S8&num=016&mode=image            → 302 (backward-compat, default lang=JP)
- *    /api/jp-card?set=S8F&num=016&lang=ZH&mode=data    → JSON s daty karty
- *
- *  Zpětná kompatibilita:
- *    Staré URL `?set=S8&num=016&mode=image` bez `lang` parametru
- *    defaultují na `lang=JP` → funguje beze změny (fix pro staré záznamy v DB).
+ *    /api/jp-card?set=S8F&num=016&lang=ZH&mode=image  → 302 na TCGdex JA
+ *    /api/jp-card?set=swsh8&num=41&lang=DE&mode=image → 302 na TCGdex DE
+ *    /api/jp-card?set=S8F&num=016&lang=ZH&mode=data   → JSON (nebo 404)
  * ════════════════════════════════════════════════════════════════════════
  */
 
@@ -30,85 +28,37 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
-// ─── Lookup tabulka pro ZH/TW edge-case sety ────────────────────────────
-// Pokud nějaký ZH/TW set kód nekoresponduje s JP setem po pouhém "strip F",
-// přidej ho sem. Klíč = lowercase ZH/TW set kód bez mezer. Hodnota = JP set ID.
-//
-// Většina sad ale funguje automaticky:
-//   S8F → s8, S8aF → s8a, SV1sF → sv1s, …
-const ZH_SET_ALIAS = {
-  // Př. edge-case mapping (zatím prázdné, doplň dle potřeby):
-  // 's8f-premium': 's8b',   // Pokud by ZH Premium Bundle používal JP VMAX Climax kartu
-};
-
-/**
- * Normalizuje libovolný set kód (ZH/TW/CN/JP/en) na TCGdex JA set ID.
- *
- *   'S8F'   → 's8'        (ZH Fusion Arts → JP Fusion Arts)
- *   'S8'    → 's8'
- *   's8a'   → 's8a'
- *   'S10aF' → 's10a'
- *   'SV1sF' → 'sv1s'
- */
-function normalizeJpSetId(raw) {
-  if (!raw) return '';
-  const trimmed = String(raw).trim();
-
-  // Přesná shoda v alias mapě (pro výjimky)
-  const lookup = trimmed.toLowerCase().replace(/\s+/g, '');
-  if (ZH_SET_ALIAS[lookup]) return ZH_SET_ALIAS[lookup];
-
-  // Standardní normalizace: lowercase + odstranění koncového F (ZH suffix)
-  return trimmed.toLowerCase().replace(/f$/, '');
-}
-
-/**
- * Mapuje uživatelský jazykový kód na TCGdex locale.
- * ZH/TW/CN/JP → 'ja' (JP artwork platí pro všechny)
- * KO           → 'ko'
- * TH           → 'th'
- * Ostatní      → 'ja' jako default
- */
+// ─── Mapování lang → TCGdex locale ──────────────────────────────────────
 function langToLocale(lang) {
   const l = String(lang || '').toUpperCase();
+  // Asia: vše sdílí JP artwork → JA locale
   if (!l || l === 'JP' || l === 'JA') return 'ja';
-  if (l === 'ZH' || l === 'TW' || l === 'CN')        return 'ja';   // sdílí artwork s JP
-  if (l === 'ZH-HANS' || l === 'ZH-HANT')            return 'ja';
+  if (l === 'ZH' || l === 'TW' || l === 'CN'
+   || l === 'ZH-HANS' || l === 'ZH-HANT')   return 'ja';
   if (l === 'KO') return 'ko';
   if (l === 'TH') return 'th';
+  // Latinka: vlastní locale (TCGdex má dobré pokrytí pro de/fr/it/es/pt)
   if (l === 'EN') return 'en';
-  if (l === 'FR') return 'fr';
   if (l === 'DE') return 'de';
-  if (l === 'ES') return 'es';
+  if (l === 'FR') return 'fr';
   if (l === 'IT') return 'it';
+  if (l === 'ES') return 'es';
   if (l === 'PT') return 'pt';
   if (l === 'PT-BR' || l === 'PT-PT') return l.toLowerCase();
+  // Fallback (nevíme)
   return 'ja';
 }
 
-/**
- * Stáhne JSON z TCGdex. Vrací null na 404/chybu.
- * TCGdex akceptuje číslo karty jak padded ("016") tak unpadded ("16"),
- * zkouším oba.
- */
-async function tcgdexFetch(locale, setId, num) {
-  if (!locale || !setId || !num) return null;
-  const n = String(num).trim();
-  const unpadded = String(parseInt(n, 10)) || n;
-  const padded   = n.padStart(3, '0');
-  const variants = [...new Set([unpadded, padded, n])];
-
-  for (const v of variants) {
-    const url = `https://api.tcgdex.net/v2/${locale}/sets/${setId}/${v}`;
-    try {
-      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
-      if (r.ok) {
-        const data = await r.json();
-        if (data && data.name) return data;
-      }
-    } catch (_) { /* zkus další variant */ }
-  }
-  return null;
+// ─── Normalizace set kódu pro JA namespace ──────────────────────────────
+// `S8F` (TW/HK) → `s8` (JP)
+// `S8aF`         → `s8a`
+// `SV1sF`        → `sv1s`
+// Pro non-JA locale (de/fr/...) ponecháme původní set ID jen v lowercase.
+function normalizeSetId(raw, locale) {
+  if (!raw) return '';
+  const lower = String(raw).trim().toLowerCase();
+  if (locale === 'ja') return lower.replace(/f$/, '');
+  return lower;
 }
 
 // ─── Hlavní handler ─────────────────────────────────────────────────────
@@ -125,80 +75,64 @@ export default async function handler(req, res) {
     return res.end(JSON.stringify({ error: 'Chybí parametry set a num' }));
   }
 
-  const setId   = normalizeJpSetId(set);
-  const primary = langToLocale(lang);
+  const locale = langToLocale(lang);
+  const setId  = normalizeSetId(set, locale);
+  // Číslo: `016/100` → `016`, padded na min. 3 číslice
+  const numClean = String(num).split('/')[0].trim().padStart(3, '0');
 
-  // Vyzkoušej preferovaný locale, pak fallback na 'ja', pak 'en'
-  const localesToTry = [...new Set([primary, 'ja', 'en'])];
+  // JEDEN POKUS — žádné variants, žádné loops
+  const url = `https://api.tcgdex.net/v2/${locale}/sets/${setId}/${numClean}`;
+
   let card = null;
-  let usedLocale = null;
+  try {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (r.ok) card = await r.json();
+  } catch (_) { /* tichý pád */ }
 
-  for (const loc of localesToTry) {
-    card = await tcgdexFetch(loc, setId, num);
-    if (card) { usedLocale = loc; break; }
-  }
-
-  // Pokud set má ZH F-suffix a selhal i 'ja', zkus i původní kód (bez strip)
-  if (!card) {
-    const rawLower = String(set).toLowerCase();
-    if (rawLower !== setId) {
-      for (const loc of localesToTry) {
-        card = await tcgdexFetch(loc, rawLower, num);
-        if (card) { usedLocale = loc; break; }
-      }
-    }
-  }
-
-  if (!card || !card.image) {
+  // Karta neexistuje v TCGdex → 404 a klient padne na EN fallback
+  if (!card?.image) {
     res.writeHead(404, { ...CORS, 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({
-      error: `Karta nenalezena v TCGdex`,
-      set:   setId,
-      num:   String(num),
-      lang:  primary,
-      tried: localesToTry,
+      error: `Card not in TCGdex`,
+      tried: { locale, setId, num: numClean },
     }));
   }
 
   // ── mode=image → 302 redirect na TCGdex CDN ─────────────────────────
-  // Browser cachuje a vykresluje přímo z assets.tcgdex.net (CORS OK).
   if (mode === 'image') {
-    const imageUrl = `${card.image}/high.webp`;
     res.writeHead(302, {
       ...CORS,
-      'Location':      imageUrl,
+      'Location':      `${card.image}/high.webp`,
       'Cache-Control': 'public, max-age=604800, immutable',  // 7 dní
     });
     return res.end();
   }
 
-  // ── mode=data → JSON s detaily karty ────────────────────────────────
+  // ── mode=data → JSON ────────────────────────────────────────────────
   if (mode === 'data') {
-    const payload = {
-      name:           card.name         || '',
-      hp:             card.hp           || null,
-      types:          card.types        || [],
-      rarity:         card.rarity       || '',
-      illustrator:    card.illustrator  || '',
-      category:       card.category     || 'Pokemon',
-      localId:        card.localId      || String(num),
-      setId:          card.set?.id      || setId,
-      setName:        card.set?.name    || '',
-      imageUrl:       `${card.image}/high.webp`,
-      imageUrlSmall:  `${card.image}/low.webp`,
-      imageUrlPng:    `${card.image}/high.png`,
-      sourceLocale:   usedLocale,
-      sourceUrl:      `https://tcgdex.net/database/${setId}/${card.localId || num}/${usedLocale}`,
-      dexId:          card.dexId        || [],
-    };
     res.writeHead(200, {
       ...CORS,
       'Content-Type':  'application/json',
-      'Cache-Control': 'public, max-age=86400',  // 1 den
+      'Cache-Control': 'public, max-age=86400',
     });
-    return res.end(JSON.stringify(payload));
+    return res.end(JSON.stringify({
+      name:          card.name        || '',
+      hp:            card.hp          || null,
+      types:         card.types       || [],
+      rarity:        card.rarity      || '',
+      illustrator:   card.illustrator || '',
+      category:      card.category    || 'Pokemon',
+      localId:       card.localId     || numClean,
+      setId:         card.set?.id     || setId,
+      setName:       card.set?.name   || '',
+      imageUrl:      `${card.image}/high.webp`,
+      imageUrlSmall: `${card.image}/low.webp`,
+      sourceLocale:  locale,
+      sourceUrl:     `https://tcgdex.net/database/${setId}/${card.localId || numClean}/${locale}`,
+      dexId:         card.dexId       || [],
+    }));
   }
 
   res.writeHead(400, { ...CORS, 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'Neznámý mode. Použij mode=image nebo mode=data' }));
+  res.end(JSON.stringify({ error: 'Neznámý mode (použij image|data)' }));
 }
