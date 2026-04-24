@@ -750,7 +750,7 @@ var SETTINGS_HTML = [
   '            </div>',
   '            <div class="groq-info-box">',
   '              <strong>🌐 Nejlepší pro asijské karty (JP/ZH)</strong><br>',
-  '              OpenRouter dává přístup ke Qwen 2.5-VL 72B (nativní čínský vision model) — výrazně přesnější na JP/ZH znaky než Llama. Free tier = 200 req/den/klíč/model. Pro JP/ZH karty se automaticky preferuje před Groqem.',
+  '              OpenRouter dává přístup ke Qwen 2.5-VL 32B (nativní čínský vision model) — výrazně přesnější na JP/ZH znaky než Llama. Free tier = 200 req/den/klíč/model. Pro JP/ZH karty se automaticky preferuje před Groqem.',
   '              <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
   '            </div>',
   '            <label class="groq-label-sm">OpenRouter API klíče</label>',
@@ -1507,46 +1507,51 @@ function initGroqPanel() {
    Pošle minimální request ("Say OK" / max_tokens 5) a vrátí výsledek.
    ══════════════════════════════════════════════════════════════ */
 async function _testProviderKey(providerName, apiKey, cfg) {
-  var endpoints = {
-    groq:       'https://api.groq.com/openai/v1/chat/completions',
-    cerebras:   'https://api.cerebras.ai/v1/chat/completions',
-    openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  // Pro OpenRouter použijeme GET /models endpoint — ověří klíč bez konzumace kvóty
+  // a bez závislosti na dostupnosti konkrétního modelu. Pro Groq/Cerebras použijeme
+  // malý chat request (nemají spolehlivý GET endpoint pro ověření).
+  var validators = {
+    groq: {
+      method:   'POST',
+      url:      'https://api.groq.com/openai/v1/chat/completions',
+      body:     JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
+      testType: 'chat',
+    },
+    cerebras: {
+      method:   'POST',
+      url:      'https://api.cerebras.ai/v1/chat/completions',
+      body:     JSON.stringify({ model: 'llama-3.1-8b', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
+      testType: 'chat',
+    },
+    openrouter: {
+      method:   'GET',
+      url:      'https://openrouter.ai/api/v1/auth/key',  // Returns info o klíči, jen 1 request
+      body:     null,
+      testType: 'auth',
+    },
   };
-  var testModels = {
-    // Levné/rychlé modely jen pro ověření fungování klíče
-    groq:       'llama-3.1-8b-instant',
-    cerebras:   'llama-3.1-8b',
-    openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
-  };
-  var endpoint = endpoints[providerName];
-  var model    = testModels[providerName];
-  if (!endpoint || !model) throw new Error('Neznámý provider: ' + providerName);
+  var cfg2 = validators[providerName];
+  if (!cfg2) throw new Error('Neznámý provider: ' + providerName);
 
   var headers = {
-    'Content-Type':  'application/json',
     'Authorization': 'Bearer ' + apiKey,
   };
+  if (cfg2.method === 'POST') headers['Content-Type'] = 'application/json';
   if (providerName === 'openrouter') {
     headers['HTTP-Referer'] = window.location.origin;
     headers['X-Title']      = 'PokéTrade Test';
   }
 
-  var body = JSON.stringify({
-    model:       model,
-    messages:    [{ role: 'user', content: 'Say OK' }],
-    max_tokens:  5,
-    temperature: 0,
-  });
-
   var t0 = Date.now();
   var r;
   try {
-    r = await fetch(endpoint, {
-      method:  'POST',
+    var fetchOpts = {
+      method:  cfg2.method,
       headers: headers,
-      body:    body,
       signal:  AbortSignal.timeout(10000),
-    });
+    };
+    if (cfg2.body) fetchOpts.body = cfg2.body;
+    r = await fetch(cfg2.url, fetchOpts);
   } catch(e) {
     throw new Error('síťová chyba: ' + e.message);
   }
@@ -1560,9 +1565,20 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   }
 
   var data = await r.json();
+  if (cfg2.testType === 'auth') {
+    // OpenRouter auth/key endpoint → { data: { label, usage, limit, ... } }
+    var info = data?.data || data;
+    var usage = info?.usage || 0;
+    var limit = info?.limit;
+    return {
+      model: 'auth_ok',
+      time:  t1 - t0,
+      reply: limit != null ? ('spotř: $' + usage.toFixed(4) + '/' + limit) : ('spotř: $' + (usage || 0)),
+    };
+  }
   var content = data?.choices?.[0]?.message?.content || '?';
   return {
-    model: model.split('/').pop(),
+    model: (cfg2.body ? JSON.parse(cfg2.body).model : '').split('/').pop(),
     time:  t1 - t0,
     reply: content.slice(0, 30),
   };

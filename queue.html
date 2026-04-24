@@ -2356,11 +2356,16 @@ async function tcgSearch(gi, autoMode = false) {
     }
 
     // ── KROK 3: Foto shoda (Groq vision) ──────────────────────────────────
+    // Pokud matcher už vrátil high-conf shodu, vrátili jsme se v KROKU 0 (řádek ~2280).
+    // Tady jsme až když matcher selhal nebo vrátil low-conf → scoreByImage pomůže
+    // seřadit kandidáty z pokemontcg.io search.
     if (PkSearch.config.isEnabled('imageSearch') && cards.length > 1) {
       const groqKey = _getGroqKey();
       const frontPhoto = g.photos?.find(p => p.side === 'front') || g.photos?.[0];
       const photoUrl   = frontPhoto?.croppedUrl || frontPhoto?.url || '';
-      if (groqKey && photoUrl) {
+      // Jen pokud máme foto + aspoň jeden vision provider (GroqClient nebo groqKey)
+      const canUseVision = (window.GroqClient && window.GroqClient.isReady && window.GroqClient.isReady()) || groqKey;
+      if (canUseVision && photoUrl) {
         statusEl.textContent = '🖼 Porovnávám s fotkou…';
         cards = await PkSearch.scoreByImage(
           photoUrl, cards, GROQ_PROXY, groqKey,
