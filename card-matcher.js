@@ -620,13 +620,12 @@ DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see
         ],
       }];
 
-      // Vision MUSÍ být vision-capable model. _state.model v GroqClient může být
-      // text-only (např. llama-3.3-70b-versatile = uložený v profilu) → Groq vrací
-      // 400 "messages[0].content must be a string". Explicitně hardcode na vision.
+      // Multi-provider: groq-client.js automaticky vybere vision model podle providera
+      // (Groq/Cerebras → Llama-4-Scout, OpenRouter → Qwen 2.5-VL pro CJK, atd.)
+      // Detekce vision je automatická (přítomnost image_url v messages).
       const raw = await GroqClient.chat(messages, {
         temperature: 0,
         max_tokens: 200,
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       });
       const json = JSON.parse(raw.replace(/```json?|```/g, '').trim());
 

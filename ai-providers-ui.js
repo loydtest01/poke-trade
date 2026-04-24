@@ -1,0 +1,293 @@
+// ═══════════════════════════════════════════════════════════════════
+//  ai-providers-ui.js  – UI pro správu klíčů více AI providerů
+//  ─────────────────────────────────────────────────────────────────
+//  Co to dělá:
+//    • Najde v profile.html sekci s Groq nastavením (#groqSection, .sdrop-acc-body-groq)
+//    • Vloží pod ni novou sekci "Další AI poskytovatelé"
+//    • Pro každý provider (Cerebras / OpenRouter / DeepSeek) nabídne:
+//        - seznam klíčů s maskovaným zobrazením
+//        - tlačítko + pro přidání, × pro smazání
+//    • Uloží je do user_api_keys.{cerebras_key,openrouter_key,deepseek_key}
+//    • GroqClient.loadKey() pak načte všechny klíče a rotuje mezi providery
+//
+//  Instalace: přidej <script src="ai-providers-ui.js"></script> do profile.html
+//             (těsně po <script src="groq-client.js"></script>)
+// ═══════════════════════════════════════════════════════════════════
+
+(function () {
+  'use strict';
+
+  const PROVIDERS = [
+    {
+      key:          'cerebras',
+      name:         'Cerebras',
+      signupUrl:    'https://cloud.cerebras.ai',
+      docsUrl:      'https://inference-docs.cerebras.ai',
+      description:  'Ultra-rychlý, stejné modely jako Groq (Llama 4 Scout). 1M tokenů/den zdarma.',
+      placeholder:  'csk-xxxxxxxxxxxxxxxxxxxx',
+      color:        '#8b5cf6',
+      icon:         '⚡',
+    },
+    {
+      key:          'openrouter',
+      name:         'OpenRouter',
+      signupUrl:    'https://openrouter.ai',
+      docsUrl:      'https://openrouter.ai/docs',
+      description:  'Přístup ke Qwen VL 72B (nejlepší pro JP/ZH karty) + desítky dalších modelů.',
+      placeholder:  'sk-or-v1-xxxxxxxxxxxxxxxx',
+      color:        '#14b8a6',
+      icon:         '🌐',
+    },
+    {
+      key:          'deepseek',
+      name:         'DeepSeek',
+      signupUrl:    'https://platform.deepseek.com',
+      docsUrl:      'https://api-docs.deepseek.com',
+      description:  'Čínský model, 5M tokenů zdarma na signup. Výborný pro CJK texty.',
+      placeholder:  'sk-xxxxxxxxxxxxxxxxxxxx',
+      color:        '#3b82f6',
+      icon:         '🧠',
+    },
+  ];
+
+  // ── Čekej na DOM + GroqClient + currentUser ────────────────────
+  function waitFor(pred, timeout = 10000) {
+    return new Promise((resolve, reject) => {
+      const started = Date.now();
+      const check = () => {
+        if (pred()) return resolve(true);
+        if (Date.now() - started > timeout) return reject(new Error('timeout'));
+        setTimeout(check, 200);
+      };
+      check();
+    });
+  }
+
+  function maskKey(k) {
+    if (!k) return '';
+    const s = String(k).trim();
+    if (s.length < 14) return s;
+    return s.slice(0, 7) + '…' + s.slice(-5);
+  }
+
+  function getToken() {
+    return localStorage.getItem('sb_token');
+  }
+
+  async function loadAllKeys(userId) {
+    const token = getToken();
+    if (!token) return {};
+    try {
+      const res = await supabaseRequest(
+        `rest/v1/user_api_keys?user_id=eq.${userId}&select=cerebras_key,openrouter_key,deepseek_key`,
+        'GET', null, token
+      );
+      const row = Array.isArray(res) ? res[0] : null;
+      const out = {};
+      for (const p of PROVIDERS) {
+        const raw = row?.[`${p.key}_key`] || '';
+        out[p.key] = raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      }
+      return out;
+    } catch (e) {
+      console.warn('[AIProviders] loadAllKeys selhal:', e);
+      return {};
+    }
+  }
+
+  async function saveKeysForProvider(userId, provider, keys) {
+    const token = getToken();
+    if (!token) throw new Error('Chybí token');
+
+    const existing = await supabaseRequest(
+      `rest/v1/user_api_keys?user_id=eq.${userId}&select=id`,
+      'GET', null, token
+    );
+    const hasRow = Array.isArray(existing) && existing.length > 0;
+    const payload = { user_id: userId, [`${provider}_key`]: keys.join(',') };
+
+    const res = await supabaseRequest(
+      hasRow ? `rest/v1/user_api_keys?user_id=eq.${userId}` : 'rest/v1/user_api_keys',
+      hasRow ? 'PATCH' : 'POST',
+      payload,
+      token
+    );
+    if (res && res.error) throw new Error(res.error.message || 'Chyba uložení');
+
+    // Synchronizuj runtime stav v GroqClient
+    if (window.GroqClient && typeof window.GroqClient.loadKey === 'function') {
+      await window.GroqClient.loadKey();
+    }
+  }
+
+  // ── Vygeneruj HTML jedné provider sekce ─────────────────────────
+  function buildProviderCard(p, keys) {
+    const safeDesc = p.description.replace(/</g, '&lt;');
+    let keysHtml = '';
+    if (keys.length === 0) {
+      keysHtml = `<div style="padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;color:var(--text3);font-size:13px">Žádné klíče. Přidej svůj první klíč níže.</div>`;
+    } else {
+      keysHtml = keys.map((k, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:6px">
+          <span style="font-size:11px;color:var(--text3);min-width:20px;font-weight:700">#${i + 1}</span>
+          <span style="font-family:monospace;font-size:13px;flex:1;color:var(--text)">${maskKey(k)}</span>
+          <span style="font-size:10px;color:var(--text3);margin-right:4px">${i === 0 ? '🟢 aktivní' : '⏳ záloha'}</span>
+          <button data-aip-action="remove" data-aip-provider="${p.key}" data-aip-idx="${i}"
+                  style="background:transparent;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px"
+                  title="Odebrat">✕</button>
+        </div>
+      `).join('');
+    }
+
+    return `
+      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;background:rgba(255,255,255,0.02)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:22px">${p.icon}</span>
+            <div>
+              <div style="font-weight:700;font-size:15px;color:${p.color}">${p.name}</div>
+              <div style="font-size:11px;color:var(--text3)">${keys.length} klíč${keys.length === 1 ? '' : keys.length < 5 ? 'e' : 'ů'}</div>
+            </div>
+          </div>
+          <a href="${p.signupUrl}" target="_blank" rel="noopener"
+             style="padding:6px 12px;border:1px solid ${p.color};border-radius:8px;color:${p.color};text-decoration:none;font-size:12px;font-weight:600">
+             Registrovat →
+          </a>
+        </div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">${safeDesc}</div>
+        <div id="aip-keys-${p.key}">${keysHtml}</div>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input type="text" id="aip-input-${p.key}" placeholder="${p.placeholder}"
+                 style="flex:1;padding:8px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:var(--text);font-family:monospace;font-size:13px">
+          <button data-aip-action="add" data-aip-provider="${p.key}"
+                  style="padding:8px 16px;background:${p.color};border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer">
+            + Přidat
+          </button>
+        </div>
+        <div id="aip-feedback-${p.key}" style="margin-top:8px;font-size:12px;min-height:16px"></div>
+      </div>
+    `;
+  }
+
+  function feedback(providerKey, msg, isError = false) {
+    const el = document.getElementById(`aip-feedback-${providerKey}`);
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = isError ? 'var(--red)' : 'var(--green)';
+    if (!isError) setTimeout(() => { el.textContent = ''; }, 3000);
+  }
+
+  // ── Hlavní render ────────────────────────────────────────────────
+  async function init() {
+    try {
+      await waitFor(() => typeof supabaseRequest === 'function' && typeof window.currentUser !== 'undefined');
+      const user = window.currentUser;
+      if (!user?.id) {
+        console.log('[AIProviders] uživatel nepřihlášen, UI se nevkládá');
+        return;
+      }
+
+      // Zkus najít kontejner (preferenčně po Groq sekci)
+      let container = document.querySelector('.sdrop-acc-body-groq .groq-form')
+                   || document.querySelector('.acc-body-groq .groq-form')
+                   || document.querySelector('#groqForm')
+                   || document.querySelector('[id*="roqForm"]');
+
+      if (!container) {
+        console.warn('[AIProviders] Groq form kontejner nenalezen, UI se nevkládá');
+        return;
+      }
+
+      // Vytvoř wrapper a vlož ho jako sourozence za groq-form
+      const wrapper = document.createElement('div');
+      wrapper.id = 'ai-providers-wrapper';
+      wrapper.style.marginTop = '24px';
+      wrapper.style.paddingTop = '20px';
+      wrapper.style.borderTop = '1px solid rgba(255,255,255,0.1)';
+
+      wrapper.innerHTML = `
+        <div style="margin-bottom:14px">
+          <div style="font-weight:700;font-size:16px;margin-bottom:4px;color:var(--text)">
+            🤝 Další AI poskytovatelé <span style="font-size:11px;color:var(--text3);font-weight:400">(volitelné)</span>
+          </div>
+          <div style="font-size:12px;color:var(--text3);line-height:1.5">
+            Přidej klíče z dalších poskytovatelů pro lepší pokrytí a kvalitu. Systém automaticky rotuje mezi všemi klíči napříč poskytovateli. Pro JP/ZH karty preferuje OpenRouter (Qwen VL), který čte asijské znaky lépe než Llama.
+          </div>
+        </div>
+        <div id="aip-providers-list"></div>
+      `;
+      container.parentNode.insertBefore(wrapper, container.nextSibling);
+
+      const listEl = document.getElementById('aip-providers-list');
+      const allKeys = await loadAllKeys(user.id);
+
+      function rerender() {
+        listEl.innerHTML = PROVIDERS.map(p => buildProviderCard(p, allKeys[p.key] || [])).join('');
+      }
+      rerender();
+
+      // Event delegation na celý wrapper
+      wrapper.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (!target) return;
+
+        const action   = target.getAttribute('data-aip-action');
+        const provider = target.getAttribute('data-aip-provider');
+        if (!action || !provider) return;
+        e.preventDefault();
+
+        if (action === 'add') {
+          const input = document.getElementById(`aip-input-${provider}`);
+          const val   = (input?.value || '').trim();
+          if (!val || val.length < 10) {
+            feedback(provider, '❌ Klíč musí mít aspoň 10 znaků', true);
+            return;
+          }
+          if ((allKeys[provider] || []).includes(val)) {
+            feedback(provider, 'ℹ️ Tento klíč už existuje', true);
+            return;
+          }
+          feedback(provider, '⏳ Ukládám…');
+          try {
+            const newKeys = [...(allKeys[provider] || []), val];
+            await saveKeysForProvider(user.id, provider, newKeys);
+            allKeys[provider] = newKeys;
+            if (input) input.value = '';
+            rerender();
+            feedback(provider, '✅ Klíč přidán');
+          } catch (err) {
+            console.error('[AIProviders] add failed:', err);
+            feedback(provider, '❌ ' + (err.message || 'Chyba uložení'), true);
+          }
+        }
+
+        if (action === 'remove') {
+          const idx = parseInt(target.getAttribute('data-aip-idx'), 10);
+          if (isNaN(idx)) return;
+          if (!confirm(`Odebrat ${PROVIDERS.find(p => p.key === provider).name} klíč #${idx + 1}?`)) return;
+          try {
+            const newKeys = (allKeys[provider] || []).filter((_, i) => i !== idx);
+            await saveKeysForProvider(user.id, provider, newKeys);
+            allKeys[provider] = newKeys;
+            rerender();
+            feedback(provider, '✅ Klíč odebrán');
+          } catch (err) {
+            console.error('[AIProviders] remove failed:', err);
+            feedback(provider, '❌ ' + (err.message || 'Chyba mazání'), true);
+          }
+        }
+      });
+
+      console.log('[AIProviders] UI připraveno');
+    } catch (e) {
+      console.warn('[AIProviders] init failed:', e.message);
+    }
+  }
+
+  // Poběh po full page load (profile.html má async setup)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(init, 1500));
+  } else {
+    setTimeout(init, 1500);
+  }
+})();
