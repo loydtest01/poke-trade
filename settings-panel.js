@@ -101,23 +101,24 @@
     '  cursor: pointer; transition: all .2s;',
     '}',
     '.btn-groq-save:hover { transform: translateY(-1px); }',
-    /* Účet – změna hesla */
-    '.sp-pass-btn { width:100%; padding:10px 14px; border-radius:10px; margin-bottom:8px; border:1.5px solid rgba(79,142,247,0.35); background:rgba(79,142,247,0.07); color:#60a5fa; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; text-align:left; }',
+    '.sp-pass-btn { width:100%; padding:10px 14px; border-radius:10px; margin-bottom:8px; border:1.5px solid rgba(79,142,247,0.35); background:rgba(79,142,247,0.07); color:#60a5fa; font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; transition:all .15s; text-align:left; display:block; box-sizing:border-box; }',
     '.sp-pass-btn:hover { background:rgba(79,142,247,0.15); border-color:rgba(79,142,247,0.6); }',
-    '.sp-pass-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,.75); z-index:9999; align-items:center; justify-content:center; padding:20px; }',
-    '.sp-pass-modal.open { display:flex; }',
+    '.sp-pass-btn-red { border-color:rgba(248,113,113,0.35); background:rgba(248,113,113,0.07); color:#f87171; }',
+    '.sp-pass-btn-red:hover { background:rgba(248,113,113,0.15); border-color:rgba(248,113,113,0.6); }',
+    '.sp-pass-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:9999; align-items:center; justify-content:center; padding:20px; }',
+    '.sp-pass-overlay.open { display:flex; }',
     '.sp-pass-box { background:rgba(14,12,20,.98); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:28px 24px; width:100%; max-width:380px; backdrop-filter:blur(20px); box-shadow:0 20px 60px rgba(0,0,0,.7); }',
-    '.sp-pass-title { font-family:\"Unbounded\",sans-serif; font-size:15px; font-weight:800; color:#fff; margin-bottom:6px; }',
-    '.sp-pass-sub { font-size:12px; color:rgba(240,236,228,.45); margin-bottom:20px; }',
-    '.sp-pass-inp { width:100%; padding:11px 14px; border-radius:10px; box-sizing:border-box; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#f0ece4; font-family:inherit; font-size:13px; outline:none; transition:border-color .2s; margin-bottom:10px; }',
+    '.sp-pass-title { font-size:15px; font-weight:800; color:#fff; margin-bottom:6px; }',
+    '.sp-pass-sub { font-size:12px; color:rgba(240,236,228,.45); margin-bottom:20px; line-height:1.5; }',
+    '.sp-pass-inp { width:100%; padding:11px 14px; border-radius:10px; box-sizing:border-box; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.05); color:#f0ece4; font-family:inherit; font-size:13px; outline:none; transition:border-color .2s; margin-bottom:10px; display:block; }',
     '.sp-pass-inp:focus { border-color:rgba(79,142,247,.5); }',
-    '.sp-pass-save { width:100%; padding:12px; border:none; border-radius:10px; margin-top:4px; background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%); color:#fff; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:opacity .15s; }',
-    '.sp-pass-save:hover { opacity:.9; }',
-    '.sp-pass-cancel { width:100%; padding:10px; border:1px solid rgba(255,255,255,.1); border-radius:10px; margin-top:8px; background:transparent; color:rgba(240,236,228,.45); font-family:inherit; font-size:13px; cursor:pointer; transition:all .15s; }',
+    '.sp-pass-save { width:100%; padding:12px; border:none; border-radius:10px; margin-top:4px; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:#fff; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:opacity .15s; }',
+    '.sp-pass-save:hover { opacity:.88; }',
+    '.sp-pass-cancel { width:100%; padding:10px; border:1px solid rgba(255,255,255,.1); border-radius:10px; margin-top:8px; background:transparent; color:rgba(240,236,228,.45); font-family:inherit; font-size:13px; cursor:pointer; }',
     '.sp-pass-cancel:hover { border-color:rgba(255,255,255,.25); color:rgba(240,236,228,.7); }',
-    '.sp-pass-feedback { font-size:12px; min-height:16px; margin-top:10px; line-height:1.5; }',
-    '.sp-pass-feedback.ok { color:#4ade80; }',
-    '.sp-pass-feedback.error { color:#f87171; }',
+    '.sp-pass-fb { font-size:12px; min-height:16px; margin-top:10px; }',
+    '.sp-pass-fb.ok { color:#4ade80; }',
+    '.sp-pass-fb.err { color:#f87171; }',
   ].join('\n');
 
   /* ── HTML ────────────────────────────────────────────────────── */
@@ -233,20 +234,20 @@
     '        </div>',
     '      </div>',
 
+
     '      <!-- Účet -->',
-    '      <div class=\"sdrop-acc-item\" id=\"sdAccAccount\">',
-    '        <div class=\"sdrop-acc-header\" onclick=\"toggleSdAcc(\'sdAccAccount\')\">',
-    '          <div class=\"sdrop-acc-left\">',
-    '            <span class=\"sdrop-acc-icon\">👤</span>',
-    '            <div><div class=\"sdrop-acc-title\">Účet</div><div class=\"sdrop-acc-sub\">Heslo a přihlášení</div></div>',
-    '          </div><span class=\"sdrop-acc-chevron\">▼</span>',
+    '      <div class="sdrop-acc-item" id="sdAccAccount">',
+    '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccAccount\')">',
+    '          <div class="sdrop-acc-left">',
+    '            <span class="sdrop-acc-icon">👤</span>',
+    '            <div><div class="sdrop-acc-title">Účet</div><div class="sdrop-acc-sub">Heslo a přihlášení</div></div>',
+    '          </div><span class="sdrop-acc-chevron">▼</span>',
     '        </div>',
-    '        <div class=\"sdrop-acc-body\"><div class=\"sdrop-acc-inner\">',
-    '          <button class=\"sp-pass-btn\" onclick=\"spOpenChangePass()\">🔑 Změnit heslo</button>',
-    '          <button class=\"sp-pass-btn\" style=\"border-color:rgba(248,113,113,.35);background:rgba(248,113,113,.07);color:#f87171\" onclick=\"spOpenForgotPass()\">📧 Zapomenuté heslo (reset e-mail)</button>',
+    '        <div class="sdrop-acc-body"><div class="sdrop-acc-inner">',
+    '          <button class="sp-pass-btn" onclick="spOpenChangePass()">🔑 Změnit heslo</button>',
+    '          <button class="sp-pass-btn sp-pass-btn-red" onclick="spOpenForgotPass()">📧 Zapomenuté heslo</button>',
     '        </div></div>',
     '      </div>',
-
     '    </div>',
     '  </div>',
     '</div>',
@@ -410,124 +411,101 @@
     run();
   }
 
-  /* ── Modal: Změna hesla ──────────────────────────────────────── */
-  function _spInjectPassModal() {
-    if (document.getElementById('_spPassModal')) return;
-    var m = document.createElement('div');
-    m.id = '_spPassModal';
-    m.className = 'sp-pass-modal';
-    m.innerHTML =
-      '<div class="sp-pass-box">' +
-        '<div class="sp-pass-title">🔑 Změnit heslo</div>' +
-        '<div class="sp-pass-sub">Zadej nové heslo pro svůj účet.</div>' +
-        '<input id="_spNewPass1" class="sp-pass-inp" type="password" placeholder="Nové heslo (min. 6 znaků)">' +
-        '<input id="_spNewPass2" class="sp-pass-inp" type="password" placeholder="Znovu nové heslo">' +
-        '<div id="_spPassFb" class="sp-pass-feedback"></div>' +
-        '<button class="sp-pass-save" onclick="spDoChangePass()">Uložit nové heslo</button>' +
-        '<button class="sp-pass-cancel" onclick="spCloseChangePass()">Zrušit</button>' +
-      '</div>';
-    m.addEventListener('click', function(e){ if(e.target===m) spCloseChangePass(); });
-    document.body.appendChild(m);
+  /* ── Heslo: modaly + funkce ─────────────────────────────────── */
+  function _spSb() {
+    return {
+      url:  window.SB_URL  || window.SUPABASE_URL  || '',
+      anon: window.SB_ANON || window.SUPABASE_ANON || ''
+    };
   }
 
-  function _spInjectForgotModal() {
-    if (document.getElementById('_spForgotModal')) return;
-    var m = document.createElement('div');
-    m.id = '_spForgotModal';
-    m.className = 'sp-pass-modal';
-    m.innerHTML =
-      '<div class="sp-pass-box">' +
-        '<div class="sp-pass-title">📧 Zapomenuté heslo</div>' +
-        '<div class="sp-pass-sub">Pošleme ti e-mail s odkazem pro reset hesla.</div>' +
-        '<input id="_spForgotEmail" class="sp-pass-inp" type="email" placeholder="Tvůj e-mail">' +
-        '<div id="_spForgotFb" class="sp-pass-feedback"></div>' +
-        '<button class="sp-pass-save" onclick="spDoForgotPass()">Odeslat reset e-mail</button>' +
-        '<button class="sp-pass-cancel" onclick="spCloseForgotPass()">Zrušit</button>' +
-      '</div>';
-    m.addEventListener('click', function(e){ if(e.target===m) spCloseForgotPass(); });
-    document.body.appendChild(m);
+  function _spModal(id, innerHtml) {
+    if (document.getElementById(id)) return;
+    var el = document.createElement('div');
+    el.id = id;
+    el.className = 'sp-pass-overlay';
+    el.innerHTML = '<div class="sp-pass-box">' + innerHtml + '</div>';
+    el.addEventListener('click', function(e) { if (e.target === el) el.classList.remove('open'); });
+    document.body.appendChild(el);
   }
 
-  function _spGetSbVars() {
-    // Vezme SB_URL a SB_ANON z globálního scope (definované v app.js / každé stránce)
-    var url  = window.SB_URL  || window.SUPABASE_URL  || '';
-    var anon = window.SB_ANON || window.SUPABASE_ANON || '';
-    return { url: url, anon: anon };
-  }
-
-  window.spOpenChangePass = function() {
-    _spInjectPassModal();
-    document.getElementById('_spNewPass1').value = '';
-    document.getElementById('_spNewPass2').value = '';
-    document.getElementById('_spPassFb').textContent = '';
+  window.spOpenChangePass = function () {
+    _spModal('_spPassModal',
+      '<div class="sp-pass-title">🔑 Změnit heslo</div>' +
+      '<div class="sp-pass-sub">Zadej nové heslo pro svůj účet.</div>' +
+      '<input id="_spP1" class="sp-pass-inp" type="password" placeholder="Nové heslo (min. 6 znaků)">' +
+      '<input id="_spP2" class="sp-pass-inp" type="password" placeholder="Znovu nové heslo">' +
+      '<div id="_spPFb" class="sp-pass-fb"></div>' +
+      '<button class="sp-pass-save" onclick="spDoChangePass()">Uložit nové heslo</button>' +
+      '<button class="sp-pass-cancel" onclick="spCloseChangePass()">Zrušit</button>'
+    );
+    document.getElementById('_spP1').value = '';
+    document.getElementById('_spP2').value = '';
+    document.getElementById('_spPFb').textContent = '';
     document.getElementById('_spPassModal').classList.add('open');
-    setTimeout(function(){ document.getElementById('_spNewPass1').focus(); }, 80);
+    setTimeout(function () { document.getElementById('_spP1').focus(); }, 80);
   };
 
-  window.spCloseChangePass = function() {
+  window.spCloseChangePass = function () {
     var m = document.getElementById('_spPassModal');
     if (m) m.classList.remove('open');
   };
 
-  window.spDoChangePass = async function() {
-    var p1 = document.getElementById('_spNewPass1').value;
-    var p2 = document.getElementById('_spNewPass2').value;
-    var fb = document.getElementById('_spPassFb');
+  window.spDoChangePass = async function () {
+    var p1 = document.getElementById('_spP1').value;
+    var p2 = document.getElementById('_spP2').value;
+    var fb = document.getElementById('_spPFb');
+    var setErr = function (msg) { fb.textContent = '⚠️ ' + msg; fb.className = 'sp-pass-fb err'; };
 
-    function err(msg){ fb.textContent = '⚠️ ' + msg; fb.className = 'sp-pass-feedback error'; }
-
-    if (!p1)           return err('Zadej nové heslo');
-    if (p1.length < 6) return err('Heslo musí mít alespoň 6 znaků');
-    if (p1 !== p2)     return err('Hesla se neshodují');
+    if (!p1)           return setErr('Zadej nové heslo');
+    if (p1.length < 6) return setErr('Heslo musí mít alespoň 6 znaků');
+    if (p1 !== p2)     return setErr('Hesla se neshodují');
 
     var token = localStorage.getItem('sb_token') || localStorage.getItem('supabase_token');
-    if (!token) return err('Nejsi přihlášen');
+    if (!token) return setErr('Nejsi přihlášen');
 
-    var sb = _spGetSbVars();
+    var sb = _spSb();
     try {
       var res = await fetch(sb.url + '/auth/v1/user', {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': sb.anon,
-          'Authorization': 'Bearer ' + token
-        },
+        headers: { 'Content-Type': 'application/json', 'apikey': sb.anon, 'Authorization': 'Bearer ' + token },
         body: JSON.stringify({ password: p1 })
       });
       var data = await res.json();
       if (!res.ok || data.error) throw new Error((data.error && data.error.message) || 'Chyba při změně hesla');
-      fb.textContent = '✅ Heslo bylo úspěšně změněno!';
-      fb.className = 'sp-pass-feedback ok';
-      setTimeout(function(){ spCloseChangePass(); }, 1800);
-    } catch(e) {
-      err(e.message);
-    }
+      fb.textContent = '✅ Heslo úspěšně změněno!';
+      fb.className = 'sp-pass-fb ok';
+      setTimeout(spCloseChangePass, 1800);
+    } catch (e) { setErr(e.message); }
   };
 
-  window.spOpenForgotPass = function() {
-    _spInjectForgotModal();
+  window.spOpenForgotPass = function () {
+    _spModal('_spForgotModal',
+      '<div class="sp-pass-title">📧 Zapomenuté heslo</div>' +
+      '<div class="sp-pass-sub">Pošleme ti e-mail s odkazem pro reset hesla.</div>' +
+      '<input id="_spFE" class="sp-pass-inp" type="email" placeholder="Tvůj e-mail">' +
+      '<div id="_spFFb" class="sp-pass-fb"></div>' +
+      '<button class="sp-pass-save" onclick="spDoForgotPass()">Odeslat reset e-mail</button>' +
+      '<button class="sp-pass-cancel" onclick="spCloseForgotPass()">Zrušit</button>'
+    );
     var email = localStorage.getItem('sb_email') || '';
-    var inp = document.getElementById('_spForgotEmail');
-    if (inp && email) inp.value = email;
-    document.getElementById('_spForgotFb').textContent = '';
+    var inp = document.getElementById('_spFE');
+    if (email) inp.value = email;
+    document.getElementById('_spFFb').textContent = '';
     document.getElementById('_spForgotModal').classList.add('open');
-    setTimeout(function(){ document.getElementById('_spForgotEmail').focus(); }, 80);
+    setTimeout(function () { inp.focus(); }, 80);
   };
 
-  window.spCloseForgotPass = function() {
+  window.spCloseForgotPass = function () {
     var m = document.getElementById('_spForgotModal');
     if (m) m.classList.remove('open');
   };
 
-  window.spDoForgotPass = async function() {
-    var email = document.getElementById('_spForgotEmail').value.trim();
-    var fb = document.getElementById('_spForgotFb');
-    if (!email) {
-      fb.textContent = '⚠️ Zadej e-mail';
-      fb.className = 'sp-pass-feedback error';
-      return;
-    }
-    var sb = _spGetSbVars();
+  window.spDoForgotPass = async function () {
+    var email = document.getElementById('_spFE').value.trim();
+    var fb = document.getElementById('_spFFb');
+    if (!email) { fb.textContent = '⚠️ Zadej e-mail'; fb.className = 'sp-pass-fb err'; return; }
+    var sb = _spSb();
     try {
       await fetch(sb.url + '/auth/v1/recover', {
         method: 'POST',
@@ -535,11 +513,11 @@
         body: JSON.stringify({ email: email, gotrue_meta_security: {} })
       });
       fb.textContent = '✅ E-mail odeslán! Zkontroluj schránku.';
-      fb.className = 'sp-pass-feedback ok';
-      setTimeout(function(){ spCloseForgotPass(); }, 2200);
-    } catch(e) {
+      fb.className = 'sp-pass-fb ok';
+      setTimeout(spCloseForgotPass, 2200);
+    } catch (e) {
       fb.textContent = '⚠️ Chyba: ' + e.message;
-      fb.className = 'sp-pass-feedback error';
+      fb.className = 'sp-pass-fb err';
     }
   };
 
