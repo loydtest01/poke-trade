@@ -556,6 +556,30 @@ $$;
       return null;
     }
 
+    // Groq vyžaduje base64 data URL pro multimodální vstup, signed URLs ze Supabase Storage
+    // často odmítá. Stáhni a převeď na base64 (max ~6 MB raw).
+    let dataUrl = imageUrl;
+    if (imageUrl && !imageUrl.startsWith('data:')) {
+      try {
+        const r = await fetch(imageUrl);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const blob = await r.blob();
+        if (blob.size > 6 * 1024 * 1024) {
+          console.warn('[CardMatcher] Foto > 6 MB, neposílám do Groq');
+          return null;
+        }
+        dataUrl = await new Promise((res, rej) => {
+          const reader = new FileReader();
+          reader.onload  = () => res(reader.result);
+          reader.onerror = () => rej(new Error('FileReader chyba'));
+          reader.readAsDataURL(blob);
+        });
+      } catch (e) {
+        console.warn('[CardMatcher] Nelze získat base64 obrázku:', e.message);
+        return null;
+      }
+    }
+
     const hintStr = [
       hint.name   ? `Jméno (z OCR): "${hint.name}"` : '',
       hint.set    ? `Set kód (z OCR): "${hint.set}"` : '',
@@ -585,12 +609,12 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
       const messages = [{
         role: 'user',
         content: [
-          { type: 'image_url', image_url: { url: imageUrl } },
+          { type: 'image_url', image_url: { url: dataUrl } },
           { type: 'text', text: prompt },
         ],
       }];
 
-      const raw = await GroqClient.chat(messages, { temperature: 0.1, max_tokens: 200 });
+      const raw = await GroqClient.chat(messages, { temperature: 0, max_tokens: 200 });
       const json = JSON.parse(raw.replace(/```json?|```/g, '').trim());
 
       if (!json.card_id) return null;

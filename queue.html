@@ -766,6 +766,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 </div>
 
 <script src="app.js"></script>
+<script src="groq-client.js"></script>
 <script src="fake-detector.js"></script>
 <script>
 /* ── Groq – retry AI ────────────────────────────────────────── */
@@ -942,6 +943,19 @@ let cardGroups = [];
   await loadAlbums();
   await loadQueue();
   await _syncGroqKeyFromSupabase();
+
+  // ── Načti klíče i do window.GroqClient (pro card-matcher.js _matchByGroqVision) ──
+  // _syncGroqKeyFromSupabase() ukládá do localStorage (legacy cesta pro queue/scanner),
+  // ale card-matcher.js používá window.GroqClient.chat() s key rotation. Musíme inicializovat oba.
+  if (window.GroqClient && typeof window.GroqClient.loadKey === 'function') {
+    try {
+      await window.GroqClient.loadKey();
+      console.log('[queue] GroqClient inicializován:', window.GroqClient.isReady() ? '✓ ready' : '✗ no key');
+    } catch(e) {
+      console.warn('[queue] GroqClient.loadKey() selhal:', e);
+    }
+  }
+
   _initGroqBadge(); // async, badge se načte na pozadí
 })();
 
@@ -1198,6 +1212,10 @@ async function retryAi(gi) {
 
   // Zkus načíst klíč ze Supabase pokud ho nemáme lokálně
   await _syncGroqKeyFromSupabase();
+  // I window.GroqClient (key rotation) – pro card-matcher.js
+  if (window.GroqClient && typeof window.GroqClient.loadKey === 'function') {
+    try { await window.GroqClient.loadKey(); } catch(_) {}
+  }
 
   const key = _getGroqKey();
   // Pokud nemáme osobní klíč, fallback na sdílený přes Bearer token (limit 20/den)
