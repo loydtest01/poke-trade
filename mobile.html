@@ -940,17 +940,63 @@ let batchId      = Date.now().toString(36);
 let cards        = [];
 let fakeMode     = params.get('fake') === '1';  // ?fake=1 → auto-zapne FAKE mód
 
-// ─── Groq key(s) ─────────────────────────────────────────────
+// ─── AI Providers (multi-provider: Groq + Cerebras + OpenRouter) ────────────
+// Legacy proměnné pro zpětnou kompatibilitu
 let groqKey = params.get('gk') || null;
-let _groqKeys = [];      // pole klíčů po načtení ze serveru
-let _groqKeyIdx = 0;     // index aktuálně použitého klíče
-let useSharedProxy = false; // VIP/běžný uživatel bez osobního klíče → proxy /api/groq
+let _groqKeys = [];
+let _groqKeyIdx = 0;
+let useSharedProxy = false;
 
-// ─── Groq ready promise – čeká na dokončení loadGroqInBackground ─────────────
-// Zabraňuje race condition: uživatel vyfotí kartu dřív než se načte klíč ze Supabase
+// Nové: pole klíčů per provider
+const _aiKeys = {
+  groq:        [],
+  cerebras:    [],
+  openrouter:  [],
+};
+const _aiKeyIdx = { groq: 0, cerebras: 0, openrouter: 0 };
+
+// Konfigurace providerů (endpointy + default modely)
+const _aiProviders = {
+  groq: {
+    name:    'Groq',
+    endpoint:'https://api.groq.com/openai/v1/chat/completions',
+    vision:  'meta-llama/llama-4-scout-17b-16e-instruct',
+    text:    'llama-3.3-70b-versatile',
+    headers: (key) => ({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+    }),
+  },
+  cerebras: {
+    name:    'Cerebras',
+    endpoint:'https://api.cerebras.ai/v1/chat/completions',
+    vision:  'llama-4-scout-17b-16e-instruct',
+    text:    'llama-3.3-70b',
+    headers: (key) => ({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+    }),
+  },
+  openrouter: {
+    name:    'OpenRouter',
+    endpoint:'https://openrouter.ai/api/v1/chat/completions',
+    vision:  'qwen/qwen2.5-vl-32b-instruct:free',  // nejlepší zdarma pro CJK
+    text:    'meta-llama/llama-3.3-70b-instruct:free',
+    headers: (key) => ({
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + key,
+      'HTTP-Referer': window.location.origin,
+      'X-Title':      'PokéTrade Mobile',
+    }),
+  },
+};
+
+// ─── Groq ready promise ──────────────────────────────────────────────
 let _groqReady = false;
 let _groqReadyResolve = null;
 const _groqReadyPromise = new Promise(r => { _groqReadyResolve = r; });
+
+function dbg(msg) { console.log('[DBG]', msg); }
 
 function parseGroqKeys(raw) {
   if (!raw) return [];
@@ -959,7 +1005,11 @@ function parseGroqKeys(raw) {
   return keys;
 }
 
-function dbg(msg) { console.log('[DBG]', msg); }
+function _parseKeys(raw, prefix, minLen) {
+  if (!raw) return [];
+  return raw.split(',').map(k => k.trim()).filter(k => k.startsWith(prefix) && k.length >= minLen);
+}
+
 function nextGroqKey() {
   if (!_groqKeys.length) return groqKey;
   _groqKeyIdx = (_groqKeyIdx + 1) % _groqKeys.length;
@@ -967,47 +1017,101 @@ function nextGroqKey() {
   return groqKey;
 }
 
-// ─── groqFetch – centrální helper pro volání Groq AI ──────────
-// Automaticky volí:
-//   • osobní klíč (přímé volání s rotací) nebo
-//   • sdílenou proxy /api/groq  (VIP + běžní uživatelé bez klíče)
-async function groqFetch(bodyObj, signal) {
-  const COMPLETIONS = 'https://api.groq.com/openai/v1/chat/completions';
-  const sig = signal || AbortSignal.timeout(15000);
+// Detekce CJK (Japanese/Chinese/Korean) v messages → pro routing preference
+function _hasCjk(bodyObj) {
+  try {
+    const s = JSON.stringify(bodyObj.messages || []);
+    return /[\u3040-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef\uac00-\ud7af]/.test(s);
+  } catch { return false; }
+}
 
-  if (groqKey) {
-    // Osobní klíče – přímé volání s rotací při 429
-    const keys = _groqKeys.length ? _groqKeys : [groqKey];
-    for (let ki = 0; ki < keys.length; ki++) {
-      const key = keys[(_groqKeyIdx + ki) % keys.length];
-      try {
-        const r = await fetch(COMPLETIONS, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-          body: JSON.stringify(bodyObj),
-          signal: sig,
-        });
-        if (r.ok) { _groqKeyIdx = (_groqKeyIdx + ki) % keys.length; return r; }
-        if (r.status === 429 && ki < keys.length - 1) { continue; }
-        return r; // jiná chyba nebo poslední klíč
-      } catch(e) {
-        if (ki < keys.length - 1) continue;
-        throw e;
+// Má request obrázek? (multimodální vstup)
+function _hasImage(bodyObj) {
+  try {
+    const msgs = bodyObj.messages || [];
+    for (const m of msgs) {
+      if (Array.isArray(m.content)) {
+        for (const c of m.content) { if (c?.type === 'image_url') return true; }
       }
     }
+  } catch {}
+  return false;
+}
+
+// ─── groqFetch – multi-provider s rotací klíčů + inteligentním routingem ──
+async function groqFetch(bodyObj, signal) {
+  const sig = signal || AbortSignal.timeout(15000);
+  const isVision = _hasImage(bodyObj);
+  const isCjk    = isVision && _hasCjk(bodyObj);
+
+  // Pořadí providerů — pro CJK karty preferuj OpenRouter (Qwen VL je na CJK výrazně lepší)
+  let chain = isCjk
+    ? ['openrouter', 'groq', 'cerebras']
+    : ['groq', 'cerebras', 'openrouter'];
+
+  const errors = [];
+  let anyKeyAvailable = false;
+
+  for (const pname of chain) {
+    const prov = _aiProviders[pname];
+    const keys = _aiKeys[pname];
+    if (!prov || !keys.length) continue;
+    anyKeyAvailable = true;
+
+    // Přepiš model podle providera a typu (pokud request neuvádí vlastní)
+    const modelForProvider = isVision ? prov.vision : prov.text;
+    const bodyForProvider = { ...bodyObj };
+    // Pokud původní request měl model, který neznáme napříč providery, přepíšeme
+    if (!bodyForProvider.model || bodyForProvider.model.startsWith('meta-llama/llama-4-scout') || bodyForProvider.model.startsWith('llama-3')) {
+      bodyForProvider.model = modelForProvider;
+    }
+    const bodyStr = JSON.stringify(bodyForProvider);
+
+    // Rotace klíčů v rámci providera
+    for (let ki = 0; ki < keys.length; ki++) {
+      const keyIdx = (_aiKeyIdx[pname] + ki) % keys.length;
+      const key    = keys[keyIdx];
+
+      try {
+        const r = await fetch(prov.endpoint, {
+          method:  'POST',
+          headers: prov.headers(key),
+          body:    bodyStr,
+          signal:  sig,
+        });
+        if (r.ok) {
+          _aiKeyIdx[pname] = keyIdx;
+          dbg('[AI] ✓ ' + prov.name + ' klíč #' + (keyIdx+1) + ' (' + (isVision ? 'vision' : 'text') + ')');
+          return r;
+        }
+        const errTxt = await r.text().catch(() => '');
+        errors.push(prov.name + ' #' + (keyIdx+1) + ': HTTP ' + r.status);
+        // 429 → další klíč stejného providera; 4xx jiné → přeskoč na další providera; 5xx → další klíč
+        if (r.status === 429) continue;
+        if (r.status >= 400 && r.status < 500) break;  // zlý klíč/model → další provider
+      } catch (netErr) {
+        errors.push(prov.name + ' #' + (keyIdx+1) + ': ' + netErr.message);
+        continue;
+      }
+    }
+    // Všechny klíče tohoto providera selhaly → next provider
   }
 
-  // Sdílená proxy – VIP + běžní uživatelé přihlášení přes token
+  // Fallback: sdílená proxy /api/groq (pro VIP + běžní uživatelé přihlášení přes token)
   if (useSharedProxy && mobileToken) {
+    dbg('[AI] fallback na /api/groq proxy (' + errors.length + ' chyb: ' + errors.slice(0,3).join('; ') + ')');
     return fetch(`${SERVER}/api/groq`, {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + mobileToken },
-      body: JSON.stringify(bodyObj),
-      signal: sig,
+      body:    JSON.stringify(bodyObj),
+      signal:  sig,
     });
   }
 
-  throw new Error('Groq AI není k dispozici – přihlas se nebo přidej vlastní klíč');
+  if (!anyKeyAvailable) {
+    throw new Error('AI není nakonfigurováno – přihlas se nebo přidej vlastní klíče v profilu');
+  }
+  throw new Error('Všichni AI poskytovatelé selhali: ' + errors.slice(0,3).join('; '));
 }
 
 // ─── Init ────────────────────────────────────────────────────
@@ -1049,26 +1153,45 @@ window.onload = () => {
 };
 
 async function loadGroqInBackground() {
-  // URL ?gk= slouží jen jako okamžitý fallback – vždy načteme všechny klíče ze serveru
+  // Pomocná: nastaví aiKeys[provider] z čárkami oddělené stringu
+  function setProviderKeys(pname, raw, prefix, minLen) {
+    const keys = _parseKeys(raw, prefix, minLen);
+    _aiKeys[pname] = keys;
+    return keys.length;
+  }
+
+  // URL ?gk= → okamžitý fallback pro Groq (stará cesta)
   if (groqKey && !mobileToken) {
-    // Není token → použij jen URL klíč
     _groqKeys = parseGroqKeys(groqKey);
+    _aiKeys.groq = _groqKeys.length ? _groqKeys : [];
     if (_groqKeys.length) groqKey = _groqKeys[0];
     _groqReady = true; _groqReadyResolve();
     updateStatusChips(); return;
   }
 
-  // Pokus 1: náš server /api/groq-key (vrátí celý řetězec se všemi klíči)
+  // Pokus 1: náš server /api/groq-key (vrací všechny 3 providery)
   if (mobileToken) {
     try {
       const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(5000) });
       if (r.ok) {
         const d = await r.json();
-        if (d.key) {
-          dbg('RAW server key (' + d.key.length + ' znaků): ' + d.key.slice(0,80).replace(/\n/g,'↵'));
+        // Nový formát odpovědi (multi-provider): { groq_key, cerebras_key, openrouter_key, ... }
+        // Starý formát: { key: "gsk_...," }
+        let gotAny = false;
+        if (d.groq_key || d.cerebras_key || d.openrouter_key) {
+          if (d.groq_key)       gotAny = setProviderKeys('groq',       d.groq_key,       'gsk_',      20) > 0 || gotAny;
+          if (d.cerebras_key)   gotAny = setProviderKeys('cerebras',   d.cerebras_key,   'csk-',      20) > 0 || gotAny;
+          if (d.openrouter_key) gotAny = setProviderKeys('openrouter', d.openrouter_key, 'sk-or-v1-', 30) > 0 || gotAny;
+          dbg('[AI] Ze SERVERU: groq:' + _aiKeys.groq.length + ', cerebras:' + _aiKeys.cerebras.length + ', openrouter:' + _aiKeys.openrouter.length);
+        } else if (d.key) {
+          // Legacy: jen Groq
           _groqKeys = parseGroqKeys(d.key);
-          groqKey = _groqKeys[0] || d.key;
-          dbg('Ze SERVERU: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
+          _aiKeys.groq = _groqKeys;
+          gotAny = _groqKeys.length > 0;
+          dbg('[AI] Legacy ze SERVERU: ' + _groqKeys.length + ' Groq klíčů');
+        }
+        if (gotAny) {
+          groqKey = _aiKeys.groq[0] || null;
           _groqReady = true; _groqReadyResolve();
           updateStatusChips(); return;
         }
@@ -1076,27 +1199,37 @@ async function loadGroqInBackground() {
     } catch(e) { dbg('Server fetch chyba: ' + e.message); }
   }
 
-  // Pokus 2: Supabase přímo
+  // Pokus 2: Supabase přímo — rovnou načti všechny 3 sloupce
   try {
     if (!USER_ID) throw new Error('no USER_ID');
-    const r = await fetch(`${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled`, {
-      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
-    });
+    const r = await fetch(
+      `${SB_URL}/rest/v1/user_api_keys?user_id=eq.${USER_ID}&select=groq_key,groq_enabled,cerebras_key,openrouter_key`,
+      { headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken } }
+    );
     const rows = await r.json();
-    if (Array.isArray(rows) && rows[0]?.groq_key && rows[0]?.groq_enabled) {
-      const rawKey = rows[0].groq_key;
-      dbg('RAW groq_key (' + rawKey.length + ' znaků): ' + rawKey.slice(0,80).replace(/\n/g,'↵'));
-      _groqKeys = parseGroqKeys(rawKey);
-      groqKey = _groqKeys[0] || rawKey;
-      dbg('Ze SUPABASE: ' + _groqKeys.length + ' klíčů | první: ' + (groqKey?.slice(0,8) || '?') + '…');
-      _groqReady = true; _groqReadyResolve();
-      updateStatusChips(); return;
+    if (Array.isArray(rows) && rows[0]) {
+      const row = rows[0];
+      let gotAny = false;
+      if (row.groq_key && row.groq_enabled !== false) {
+        _groqKeys = parseGroqKeys(row.groq_key);
+        _aiKeys.groq = _groqKeys;
+        if (_groqKeys.length) { groqKey = _groqKeys[0]; gotAny = true; }
+      }
+      if (row.cerebras_key)   gotAny = setProviderKeys('cerebras',   row.cerebras_key,   'csk-',      20) > 0 || gotAny;
+      if (row.openrouter_key) gotAny = setProviderKeys('openrouter', row.openrouter_key, 'sk-or-v1-', 30) > 0 || gotAny;
+
+      if (gotAny) {
+        dbg('[AI] Ze SUPABASE: groq:' + _aiKeys.groq.length + ', cerebras:' + _aiKeys.cerebras.length + ', openrouter:' + _aiKeys.openrouter.length);
+        _groqReady = true; _groqReadyResolve();
+        updateStatusChips(); return;
+      }
     }
   } catch(e) { dbg('Supabase fetch chyba: ' + e.message); }
 
-  // Pokus 3: fallback na URL klíč pokud server selhal
+  // Pokus 3: URL klíč jako poslední fallback pro Groq
   if (groqKey) {
     _groqKeys = parseGroqKeys(groqKey);
+    _aiKeys.groq = _groqKeys;
     if (_groqKeys.length) groqKey = _groqKeys[0];
     dbg('Fallback na URL klíč: ' + _groqKeys.length + ' klíčů');
     _groqReady = true; _groqReadyResolve();
@@ -1104,12 +1237,11 @@ async function loadGroqInBackground() {
     return;
   }
 
-  // Žádný osobní klíč → sdílená proxy (VIP nebo přihlášený uživatel)
+  // Žádné osobní klíče → sdílená proxy (VIP nebo přihlášený uživatel)
   if (mobileToken) {
     useSharedProxy = true;
     dbg('Žádný osobní klíč – AI přes sdílenou proxy /api/groq (VIP nebo běžný účet)');
   }
-  // Vždy resolve promise na konci (i když nemáme klíč → chip ukáže ✗)
   _groqReady = true; _groqReadyResolve();
   updateStatusChips();
 }
