@@ -588,22 +588,28 @@ $$;
 
     const isJP = /^(JP|JA|ZH)$/i.test(hint.lang || '');
 
-    const prompt = `You are a Pokemon TCG card identification expert.
-Look at this Pokemon card image and identify it precisely on pokemontcg.io.
+    // NE-žádáme o "card_id"! LLM ho nezná a halucinuje (např. "sv3pt5-016" pro S8F kartu).
+    // Místo toho chceme jen to, co AI skutečně umí přečíst z obrázku: EN jméno, JP set, číslo.
+    // pokemontcg.io ID si sami vyhledáme přes search v match().
+    const prompt = `You are a Pokemon TCG card identifier.
 
-${hintStr ? `OCR hints (may be inaccurate):\n${hintStr}\n` : ''}
-${isJP ? 'This card appears to be a Japanese/Asian language card.\n' : ''}
-Return ONLY a valid JSON object, nothing else, no markdown:
+${hintStr ? `OCR hints from a previous pass (may be inaccurate):\n${hintStr}\n` : ''}
+${isJP ? 'This card is in Japanese or Chinese. Translate the Pokemon name to English.\n' : ''}
+Look at the image and extract ONLY what is actually visible on the card:
+1. The ENGLISH name of the Pokemon (e.g. "Heatmor", "Froslass", "Camerupt"). Must be a real, existing Pokemon species. Include suffix like "V", "VMAX", "ex", "GX" if present.
+2. The Japanese/Asian set code printed at the bottom of the card (typical format: a letter+digit combo like S8F, S10D, SV1S, SM1a, SWSH8, etc.). If latin-letter English set (like "FST"), write that.
+3. The card number exactly as printed (e.g. "016/100" or "41").
+
+Return ONLY valid JSON, no markdown, no explanation:
 {
-  "card_id": "exact pokemontcg.io card ID like sv3pt5-054",
-  "name": "exact English card name",
-  "set_id": "set ID like sv3pt5",
-  "number": "card number like 054",
-  "confidence": 0.0${isJP ? `,
-  "jp_set": "Japanese set code like S8F, S9, S10, SV1S, etc. (null if unknown)"` : ''}
+  "pokemon_name": "Heatmor",
+  "jp_set": "S8F",
+  "number": "016",
+  "confidence": 0.9
 }
 
-If you cannot identify the card with confidence > 0.6, return: {"card_id": null}`;
+If you cannot read the card clearly, return: {"pokemon_name": null}
+DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see.`;
 
     try {
       const messages = [{
@@ -624,16 +630,14 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
       });
       const json = JSON.parse(raw.replace(/```json?|```/g, '').trim());
 
-      if (!json.card_id) return null;
+      if (!json.pokemon_name) return null;
 
-      console.log(`[CardMatcher] Groq vision: "${json.name}" (${json.card_id})${json.jp_set ? ` JP set: ${json.jp_set}` : ''}`);
+      console.log(`[CardMatcher] Groq vision: "${json.pokemon_name}"${json.jp_set ? ` / set: ${json.jp_set}` : ''}${json.number ? ` / #${json.number}` : ''}`);
       return {
-        cardId:     json.card_id,
-        name:       json.name,
-        setId:      json.set_id,
-        number:     json.number,
-        confidence: json.confidence || 0,
+        name:       json.pokemon_name,
         jpSet:      json.jp_set || null,
+        number:     json.number  || '',
+        confidence: json.confidence || 0,
       };
     } catch (e) {
       console.warn('[CardMatcher] Groq vision selhal:', e.message);
@@ -741,20 +745,47 @@ If you cannot identify the card with confidence > 0.6, return: {"card_id": null}
     // ── 4. Groq vision fallback ──────────────────────────────────────────────
     if (imageUrl && !options.skipGroq) {
       const groqMatch = await _matchByGroqVision(imageUrl, query);
-      if (groqMatch && groqMatch.cardId) {
-        let details = null;
+      if (groqMatch && groqMatch.name) {
+        // Groq vrátil EN jméno + (volitelně) JP set + číslo. Najdeme skutečný
+        // pokemontcg.io záznam přes search (ne fetchById — AI halucinuje ID).
+        let foundCard = null;
         if (typeof PkSearch !== 'undefined') {
-          try { details = await PkSearch.fetchById(groqMatch.cardId); } catch {}
+          try {
+            const results = await PkSearch.search(groqMatch.name, {
+              set:    groqMatch.jpSet || query.set || '',
+              number: groqMatch.number || query.number || '',
+              hp:     query.hp || null,
+              lang:   query.lang || 'EN',
+            });
+            // Preferuj první výsledek (search má už interní skórování)
+            if (Array.isArray(results) && results.length) {
+              foundCard = results[0];
+            }
+          } catch (e) {
+            console.warn('[CardMatcher] Post-vision search selhal:', e.message);
+          }
         }
-        result.cardId     = groqMatch.cardId;
-        result.name       = groqMatch.name    || details?.name    || '';
-        result.setId      = groqMatch.setId   || details?.setCode || '';
-        result.number     = groqMatch.number  || details?.number  || '';
-        result.imageUrl   = details?.apiLarge || details?.imageUrl || '';
-        // Pro JP/ZH karty: předej JP set kód pro /api/jp-card
+
+        if (foundCard) {
+          result.cardId     = foundCard.apiId    || '';
+          result.name       = foundCard.name     || groqMatch.name;
+          result.setId      = foundCard.setCode  || foundCard.setId || '';
+          result.number     = foundCard.number   || groqMatch.number || '';
+          result.imageUrl   = foundCard.apiLarge || foundCard.imageUrl || '';
+          result.jpSet      = groqMatch.jpSet    || query.set || null;
+          result.source     = 'groq';
+          result.confidence = groqMatch.confidence;
+          console.log(`[CardMatcher] ✓ Groq→search hit: ${result.name} (${result.cardId})`);
+          return result;
+        }
+
+        // Search nenašel nic → vrátíme aspoň jméno (pro manuální dohledání uživatelem)
+        console.log(`[CardMatcher] Groq vision našel jméno "${groqMatch.name}" ale search na pokemontcg.io ho nenašel`);
+        result.name       = groqMatch.name;
         result.jpSet      = groqMatch.jpSet || query.set || null;
-        result.source     = 'groq';
-        result.confidence = groqMatch.confidence;
+        result.number     = groqMatch.number || query.number || '';
+        result.source     = 'groq-partial';
+        result.confidence = (groqMatch.confidence || 0) * 0.5;  // nízká důvěra
         return result;
       }
     }
