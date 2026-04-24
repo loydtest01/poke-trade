@@ -332,19 +332,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .typing-dots span:nth-child(3){animation-delay:.4s}
 @keyframes tdot{0%,80%,100%{transform:scale(.6);opacity:.4}40%{transform:scale(1);opacity:1}}
 
-/* ── DRAWING CANVAS ── */
-.cfm-canvas-wrap{position:relative;width:100%;aspect-ratio:1/1;max-height:260px;background:#fff;border-radius:14px;border:2px solid var(--border);touch-action:none;overflow:hidden;flex-shrink:0}
-.cfm-canvas-wrap canvas{display:block;width:100%;height:100%}
-.cfm-canvas-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:#aaa;pointer-events:none;font-style:italic}
-.cfm-tabs{display:flex;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden}
-.cfm-tab{flex:1;padding:9px 4px;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface);color:var(--muted);border:none;font-family:inherit;transition:all .15s}
-.cfm-tab.active{background:rgba(79,142,247,.2);color:var(--accent)}
-
-/* ── DRAW MODE: full-screen canvas ── */
-#charFixModal.draw-mode{justify-content:stretch;align-items:stretch}
-#charFixModal.draw-mode .cfm-sheet{border-radius:0;max-height:100dvh;height:100dvh;padding-top:env(safe-area-inset-top,14px);padding-bottom:env(safe-area-inset-bottom,20px)}
-#charFixModal.draw-mode .cfm-canvas-wrap{flex:1;aspect-ratio:unset;max-height:none;border-radius:0;border-left:none;border-right:none}
-
 /* ── CHAR FIX MODAL ── */
 #charFixModal{position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:2000;display:none;flex-direction:column;align-items:stretch;justify-content:flex-end}
 #charFixModal.open{display:flex}
@@ -360,31 +347,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .cfm-question{text-align:center;font-size:13px;color:var(--muted);line-height:1.4}
 .cfm-scanning{display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px 0}
 .cfm-scan-hint{font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
-.cfm-alts-scroll{display:flex;gap:8px;overflow-x:auto;padding:4px 0 10px;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory}
-.cfm-alts-scroll::-webkit-scrollbar{display:none}
-.cfm-alt{flex-shrink:0;width:58px;height:66px;border-radius:12px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:32px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;scroll-snap-align:start}
-.cfm-alt:active{transform:scale(.88);background:rgba(79,142,247,.2);border-color:var(--accent)}
-.cfm-alt.ai-pick{border-color:#facc15;box-shadow:0 0 10px rgba(250,204,21,.3)}
-.cfm-alt-label{font-size:8px;color:#facc15;margin-top:1px;font-weight:700}
-.cfm-alt-page{font-size:11px;color:var(--muted);text-align:center;margin-bottom:4px}
-/* ── KANA TABLE PICKER ── */
-.cfm-table-wrap{display:flex;flex-direction:column;gap:0;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.cfm-table-tabs{display:flex;gap:0;border:1.5px solid var(--border);border-radius:10px;overflow:hidden;flex-shrink:0;margin-bottom:10px}
-.cfm-table-tab{flex:1;padding:8px 4px;font-size:14px;font-weight:700;cursor:pointer;background:var(--surface);color:var(--muted);border:none;font-family:inherit;transition:all .15s}
-.cfm-table-tab.active{background:rgba(79,142,247,.2);color:var(--accent)}
-.cfm-table-section{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);padding:8px 0 4px;border-top:1px solid var(--border);margin-top:4px}
-.cfm-table-section:first-child{border-top:none;margin-top:0;padding-top:2px}
-.cfm-table-row{display:flex;gap:5px;margin-bottom:5px;align-items:center}
-.cfm-table-btn{flex:1;height:46px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;min-width:0}
-.cfm-table-btn:active{transform:scale(.86);background:rgba(79,142,247,.25);border-color:var(--accent)}
-.cfm-table-btn.empty{background:transparent;border-color:transparent;pointer-events:none}
-.cfm-direct-wrap{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-shrink:0}
-.cfm-direct-input{flex:1;height:46px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;color:var(--text);font-size:26px;font-weight:700;text-align:center;padding:0 8px;font-family:inherit;outline:none;transition:border-color .15s}
-.cfm-direct-input:focus{border-color:var(--accent)}
-.cfm-direct-btn{height:46px;padding:0 16px;border-radius:10px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;border:none;cursor:pointer;flex-shrink:0;white-space:nowrap}
-.cfm-direct-btn:active{opacity:.75}
-.btn-table{font-size:13px;background:rgba(167,139,250,.12);border:1.5px solid rgba(167,139,250,.4);color:var(--purple);border-radius:10px;padding:10px;cursor:pointer;width:100%;font-family:inherit;font-weight:700;transition:all .15s;margin-top:4px}
-.btn-table:active{opacity:.8}
+.cfm-alts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.cfm-alt{padding:14px 4px;border-radius:10px;border:2px solid var(--border);background:var(--surface);color:var(--text);font-size:30px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+.cfm-alt:active{transform:scale(.92);background:rgba(79,142,247,.2);border-color:var(--accent)}
+.cfm-alt-label{font-size:9px;color:var(--muted);margin-top:2px}
 </style>
 </head>
 <body>
@@ -2032,18 +1998,17 @@ async function extractJPNameFromDetail(dataUrl, hint) {
   const compressed = await compressImage(dataUrl, 1600, 0.90);
   const { mt, b64 } = splitDataUrl(compressed);
   const hintText = hint ? `\nThe full-card photo already recognized the name as: "${hint}". Confirm or correct it based on what you see in this close-up.` : '';
-  const promptText = `This is a close-up photo of the NAME LINE of a Pokémon TCG card (top of the card).${hintText}
-Task: Read the Pokémon name EXACTLY as printed. Include suffix if present (V, VMAX, VSTAR, ex, GX, EX).
+  const promptText = `This is a close-up photo of the NAME LINE of a Japanese Pokémon TCG card (top of the card).${hintText}
+Task: Read the Pokémon name EXACTLY as printed in Japanese characters (katakana/hiragana/kanji). Include suffix if present (V, VMAX, VSTAR, ex, GX, EX).
 RULES:
-- Return ONLY the name characters + optional suffix (e.g. "リザードン", "ピカチュウex", "炎兔兒")
-- If the card is in Traditional Chinese (Taiwan): use TRADITIONAL characters — 兒 not 儿, 龍 not 龙
+- Return ONLY the Japanese name characters + optional suffix (e.g. "リザードン", "ピカチュウex", "ガルダマンネギ")
 - NO English explanation, NO translation, NO punctuation
 - If the image is blurry or unreadable, return the hint name if provided`;
   const body = {
-    model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     max_tokens: 40, temperature: 0.0,
     messages: [
-      { role: 'system', content: 'You are an OCR specialist for Pokémon cards in Japanese and Traditional Chinese. Output only the exact characters you see, nothing else. For Traditional Chinese (Taiwan) cards, always use traditional character forms, never simplified.' },
+      { role: 'system', content: 'You are a Japanese OCR specialist for Pokémon cards. Output only the exact characters you see, nothing else.' },
       { role: 'user', content: [
         { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
         { type: 'text', text: promptText }
@@ -2159,7 +2124,7 @@ function showAiResult(r) {
     `<div style="text-align:right;margin-top:6px;font-size:10px;color:var(--muted)">${confLabel} · ${confPct}%</div>`;
 
   // Načíst náhled karty z pokemontcg.io na pozadí
-  _loadCardPreview(r.nameEN || r.name, r.number, r.set || '');
+  _loadCardPreview(r.nameEN || r.name, r.number);
 
   // Auto-select stav tlačítko z AI výsledku
   if (r.condition) {
@@ -2178,37 +2143,25 @@ function selectCond(btn) {
 }
 
 // ── Náhled karty z pokemontcg.io ──────────────────────────────
-async function fetchCardPreview(nameEN, number, set = '') {
+async function fetchCardPreview(nameEN, number) {
   if (!nameEN || /^[　-鿿＀-￯]/.test(nameEN)) return null;
   try {
     // Číslo: "052/153" → "52"
     const numOnly = number ? parseInt(number.split('/')[0], 10) : null;
     let q = 'name:"' + nameEN.trim().replace(/"/g, '') + '"';
     if (numOnly && !isNaN(numOnly)) q += ' number:' + numOnly;
-    // Přidej sérii – zabrání náhledu vizuálně stejné karty z jiné série
-    if (set && set.trim()) {
-      const sc = set.trim().replace(/"/g, '');
-      if (/^[A-Z0-9]{2,8}$/.test(sc)) q += ' set.ptcgoCode:' + sc;
-      else q += ' set.name:"' + sc + '"';
-    }
     const url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q) + '&pageSize=1&select=id,name,images,number,set';
     const r = await fetch(url, { signal: AbortSignal.timeout(7000) });
     if (!r.ok) return null;
     const d = await r.json();
-    // Fallback bez série (pokud série nesedí do API formátu)
-    if (!d.data?.[0] && set) {
-      const qFb = 'name:"' + nameEN.trim().replace(/"/g, '') + '"' + (numOnly && !isNaN(numOnly) ? ' number:' + numOnly : '');
-      const r2 = await fetch('https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(qFb) + '&pageSize=1&select=id,name,images,number,set', { signal: AbortSignal.timeout(5000) });
-      if (r2.ok) { const d2 = await r2.json(); return d2.data?.[0] || null; }
-    }
     return d.data?.[0] || null;
   } catch { return null; }
 }
 
-async function _loadCardPreview(nameEN, number, set = '') {
+async function _loadCardPreview(nameEN, number) {
   const box = document.getElementById('aiCardPreview');
   if (!box) return;
-  const card = await fetchCardPreview(nameEN, number, set);
+  const card = await fetchCardPreview(nameEN, number);
   const el = document.getElementById('aiCardPreview');  // re-check po awaitu
   if (!el) return;
   if (!card?.images?.small) {
@@ -2678,13 +2631,12 @@ async function identifyCard(dataUrl) {
   const { mt, b64 } = splitDataUrl(compressed);
 
   const PROMPT = `You are a Pokemon TCG card expert. Read the card name EXACTLY as printed on the card - do NOT translate or convert to English.
-CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), set lang="JP". If the card text is in Traditional Chinese (used on Taiwan cards — complex characters, not simplified), set lang="ZH-TW". If English, set lang="EN".
-TRADITIONAL CHINESE WARNING: Taiwan Pokémon cards use TRADITIONAL Chinese characters. Always use traditional forms, NOT simplified. Key distinctions: 兒(traditional) NOT 儿, 龍 NOT 龙, 愛 NOT 爱, 發 NOT 发. Write the name with traditional characters exactly as printed.
-WARNING: The "name" field must contain ONLY the characters as printed (e.g. "ガルダマンネギ" or "炎兔兒"). NEVER write sentences like "The Japanese name is X". Output ONLY the raw characters themselves, nothing else before or after.
+CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
+WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write sentences like "The Japanese name is X", "The card reads X", "The name on the card reads X". Output ONLY the raw characters themselves (e.g. "ギャロップ" or "炎兔儿"), nothing else before or after.
 If the card text is in English, write the name in English, set lang="EN".
 Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
-Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH-TW/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
+Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
 
   const MODELS = await getVisionModels();
 
@@ -2737,7 +2689,6 @@ async function identifyCardWithCondition(dataUrl) {
     messages: [
       { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
 If card text is Japanese, write name in Japanese (katakana/kanji) exactly as printed and set lang="JP".
-If card text is Traditional Chinese (Taiwan cards), write name in Traditional Chinese exactly as printed and set lang="ZH-TW". IMPORTANT: Taiwan cards use TRADITIONAL characters — use 兒 not 儿, 龍 not 龙, etc.
 If card text is English, write name in English exactly as printed and set lang="EN".
 Also assess physical condition carefully.
 Return ONLY raw JSON (no markdown, no fences):
@@ -3915,168 +3866,73 @@ function _hidePartnerTyping() {
 }
 
 // ── PWA Install – tlačítko "Přidat na plochu" ──────────────
+// OPRAVENO: iOS podpora + duplicitní id="chipInstall" fix
 let _installPrompt = null;
+
+var _pwaIsIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+var _pwaIsStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+function _pwaAllBtns() {
+  return Array.from(document.querySelectorAll('#chipInstall'));
+}
+function _pwaShowBtns() { _pwaAllBtns().forEach(function(b){ b.style.display = ''; }); }
+function _pwaHideBtns() { _pwaAllBtns().forEach(function(b){ b.style.display = 'none'; }); }
+
+function _pwaInjectIOSModal() {
+  if (document.getElementById('_pwaIOSModal')) return;
+  var m = document.createElement('div');
+  m.id = '_pwaIOSModal';
+  m.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9999;align-items:flex-end;justify-content:center;';
+  m.innerHTML = '<div style="background:var(--card,#1c1a26);border-radius:20px 20px 0 0;padding:28px 20px 40px;width:100%;max-width:480px;border-top:1px solid var(--border,rgba(255,255,255,.1));text-align:center">'
+    + '<div style="font-size:26px;margin-bottom:10px">📲</div>'
+    + '<div style="font-size:17px;font-weight:800;margin-bottom:8px">Přidat na plochu</div>'
+    + '<div style="font-size:13px;color:var(--muted,rgba(255,255,255,.5));line-height:1.8;margin-bottom:22px">'
+    + 'Safari neumí přidat automaticky.<br>'
+    + '<span style="color:var(--text,#f0ece4)">1. Klepni na <strong>□↑ Sdílet</strong> (ikona dole)</span><br>'
+    + '<span style="color:var(--text,#f0ece4)">2. Vyber <strong>Přidat na plochu</strong></span>'
+    + '</div>'
+    + '<button onclick="document.getElementById(\'_pwaIOSModal\').style.display=\'none\'" '
+    + 'style="width:100%;padding:13px;border:none;border-radius:12px;background:var(--accent,#3b82f6);color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit">Rozumím</button>'
+    + '</div>';
+  m.addEventListener('click', function(e){ if(e.target===m) m.style.display='none'; });
+  document.body.appendChild(m);
+}
 
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   _installPrompt = e;
-  const btn = document.getElementById('chipInstall');
-  if (btn) btn.style.display = '';   // zobraz tlačítko
+  if (!_pwaIsStandalone) _pwaShowBtns();
 });
 
 window.addEventListener('appinstalled', function() {
   _installPrompt = null;
-  const btn = document.getElementById('chipInstall');
-  if (btn) btn.style.display = 'none';
-  toast('✅ Zkratka přidána na plochu!', 'success');
+  _pwaHideBtns();
+  toast('✅ Zkratka přidána na plochu!');
 });
 
 function installPWA() {
+  if (_pwaIsIOS) {
+    _pwaInjectIOSModal();
+    document.getElementById('_pwaIOSModal').style.display = 'flex';
+    return;
+  }
   if (_installPrompt) {
-    // Android Chrome – nativní prompt
     _installPrompt.prompt();
     _installPrompt.userChoice.then(function(r) {
       if (r.outcome === 'accepted') toast('✅ Přidáno na plochu!');
       _installPrompt = null;
-      var btn = document.getElementById('chipInstall');
-      if (btn) btn.style.display = 'none';
+      _pwaHideBtns();
     });
   } else {
-    // iOS Safari – nelze automaticky, ukáž instrukce
-    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    if (isIOS) {
-      toast('Na iPhone: Sdílet (□↑) → Přidat na plochu', 'info');
-    } else {
-      // Už nainstalováno nebo nepodporováno
-      toast('Otevři stránku v Chrome a zkus znovu', 'info');
-    }
+    toast('Otevři stránku v Chrome a zkus znovu', 'info');
   }
 }
 
-
-// ── CHAR FIX – Drawing canvas ──────────────────────────────────
-let _cfmDrawing = false;
-let _cfmCtx = null;
-let _cfmHasStrokes = false;
-
-function cfmSwitchTab(tab) {
-  document.getElementById('cfmTabDraw').classList.toggle('active', tab === 'draw');
-  document.getElementById('cfmTabPhoto').classList.toggle('active', tab === 'photo');
-  document.getElementById('cfmDrawPanel').style.display  = tab === 'draw'  ? '' : 'none';
-  document.getElementById('cfmPhotoPanel').style.display = tab === 'photo' ? '' : 'none';
-  document.getElementById('charFixModal').classList.toggle('draw-mode', tab === 'draw');
-  if (tab === 'draw') requestAnimationFrame(() => requestAnimationFrame(cfmInitCanvas));
-}
-
-function cfmInitCanvas() {
-  const wrap = document.getElementById('cfmCanvasWrap');
-  const canvas = document.getElementById('cfmCanvas');
-  if (!wrap || !canvas) return;
-  const w = wrap.clientWidth  || 280;
-  const h = wrap.clientHeight || w;
-  canvas.width  = w;
-  canvas.height = h;
-  _cfmCtx = canvas.getContext('2d');
-  _cfmCtx.fillStyle = '#ffffff';
-  _cfmCtx.fillRect(0, 0, w, h);
-  _cfmCtx.strokeStyle = '#111111';
-  _cfmCtx.lineWidth   = Math.min(w, h) * 0.05;
-  _cfmCtx.lineCap     = 'round';
-  _cfmCtx.lineJoin    = 'round';
-  _cfmHasStrokes = false;
-
-  // Draw faint cross guides
-  _cfmCtx.strokeStyle = 'rgba(0,0,0,0.07)';
-  _cfmCtx.lineWidth = 1;
-  _cfmCtx.beginPath();
-  _cfmCtx.moveTo(w/2, 0); _cfmCtx.lineTo(w/2, h);
-  _cfmCtx.moveTo(0, h/2); _cfmCtx.lineTo(w, h/2);
-  _cfmCtx.stroke();
-  _cfmCtx.strokeStyle = '#111111';
-  _cfmCtx.lineWidth = Math.min(w, h) * 0.05;
-
-  // Touch / mouse events
-  canvas.ontouchstart = cfmTouchStart;
-  canvas.ontouchmove  = cfmTouchMove;
-  canvas.ontouchend   = () => { _cfmDrawing = false; };
-  canvas.onmousedown  = cfmMouseDown;
-  canvas.onmousemove  = cfmMouseMove;
-  canvas.onmouseup    = () => { _cfmDrawing = false; };
-}
-
-function _cfmPos(e, canvas) {
-  const r = canvas.getBoundingClientRect();
-  const scaleX = canvas.width  / r.width;
-  const scaleY = canvas.height / r.height;
-  const src = e.touches ? e.touches[0] : e;
-  return { x: (src.clientX - r.left) * scaleX, y: (src.clientY - r.top) * scaleY };
-}
-
-function cfmTouchStart(e) {
-  e.preventDefault();
-  _cfmDrawing = true;
-  const p = _cfmPos(e, this);
-  _cfmCtx.beginPath();
-  _cfmCtx.moveTo(p.x, p.y);
-  document.getElementById('cfmCanvasHint').style.display = 'none';
-  _cfmHasStrokes = true;
-}
-function cfmTouchMove(e) {
-  e.preventDefault();
-  if (!_cfmDrawing) return;
-  const p = _cfmPos(e, this);
-  _cfmCtx.lineTo(p.x, p.y);
-  _cfmCtx.stroke();
-}
-function cfmMouseDown(e) {
-  _cfmDrawing = true;
-  const p = _cfmPos(e, this);
-  _cfmCtx.beginPath();
-  _cfmCtx.moveTo(p.x, p.y);
-  document.getElementById('cfmCanvasHint').style.display = 'none';
-  _cfmHasStrokes = true;
-}
-function cfmMouseMove(e) {
-  if (!_cfmDrawing) return;
-  const p = _cfmPos(e, this);
-  _cfmCtx.lineTo(p.x, p.y);
-  _cfmCtx.stroke();
-}
-
-function cfmClearCanvas() {
-  const canvas = document.getElementById('cfmCanvas');
-  if (!_cfmCtx || !canvas) return;
-  _cfmCtx.fillStyle = '#ffffff';
-  _cfmCtx.fillRect(0, 0, canvas.width, canvas.height);
-  // Redraw grid
-  _cfmCtx.strokeStyle = 'rgba(0,0,0,0.07)';
-  _cfmCtx.lineWidth = 1;
-  _cfmCtx.beginPath();
-  const s = canvas.width;
-  _cfmCtx.moveTo(s/2,0); _cfmCtx.lineTo(s/2,s);
-  _cfmCtx.moveTo(0,s/2); _cfmCtx.lineTo(s,s/2);
-  _cfmCtx.stroke();
-  _cfmCtx.strokeStyle = '#111111';
-  _cfmCtx.lineWidth = s * 0.05;
-  document.getElementById('cfmCanvasHint').style.display = '';
-  _cfmHasStrokes = false;
-}
-
-async function cfmSubmitDrawing() {
-  if (!_cfmHasStrokes) { toast('Nejdřív nakresli znak', ''); return; }
-  const canvas = document.getElementById('cfmCanvas');
-  const dataUrl = canvas.toDataURL('image/png');
-
-  document.getElementById('charFixModal').classList.remove('draw-mode');
-  document.getElementById('cfmPhase1').style.display = 'none';
-  document.getElementById('cfmPhase2').style.display = '';
-  document.getElementById('cfmDetected').textContent = '…';
-  document.getElementById('cfmQ').textContent = 'Rozpoznávám nakresený znak…';
-  const p2row = document.getElementById('cfmPhase2').querySelector('.btn-row');
-  if (p2row) p2row.style.display = 'none';
-  _cfmAltPool = []; _cfmAltPage = 0;
-  await processCharFixPhoto(dataUrl);
-}
+// Init – zobraz tlačítko hned pro iOS, skryj pokud standalone
+(function() {
+  if (_pwaIsStandalone) { _pwaHideBtns(); return; }
+  if (_pwaIsIOS) { _pwaShowBtns(); }
+})();
 
 // ── CHAR FIX – oprava jednotlivého znaku v JP názvu ───────────────────────
 let _cfmCurrentName = '';   // celý název (string)
@@ -4111,78 +3967,22 @@ const _CFM_CONFUSABLES = {
   'つ':['し','そ','つ'],'く':['ふ','く'],'ふ':['く','ふ'],
 };
 
-// ── Pagination state ─────────────────────────────────────────────────────────
-let _cfmAltPool = [];
-let _cfmAltPage = 0;
-const CFM_PAGE_SIZE = 20;
-
-function _cfmBuildAltPool(char) {
+function _cfmGetAlternatives(char) {
+  const alts = _CFM_CONFUSABLES[char] || [];
+  // Přidej sousední znaky v unicode pro katakana blok
   const code = char.codePointAt(0);
-  const confusables = (_CFM_CONFUSABLES[char] || []).filter(c => c !== char);
-
-  // Scored map: lower = more similar → appears first
-  const scored = new Map();
-  confusables.forEach((c, i) => scored.set(c, i));
-
-  const isKatakana = code >= 0x30A0 && code <= 0x30FF;
-  const isHiragana = code >= 0x3040 && code <= 0x309F;
-  const blockStart = isKatakana ? 0x30A0 : isHiragana ? 0x3040 : 0x30A0;
-  const blockEnd   = isKatakana ? 0x30FF : isHiragana ? 0x309F : 0x30FF;
-
-  // Add all chars in the block, score = 100 + unicode distance
-  for (let c = blockStart; c <= blockEnd; c++) {
-    const ch = String.fromCodePoint(c);
-    if (ch === char) continue;
-    // Skip control/spacing chars (カタカナ block has some)
-    if (ch.trim() === '' || ch === '゛' || ch === '゜') continue;
-    if (!scored.has(ch)) scored.set(ch, 100 + Math.abs(c - code));
-  }
-
-  // If original char is kanji / other — fallback to katakana block
-  if (!isKatakana && !isHiragana) {
-    for (let c = 0x30A2; c <= 0x30F6; c += 2) { // only base katakana (every 2 = unvoiced)
-      const ch = String.fromCodePoint(c);
-      if (!scored.has(ch)) scored.set(ch, 200 + c);
+  const extras = [];
+  if (code >= 0x30A0 && code <= 0x30FF) {
+    for (let d = -2; d <= 2; d++) {
+      if (d === 0) continue;
+      const c = String.fromCodePoint(code + d);
+      if (!alts.includes(c) && !extras.includes(c)) extras.push(c);
     }
   }
-
-  return [...scored.entries()]
-    .sort((a, b) => a[1] - b[1])
-    .map(e => e[0]);
-}
-
-function cfmShowAltPage(page) {
-  _cfmAltPage = page;
-  const start = page * CFM_PAGE_SIZE;
-  const slice = _cfmAltPool.slice(start, start + CFM_PAGE_SIZE);
-  const total = _cfmAltPool.length;
-  const hasMore = start + CFM_PAGE_SIZE < total;
-
-  // Page info
-  const info = document.getElementById('cfmAltPageInfo');
-  const pageCount = Math.ceil(total / CFM_PAGE_SIZE);
-  info.textContent = `strana ${page + 1} / ${pageCount}`;
-
-  // Render horizontal scroll row
-  const grid = document.getElementById('cfmAlts');
-  grid.innerHTML = '';
-  slice.forEach(ch => {
-    const isAiPick = ch === (_cfmDetected || '');
-    const btn = document.createElement('button');
-    btn.className = 'cfm-alt' + (isAiPick ? ' ai-pick' : '');
-    btn.innerHTML = `<div>${ch}</div>${isAiPick ? '<div class="cfm-alt-label">AI</div>' : ''}`;
-    btn.onclick = () => _cfmApplyChar(ch);
-    grid.appendChild(btn);
-  });
-  // Scroll back to start of row
-  grid.scrollLeft = 0;
-
-  // Další button
-  document.getElementById('cfmNextPageBtn').style.display = hasMore ? '' : 'none';
-}
-
-function cfmNextAltPage() {
-  cfmShowAltPage(_cfmAltPage + 1);
+  // Spoj, odstraň duplicity a původní znak dej nakonec jako "Jiný..."
+  const combined = [...new Set([...alts, ...extras.slice(0,4)])];
+  if (!combined.includes(char)) combined.push(char);
+  return combined.slice(0, 12);
 }
 
 function openCharFix() {
@@ -4202,8 +4002,6 @@ function openCharFix() {
 
   _cfmRenderPhase1(suffix);
   document.getElementById('charFixModal').classList.add('open');
-  // Init canvas after paint (needs layout size)
-  requestAnimationFrame(() => requestAnimationFrame(cfmInitCanvas));
 }
 
 function _cfmRenderPhase1(suffix) {
@@ -4234,15 +4032,10 @@ function _cfmRenderPhase1(suffix) {
 }
 
 function closeCharFix() {
-  const modal = document.getElementById('charFixModal');
-  modal.classList.remove('open');
-  modal.classList.remove('draw-mode');
-  // Reset tabs back to draw
-  cfmSwitchTab('draw');
+  document.getElementById('charFixModal').classList.remove('open');
 }
 
 function startCharScan() {
-  document.getElementById('charFixModal').classList.remove('draw-mode');
   document.getElementById('cfmPhase1').style.display = 'none';
   // Zobraz scanning stav
   document.getElementById('cfmPhase2').style.display = '';
@@ -4251,40 +4044,25 @@ function startCharScan() {
   document.getElementById('charFixModal').querySelectorAll('.btn-row')[0].style.display = 'none';
   document.getElementById('cfmPhase3').style.display = 'none';
 
-  // Skryj YES/NO tlačítka dokud AI neodpoví
-  const p2row = document.getElementById('cfmPhase2').querySelector('.btn-row');
-  if (p2row) p2row.style.display = 'none';
   // Spustit fotoaparát
   triggerCapture('charfix');
 }
 
 async function processCharFixPhoto(dataUrl) {
   const targetChar = _cfmChars[_cfmCharIndex] || '?';
-  // Higher quality for rare kanji — more detail preserved
-  const compressed = await compressImage(dataUrl, 1600, 0.96);
+  const compressed = await compressImage(dataUrl, 1200, 0.92);
   const { mt, b64 } = splitDataUrl(compressed);
 
-  const context = _cfmChars.length > 1
-    ? `\nFull name context (other characters already recognized): "${_cfmChars.join('')}" — you are identifying position ${_cfmCharIndex + 1} of ${_cfmChars.length}.`
-    : '';
-
-  const prompt = `You are reading a SINGLE character from a Pokémon TCG card photo.
-Previous OCR guessed this character as: "${targetChar}" — but that may be WRONG.${context}
-
-IMPORTANT: This card may be Japanese OR Traditional Chinese (Taiwan). Taiwan cards use TRADITIONAL characters.
-Key traditional vs simplified distinctions: 兒(✓) vs 儿(✗), 龍(✓) vs 龙(✗), 愛(✓) vs 爱(✗).
-
-Common Pokémon kanji/hanzi include:
-龍竜鬼妖神魔闇光炎氷水草雷岩鋼飛超霊虫毒闘力天地風花王皇帝将剣盾輝幻影大小古新白黒赤青金銀森海山空星月日火土木兒児鷹鳥熊犬猫狐狼亀騎士兵戦爆爪翼牙甲殻刃紋術気精霧嵐雪夢幸勇愛命魂心兔
-
-Look carefully at the shape of the character in the image.
-Output ONLY the single character — nothing else, no explanation, no spaces.`;
+  const prompt = `This is a close-up photo of a SINGLE Japanese character (katakana, hiragana, or kanji) from a Pokémon TCG card.
+The current recognition thinks this character is: "${targetChar}"
+Task: Look at the character in the photo and output ONLY the single character you see. Nothing else — no words, no explanation.
+If you cannot read it clearly, output "${targetChar}".`;
 
   const body = {
-    model: 'meta-llama/llama-4-maverick-17b-128e-instruct',
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     max_tokens: 10, temperature: 0.0,
     messages: [
-      { role: 'system', content: 'You are a Japanese OCR specialist. You excel at recognizing rare and traditional kanji. Output only the single character, nothing else.' },
+      { role: 'system', content: 'You are a Japanese OCR specialist. Output only the single character you see in the image, nothing else.' },
       { role: 'user', content: [
         { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
         { type: 'text', text: prompt }
@@ -4305,7 +4083,7 @@ Output ONLY the single character — nothing else, no explanation, no spaces.`;
   // Zobraz fázi 2 – YES/NO
   document.getElementById('cfmDetected').textContent = _cfmDetected;
   document.getElementById('cfmQ').textContent = 'Je toto správný znak?';
-  const btnRow = document.getElementById('cfmPhase2').querySelector('.btn-row');
+  const btnRow = document.getElementById('charFixModal').querySelectorAll('.btn-row')[0];
   if (btnRow) btnRow.style.display = '';
 }
 
@@ -4314,154 +4092,25 @@ function cfmAccept() {
 }
 
 function cfmReject() {
+  // Zobraz alternativy
   document.getElementById('cfmPhase2').style.display = 'none';
   document.getElementById('cfmPhase3').style.display = '';
-  // Use pixel-similarity pool if pre-built by drawing recognition,
-  // otherwise fall back to unicode-distance pool (camera flow)
-  if (_cfmAltPool.length === 0) {
-    _cfmAltPool = _cfmBuildAltPool(_cfmDetected || _cfmChars[_cfmCharIndex] || 'ン');
-  }
-  cfmShowAltPage(0);
-}
-
-// ── KANA TABLE ───────────────────────────────────────────────────────────────
-// Common Pokémon TCG kanji (name components, descriptors, types, suffixes)
-const _KANJI_ROWS = [
-  { label: '名前によく使われる漢字', rows: [
-    ['龍','竜','鬼','妖','神','魔','闇','光','炎','氷'],
-    ['水','草','雷','岩','鋼','飛','超','霊','虫','毒'],
-    ['闘','普','無','悪','フ','力','天','地','風','花'],
-    ['王','皇','帝','将','剣','盾','矢','輝','幻','影'],
-    ['大','小','古','新','白','黒','赤','青','金','銀'],
-    ['森','海','山','空','星','月','日','火','土','木'],
-    ['兒','児','鷹','鳥','熊','犬','猫','狐','狼','龜'],
-    ['亀','竜','騎','士','兵','戦','爆','爪','翼','牙'],
-    ['甲','殻','刃','紋','術','気','精','霧','嵐','雪'],
-    ['夢','幸','勇','愛','命','魂','心','刀','弓','杖'],
-  ]},
-  { label: '数字・記号', rows: [
-    ['一','二','三','四','五','六','七','八','九','十'],
-    ['百','千','万','億','兆','零','型','式','号','版'],
-  ]},
-];
-
-const _KANA_TABLES = {
-  kata: [
-    { label: '基本', rows: [
-      ['ア','イ','ウ','エ','オ'],
-      ['カ','キ','ク','ケ','コ'],
-      ['サ','シ','ス','セ','ソ'],
-      ['タ','チ','ツ','テ','ト'],
-      ['ナ','ニ','ヌ','ネ','ノ'],
-      ['ハ','ヒ','フ','ヘ','ホ'],
-      ['マ','ミ','ム','メ','モ'],
-      ['ヤ', '' ,'ユ', '' ,'ヨ'],
-      ['ラ','リ','ル','レ','ロ'],
-      ['ワ', '' , '' , '' ,'ヲ'],
-      ['ン','ー', '' , '' , '' ],
-    ]},
-    { label: '濁音・半濁音', rows: [
-      ['ガ','ギ','グ','ゲ','ゴ'],
-      ['ザ','ジ','ズ','ゼ','ゾ'],
-      ['ダ','ヂ','ヅ','デ','ド'],
-      ['バ','ビ','ブ','ベ','ボ'],
-      ['パ','ピ','プ','ペ','ポ'],
-    ]},
-    { label: '小字・その他', rows: [
-      ['ァ','ィ','ゥ','ェ','ォ'],
-      ['ッ','ャ','ュ','ョ','ヴ'],
-      ['ヵ','ヶ', '' , '' , '' ],
-    ]},
-  ],
-  hira: [
-    { label: '基本', rows: [
-      ['あ','い','う','え','お'],
-      ['か','き','く','け','こ'],
-      ['さ','し','す','せ','そ'],
-      ['た','ち','つ','て','と'],
-      ['な','に','ぬ','ね','の'],
-      ['は','ひ','ふ','へ','ほ'],
-      ['ま','み','む','め','も'],
-      ['や', '' ,'ゆ', '' ,'よ'],
-      ['ら','り','る','れ','ろ'],
-      ['わ', '' , '' , '' ,'を'],
-      ['ん','ー', '' , '' , '' ],
-    ]},
-    { label: '濁音・半濁音', rows: [
-      ['が','ぎ','ぐ','げ','ご'],
-      ['ざ','じ','ず','ぜ','ぞ'],
-      ['だ','ぢ','づ','で','ど'],
-      ['ば','び','ぶ','べ','ぼ'],
-      ['ぱ','ぴ','ぷ','ぺ','ぽ'],
-    ]},
-    { label: '小字', rows: [
-      ['ぁ','ぃ','ぅ','ぇ','ぉ'],
-      ['っ','ゃ','ゅ','ょ', '' ],
-    ]},
-  ],
-};
-
-let _cfmTableMode = 'kata';
-
-function cfmOpenTable() {
-  ['cfmPhase1','cfmPhase2','cfmPhase3'].forEach(id =>
-    document.getElementById(id).style.display = 'none');
-  document.getElementById('charFixModal').classList.remove('draw-mode');
-  const p4 = document.getElementById('cfmPhase4');
-  p4.style.display = 'flex';
-  cfmRenderTable(_cfmTableMode);
-}
-
-function cfmCloseTable() {
-  document.getElementById('cfmPhase4').style.display = 'none';
-  document.getElementById('cfmPhase1').style.display = '';
-}
-
-function cfmRenderTable(mode) {
-  _cfmTableMode = mode;
-  document.getElementById('cfmTTabKata').classList.toggle('active', mode === 'kata');
-  document.getElementById('cfmTTabHira').classList.toggle('active', mode === 'hira');
-  document.getElementById('cfmTTabKanji').classList.toggle('active', mode === 'kanji');
-
-  const wrap = document.getElementById('cfmTableWrap');
-  wrap.innerHTML = '';
-  wrap.scrollTop = 0;
-
-  const rows = mode === 'kanji' ? _KANJI_ROWS : _KANA_TABLES[mode];
-  // For kanji rows use smaller buttons (10 per row)
-  const smallBtn = mode === 'kanji';
-
-  rows.forEach(section => {
-    const sec = document.createElement('div');
-    sec.className = 'cfm-table-section';
-    sec.textContent = section.label;
-    wrap.appendChild(sec);
-
-    section.rows.forEach(row => {
-      const rowEl = document.createElement('div');
-      rowEl.className = 'cfm-table-row';
-      if (smallBtn) rowEl.style.gap = '3px';
-      row.forEach(ch => {
-        const btn = document.createElement('button');
-        btn.className = 'cfm-table-btn' + (ch ? '' : ' empty');
-        if (smallBtn) { btn.style.height = '40px'; btn.style.fontSize = '18px'; }
-        btn.textContent = ch;
-        if (ch) btn.onclick = () => _cfmApplyChar(ch);
-        rowEl.appendChild(btn);
-      });
-      wrap.appendChild(rowEl);
-    });
+  const alts = _cfmGetAlternatives(_cfmDetected || _cfmChars[_cfmCharIndex] || '');
+  const grid = document.getElementById('cfmAlts');
+  grid.innerHTML = '';
+  alts.forEach(ch => {
+    const btn = document.createElement('button');
+    btn.className = 'cfm-alt';
+    btn.innerHTML = `<div>${ch}</div><div class="cfm-alt-label">${ch === (_cfmDetected||'') ? 'AI návrh' : ''}</div>`;
+    btn.onclick = () => _cfmApplyChar(ch);
+    grid.appendChild(btn);
   });
 }
-
 
 function cfmBackToScan() {
   document.getElementById('cfmPhase3').style.display = 'none';
   document.getElementById('cfmPhase1').style.display = '';
   _cfmRenderPhase1('');
-  _cfmAltPool = [];
-  _cfmAltPage = 0;
-  cfmClearCanvas();
 }
 
 function _cfmApplyChar(char) {
@@ -4524,41 +4173,17 @@ function _cfmApplyChar(char) {
     <div class="cfm-drag"></div>
     <div class="cfm-title">✏️ Opravit znak v názvu</div>
 
-    <!-- Fáze 1: Výběr znaku + spuštění kamery / kreslení -->
+    <!-- Fáze 1: Výběr znaku + spuštění kamery -->
     <div id="cfmPhase1">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Klepni na znak, který chceš opravit (výchozí = poslední):</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Klepni na znak, který chceš opravit (výchozí = poslední), pak vyfoť záběr jen tohoto znaku:</div>
       <div class="cfm-chars" id="cfmChars"></div>
-
-      <!-- Tabs: Kreslit / Fotit -->
-      <div class="cfm-tabs" style="margin-top:14px">
-        <button class="cfm-tab active" id="cfmTabDraw" onclick="cfmSwitchTab('draw')">✏️ Nakreslit</button>
-        <button class="cfm-tab" id="cfmTabPhoto" onclick="cfmSwitchTab('photo')">📷 Vyfotit</button>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;background:rgba(250,204,21,.06);border-radius:8px;padding:8px;border:1px solid rgba(250,204,21,.15)">
+        💡 Přibliž foťák jen na <strong style="color:#facc15">jeden znak</strong> (detail) – AI ho porovná a navrhne opravu.
       </div>
-
-      <!-- Panel: Kreslení -->
-      <div id="cfmDrawPanel">
-        <div class="cfm-canvas-wrap" id="cfmCanvasWrap">
-          <canvas id="cfmCanvas"></canvas>
-          <div class="cfm-canvas-hint" id="cfmCanvasHint">Nakresli znak prstem</div>
-        </div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-secondary" style="font-size:13px;flex:0.6" onclick="cfmClearCanvas()">🗑️ Smazat</button>
-          <button class="btn" style="font-size:13px;background:rgba(79,142,247,.15);border:1.5px solid rgba(79,142,247,.4);color:var(--accent);border-radius:10px" onclick="cfmSubmitDrawing()">🔍 Rozpoznat</button>
-          <button class="btn btn-secondary" style="font-size:13px;flex:0.6" onclick="closeCharFix()">Zrušit</button>
-        </div>
+      <div class="btn-row" style="margin-top:4px">
+        <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
+        <button class="btn" style="font-size:13px;background:rgba(250,204,21,.15);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:10px" onclick="startCharScan()">📷 Vyfotit znak</button>
       </div>
-
-      <!-- Panel: Fotit -->
-      <div id="cfmPhotoPanel" style="display:none">
-        <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5;background:rgba(250,204,21,.06);border-radius:8px;padding:8px;border:1px solid rgba(250,204,21,.15)">
-          💡 Přibliž foťák jen na <strong style="color:#facc15">jeden znak</strong> – AI ho porovná a navrhne opravu.
-        </div>
-        <div class="btn-row" style="margin-top:10px">
-          <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
-          <button class="btn" style="font-size:13px;background:rgba(250,204,21,.15);border:1.5px solid rgba(250,204,21,.4);color:#facc15;border-radius:10px" onclick="startCharScan()">📷 Vyfotit znak</button>
-        </div>
-      </div>
-      <button class="btn-table" onclick="cfmOpenTable()">📋 Vybrat ze tabulky znaků</button>
     </div>
 
     <!-- Fáze 2: AI výsledek – ANO / NE -->
@@ -4569,49 +4194,92 @@ function _cfmApplyChar(char) {
         <button class="btn btn-danger" onclick="cfmReject()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✗ &nbsp;Ne</button>
         <button class="btn btn-green"  onclick="cfmAccept()" style="font-size:16px;font-weight:900;letter-spacing:.02em">✓ &nbsp;Ano</button>
       </div>
-      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">„Ne" zobrazí alternativy</div>
-      <button class="btn-table" onclick="cfmOpenTable()" style="margin-top:8px">📋 Vybrat ze tabulky znaků</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">„Ne" zobrazí vizuálně podobné alternativy</div>
     </div>
 
     <!-- Fáze 3: Výběr z alternativ -->
     <div id="cfmPhase3" style="display:none">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div style="font-size:12px;color:var(--muted)">Vyber správný znak:</div>
-        <div class="cfm-alt-page" id="cfmAltPageInfo" style="margin:0"></div>
-      </div>
-      <div class="cfm-alts-scroll" id="cfmAlts"></div>
-      <button class="btn" id="cfmNextPageBtn" onclick="cfmNextAltPage()" style="font-size:13px;background:rgba(79,142,247,.12);border:1.5px solid rgba(79,142,247,.35);color:var(--accent);border-radius:10px;margin-top:6px;display:none">
-        ➡️ Další znaky
-      </button>
-      <button class="btn-table" onclick="cfmOpenTable()" style="margin-top:6px">📋 Vybrat ze tabulky znaků</button>
-      <div class="btn-row" style="margin-top:8px">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Vyber správný znak:</div>
+      <div class="cfm-alts" id="cfmAlts"></div>
+      <div class="btn-row" style="margin-top:14px">
         <button class="btn btn-secondary" style="font-size:13px" onclick="cfmBackToScan()">📷 Vyfotit znovu</button>
         <button class="btn btn-secondary" style="font-size:13px" onclick="closeCharFix()">Zrušit</button>
       </div>
     </div>
-
-    <!-- Fáze 4: Celá tabulka kana -->
-    <div id="cfmPhase4" style="display:none;flex-direction:column;flex:1;min-height:0">
-      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-bottom:8px">
-        <button onclick="cfmCloseTable()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;padding:0 4px">←</button>
-        <div style="font-size:13px;font-weight:800;color:var(--text)">Tabulka znaků</div>
-      </div>
-      <div class="cfm-direct-wrap">
-        <input id="cfmDirectInput" class="cfm-direct-input" type="text" maxlength="1" placeholder="？" inputmode="text"
-          oninput="this.value=this.value.slice(-1)"
-          onkeydown="if(event.key==='Enter'&&this.value){_cfmApplyChar(this.value);this.value=''}">
-        <button class="cfm-direct-btn" onclick="(function(){const v=document.getElementById('cfmDirectInput').value;if(v){_cfmApplyChar(v);document.getElementById('cfmDirectInput').value=''}})()">✓ Použít</button>
-      </div>
-      <div style="font-size:10px;color:var(--muted);margin-bottom:8px;flex-shrink:0">Napiš libovolný znak klávesnicí (japonská klávesnice → kanji/kana) nebo vyber níže</div>
-      <div class="cfm-table-tabs">
-        <button class="cfm-table-tab active" id="cfmTTabKata" onclick="cfmRenderTable('kata')">カタカナ</button>
-        <button class="cfm-table-tab" id="cfmTTabHira" onclick="cfmRenderTable('hira')">ひらがな</button>
-        <button class="cfm-table-tab" id="cfmTTabKanji" onclick="cfmRenderTable('kanji')">漢字</button>
-      </div>
-      <div class="cfm-table-wrap" id="cfmTableWrap"></div>
-    </div>
   </div>
 </div>
 
+<script>
+// ── Zapomenuté heslo ─────────────────────────────────────────
+function openForgotPassword() {
+  var el = document.getElementById('forgotModal');
+  el.style.display = 'flex';
+  var email = localStorage.getItem('sb_email') || '';
+  var inp = document.getElementById('forgotEmail');
+  if (inp && email) inp.value = email;
+}
+function closeForgotPassword() {
+  document.getElementById('forgotModal').style.display = 'none';
+}
+async function doForgotPassword() {
+  var email = document.getElementById('forgotEmail').value.trim();
+  if (!email) { toast('⚠️ Zadej e-mail'); return; }
+  try {
+    await fetch(SB_URL + '/auth/v1/recover', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
+      body: JSON.stringify({ email: email, gotrue_meta_security: {} })
+    });
+    closeForgotPassword();
+    toast('✅ Reset e-mail odeslán! Zkontroluj schránku.');
+  } catch (err) {
+    toast('⚠️ Chyba: ' + err.message);
+  }
+}
+document.getElementById('forgotModal').addEventListener('click', function(e) {
+  if (e.target === this) closeForgotPassword();
+});
+
+// ── Změna hesla (přihlášený uživatel) ────────────────────────
+function openChangePassword() {
+  var el = document.getElementById('changePassModal');
+  el.style.display = 'flex';
+  document.getElementById('newPass1').value = '';
+  document.getElementById('newPass2').value = '';
+  setTimeout(function(){ document.getElementById('newPass1').focus(); }, 100);
+}
+function closeChangePassword() {
+  document.getElementById('changePassModal').style.display = 'none';
+}
+async function doChangePassword() {
+  var p1 = document.getElementById('newPass1').value;
+  var p2 = document.getElementById('newPass2').value;
+  if (!p1)           { toast('⚠️ Zadej nové heslo'); return; }
+  if (p1.length < 6) { toast('⚠️ Heslo musí mít alespoň 6 znaku'); return; }
+  if (p1 !== p2)     { toast('⚠️ Hesla se neshoduji'); return; }
+  var token = localStorage.getItem('sb_token');
+  if (!token) { toast('⚠️ Nejsi prihlašen'); return; }
+  try {
+    var res = await fetch(SB_URL + '/auth/v1/user', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SB_ANON,
+        'Authorization': 'Bearer ' + token
+      },
+      body: JSON.stringify({ password: p1 })
+    });
+    var data = await res.json();
+    if (!res.ok || data.error) throw new Error((data.error && data.error.message) || 'Chyba pri zmene hesla');
+    closeChangePassword();
+    toast('✅ Heslo bylo uspesne zmeneno!');
+  } catch (err) {
+    toast('⚠️ ' + err.message);
+  }
+}
+document.getElementById('changePassModal').addEventListener('click', function(e) {
+  if (e.target === this) closeChangePassword();
+});
+</script>
 </body>
 </html>
