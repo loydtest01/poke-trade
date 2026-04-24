@@ -1618,7 +1618,11 @@ function _initProviderPanel(cfg) {
     var n = state.keys.length;
     var dot    = el('Dot');
     var txt    = el('StatusText');
-    var sub    = $('acc' + cfg.prefix.charAt(0).toUpperCase() + cfg.prefix.slice(1) + 'Sub');
+    // ID sekce sub (v HTML) nesedí přesně s cfg.prefix kapitalizací.
+    // Openrouter → accOpenRouterSub (s 'R' uvnitř), ne accOpenrouterSub.
+    // Použijeme cfg.subId pokud je definovaný, jinak fallback přes capitalize.
+    var subId = cfg.subId || ('acc' + cfg.prefix.charAt(0).toUpperCase() + cfg.prefix.slice(1) + 'Sub');
+    var sub    = $(subId);
     var delBtn = el('DeleteBtn');
     var testBtn= el('TestBtn');
     if (!dot) return;
@@ -1780,6 +1784,7 @@ function initCerebrasPanel() {
     keyPrefix: 'csk-',
     minLen:    20,
     countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accCerebrasSub',  // explicitní ID sub elementu v HTML
   });
 }
 
@@ -1791,6 +1796,7 @@ function initOpenRouterPanel() {
     keyPrefix: 'sk-or-v1-',
     minLen:    30,
     countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accOpenRouterSub',  // POZOR: velké R — kapitalizace `charAt(0)` by selhala
   });
 }
 

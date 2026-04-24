@@ -47,7 +47,10 @@
       validateUrl:      'https://openrouter.ai/api/v1/models',
       textModel:        'meta-llama/llama-3.3-70b-instruct:free',
       visionModel:      'qwen/qwen2.5-vl-32b-instruct:free',  // nejlepší zdarma pro CJK
-      visionFallback:   'qwen/qwen2.5-vl-7b-instruct:free',   // pokud 32B 404/429 → zkus 7B
+      visionFallbacks:  [
+        'qwen/qwen2.5-vl-7b-instruct:free',       // menší Qwen, pořád dobrý na CJK
+        'meta-llama/llama-3.2-11b-vision-instruct:free',  // poslední záchrana, ne-CJK
+      ],
     },
     deepseek: {
       name:         'DeepSeek',
@@ -275,13 +278,16 @@
       // Vyber model: options.model má přednost, jinak vision/text default
       const primaryModel = options.model
         || (isVision ? provider.visionModel : provider.textModel);
-      // Pokud primary model vrátí 404/429, zkusíme fallback (pokud existuje)
-      const fallbackModel = !options.model && isVision ? provider.visionFallback : null;
-      const modelsToTry = fallbackModel ? [primaryModel, fallbackModel] : [primaryModel];
+      // Pokud primary model 404/429, postupně zkus visionFallbacks (seřazené od nejlepšího)
+      const fallbacks = !options.model && isVision ? (provider.visionFallbacks || []) : [];
+      // modelsToTry je seřazený seznam: [primary, fallback1, fallback2, ...]
+      const modelsToTry = [primaryModel, ...fallbacks];
 
       let providerDone = false;
 
-      for (const model of modelsToTry) {
+      for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+        const model = modelsToTry[modelIdx];
+        const isModelFallback = modelIdx > 0;
         if (providerDone) break;
 
         const body = JSON.stringify({ model, messages, temperature, max_tokens, stream });
@@ -311,7 +317,7 @@
 
           if (res.ok) {
             _state.keyIdx[providerName] = keyIdx;
-            const modelLabel = model === fallbackModel ? ' (fallback model)' : '';
+            const modelLabel = isModelFallback ? ' (fallback model: ' + model.split('/').pop() + ')' : '';
             console.log(`[AI] ✓ ${provider.name} klíč #${keyIdx + 1} (${isVision ? 'vision' : 'text'})${modelLabel}`);
 
             if (stream && options.onChunk) {
@@ -325,9 +331,9 @@
           const errMsg  = errBody?.error?.message || `HTTP ${res.status}`;
           errors.push(`[${provider.name} #${keyIdx + 1}/${model.split('/').pop().slice(0,30)}] ${errMsg}`);
 
-          // 404 na model → zkus fallback model (pokud existuje) se stejným klíčem
-          if (res.status === 404 && fallbackModel && model === primaryModel) {
-            console.warn(`[AI] ${provider.name} model ${primaryModel} 404, zkouším fallback ${fallbackModel}`);
+          // 404 na model → zkus další model (pokud existuje) se stejným klíčem
+          if (res.status === 404 && modelIdx < modelsToTry.length - 1) {
+            console.warn(`[AI] ${provider.name} model ${model} 404, zkouším další fallback`);
             break; // přeruš keys loop, skoč na další model
           }
 
