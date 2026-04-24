@@ -42,11 +42,12 @@
       visionModel:  'llama-4-scout-17b-16e-instruct',
     },
     openrouter: {
-      name:         'OpenRouter',
-      endpoint:     'https://openrouter.ai/api/v1/chat/completions',
-      validateUrl:  'https://openrouter.ai/api/v1/models',
-      textModel:    'meta-llama/llama-3.3-70b-instruct:free',
-      visionModel:  'qwen/qwen2.5-vl-72b-instruct:free',  // nejlepší pro CJK!
+      name:             'OpenRouter',
+      endpoint:         'https://openrouter.ai/api/v1/chat/completions',
+      validateUrl:      'https://openrouter.ai/api/v1/models',
+      textModel:        'meta-llama/llama-3.3-70b-instruct:free',
+      visionModel:      'qwen/qwen2.5-vl-32b-instruct:free',  // nejlepší zdarma pro CJK
+      visionFallback:   'qwen/qwen2.5-vl-7b-instruct:free',   // pokud 32B 404/429 → zkus 7B
     },
     deepseek: {
       name:         'DeepSeek',
@@ -272,63 +273,80 @@
       if (!provider || !keys || !keys.length) continue;
 
       // Vyber model: options.model má přednost, jinak vision/text default
-      const model = options.model
+      const primaryModel = options.model
         || (isVision ? provider.visionModel : provider.textModel);
+      // Pokud primary model vrátí 404/429, zkusíme fallback (pokud existuje)
+      const fallbackModel = !options.model && isVision ? provider.visionFallback : null;
+      const modelsToTry = fallbackModel ? [primaryModel, fallbackModel] : [primaryModel];
 
-      const body = JSON.stringify({ model, messages, temperature, max_tokens, stream });
+      let providerDone = false;
 
-      // Rotace klíčů v rámci providera (při 429)
-      for (let attempt = 0; attempt < keys.length; attempt++) {
-        const keyIdx = (_state.keyIdx[providerName] + attempt) % keys.length;
-        const key    = keys[keyIdx];
+      for (const model of modelsToTry) {
+        if (providerDone) break;
 
-        const headers = {
-          'Authorization': `Bearer ${key}`,
-          'Content-Type':  'application/json',
-        };
-        // OpenRouter vyžaduje HTTP-Referer
-        if (providerName === 'openrouter') {
-          headers['HTTP-Referer'] = window.location.origin;
-          headers['X-Title'] = 'PokéTrade';
-        }
+        const body = JSON.stringify({ model, messages, temperature, max_tokens, stream });
 
-        let res;
-        try {
-          res = await fetch(provider.endpoint, { method: 'POST', headers, body });
-        } catch (netErr) {
-          errors.push(`[${provider.name} #${keyIdx + 1}] síťová chyba: ${netErr.message}`);
-          continue;
-        }
+        // Rotace klíčů v rámci providera (při 429)
+        for (let attempt = 0; attempt < keys.length; attempt++) {
+          const keyIdx = (_state.keyIdx[providerName] + attempt) % keys.length;
+          const key    = keys[keyIdx];
 
-        if (res.ok) {
-          _state.keyIdx[providerName] = keyIdx;
-          console.log(`[AI] ✓ ${provider.name} klíč #${keyIdx + 1} (${isVision ? 'vision' : 'text'})`);
-
-          if (stream && options.onChunk) {
-            return await _handleStream(res, options.onChunk);
+          const headers = {
+            'Authorization': `Bearer ${key}`,
+            'Content-Type':  'application/json',
+          };
+          // OpenRouter vyžaduje HTTP-Referer
+          if (providerName === 'openrouter') {
+            headers['HTTP-Referer'] = window.location.origin;
+            headers['X-Title'] = 'PokéTrade';
           }
-          const data = await res.json();
-          return data.choices?.[0]?.message?.content || '';
-        }
 
-        const errBody = await res.json().catch(() => ({}));
-        const errMsg  = errBody?.error?.message || `HTTP ${res.status}`;
-        errors.push(`[${provider.name} #${keyIdx + 1}] ${errMsg}`);
-
-        // 429 → zkus další klíč stejného providera
-        // 4xx jiné než 429 → chybná konfigurace, nemá smysl zkoušet další klíč
-        // 5xx → pokračuj na další provider (přeruš inner loop)
-        if (res.status !== 429) {
-          if (res.status >= 500 && attempt === 0) {
-            console.warn(`[AI] ${provider.name} server error ${res.status}, zkouším další provider`);
+          let res;
+          try {
+            res = await fetch(provider.endpoint, { method: 'POST', headers, body });
+          } catch (netErr) {
+            errors.push(`[${provider.name} #${keyIdx + 1}] síťová chyba: ${netErr.message}`);
+            continue;
           }
-          break;
-        }
 
-        console.warn(`[AI] ${provider.name} klíč #${keyIdx + 1} rate limited, zkouším další klíč…`);
+          if (res.ok) {
+            _state.keyIdx[providerName] = keyIdx;
+            const modelLabel = model === fallbackModel ? ' (fallback model)' : '';
+            console.log(`[AI] ✓ ${provider.name} klíč #${keyIdx + 1} (${isVision ? 'vision' : 'text'})${modelLabel}`);
+
+            if (stream && options.onChunk) {
+              return await _handleStream(res, options.onChunk);
+            }
+            const data = await res.json();
+            return data.choices?.[0]?.message?.content || '';
+          }
+
+          const errBody = await res.json().catch(() => ({}));
+          const errMsg  = errBody?.error?.message || `HTTP ${res.status}`;
+          errors.push(`[${provider.name} #${keyIdx + 1}/${model.split('/').pop().slice(0,30)}] ${errMsg}`);
+
+          // 404 na model → zkus fallback model (pokud existuje) se stejným klíčem
+          if (res.status === 404 && fallbackModel && model === primaryModel) {
+            console.warn(`[AI] ${provider.name} model ${primaryModel} 404, zkouším fallback ${fallbackModel}`);
+            break; // přeruš keys loop, skoč na další model
+          }
+
+          // 429 → zkus další klíč stejného providera a stejného modelu
+          // 4xx jiné → chybná konfigurace, nemá smysl zkoušet další klíč; ale můžeme fallback model
+          // 5xx → pokračuj na další provider
+          if (res.status !== 429) {
+            if (res.status >= 500 && attempt === 0) {
+              console.warn(`[AI] ${provider.name} server error ${res.status}, zkouším další provider`);
+              providerDone = true;
+            }
+            break;
+          }
+
+          console.warn(`[AI] ${provider.name} klíč #${keyIdx + 1} rate limited, zkouším další klíč…`);
+        }
       }
 
-      console.warn(`[AI] Všechny ${provider.name} klíče vyčerpány/selhaly, zkouším další provider`);
+      console.warn(`[AI] Všechny ${provider.name} klíče/modely vyčerpány, zkouším další provider`);
     }
 
     throw new Error(`Všechny AI providery selhaly:\n${errors.join('\n')}`);

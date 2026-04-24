@@ -237,7 +237,11 @@
   }
 
   async function _scoreByImage(photoUrl, candidates, { groqProxy, groqKey, onStatus } = {}) {
-    if (!photoUrl || !candidates.length || !groqKey) return candidates;
+    if (!photoUrl || !candidates.length) return candidates;
+
+    // Potřebujeme buď GroqClient (multi-provider) NEBO groqKey (pro /api/groq fallback)
+    const hasClient = typeof window !== 'undefined' && window.GroqClient && window.GroqClient.isReady && window.GroqClient.isReady();
+    if (!hasClient && !groqKey) return candidates;
 
     onStatus?.('🖼 Porovnávám s fotkou…');
 
@@ -274,38 +278,61 @@ Return ONLY a JSON array of indices sorted best→worst match. Example: [2,0,5,1
 No explanation. Just the JSON array.`;
 
     try {
-      const body = {
-        // Vision MUSÍ být vision-capable model. User model z localStorage
-        // může být text-only (např. llama-3.3-70b-versatile) → 400 Bad Request.
-        // Hardcode na llama-4-scout, který je vision a má free tier.
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        max_tokens: 80,
-        temperature: 0,           // deterministika
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: dataUrl } },
-            { type: 'text', text: prompt },
-          ],
-        }],
-      };
+      const messages = [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: dataUrl } },
+          { type: 'text', text: prompt },
+        ],
+      }];
 
-      const res = await fetch(groqProxy || '/api/groq', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Groq-Key': groqKey },
-        body:    JSON.stringify(body),
-      });
+      let text = '';
 
-      if (!res.ok) {
-        console.warn('[PkSearch] Image score API failed:', res.status);
+      // ── PRIMÁRNÍ: GroqClient.chat() → multi-provider rotace (Groq/Cerebras/OpenRouter)
+      //    Každý request jde na osobní klíč uživatele přímo, ne přes /api/groq proxy.
+      //    Tím se zabrání Vercel rate limitingu (429) při auto-scan many karet.
+      if (typeof window !== 'undefined' && window.GroqClient && window.GroqClient.isReady && window.GroqClient.isReady()) {
+        try {
+          text = await window.GroqClient.chat(messages, {
+            max_tokens: 80,
+            temperature: 0,
+            // model je vybraný podle providera uvnitř GroqClient (vision detekce)
+          });
+        } catch (clientErr) {
+          console.warn('[PkSearch] GroqClient selhal, zkouším fallback /api/groq:', clientErr.message);
+        }
+      }
+
+      // ── FALLBACK: /api/groq proxy (pro uživatele bez osobních klíčů)
+      //    Používá se jen pokud GroqClient nevrátil odpověď. Vercel tu hlídá limity 20/10.
+      if (!text && groqKey) {
+        const body = {
+          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          max_tokens: 80,
+          temperature: 0,
+          messages,
+        };
+        const res = await fetch(groqProxy || '/api/groq', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Groq-Key': groqKey },
+          body:    JSON.stringify(body),
+        });
+        if (!res.ok) {
+          console.warn('[PkSearch] Image score proxy fallback failed:', res.status);
+          return candidates;
+        }
+        const data = await res.json();
+        text = (data?.choices?.[0]?.message?.content || '').trim();
+      }
+
+      if (!text) {
+        console.warn('[PkSearch] Image score: žádný AI provider nefunguje');
         return candidates;
       }
 
-      const data = await res.json();
-      const text = (data?.choices?.[0]?.message?.content || '').trim();
       const m = text.match(/\[[\d,\s]+\]/);
       if (!m) {
-        console.warn('[PkSearch] Image score: nelze parsovat odpověď:', text);
+        console.warn('[PkSearch] Image score: nelze parsovat odpověď:', text.slice(0, 100));
         return candidates;
       }
 
