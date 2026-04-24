@@ -726,10 +726,12 @@ var SETTINGS_HTML = [
   '              <input type="text" id="cerebrasKeyInput" class="groq-inp" placeholder="csk-… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
   '              <button class="btn-groq-add" id="cerebrasAddBtn" type="button">+ Přidat</button>',
   '            </div>',
-  '            <div style="margin-top:10px">',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
   '              <button class="btn-groq-del-all" id="cerebrasDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="cerebrasTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
   '            </div>',
   '            <div class="groq-fb" id="cerebrasFeedback"></div>',
+  '            <div id="cerebrasTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
   '          </div>',
   '        </div>',
   '      </div>',
@@ -757,10 +759,12 @@ var SETTINGS_HTML = [
   '              <input type="text" id="openrouterKeyInput" class="groq-inp" placeholder="sk-or-v1-… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
   '              <button class="btn-groq-add" id="openrouterAddBtn" type="button">+ Přidat</button>',
   '            </div>',
-  '            <div style="margin-top:10px">',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
   '              <button class="btn-groq-del-all" id="openrouterDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="openrouterTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
   '            </div>',
   '            <div class="groq-fb" id="openrouterFeedback"></div>',
+  '            <div id="openrouterTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
   '          </div>',
   '        </div>',
   '      </div>',
@@ -1498,6 +1502,72 @@ function initGroqPanel() {
    Sdílí styly a chování s Groq sekcí, ale ukládá do vlastních
    sloupců (cerebras_key, openrouter_key) tabulky user_api_keys.
    ══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   _testProviderKey — ověří že daný klíč funguje u providera
+   Pošle minimální request ("Say OK" / max_tokens 5) a vrátí výsledek.
+   ══════════════════════════════════════════════════════════════ */
+async function _testProviderKey(providerName, apiKey, cfg) {
+  var endpoints = {
+    groq:       'https://api.groq.com/openai/v1/chat/completions',
+    cerebras:   'https://api.cerebras.ai/v1/chat/completions',
+    openrouter: 'https://openrouter.ai/api/v1/chat/completions',
+  };
+  var testModels = {
+    // Levné/rychlé modely jen pro ověření fungování klíče
+    groq:       'llama-3.1-8b-instant',
+    cerebras:   'llama-3.1-8b',
+    openrouter: 'meta-llama/llama-3.3-70b-instruct:free',
+  };
+  var endpoint = endpoints[providerName];
+  var model    = testModels[providerName];
+  if (!endpoint || !model) throw new Error('Neznámý provider: ' + providerName);
+
+  var headers = {
+    'Content-Type':  'application/json',
+    'Authorization': 'Bearer ' + apiKey,
+  };
+  if (providerName === 'openrouter') {
+    headers['HTTP-Referer'] = window.location.origin;
+    headers['X-Title']      = 'PokéTrade Test';
+  }
+
+  var body = JSON.stringify({
+    model:       model,
+    messages:    [{ role: 'user', content: 'Say OK' }],
+    max_tokens:  5,
+    temperature: 0,
+  });
+
+  var t0 = Date.now();
+  var r;
+  try {
+    r = await fetch(endpoint, {
+      method:  'POST',
+      headers: headers,
+      body:    body,
+      signal:  AbortSignal.timeout(10000),
+    });
+  } catch(e) {
+    throw new Error('síťová chyba: ' + e.message);
+  }
+  var t1 = Date.now();
+
+  if (!r.ok) {
+    var errBody = {};
+    try { errBody = await r.json(); } catch(_) {}
+    var msg = errBody?.error?.message || errBody?.message || ('HTTP ' + r.status);
+    throw new Error(msg);
+  }
+
+  var data = await r.json();
+  var content = data?.choices?.[0]?.message?.content || '?';
+  return {
+    model: model.split('/').pop(),
+    time:  t1 - t0,
+    reply: content.slice(0, 30),
+  };
+}
+
 function _initProviderPanel(cfg) {
   // cfg = { prefix, name, field, keyPrefix, minLen, countNoun: [jeden, málo, mnoho] }
   var state = { keys: [] };
@@ -1534,6 +1604,7 @@ function _initProviderPanel(cfg) {
     var txt    = el('StatusText');
     var sub    = $('acc' + cfg.prefix.charAt(0).toUpperCase() + cfg.prefix.slice(1) + 'Sub');
     var delBtn = el('DeleteBtn');
+    var testBtn= el('TestBtn');
     if (!dot) return;
     if (n > 0) {
       dot.className = 'groq-dot active';
@@ -1541,11 +1612,13 @@ function _initProviderPanel(cfg) {
       if (txt) txt.textContent = cfg.name + ' aktivní – ' + n + ' ' + nounForm;
       if (sub) sub.textContent = 'Aktivní (' + n + '×)';
       if (delBtn) delBtn.style.display = '';
+      if (testBtn) testBtn.style.display = '';
     } else {
       dot.className = 'groq-dot';
       if (txt) txt.textContent = cfg.name + ' není nakonfigurováno';
       if (sub) sub.textContent = 'Nekonfigurováno';
       if (delBtn) delBtn.style.display = 'none';
+      if (testBtn) testBtn.style.display = 'none';
     }
   }
 
@@ -1643,6 +1716,39 @@ function _initProviderPanel(cfg) {
           setFb('Všechny klíče byly odebrány.', 'ok');
           if (window.GroqClient && typeof GroqClient.loadKey === 'function') GroqClient.loadKey();
         } catch(e) { setFb('❌ ' + e.message, 'err'); }
+      });
+    }
+
+    var testBtn = el('TestBtn');
+    if (testBtn && !testBtn._providerBound) {
+      testBtn._providerBound = true;
+      testBtn.addEventListener('click', async function() {
+        if (!state.keys.length) {
+          setFb('Nejdřív přidej aspoň jeden klíč.', 'err');
+          return;
+        }
+        var resDiv = $(cfg.prefix + 'TestResult');
+        if (resDiv) { resDiv.style.display = 'block'; resDiv.textContent = '⏳ Testuji…'; }
+        testBtn.disabled = true; testBtn.textContent = '⏳ Testuji…';
+        setFb('', '');
+
+        var results = [];
+        for (var i = 0; i < state.keys.length; i++) {
+          var key = state.keys[i];
+          var label = '#' + (i+1) + ' ' + key.slice(0, 10) + '…';
+          try {
+            var response = await _testProviderKey(cfg.prefix, key, cfg);
+            results.push('✓ ' + label + ' → ' + response.model + ' (' + response.time + 'ms)');
+          } catch(e) {
+            results.push('✗ ' + label + ' → ' + e.message);
+          }
+        }
+        var okCount = results.filter(function(r) { return r.startsWith('✓'); }).length;
+        if (resDiv) {
+          resDiv.textContent = '📊 ' + okCount + '/' + state.keys.length + ' klíčů funguje:\n\n' + results.join('\n');
+        }
+        setFb(okCount === state.keys.length ? '✅ Všechny klíče fungují' : (okCount > 0 ? '⚠️ Některé klíče selhaly' : '❌ Žádný klíč nefunguje'), okCount > 0 ? 'ok' : 'err');
+        testBtn.disabled = false; testBtn.textContent = '⚡ Otestovat';
       });
     }
   }

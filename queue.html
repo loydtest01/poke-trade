@@ -1196,8 +1196,9 @@ function renderGroups() {
   });
   // Inicializuj toggle tlačítka zdrojů pro každou skupinu
   cardGroups.forEach((_, gi) => _renderSrcToggles(gi));
-  // Auto-search na pozadí pro karty s AI daty
-  setTimeout(autoSearchAll, 400);
+  // ⚠️ Auto-search vypnut — hledá se jen karta kterou uživatel rozbalí (toggleGroup).
+  // Dříve se hledaly všechny karty najednou, což přetěžovalo Vercel /api/groq (429)
+  // a OpenRouter. Nyní: sekvenční přístup jen na aktivní kartu.
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -1594,6 +1595,16 @@ function toggleGroup(gi) {
   const el = document.getElementById(`group-${gi}`);
   if (!el) return;
   el.classList.toggle('expanded');
+
+  // Když uživatel otevřel kartu, spusť search automaticky — ale jen poprvé,
+  // a jen pokud už máme AI výsledek a ještě jsme nehledali.
+  if (el.classList.contains('expanded')) {
+    const g = cardGroups[gi];
+    if (g && g.aiResult?.name && !g.resolvedCard && !g._manuallySelected && !g._autoSearchTriggered) {
+      g._autoSearchTriggered = true;
+      setTimeout(() => tcgSearch(gi, true), 200);
+    }
+  }
 }
 
 // ── Assign single group ───────────────────────────────────────
