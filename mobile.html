@@ -1044,10 +1044,12 @@ async function groqFetch(bodyObj, signal) {
   const isVision = _hasImage(bodyObj);
   const isCjk    = isVision && _hasCjk(bodyObj);
 
-  // Pořadí providerů — pro CJK karty preferuj OpenRouter (Qwen VL je na CJK výrazně lepší)
+  // Pořadí providerů:
+  // - CJK karty: OpenRouter (Qwen VL na CJK nejlepší) → Cerebras → Groq
+  // - EN karty:  Cerebras (1M tokenů/den, spolehlivé) → Groq (500k/den, často vyčerpáno) → OpenRouter
   let chain = isCjk
-    ? ['openrouter', 'groq', 'cerebras']
-    : ['groq', 'cerebras', 'openrouter'];
+    ? ['openrouter', 'cerebras', 'groq']
+    : ['cerebras', 'groq', 'openrouter'];
 
   const errors = [];
   let anyKeyAvailable = false;

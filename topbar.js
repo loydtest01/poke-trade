@@ -695,10 +695,12 @@ var SETTINGS_HTML = [
   '              <option value="mixtral-8x7b-32768">Mixtral 8×7B</option>',
   '              <option value="gemma2-9b-it">Gemma 2 9B</option>',
   '            </select>',
-  '            <div style="margin-top:10px">',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
   '              <button class="btn-groq-del-all" id="groqDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="groqTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
   '            </div>',
   '            <div class="groq-fb" id="groqFeedback"></div>',
+  '            <div id="groqTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
   '          </div>',
   '        </div>',
   '      </div>',
@@ -1362,7 +1364,7 @@ function _groqRenderKeys(keys) {
     return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
       + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
       + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _groqMaskKey(k) + '</span>'
-      + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + (i === 0 ? '🟢 aktivní' : '⏳ záloha') + '</span>'
+      + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + ('v rotaci') + '</span>'
       + '<button onclick="window._groqRemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
       + '</div>';
   }).join('');
@@ -1374,17 +1376,20 @@ function _groqUpdateStatus(keys) {
   var txt    = document.getElementById('groqStatusText');
   var sub    = document.getElementById('accGroqSub');
   var delBtn = document.getElementById('groqDeleteBtn');
+  var testBtn= document.getElementById('groqTestBtn');
   if (!dot) return;
   if (n > 0) {
     dot.className = 'groq-dot active';
     if (txt) txt.textContent = 'Groq AI aktivní – ' + n + ' klíč' + (n === 1 ? '' : n < 5 ? 'e' : 'ů');
     if (sub) sub.textContent = 'Aktivní (' + n + '×)';
     if (delBtn) delBtn.style.display = '';
+    if (testBtn) testBtn.style.display = '';
   } else {
     dot.className = 'groq-dot';
     if (txt) txt.textContent = 'Groq AI není nakonfigurováno';
     if (sub) sub.textContent = 'Nekonfigurováno';
     if (delBtn) delBtn.style.display = 'none';
+    if (testBtn) testBtn.style.display = 'none';
   }
 }
 
@@ -1489,6 +1494,34 @@ function _groqInitEvents() {
         _groqKeys = []; _groqRenderKeys([]); _groqUpdateStatus([]);
         _groqSetFb('Všechny klíče byly odebrány.', 'ok');
       } catch(e) { _groqSetFb('❌ ' + e.message, 'err'); }
+    });
+  }
+
+  var testBtn = document.getElementById('groqTestBtn');
+  if (testBtn && !testBtn._groqBound) {
+    testBtn._groqBound = true;
+    testBtn.addEventListener('click', async function() {
+      if (!_groqKeys.length) { _groqSetFb('Nejdřív přidej aspoň jeden klíč.', 'err'); return; }
+      var resDiv = document.getElementById('groqTestResult');
+      if (resDiv) { resDiv.style.display = 'block'; resDiv.textContent = '⏳ Testuji…'; }
+      testBtn.disabled = true; testBtn.textContent = '⏳ Testuji…';
+      _groqSetFb('', '');
+
+      var results = [];
+      for (var i = 0; i < _groqKeys.length; i++) {
+        var key = _groqKeys[i];
+        var label = '#' + (i+1) + ' ' + key.slice(0, 10) + '…';
+        try {
+          var r = await _testProviderKey('groq', key);
+          results.push('✓ ' + label + ' → ' + r.model + ' (' + r.time + 'ms)');
+        } catch(e) {
+          results.push('✗ ' + label + ' → ' + e.message);
+        }
+      }
+      var okCount = results.filter(function(r) { return r.startsWith('✓'); }).length;
+      if (resDiv) resDiv.textContent = '📊 ' + okCount + '/' + _groqKeys.length + ' klíčů funguje:\n\n' + results.join('\n');
+      _groqSetFb(okCount === _groqKeys.length ? '✅ Všechny klíče fungují' : (okCount > 0 ? '⚠️ Některé klíče selhaly' : '❌ Žádný klíč nefunguje'), okCount > 0 ? 'ok' : 'err');
+      testBtn.disabled = false; testBtn.textContent = '⚡ Otestovat';
     });
   }
 }
@@ -1608,7 +1641,7 @@ function _initProviderPanel(cfg) {
       return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
         + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
         + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mask(k) + '</span>'
-        + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + (i === 0 ? '🟢 aktivní' : '⏳ záloha') + '</span>'
+        + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + ('v rotaci') + '</span>'
         + '<button onclick="window._' + cfg.prefix + 'RemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
         + '</div>';
     }).join('');

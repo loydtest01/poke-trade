@@ -61,7 +61,12 @@
     },
   };
 
-  const DEFAULT_CHAIN = ['groq', 'cerebras', 'openrouter', 'deepseek'];
+  // DEFAULT_CHAIN: Cerebras jde první.
+  // Důvod: Groq free tier má jen 500k tokenů/den, což vision rychle vyčerpá
+  // (každý obrázek ~6-10k tokenů → po 50-80 skenech je Groq mimo pro celý den).
+  // Cerebras má 1M tokenů/den/klíč a je srovnatelně rychlý.
+  // Pro CJK karty se OpenRouter (Qwen) stále posouvá na první místo.
+  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'deepseek'];
 
   // ── Stav modulu ──────────────────────────────────────────────────
   const _state = {

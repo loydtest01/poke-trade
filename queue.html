@@ -1253,31 +1253,53 @@ async function retryAi(gi) {
       r.readAsDataURL(blob);
     });
 
-    // Zavolej Groq (osobní klíč nebo sdílený přes Bearer)
-    const groqRes = await fetch(GROQ_PROXY, {
-      method: 'POST',
-      headers: groqHeaders,
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
-            { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
-          ]
-        }],
-        temperature: 0.1,
-        max_tokens: 500,
-      })
-    });
+    const messages = [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64}` } },
+        { type: 'text', text: GROQ_PROMPT + '\n\nRozpoznej tuto Pokémon kartu. Odpověz POUZE JSON.' }
+      ]
+    }];
 
-    if (!groqRes.ok) {
-      const err = await groqRes.json().catch(() => ({}));
-      throw new Error(err?.error?.message || err?.error || 'HTTP ' + groqRes.status);
+    let content = '';
+
+    // ── PRIMÁRNÍ: GroqClient.chat() → multi-provider rotace (Groq/Cerebras/OpenRouter)
+    //    Pokud Groq má vyčerpaný denní TPD limit (500k tokens/day), přejde na Cerebras.
+    //    CJK karty automaticky routují na OpenRouter Qwen VL.
+    if (window.GroqClient && window.GroqClient.isReady && window.GroqClient.isReady()) {
+      try {
+        content = await window.GroqClient.chat(messages, {
+          temperature: 0.1,
+          max_tokens:  500,
+          // model se vybere automaticky podle providera (vision detekce)
+        });
+      } catch (clientErr) {
+        console.warn('[retryAi] GroqClient selhal, fallback na /api/groq:', clientErr.message);
+      }
     }
 
-    const data    = await groqRes.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    // ── FALLBACK: /api/groq proxy (pro uživatele bez osobních klíčů)
+    if (!content) {
+      const groqRes = await fetch(GROQ_PROXY, {
+        method: 'POST',
+        headers: groqHeaders,
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages,
+          temperature: 0.1,
+          max_tokens: 500,
+        })
+      });
+
+      if (!groqRes.ok) {
+        const err = await groqRes.json().catch(() => ({}));
+        throw new Error(err?.error?.message || err?.error || 'HTTP ' + groqRes.status);
+      }
+
+      const data = await groqRes.json();
+      content = data.choices?.[0]?.message?.content || '';
+    }
+
     const match   = content.match(/\{[\s\S]*\}/);
     if (!match) throw new Error('AI nevrátila JSON');
     const result = JSON.parse(match[0]);
@@ -1725,10 +1747,12 @@ async function doAssign(groups, albumId) {
             `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
           ).catch(()=>[]);
         }
+        const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
         const dup = Array.isArray(dedupCandidates) && dedupCandidates.find(r => {
           const d = r.card_data || {};
-          return d.name === cardName
-            && d.set  === cardSet
+          // Porovnání case-insensitive a s ořezem mezer — řeší "Pikachu " vs "pikachu"
+          return norm(d.name) === norm(cardName)
+            && norm(d.set)  === norm(cardSet)
             && normNum(d.number) === normNum(cardNumber);
         });
         if (dup) {
