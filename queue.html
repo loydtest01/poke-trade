@@ -1742,20 +1742,26 @@ async function _uploadCroppedPhoto(croppedDataUrl, originalPath) {
   if (!m) return null;
   const mime   = m[1];
   const buffer = Uint8Array.from(atob(m[2]), c => c.charCodeAt(0));
+  // PUT = update existing (POST vrací 400 pokud soubor existuje)
   const res = await fetch(
     `${SUPABASE_URL}/storage/v1/object/card-photo/${originalPath}`,
     {
-      method:  'POST',
+      method:  'PUT',
       headers: {
         'apikey':        SUPABASE_ANON,
         'Authorization': 'Bearer ' + token,
         'Content-Type':  mime,
         'x-upsert':      'true',
+        'cache-control': '3600',
       },
       body: buffer,
     }
   );
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    console.error('[uploadCrop] Storage error', res.status, errText);
+    return null;
+  }
   // Cache-bust: CDN/prohlížeč cachuje URL → přidáme timestamp aby se zobrazila oříznutá verze
   const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${originalPath}?t=${Date.now()}`;
   return { path: originalPath, url };
