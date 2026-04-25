@@ -2464,10 +2464,63 @@ async function tcgSearch(gi, autoMode = false) {
     });
 
     if (!cards.length) {
-      statusEl.className = 'cg-search-status err';
-      statusEl.innerHTML = '❌ Karta nenalezena — uprav název nebo vlož odkaz ručně.';
-      btn.disabled = false;
-      return;
+      // ── FALLBACK: Komunitní cache (card_cache) + RapidAPI ─────────────
+      // Spouští se jen pro non-EN karty kde TCGdex i pokemontcg.io selhaly.
+      const isNonEnFallback = ai.lang && ai.lang !== 'EN';
+      if (isNonEnFallback) {
+        try {
+          statusEl.textContent = '🌐 Hledám v komunitní databázi…';
+          const _tok = (window.getValidToken ? await window.getValidToken() : null) || token || '';
+          const _cacheParams = new URLSearchParams({
+            name:   ai.nameEN || searchName,
+            set:    ai.set    || '',
+            number: ai.number || '',
+            lang:   ai.lang   || 'JP',
+            token:  _tok,
+          });
+          const _cacheRes = await fetch(`/api/card-cache?${_cacheParams}`);
+          if (_cacheRes.ok) {
+            const _cd = await _cacheRes.json();
+            // Sestav card objekt kompatibilní s renderCardGrid
+            const _cacheCard = {
+              _source:       'card-cache',
+              apiId:         `cache-${_cd.cache_key}`,
+              name:          _cd.name_en || _cd.name || searchName,
+              nameOrig:      _cd.name,
+              set:           _cd.set_name || _cd.set_code || '',
+              setCode:       _cd.set_code || '',
+              number:        _cd.card_number || ai.number || '',
+              imageUrl:      _cd.image_url || '',
+              apiSmall:      _cd.image_url || '',
+              apiLarge:      _cd.image_url || '',
+              hp:            '',
+              types:         [],
+              rarity:        '',
+              supertype:     'Pokémon',
+              sourceUrl:     _cd.cardmarket_url || '',
+              cardmarketUrl: _cd.cardmarket_url || '',
+              pTrend:        _cd.price_trend || 0,
+              pMin:          _cd.price_min   || 0,
+              p30d:          _cd.price_30d   || 0,
+              lang:          _cd.lang || ai.lang,
+              _fromCache:    true,
+              _cacheSource:  _cd._source || 'rapidapi',
+            };
+            cards = [_cacheCard];
+            statusEl.textContent = `✅ Nalezeno v komunitní databázi (${_cd._source === 'rapidapi' ? 'RapidAPI → uloženo pro všechny' : 'cache'})`;
+          }
+        } catch (_ce) {
+          console.warn('[tcgSearch] card-cache fallback selhal:', _ce.message);
+        }
+      }
+
+      // Pokud ani cache nic nenašla → zobraz chybu
+      if (!cards.length) {
+        statusEl.className = 'cg-search-status err';
+        statusEl.innerHTML = '❌ Karta nenalezena — uprav název nebo vlož odkaz ručně.';
+        btn.disabled = false;
+        return;
+      }
     }
 
     // ── KROK 3: Foto shoda (Groq vision) ──────────────────────────────────
