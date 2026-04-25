@@ -638,6 +638,34 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 <!-- TOP BAR -->
 <script>window.TOPBAR_ACTIVE = 'queue';</script>
+<script>
+// ── Fetch interceptor: tcgdex 404 a openrouter 400 → tiché varování místo červené chyby ──
+(function() {
+  const _origFetch = window.fetch;
+  window.fetch = async function(input, init) {
+    const url = typeof input === 'string' ? input : (input?.url || '');
+    const res = await _origFetch.apply(this, arguments);
+    if (!res.ok) {
+      const isTcgdex    = url.includes('tcgdex.net');
+      const isOpenRouter = url.includes('openrouter.ai');
+      const isGroqApi   = url.includes('api.groq.com');
+      if (isTcgdex && res.status === 404) {
+        console.warn(`[TCGdex] Karta nenalezena (404): ${url.split('?')[0]}`);
+        // Vrať prázdný JSON aby volající kód nespadl
+        return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      if ((isOpenRouter || isGroqApi) && res.status === 400) {
+        // Klonuj odpověď – jinak ji nelze přečíst dvakrát
+        const clone = res.clone();
+        clone.json().catch(() => {}).then(body => {
+          console.warn(`[AI] Chybný požadavek (400):`, body?.error?.message || body?.error || 'Bad Request');
+        });
+      }
+    }
+    return res;
+  };
+})();
+</script>
 <script src="card-search.js"></script>
 <script src="card-matcher.js"></script>
   <script src="i18n.js"></script>
@@ -1128,8 +1156,10 @@ async function loadQueue() {
           // Přímá public URL
           const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
           const meta = row.metadata || {};
+          // Pokud byl ořez nahraný do Storage, použij oříznutou URL (s cache-bustem zachovaným)
+          const finalUrl = meta._cropStorageUrl || url;
           g.photos.push({
-            url,
+            url: finalUrl,
             storagePath: row.storage_path,
             side: meta.side || 'front',
             detailIndex: meta.detailIndex || null,
@@ -1310,8 +1340,17 @@ async function retryAi(gi) {
 
     if (!result.name) throw new Error('AI nenašla název karty');
 
-    // Ulož nový výsledek
-    g.aiResult = { ...result, _retried: true };
+    // Ulož nový výsledek — zachovej původní metadata (side, batchId, atd.) a přepiš jen AI pole
+    const _origMeta = { ...(g.aiResult || {}) };
+    g.aiResult = { ..._origMeta, ...result, _retried: true };
+
+    // Persistuj do Supabase photo_queue (aby se data neztrácela po přechodu stránky)
+    const _frontPhoto = g.photos.find(p => p.side === 'front') || g.photos[0];
+    if (_frontPhoto?.queueId) {
+      sbReq(`rest/v1/photo_queue?id=eq.${_frontPhoto.queueId}`, 'PATCH', {
+        metadata: g.aiResult,
+      }).catch(err => console.warn('[retryAi] Nepodařilo se uložit do Supabase:', err));
+    }
 
     // Přebuildi element skupiny na místě
     const oldEl = document.getElementById(`group-${gi}`);
@@ -1404,6 +1443,7 @@ function buildGroupEl(g, gi) {
         value="${esc(nameEnVal)}"
         placeholder="Anglický název karty…"
         oninput="updateNameEN(${gi}, this.value)"
+        onblur="saveNameEN(${gi})"
         style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#f0ece4;font-size:12px;padding:3px 7px;width:100%;font-family:inherit;outline:none"
       >
     </div>`;
@@ -2069,6 +2109,17 @@ function updateNameEN(gi, value) {
   // Reset případného předchozího výsledku aby nové vyhledávání proběhlo čerstvě
   cardGroups[gi].resolvedCard = null;
   cardGroups[gi]._manuallySelected = false;
+}
+
+// Uloží ručně zadaný EN název do Supabase (voláno onblur)
+function saveNameEN(gi) {
+  const g = cardGroups[gi];
+  if (!g?.aiResult?.nameEN) return;
+  const frontPhoto = g.photos.find(p => p.side === 'front') || g.photos[0];
+  if (!frontPhoto?.queueId) return;
+  sbReq(`rest/v1/photo_queue?id=eq.${frontPhoto.queueId}`, 'PATCH', {
+    metadata: { ...g.aiResult },
+  }).catch(err => console.warn('[saveNameEN] Nepodařilo se uložit:', err));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -3624,6 +3675,28 @@ function confirmCrop() {
     if (btn) { btn.disabled = false; btn.textContent = '✂️ Oříznout'; }
     cancelCrop();
     toast('✅ Perspektivní ořez uložen', 'success');
+
+    // ── Okamžitě nahraj ořez do Supabase Storage ──────────────
+    // Jinak by se ořez po odchodu ze stránky ztratil (existoval jen v paměti)
+    if (p.storagePath) {
+      _uploadCroppedPhoto(dataUrl, p.storagePath).then(uploaded => {
+        if (!uploaded) return;
+        // Aktualizuj in-memory URL → retryAI + doAssign budou rovnou brát oříznutou verzi
+        p.url = uploaded.url;
+        // photo_queue metadata – ulož novou URL ať ji server vidí po refreshi
+        if (p.queueId) {
+          const _meta = { ...(group?.aiResult || {}), _cropStorageUrl: uploaded.url };
+          sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', {
+            metadata: _meta,
+          }).catch(e => console.warn('[confirmCrop] Nepodařilo se uložit cropUrl:', e));
+        }
+        // Aktualizuj thumbnail znovu s cache-busted URL (záloha pro případ race-condition)
+        if (photo && photo.side === 'front') {
+          const thumb2 = document.querySelector(`#group-${CROP.groupIdx} .cg-thumb`);
+          if (thumb2) thumb2.src = uploaded.url;
+        }
+      }).catch(e => console.warn('[confirmCrop] Upload ořezu selhal:', e));
+    }
   }, 0));
 }
 
