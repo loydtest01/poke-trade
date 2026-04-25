@@ -95,6 +95,39 @@ async function sbPatch(table, match, data, token) {
   });
 }
 
+// ── Hard limit: kolik volání RapidAPI denně (free tier = 100, držíme 99 pro bezpečí)
+const RAPIDAPI_DAILY_LIMIT = 99;
+
+// ── Rate limit check + increment přes Supabase RPC ─────────────────────
+// Atomické: vrací true pokud je volání povoleno (a counter byl inkrementován),
+// false pokud byl limit pro dnešek dosažen.
+async function checkAndIncrementApiUsage() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/increment_api_usage`, {
+      method:  'POST',
+      headers: {
+        'apikey':        SB_ANON,
+        'Authorization': `Bearer ${SB_ANON}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        p_api_name: 'rapidapi_cardmarket',
+        p_limit:    RAPIDAPI_DAILY_LIMIT,
+      }),
+    });
+    if (!r.ok) {
+      console.warn('[card-cache] rate limit RPC failed:', r.status);
+      // Pokud RPC selže, raději nenechat volat RapidAPI (drop na safe side)
+      return { allowed: false, count: 0, limit: RAPIDAPI_DAILY_LIMIT, error: 'RPC failed' };
+    }
+    const result = await r.json();
+    return result || { allowed: false };
+  } catch (e) {
+    console.error('[card-cache] rate limit check error:', e.message);
+    return { allowed: false, count: 0, limit: RAPIDAPI_DAILY_LIMIT, error: e.message };
+  }
+}
+
 // ── RapidAPI volání ───────────────────────────────────────────────────────
 //
 // CardMarket API TCG (TCGGO) — endpoint: GET /pokemon/cards/search?search={name}&sort=relevance
@@ -114,6 +147,16 @@ async function sbPatch(table, match, data, token) {
 async function fetchFromRapidApi(name, set, number, lang) {
   const key = process.env.RAPIDAPI_KEY;
   if (!key) return null;
+
+  // ── Rate limit check (před každým RapidAPI voláním) ────────────────
+  // Atomická operace přes Supabase RPC — i kdyby současně přišlo 10 requestů,
+  // jen prvních 99/den projde.
+  const usage = await checkAndIncrementApiUsage();
+  if (!usage.allowed) {
+    console.warn(`[card-cache] ⛔ Denní limit ${RAPIDAPI_DAILY_LIMIT} dosažen (${usage.count}/${usage.limit}). Skip RapidAPI.`);
+    return { _rateLimited: true, _usage: usage };
+  }
+  console.log(`[card-cache] RapidAPI volání ${usage.count}/${usage.limit}: "${name}"`);
 
   const params = new URLSearchParams({ search: name, sort: "relevance" });
 
@@ -223,8 +266,11 @@ export default async function handler(req, res) {
     // Ceny jsou staré → refresh na pozadí, ale vrať cache okamžitě
     if (!cardStale && priceStale) {
       // Async refresh (fire & forget) — neblokuje odpověď
+      // Pozn: fetchFromRapidApi sám ošetří rate limit, takže pokud je dosažen,
+      // refresh tichý se přeskočí. Použijeme to k šetrnosti — fresh cache miss má
+      // přednost před refresh staré ceny.
       fetchFromRapidApi(cached.name_en || name, set, number, lang).then(fresh => {
-        if (!fresh) return;
+        if (!fresh || fresh._rateLimited) return;
         sbPatch('card_cache', { cache_key: key }, {
           price_trend:      fresh.price_trend,
           price_min:        fresh.price_min,
@@ -241,6 +287,26 @@ export default async function handler(req, res) {
 
   // ── 3. Cache miss → RapidAPI ─────────────────────────────────────────
   const fresh = await fetchFromRapidApi(name, set, number, lang);
+
+  // Rate limit: vrátíme 429 + (pokud je) zastaralá cache
+  if (fresh?._rateLimited) {
+    if (cached) {
+      // Máme starou cache → vrať tu i když ceny zastaralé (lepší než nic)
+      res.setHeader('Cache-Control', 's-maxage=300');
+      return res.status(200).json({
+        ...cached,
+        _source:      'cache_stale_rate_limited',
+        _rateLimit:   fresh._usage,
+        _priceStale:  true,
+      });
+    }
+    // Žádná cache → 429 Too Many Requests
+    return res.status(429).json({
+      error:     'Denní limit RapidAPI volání dosažen. Zkus to zítra po půlnoci UTC.',
+      _source:   'rate_limited',
+      _usage:    fresh._usage,
+    });
+  }
 
   if (!fresh) {
     // RapidAPI taky nenašlo → vrať not_found (ale neuložíme do cache)
