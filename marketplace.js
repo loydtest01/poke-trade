@@ -2485,6 +2485,39 @@ async function searchCards(){
     }
 
     if(!cards.length){
+      // ── FALLBACK: Komunitní cache pro non-EN karty ─────────────────────
+      // Pokud query obsahuje CJK znaky, zkus card-cache (RapidAPI Cardmarket).
+      // Sdílí cache mezi všemi uživateli, hard limit 99 RapidAPI volání/den.
+      const _hasCjk = /[\u3000-\u9fff\uff00-\uffef]/.test(name || '');
+      const _looksJp = _hasCjk || /^(jp|jap|jp-)/i.test(set || '');
+      if (_looksJp && typeof PkSearch !== 'undefined' && PkSearch.searchCardCache) {
+        try {
+          const cc = await PkSearch.searchCardCache(name, { set, lang: _hasCjk ? 'JP' : 'JP' });
+          if (cc && cc.imageUrl) {
+            // Adapt unified PkSearch tvar → marketplace tvar
+            cards = [{
+              _src:    'card-cache',
+              id:      cc.apiId,
+              name:    cc.name,
+              number:  cc.number,
+              rarity:  '',
+              hp:      cc.hp || '',
+              types:   cc.types || [],
+              set:     { id: cc.setCode || '', name: cc.set || '' },
+              images:  { small: cc.imageUrl, large: cc.imageUrl },
+              cardmarket: cc.cardmarketUrl ? { url: cc.cardmarketUrl } : null,
+              tcgplayer:  null,
+            }];
+            usedSrc = 'card-cache';
+            console.log('[csb] card-cache hit:', cc.name);
+          }
+        } catch (e) {
+          console.warn('[csb] card-cache fallback selhal:', e.message);
+        }
+      }
+    }
+
+    if(!cards.length){
       wrap.innerHTML='<div class="csb-empty">Žádné karty nenalezeny ani v pokemontcg.io ani v TCGdex.</div>';
       _renderCsbToggle(name, usedSrc);
       return;
