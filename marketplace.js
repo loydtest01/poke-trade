@@ -1,7 +1,10 @@
 
 // ── TCG Proxy Helper ─────────────────────────────────────────────
 // Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
-const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+// Guard: může být již deklarováno v app.js nebo jiném skriptu
+if (typeof _TCG_PROXY === 'undefined') {
+  var _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+}
 function tcgFetch(url) {
   const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
   if (!m) return fetch(url);
