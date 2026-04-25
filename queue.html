@@ -2393,7 +2393,9 @@ async function tcgSearch(gi, autoMode = false) {
     }
 
     // ── KROK 2: Hledej přes PkSearch (skórovací systém v2) ────────────────
-    const searchName = (ai.nameEN || '').trim() || (!isNonEn ? (ai.name || '') : '');
+    // FIX: Pro JP/ZH/KO karty kde translateViaLang nezískal nameEN,
+    // použij jako fallback originální (japonský) název — TCGdex s ním umí hledat.
+    const searchName = (ai.nameEN || '').trim() || (ai.name || '').trim();
 
     let cards = await PkSearch.search(searchName, {
       set:      isNonEn ? '' : (ai.set || ''),
