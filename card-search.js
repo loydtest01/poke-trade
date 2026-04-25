@@ -787,14 +787,16 @@ No explanation. Just the JSON array.`;
   }
 
   // ── _tcgdexTranslate (v3 — single shot, žádný cross-namespace ID lookup) ─
-  async function _tcgdexTranslate(origName, lang, hp = null, setHint = '', numberHint = '') {
+  async function _tcgdexTranslate(origName, lang, hp = null, setHint = '', numberHint = '', enNameHint = '') {
     if (!origName || !lang) return null;
     const l = LANG_TO_TCGDEX[lang.toUpperCase()];
     if (!l || l === 'en') return null;
     const isZh = l === 'zh-Hans' || l === 'zh-Hant';
 
     // KROK 1: Pro ZH/JP karty se set+number → 1 přímý JA pokus
-    if ((isZh || l === 'ja') && setHint && numberHint) {
+    // Guard: přeskoč pokud setHint vypadá jako číslo karty (např. "006/100" nebo "006 U")
+    const _setLooksLikeNumber = /^\d{3,}[\/\s]/.test(String(setHint).trim());
+    if (!_setLooksLikeNumber && (isZh || l === 'ja') && setHint && numberHint) {
       const jaSetId = String(setHint).toLowerCase().replace(/f$/, '');
       const num     = String(numberHint).split('/')[0].padStart(3, '0');
 
@@ -826,11 +828,18 @@ No explanation. Just the JSON array.`;
     }
 
     // KROK 2: Hledej podle jména v primárním locale (de/fr/it)
-    const searchLocale = isZh ? 'ja' : l;
-    let results = await _fetch(`${TCGDEX_BASE}/${searchLocale}/cards?name=${encodeURIComponent(origName)}`);
+    // Pro ZH karty: TCGdex nemá čínský namespace → hledáme v EN nebo JA
+    // Pokud máme EN název (enNameHint), použijeme ho místo čínského originálu
+    const searchLocale = isZh ? 'en' : l;
+    const searchName   = (isZh && enNameHint) ? enNameHint : origName;
+    let results = await _fetch(`${TCGDEX_BASE}/${searchLocale}/cards?name=${encodeURIComponent(searchName)}`);
 
+    // Fallback: zkus JA namespace s EN jménem (ZH karty sdílí artwork s JP originálem)
+    if (isZh && (!Array.isArray(results) || !results.length) && enNameHint) {
+      results = await _fetch(`${TCGDEX_BASE}/ja/cards?name=${encodeURIComponent(enNameHint)}`);
+    }
     if ((!Array.isArray(results) || !results.length) && searchLocale !== 'en') {
-      results = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(origName)}`);
+      results = await _fetch(`${TCGDEX_BASE}/en/cards?name=${encodeURIComponent(searchName)}`);
     }
 
     if (!Array.isArray(results) || !results.length) return null;
@@ -1266,8 +1275,8 @@ No explanation. Just the JSON array.`;
      * @param {string} set         – Set kód (např. S8F, S8, s8a) — optional hint
      * @param {string} number      – Číslo karty (např. 016, 16/100) — optional hint
      */
-    async translateViaLang(name, lang, hp = null, set = '', number = '') {
-      const r = await _tcgdexTranslate(name, lang, hp, set, number);
+    async translateViaLang(name, lang, hp = null, set = '', number = '', enName = '') {
+      const r = await _tcgdexTranslate(name, lang, hp, set, number, enName);
       if (!r) return null;
       return {
         enName:         r.enName,

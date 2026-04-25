@@ -2382,7 +2382,7 @@ async function tcgSearch(gi, autoMode = false) {
       // FIX: Předáváme ai.set a ai.number jako hinty, aby TCGdex mohl udělat
       // přímý lookup v JA namespace (pro ZH/TW/JP karty sdílí artwork s JP).
       // Bez hintů by fallback hledal jen podle jména, což pro ZH znaky často selže.
-      const t = await PkSearch.translateViaLang(ai.name, ai.lang, ai.hp, ai.set || '', ai.number || '');
+      const t = await PkSearch.translateViaLang(ai.name, ai.lang, ai.hp, ai.set || '', ai.number || '', ai.nameEN || '');
       if (t) {
         if (t.origImage)      g._origImage      = t.origImage;
         if (t.origImageSmall) g._origImageSmall = t.origImageSmall;
