@@ -2464,13 +2464,33 @@ async function tcgSearch(gi, autoMode = false) {
     });
 
     if (!cards.length) {
-      // ── FALLBACK: Komunitní cache (card_cache) + RapidAPI ─────────────
+      // ── FALLBACK A: Přímý pokemontcg.io search podle EN jména ────────
+      // Spouští se pro non-EN karty kde PkSearch selhal (špatný lang namespace).
+      // Hledá EN ekvivalent (např. "Heatmor") napříč všemi sety — bez lang filtru.
+      const enSearchName = (ai.nameEN || '').trim();
+      if (isNonEn && enSearchName && typeof PkSearch !== 'undefined' && PkSearch.searchTcgIo) {
+        try {
+          statusEl.textContent = '🔍 Hledám anglický ekvivalent…';
+          const enCards = await PkSearch.searchTcgIo(enSearchName, '', '');
+          if (enCards && enCards.length) {
+            cards = enCards;
+            statusEl.textContent = `Nalezeno ${cards.length} karet (pokemontcg.io) – vyber správnou:`;
+          }
+        } catch (_enErr) {
+          console.warn('[tcgSearch] Direct EN search selhal:', _enErr.message);
+        }
+      }
+
+      // ── FALLBACK B: Komunitní cache (card_cache) + RapidAPI ─────────────
       // Spouští se jen pro non-EN karty kde TCGdex i pokemontcg.io selhaly.
       const isNonEnFallback = ai.lang && ai.lang !== 'EN';
       if (isNonEnFallback) {
         try {
           statusEl.textContent = '🌐 Hledám v komunitní databázi…';
           const _tok = (window.getValidToken ? await window.getValidToken() : null) || token || '';
+          if (!_tok) {
+            console.warn('[tcgSearch] card-cache: chybí token, přeskakuji');
+          } else {
           const _cacheParams = new URLSearchParams({
             name:   ai.nameEN || searchName,
             set:    ai.set    || '',
@@ -2508,7 +2528,11 @@ async function tcgSearch(gi, autoMode = false) {
             };
             cards = [_cacheCard];
             statusEl.textContent = `✅ Nalezeno v komunitní databázi (${_cd._source === 'rapidapi' ? 'RapidAPI → uloženo pro všechny' : 'cache'})`;
+          } else {
+            const _errBody = await _cacheRes.json().catch(() => ({}));
+            console.warn('[tcgSearch] card-cache HTTP', _cacheRes.status, _errBody);
           }
+          } // end token guard
         } catch (_ce) {
           console.warn('[tcgSearch] card-cache fallback selhal:', _ce.message);
         }
@@ -2517,7 +2541,10 @@ async function tcgSearch(gi, autoMode = false) {
       // Pokud ani cache nic nenašla → zobraz chybu
       if (!cards.length) {
         statusEl.className = 'cg-search-status err';
-        statusEl.innerHTML = '❌ Karta nenalezena — uprav název nebo vlož odkaz ručně.';
+        const _isNonEnErr = ai.lang && ai.lang !== 'EN';
+        statusEl.innerHTML = _isNonEnErr
+          ? `❌ Karta nenalezena. Zkus: <strong>doplnit EN název</strong> (např. "Heatmor") a kliknout znovu, nebo vlož odkaz z <a href="https://www.pokemontcg.io" target="_blank" style="color:#f5c842">pokemontcg.io</a> / cardmarket ručně.`
+          : '❌ Karta nenalezena — uprav název nebo vlož odkaz ručně.';
         btn.disabled = false;
         return;
       }
