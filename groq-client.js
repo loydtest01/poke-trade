@@ -49,12 +49,12 @@
       endpoint:         'https://openrouter.ai/api/v1/chat/completions',
       validateUrl:      'https://openrouter.ai/api/v1/models',
       textModel:        'meta-llama/llama-3.3-70b-instruct:free',
-      visionModel:      'qwen/qwen2.5-vl-32b-instruct:free',  // nejlepší zdarma pro CJK
+      visionModel:      'nvidia/nemotron-nano-2-vl-12b:free',  // OCR/multi-image, CJK (duben 2026)
       visionFallbacks:  [
-        'qwen/qwen2.5-vl-7b-instruct:free',
-        'google/gemma-4-31b-it:free',                    // Gemma 4 vision (duben 2026)
-        'nvidia/nemotron-nano-2-vl-12b:free',            // NVIDIA OCR/vision
-        'mistralai/mistral-small-3.1-24b-instruct:free', // Mistral vision fallback
+        'baidu/qianfan-ocr-fast:free',                   // OCR specializovaný, výborný pro CN/JP text
+        'google/gemma-4-31b-it:free',                    // Gemma 4 vision, text+image
+        'google/gemma-4-26b-a4b-it:free',                // Gemma 4 MoE vision (duben 2026)
+        'google/gemma-3-27b-it:free',                    // Gemma 3 vision fallback
         'meta-llama/llama-3.2-11b-vision-instruct:free', // poslední záchrana
       ],
     },
