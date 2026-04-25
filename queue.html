@@ -1305,6 +1305,9 @@ async function retryAi(gi) {
     const result = JSON.parse(match[0]);
     if (result.name) result.name = cleanPokemonName(result.name);
 
+    // Pro JP/ZH/KO karty může AI vrátit prázdné name ale vyplněné nameEN → použij jako fallback
+    if (!result.name && result.nameEN) result.name = result.nameEN;
+
     if (!result.name) throw new Error('AI nenašla název karty');
 
     // Ulož nový výsledek

@@ -806,15 +806,15 @@ body::after {
   <script>
 // ── TCG Proxy Helper ─────────────────────────────────────────────
 // Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
-const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+const _SCANNER_TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
 function tcgFetch(url) {
   const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
   if (!m) return fetch(url);
   const segment = m[1]; const qs = m[2] || '';
   const idM = segment.match(/^cards\/(.+)$/);
-  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  if (idM) return fetch(_SCANNER_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
   const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
-  return fetch(_TCG_PROXY+'?'+p.toString());
+  return fetch(_SCANNER_TCG_PROXY+'?'+p.toString());
 }
 // ─────────────────────────────────────────────────────────────────
 window.TOPBAR_ACTIVE = 'scanner';</script>
