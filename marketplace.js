@@ -22,12 +22,35 @@ async function sbReq(path, method='GET', body=null, token=null) {
   };
   if (['POST','PATCH','DELETE'].includes(method) && !path.startsWith('auth/'))
     headers['Prefer'] = 'return=representation';
-  const res  = await fetch(`${SUPABASE_URL}/${path}`, {
-    method, headers, body: body ? JSON.stringify(body) : undefined
-  });
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : {};
-  if (!res.ok) return { _err: data.message || data.error || 'HTTP '+res.status };
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/${path}`, {
+      method, headers, body: body ? JSON.stringify(body) : undefined
+    });
+  } catch (netErr) {
+    return { _err: 'Síťová chyba: ' + (netErr.message || 'fetch selhal') };
+  }
+  const text = await res.text().catch(() => '');
+  let data = {};
+  if (text) {
+    try { data = JSON.parse(text); }
+    catch (parseErr) {
+      // Server vrátil ne-JSON (např. HTML chybovou stránku)
+      if (!res.ok) return { _err: 'HTTP ' + res.status + ': ' + text.slice(0, 100) };
+      return { _err: 'Neplatný JSON v odpovědi' };
+    }
+  }
+  if (!res.ok) {
+    // 401/403 = token vyčerpán/neplatný → vyčisti session
+    if (res.status === 401 || res.status === 403) {
+      // Pouze pokud uživatel přišel o session (ne když chybí klíč pro RLS na public listing)
+      if (token && data.message && /jwt|expired|invalid/i.test(data.message)) {
+        localStorage.removeItem('sb_token');
+        try { window.dispatchEvent(new CustomEvent('sb:auth-expired')); } catch(_){}
+      }
+    }
+    return { _err: data.message || data.error || 'HTTP '+res.status };
+  }
   return data;
 }
 
@@ -787,9 +810,9 @@ function togglePanel(id){
 
 // ── Actions ───────────────────────────────────────────────────
 async function doBuy(){
-  if(!token){ alert('Pro rezervaci se přihlas.'); return; }
+  if(!token){ showMktToast('🔒 Pro rezervaci se přihlas.'); return; }
   if(!currentListing) return;
-  if(userId && currentListing.user_id === userId){ alert('Nemůžeš koupit vlastní inzerát.'); return; }
+  if(userId && currentListing.user_id === userId){ showMktToast('⚠️ Nemůžeš koupit vlastní inzerát.'); return; }
   const name = currentListing.card_name || 'kartu';
   const priceStr = currentListing.price_czk ? currentListing.price_czk.toLocaleString('cs') + ' Kč' : '';
   if(!confirm(`Rezervovat ${name}${priceStr?' za '+priceStr:''}?\n\nKarta bude skryta pro ostatní. Domluv se s prodejcem na předání — pak prodejce potvrdí prodej nebo kartu znovu vystaví.`)) return;
@@ -799,7 +822,7 @@ async function doBuy(){
     reserved_by_username: username,
     reserved_at: new Date().toISOString()
   }, token);
-  if(res && res._err){ alert('Chyba rezervace: '+res._err); return; }
+  if(res && res._err){ showMktToast('❌ Chyba rezervace: '+res._err); return; }
   currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
   showMktToast('🔒 Rezervováno! Napiš prodejci a domluvte se.');
   document.getElementById('dBtnBuy').style.display = 'none';
@@ -811,11 +834,11 @@ async function doBuy(){
 }
 
 async function sendOffer(){
-  if(!token){ alert('Přihlas se pro odeslání nabídky.'); return; }
-  if(userId && currentListing?.user_id === userId){ alert('Nemůžeš si sám sobě navrhovat cenu.'); return; }
+  if(!token){ showMktToast('🔒 Přihlas se pro odeslání nabídky.'); return; }
+  if(userId && currentListing?.user_id === userId){ showMktToast('⚠️ Nemůžeš si sám sobě navrhovat cenu.'); return; }
   const price = parseInt(document.getElementById('offerPrice').value)||0;
   const msg   = document.getElementById('offerMsg').value.trim();
-  if(!price && !msg){ alert('Zadej cenu nebo zprávu.'); return; }
+  if(!price && !msg){ showMktToast('⚠️ Zadej cenu nebo zprávu.'); return; }
   const l = currentListing;
   // Rezervuj kartu
   const patch = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', {
@@ -824,7 +847,7 @@ async function sendOffer(){
     reserved_by_username: username,
     reserved_at: new Date().toISOString()
   }, token);
-  if(patch && patch._err){ alert('Chyba rezervace: '+patch._err); return; }
+  if(patch && patch._err){ showMktToast('❌ Chyba rezervace: '+patch._err); return; }
   currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
   // Ulož nabídku
   const res = await sbReq('rest/v1/offers','POST',{
@@ -837,7 +860,7 @@ async function sendOffer(){
     message: msg||null,
     status: 'pending',
   },token);
-  if(res._err){ alert('Chyba: '+res._err); return; }
+  if(res._err){ showMktToast('❌ Chyba: '+res._err); return; }
   togglePanel('offerPanel');
   document.getElementById('dBtnBuy').style.display = 'none';
   document.getElementById('dBtnTrade').style.display = 'none';
@@ -849,10 +872,10 @@ async function sendOffer(){
 }
 
 async function sendTrade(){
-  if(!token){ alert('Přihlas se pro odeslání výměny.'); return; }
-  if(userId && currentListing?.user_id === userId){ alert('Nemůžeš si sám sobě navrhovat výměnu.'); return; }
+  if(!token){ showMktToast('🔒 Přihlas se pro odeslání výměny.'); return; }
+  if(userId && currentListing?.user_id === userId){ showMktToast('⚠️ Nemůžeš si sám sobě navrhovat výměnu.'); return; }
   const selCards = myCards.filter(c=>selectedTradeIds.has(String(c.id)));
-  if(!selCards.length){ alert('Vyber alespoň jednu kartu k výměně.'); return; }
+  if(!selCards.length){ showMktToast('⚠️ Vyber alespoň jednu kartu k výměně.'); return; }
   const l=currentListing;
   // Rezervuj kartu
   const patch = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', {
@@ -861,7 +884,7 @@ async function sendTrade(){
     reserved_by_username: username,
     reserved_at: new Date().toISOString()
   }, token);
-  if(patch && patch._err){ alert('Chyba rezervace: '+patch._err); return; }
+  if(patch && patch._err){ showMktToast('❌ Chyba rezervace: '+patch._err); return; }
   currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
   // Ulož nabídku výměny
   const res = await sbReq('rest/v1/offers','POST',{
@@ -875,7 +898,7 @@ async function sendTrade(){
     message: document.getElementById('tradeMsg').value||null,
     status: 'pending',
   },token);
-  if(res._err){ alert('Chyba: '+res._err); return; }
+  if(res._err){ showMktToast('❌ Chyba: '+res._err); return; }
   togglePanel('tradePanel');
   selectedTradeIds.clear();
   document.getElementById('dBtnBuy').style.display = 'none';
@@ -2319,15 +2342,15 @@ window.addEventListener('load', function() {
 });
 
 function openChat(offerPrice, offerMsg, offerType, tradeCards) {
-  if(!token){ alert('Přihlas se pro psaní zpráv.'); return; }
+  if(!token){ showMktToast('🔒 Přihlas se pro psaní zpráv.'); return; }
   if(!currentListing) return;
   var l = currentListing;
-  if(l.user_id === userId){ alert('Nemůžeš si psát sám sobě.'); return; }
+  if(l.user_id === userId){ showMktToast('⚠️ Nemůžeš si psát sám sobě.'); return; }
   var sellerId   = l.user_id;
   var sellerName = l.username || '';
-  var url = 'chat.html?with=' + sellerId
+  var url = 'chat.html?with=' + encodeURIComponent(sellerId)
     + '&username=' + encodeURIComponent(sellerName)
-    + '&listing='  + l.id
+    + '&listing='  + encodeURIComponent(l.id)
     + '&embedded=1';
   // Pokud voláno z sendOffer/sendTrade, předej parametry pro auto-odeslání
   if (offerPrice || offerMsg || offerType || tradeCards) {

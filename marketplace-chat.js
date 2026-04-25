@@ -17,6 +17,14 @@
     catch (e) { return null; }
   })();
 
+  // Re-načti token + user ze localStorage (volá se při každém pollu).
+  // Důvod: uživatel se může v jiné záložce odhlásit/přihlásit a my musíme reagovat.
+  function reloadAuth() {
+    tk = localStorage.getItem('sb_token');
+    try { su = JSON.parse(localStorage.getItem('sb_user') || 'null'); }
+    catch (e) { su = null; }
+  }
+
   // ── Pomocná funkce: přesměruj na chat ────────────────────────────
   // Volej z tlačítka "Napsat prodejci":
   //   onclick="startMarketplaceChat('UUID-prodejce', 'username', 'UUID-listingu')"
@@ -71,7 +79,13 @@
           'Authorization': 'Bearer ' + tk
         }
       });
-      var d = await r.json();
+      // 401/403 → token vyčerpán/neplatný. Vyčisti tk; další poll donutí reloadAuth.
+      if (r.status === 401 || r.status === 403) {
+        localStorage.removeItem('sb_token');
+        tk = null;
+        return [];
+      }
+      var d = await r.json().catch(function () { return null; });
       return Array.isArray(d) ? d : [];
     } catch (e) { return []; }
   }
@@ -180,6 +194,18 @@
 
   // ── Polling ──────────────────────────────────────────────────────
   async function poll() {
+    // Re-načti token před každým pollem (uživatel se mohl přihlásit/odhlásit jinde)
+    reloadAuth();
+    if (!tk || !su || !su.id) {
+      // Uživatel se odhlásil → vyčisti badge a stop
+      var bg0 = document.getElementById('chatBadge');
+      if (bg0) bg0.style.display = 'none';
+      document.title = document.title.replace(/^\(\d+\)\s*/, '');
+      return;
+    }
+    // uid mohl být zastaralý (změna uživatele) — synchronizuj
+    uid = su.id;
+
     convs = await sbF(
       'rest/v1/conversations'
       + '?or=(user1_id.eq.' + uid + ',user2_id.eq.' + uid + ')'
