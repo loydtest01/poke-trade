@@ -3366,7 +3366,7 @@ async function loadCardRealPhotos(localId) {
     panelHtml += `
       <div class="cd-panel-photo-item" title="${label}${ts?' · '+ts:''}${sideHint}">
         <div class="cd-panel-photo-thumb" onclick="openPhotoGalleryFromRows([${batchJson}], 0)" style="position:relative">
-          <img src="${esc(frontPhoto.url)}" alt="${label}" loading="lazy">
+          <img src="${esc(bustUrl(frontPhoto.url))}" alt="${label}" loading="lazy">
           ${sideCount > 1 ? `<div style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,0.7);color:#fff;font-size:9px;border-radius:4px;padding:1px 4px;pointer-events:none">${sideCount}×</div>` : ''}
           <button class="cd-panel-del-btn" onclick="event.stopPropagation();deleteCardPhotoPanel('${frontPhoto.id}',this)" title="Smazat">✕</button>
         </div>
@@ -3966,7 +3966,7 @@ function _cdTcgZoom(url, name, idx) {
     const photos  = (allCardPhotosMap[localId] || []);
     const front   = photos.find(p => p.side === 'front') || photos[0];
     if (front?.url) {
-      myWrap.innerHTML = `<img src="${front.url}" alt="Moje fotka" style="max-width:min(42vw,280px);max-height:70vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.7);object-fit:contain">`;
+      myWrap.innerHTML = `<img src="${bustUrl(front.url)}" alt="Moje fotka" style="max-width:min(42vw,280px);max-height:70vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,.7);object-fit:contain">`;
     } else {
       myWrap.innerHTML = `<div class="cd-cmp-no-photo">📷<br><br>Žádná fotka<br>k této kartě</div>`;
     }
@@ -5522,7 +5522,7 @@ async function openPhotoPickerModal(cardIds, type) {
     return `
       <div class="pp-card-tile" id="pptile_${cardId}" data-cardid="${cardId}" onclick="ppToggleCard('${cardId}')">
         <div class="pp-front-wrap">
-          <img src="${esc(front.url)}" alt="foto" loading="lazy" onclick="event.stopPropagation();ppOpenGallery('${cardId}',[${photosJson}])" title="Klikni pro zobrazení všech fotek">
+          <img src="${esc(bustUrl(front.url))}" alt="foto" loading="lazy" onclick="event.stopPropagation();ppOpenGallery('${cardId}',[${photosJson}])" title="Klikni pro zobrazení všech fotek">
           <div class="pp-photo-cnt">${photos.length}× 📷</div>
           <div class="pp-batch-cnt">${batchCount > 1 ? batchCount + ' focení' : ''}</div>
           <div class="pp-check">✓</div>
@@ -5666,6 +5666,14 @@ async function markAsCompleted(target) {
 }
 
 /** Pomocná funkce: sestav card_data objekt pro upsert */
+
+// Cache-bust helper: přidá ?t= pro Supabase storage URL aby se zobrazila oříznutá verze
+function bustUrl(url) {
+  if (!url || !url.includes('supabase.co/storage')) return url;
+  // Odstraň starý timestamp pokud existuje
+  const base = url.replace(/[?&]t=\d+/, '').replace(/\?$/, '');
+  return base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+}
 function buildCardData(c) {
   if (!c) return {};
   return {
