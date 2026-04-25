@@ -824,6 +824,51 @@ No explanation. Just the JSON array.`;
           };
         }
       } catch (_) { /* tiše */ }
+
+      // ── KROK 1.5: TCGdex JA miss → zkus /api/jp-card proxy ─────────────
+      // jp-card.js umí mapovat ZH/JP set kódy (S8F → s8) a vracet TCGdex image
+      try {
+        const jpApiUrl = `/api/jp-card?set=${encodeURIComponent(setHint)}&num=${encodeURIComponent(numberHint)}&lang=${encodeURIComponent(lang)}&mode=data`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
+        const jpRes = await fetch(jpApiUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (jpRes.ok) {
+          const jpData = await jpRes.json();
+          if (jpData?.imageUrl) {
+            console.log(`[PkSearch] ✓ /api/jp-card hit: ${setHint}/${numberHint} → ${jpData.name}`);
+            // Zkus EN ekvivalent přes pokemontcg.io (pro data panel vpravo)
+            let enCard = null;
+            const enNameGuess = jpData.name || enNameHint;
+            if (enNameGuess) {
+              const q = _buildTcgQuery(enNameGuess, '', numberHint);
+              const enRaw = await _searchTcgIo(q, 8);
+              if (enRaw.length) {
+                enCard = enRaw[0]; // raw pokemontcg.io objekt
+                // Normalizuj pro _normalizeTcgdex-compatible výstup
+                enCard = {
+                  name: enCard.name,
+                  hp:   enCard.hp,
+                  image: (enCard.images?.large || '').replace(/\.png$/, ''),
+                  set:   { id: enCard.set?.id, name: enCard.set?.name },
+                  localId: enCard.number,
+                  rarity: enCard.rarity,
+                  types:  enCard.types,
+                  illustrator: enCard.artist,
+                  dexId: [],
+                };
+              }
+            }
+            return {
+              enName:         enCard?.name || jpData.name || enNameHint,
+              enCard:         enCard || null,
+              origImage:      jpData.imageUrl,
+              origImageSmall: jpData.imageUrlSmall || jpData.imageUrl,
+            };
+          }
+        }
+      } catch (_) { /* tiše — pokračuj na KROK 2 */ }
+
       // miss → pokračuj na KROK 2
     }
 
@@ -858,9 +903,26 @@ No explanation. Just the JSON array.`;
     const enCard = await _fetch(`${TCGDEX_BASE}/en/cards/${cardId}`);
     if (!enCard?.name) return null;
 
-    const origCard = (l !== 'en' && !isZh)
-      ? await _fetch(`${TCGDEX_BASE}/${l}/cards/${cardId}`)
-      : null;
+    let origCard = null;
+    if (l !== 'en' && !isZh) {
+      origCard = await _fetch(`${TCGDEX_BASE}/${l}/cards/${cardId}`);
+    } else if (isZh && setHint && numberHint) {
+      // ZH karty: zkus /api/jp-card jako záchrana pro JP artwork
+      try {
+        const jpApiUrl = `/api/jp-card?set=${encodeURIComponent(setHint)}&num=${encodeURIComponent(numberHint)}&lang=${encodeURIComponent(lang)}&mode=data`;
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
+        const jpRes = await fetch(jpApiUrl, { signal: ctrl.signal });
+        clearTimeout(timer);
+        if (jpRes.ok) {
+          const jpData = await jpRes.json();
+          if (jpData?.imageUrl) {
+            // Sestav fake-origCard objekt s image base (bez /high.webp)
+            origCard = { image: jpData.imageUrl.replace(/\/high\.webp$/, '') };
+          }
+        }
+      } catch (_) { /* tiše */ }
+    }
 
     return {
       enName:         enCard.name,
