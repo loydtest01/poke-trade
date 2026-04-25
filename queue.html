@@ -647,12 +647,15 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     const res = await _origFetch.apply(this, arguments);
     if (!res.ok) {
       const isTcgdex    = url.includes('tcgdex.net');
+      const isJpProxy   = url.includes('/api/jp-card');  // náš proxy přes Vercel
       const isOpenRouter = url.includes('openrouter.ai');
       const isGroqApi   = url.includes('api.groq.com');
-      if (isTcgdex && res.status === 404) {
-        console.warn(`[TCGdex] Karta nenalezena (404): ${url.split('?')[0]}`);
+      if ((isTcgdex || isJpProxy) && res.status === 404) {
+        // Karta není v TCGdex (typicky tchajwanské/exotické sety) — to je očekávané
+        // a aplikace má EN fallback. Logujeme jako warning, ne error.
+        console.warn(`[TCGdex/jp-card] Karta nenalezena (404): ${url.split('?')[0].split('/').slice(-3).join('/')}`);
         // Vrať prázdný JSON aby volající kód nespadl
-        return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response('{"_empty":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if ((isOpenRouter || isGroqApi) && res.status === 400) {
         // Klonuj odpověď – jinak ji nelze přečíst dvakrát

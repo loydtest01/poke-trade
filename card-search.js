@@ -691,7 +691,38 @@ No explanation. Just the JSON array.`;
 
   // ─── Nízkoúrovňový fetch ─────────────────────────────────────────────────────
 
+  // Negativní cache pro 404 — TCGdex pro neexistující karty (např. tchajwanské sety)
+  // Bez ní aplikace dělá 11+ requestů na tu samou neexistující kartu při každém renderu.
+  // sessionStorage = zapomene se po zavření tabu (vhodné pro přechodné chyby).
+  const _NEG_CACHE_KEY = 'pkc_neg_cache_v1';
+  const _NEG_CACHE_TTL = 30 * 60 * 1000; // 30 minut
+  function _getNegCache() {
+    try { return JSON.parse(sessionStorage.getItem(_NEG_CACHE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function _setNegCache(url) {
+    try {
+      const c = _getNegCache();
+      c[url] = Date.now();
+      // Prořez staré záznamy aby cache nerostla donekonečna
+      const now = Date.now();
+      Object.keys(c).forEach(k => { if (now - c[k] > _NEG_CACHE_TTL) delete c[k]; });
+      sessionStorage.setItem(_NEG_CACHE_KEY, JSON.stringify(c));
+    } catch {}
+  }
+  function _isNegCached(url) {
+    const c = _getNegCache();
+    const ts = c[url];
+    if (!ts) return false;
+    if (Date.now() - ts > _NEG_CACHE_TTL) return false;
+    return true;
+  }
+
   async function _fetch(url, retries = 2) {
+    // Negativní cache: pokud URL nedávno vrátila 404, neopakovat
+    if (_isNegCached(url)) {
+      return null;
+    }
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         const ctrl = new AbortController();
@@ -702,6 +733,11 @@ No explanation. Just the JSON array.`;
           const wait = 800 * Math.pow(2, attempt);
           await new Promise(res => setTimeout(res, wait));
           continue;
+        }
+        if (r.status === 404) {
+          // Karta v TCGdex neexistuje (typicky exotické sety) — zapamatuj
+          _setNegCache(url);
+          return null;
         }
         if (!r.ok) return null;
         return await r.json();
