@@ -1709,7 +1709,7 @@ body { background: #06040c; overflow-x: hidden; }
     <!-- Toolbar -->
     <div class="toolbar">
       <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="render()">
+        <input type="text" id="searchInput" placeholder="Hledat kartu, sérii, číslo…" oninput="debouncedSearch()">
       </div>
       <button class="sel-action-btn sel-confirm" onclick="startSelectMode()" id="bulkSelectBtn" style="padding:7px 14px;border-radius:8px;font-size:12px">☑️ Vybrat víc</button>
       <select id="sortSelect" onchange="setSort(this.value)"
@@ -2748,6 +2748,18 @@ function saveAlbumsLocal() {
 // ══════════════════════════════════════════════════════════════════
 //  RENDER
 // ══════════════════════════════════════════════════════════════════
+// Debounced search — počká 200ms po posledním keystroku než pustí render().
+// Bez toho každý znak v searchu spouští re-render všech karet (na 500+ kartách
+// to viditelně zasekne UI).
+let _searchDebounceId = null;
+function debouncedSearch() {
+  if (_searchDebounceId) clearTimeout(_searchDebounceId);
+  _searchDebounceId = setTimeout(function() {
+    _searchDebounceId = null;
+    render();
+  }, 200);
+}
+
 function render() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
   // Reset stránky při změně filtru/hledání
@@ -4377,7 +4389,33 @@ async function deleteCdCard() {
 }
 
 function saveLocal() {
-  try { localStorage.setItem('pkc_cards', JSON.stringify(allCards)); } catch {}
+  // localStorage má cca 5 MB limit. Pokud má uživatel stovky karet s base64 obrázky,
+  // může to překročit. Při QuotaExceeded se pokusíme uložit jen základní data (bez velkých
+  // obrázků v JSON), abychom alespoň něco zachovali.
+  try {
+    localStorage.setItem('pkc_cards', JSON.stringify(allCards));
+  } catch (e) {
+    if (e && (e.name === 'QuotaExceededError' || e.code === 22)) {
+      console.warn('[saveLocal] localStorage plný, ukládám jen metadata bez obrázků');
+      try {
+        // Ulož kopii bez velkých inline polí (apiSmall/apiLarge mohou být base64)
+        const trimmed = allCards.map(c => {
+          const t = { ...c };
+          if (t.apiLarge && t.apiLarge.length > 5000) t.apiLarge = '';
+          if (t.apiSmall && t.apiSmall.length > 5000) t.apiSmall = '';
+          if (t.imageUrl && t.imageUrl.startsWith('data:') && t.imageUrl.length > 5000) t.imageUrl = '';
+          return t;
+        });
+        localStorage.setItem('pkc_cards', JSON.stringify(trimmed));
+      } catch (e2) {
+        // Stále se to nevejde — vyhoď data úplně ať localStorage neselže permanentně
+        console.error('[saveLocal] Nelze uložit ani trimmed verze, mažu cache');
+        try { localStorage.removeItem('pkc_cards'); } catch {}
+      }
+    } else {
+      console.warn('[saveLocal]', e);
+    }
+  }
 }
 
 async function syncCardToServer(c) {
@@ -6425,14 +6463,25 @@ async function doSync() {
   renderFlatFilterBtns();
 }
 
+// Globální handle k aktuálnímu auto-sync intervalu — abychom mohli starý zrušit
+// při změně režimu nebo opětovném volání autoSync().
+let _autoSyncIntervalId = null;
+
 function autoSync() {
+  // Vždy nejdřív zruš předchozí interval — jinak se hromadí (memory leak + duplicitní volání).
+  if (_autoSyncIntervalId) {
+    clearInterval(_autoSyncIntervalId);
+    _autoSyncIntervalId = null;
+  }
   const mode = localStorage.getItem(SYNC_MODE_KEY) || 'hourly';
-  if (mode === 'hourly')   setInterval(doSync, 60 * 60 * 1000);
-  if (mode === 'realtime') setInterval(doSync, 30_000);
+  if (mode === 'hourly')   _autoSyncIntervalId = setInterval(doSync, 60 * 60 * 1000);
+  if (mode === 'realtime') _autoSyncIntervalId = setInterval(doSync, 30_000);
 }
 
 function changeSyncMode(mode) {
   localStorage.setItem(SYNC_MODE_KEY, mode);
+  // Restart auto-sync s novým režimem (jinak by se efekt projevil až po reloadu)
+  autoSync();
 }
 
 function updateStats() {
@@ -8538,9 +8587,30 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
   if(!tk||!su||!su.id)return;
   var uid=su.id,convs=[],prevUn=0,dropO=false;
+  var pollIntervalId = null;  // pro clearInterval při potřebě (logout, page hide)
+
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
   function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
   var authFailed = false;
+
+  // Re-načti přihlášení ze localStorage; vrací true pokud jsme stále přihlášeni
+  function reloadAuth(){
+    var newTk = localStorage.getItem('sb_token');
+    var newSu = null;
+    try { newSu = JSON.parse(localStorage.getItem('sb_user')||'null'); } catch(e) {}
+    tk = newTk; su = newSu;
+    if (su && su.id) uid = su.id;
+    return !!(tk && su && su.id);
+  }
+
+  // Zastavit polling — volá se při ztrátě session
+  function stopPolling(){
+    if (pollIntervalId) { clearInterval(pollIntervalId); pollIntervalId = null; }
+    var bg = document.getElementById('chatBadge');
+    if (bg) bg.style.display = 'none';
+    document.title = document.title.replace(/^\(\d+\)\s*/, '');
+  }
+
   async function sbF(p){
     if(authFailed)return[];
     // Vždy čti aktuální token (mohl být obnoven v hlavním sbReq)
@@ -8554,13 +8624,13 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           if(ok){
             curTk=localStorage.getItem('sb_token')||curTk;
             var r2=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+curTk}});
-            if(r2.status===401){authFailed=true;return[];}
-            var d2=await r2.json();return Array.isArray(d2)?d2:[];
+            if(r2.status===401){authFailed=true;stopPolling();return[];}
+            var d2=await r2.json().catch(function(){return null;});return Array.isArray(d2)?d2:[];
           }
         }
-        authFailed=true;return[];
+        authFailed=true;stopPolling();return[];
       }
-      var d=await r.json();return Array.isArray(d)?d:[]
+      var d=await r.json().catch(function(){return null;});return Array.isArray(d)?d:[]
     }catch(e){return[]}
   }
   window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
@@ -8573,7 +8643,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
       var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
       var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
       var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
-      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+encodeURIComponent(c.id)+'">'
         +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
         +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
         +'<div class="cdrop-msg">'+esc(msg)+'</div>'
@@ -8590,6 +8660,8 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
   window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
   function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
   async function poll(){
+    // Re-načti auth před každým pollem (ošetří login/logout v jiné záložce)
+    if (!reloadAuth()) { stopPolling(); return; }
     convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
     var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
     var bg=document.getElementById('chatBadge');
@@ -8602,7 +8674,8 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     if(dropO)renderDrop();
     if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
   }
-  poll();setInterval(poll,POLL);
+  poll();
+  pollIntervalId = setInterval(poll, POLL);
   document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
 })();
 </script>
@@ -8960,7 +9033,7 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       }
 
     } catch (e) {
-      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba AI analýzy: ${e.message}</span>`;
+      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba AI analýzy: ${esc(e.message)}</span>`;
     }
 
     btn.textContent = '🤖 AI analýza stavu';
@@ -9060,7 +9133,7 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
       }
 
     } catch (e) {
-      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba detekce: ${e.message}</span>`;
+      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba detekce: ${esc(e.message)}</span>`;
     }
 
     btn.textContent = '🔍 Detekce falzum';
@@ -9141,7 +9214,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       } catch (_) {}
 
       if (!identified || identified.error) {
-        resultEl.innerHTML = `<span style="color:#f87171">⚠️ AI kartu nerozpoznala: ${identified?.error || 'nečitelná fotka'}. Zkus jiný úhel nebo ostřejší záběr.</span>`;
+        resultEl.innerHTML = `<span style="color:#f87171">⚠️ AI kartu nerozpoznala: ${esc(identified?.error || 'nečitelná fotka')}. Zkus jiný úhel nebo ostřejší záběr.</span>`;
         btn.textContent = '🔎 AI Rozpoznání'; btn.disabled = false; return;
       }
 
@@ -9189,7 +9262,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
         </div>`;
 
     } catch (e) {
-      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba rozpoznání: ${e.message}</span>`;
+      resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba rozpoznání: ${esc(e.message)}</span>`;
     }
 
     btn.textContent = '🔎 AI Rozpoznání';
@@ -9964,20 +10037,33 @@ function openCardEdit() {
 function ceUpdateImgPreview() {
   const url = document.getElementById('ceApiSmall').value.trim();
   const wrap = document.getElementById('ceImgPreview');
+  if (!wrap) return;
+  // Bezpečné: vytvoříme img element pomocí DOM API místo innerHTML.
+  // User vstup do URL pole by mohl injektovat atributy (XSS).
+  wrap.textContent = '';
   if (url) {
-    wrap.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block" onerror="this.parentElement.innerHTML='❌'">`;
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block';
+    img.onerror = function() { this.parentElement.textContent = '❌'; };
+    wrap.appendChild(img);
   } else {
-    wrap.innerHTML = '🃏';
+    wrap.textContent = '🃏';
   }
 }
 
 function ceUpdateImgPreviewFromCard(c) {
   const url = c.apiSmall || c.images?.small || c.imageUrl || '';
   const wrap = document.getElementById('ceImgPreview');
+  if (!wrap) return;
+  wrap.textContent = '';
   if (url) {
-    wrap.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain;display:block">`;
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block';
+    wrap.appendChild(img);
   } else {
-    wrap.innerHTML = '🃏';
+    wrap.textContent = '🃏';
   }
 }
 
