@@ -2822,7 +2822,14 @@ function render() {
   if (!isReadOnly) {
     const _dupCheck = new Map();
     for (const c of filtered) {
-      const k = [(c.name||'').toLowerCase().trim(), (c.set||'').toLowerCase().trim(), (c.number||c.num||'').toString().toLowerCase().trim()].join('|');
+      // Klíč zahrnuje JAZYK — EN a JP varianta stejné karty zůstanou oddělené.
+      // Sloučíme pouze fyzicky duplicitní kartičky (stejná země vydání).
+      const k = [
+        (c.name||'').toLowerCase().trim(),
+        (c.set||'').toLowerCase().trim(),
+        (c.number||c.num||'').toString().toLowerCase().trim(),
+        (c.lang||'').toLowerCase().trim() || 'en',  // default EN když chybí
+      ].join('|');
       if (!_dupCheck.has(k)) _dupCheck.set(k, []);
       _dupCheck.get(k).push(c);
     }
@@ -3141,13 +3148,26 @@ function openCardDetail(c) {
   const cardHp  = c.hp || '—';
   const L = currentLang === 'en';
   const qty = c.count || c.qty || 1;
+
+  // Breakdown stavů – pokud má karta víc kusů s různými stavy, zobraz rozpis.
+  // Např. { NM: 1, LP: 2 } → "LP 2× · NM 1×" (řazené od nejhoršího)
+  let condDisplay = cond;
+  if (c.conditions && typeof c.conditions === 'object') {
+    const condKeys = Object.keys(c.conditions).filter(k => c.conditions[k] > 0);
+    if (condKeys.length > 1) {
+      const order = ['D', 'HP', 'MP', 'LP', 'NM'];
+      const sorted = condKeys.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      condDisplay = sorted.map(k => `${k} ${c.conditions[k]}×`).join(' · ');
+    }
+  }
+
   const rows = [
     [L?'HP':'HP',          cardHp],
     [L?'Number':'Číslo',   cardNum],
     [L?'Type':'Typ',       c.types?.join(', ') || c.type || '—'],
     [L?'Supertype':'Supertyp', c.supertype || c.subtypesStr || c.category || '—'],
     [L?'Set':'Série',      c.set || '—'],
-    [L?'Condition':'Stav', cond],
+    [L?'Condition':'Stav', condDisplay],
     [L?'Rarity':'Vzácnost',c.rarity || c.rarityCz || '—'],
     [L?'Note':'Poznámka',  c.note || '—', true],
   ];
@@ -5646,10 +5666,12 @@ function showMergeDupConfirm() {
 
   const groups = new Map();
   for (const c of albumCards) {
+    // Klíč zahrnuje JAZYK — EN a JP varianta stejné karty se NEslučují.
     const key = [
       (c.name   || '').toLowerCase().trim(),
       (c.set    || '').toLowerCase().trim(),
       (c.number || c.num || '').toString().toLowerCase().trim(),
+      (c.lang   || '').toLowerCase().trim() || 'en',  // default EN
     ].join('|');
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(c);
@@ -5830,10 +5852,31 @@ async function executeMergeDuplicates() {
       const totalCount = group.reduce((s, c) => s + (c.count || c.qty || 1), 0);
       primary.count = totalCount;
       primary.qty   = totalCount;
+
+      // 2. Sloučit breakdown stavů (conditions) ze všech karet ve skupině
+      const mergedConditions = {};
+      for (const c of group) {
+        if (c.conditions && typeof c.conditions === 'object') {
+          for (const [cond, n] of Object.entries(c.conditions)) {
+            mergedConditions[cond] = (mergedConditions[cond] || 0) + (n || 0);
+          }
+        } else if (c.condition) {
+          // Karta bez breakdownu – použij její condition jako fallback
+          mergedConditions[c.condition] = (mergedConditions[c.condition] || 0) + (c.count || c.qty || 1);
+        }
+      }
+      primary.conditions = mergedConditions;
+
+      // 3. Dominantní condition = nejhorší (D > HP > MP > LP > NM)
+      const condOrder = ['D', 'HP', 'MP', 'LP', 'NM'];
+      for (const c of condOrder) {
+        if (mergedConditions[c]) { primary.condition = c; break; }
+      }
+
       primary.updated_at = new Date().toISOString();
       await saveCardUpdates(primary);
 
-      // 2. Přenés fotky z duplicit na primární kartu
+      // 4. Přenés fotky z duplicit na primární kartu
       for (const dup of duplicates) {
         const dupId = String(dup.id || dup.local_id || '');
         if (!dupId) continue;

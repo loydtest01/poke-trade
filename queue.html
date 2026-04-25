@@ -1738,6 +1738,7 @@ async function doAssign(groups, albumId) {
       const cardName   = rc?.name   || ai.name   || '';
       const cardSet    = rc?.set    || ai.set    || '';
       const cardNumber = ai.number  || rc?.number || '';
+      const cardLang   = ai.lang    || 'EN';  // jazyk varianty (EN/JP/CN/...)
       let existingId = null;
       let dupCardData = null;  // card_data existující karty při duplikátu
       if (cardName) {
@@ -1751,9 +1752,11 @@ async function doAssign(groups, albumId) {
         const dup = Array.isArray(dedupCandidates) && dedupCandidates.find(r => {
           const d = r.card_data || {};
           // Porovnání case-insensitive a s ořezem mezer — řeší "Pikachu " vs "pikachu"
+          // ZAHRNUJE I JAZYK — EN a JP varianta se NEslučují, jen 2× stejná EN karta ano.
           return norm(d.name) === norm(cardName)
             && norm(d.set)  === norm(cardSet)
-            && normNum(d.number) === normNum(cardNumber);
+            && normNum(d.number) === normNum(cardNumber)
+            && norm(d.lang || 'EN') === norm(cardLang);
         });
         if (dup) {
           existingId = dup.local_id;
@@ -1761,10 +1764,39 @@ async function doAssign(groups, albumId) {
           // Navýšit count existující karty
           const od = dupCardData;
           const newCount = (od.count || od.qty || 1) + qty;
+
+          // ── Breakdown stavů: ukládáme rozpis kolik kusů má jaký stav ──
+          //   např. conditions: { NM: 1, LP: 2 }
+          //   - Pokud karta dosud breakdown nemá, vytvoříme z původního condition
+          //   - Přidáme nový kus(y) do breakdownu pro nový stav
+          const newCondition  = g.condition || ai.condition || 'NM';
+          const conditions    = { ...(od.conditions || {}) };
+          // Migrace ze starého formátu (jen 'condition' string)
+          if (!Object.keys(conditions).length && od.condition) {
+            conditions[od.condition] = (od.count || od.qty || 1);
+          }
+          conditions[newCondition] = (conditions[newCondition] || 0) + qty;
+
+          // Dominantní stav = nejhorší (NM > LP > MP > HP > D, takže "horší" se zobrazuje)
+          const condOrder = ['D', 'HP', 'MP', 'LP', 'NM'];  // D je nejhorší
+          let dominantCond = od.condition || 'NM';
+          for (const c of condOrder) {
+            if (conditions[c]) { dominantCond = c; break; }  // první nalezený nejhorší
+          }
+
           await sbReq(
             `rest/v1/user_cards?local_id=eq.${existingId}&user_id=eq.${userId}`,
             'PATCH',
-            { card_data: { ...od, count: newCount, qty: newCount }, updated_at: new Date().toISOString() }
+            {
+              card_data: {
+                ...od,
+                count:      newCount,
+                qty:        newCount,
+                condition:  dominantCond,   // nejhorší stav jako "hlavní"
+                conditions: conditions,     // breakdown pro detail
+              },
+              updated_at: new Date().toISOString(),
+            }
           ).catch(e => console.warn('[queue dedup PATCH]', e));
         }
       }
@@ -1803,7 +1835,10 @@ async function doAssign(groups, albumId) {
           cardmarketUrl:  rc?.cardmarketUrl || '',
           setCode:        rc?.setCode || '',
           pricesFetchedAt: rc?.pricesFetchedAt || null,
-          count: qty, qty, tags: [], for_trade: false, for_sell: false,
+          count: qty, qty,
+          // Breakdown stavů – pro budoucí slučování s různými conditions:
+          conditions: { [g.condition || ai.condition || 'NM']: qty },
+          tags: [], for_trade: false, for_sell: false,
           backCondition: g.backAi?.condition || null,
           backIssues:    g.backAi?.issues    || [],
         },
