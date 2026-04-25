@@ -38,8 +38,11 @@
       name:         'Cerebras',
       endpoint:     'https://api.cerebras.ai/v1/chat/completions',
       validateUrl:  'https://api.cerebras.ai/v1/models',
-      textModel:    'llama-3.3-70b',
-      visionModel:  'llama-4-scout-17b-16e-instruct',
+      // Aktuální modely Cerebras public API (duben 2026):
+      // Production: llama3.1-8b, gpt-oss-120b
+      // llama-3.3-70b a llama-4-scout-17b-16e-instruct na shared API NEEXISTUJÍ → 404
+      textModel:    'gpt-oss-120b',
+      visionModel:  null,  // Cerebras nepodporuje vision/multimodal
     },
     openrouter: {
       name:             'OpenRouter',
@@ -48,8 +51,11 @@
       textModel:        'meta-llama/llama-3.3-70b-instruct:free',
       visionModel:      'qwen/qwen2.5-vl-32b-instruct:free',  // nejlepší zdarma pro CJK
       visionFallbacks:  [
-        'qwen/qwen2.5-vl-7b-instruct:free',       // menší Qwen, pořád dobrý na CJK
-        'meta-llama/llama-3.2-11b-vision-instruct:free',  // poslední záchrana, ne-CJK
+        'qwen/qwen2.5-vl-7b-instruct:free',
+        'google/gemma-4-31b-it:free',                    // Gemma 4 vision (duben 2026)
+        'nvidia/nemotron-nano-2-vl-12b:free',            // NVIDIA OCR/vision
+        'mistralai/mistral-small-3.1-24b-instruct:free', // Mistral vision fallback
+        'meta-llama/llama-3.2-11b-vision-instruct:free', // poslední záchrana
       ],
     },
     deepseek: {
@@ -279,6 +285,12 @@
       const provider = PROVIDERS[providerName];
       const keys     = _state.keys[providerName];
       if (!provider || !keys || !keys.length) continue;
+
+      // Přeskoč providera pokud nepodporuje vision (visionModel === null)
+      if (isVision && !options.model && provider.visionModel === null) {
+        console.log(`[AI] ${provider.name} nepodporuje vision – přeskočen`);
+        continue;
+      }
 
       // Vyber model: options.model má přednost, jinak vision/text default
       const primaryModel = options.model
