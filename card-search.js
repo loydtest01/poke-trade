@@ -1178,6 +1178,72 @@ No explanation. Just the JSON array.`;
           const tcgCards = await _searchTcgIo(`name:${firstWord}*`, pageSize);
           cards = _dedup([...cards, ...tcgCards.map(_normalizeTcgIo).filter(Boolean)]);
         }
+
+        // A6: Komunitní cache (card-cache) + RapidAPI fallback ───────────────
+        // Pro non-EN karty kde TCGdex i pokemontcg.io selhaly nebo vrátily málo.
+        // Cache je sdílená mezi všemi uživateli (každý profit ze stažení prvním).
+        // Rate limit 99/den se hlídá serverside (api/card-cache.js → SQL RPC).
+        if (!cards.length && src.cardCache !== false) {
+          const _tok = (typeof window !== 'undefined' && window.getValidToken)
+            ? await window.getValidToken().catch(() => null)
+            : (typeof localStorage !== 'undefined' ? localStorage.getItem('sb_token') : null);
+          if (_tok) {
+            try {
+              status('🌐 Hledám v komunitní databázi…');
+              const _params = new URLSearchParams({
+                name:   enName || name,
+                set:    set    || '',
+                number: number || '',
+                lang:   lang   || 'JP',
+                token:  _tok,
+              });
+              const _r = await fetch(`/api/card-cache?${_params}`);
+              if (_r.ok) {
+                const _cd = await _r.json();
+                if (_cd && !_cd.error) {
+                  const _cacheCard = {
+                    _source:       'card-cache',
+                    apiId:         `cache-${_cd.cache_key}`,
+                    name:          _cd.name_en || _cd.name || enName || name,
+                    nameOrig:      _cd.name,
+                    set:           _cd.set_name || _cd.set_code || set || '',
+                    setCode:       _cd.set_code || '',
+                    number:        _cd.card_number || number || '',
+                    imageUrl:      _cd.image_url || '',
+                    apiSmall:      _cd.image_url || '',
+                    apiLarge:      _cd.image_url || '',
+                    hp:            hp || '',
+                    types:         types || [],
+                    rarity:        '',
+                    supertype:     'Pokémon',
+                    sourceUrl:     _cd.cardmarket_url || '',
+                    cardmarketUrl: _cd.cardmarket_url || '',
+                    pTrend:        _cd.price_trend || 0,
+                    pMin:          _cd.price_min   || 0,
+                    p30d:          _cd.price_30d   || 0,
+                    lang:          _cd.lang || lang,
+                    _fromCache:    true,
+                    _cacheSource:  _cd._source || 'rapidapi',
+                  };
+                  cards = [_cacheCard];
+                  const _src = _cd._source === 'rapidapi'
+                    ? 'RapidAPI → uloženo do komunitní DB'
+                    : (_cd._source === 'cache_stale_rate_limited'
+                      ? 'cache (limit RapidAPI dosažen)'
+                      : 'komunitní cache');
+                  console.log(`[PkSearch] ✓ card-cache hit (${_src}): ${_cacheCard.name}`);
+                  status(`✅ Nalezeno (${_src})`);
+                }
+              } else if (_r.status === 429) {
+                console.warn('[PkSearch] card-cache: denní limit RapidAPI dosažen');
+              } else if (_r.status !== 404) {
+                console.warn('[PkSearch] card-cache HTTP', _r.status);
+              }
+            } catch (e) {
+              console.warn('[PkSearch] card-cache fallback selhal:', e.message);
+            }
+          }
+        }
       }
 
       // ── VĚTEV B: anglická karta ─────────────────────────────────────────
@@ -1289,6 +1355,65 @@ No explanation. Just the JSON array.`;
     async scoreByImage(photoUrl, candidates, groqProxy = '/api/groq', groqKey = '', onStatus = null) {
       if (!this.config.isEnabled('imageSearch')) return candidates;
       return await _scoreByImage(photoUrl, candidates, { groqProxy, groqKey, onStatus });
+    },
+
+    /**
+     * Vyhledává jen v komunitní cache + RapidAPI (pro non-EN karty).
+     * Použij když víš že karta není v pokemontcg.io ani TCGdex (např.
+     * marketplace.js při zobrazení JP karty s nahranou fotkou).
+     *
+     * @param {string} name    Název karty (EN nebo originální)
+     * @param {object} opts    set, number, lang
+     * @returns {Promise<Object|null>} Unified card nebo null
+     */
+    async searchCardCache(name, opts = {}) {
+      const { set = '', number = '', lang = 'JP' } = opts;
+      const tok = (typeof window !== 'undefined' && window.getValidToken)
+        ? await window.getValidToken().catch(() => null)
+        : (typeof localStorage !== 'undefined' ? localStorage.getItem('sb_token') : null);
+      if (!tok) {
+        console.warn('[PkSearch.searchCardCache] chybí token');
+        return null;
+      }
+      try {
+        const params = new URLSearchParams({
+          name:   name || '',
+          set:    set,
+          number: number,
+          lang:   lang,
+          token:  tok,
+        });
+        const r = await fetch(`/api/card-cache?${params}`);
+        if (!r.ok) {
+          if (r.status === 429) console.warn('[PkSearch.searchCardCache] denní limit RapidAPI dosažen');
+          return null;
+        }
+        const cd = await r.json();
+        if (!cd || cd.error) return null;
+        return {
+          _source:       'card-cache',
+          apiId:         `cache-${cd.cache_key}`,
+          name:          cd.name_en || cd.name || name,
+          nameOrig:      cd.name,
+          set:           cd.set_name || cd.set_code || set,
+          setCode:       cd.set_code || '',
+          number:        cd.card_number || number,
+          imageUrl:      cd.image_url || '',
+          apiSmall:      cd.image_url || '',
+          apiLarge:      cd.image_url || '',
+          sourceUrl:     cd.cardmarket_url || '',
+          cardmarketUrl: cd.cardmarket_url || '',
+          pTrend:        cd.price_trend || 0,
+          pMin:          cd.price_min   || 0,
+          p30d:          cd.price_30d   || 0,
+          lang:          cd.lang || lang,
+          _fromCache:    true,
+          _cacheSource:  cd._source || 'rapidapi',
+        };
+      } catch (e) {
+        console.warn('[PkSearch.searchCardCache] chyba:', e.message);
+        return null;
+      }
     },
 
     /**
