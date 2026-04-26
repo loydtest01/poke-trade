@@ -23,8 +23,15 @@ const SB_ANON = process.env.SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVC
 
 // AI facts ENV (sloučeno do card-cache.js kvůli Vercel limitu 12 funkcí)
 const SB_SVC      = process.env.SUPABASE_SERVICE_KEY; // pro INSERT bypass RLS na ai_facts
-const GROQ_KEY    = process.env.GROQ_API_KEY;
+const GROQ_KEY    = process.env.GROQ_API_KEY;          // může obsahovat více klíčů oddělených čárkou
 const CRON_SECRET = process.env.CRON_SECRET || 'dev-secret-change-me';
+
+// Parser pro vícenásobné Groq klíče oddělené čárkou (kompatibilní s tvým ENV
+// pattern přes všechny tvé endpointy: groq.js, groq-key.js, translate-jp.js)
+function _parseGroqKeys(raw) {
+  if (!raw) return [];
+  return String(raw).split(',').map(k => k.trim()).filter(k => k.length > 10);
+}
 
 // RapidAPI: CardMarket API TCG (by TCG API / TCGGO)
 // Odkaz: https://rapidapi.com/tcggopro/api/cardmarket-api-tcg
@@ -427,11 +434,12 @@ export default async function handler(req, res) {
 
 // Hlavní generační flow (volá ho ?action=facts-generate s Bearer CRON_SECRET)
 async function runFactsGenerate(res) {
-  if (!GROQ_KEY) return res.status(500).json({ error: 'GROQ_API_KEY není nastaveno' });
-  if (!SB_SVC)   return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY není nastaveno' });
+  const keys = _parseGroqKeys(GROQ_KEY);
+  if (!keys.length) return res.status(500).json({ error: 'GROQ_API_KEY není nastaveno (ani 1 platný klíč)' });
+  if (!SB_SVC)      return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY není nastaveno' });
 
   try {
-    const newFacts = await generateFactsViaAI();
+    const newFacts = await generateFactsViaAI(keys);
     if (!newFacts || !newFacts.length) {
       return res.status(500).json({ error: 'AI nevrátila validní fakty' });
     }
@@ -450,6 +458,7 @@ async function runFactsGenerate(res) {
       inserted:       inserted.length,
       skipped:        skipped.length,
       insertedTitles: inserted,
+      keysAvailable:  keys.length,
     });
   } catch (e) {
     console.error('[facts-generate] error:', e);
@@ -458,7 +467,8 @@ async function runFactsGenerate(res) {
 }
 
 // Volá Groq Llama 3.3 70B → 5 unikátních faktů (mix kind: fact/tip)
-async function generateFactsViaAI() {
+// Pokud první klíč selže (401/429), zkusí další ze seznamu.
+async function generateFactsViaAI(keys) {
   const prompt = `Jsi expert na Pokémon TCG svět a UX writer pro web PokéTrade (česká aplikace pro správu sběratelských karet).
 
 Vygeneruj 5 unikátních krátkých příspěvků pro rotující "Profesor Oak" box na hlavní stránce.
@@ -478,26 +488,54 @@ VRAŤ POUZE JSON pole, žádný markdown ani komentář:
   {"kind":"tip","emoji":"📸","title":"Krátký název","body":"Tělo věty 1-2."}
 ]`;
 
-  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${GROQ_KEY}`,
-    },
-    body: JSON.stringify({
-      model:       'llama-3.3-70b-versatile',
-      messages:    [{ role: 'user', content: prompt }],
-      temperature: 0.9,
-      max_tokens:  1500,
-    }),
-  });
+  let lastError = null;
+  // Zkus každý klíč postupně. První úspěšný vyhrává.
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    try {
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          model:       'llama-3.3-70b-versatile',
+          messages:    [{ role: 'user', content: prompt }],
+          temperature: 0.9,
+          max_tokens:  1500,
+        }),
+      });
 
-  if (!r.ok) {
-    const errText = await r.text().catch(() => '');
-    throw new Error(`Groq HTTP ${r.status}: ${errText.slice(0, 200)}`);
+      if (r.status === 401 || r.status === 429) {
+        // Tento klíč nefunguje (neplatný / rate-limited) — zkus další
+        const t = await r.text().catch(() => '');
+        lastError = `Klíč #${i+1}: HTTP ${r.status}: ${t.slice(0, 100)}`;
+        console.warn(`[card-cache facts] ${lastError}, zkouším další klíč...`);
+        continue;
+      }
+      if (!r.ok) {
+        // Jiná chyba (5xx, 400 bad request) — neobcházej, hned vyvol
+        const errText = await r.text().catch(() => '');
+        throw new Error(`Groq HTTP ${r.status}: ${errText.slice(0, 200)}`);
+      }
+
+      // Úspěšná odpověď — zpracuj a vrať
+      console.log(`[card-cache facts] ✓ použit klíč #${i+1}/${keys.length}`);
+      const data = await r.json();
+      return _parseAiResponse(data);
+    } catch (e) {
+      // Network error apod. — zkus další klíč
+      lastError = `Klíč #${i+1}: ${e.message}`;
+      console.warn(`[card-cache facts] ${lastError}, zkouším další klíč...`);
+    }
   }
 
-  const data = await r.json();
+  throw new Error(`Všech ${keys.length} Groq klíčů selhalo. Poslední chyba: ${lastError}`);
+}
+
+// Pomocná funkce: vyparsuj a zvaliduj AI odpověď
+function _parseAiResponse(data) {
   const content = data.choices?.[0]?.message?.content || '';
   const cleaned = content.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
   const match = cleaned.match(/\[[\s\S]*\]/);
