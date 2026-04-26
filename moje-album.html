@@ -3783,11 +3783,49 @@ function _normToRaw(c) {
 async function cdTcgSearch() {
   const status = document.getElementById('cdTcgStatus');
   const grid   = document.getElementById('cdTcgGrid');
-  const name   = document.getElementById('cdTcgNameInput')?.value.trim() || '';
-  const set    = document.getElementById('cdTcgSetInput')?.value.trim()  || '';
+  let name     = document.getElementById('cdTcgNameInput')?.value.trim() || '';
+  let set      = document.getElementById('cdTcgSetInput')?.value.trim()  || '';
   const num    = document.getElementById('cdTcgNumInput')?.value.trim()  || '';
 
   if (!name && !set && !num) { status.textContent = 'Zadej alespoň název karty'; return; }
+
+  // ── Detekce vlepené Cardmarket URL ve sloupci "Název" ─────────────
+  // Loyd často kopíruje celé URL z cardmarket.com místo jen jména. Místo
+  // selhání rozparsujeme URL a vytáhneme název karty + slug setu.
+  // Příklad: https://www.cardmarket.com/en/Pokemon/Products/Singles/Evolving-Skies/Pikachu-V1-EVS049
+  //   → name: "Pikachu V"   set: "Evolving Skies"
+  if (name && /^https?:\/\//i.test(name)) {
+    const cmMatch = name.match(/cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/([^\/\?#]+)\/([^\/\?#]+)/i);
+    if (cmMatch) {
+      const cmSetSlug  = cmMatch[1].replace(/-/g, ' ').trim();
+      const cmCardSlug = cmMatch[2].replace(/-/g, ' ').trim();
+      // Z "Pikachu V1 EVS049" zachovej "Pikachu V" — odstraň trailing kódy setu (3+ velká písmena + číslice)
+      const cleanedName = cmCardSlug
+        .replace(/\s+[A-Z]{3,}\d+$/i, '')   // např. " EVS049"
+        .replace(/\s+\d+$/, '')              // trailing číslo "Pikachu 49"
+        .trim();
+      name = cleanedName || cmCardSlug;
+      // Pokud Loyd nenastavil set ručně, použij ten z URL
+      if (!set) set = cmSetSlug;
+      // Aktualizuj UI input aby uživatel viděl co se vlastně hledá
+      const nameInput = document.getElementById('cdTcgNameInput');
+      const setInput  = document.getElementById('cdTcgSetInput');
+      if (nameInput) nameInput.value = name;
+      if (setInput && !setInput.value.trim()) setInput.value = set;
+      status.textContent = `🔗 Z Cardmarket URL vytaženo: "${name}" (${set})`;
+    } else {
+      // URL ale ne Cardmarket — zkus aspoň poslední část path jako jméno
+      try {
+        const u = new URL(name);
+        const last = decodeURIComponent(u.pathname.split('/').filter(Boolean).pop() || '');
+        if (last) {
+          name = last.replace(/-/g, ' ').replace(/\.\w+$/, '').trim();
+          const nameInput = document.getElementById('cdTcgNameInput');
+          if (nameInput) nameInput.value = name;
+        }
+      } catch {}
+    }
+  }
 
   status.textContent = '⏳ Hledám…';
   grid.innerHTML = '';
@@ -4032,6 +4070,11 @@ async function cdTcgSelect(idx) {
 
   // Aktualizuj kartu daty z TCG API
   const cm = card.cardmarket?.prices || {};
+  // FIX: Pokud pokemontcg.io nemá Cardmarket URL (občas chybí pro JP nebo
+  // novější karty), zachovat Loydovu původní URL. Jinak by ručně vlepená
+  // URL z Cardmarket "zmizela" po potvrzení karty z gridu.
+  const apiCmUrl = card.cardmarket?.url || '';
+  const keepUrl  = !apiCmUrl && _detailCard.cardmarketUrl ? _detailCard.cardmarketUrl : apiCmUrl;
   const updates = {
     name:          card.name,
     set:           card.set?.name  || _detailCard.set,
@@ -4048,7 +4091,7 @@ async function cdTcgSelect(idx) {
     pMin:          cm.lowPrice    || 0,
     pTrend:        cm.trendPrice  || 0,
     p30d:          cm.avg30 || cm.avg7 || 0,
-    cardmarketUrl: card.cardmarket?.url || '',
+    cardmarketUrl: keepUrl,
     setCode:       card.set?.ptcgoCode || '',
   };
   Object.assign(_detailCard, updates);
