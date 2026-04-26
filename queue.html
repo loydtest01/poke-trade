@@ -1860,8 +1860,12 @@ async function doAssign(groups, albumId) {
           number:    ai.number    || rc?.number   || '',
           condition: g.condition || ai.condition || 'NM',
           category:  ai.category || 'Pokémon',
-          type:      ai.type      || (rc?.types?.[0]) || '',
-          types:     rc?.types    || [],
+          // FIX: TCG API (rc.types) má prioritu nad AI heuristikou (ai.type).
+          // AI rozeznává typ z barvy karty (oranžová Solrock → "Fire") což je
+          // často špatné. TCG API vrací oficiální typ (Solrock = Fighting).
+          // AI je jen fallback když TCG data chybí.
+          type:      (rc?.types?.[0]) || ai.type      || '',
+          types:     rc?.types        || (ai.type ? [ai.type] : []),
           hp:        ai.hp        || rc?.hp       || '',
           lang:      ai.lang      || 'EN',
           variant:   ai.variant   || 'Normal',

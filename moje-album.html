@@ -4629,7 +4629,10 @@ async function repairAllCards() {
         const p30d   = cm.avg30 || cm.avg7 || 0;
 
         // Zkontroluj jestli se něco změnilo
-        const changed = (card.id !== c.apiId) || (newUrl !== c.cardmarketUrl) || (pTrend !== c.pTrend);
+        const oldType = (c.type || '').toLowerCase();
+        const newType = (card.types?.[0] || '').toLowerCase();
+        const typeChanged = newType && newType !== oldType;
+        const changed = (card.id !== c.apiId) || (newUrl !== c.cardmarketUrl) || (pTrend !== c.pTrend) || typeChanged;
 
         // Vždy ulož správné hodnoty
         c.apiId           = card.id;
@@ -4639,6 +4642,12 @@ async function repairAllCards() {
         c.p30d            = p30d;
         c.hp              = card.hp || c.hp || '';
         c.rarity          = card.rarity || c.rarity || '';
+        // FIX: Aktualizuj typ podle TCG API (oprava AI heuristických chyb).
+        // Bez tohoto by Solrock zůstal v c.type='Fire' i po opravě.
+        if (card.types && card.types.length) {
+          c.type  = card.types[0];
+          c.types = card.types.slice();
+        }
         c.pricesFetchedAt = new Date().toISOString();
 
         await saveCardUpdates(c);
