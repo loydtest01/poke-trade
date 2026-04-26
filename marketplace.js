@@ -4666,8 +4666,38 @@ async function confirmSale() {
     }, token);
   } catch(e) { console.warn('[notif buyer]', e); }
 
+  // 5. Auto-cleanup karty z alba "Obchod" (i kdyby seller zavřel picker)
+  //    Bez tohoto by karta zůstala visut v albu "Obchod" s for_sell=false
+  //    a vypadala by zatuchle. Pokud seller v pickeru vybere konkrétní album,
+  //    showSellerAlbumPicker() to vyřeší samo (řádky 5193+).
+  try {
+    if (l.card_local_id) {
+      // Odeber for_sell/for_trade flag z karty
+      await sbReq(
+        `rest/v1/user_cards?user_id=eq.${userId}&local_id=eq.${l.card_local_id}`,
+        'PATCH',
+        { for_sell: false, for_trade: false },
+        token
+      );
+      // Odeber kartu z alb "Obchod" a "Výměna" (stále zůstává ve "Vše")
+      const allAlbs = await sbReq(`rest/v1/user_albums?user_id=eq.${userId}`, 'GET', null, token);
+      if (Array.isArray(allAlbs)) {
+        for (const sName of ['Obchod', 'Výměna']) {
+          const alb = allAlbs.find(a => a.name === sName);
+          if (alb && Array.isArray(alb.card_ids)) {
+            const cleaned = alb.card_ids.filter(id => String(id) !== String(l.card_local_id));
+            if (cleaned.length !== alb.card_ids.length) {
+              await sbReq(`rest/v1/user_albums?id=eq.${alb.id}`, 'PATCH',
+                { card_ids: cleaned, updated_at: new Date().toISOString() }, token);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) { console.warn('[confirmSale auto-cleanup]', e); }
+
   showList(); loadListings();
-  // 4. Zobraz album picker prodejci
+  // 6. Zobraz album picker prodejci — nabízí přesun do alba "Prodáno"
   setTimeout(() => showSellerAlbumPicker(l), 400);
 }
 

@@ -347,6 +347,114 @@ body {
   display: block;
 }
 
+/* ═══ AI PROFESOR OAK BOX ═══ */
+.oak-container {
+  max-width: 580px;
+  margin: 36px auto 0;
+  width: 100%;
+}
+
+.oak-card {
+  background: rgba(20, 16, 22, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(245, 200, 66, 0.25);
+  border-radius: 24px;
+  padding: 26px 24px 22px;
+  text-align: left;
+  position: relative;
+  transition: opacity 0.45s ease, transform 0.45s ease, border-color 0.3s ease;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.oak-card::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -10%;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(245, 200, 66, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.oak-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #f5c842, #ff8c42);
+  color: #0b080a;
+  padding: 6px 16px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.3);
+  transition: background 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
+
+.oak-badge.kind-tip {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+}
+
+.oak-badge.kind-fact {
+  background: linear-gradient(135deg, #4f8ef7, #6366f1);
+  color: #fff;
+}
+
+.oak-fact-text {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #e9e2d4;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  padding-right: 36px; /* prostor pro next btn */
+}
+
+.oak-fact-text strong {
+  color: #f5c842;
+  font-weight: 700;
+}
+
+.oak-next-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(245, 200, 66, 0.12);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  color: #f5c842;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+  font-family: inherit;
+  z-index: 2;
+}
+
+.oak-next-btn:hover {
+  background: rgba(245, 200, 66, 0.22);
+  transform: scale(1.08);
+}
+
+.oak-card.fading {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@media (max-width: 480px) {
+  .oak-container { margin-top: 28px; }
+  .oak-card { padding: 22px 18px 18px; border-radius: 20px; }
+  .oak-fact-text { font-size: 0.95rem; padding-right: 30px; }
+}
+
 </style>
 <script>
 // ── TCG Proxy Helper ─────────────────────────────────────────────
@@ -411,22 +519,37 @@ window.TOPBAR_ACTIVE = 'index';</script>
     <div class="grid-lines"></div>
   </div>
   <div class="hero-content">
-    <div class="hero-badge">🃏 Komunita sběratelů</div>
+    <div class="hero-badge">🃏 Fanouškovský projekt · Zdarma</div>
     <h1 class="hero-title">
-      Sdílej,&nbsp;vyměň,<br><em>získej</em> co chybí
+      Stanu se největším <em>mistrem</em><br>ve správě karet
     </h1>
     <p class="hero-sub">
-      Nahraj kartičky z tvé Pokémon Cards aplikace a najdi výměnu se sběrateli ve svém okolí.
+      PokéTrade není jen tržnice — je to tvůj digitální Pokédex, trezor na poklady a rodinný klan v jednom.
+      Skenuj, sdílej a hlídej hodnotu sbírky. <strong>Vždy zdarma, fanouškovsky, bez manipulace s penězi.</strong>
     </p>
     <div class="hero-btns">
-      <a href="register.html" class="btn-primary">Začít zdarma</a>
-      <a href="marketplace.html" class="btn-ghost">Prohlédnout nabídky →</a>
+      <a href="register.html" class="btn-primary">✨ Volím si PokéTrade!</a>
+      <a href="marketplace.html" class="btn-ghost">Prozkoumat trh →</a>
     </div>
     <div class="hero-stats">
-      <div class="stat"><span id="statCards">–</span><small>karet v databázi</small></div>
+      <div class="stat"><span id="statCards">–</span><small>aktivních nabídek</small></div>
       <div class="stat"><span id="statUsers">–</span><small>sběratelů</small></div>
       <div class="stat"><span id="statTrades">–</span><small>proběhlých výměn</small></div>
     </div>
+
+    <!-- ═══ AI PROFESOR OAK – rotuje fakta o Pokémonech a tipy o webu ═══ -->
+    <div class="oak-container">
+      <div class="oak-card" id="oakBox">
+        <div class="oak-badge" id="oakBadge">🎓 Profesor Oak</div>
+        <div class="oak-fact-text" id="oakFactText">
+          🌟 <strong>Věděli jste?</strong> Připravuji první radu...
+        </div>
+        <button class="oak-next-btn" id="oakNextBtn" type="button" aria-label="Další zajímavost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>
+
 
     <!-- ═══ ADMIN: Návštěvnost – viditelné jen pro papez.ondrej@gmail.com ═══ -->
     <div id="adminVisitorPanel">
@@ -758,32 +881,78 @@ function doLogout() {
     after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, startCycle);
   }
 
-  // Načti náhodné high-rarity karty z API
+  // ── Načti 3 náhodné vzácné karty z pokemontcg.io API ─────────────
+  // Strategie: hledáme nejvzácnější karty (Rare Holo VMAX, EX, ex, GX, Special Illustration Rare, atd.)
+  // Z velkého poolu (~250 karet napříč nedávnými sety) náhodně vybereme 3.
+  // Fallback: pokud API selže, zůstanou původní lokální obrázky (pikachu-gx.png atd.)
   (async function loadRandomCards() {
-    var subtypes = ['EX', 'GX', 'VMAX', 'V', 'ex'];
-    var cardEls  = [pikachu, mewtwo, charizard];
-    var fetched  = [];
-    try {
-      var q = subtypes.map(function(s){return 'subtypes:'+s;}).join(' OR ');
-      var page = Math.floor(Math.random() * 8) + 1;
-      var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
-              + '&pageSize=60&page=' + page + '&orderBy=-set.releaseDate';
-      var r = await tcgFetch(url);
-      var d = await r.json();
-      var pool = (d.data || []).filter(function(c){ return c.images && c.images.large; });
-      // Zamíchej Fisher-Yates
-      for (var i = pool.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-      }
-      fetched = pool.slice(0, 3);
-    } catch(e) { /* fallback */ }
+    var cardEls = [pikachu, mewtwo, charizard];
 
+    // Rarity klíčová slova pro nejhodnotnější/nejvzácnější karty:
+    //   - VMAX, V, ex (jp/sword&shield), GX, EX (sun&moon)
+    //   - Special Illustration Rare, Hyper Rare, Secret Rare
+    //   - Rainbow Rare, Gold/Full Art Trainer, Amazing Rare, Radiant
+    // Pokud bude pool prázdný (filter chybí), zkusíme menší rarity jako Holo Rare.
+    var rarityPools = [
+      // Tier 1 — nejvzácnější ze všech: Special Illustration Rare, Hyper Rare, Rainbow
+      'rarity:"Special Illustration Rare" OR rarity:"Hyper Rare" OR rarity:"Rare Rainbow" OR rarity:"Rare Secret"',
+      // Tier 2 — VMAX, V, EX, ex, GX
+      '(subtypes:VMAX OR subtypes:VSTAR OR subtypes:GX OR subtypes:EX OR subtypes:ex)',
+      // Tier 3 — fallback Holo Rare karty (ty jsou vždy dostupné)
+      'rarity:"Rare Holo" OR rarity:"Rare Holo V" OR rarity:"Rare Holo VMAX"',
+    ];
+
+    var fetched = [];
+    var lastErr = null;
+
+    // Zkus pooly postupně — když T1 nemá výsledky, padni na T2 atd.
+    for (var poolIdx = 0; poolIdx < rarityPools.length && fetched.length < 3; poolIdx++) {
+      try {
+        var q = rarityPools[poolIdx];
+        // Náhodná stránka (1–10) ze všech vyhovujících karet — různé výsledky každý reload
+        var page = Math.floor(Math.random() * 10) + 1;
+        var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
+                + '&pageSize=80&page=' + page + '&orderBy=-set.releaseDate';
+        var r = await tcgFetch(url);
+        if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
+        var d = await r.json();
+        var pool = (d.data || []).filter(function(c) {
+          return c.images && c.images.large;
+        });
+        if (!pool.length) continue;
+
+        // Fisher-Yates shuffle pro skutečnou náhodnost
+        for (var i = pool.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+        }
+        fetched = pool.slice(0, 3);
+        console.log('[hero] Načteno ' + fetched.length + ' karet z pokemontcg.io (tier ' + (poolIdx+1) + ')');
+      } catch (e) {
+        lastErr = e;
+        console.warn('[hero] Tier ' + (poolIdx+1) + ' selhal:', e.message);
+      }
+    }
+
+    if (!fetched.length) {
+      console.warn('[hero] API nedostupné, používám lokální fallback obrázky', lastErr);
+      // Lokální obrázky (pikachu-gx.png atd.) jsou už nastavené v <img src="..."> v HTML.
+      // Stačí spustit cycle.
+      startCycle();
+      return;
+    }
+
+    // Aplikuj fetched karty do <img> elementů
     fetched.forEach(function(card, i) {
       var el = cardEls[i];
       if (!el) return;
       var img = el.querySelector('img');
-      if (img) { img.src = card.images.large; img.alt = card.name; }
+      if (img && card.images && card.images.large) {
+        img.src = card.images.large;
+        img.alt = card.name + ' (' + (card.set?.name || '') + ' #' + (card.number || '?') + ')';
+        // Drobný hover tooltip s názvem karty
+        el.title = card.name + ' — ' + (card.set?.name || 'Neznámý set');
+      }
     });
 
     startCycle();
@@ -839,6 +1008,132 @@ document.addEventListener('DOMContentLoaded',function(){
   if (c) c.textContent = fmt(cards);
   if (u) u.textContent = fmt(users);
   if (t) t.textContent = fmt(trades);
+})();
+</script>
+
+<!-- ═══ PROFESOR OAK – AI rotující tipy a fakta ═══ -->
+<script>
+(function() {
+  'use strict';
+
+  // Knihovna obsahu — mix faktů o Pokémonech a tipů o stránce.
+  // Rozšiř kdykoli, rotace je modulo počet položek.
+  const adviceLibrary = [
+    // ── TIPY O STRÁNCE ──────────────────────────────────────────────
+    { kind: 'tip',  emoji: '🔒', title: 'Soukromé sdílení',
+      text: 'Žádné veřejné odkazy! Album nasdílíš jen konkrétnímu registrovanému trenérovi přes jeho jméno nebo e-mail.' },
+    { kind: 'tip',  emoji: '⏳', title: 'Časový zámek',
+      text: 'Sdílení není navždy. Nastav si dobu (od pár hodin po 7 dní), po které se přístup automaticky zruší.' },
+    { kind: 'tip',  emoji: '👨‍👩‍👧', title: 'Rodinný klan',
+      text: 'Propoj profily s rodinou — každý má vlastní album, ale vidíte své karty navzájem jako jeden tým.' },
+    { kind: 'tip',  emoji: '💰', title: 'Reálné ceny z Cardmarketu',
+      text: 'U každé karty vidíš aktuální tržní hodnotu. Žádné odhady, jen čistá data — a žádný Rakeťák tě nenapálí!' },
+    { kind: 'tip',  emoji: '📸', title: 'Skener karet',
+      text: 'Vyfoť kartičku přes mobil a AI ji během chvíle rozpozná. Rychlejší než Quick Attack od Pikachu!' },
+    { kind: 'tip',  emoji: '🔄', title: 'Výměny i protinabídky',
+      text: 'Kartu za kartu, nebo férová cena. Pod každou nabídkou je chat, kde se můžete domluvit na detailech.' },
+    { kind: 'tip',  emoji: '✨', title: 'Vždycky zdarma',
+      text: 'Žádné poplatky, žádné předplatné. Děláme to z lásky ke kartičkám — peníze od uživatelů nikdy nevybíráme.' },
+    { kind: 'tip',  emoji: '🌍', title: 'JP a CN karty taky',
+      text: 'AI rozpozná i japonské a tchajwanské karty. Stačí vyfotit a najdeme český nebo anglický ekvivalent.' },
+    { kind: 'tip',  emoji: '📊', title: 'Sledování hodnoty',
+      text: 'Vidíš trend, minimum a 30denní průměr ceny. Tvá sbírka je investice — měj o ní přehled.' },
+
+    // ── ZAJÍMAVOSTI O POKÉMONECH ─────────────────────────────────────
+    { kind: 'fact', emoji: '🌊', title: 'Telepatický Lapras',
+      text: 'Ashův Lapras dokázal mluvit s lidmi pomocí telepatie. Ukázal to při cestě s Jynx na severní pól, když pomáhal zachránit Vánoce!' },
+    { kind: 'fact', emoji: '🐱', title: 'Mluvící Meowth',
+      text: 'Meowth z Rakeťáků se naučil mluvit lidskou řečí, aby zapůsobil na kočičí dámu Meowzie. Stálo ho to ale schopnost bojovat a vyvíjet se.' },
+    { kind: 'fact', emoji: '⚡', title: 'Pikachu = jiskra + myš',
+      text: 'Jméno Pikachu vznikl spojením japonských slov „pika" (zvuk jiskry) a „chu" (pípnutí myši). Doslova „Elektrické pípnutí"!' },
+    { kind: 'fact', emoji: '🦏', title: 'První kreslený byl Rhydon',
+      text: 'I když má Bulbasaur číslo 001, prvním nakresleným Pokémonem byl Rhydon. Proto najdeš jeho sochy v každém Gymu v původních hrách.' },
+    { kind: 'fact', emoji: '🐿️', title: 'Pikachu měl být veverka',
+      text: 'Designérka Atsuko Nishida prozradila, že Pikachu byl původně inspirován veverkou. Chtěla si v té době jednu pořídit jako mazlíčka!' },
+    { kind: 'fact', emoji: '🎬', title: 'Připravte se na potíže!',
+      text: 'Slavné motto Rakeťáků „Připravte se na potíže… a na dvojité!" zaznělo v původním seriálu více než 700×. Jednou z nejcitovanějších hlášek anime všech dob.' },
+    { kind: 'fact', emoji: '👑', title: 'Stanu se Pokémon Mistrem!',
+      text: 'Ashovi trvalo 25 let, než se konečně stal Pokémon Světovým Šampionem. V dílu z roku 2022 porazil Leona a vyhrál Mistrovský Turnaj.' },
+    { kind: 'fact', emoji: '🥚', title: 'Mew uvnitř Mewtwo',
+      text: 'Podle původních příběhů byl Mewtwo vytvořen z DNA Mewa. Vědci ale museli použít několik desítek vzorků, než se klonování povedlo.' },
+    { kind: 'fact', emoji: '🌟', title: 'Super účinné!',
+      text: 'Hláška „It\'s super effective!" se stala internetovým memem dlouho předtím, než internet měl meme jméno. Z her na Game Boy do běžného slovníku!' },
+    { kind: 'fact', emoji: '🍙', title: 'Brockovy „koblížky"',
+      text: 'V americkém dabingu Brock tvrdil, že jí koblížky — i když v animaci jasně držel japonské rýžové koule onigiri. Klasický překladatelský úlet 90. let!' },
+    { kind: 'fact', emoji: '🎶', title: 'Téma seriálu = hit',
+      text: '„Gotta catch \'em all!" píseň z prvního seriálu se stala kulturní ikonou. Zazpívalo si ji s ní celá generace 90. let.' },
+    { kind: 'fact', emoji: '🔮', title: 'Slowpoke = lenoch z lenochů',
+      text: 'Slowpoke je prý tak pomalý, že trvá hodiny, než ucítí bolest. Když mu Shellder kousne ocas, Slowpoke si toho všimne až za den!' },
+    { kind: 'fact', emoji: '🌙', title: 'Drowzee jí sny',
+      text: 'Pokédex tvrdí, že Drowzee se živí lidskými sny. Prý preferuje ty dětské, protože jsou prý sladší než ty dospělé.' },
+    { kind: 'fact', emoji: '📺', title: '„Kdo je tenhle Pokémon?"',
+      text: 'Kultovní hádanka uprostřed dílu, kdy se ze siluety mělo poznat o jakého pokémona jde. Často to byl velmi nečekaný kandidát!' },
+  ];
+
+  let _adviceIdx = -1;
+  let _autoTimer = null;
+
+  function _showAdvice(idx) {
+    const box = document.getElementById('oakBox');
+    const badge = document.getElementById('oakBadge');
+    const text = document.getElementById('oakFactText');
+    if (!box || !badge || !text) return;
+
+    box.classList.add('fading');
+
+    setTimeout(() => {
+      const item = adviceLibrary[idx];
+      badge.textContent = item.kind === 'fact'
+        ? '📖 Profesor Oak — Zajímavost'
+        : '🎓 PokéRádce — Tip';
+      badge.classList.toggle('kind-fact', item.kind === 'fact');
+      badge.classList.toggle('kind-tip',  item.kind === 'tip');
+      text.innerHTML = `${item.emoji} <strong>${item.title}:</strong> ${item.text}`;
+      box.classList.remove('fading');
+    }, 350);
+  }
+
+  function _nextAdvice() {
+    _adviceIdx = (_adviceIdx + 1) % adviceLibrary.length;
+    _showAdvice(_adviceIdx);
+  }
+
+  function _restartAuto() {
+    if (_autoTimer) clearInterval(_autoTimer);
+    _autoTimer = setInterval(_nextAdvice, 11000); // 11 s — dost času na přečtení
+  }
+
+  // Init: po DOMContentLoaded zobraz první + spusť rotaci
+  function _init() {
+    // Začni na náhodném indexu — různí návštěvníci uvidí různý úvod
+    _adviceIdx = Math.floor(Math.random() * adviceLibrary.length) - 1;
+    _nextAdvice();
+    _restartAuto();
+
+    // Tlačítko "další" — manuální skok + reset auto-timeru
+    const btn = document.getElementById('oakNextBtn');
+    if (btn) {
+      btn.addEventListener('click', function() {
+        _nextAdvice();
+        _restartAuto(); // restart aby další auto-rotace neukázala znovu hned
+      });
+    }
+
+    // Když uživatel skryje tab, pauzni rotaci (šetří CPU + není efekt vidět)
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (_autoTimer) { clearInterval(_autoTimer); _autoTimer = null; }
+      } else {
+        _restartAuto();
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _init);
+  } else {
+    _init();
+  }
 })();
 </script>
 
