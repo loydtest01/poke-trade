@@ -647,15 +647,12 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     const res = await _origFetch.apply(this, arguments);
     if (!res.ok) {
       const isTcgdex    = url.includes('tcgdex.net');
-      const isJpProxy   = url.includes('/api/jp-card');  // náš proxy přes Vercel
       const isOpenRouter = url.includes('openrouter.ai');
       const isGroqApi   = url.includes('api.groq.com');
-      if ((isTcgdex || isJpProxy) && res.status === 404) {
-        // Karta není v TCGdex (typicky tchajwanské/exotické sety) — to je očekávané
-        // a aplikace má EN fallback. Logujeme jako warning, ne error.
-        console.warn(`[TCGdex/jp-card] Karta nenalezena (404): ${url.split('?')[0].split('/').slice(-3).join('/')}`);
+      if (isTcgdex && res.status === 404) {
+        console.warn(`[TCGdex] Karta nenalezena (404): ${url.split('?')[0]}`);
         // Vrať prázdný JSON aby volající kód nespadl
-        return new Response('{"_empty":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+        return new Response('[]', { status: 200, headers: { 'Content-Type': 'application/json' } });
       }
       if ((isOpenRouter || isGroqApi) && res.status === 400) {
         // Klonuj odpověď – jinak ji nelze přečíst dvakrát
@@ -2500,46 +2497,67 @@ async function tcgSearch(gi, autoMode = false) {
           if (!_tok) {
             console.warn('[tcgSearch] card-cache: chybí token, přeskakuji');
           } else {
-          const _cacheParams = new URLSearchParams({
-            name:   ai.nameEN || searchName,
-            set:    ai.set    || '',
-            number: ai.number || '',
-            lang:   ai.lang   || 'JP',
-            token:  _tok,
-          });
-          const _cacheRes = await fetch(`/api/card-cache?${_cacheParams}`);
-          if (_cacheRes.ok) {
-            const _cd = await _cacheRes.json();
-            // Sestav card objekt kompatibilní s renderCardGrid
-            const _cacheCard = {
-              _source:       'card-cache',
-              apiId:         `cache-${_cd.cache_key}`,
-              name:          _cd.name_en || _cd.name || searchName,
-              nameOrig:      _cd.name,
-              set:           _cd.set_name || _cd.set_code || '',
-              setCode:       _cd.set_code || '',
-              number:        _cd.card_number || ai.number || '',
-              imageUrl:      _cd.image_url || '',
-              apiSmall:      _cd.image_url || '',
-              apiLarge:      _cd.image_url || '',
-              hp:            '',
-              types:         [],
-              rarity:        '',
-              supertype:     'Pokémon',
-              sourceUrl:     _cd.cardmarket_url || '',
-              cardmarketUrl: _cd.cardmarket_url || '',
-              pTrend:        _cd.price_trend || 0,
-              pMin:          _cd.price_min   || 0,
-              p30d:          _cd.price_30d   || 0,
-              lang:          _cd.lang || ai.lang,
-              _fromCache:    true,
-              _cacheSource:  _cd._source || 'rapidapi',
-            };
-            cards = [_cacheCard];
-            statusEl.textContent = `✅ Nalezeno v komunitní databázi (${_cd._source === 'rapidapi' ? 'RapidAPI → uloženo pro všechny' : 'cache'})`;
+          // RapidAPI Cardmarket nepodporuje CJK znaky — pošli EN jméno pokud máme.
+          // Pokud nemáme nameEN, zkusíme aspoň originální název (RapidAPI to skoro
+          // jistě nenajde, ale aspoň skončí gracefully s logem v konzoli).
+          const _cacheName = ai.nameEN || searchName;
+          const _hasCjk    = /[\u3000-\u9fff\uff00-\uffef]/.test(_cacheName);
+          if (_hasCjk) {
+            console.warn(`[tcgSearch] card-cache: jméno "${_cacheName}" obsahuje CJK znaky — Groq překlad selhal, RapidAPI nepoužitelné`);
+            statusEl.innerHTML = '⚠️ Překlad jména selhal. Vyplň prosím <strong>ručně EN název</strong> nebo vlož Cardmarket URL.';
           } else {
-            const _errBody = await _cacheRes.json().catch(() => ({}));
-            console.warn('[tcgSearch] card-cache HTTP', _cacheRes.status, _errBody);
+            const _cacheParams = new URLSearchParams({
+              name:   _cacheName,
+              set:    ai.set    || '',
+              number: ai.number || '',
+              lang:   ai.lang   || 'JP',
+              token:  _tok,
+            });
+            console.log(`[tcgSearch] → card-cache: name="${_cacheName}" set="${ai.set || ''}" num="${ai.number || ''}" lang="${ai.lang || 'JP'}"`);
+            const _cacheRes = await fetch(`/api/card-cache?${_cacheParams}`);
+            if (_cacheRes.ok) {
+              const _cd = await _cacheRes.json();
+              if (_cd && !_cd.error) {
+                // Sestav card objekt kompatibilní s renderCardGrid
+                const _cacheCard = {
+                  _source:       'card-cache',
+                  apiId:         `cache-${_cd.cache_key}`,
+                  name:          _cd.name_en || _cd.name || searchName,
+                  nameOrig:      _cd.name,
+                  set:           _cd.set_name || _cd.set_code || '',
+                  setCode:       _cd.set_code || '',
+                  number:        _cd.card_number || ai.number || '',
+                  imageUrl:      _cd.image_url || '',
+                  apiSmall:      _cd.image_url || '',
+                  apiLarge:      _cd.image_url || '',
+                  hp:            '',
+                  types:         [],
+                  rarity:        '',
+                  supertype:     'Pokémon',
+                  sourceUrl:     _cd.cardmarket_url || '',
+                  cardmarketUrl: _cd.cardmarket_url || '',
+                  pTrend:        _cd.price_trend || 0,
+                  pMin:          _cd.price_min   || 0,
+                  p30d:          _cd.price_30d   || 0,
+                  lang:          _cd.lang || ai.lang,
+                  _fromCache:    true,
+                  _cacheSource:  _cd._source || 'rapidapi',
+                };
+                cards = [_cacheCard];
+                statusEl.textContent = `✅ Nalezeno v komunitní databázi (${_cd._source === 'rapidapi' ? 'RapidAPI → uloženo pro všechny' : 'cache'})`;
+                console.log(`[tcgSearch] ✓ card-cache hit: ${_cacheCard.name} (${_cacheCard.set})`);
+              } else {
+                console.warn('[tcgSearch] card-cache vrátil error:', _cd);
+              }
+            } else if (_cacheRes.status === 404) {
+              console.warn('[tcgSearch] card-cache: karta nenalezena ani v komunitní DB ani RapidAPI');
+            } else if (_cacheRes.status === 429) {
+              console.warn('[tcgSearch] card-cache: denní limit RapidAPI dosažen');
+              statusEl.innerHTML = '⚠️ Denní limit RapidAPI dosažen. Zkus zítra nebo vlož Cardmarket URL ručně.';
+            } else {
+              const _errBody = await _cacheRes.json().catch(() => ({}));
+              console.warn('[tcgSearch] card-cache HTTP', _cacheRes.status, _errBody);
+            }
           }
           } // end token guard
         } catch (_ce) {
@@ -3170,7 +3188,64 @@ async function resolveCardUrl(url) {
           pricesFetchedAt: new Date().toISOString(),
         };
       } else {
-        result = { sourceUrl: url, cardmarketUrl: url, name: namePart, isJpSource: isJp };
+        // ── FALLBACK: pokemontcg.io kartu nezná (typicky JP/ZH/TW sety) ──
+        // Zkusíme komunitní cache + RapidAPI Cardmarket scraper přes /api/card-cache
+        // Tahle cesta funguje i pro tchajwanské sety jako "Nine Colors Gathering Origin"
+        // které pokemontcg.io vůbec nemá.
+        let cacheCard = null;
+        try {
+          const _tok = (window.getValidToken ? await window.getValidToken() : null) || (typeof token !== 'undefined' ? token : '') || '';
+          if (_tok && nameWords) {
+            const _cacheParams = new URLSearchParams({
+              name:   nameWords,
+              set:    setSlug.replace(/-/g, ' '),
+              number: cardNumber || '',
+              lang:   isJp ? 'JP' : 'EN',
+              token:  _tok,
+            });
+            const _r = await fetch(`/api/card-cache?${_cacheParams}`);
+            if (_r.ok) {
+              const _cd = await _r.json();
+              if (_cd && !_cd.error) {
+                cacheCard = {
+                  apiId:           `cache-${_cd.cache_key}`,
+                  name:            _cd.name_en || _cd.name || nameWords,
+                  nameOrig:        _cd.name,
+                  set:             _cd.set_name || setSlug.replace(/-/g, ' '),
+                  setCode:         _cd.set_code || '',
+                  number:          _cd.card_number || cardNumber || '',
+                  rarity:          '',
+                  supertype:       'Pokémon',
+                  types:           [],
+                  hp:              '',
+                  imageUrl:        _cd.image_url || '',
+                  apiSmall:        _cd.image_url || '',
+                  apiLarge:        _cd.image_url || '',
+                  pMin:            _cd.price_min   || 0,
+                  pTrend:          _cd.price_trend || 0,
+                  p30d:            _cd.price_30d   || 0,
+                  cardmarketUrl:   _cd.cardmarket_url || url,
+                  sourceUrl:       url,
+                  isJpSource:      isJp,
+                  lang:            _cd.lang || (isJp ? 'JP' : 'EN'),
+                  _fromCache:      true,
+                  _cacheSource:    _cd._source || 'rapidapi',
+                  pricesFetchedAt: new Date().toISOString(),
+                };
+                console.log('[loadFromUrl] ✓ card-cache hit:', cacheCard.name, '(' + (_cd._source || 'rapidapi') + ')');
+              }
+            } else if (_r.status === 429) {
+              console.warn('[loadFromUrl] card-cache: denní limit RapidAPI dosažen');
+            } else if (_r.status !== 404) {
+              console.warn('[loadFromUrl] card-cache HTTP', _r.status);
+            }
+          }
+        } catch (_ce) {
+          console.warn('[loadFromUrl] card-cache fallback selhal:', _ce.message);
+        }
+        // Pokud ani cache neměla výsledek, vrať aspoň URL+jméno (uživatel to uvidí
+        // v queue a může ručně doplnit obrázek/info)
+        result = cacheCard || { sourceUrl: url, cardmarketUrl: url, name: namePart, isJpSource: isJp };
       }
     }
 
