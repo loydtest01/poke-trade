@@ -168,40 +168,117 @@ async function fetchFromRapidApi(name, set, number, lang) {
     console.warn(`[card-cache] ⛔ Denní limit ${RAPIDAPI_DAILY_LIMIT} dosažen (${usage.count}/${usage.limit}). Skip RapidAPI.`);
     return { _rateLimited: true, _usage: usage };
   }
-  console.log(`[card-cache] RapidAPI volání ${usage.count}/${usage.limit}: "${name}"`);
 
-  const params = new URLSearchParams({ search: name, sort: "relevance" });
+  // ── Sestav search query ────────────────────────────────────────────
+  // Strategie: zkusíme více variant aby jsme zachytili různé sety:
+  //   1. "{name} {set_clean}"   — nejpřesnější (např. "Heatmor Nine Colors Gathering")
+  //   2. "{name}"                — jen jméno (RapidAPI vrátí karty napříč sety, filtrujeme set+číslo)
+  //   3. "{name} {number}"       — pro speciální karty kde set nepomáhá
+  //
+  // Pozn: RapidAPI v podstatě hledá v anglických názvech karet.
+  // Pro CJK karty Loyd musí mít už přeložené EN jméno (přes translateViaLang),
+  // jinak se nic nenajde (RapidAPI nemá ZH/JP indexovanou DB).
+  const cleanName = String(name || '').trim();
+  if (!cleanName) {
+    console.warn('[card-cache] RapidAPI: prázdné jméno, skip');
+    return null;
+  }
+
+  // CJK detekce — pokud `name` obsahuje CJK znaky, RapidAPI to nedohledá
+  if (/[\u3000-\u9fff\uff00-\uffef\u4e00-\u9fff]/.test(cleanName)) {
+    console.warn(`[card-cache] RapidAPI: jméno obsahuje CJK znaky ("${cleanName}"), RapidAPI to neumí — pošli prosím přeložené EN jméno`);
+    return null;
+  }
+
+  const setClean = String(set || '').replace(/-/g, ' ').trim();
+  const queries = [];
+  if (cleanName && setClean) queries.push(`${cleanName} ${setClean}`);
+  if (cleanName)             queries.push(cleanName);
+
+  console.log(`[card-cache] RapidAPI volání ${usage.count}/${usage.limit}: "${cleanName}" set="${setClean}" num="${number || ''}" lang="${lang || ''}"`);
+
+  let allCards = [];
+  let lastQuery = '';
+
+  for (const q of queries) {
+    const params = new URLSearchParams({ search: q, sort: "relevance" });
+    try {
+      const r = await fetch(`${RAPID_BASE}/pokemon/cards/search?${params}`, {
+        headers: {
+          'X-RapidAPI-Key':  key,
+          'X-RapidAPI-Host': RAPID_HOST,
+        },
+      });
+
+      if (!r.ok) {
+        console.warn(`[card-cache] RapidAPI ${r.status} pro query "${q}"`);
+        continue;
+      }
+
+      const data = await r.json();
+      const cards = Array.isArray(data) ? data : (data.data || data.cards || data.results || []);
+      console.log(`[card-cache] RapidAPI query "${q}" → ${cards.length} výsledků`);
+
+      if (cards.length) {
+        allCards = cards;
+        lastQuery = q;
+        break; // máme výsledky, druhou query nemusíme
+      }
+    } catch (e) {
+      console.warn(`[card-cache] RapidAPI fetch chyba pro "${q}":`, e.message);
+    }
+  }
+
+  if (!allCards.length) {
+    console.warn(`[card-cache] RapidAPI: žádné výsledky pro "${cleanName}"`);
+    return null;
+  }
 
   try {
-    const r = await fetch(`${RAPID_BASE}/pokemon/cards/search?${params}`, {
-      headers: {
-        'X-RapidAPI-Key':  key,
-        'X-RapidAPI-Host': RAPID_HOST,
-      },
-    });
+    // ── Filtrace: vyber správnou kartu z výsledků ───────────────────
+    // Priorita filtrace:
+    //   1. Přesná shoda set + číslo
+    //   2. Přesná shoda jen čísla (pokud je unikátní)
+    //   3. První výsledek (nejlepší relevance)
+    const qNum = String(number || '').split('/')[0].replace(/^0+/, '').trim();
+    const setLower = setClean.toLowerCase();
 
-    if (!r.ok) {
-      console.warn(`[card-cache] RapidAPI ${r.status} pro "${name}"`);
-      return null;
+    let card = null;
+
+    // Strategie 1: set + číslo
+    if (qNum && setLower) {
+      card = allCards.find(c => {
+        const cNum = String(c.card_number || c.number || '').split('/')[0].replace(/^0+/, '').trim();
+        const cEpName = String(c.episode?.name || '').toLowerCase();
+        const cEpCode = String(c.episode?.code || '').toLowerCase();
+        return cNum === qNum && (cEpName.includes(setLower) || setLower.includes(cEpName) || cEpCode === setLower);
+      });
     }
 
-    const data = await r.json();
+    // Strategie 2: jen číslo
+    if (!card && qNum) {
+      const matches = allCards.filter(c => {
+        const cNum = String(c.card_number || c.number || '').split('/')[0].replace(/^0+/, '').trim();
+        return cNum === qNum;
+      });
+      if (matches.length === 1) card = matches[0];
+      else if (matches.length > 1) {
+        // Více shod → vyber tu se setem podobným našemu (pokud máme set hint)
+        if (setLower) {
+          card = matches.find(c => {
+            const cEpName = String(c.episode?.name || '').toLowerCase();
+            return cEpName.includes(setLower) || setLower.includes(cEpName);
+          }) || matches[0];
+        } else {
+          card = matches[0];
+        }
+      }
+    }
 
-    // API vrací pole nebo { data: [...] } nebo { cards: [...] }
-    const cards = Array.isArray(data)
-      ? data
-      : (data.data || data.cards || data.results || []);
+    // Strategie 3: první výsledek (nejlepší relevance score od RapidAPI)
+    if (!card) card = allCards[0];
 
-    if (!cards.length) return null;
-
-    // Filtruj přesné číslo karty pokud ho máme
-    const qNum = String(number || '').split('/')[0].replace(/^0+/, '');
-    const card = (qNum
-      ? cards.find(c => {
-          const cNum = String(c.card_number || c.number || '').split('/')[0].replace(/^0+/, '');
-          return cNum === qNum;
-        })
-      : null) || cards[0];
+    console.log(`[card-cache] ✓ Vybráno z RapidAPI: ${card.name} (set=${card.episode?.name || '?'}, #${card.card_number || '?'})`);
 
     // Ceny z cardmarket větve
     const cm = card.prices?.cardmarket || {};
