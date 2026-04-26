@@ -3326,6 +3326,10 @@ async function resolveCardUrl(url) {
               number: cardNumber || '',
               lang:   isJp ? 'JP' : 'EN',
               token:  _tok,
+              // Pošli původní Cardmarket URL → PokeWallet ji použije pro
+              // přesný match konkrétní jazykové/foilové varianty karty.
+              // Pak vrátí reálný obrázek (i pro JP/ZH/TW sety).
+              cmUrl:  url,
             });
             const _r = await fetch(`/api/card-cache?${_cacheParams}`);
             if (_r.ok) {

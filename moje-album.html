@@ -3963,6 +3963,7 @@ async function cdTcgSearch() {
   if (name && /^https?:\/\//i.test(name)) {
     const cmMatch = name.match(/cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/([^\/\?#]+)\/([^\/\?#]+)/i);
     if (cmMatch) {
+      const fullCmUrl  = name; // zachovat originál pro PokeWallet
       const cmSetSlug  = cmMatch[1].replace(/-/g, ' ').trim();
       const cmCardSlug = cmMatch[2].replace(/-/g, ' ').trim();
       // Z "Pikachu V1 EVS049" zachovej "Pikachu V" — odstraň trailing kódy setu (3+ velká písmena + číslice)
@@ -3978,7 +3979,68 @@ async function cdTcgSearch() {
       const setInput  = document.getElementById('cdTcgSetInput');
       if (nameInput) nameInput.value = name;
       if (setInput && !setInput.value.trim()) setInput.value = set;
-      status.textContent = `🔗 Z Cardmarket URL vytaženo: "${name}" (${set})`;
+      status.textContent = `🔗 Z Cardmarket URL vytaženo: "${name}" (${set}) — hledám obrázek…`;
+
+      // ── PRIORITY: PokeWallet přes card-cache proxy ───────────────────
+      // Když Loyd vlepil Cardmarket URL, šance že má jazykovou variantu
+      // (JP/ZH/TW) je vysoká. PokeWallet má reálné obrázky pro tyto karty.
+      // Pošleme cmUrl jako parametr — server ji rozparsuje a najde přesnou
+      // variantu v PokeWallet datasetu (matchuje product_url 1:1).
+      try {
+        const _tok = (typeof token !== 'undefined' && token) ? token : '';
+        if (_tok) {
+          const _params = new URLSearchParams({
+            cmUrl: fullCmUrl,
+            name:  name,
+            set:   set,
+            token: _tok,
+          });
+          const _r = await fetch(`/api/card-cache?${_params}`);
+          if (_r.ok) {
+            const _cd = await _r.json();
+            if (_cd && !_cd.error && _cd.image_url) {
+              // Vytvoř kartu kompatibilní s tcgio formátem a vrať ji jako jediný výsledek
+              const _pwCard = {
+                id:        `pw-${_cd.cache_key || _cd._pwId || Date.now()}`,
+                name:      _cd.name_en || _cd.name || name,
+                supertype: 'Pokémon',
+                hp:        _cd.hp || '',
+                types:     [],
+                rarity:    _cd.rarity || '',
+                number:    _cd.card_number || '',
+                set: {
+                  name:        _cd.set_name || set,
+                  ptcgoCode:   _cd.set_code || '',
+                },
+                images: {
+                  small: _cd.image_url,
+                  large: _cd.image_url,
+                },
+                cardmarket: {
+                  url:    _cd.cardmarket_url || fullCmUrl,
+                  prices: {
+                    lowPrice:    _cd.price_min   || 0,
+                    trendPrice:  _cd.price_trend || 0,
+                    avg30:       _cd.price_30d   || 0,
+                  },
+                },
+                _pokewallet: true,
+                _cacheSource: _cd._source || 'pokewallet',
+              };
+              status.textContent = `✅ Nalezeno přes PokeWallet (${_cd._source === 'pokewallet' ? 'reálný obrázek' : 'cache'}). Klikni na potvrzení:`;
+              if (typeof _cdTcgRenderGrid === 'function') {
+                _cdTcgRenderGrid([_pwCard], status, document.getElementById('cdTcgGrid'));
+              }
+              return; // hotovo, pokemontcg.io netřeba
+            }
+          } else if (_r.status === 429) {
+            status.textContent = '⚠️ PokeWallet limit dosažen, zkouším pokemontcg.io…';
+          }
+        }
+      } catch (_pwErr) {
+        console.warn('[cdTcgSearch] PokeWallet fallback selhal:', _pwErr.message);
+      }
+      // Pokud PokeWallet selhal, status se přepíše níže na "⏳ Hledám…"
     } else {
       // URL ale ne Cardmarket — zkus aspoň poslední část path jako jméno
       try {
