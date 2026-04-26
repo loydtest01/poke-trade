@@ -610,6 +610,9 @@ async function openDetail(id){
     document.getElementById('ownerBtnSold').style.display   = isReserved ? '' : 'none';
     document.getElementById('ownerBtnRelist').style.display = isReserved ? '' : 'none';
     document.getElementById('ownerBtnMarkSold').style.display = isReserved ? 'none' : '';
+    // Edit jen když není rezervováno (změna ceny po rezervaci by buyera mátla)
+    const editBtn = document.getElementById('ownerBtnEdit');
+    if (editBtn) editBtn.style.display = isReserved ? 'none' : '';
     document.getElementById('ownerBtnCancel').style.display   = isReserved ? 'none' : '';
     if (isReserved) {
       document.getElementById('ownerReservedInfo').style.display = '';
@@ -4602,6 +4605,117 @@ async function markListingAsSold() {
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showMktToast('✅ Označeno jako prodáno.');
   showList(); loadListings();
+}
+
+// ── Edit existujícího inzerátu (cena, stav, popis) ─────────────────────
+function openEditListing() {
+  if (!currentListing) return;
+  const l = currentListing;
+
+  // Naplň formulář aktuálními hodnotami
+  const nameEl  = document.getElementById('editLstName');
+  const typeBg  = document.getElementById('editLstTypeBadge');
+  const priceEl = document.getElementById('editLstPrice');
+  const condEl  = document.getElementById('editLstCondition');
+  const descEl  = document.getElementById('editLstDescription');
+  const counter = document.getElementById('editLstDescCounter');
+  const wrap    = document.getElementById('editLstPriceWrap');
+  const modal   = document.getElementById('editListingModal');
+  if (!modal) { showMktToast('⚠️ Edit modal nenalezen.'); return; }
+
+  if (nameEl)  nameEl.textContent  = l.card_name || l.title || 'Inzerát';
+  if (priceEl) priceEl.value       = (typeof l.price === 'number' ? l.price : (parseInt(l.price) || 0));
+  if (condEl)  condEl.value        = l.condition || '';
+  if (descEl)  descEl.value        = l.description || '';
+  if (counter) counter.textContent = (l.description || '').length;
+
+  // Typ inzerátu (info badge)
+  if (typeBg) {
+    const t = (l.listing_type || (l.is_trade ? 'trade' : 'sale')).toLowerCase();
+    if (t === 'trade') {
+      typeBg.textContent = '🔄 Výměna';
+      typeBg.style.background = 'rgba(79,142,247,.15)';
+      typeBg.style.color = '#4f8ef7';
+      typeBg.style.border = '1px solid rgba(79,142,247,.4)';
+      // U pure-trade nemá smysl měnit cenu — schovat
+      if (wrap) wrap.style.display = (l.price > 0) ? '' : 'none';
+    } else {
+      typeBg.textContent = '💰 Prodej';
+      typeBg.style.background = 'rgba(245,200,66,.15)';
+      typeBg.style.color = '#f5c842';
+      typeBg.style.border = '1px solid rgba(245,200,66,.4)';
+      if (wrap) wrap.style.display = '';
+    }
+  }
+
+  // Live counter pro popis
+  if (descEl && counter) {
+    descEl.oninput = function() { counter.textContent = (descEl.value || '').length; };
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeEditListing() {
+  const modal = document.getElementById('editListingModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function saveEditListing() {
+  if (!currentListing) return;
+  const l = currentListing;
+  const saveBtn = document.getElementById('editLstSaveBtn');
+  const priceEl = document.getElementById('editLstPrice');
+  const condEl  = document.getElementById('editLstCondition');
+  const descEl  = document.getElementById('editLstDescription');
+
+  // Sestav patch
+  const patch = {};
+  const newPrice = priceEl ? parseInt(priceEl.value) : null;
+  const newCond  = condEl  ? (condEl.value || null) : null;
+  const newDesc  = descEl  ? (descEl.value || '').trim() : '';
+
+  if (newPrice !== null && !isNaN(newPrice) && newPrice >= 0) patch.price = newPrice;
+  if (newCond !== null) patch.condition = newCond;
+  if (descEl) patch.description = newDesc.slice(0, 500);
+
+  if (Object.keys(patch).length === 0) {
+    showMktToast('Není co uložit.');
+    return;
+  }
+
+  // Validace: záporná cena nebo extrémně vysoká
+  if (typeof patch.price === 'number' && (patch.price < 0 || patch.price > 9999999)) {
+    alert('Neplatná cena. Zadej hodnotu mezi 0 a 9 999 999 Kč.');
+    return;
+  }
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = '⏳ Ukládám…'; }
+  try {
+    const res = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', patch, token);
+    if (res && res._err) {
+      alert('Chyba při ukládání: ' + res._err);
+      return;
+    }
+
+    // Aktualizuj lokální currentListing + allListings
+    Object.assign(currentListing, patch);
+    const idx = (allListings || []).findIndex(x => x.id === l.id);
+    if (idx >= 0) Object.assign(allListings[idx], patch);
+
+    showMktToast('✅ Inzerát byl upraven.');
+    closeEditListing();
+    // Re-render detail i seznam
+    if (typeof openListing === 'function') {
+      openListing(l.id);
+    } else {
+      renderListings && renderListings();
+    }
+  } catch (e) {
+    alert('Chyba: ' + e.message);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = '💾 Uložit změny'; }
+  }
 }
 
 async function cancelListing() {
