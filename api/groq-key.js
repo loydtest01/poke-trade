@@ -89,17 +89,25 @@ export default async function handler(req, res) {
     }
 
     // 2. Sdílený klíč pro všechny přihlášené (jen Groq v env)
+    // ENV GROQ_API_KEY může obsahovat víc klíčů oddělených čárkou — vrátíme je
+    // všechny, klient (mobile.html, queue.html) si je rozsplituje a sám rotuje.
     const sharedKey = (process.env.GROQ_API_KEY || '').trim();
     if (sharedKey) {
-      return res.status(200).json({
-        groq_key:       sharedKey,
-        cerebras_key:   null,
-        openrouter_key: null,
-        key:            sharedKey,  // legacy
-        enabled:        true,
-        source:         'shared',
-        vip,
-      });
+      // Validace — pokud po splitu nezbude žádný platný klíč, zacházíme jako bez klíče
+      const validKeys = sharedKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      if (validKeys.length > 0) {
+        const sharedJoined = validKeys.join(',');
+        return res.status(200).json({
+          groq_key:       sharedJoined,    // může obsahovat 1-N klíčů
+          cerebras_key:   null,
+          openrouter_key: null,
+          key:            sharedJoined,    // legacy
+          enabled:        true,
+          source:         'shared',
+          keysCount:      validKeys.length, // info pro debug
+          vip,
+        });
+      }
     }
 
     return res.status(200).json({
