@@ -516,6 +516,154 @@ body { background: #06040c; overflow-x: hidden; }
 .card-slot.in-album { border-color: rgba(74,158,255,0.4); }
 
 .card-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ════════════════════════════════════════════════════════════════════
+   HOLO / REVERSE FOIL EFFECTS
+   Lesklý animovaný efekt pro vzácné karty (holo, reverse, V/VMAX, ex/GX,
+   rainbow, secret rare). Reaguje na pohyb myši přes CSS-only animaci.
+   Loyd požádal aby holo karty vypadaly jako reálně lesknoucí.
+   ════════════════════════════════════════════════════════════════════ */
+
+.card-slot.is-holo .card-inner,
+.card-slot.is-reverse .card-inner,
+.card-slot.is-vmax .card-inner,
+.card-slot.is-rainbow .card-inner {
+  position: relative;
+  overflow: hidden;
+}
+
+/* Společný gradient pro všechny lesklé varianty — s animovaným pohybem */
+.card-slot.is-holo .card-inner::before,
+.card-slot.is-reverse .card-inner::before,
+.card-slot.is-vmax .card-inner::before,
+.card-slot.is-rainbow .card-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: color-dodge;
+  opacity: 0;
+  transition: opacity .3s ease-out;
+}
+
+/* Holo Rare — duhový pruh shora dolů */
+.card-slot.is-holo .card-inner::before {
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 0, 150, .35) 35%,
+    rgba(0, 200, 255, .35) 50%,
+    rgba(255, 220, 0, .35) 65%,
+    transparent 80%
+  );
+  background-size: 250% 250%;
+  background-position: 0% 0%;
+  animation: holoShine 3.5s ease-in-out infinite;
+}
+
+/* Reverse Foil — jemnější, mřížka */
+.card-slot.is-reverse .card-inner::before {
+  background:
+    linear-gradient(45deg, transparent 30%, rgba(255,255,255,.25) 50%, transparent 70%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 2px, transparent 2px 6px);
+  background-size: 250% 250%, auto;
+  animation: holoShine 4.5s linear infinite;
+}
+
+/* VMAX / VSTAR / V — silnější fialovo-růžový lesk */
+.card-slot.is-vmax .card-inner::before {
+  background: linear-gradient(
+    120deg,
+    transparent 25%,
+    rgba(180, 90, 255, .45) 40%,
+    rgba(255, 100, 200, .45) 55%,
+    rgba(100, 200, 255, .45) 70%,
+    transparent 85%
+  );
+  background-size: 280% 280%;
+  animation: holoShine 3s ease-in-out infinite;
+}
+
+/* Rainbow / Secret Rare — celá duha */
+.card-slot.is-rainbow .card-inner::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255,  50, 100, .5),
+    rgba(255, 200,   0, .5),
+    rgba(100, 255, 100, .5),
+    rgba( 50, 200, 255, .5),
+    rgba(200, 100, 255, .5),
+    rgba(255,  50, 100, .5)
+  );
+  animation: rainbowSpin 6s linear infinite;
+}
+
+/* Hover — efekt zvýrazní */
+.card-slot.is-holo:hover .card-inner::before,
+.card-slot.is-reverse:hover .card-inner::before,
+.card-slot.is-vmax:hover .card-inner::before,
+.card-slot.is-rainbow:hover .card-inner::before {
+  opacity: 1;
+}
+
+/* Trvale viditelný (decentní) i bez hoveru */
+.card-slot.is-holo .card-inner::before,
+.card-slot.is-reverse .card-inner::before,
+.card-slot.is-vmax .card-inner::before,
+.card-slot.is-rainbow .card-inner::before {
+  opacity: .55;
+}
+
+/* Druhá vrstva — světelný "blesk" jezdící přes kartu */
+.card-slot.is-holo .card-inner::after,
+.card-slot.is-vmax .card-inner::after,
+.card-slot.is-rainbow .card-inner::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    115deg,
+    transparent 35%,
+    rgba(255, 255, 255, .35) 48%,
+    rgba(255, 255, 255, .55) 50%,
+    rgba(255, 255, 255, .35) 52%,
+    transparent 65%
+  );
+  pointer-events: none;
+  z-index: 3;
+  mix-blend-mode: screen;
+  animation: holoSweep 5s ease-in-out infinite;
+}
+
+@keyframes holoShine {
+  0%, 100% { background-position:   0%   0%; }
+  50%      { background-position: 100% 100%; }
+}
+@keyframes rainbowSpin {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes holoSweep {
+  0%, 100% { transform: translateX(-50%) translateY(-50%) rotate(0deg); }
+  50%      { transform: translateX(  0%) translateY(  0%) rotate(0deg); }
+}
+
+/* Šetříme baterku — animace pauznou když user nehýbe stránkou */
+@media (prefers-reduced-motion: reduce) {
+  .card-slot.is-holo .card-inner::before,
+  .card-slot.is-reverse .card-inner::before,
+  .card-slot.is-vmax .card-inner::before,
+  .card-slot.is-rainbow .card-inner::before,
+  .card-slot.is-holo .card-inner::after,
+  .card-slot.is-vmax .card-inner::after,
+  .card-slot.is-rainbow .card-inner::after {
+    animation: none;
+  }
+}
 .card-placeholder {
   width: 100%; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1464,7 +1612,7 @@ body { background: #06040c; overflow-x: hidden; }
     <!-- 1. Sync tlačítko -->
     <button class="sync-btn" id="syncBtn" onclick="doSync()">
       <div class="sync-dot" id="syncDot"></div>
-      <span id="syncLabel">Sync</span>
+      <span id="syncLabel" data-i18n="topbar.sync">Sync</span>
     </button>
     <!-- 2. Chat -->
     <div class="chat-dropdown-wrap" id="chatDropWrap">
@@ -1474,8 +1622,8 @@ body { background: #06040c; overflow-x: hidden; }
       </button>
       <div class="chat-drop" id="chatDrop">
         <div class="chat-drop-head">
-          <span class="chat-drop-title">Zprávy</span>
-          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+          <span class="chat-drop-title" data-i18n="topbar.messages">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all" data-i18n="topbar.viewAll">Zobrazit vše →</a>
         </div>
         <div class="chat-drop-list" id="chatDropList">
           <div class="chat-drop-empty">
@@ -1567,10 +1715,10 @@ body { background: #06040c; overflow-x: hidden; }
       <span class="sb-label">🔧 Správa dat</span>
       <button class="sb-btn" onclick="showMergeDupConfirm()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
-        🛠️ Opravit vše automaticky
+        🛠️ <span data-i18n="sidebar.repairAuto">Opravit vše automaticky</span>
       </button>
       <button class="sb-btn" onclick="resetAllPrices()" id="resetPricesBtn" title="Vymaže uložené Cardmarket URL, apiId a ceny – karty se načtou při příštím otevření">
-        🔄 Reset cen (ruční)
+        🔄 <span data-i18n="sidebar.resetPrices">Reset cen (ruční)</span>
       </button>
     </div>
   </aside>
@@ -1636,7 +1784,7 @@ body { background: #06040c; overflow-x: hidden; }
     <div id="filterAccordions" style="display:none!important">
       <div class="f-accordion" id="fa-rarity-pokemon" data-group="pokemon">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip active" onclick="setRarity('')" data-i18n="rarity.all">Vše</button>
           <button class="type-chip" onclick="setRarity('common')"><img src="energi/common.png" class="fi"> Common</button>
           <button class="type-chip" onclick="setRarity('uncommon')"><img src="energi/uncommon.png" class="fi"> Uncommon</button>
           <button class="type-chip" onclick="setRarity('rare')"><img src="energi/rare.png" class="fi"> Rare</button>
@@ -1648,24 +1796,24 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <div class="f-accordion" id="fa-element" data-group="pokemon">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setType('')">Vše</button>
-          <button class="type-chip" onclick="setType('fire')">Ohnivý</button>
-          <button class="type-chip" onclick="setType('water')">Vodní</button>
-          <button class="type-chip" onclick="setType('grass')">Travní</button>
-          <button class="type-chip" onclick="setType('lightning')">Elektrický</button>
-          <button class="type-chip" onclick="setType('psychic')">Psychický</button>
-          <button class="type-chip" onclick="setType('darkness')">Temný</button>
-          <button class="type-chip" onclick="setType('dragon')">Dračí</button>
-          <button class="type-chip" onclick="setType('metal')">Kovový</button>
-          <button class="type-chip" onclick="setType('fighting')">Bojový</button>
-          <button class="type-chip" onclick="setType('fairy')">Víla</button>
-          <button class="type-chip" onclick="setType('colorless')">Bezbarvý</button>
-          <button class="type-chip" onclick="setType('normal')">Normální</button>
+          <button class="type-chip active" onclick="setType('')" data-i18n="type.all">Vše</button>
+          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire">Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')" data-i18n="type.water">Vodní</button>
+          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass">Travní</button>
+          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning">Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic">Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness">Temný</button>
+          <button class="type-chip" onclick="setType('dragon')" data-i18n="type.dragon">Dračí</button>
+          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal">Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting">Bojový</button>
+          <button class="type-chip" onclick="setType('fairy')" data-i18n="type.fairy">Víla</button>
+          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless">Bezbarvý</button>
+          <button class="type-chip" onclick="setType('normal')" data-i18n="type.colorless">Normální</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip active" onclick="setRarity('')" data-i18n="rarity.all">Vše</button>
           <button class="type-chip" onclick="setRarity('uncommon')"><img src="energi/uncommon.png" class="fi"> Uncommon</button>
           <button class="type-chip" onclick="setRarity('rare')"><img src="energi/rare.png" class="fi"> Rare</button>
           <button class="type-chip" onclick="setRarity('fullart')"><img src="energi/full_art.png" class="fi"> Full-Art</button>
@@ -1674,16 +1822,16 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <div class="f-accordion" id="fa-trainer-type" data-group="trainer">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setTrainerSub('')">Vše</button>
-          <button class="type-chip" onclick="setTrainerSub('Stadium')"><img src="energi/stadion.png" class="fi"> Stadion</button>
-          <button class="type-chip" onclick="setTrainerSub('Supporter')"><img src="energi/supporter.png" class="fi"> Podpora</button>
-          <button class="type-chip" onclick="setTrainerSub('Item')"><img src="energi/item.png" class="fi"> Předmět</button>
-          <button class="type-chip" onclick="setTrainerSub('Tool')"><img src="energi/tool.png" class="fi"> Nástroj</button>
+          <button class="type-chip active" onclick="setTrainerSub('')" data-i18n="type.all">Vše</button>
+          <button class="type-chip" onclick="setTrainerSub('Stadium')" data-i18n="trainerType.stadium"><img src="energi/stadion.png" class="fi"> Stadion</button>
+          <button class="type-chip" onclick="setTrainerSub('Supporter')" data-i18n="trainerType.supporter"><img src="energi/supporter.png" class="fi"> Podpora</button>
+          <button class="type-chip" onclick="setTrainerSub('Item')" data-i18n="trainerType.item"><img src="energi/item.png" class="fi"> Předmět</button>
+          <button class="type-chip" onclick="setTrainerSub('Tool')" data-i18n="trainerType.tool"><img src="energi/tool.png" class="fi"> Nástroj</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-rarity-energy" data-group="energy">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setRarity('')">Vše</button>
+          <button class="type-chip active" onclick="setRarity('')" data-i18n="rarity.all">Vše</button>
           <button class="type-chip" onclick="setRarity('basic_energy')"><img src="energi/energie.png" class="fi"> Základní</button>
           <button class="type-chip" onclick="setRarity('special_energy')"><img src="energi/specialni_edice.png" class="fi"> Speciální</button>
           <button class="type-chip" onclick="setRarity('collector_energy')"><img src="energi/energie.png" class="fi"> Sběratelské</button>
@@ -1692,16 +1840,16 @@ body { background: #06040c; overflow-x: hidden; }
       </div>
       <div class="f-accordion" id="fa-energy-type" data-group="energy">
         <div class="f-acc-body"><div class="f-acc-chips">
-          <button class="type-chip active" onclick="setType('')">Vše</button>
-          <button class="type-chip" onclick="setType('fire')">Ohnivý</button>
-          <button class="type-chip" onclick="setType('water')">Vodní</button>
-          <button class="type-chip" onclick="setType('grass')">Travní</button>
-          <button class="type-chip" onclick="setType('lightning')">Elektrický</button>
-          <button class="type-chip" onclick="setType('psychic')">Psychický</button>
-          <button class="type-chip" onclick="setType('darkness')">Temný</button>
-          <button class="type-chip" onclick="setType('metal')">Kovový</button>
-          <button class="type-chip" onclick="setType('fighting')">Bojový</button>
-          <button class="type-chip" onclick="setType('colorless')">Bezbarvý</button>
+          <button class="type-chip active" onclick="setType('')" data-i18n="type.all">Vše</button>
+          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire">Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')" data-i18n="type.water">Vodní</button>
+          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass">Travní</button>
+          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning">Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic">Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness">Temný</button>
+          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal">Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting">Bojový</button>
+          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless">Bezbarvý</button>
         </div></div>
       </div>
     </div>
@@ -2991,6 +3139,24 @@ function renderCard(c, albumCardIds) {
   const sel   = selectedIds.has(String(c.id));
   const inAlb = albumCardIds ? albumCardIds.includes(String(c.id)) : false;
   let cls = sel ? 'selected' : (inAlb && activeAlbumIds.size > 0 ? 'in-album' : '');
+
+  // ── Foil/Holo detekce — přidej CSS class podle vzácnosti karty ──
+  // Reaguje na rarity z TCG API: holo, reverse, V/VMAX/VSTAR, EX/GX,
+  // rainbow, secret. Karty s vyšší vzácností budou v UI lesknout.
+  const _rarStr  = String(c.rarity || '').toLowerCase();
+  const _nameStr = String(c.name   || '').toLowerCase();
+  if (_rarStr.includes('rainbow') || _rarStr.includes('secret') || _rarStr.includes('hyper')) {
+    cls += ' is-rainbow';
+  } else if (_rarStr.includes('vmax') || _rarStr.includes('vstar') ||
+             _nameStr.endsWith(' vmax') || _nameStr.endsWith(' vstar') ||
+             _nameStr.endsWith(' v') || _rarStr === 'rare holo v') {
+    cls += ' is-vmax';
+  } else if (_rarStr.includes('reverse')) {
+    cls += ' is-reverse';
+  } else if (_rarStr.includes('holo') || _rarStr.includes('illustration') ||
+             _rarStr.includes('full art') || _rarStr.includes('ultra')) {
+    cls += ' is-holo';
+  }
 
   // Zjisti počet fotek pouze pro odznak – reálné fotky se zobrazují jen v detailu karty
   const localId   = String(c.id || c.local_id || '');

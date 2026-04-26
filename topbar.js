@@ -541,10 +541,18 @@ var SETTINGS_HTML = [
   '          </div><span class="sdrop-acc-chevron">▼</span>',
   '        </div>',
   '        <div class="sdrop-acc-body"><div class="sdrop-acc-inner">',
-  '          <label class="acc-label">Jazyk rozhraní</label>',
-  '          <div style="display:flex;gap:8px">',
-  '            <button id="profileLangBtnCZ" class="curr-btn" onclick="albumSettingsSetLang(\'cz\')">🇨🇿 CZ</button>',
+  '          <label class="acc-label" data-i18n="settings.uiLanguage">Jazyk rozhraní</label>',
+  '          <div style="display:flex;gap:6px;flex-wrap:wrap">',
+  '            <button id="profileLangBtnCZ" class="curr-btn" onclick="albumSettingsSetLang(\'cs\')">🇨🇿 CZ</button>',
   '            <button id="profileLangBtnEN" class="curr-btn" onclick="albumSettingsSetLang(\'en\')">🇬🇧 EN</button>',
+  '          </div>',
+  '          <label class="acc-label" style="margin-top:10px;font-size:11px;opacity:.6">Připravujeme:</label>',
+  '          <div style="display:flex;gap:6px;flex-wrap:wrap;opacity:.4">',
+  '            <button class="curr-btn" disabled style="cursor:not-allowed" title="Brzy">🇩🇪 DE</button>',
+  '            <button class="curr-btn" disabled style="cursor:not-allowed" title="Brzy">🇯🇵 JP</button>',
+  '            <button class="curr-btn" disabled style="cursor:not-allowed" title="Brzy">🇫🇷 FR</button>',
+  '            <button class="curr-btn" disabled style="cursor:not-allowed" title="Brzy">🇮🇹 IT</button>',
+  '            <button class="curr-btn" disabled style="cursor:not-allowed" title="Brzy">🇪🇸 ES</button>',
   '          </div>',
   '        </div></div>',
   '      </div>',
@@ -812,7 +820,8 @@ function initSettingsValues() {
     try { lastEl.textContent = 'Naposledy: ' + new Date(lastSync).toLocaleTimeString('cs-CZ'); } catch(e) {}
   }
   _spUpdateCurrencyUI();
-  _spUpdateLangUI(localStorage.getItem('pkc_lang') || 'cz');
+  // Použij i18n.js storage key (pt_lang) jako primární zdroj
+  _spUpdateLangUI((window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || localStorage.getItem('pkc_lang') || 'cs');
   var savedThreshold = localStorage.getItem('pkc_exp_threshold');
   var threshInp = document.getElementById('expThresholdInp');
   if (threshInp && savedThreshold !== null) threshInp.value = savedThreshold;
@@ -846,12 +855,16 @@ function _spUpdateCurrencyUI() {
 }
 
 function _spUpdateLangUI(lang) {
+  // Normalizuj kód
+  if (lang === 'cz') lang = 'cs';
+  // Přečti aktuální jazyk z i18n.js (zdroj pravdy)
+  var current = (window.getLang && window.getLang()) || lang || localStorage.getItem('pt_lang') || 'cs';
   var btnCZ = document.getElementById('profileLangBtnCZ');
   var btnEN = document.getElementById('profileLangBtnEN');
-  if (btnCZ) btnCZ.classList.toggle('curr-active', lang === 'cz');
-  if (btnEN) btnEN.classList.toggle('curr-active', lang === 'en');
+  if (btnCZ) btnCZ.classList.toggle('curr-active', current === 'cs');
+  if (btnEN) btnEN.classList.toggle('curr-active', current === 'en');
   var sub = document.getElementById('accLangSub');
-  if (sub) sub.textContent = lang === 'en' ? 'EN' : 'CZ';
+  if (sub) sub.textContent = current === 'en' ? 'EN' : 'CZ';
 }
 
 /* ── Globální funkce pro settings panel ── */
@@ -879,9 +892,13 @@ window.albumSettingsSetCurrency = window.albumSettingsSetCurrency || function(cu
   _spUpdateCurrencyUI();
 };
 window.albumSettingsSetLang = window.albumSettingsSetLang || function(lang) {
+  // Normalizuj kód: starý kód používal 'cz' ale i18n.js používá 'cs' (ISO 639-1)
+  if (lang === 'cz') lang = 'cs';
   localStorage.setItem('pkc_lang', lang);
   _spUpdateLangUI(lang);
+  // Volá globální setLang z i18n.js, který trvale uloží volbu a reloadne stránku
   if (typeof setLang === 'function') setLang(lang);
+  else if (typeof window.setLang === 'function') window.setLang(lang);
 };
 window.albumSetThresholdPreset = window.albumSetThresholdPreset || function(val) {
   var inp = document.getElementById('expThresholdInp');
@@ -1157,7 +1174,10 @@ function init() {
   try { initSettingsValues(); } catch(e) { console.error('[topbar] initSettingsValues:', e); }
   try { injectBell(); }         catch(e) { console.error('[topbar] injectBell:', e); }
   try { injectAuthChip(); }     catch(e) { console.error('[topbar] injectAuthChip:', e); }
-  try { injectLangSwitch(); }   catch(e) { console.error('[topbar] injectLangSwitch:', e); }
+  // FIX: Topbar dropdown přepínač jazyků zrušen — Loyd chtěl jeden přepínač
+  // pouze v Settings panelu (žádné dva oddělené widgety pro to samé).
+  // Funkce injectLangSwitch zůstává v souboru pro případnou budoucí potřebu.
+  // try { injectLangSwitch(); }   catch(e) { console.error('[topbar] injectLangSwitch:', e); }
   try { initGroqPanel(); }      catch(e) { console.error('[topbar] initGroqPanel:', e); }
   try { initCerebrasPanel(); }  catch(e) { console.error('[topbar] initCerebrasPanel:', e); }
   try { initOpenRouterPanel(); }catch(e) { console.error('[topbar] initOpenRouterPanel:', e); }

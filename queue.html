@@ -2356,6 +2356,35 @@ async function tcgSearch(gi, autoMode = false) {
   const isNonEn = /[\u3000-\u9fff\uff00-\uffef]/.test(ai.name || '') || (ai.lang && ai.lang !== 'EN');
   const cardNumber = ai.number ? String(ai.number).split('/')[0].trim() : '';
 
+  // ── AUTO-RETRY pokud AI vrátila málo informací ──────────────────────
+  // Když AI rozpoznala jen název karty (bez setu, čísla nebo HP), je velká šance
+  // že fotka byla špatná. Loyd požádal aby se v takovém případě zavolala AI ještě
+  // jednou (jen jedenkrát) — možná druhý pokus rozpozná víc detailů.
+  // Pokud i druhý pokus selže, pokračujeme s tím co máme (Loyd si pak může
+  // ručně oříznout fotku a kliknout na "Znovu AI" tlačítko v UI).
+  if (!autoMode && !ai._autoRetried && !ai._retried) {
+    const _hasName     = !!(ai.name || ai.nameEN);
+    const _hasSetOrNum = !!(ai.set || ai.number);
+    const _hasMeta     = !!(ai.hp || ai.type || ai.rarity);
+    const _looksThin   = _hasName && !_hasSetOrNum && !_hasMeta;
+    if (_looksThin && typeof retryAi === 'function') {
+      console.log(`[tcgSearch] AI vrátila málo info (jen "${ai.name}"), zkouším znovu...`);
+      statusEl.textContent = '🤖 AI dostala málo informací — zkouším znovu rozpoznat…';
+      try {
+        // Označ že retry už proběhl, aby se nezacyklil
+        g.aiResult._autoRetried = true;
+        await retryAi(gi);
+        // Po retryAi se g.aiResult update — pokračujeme s novými daty.
+        // Reload stávajících referencí
+        const aiNew = g.aiResult || {};
+        Object.assign(ai, aiNew);
+      } catch (_retryErr) {
+        console.warn('[tcgSearch] auto-retry AI selhal:', _retryErr.message);
+        // Pokračujeme s tím co máme — UI bude moct user manuálně retry
+      }
+    }
+  }
+
   btn.disabled = true;
   statusEl.className = 'cg-search-status';
   statusEl.textContent = '⏳ Hledám…';

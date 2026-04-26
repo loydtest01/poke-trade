@@ -450,6 +450,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
             <div class="toggle-thumb"></div>
           </label>
         </div>
+        <div class="notif-row">
+          <div class="notif-icon">✂️</div>
+          <div class="notif-label">
+            <div class="notif-name">Automaticky oříznout</div>
+            <div class="notif-desc">Před odesláním ořízne na okraje karty</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="settingAutoCrop" onchange="toggleAutoCropFromSettings(this)">
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
         <div style="margin-top:12px">
           <div style="font-size:11px;color:var(--muted);margin-bottom:6px">Stav AI</div>
           <div id="chipAI_drawer" style="padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(100,116,139,.1);border:1px solid rgba(100,116,139,.3);color:#64748b;display:inline-block">🤖 AI…</div>
@@ -1846,13 +1858,18 @@ function handleCapture(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    if (captureMode === 'front') processFrontPhoto(e.target.result);
-    else if (captureMode === 'detail') processDetailPhoto(e.target.result);
-    else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
-    else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
-    else if (captureMode === 'charfix') processCharFixPhoto(e.target.result);
-    else processBackPhoto(e.target.result);
+  reader.onload = async e => {
+    let dataUrl = e.target.result;
+    // Auto-crop pokud zapnuté v Nastavení (ušetří trochu odeslání + AI lépe rozpozná)
+    if (getAutoCropEnabled()) {
+      dataUrl = await autoCropImage(dataUrl);
+    }
+    if (captureMode === 'front') processFrontPhoto(dataUrl);
+    else if (captureMode === 'detail') processDetailPhoto(dataUrl);
+    else if (captureMode === 'jpname') processJpNamePhoto(dataUrl);
+    else if (captureMode === 'back-detail') processBackDetailPhoto(dataUrl);
+    else if (captureMode === 'charfix') processCharFixPhoto(dataUrl);
+    else processBackPhoto(dataUrl);
   };
   reader.readAsDataURL(file);
 }
@@ -1861,13 +1878,17 @@ function handleGalleryPick(input) {
   const file = input.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    if (captureMode === 'front') processFrontPhoto(e.target.result);
-    else if (captureMode === 'detail') processDetailPhoto(e.target.result);
-    else if (captureMode === 'jpname') processJpNamePhoto(e.target.result);
-    else if (captureMode === 'back-detail') processBackDetailPhoto(e.target.result);
-    else if (captureMode === 'charfix') processCharFixPhoto(e.target.result);
-    else processBackPhoto(e.target.result);
+  reader.onload = async e => {
+    let dataUrl = e.target.result;
+    if (getAutoCropEnabled()) {
+      dataUrl = await autoCropImage(dataUrl);
+    }
+    if (captureMode === 'front') processFrontPhoto(dataUrl);
+    else if (captureMode === 'detail') processDetailPhoto(dataUrl);
+    else if (captureMode === 'jpname') processJpNamePhoto(dataUrl);
+    else if (captureMode === 'back-detail') processBackDetailPhoto(dataUrl);
+    else if (captureMode === 'charfix') processCharFixPhoto(dataUrl);
+    else processBackPhoto(dataUrl);
   };
   reader.readAsDataURL(file);
 }
@@ -2993,6 +3014,8 @@ function openSettings() {
   loadNotifSettings();
   // Sync fake toggle
   document.getElementById('settingFakeToggle').checked = fakeMode;
+  // Sync auto-crop toggle (přečte z localStorage)
+  loadAutoCropSetting();
   // Show notif permission row if not granted
   if ('Notification' in window && Notification.permission === 'default') {
     document.getElementById('notifPermRow').style.display = '';
@@ -3019,6 +3042,142 @@ function toggleFakeFromSettings(el) {
     chip.style.color = '#64748b';
     chip.style.background = 'rgba(100,116,139,.1)';
     toast('FAKE mód vypnut');
+  }
+}
+
+// ══════════════════════════════════════════════
+// AUTO-CROP — automatické oříznutí fotky karty
+// ══════════════════════════════════════════════
+// Když je zapnuté, fotka se před odesláním ořízne na hranice karty
+// (detekováno podle kontrastu okraje vs pozadí). Loyd to chce volitelné
+// protože ne každý uživatel chce automatické úpravy fotek.
+
+const AUTO_CROP_KEY = 'pkt_auto_crop';
+
+function getAutoCropEnabled() {
+  return localStorage.getItem(AUTO_CROP_KEY) === '1';
+}
+
+function toggleAutoCropFromSettings(el) {
+  localStorage.setItem(AUTO_CROP_KEY, el.checked ? '1' : '0');
+  toast(el.checked ? '✂️ Auto-crop zapnutý' : 'Auto-crop vypnutý');
+}
+
+// Načti uložené nastavení při startu
+function loadAutoCropSetting() {
+  const cb = document.getElementById('settingAutoCrop');
+  if (cb) cb.checked = getAutoCropEnabled();
+}
+
+/**
+ * Pokusí se najít bounding box karty na fotce a vrátí oříznutý dataURL.
+ * Pokud detekce selže (málo kontrastu, pozadí podobné kartě), vrátí původní.
+ *
+ * Algoritmus:
+ *  1. Downsample fotku na cca 200×300 px (rychlost)
+ *  2. Pro každý řádek/sloupec spočítej rozdíl barev → hledáme silné hrany
+ *  3. Z první/poslední silné hrany v každé ose odvodíme bounding box
+ *  4. Přidáme malý padding a ořízneme z původní (plné) fotky
+ */
+async function autoCropImage(dataUrl) {
+  if (!dataUrl) return dataUrl;
+  try {
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload  = () => resolve(i);
+      i.onerror = reject;
+      i.src     = dataUrl;
+    });
+
+    const W = img.naturalWidth;
+    const H = img.naturalHeight;
+    if (W < 200 || H < 200) return dataUrl; // moc malá, neořezuj
+
+    // Downsample na 200 px nejširší stranu
+    const SCALE = Math.min(1, 240 / Math.max(W, H));
+    const dw = Math.round(W * SCALE);
+    const dh = Math.round(H * SCALE);
+
+    const c = document.createElement('canvas');
+    c.width = dw; c.height = dh;
+    const ctx = c.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(img, 0, 0, dw, dh);
+    const px = ctx.getImageData(0, 0, dw, dh).data;
+
+    // Pro každý pixel spočítej "edge score" = rozdíl od průměrné barvy okolí
+    // Použijeme jednoduchou variantu: jas (luminance) + barevná saturace
+    const lum = new Float32Array(dw * dh);
+    for (let i = 0, j = 0; j < lum.length; i += 4, j++) {
+      lum[j] = 0.299 * px[i] + 0.587 * px[i+1] + 0.114 * px[i+2];
+    }
+
+    // Sobel-like horizontal & vertical edges
+    const edgeX = new Float32Array(dh);  // edge strength per row
+    const edgeY = new Float32Array(dw);  // edge strength per col
+    for (let y = 1; y < dh - 1; y++) {
+      let sum = 0;
+      for (let x = 1; x < dw - 1; x++) {
+        const dx = Math.abs(lum[y * dw + (x+1)] - lum[y * dw + (x-1)]);
+        const dy = Math.abs(lum[(y+1) * dw + x] - lum[(y-1) * dw + x]);
+        sum += dx + dy;
+        edgeY[x] += dx + dy;
+      }
+      edgeX[y] = sum;
+    }
+
+    // Najdi první/poslední řádek/sloupec se silnou hranou (>50 % maxima)
+    const maxX = Math.max(...edgeX);
+    const maxY = Math.max(...edgeY);
+    const thrX = maxX * 0.30;
+    const thrY = maxY * 0.30;
+
+    let top = 0, bot = dh - 1, lft = 0, rgt = dw - 1;
+    for (let y = 0; y < dh; y++)         if (edgeX[y] > thrX) { top = y; break; }
+    for (let y = dh - 1; y >= 0; y--)    if (edgeX[y] > thrX) { bot = y; break; }
+    for (let x = 0; x < dw; x++)         if (edgeY[x] > thrY) { lft = x; break; }
+    for (let x = dw - 1; x >= 0; x--)    if (edgeY[x] > thrY) { rgt = x; break; }
+
+    // Bezpečnostní kontroly — pokud crop vyšel divně (moc malý nebo skoro celý), vrať původní
+    const cropW = rgt - lft;
+    const cropH = bot - top;
+    const cropArea = cropW * cropH;
+    const totalArea = dw * dh;
+    if (cropArea < totalArea * 0.20) {
+      console.warn('[auto-crop] Detekovaný region je příliš malý, vracím originál');
+      return dataUrl;
+    }
+    if (cropArea > totalArea * 0.97) {
+      console.log('[auto-crop] Karta zaplňuje skoro celou fotku — netřeba oříznout');
+      return dataUrl;
+    }
+    const ratio = cropH / cropW;
+    if (ratio < 0.9 || ratio > 2.0) {
+      console.warn(`[auto-crop] Poměr ${ratio.toFixed(2)} mimo rozumný rozsah pro kartu (~1.4)`);
+      return dataUrl;
+    }
+
+    // Přidej padding 2 % z menší dimenze
+    const pad = Math.round(Math.min(cropW, cropH) * 0.02);
+    top = Math.max(0, top - pad);
+    lft = Math.max(0, lft - pad);
+    bot = Math.min(dh - 1, bot + pad);
+    rgt = Math.min(dw - 1, rgt + pad);
+
+    // Převést zpět na full-size souřadnice
+    const fx = lft / SCALE, fy = top / SCALE;
+    const fw = (rgt - lft) / SCALE, fh = (bot - top) / SCALE;
+
+    // Vyrenderuj oříznutou verzi z původní fotky (plná kvalita)
+    const out = document.createElement('canvas');
+    out.width = Math.round(fw); out.height = Math.round(fh);
+    out.getContext('2d').drawImage(img, fx, fy, fw, fh, 0, 0, out.width, out.height);
+
+    const cropped = out.toDataURL('image/jpeg', 0.92);
+    console.log(`[auto-crop] ✓ Oříznuto z ${W}×${H} na ${out.width}×${out.height}`);
+    return cropped;
+  } catch (e) {
+    console.warn('[auto-crop] Selhalo, vracím originál:', e.message);
+    return dataUrl;
   }
 }
 
