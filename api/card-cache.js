@@ -165,7 +165,7 @@ async function checkAndIncrementApiUsage() {
 //   - Endpoint /search vrací TCGPlayer i CardMarket ceny v jedné odpovědi
 const POKEWALLET_BASE = 'https://api.pokewallet.io';
 
-async function fetchFromPokeWallet(name, set, number, lang) {
+async function fetchFromPokeWallet(name, set, number, lang, cmUrl) {
   const key = process.env.POKEWALLET_API_KEY;
   if (!key) {
     console.log('[card-cache] POKEWALLET_API_KEY není nastaveno, přeskakuji.');
@@ -188,7 +188,7 @@ async function fetchFromPokeWallet(name, set, number, lang) {
   if (cleanName && number) queries.push(`${cleanName} ${number}`);
   queries.push(cleanName);
 
-  console.log(`[card-cache] PokeWallet hledám: "${cleanName}" set="${set || ''}" num="${number || ''}" lang="${lang || ''}"`);
+  console.log(`[card-cache] PokeWallet hledám: "${cleanName}" set="${set || ''}" num="${number || ''}" lang="${lang || ''}"${cmUrl ? ' (cmUrl mode)' : ''}`);
 
   for (const q of queries) {
     try {
@@ -216,7 +216,9 @@ async function fetchFromPokeWallet(name, set, number, lang) {
         continue;
       }
 
-      // Výběr nejlepší shody:
+      // ── Výběr nejlepší shody ────────────────────────────────────────
+      // PRIORITA:
+      //   0. Přesná shoda CardMarket product_url (pokud máme cmUrl) ← NEJLEPŠÍ
       //   1. Přesná shoda card_number + (set_code podobnost) + správný lang
       //   2. Přesná shoda card_number
       //   3. První výsledek
@@ -226,8 +228,23 @@ async function fetchFromPokeWallet(name, set, number, lang) {
       const wantNonEn = lang && lang !== 'EN';
 
       let card = null;
+
+      // Strategie 0 (NOVÉ): pokud máme cmUrl, hledej přesnou shodu product_url.
+      // PokeWallet vrací různé V1/V2 varianty stejné karty s rozdílnými URL —
+      // exact match nás nasměruje na **přesně tu variantu kterou Loyd vlepil**.
+      if (cmUrl) {
+        const cmUrlNorm = String(cmUrl || '').replace(/[?#].*$/, '').toLowerCase();
+        card = results.find(c => {
+          const pwUrl = String(c.cardmarket?.product_url || '').replace(/[?#].*$/, '').toLowerCase();
+          return pwUrl && pwUrl === cmUrlNorm;
+        });
+        if (card) {
+          console.log(`[card-cache] ✓ PokeWallet exact cmUrl match: ${card.card_info?.name}`);
+        }
+      }
+
       // Strategie 1: number + set match
-      if (qNum && setLower) {
+      if (!card && qNum && setLower) {
         card = results.find(c => {
           const cNum = String(c.card_info?.card_number || '').split('/')[0].replace(/^0+/, '').trim();
           const cSet = String(c.card_info?.set_name || '').toLowerCase();
@@ -270,14 +287,14 @@ async function fetchFromPokeWallet(name, set, number, lang) {
         card_number:  ci.card_number || number,
         rarity:       ci.rarity || '',
         hp:           ci.hp || '',
-        cardmarket_url:  card.cardmarket?.product_url || '',
-        image_url:    imageUrl,                 // vyžaduje proxy
+        cardmarket_url:  card.cardmarket?.product_url || cmUrl || '',
+        image_url:    imageUrl,
         price_min:    cm.low   || tp.low_price    || 0,
         price_trend:  cm.trend || tp.market_price || 0,
         price_30d:    cm.avg30 || cm.avg7 || tp.market_price || 0,
         lang:         lang,
         _source:      'pokewallet',
-        _pwId:        card.id,                  // pro budoucí volání /images/:id
+        _pwId:        card.id,
       };
     } catch (e) {
       console.warn(`[card-cache] PokeWallet fetch chyba pro "${q}":`, e.message);
@@ -554,9 +571,59 @@ export default async function handler(req, res) {
     return await runFactsGenerate(res);
   }
 
-  const { name, set, number, lang = 'JP', token } = req.query;
+  let { name, set, number, lang = 'JP', token, cmUrl } = req.query;
 
-  if (!name)  return res.status(400).json({ error: 'Chybí parametr name' });
+  // ── Cardmarket URL parser ───────────────────────────────────────────
+  // Pokud klient pošle ?cmUrl=https://www.cardmarket.com/.../Heatmor-CS4bC020,
+  // server URL rozparsuje a doplní/přepíše name/set/number/lang automaticky.
+  // Loyd použije tuto cestu když má URL z Cardmarketu a chce z toho zjistit
+  // skutečný obrázek (PokeWallet má reálné scany asijských karet).
+  if (cmUrl) {
+    try {
+      const decoded = decodeURIComponent(cmUrl);
+      // Pattern: /en/Pokemon/Products/Singles/{Set-Slug}/{Card-Slug}{V?\d+?}{SetCode\d+}
+      const m = decoded.match(/cardmarket\.com\/[a-z]{2}\/Pokemon\/Products\/Singles\/([^\/\?#]+)\/([^\/\?#]+)/i);
+      if (m) {
+        const cmSetSlug  = m[1].replace(/-/g, ' ').trim();
+        let   cmCardSlug = m[2].replace(/-/g, ' ').trim();
+
+        // Ze "Heatmor V1 CS4bC020" extrahuj set kód a číslo:
+        //   - Trailing pattern "[A-Z]{2,4}\d+" = set kód (např. CS4bC, EVS, TEFEN)
+        //   - Trailing 3-4 číslice na konci = card number
+        let extractedNumber = '';
+        let extractedSetCode = '';
+        const trailMatch = cmCardSlug.match(/\s+([A-Z]{2,5}[a-z0-9]*)(\d{2,4})$/i);
+        if (trailMatch) {
+          extractedSetCode = trailMatch[1];
+          extractedNumber  = trailMatch[2];
+          cmCardSlug = cmCardSlug.replace(/\s+[A-Z]{2,5}[a-z0-9]*\d{2,4}$/i, '').trim();
+        }
+        // Ze jména odstraň trailing "V1", "V2", "V3" varianty (Cardmarket je dává
+        // pro různé arty stejné karty — jako variantu, ne jako součást jména)
+        cmCardSlug = cmCardSlug.replace(/\s+V\d+$/i, '').trim();
+
+        // Auto-doplň pokud klient poslal prázdné parametry
+        if (!name)   name   = cmCardSlug;
+        if (!set)    set    = cmSetSlug;
+        if (!number) number = extractedNumber;
+
+        // JP/ZH detekce z URL — pokud set obsahuje "Japan" / "Asian" / asijské
+        // názvy / non-EN sety, lang nastav na JP/ZH (jinak nech default)
+        const setLower = cmSetSlug.toLowerCase();
+        const looksAsian = /\b(japan|asian|chinese|korean|taiwan|gathering|origin|bangaisha)\b/.test(setLower) ||
+                           /[\u3000-\u9fff\uff00-\uffef]/.test(cmSetSlug);
+        if (looksAsian && (!lang || lang === 'EN')) lang = 'JP';
+
+        console.log(`[card-cache] cmUrl rozparsován: name="${name}" set="${set}" num="${number}" lang="${lang}" code="${extractedSetCode}"`);
+      } else {
+        console.warn('[card-cache] cmUrl má nečekaný formát:', decoded.slice(0, 80));
+      }
+    } catch (e) {
+      console.warn('[card-cache] cmUrl parse error:', e.message);
+    }
+  }
+
+  if (!name)  return res.status(400).json({ error: 'Chybí parametr name (ani cmUrl nepomohl)' });
   if (!token) return res.status(401).json({ error: 'Chybí token' });
 
   // ── 1. Ověření tokenu ────────────────────────────────────────────────
@@ -610,7 +677,7 @@ export default async function handler(req, res) {
   // ── 3. Cache miss → PokeWallet (primární) → RapidAPI (záložní) ───────
   // PokeWallet free tier má 1000 req/den (vs 99 RapidAPI) + reálné obrázky
   // pro JP/ZH/TW karty. Takže ho zkusíme jako první.
-  let fresh = await fetchFromPokeWallet(name, set, number, lang);
+  let fresh = await fetchFromPokeWallet(name, set, number, lang, cmUrl);
 
   // Pokud PokeWallet nic, fallback na RapidAPI
   if (!fresh) {
