@@ -156,6 +156,137 @@ async function checkAndIncrementApiUsage() {
 //   "image": "https://images.tcggo.com/..."
 // }
 
+// ── PokeWallet.io API client ─────────────────────────────────────────────
+// Free tier: 100 req/hod + 1000/den. Auth: X-API-Key header.
+// Klíč ENV: POKEWALLET_API_KEY (formát: pk_live_xxx)
+// Výhody vs RapidAPI:
+//   - 10× větší denní limit
+//   - Reálné obrázky karet (i pro JP/ZH/TW sety) přes /images/:id
+//   - Endpoint /search vrací TCGPlayer i CardMarket ceny v jedné odpovědi
+const POKEWALLET_BASE = 'https://api.pokewallet.io';
+
+async function fetchFromPokeWallet(name, set, number, lang) {
+  const key = process.env.POKEWALLET_API_KEY;
+  if (!key) {
+    console.log('[card-cache] POKEWALLET_API_KEY není nastaveno, přeskakuji.');
+    return null;
+  }
+
+  const cleanName = String(name || '').trim();
+  if (!cleanName) return null;
+
+  // Pokemon TCG cards používají EN názvy v PokeWallet — pokud máme CJK name,
+  // přeskočíme (RapidAPI fallback to dořeší pomocí scraperu).
+  if (/[\u3000-\u9fff\uff00-\uffef]/.test(cleanName)) {
+    console.log(`[card-cache] PokeWallet: jméno obsahuje CJK ("${cleanName}"), skip`);
+    return null;
+  }
+
+  // Sestav search query: "{name} {number}" pro přesný match, jinak jen name
+  // PokeWallet podporuje hledání i podle "set_id číslo" ale my máme jen string set
+  const queries = [];
+  if (cleanName && number) queries.push(`${cleanName} ${number}`);
+  queries.push(cleanName);
+
+  console.log(`[card-cache] PokeWallet hledám: "${cleanName}" set="${set || ''}" num="${number || ''}" lang="${lang || ''}"`);
+
+  for (const q of queries) {
+    try {
+      const params = new URLSearchParams({ q, limit: '20' });
+      const r = await fetch(`${POKEWALLET_BASE}/search?${params}`, {
+        headers: {
+          'X-API-Key': key,
+          'Accept':    'application/json',
+        },
+      });
+
+      if (r.status === 429) {
+        console.warn('[card-cache] PokeWallet rate limit (429)');
+        return null; // RapidAPI fallback
+      }
+      if (!r.ok) {
+        console.warn(`[card-cache] PokeWallet HTTP ${r.status} pro "${q}"`);
+        continue;
+      }
+
+      const data = await r.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      if (!results.length) {
+        console.log(`[card-cache] PokeWallet "${q}" → 0 výsledků`);
+        continue;
+      }
+
+      // Výběr nejlepší shody:
+      //   1. Přesná shoda card_number + (set_code podobnost) + správný lang
+      //   2. Přesná shoda card_number
+      //   3. První výsledek
+      const qNum = String(number || '').split('/')[0].replace(/^0+/, '').trim();
+      const setLower = String(set || '').toLowerCase();
+      // Pro non-EN preferuj cardmarket-only varianty (často mají JP/ZH obrázky)
+      const wantNonEn = lang && lang !== 'EN';
+
+      let card = null;
+      // Strategie 1: number + set match
+      if (qNum && setLower) {
+        card = results.find(c => {
+          const cNum = String(c.card_info?.card_number || '').split('/')[0].replace(/^0+/, '').trim();
+          const cSet = String(c.card_info?.set_name || '').toLowerCase();
+          const cCode = String(c.card_info?.set_code || '').toLowerCase();
+          return cNum === qNum && (cSet.includes(setLower) || setLower.includes(cSet) || cCode === setLower);
+        });
+      }
+      // Strategie 2: number match (preferuj Cardmarket-only pro JP/ZH karty)
+      if (!card && qNum) {
+        const matches = results.filter(c => {
+          const cNum = String(c.card_info?.card_number || '').split('/')[0].replace(/^0+/, '').trim();
+          return cNum === qNum;
+        });
+        if (matches.length) {
+          if (wantNonEn) {
+            card = matches.find(c => !c.tcgplayer && c.cardmarket) || matches[0];
+          } else {
+            card = matches[0];
+          }
+        }
+      }
+      // Strategie 3: první výsledek
+      if (!card) card = results[0];
+
+      const ci = card.card_info || {};
+      const cm = card.cardmarket?.prices?.[0] || {};
+      const tp = card.tcgplayer?.prices?.[0]   || {};
+
+      console.log(`[card-cache] ✓ PokeWallet vybrán: ${ci.name} (${ci.set_name || ci.set_code}, #${ci.card_number})`);
+
+      // Sestav uložení do cache. Obrázek získá klient přes náš proxy endpoint
+      // (server přidá X-API-Key, klient pouze fetch /api/card-cache?action=image&id=...)
+      const imageUrl = `/api/card-cache?action=image&id=${encodeURIComponent(card.id)}&size=high`;
+
+      return {
+        name:         ci.name || cleanName,
+        name_en:      ci.clean_name || ci.name || cleanName,
+        set_name:     ci.set_name || '',
+        set_code:     ci.set_code || '',
+        card_number:  ci.card_number || number,
+        rarity:       ci.rarity || '',
+        hp:           ci.hp || '',
+        cardmarket_url:  card.cardmarket?.product_url || '',
+        image_url:    imageUrl,                 // vyžaduje proxy
+        price_min:    cm.low   || tp.low_price    || 0,
+        price_trend:  cm.trend || tp.market_price || 0,
+        price_30d:    cm.avg30 || cm.avg7 || tp.market_price || 0,
+        lang:         lang,
+        _source:      'pokewallet',
+        _pwId:        card.id,                  // pro budoucí volání /images/:id
+      };
+    } catch (e) {
+      console.warn(`[card-cache] PokeWallet fetch chyba pro "${q}":`, e.message);
+    }
+  }
+  return null;
+}
+
+
 async function fetchFromRapidApi(name, set, number, lang) {
   const key = process.env.RAPIDAPI_KEY;
   if (!key) return null;
@@ -321,6 +452,40 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET')     return res.status(405).json({ error: 'Použij GET' });
 
+  // ── ?action=image&id=pk_xxx → proxy pro PokeWallet card image ────────
+  // Klient si tahle URL může načíst v <img src> bez nutnosti znát API key.
+  // Server přidá X-API-Key a vrátí binární obrázek.
+  // Použití: <img src="/api/card-cache?action=image&id=pk_72046138...">
+  if (req.query.action === 'image') {
+    const id = String(req.query.id || '').trim();
+    if (!id) return res.status(400).json({ error: 'Chybí parametr id' });
+    const pwKey = process.env.POKEWALLET_API_KEY;
+    if (!pwKey) return res.status(503).json({ error: 'PokeWallet API klíč není nastaven' });
+
+    // Bezpečnost: id musí být hash nebo pk_-prefix hex (žádné slashy/cesty)
+    if (!/^(pk_)?[a-f0-9]{20,}$/i.test(id)) {
+      return res.status(400).json({ error: 'Neplatný formát id' });
+    }
+    const size = req.query.size === 'low' ? 'low' : 'high';
+
+    try {
+      const r = await fetch(`${POKEWALLET_BASE}/images/${id}?size=${size}`, {
+        headers: { 'X-API-Key': pwKey },
+      });
+      if (!r.ok) {
+        return res.status(r.status).json({ error: 'PokeWallet image error', status: r.status });
+      }
+      // Přepošli binární data klientovi
+      const buf = Buffer.from(await r.arrayBuffer());
+      const ct  = r.headers.get('content-type') || 'image/jpeg';
+      res.setHeader('Content-Type', ct);
+      res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=86400'); // 24h cache
+      return res.status(200).send(buf);
+    } catch (e) {
+      return res.status(502).json({ error: 'PokeWallet image fetch selhal: ' + e.message });
+    }
+  }
+
   // ── ?action=stats → vrať aktuální stav RapidAPI counteru ─────────────
   // (sloučeno do card-cache.js kvůli Vercel Hobby limitu 12 funkcí)
   // Použití z UI: fetch('/api/card-cache?action=stats')
@@ -442,8 +607,15 @@ export default async function handler(req, res) {
     }
   }
 
-  // ── 3. Cache miss → RapidAPI ─────────────────────────────────────────
-  const fresh = await fetchFromRapidApi(name, set, number, lang);
+  // ── 3. Cache miss → PokeWallet (primární) → RapidAPI (záložní) ───────
+  // PokeWallet free tier má 1000 req/den (vs 99 RapidAPI) + reálné obrázky
+  // pro JP/ZH/TW karty. Takže ho zkusíme jako první.
+  let fresh = await fetchFromPokeWallet(name, set, number, lang);
+
+  // Pokud PokeWallet nic, fallback na RapidAPI
+  if (!fresh) {
+    fresh = await fetchFromRapidApi(name, set, number, lang);
+  }
 
   // Rate limit: vrátíme 429 + (pokud je) zastaralá cache
   if (fresh?._rateLimited) {
