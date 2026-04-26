@@ -347,6 +347,35 @@ body {
   display: block;
 }
 
+/* ═══ REGISTRACE — výrazné CTA tlačítko v topbaru ═══ */
+.btn-nav-register {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  background: linear-gradient(135deg, #f5c842, #ff8c42);
+  color: #0b080a;
+  border: 1px solid rgba(255, 200, 100, 0.5);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.25);
+  transition: 0.2s;
+  white-space: nowrap;
+}
+
+.btn-nav-register:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(245, 200, 66, 0.4);
+  background: linear-gradient(135deg, #ffcf5c, #ff9c4a);
+}
+
+@media (max-width: 600px) {
+  .btn-nav-register { padding: 7px 12px; font-size: 12px; }
+}
+
 /* ═══ AI PROFESOR OAK BOX ═══ */
 .oak-container {
   max-width: 580px;
@@ -506,6 +535,7 @@ window.TOPBAR_ACTIVE = 'index';</script>
       <span id="userName"></span>
     </a>
     <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="register.html" id="registerLink" class="btn-nav-register" style="display:none;font-size:13px">✨ Registrace</a>
     <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
@@ -694,6 +724,7 @@ function doLogout() {
   var name = document.getElementById('userName');
   var avatar = document.getElementById('userAvatar');
   var loginLink = document.getElementById('loginLink');
+  var registerLink = document.getElementById('registerLink');
   var logoutBtn = document.getElementById('logoutBtn');
   var profileBtn = document.getElementById('profileBtn');
   if (u && u.id) {
@@ -702,6 +733,7 @@ function doLogout() {
     if (name) name.textContent = uname;
     if (avatar) avatar.textContent = (uname[0]||'?').toUpperCase();
     if (loginLink) loginLink.style.display = 'none';
+    if (registerLink) registerLink.style.display = 'none';
     if (logoutBtn) logoutBtn.style.display = '';
     if (profileBtn) profileBtn.style.display = '';
     // Load profile avatar
@@ -724,6 +756,7 @@ function doLogout() {
   } else {
     if (chip) chip.style.display = 'none';
     if (loginLink) loginLink.style.display = '';
+    if (registerLink) registerLink.style.display = '';
     if (logoutBtn) logoutBtn.style.display = 'none';
     if (profileBtn) profileBtn.style.display = 'none';
   }
@@ -1016,59 +1049,34 @@ document.addEventListener('DOMContentLoaded',function(){
 (function() {
   'use strict';
 
-  // Knihovna obsahu — mix faktů o Pokémonech a tipů o stránce.
-  // Rozšiř kdykoli, rotace je modulo počet položek.
-  const adviceLibrary = [
-    // ── TIPY O STRÁNCE ──────────────────────────────────────────────
+  // Knihovna obsahu — primárně načítáme z /api/card-cache?action=facts (Supabase ai_facts tabulka),
+  // hardcoded seznam slouží jako FALLBACK pokud API selže (offline, výpadek atd.).
+  // Cron generuje 5 nových každý den, max 500 záznamů (auto-purge nejstarších).
+  const fallbackLibrary = [
     { kind: 'tip',  emoji: '🔒', title: 'Soukromé sdílení',
-      text: 'Žádné veřejné odkazy! Album nasdílíš jen konkrétnímu registrovanému trenérovi přes jeho jméno nebo e-mail.' },
+      body: 'Žádné veřejné odkazy! Album nasdílíš jen konkrétnímu registrovanému trenérovi přes jeho jméno nebo e-mail.' },
     { kind: 'tip',  emoji: '⏳', title: 'Časový zámek',
-      text: 'Sdílení není navždy. Nastav si dobu (od pár hodin po 7 dní), po které se přístup automaticky zruší.' },
+      body: 'Sdílení není navždy. Nastav si dobu (od pár hodin po 7 dní), po které se přístup automaticky zruší.' },
     { kind: 'tip',  emoji: '👨‍👩‍👧', title: 'Rodinný klan',
-      text: 'Propoj profily s rodinou — každý má vlastní album, ale vidíte své karty navzájem jako jeden tým.' },
+      body: 'Propoj profily s rodinou — každý má vlastní album, ale vidíte své karty navzájem jako jeden tým.' },
     { kind: 'tip',  emoji: '💰', title: 'Reálné ceny z Cardmarketu',
-      text: 'U každé karty vidíš aktuální tržní hodnotu. Žádné odhady, jen čistá data — a žádný Rakeťák tě nenapálí!' },
+      body: 'U každé karty vidíš aktuální tržní hodnotu. Žádné odhady, jen čistá data — a žádný Rakeťák tě nenapálí!' },
     { kind: 'tip',  emoji: '📸', title: 'Skener karet',
-      text: 'Vyfoť kartičku přes mobil a AI ji během chvíle rozpozná. Rychlejší než Quick Attack od Pikachu!' },
+      body: 'Vyfoť kartičku přes mobil a AI ji během chvíle rozpozná. Rychlejší než Quick Attack od Pikachu!' },
     { kind: 'tip',  emoji: '🔄', title: 'Výměny i protinabídky',
-      text: 'Kartu za kartu, nebo férová cena. Pod každou nabídkou je chat, kde se můžete domluvit na detailech.' },
+      body: 'Kartu za kartu, nebo férová cena. Pod každou nabídkou je chat, kde se můžete domluvit na detailech.' },
     { kind: 'tip',  emoji: '✨', title: 'Vždycky zdarma',
-      text: 'Žádné poplatky, žádné předplatné. Děláme to z lásky ke kartičkám — peníze od uživatelů nikdy nevybíráme.' },
-    { kind: 'tip',  emoji: '🌍', title: 'JP a CN karty taky',
-      text: 'AI rozpozná i japonské a tchajwanské karty. Stačí vyfotit a najdeme český nebo anglický ekvivalent.' },
-    { kind: 'tip',  emoji: '📊', title: 'Sledování hodnoty',
-      text: 'Vidíš trend, minimum a 30denní průměr ceny. Tvá sbírka je investice — měj o ní přehled.' },
-
-    // ── ZAJÍMAVOSTI O POKÉMONECH ─────────────────────────────────────
+      body: 'Žádné poplatky, žádné předplatné. Děláme to z lásky ke kartičkám — peníze od uživatelů nikdy nevybíráme.' },
     { kind: 'fact', emoji: '🌊', title: 'Telepatický Lapras',
-      text: 'Ashův Lapras dokázal mluvit s lidmi pomocí telepatie. Ukázal to při cestě s Jynx na severní pól, když pomáhal zachránit Vánoce!' },
-    { kind: 'fact', emoji: '🐱', title: 'Mluvící Meowth',
-      text: 'Meowth z Rakeťáků se naučil mluvit lidskou řečí, aby zapůsobil na kočičí dámu Meowzie. Stálo ho to ale schopnost bojovat a vyvíjet se.' },
+      body: 'Ashův Lapras dokázal mluvit s lidmi pomocí telepatie. Ukázal to při cestě s Jynx na severní pól, když pomáhal zachránit Vánoce!' },
     { kind: 'fact', emoji: '⚡', title: 'Pikachu = jiskra + myš',
-      text: 'Jméno Pikachu vznikl spojením japonských slov „pika" (zvuk jiskry) a „chu" (pípnutí myši). Doslova „Elektrické pípnutí"!' },
+      body: 'Jméno Pikachu vzniklo spojením japonských slov „pika" (zvuk jiskry) a „chu" (pípnutí myši).' },
     { kind: 'fact', emoji: '🦏', title: 'První kreslený byl Rhydon',
-      text: 'I když má Bulbasaur číslo 001, prvním nakresleným Pokémonem byl Rhydon. Proto najdeš jeho sochy v každém Gymu v původních hrách.' },
-    { kind: 'fact', emoji: '🐿️', title: 'Pikachu měl být veverka',
-      text: 'Designérka Atsuko Nishida prozradila, že Pikachu byl původně inspirován veverkou. Chtěla si v té době jednu pořídit jako mazlíčka!' },
-    { kind: 'fact', emoji: '🎬', title: 'Připravte se na potíže!',
-      text: 'Slavné motto Rakeťáků „Připravte se na potíže… a na dvojité!" zaznělo v původním seriálu více než 700×. Jednou z nejcitovanějších hlášek anime všech dob.' },
-    { kind: 'fact', emoji: '👑', title: 'Stanu se Pokémon Mistrem!',
-      text: 'Ashovi trvalo 25 let, než se konečně stal Pokémon Světovým Šampionem. V dílu z roku 2022 porazil Leona a vyhrál Mistrovský Turnaj.' },
-    { kind: 'fact', emoji: '🥚', title: 'Mew uvnitř Mewtwo',
-      text: 'Podle původních příběhů byl Mewtwo vytvořen z DNA Mewa. Vědci ale museli použít několik desítek vzorků, než se klonování povedlo.' },
-    { kind: 'fact', emoji: '🌟', title: 'Super účinné!',
-      text: 'Hláška „It\'s super effective!" se stala internetovým memem dlouho předtím, než internet měl meme jméno. Z her na Game Boy do běžného slovníku!' },
-    { kind: 'fact', emoji: '🍙', title: 'Brockovy „koblížky"',
-      text: 'V americkém dabingu Brock tvrdil, že jí koblížky — i když v animaci jasně držel japonské rýžové koule onigiri. Klasický překladatelský úlet 90. let!' },
-    { kind: 'fact', emoji: '🎶', title: 'Téma seriálu = hit',
-      text: '„Gotta catch \'em all!" píseň z prvního seriálu se stala kulturní ikonou. Zazpívalo si ji s ní celá generace 90. let.' },
-    { kind: 'fact', emoji: '🔮', title: 'Slowpoke = lenoch z lenochů',
-      text: 'Slowpoke je prý tak pomalý, že trvá hodiny, než ucítí bolest. Když mu Shellder kousne ocas, Slowpoke si toho všimne až za den!' },
-    { kind: 'fact', emoji: '🌙', title: 'Drowzee jí sny',
-      text: 'Pokédex tvrdí, že Drowzee se živí lidskými sny. Prý preferuje ty dětské, protože jsou prý sladší než ty dospělé.' },
-    { kind: 'fact', emoji: '📺', title: '„Kdo je tenhle Pokémon?"',
-      text: 'Kultovní hádanka uprostřed dílu, kdy se ze siluety mělo poznat o jakého pokémona jde. Často to byl velmi nečekaný kandidát!' },
+      body: 'I když má Bulbasaur číslo 001, prvním nakresleným Pokémonem byl Rhydon. Proto najdeš jeho sochy v každém Gymu.' },
   ];
+
+  // Aktivní seznam — naplní se z DB v _init()
+  let adviceLibrary = fallbackLibrary.slice();
 
   let _adviceIdx = -1;
   let _autoTimer = null;
@@ -1078,17 +1086,21 @@ document.addEventListener('DOMContentLoaded',function(){
     const badge = document.getElementById('oakBadge');
     const text = document.getElementById('oakFactText');
     if (!box || !badge || !text) return;
+    if (!adviceLibrary.length) return;
 
     box.classList.add('fading');
 
     setTimeout(() => {
       const item = adviceLibrary[idx];
+      if (!item) return;
       badge.textContent = item.kind === 'fact'
         ? '📖 Profesor Oak — Zajímavost'
         : '🎓 PokéRádce — Tip';
       badge.classList.toggle('kind-fact', item.kind === 'fact');
       badge.classList.toggle('kind-tip',  item.kind === 'tip');
-      text.innerHTML = `${item.emoji} <strong>${item.title}:</strong> ${item.text}`;
+      // Podporujeme jak `text` (legacy), tak `body` (nový API tvar)
+      const bodyText = item.body || item.text || '';
+      text.innerHTML = `${item.emoji || '🌟'} <strong>${item.title || ''}:</strong> ${bodyText}`;
       box.classList.remove('fading');
     }, 350);
   }
@@ -1100,24 +1112,52 @@ document.addEventListener('DOMContentLoaded',function(){
 
   function _restartAuto() {
     if (_autoTimer) clearInterval(_autoTimer);
-    _autoTimer = setInterval(_nextAdvice, 11000); // 11 s — dost času na přečtení
+    _autoTimer = setInterval(_nextAdvice, 22000); // 22 s — dvojnásobek; kdo chce rychleji, klikne na šipku ›
+  }
+
+  // Načti z API; pokud selže, zůstane hardcoded fallback
+  async function _loadFromApi() {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000); // 5s timeout
+      const r = await fetch('/api/card-cache?action=facts', { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      if (Array.isArray(data?.facts) && data.facts.length >= 3) {
+        adviceLibrary = data.facts;
+        // Zamíchej Fisher-Yates (každý reload jiné pořadí)
+        for (let i = adviceLibrary.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = adviceLibrary[i]; adviceLibrary[i] = adviceLibrary[j]; adviceLibrary[j] = tmp;
+        }
+        console.log('[oak] Načteno ' + adviceLibrary.length + ' faktů z /api/card-cache?action=facts');
+      } else {
+        console.warn('[oak] API vrátilo málo faktů, používám fallback');
+      }
+    } catch (e) {
+      console.warn('[oak] /api/card-cache?action=facts nedostupné, používám fallback:', e.message);
+    }
   }
 
   // Init: po DOMContentLoaded zobraz první + spusť rotaci
-  function _init() {
-    // Začni na náhodném indexu — různí návštěvníci uvidí různý úvod
-    _adviceIdx = Math.floor(Math.random() * adviceLibrary.length) - 1;
-    _nextAdvice();
-    _restartAuto();
-
-    // Tlačítko "další" — manuální skok + reset auto-timeru
+  async function _init() {
+    // Tlačítko "další" — manuální skok + reset auto-timeru (vlepit hned ať reaguje)
     const btn = document.getElementById('oakNextBtn');
     if (btn) {
       btn.addEventListener('click', function() {
         _nextAdvice();
-        _restartAuto(); // restart aby další auto-rotace neukázala znovu hned
+        _restartAuto();
       });
     }
+
+    // Začni s fallbackem aby box neukázal "Připravuji..." moc dlouho
+    _adviceIdx = Math.floor(Math.random() * adviceLibrary.length) - 1;
+    _nextAdvice();
+    _restartAuto();
+
+    // Načti z API na pozadí; když dorazí víc faktů, použijeme je při dalším skoku
+    await _loadFromApi();
 
     // Když uživatel skryje tab, pauzni rotaci (šetří CPU + není efekt vidět)
     document.addEventListener('visibilitychange', function() {

@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/email-digest?mode=weekly",
       "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/card-cache?action=facts-generate",
+      "schedule": "0 4 * * *"
     }
   ]
 }
