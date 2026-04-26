@@ -21,6 +21,11 @@
 const SB_URL  = process.env.SUPABASE_URL  || 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SB_ANON = process.env.SUPABASE_ANON || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
+// AI facts ENV (sloučeno do card-cache.js kvůli Vercel limitu 12 funkcí)
+const SB_SVC      = process.env.SUPABASE_SERVICE_KEY; // pro INSERT bypass RLS na ai_facts
+const GROQ_KEY    = process.env.GROQ_API_KEY;
+const CRON_SECRET = process.env.CRON_SECRET || 'dev-secret-change-me';
+
 // RapidAPI: CardMarket API TCG (by TCG API / TCGGO)
 // Odkaz: https://rapidapi.com/tcggopro/api/cardmarket-api-tcg
 // Free tier: 100 req/den
@@ -266,6 +271,40 @@ export default async function handler(req, res) {
     }
   }
 
+  // ── ?action=facts → vrať všechny AI fakty (frontend rotace) ─────────
+  // Sloučeno sem (místo separátního /api/ai-facts) kvůli Vercel limitu funkcí.
+  if (req.query.action === 'facts') {
+    try {
+      const r = await fetch(
+        `${SB_URL}/rest/v1/ai_facts?select=kind,emoji,title,body&order=created_at.desc&limit=500`,
+        {
+          headers: {
+            'apikey':        SB_ANON,
+            'Authorization': `Bearer ${SB_ANON}`,
+          },
+        }
+      );
+      if (!r.ok) return res.status(500).json({ error: 'Supabase error', status: r.status });
+      const facts = await r.json();
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      return res.status(200).json({
+        facts: Array.isArray(facts) ? facts : [],
+        count: Array.isArray(facts) ? facts.length : 0,
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  // ── ?action=facts-generate → spusť AI generaci 5 nových faktů ──────
+  // Pouze pro autorizované volání (Vercel cron + Bearer header).
+  if (req.query.action === 'facts-generate') {
+    const auth = req.headers.authorization || '';
+    const token = auth.replace(/^Bearer\s+/i, '').trim();
+    if (token !== CRON_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+    return await runFactsGenerate(res);
+  }
+
   const { name, set, number, lang = 'JP', token } = req.query;
 
   if (!name)  return res.status(400).json({ error: 'Chybí parametr name' });
@@ -380,4 +419,143 @@ export default async function handler(req, res) {
 
   res.setHeader('Cache-Control', 's-maxage=3600');
   return res.status(200).json({ ...row, _source: 'rapidapi' });
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// AI FACTS — sloučeno z původního api/ai-facts.js
+// ════════════════════════════════════════════════════════════════════════
+
+// Hlavní generační flow (volá ho ?action=facts-generate s Bearer CRON_SECRET)
+async function runFactsGenerate(res) {
+  if (!GROQ_KEY) return res.status(500).json({ error: 'GROQ_API_KEY není nastaveno' });
+  if (!SB_SVC)   return res.status(500).json({ error: 'SUPABASE_SERVICE_KEY není nastaveno' });
+
+  try {
+    const newFacts = await generateFactsViaAI();
+    if (!newFacts || !newFacts.length) {
+      return res.status(500).json({ error: 'AI nevrátila validní fakty' });
+    }
+
+    const inserted = [];
+    const skipped  = [];
+    for (const f of newFacts) {
+      const ok = await insertAiFact(f);
+      if (ok) inserted.push(f.title);
+      else    skipped.push(f.title);
+    }
+
+    return res.status(200).json({
+      ok:             true,
+      generated:      newFacts.length,
+      inserted:       inserted.length,
+      skipped:        skipped.length,
+      insertedTitles: inserted,
+    });
+  } catch (e) {
+    console.error('[facts-generate] error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+}
+
+// Volá Groq Llama 3.3 70B → 5 unikátních faktů (mix kind: fact/tip)
+async function generateFactsViaAI() {
+  const prompt = `Jsi expert na Pokémon TCG svět a UX writer pro web PokéTrade (česká aplikace pro správu sběratelských karet).
+
+Vygeneruj 5 unikátních krátkých příspěvků pro rotující "Profesor Oak" box na hlavní stránce.
+
+PRAVIDLA:
+- 3 položky typu "fact" (zajímavost o Pokémonech, anime, hrách, designérech)
+- 2 položky typu "tip" (návod jak používat web PokéTrade — sdílení alb, ceny z Cardmarketu, rodinné propojení, skener karet, nabídky, výměny)
+- Každý "title" max 4 slova, "body" max 200 znaků (1-2 věty)
+- Pro "fact" volj méně známé zajímavosti, ne triviální (NE "Pikachu je žlutý", NE "Pokémon je z Japonska")
+- Pro "tip" buď konkrétní funkce webu: skener, ceny Cardmarketu, sdílení s časovým limitem, rodinný klan, výměny, protinabídky, JP/CN karty, porovnání alb
+- Český jazyk
+- Hravý ale věcný tón, vyhni se klišé
+
+VRAŤ POUZE JSON pole, žádný markdown ani komentář:
+[
+  {"kind":"fact","emoji":"⚡","title":"Krátký název","body":"Tělo věty 1-2."},
+  {"kind":"tip","emoji":"📸","title":"Krátký název","body":"Tělo věty 1-2."}
+]`;
+
+  const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${GROQ_KEY}`,
+    },
+    body: JSON.stringify({
+      model:       'llama-3.3-70b-versatile',
+      messages:    [{ role: 'user', content: prompt }],
+      temperature: 0.9,
+      max_tokens:  1500,
+    }),
+  });
+
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    throw new Error(`Groq HTTP ${r.status}: ${errText.slice(0, 200)}`);
+  }
+
+  const data = await r.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  const cleaned = content.replace(/```json\s*/gi, '').replace(/```\s*$/g, '').trim();
+  const match = cleaned.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('AI nevrátila JSON pole');
+
+  let parsed;
+  try { parsed = JSON.parse(match[0]); }
+  catch (e) { throw new Error('AI vrátila nevalidní JSON: ' + e.message); }
+
+  if (!Array.isArray(parsed)) throw new Error('AI nevrátila pole');
+
+  const valid = [];
+  for (const item of parsed) {
+    if (!item || typeof item !== 'object') continue;
+    const kind  = (item.kind || '').toString().toLowerCase();
+    const title = (item.title || '').toString().trim().slice(0, 60);
+    const body  = (item.body || '').toString().trim().slice(0, 280);
+    const emoji = (item.emoji || '🌟').toString().slice(0, 4);
+    if (!['fact', 'tip'].includes(kind)) continue;
+    if (!title || title.length < 3) continue;
+    if (!body  || body.length  < 10) continue;
+    valid.push({ kind, title, body, emoji });
+  }
+  return valid;
+}
+
+// Vlož 1 fakt do DB (skip duplicit přes UNIQUE text_hash)
+async function insertAiFact(f) {
+  const text_hash = await sha256Hex(f.title + '|' + f.body);
+  const r = await fetch(`${SB_URL}/rest/v1/ai_facts`, {
+    method: 'POST',
+    headers: {
+      'apikey':        SB_SVC,
+      'Authorization': `Bearer ${SB_SVC}`,
+      'Content-Type':  'application/json',
+      'Prefer':        'return=minimal',
+    },
+    body: JSON.stringify({
+      kind:      f.kind,
+      emoji:     f.emoji,
+      title:     f.title,
+      body:      f.body,
+      text_hash: text_hash,
+      source:    'ai',
+    }),
+  });
+  if (r.status === 409) return false; // duplicita
+  if (!r.ok) {
+    const errText = await r.text().catch(() => '');
+    console.warn(`[insertAiFact] ${r.status}: ${errText.slice(0, 150)}`);
+    return false;
+  }
+  return true;
+}
+
+// SHA-256 hex (Node 16+ Web Crypto)
+async function sha256Hex(input) {
+  const buf  = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest('SHA-256', buf);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
