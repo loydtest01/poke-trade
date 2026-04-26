@@ -232,6 +232,40 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET')     return res.status(405).json({ error: 'Použij GET' });
 
+  // ── ?action=stats → vrať aktuální stav RapidAPI counteru ─────────────
+  // (sloučeno do card-cache.js kvůli Vercel Hobby limitu 12 funkcí)
+  // Použití z UI: fetch('/api/card-cache?action=stats')
+  if (req.query.action === 'stats') {
+    try {
+      const r = await fetch(
+        `${SB_URL}/rest/v1/api_usage_today?api_name=eq.rapidapi_cardmarket&select=*`,
+        {
+          headers: {
+            'apikey':        SB_ANON,
+            'Authorization': `Bearer ${SB_ANON}`,
+          },
+        }
+      );
+      if (!r.ok) return res.status(500).json({ error: 'Supabase error', status: r.status });
+      const rows = await r.json();
+      const row  = Array.isArray(rows) ? rows[0] : null;
+      const count     = row?.call_count || 0;
+      const remaining = Math.max(0, RAPIDAPI_DAILY_LIMIT - count);
+      res.setHeader('Cache-Control', 's-maxage=60');
+      return res.status(200).json({
+        rapidapi_cardmarket: {
+          count:        count,
+          limit:        RAPIDAPI_DAILY_LIMIT,
+          remaining:    remaining,
+          last_call_at: row?.last_call_at || null,
+          ok:           remaining > 0,
+        },
+      });
+    } catch (e) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
   const { name, set, number, lang = 'JP', token } = req.query;
 
   if (!name)  return res.status(400).json({ error: 'Chybí parametr name' });
