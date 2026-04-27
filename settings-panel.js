@@ -221,6 +221,15 @@
     '            <button class="preset-chip" onclick="albumSetThresholdPreset(100)">100 €</button>',
     '          </div>',
     '          <div id="expThresholdFeedback" class="price-alert-feedback"></div>',
+    '          <div style="margin-top:14px;padding:12px;background:rgba(245,200,66,0.06);border:1px solid rgba(245,200,66,0.18);border-radius:10px">',
+    '            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;color:#f0ece4">',
+    '              <input type="checkbox" id="showAllPricesToggle" onchange="albumToggleShowAllPrices(this.checked)"',
+    '                     style="width:16px;height:16px;accent-color:#f5c842;cursor:pointer">',
+    '              <span><strong>Zobrazit ceny i u levných karet</strong>',
+    '                <span style="display:block;font-size:11px;color:rgba(240,236,228,0.55);margin-top:3px">Default: cenovka jen u karet nad hranicí výše. Když zaškrtneš, uvidíš cenu u <em>všech</em> karet co cenu mají.</span>',
+    '              </span>',
+    '            </label>',
+    '          </div>',
     '        </div></div>',
     '      </div>',
 
@@ -331,6 +340,15 @@
     }
   };
 
+  // Toggle "Zobrazit ceny i u levných karet". Stav v localStorage 'pkc_show_all_prices'.
+  // Po změně se rerenderuje album, aby se cenovky okamžitě objevily/zmizely.
+  window.albumToggleShowAllPrices = window.albumToggleShowAllPrices || function (checked) {
+    localStorage.setItem('pkc_show_all_prices', checked ? '1' : '0');
+    if (typeof render === 'function') {
+      try { render(); } catch (e) { console.warn('[settings] render() selhal:', e); }
+    }
+  };
+
   function _spUpdateCurrencyUI() {
     var cur = localStorage.getItem('pkc_currency') || 'EUR';
     window._pkc_currency = cur;
@@ -397,6 +415,12 @@
     if (threshInp && savedThreshold !== null) threshInp.value = savedThreshold;
     var alertVal = document.getElementById('accPriceAlertVal');
     if (alertVal && savedThreshold) alertVal.textContent = savedThreshold;
+
+    // Restore "Zobrazit ceny i u levných karet" toggle
+    var showAllToggle = document.getElementById('showAllPricesToggle');
+    if (showAllToggle) {
+      showAllToggle.checked = localStorage.getItem('pkc_show_all_prices') === '1';
+    }
   }
 
   /* ── Spuštění ────────────────────────────────────────────────── */

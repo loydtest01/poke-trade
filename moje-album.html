@@ -693,6 +693,7 @@ body { background: #06040c; overflow-x: hidden; }
 .badge-trade { background: rgba(74,158,255,0.88); color: #fff; }
 .badge-sell  { background: rgba(34,197,94,0.88);  color: #fff; }
 .badge-exp   { background: rgba(245,200,66,0.92); color: #1a1326; font-size: 9px; }
+.badge-price { background: rgba(120,120,140,0.85); color: #fff; font-size: 9px; }
 
 #totalValueBar { display: flex; }
 
@@ -3079,6 +3080,11 @@ function getExpThreshold() {
   return isNaN(v) ? 20 : v;
 }
 
+// Toggle: zobrazit cenovku u VŠECH karet s cenou (default: jen nad limit)
+function getShowAllPrices() {
+  return localStorage.getItem('pkc_show_all_prices') === '1';
+}
+
 function setGridPage(p) {
   _gridPage = Math.max(0, p);
   render();
@@ -3143,9 +3149,18 @@ function renderCard(c, albumCardIds) {
   // ── Foil/Holo detekce — přidej CSS class podle vzácnosti karty ──
   // Reaguje na rarity z TCG API: holo, reverse, V/VMAX/VSTAR, EX/GX,
   // rainbow, secret. Karty s vyšší vzácností budou v UI lesknout.
-  const _rarStr  = String(c.rarity || '').toLowerCase();
+  // POZOR: "rainbow" animace se točí dokola (rotace 360°). Aplikujeme jen
+  // u karet s rarity která EXPLICITNĚ obsahuje "rainbow" nebo "hyper",
+  // NE u "Secret Rare" obecně (např. "Special Illustration Rare" má slovo
+  // "illustration" ne "rainbow"; "Hyper Rare" má slovo "hyper" → rainbow OK).
+  const _rarStr  = String(c.rarity || '').toLowerCase().trim();
   const _nameStr = String(c.name   || '').toLowerCase();
-  if (_rarStr.includes('rainbow') || _rarStr.includes('secret') || _rarStr.includes('hyper')) {
+  // Přesný match — "rainbow rare", "hyper rare", "gold rare" → rotující rainbow
+  const isRainbowRarity = _rarStr === 'rainbow rare'
+    || _rarStr === 'hyper rare'
+    || _rarStr === 'gold rare'
+    || _rarStr.includes('rainbow');   // pojistka pro "Rare Rainbow", "Rainbow Hyper" atd.
+  if (isRainbowRarity) {
     cls += ' is-rainbow';
   } else if (_rarStr.includes('vmax') || _rarStr.includes('vstar') ||
              _nameStr.endsWith(' vmax') || _nameStr.endsWith(' vstar') ||
@@ -3154,7 +3169,8 @@ function renderCard(c, albumCardIds) {
   } else if (_rarStr.includes('reverse')) {
     cls += ' is-reverse';
   } else if (_rarStr.includes('holo') || _rarStr.includes('illustration') ||
-             _rarStr.includes('full art') || _rarStr.includes('ultra')) {
+             _rarStr.includes('full art') || _rarStr.includes('ultra') ||
+             _rarStr === 'secret rare' || _rarStr === 'special illustration rare') {
     cls += ' is-holo';
   }
 
@@ -3182,7 +3198,21 @@ function renderCard(c, albumCardIds) {
       <div class="card-badges">
         ${c.for_trade ? '<span class="badge-pill badge-trade">\u{1F504}</span>' : ''}
         ${c.for_sell  ? '<span class="badge-pill badge-sell">\u{1F4B0}</span>'  : ''}
-        ${(c.p30d > 0 && c.p30d >= getExpThreshold()) ? `<span class="badge-pill badge-exp">\u2B50 ${fmtCardPrice(c.p30d)}</span>` : ''}
+        ${(() => {
+          // Cenovka — chování závisí na toggle "Zobrazit ceny i u levných karet"
+          // Default OFF: hvězdička ⭐ jen u karet nad limit (legacy)
+          // ON: zobrazí cenu u VŠECH karet co cenu mají (badge bez hvězdičky pro pod-limit)
+          const price = c.p30d || 0;
+          if (price <= 0) return '';
+          const threshold = getExpThreshold();
+          if (price >= threshold) {
+            return `<span class="badge-pill badge-exp">\u2B50 ${fmtCardPrice(price)}</span>`;
+          }
+          if (getShowAllPrices()) {
+            return `<span class="badge-pill badge-price">\u{1F4B0} ${fmtCardPrice(price)}</span>`;
+          }
+          return '';
+        })()}
         ${(!selectMode && !c._readOnly) ? `<button class="card-del-btn" onclick="event.stopPropagation();deleteCard('${esc(c.id)}','${esc(c.name||'')}')">🗑</button>` : ''}
       </div>
       <div class="card-footer">
