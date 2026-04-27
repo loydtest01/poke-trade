@@ -560,6 +560,10 @@ body { background: #06040c; overflow-x: hidden; }
   background-size: 250% 250%;
   background-position: 0% 0%;
   animation: holoShine 3.5s ease-in-out infinite;
+  /* Holo Rare = lesk JEN na ilustraci Pokémona (vertikálně cca 22%-68% karty).
+     Banner s názvem (top) a text box s útoky (bottom) zůstanou matné. */
+  -webkit-mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+          mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
 }
 
 /* Reverse Foil — jemnější, mřížka */
@@ -569,6 +573,10 @@ body { background: #06040c; overflow-x: hidden; }
     repeating-linear-gradient(135deg, rgba(255,255,255,.04) 0 2px, transparent 2px 6px);
   background-size: 250% 250%, auto;
   animation: holoShine 4.5s linear infinite;
+  /* Reverse Holo = lesk VŠUDE KROMĚ ilustrace Pokémona (rámeček + pozadí + text box).
+     Inverzní mask oproti Holo. */
+  -webkit-mask: linear-gradient(to bottom, #000 22%, transparent 28%, transparent 62%, #000 68%);
+          mask: linear-gradient(to bottom, #000 22%, transparent 28%, transparent 62%, #000 68%);
 }
 
 /* VMAX / VSTAR / V — silnější fialovo-růžový lesk */
@@ -639,6 +647,13 @@ body { background: #06040c; overflow-x: hidden; }
   animation: holoSweep 5s ease-in-out infinite;
 }
 
+/* Pro Holo Rare i ten "blesk" projíždí jen přes pokémon
+   (VMax/Rainbow mají celokartovou holografii, takže bez masky). */
+.card-slot.is-holo .card-inner::after {
+  -webkit-mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+          mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+}
+
 @keyframes holoShine {
   0%, 100% { background-position:   0%   0%; }
   50%      { background-position: 100% 100%; }
@@ -697,6 +712,9 @@ body { background: #06040c; overflow-x: hidden; }
     transparent 80%);
   background-size: 200% 200%;
   animation: holoShine 3s ease-in-out infinite;
+  /* Holo = lesk jen v zóně Pokémona (mid-section) */
+  -webkit-mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+          mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
 }
 .book-card.is-reverse::before {
   background: linear-gradient(115deg,
@@ -707,6 +725,9 @@ body { background: #06040c; overflow-x: hidden; }
     transparent 75%);
   background-size: 250% 250%;
   animation: holoShine 4s ease-in-out infinite;
+  /* Reverse = lesk všude kromě Pokémona (rámeček + pozadí) */
+  -webkit-mask: linear-gradient(to bottom, #000 22%, transparent 28%, transparent 62%, #000 68%);
+          mask: linear-gradient(to bottom, #000 22%, transparent 28%, transparent 62%, #000 68%);
 }
 .book-card.is-vmax::before {
   background: linear-gradient(115deg,
