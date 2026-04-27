@@ -77,22 +77,36 @@
   async function loadAllKeys(userId) {
     const token = getToken();
     if (!token) return {};
-    try {
-      const res = await supabaseRequest(
-        `rest/v1/user_api_keys?user_id=eq.${userId}&select=cerebras_key,openrouter_key,mistral_key`,
-        'GET', null, token
-      );
-      const row = Array.isArray(res) ? res[0] : null;
-      const out = {};
-      for (const p of PROVIDERS) {
-        const raw = row?.[`${p.key}_key`] || '';
-        out[p.key] = raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+    // Resilient načtení: pokud sloupec mistral_key v DB neexistuje (migrace
+    // nebyla spuštěna), zkusíme fallback bez něj. Tím UI funguje i bez migrace.
+    const trySelect = async (cols) => {
+      try {
+        const res = await supabaseRequest(
+          `rest/v1/user_api_keys?user_id=eq.${userId}&select=${cols}`,
+          'GET', null, token
+        );
+        if (res && (res.code === '42703' || (res.message || '').includes('column'))) {
+          return null; // sloupec neexistuje
+        }
+        return Array.isArray(res) ? res[0] || {} : null;
+      } catch (e) {
+        console.warn('[AIProviders] select selhal pro', cols, e);
+        return null;
       }
-      return out;
-    } catch (e) {
-      console.warn('[AIProviders] loadAllKeys selhal:', e);
-      return {};
+    };
+
+    let row = await trySelect('cerebras_key,openrouter_key,mistral_key');
+    if (row === null) {
+      console.warn('[AIProviders] Sloupec mistral_key neexistuje — spusť migration_mistral_key.sql v Supabase! Fallback bez něj…');
+      row = await trySelect('cerebras_key,openrouter_key') || {};
     }
+
+    const out = {};
+    for (const p of PROVIDERS) {
+      const raw = row?.[`${p.key}_key`] || '';
+      out[p.key] = raw.split(',').map(k => k.trim()).filter(k => k.length > 10);
+    }
+    return out;
   }
 
   async function saveKeysForProvider(userId, provider, keys) {

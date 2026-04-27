@@ -631,11 +631,18 @@ let _selectedAlbumId = null;
     showOnlineError('Toto sdílení již vypršelo. Požádej odesílatele o nové sdílení.'); return;
   }
   if (share.status === 'declined') { showOnlineError('Toto sdílení bylo odmítnuto.'); return; }
-  if (share.status !== 'accepted' && share.sender_id !== myId) {
+  // Recipient otevřel sdílení → nastav viewed_at (a auto-accept pokud první vstup)
+  if (share.sender_id !== myId) {
+    const nowIso = new Date().toISOString();
+    const patch = { viewed_at: nowIso };
+    if (share.status !== 'accepted') {
+      patch.status = 'accepted';
+      patch.accepted_at = nowIso;
+    }
     await fetch(`${SUPABASE_URL}/rest/v1/album_shares?id=eq.${shareId}`, {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'accepted', accepted_at: new Date().toISOString() })
+      body: JSON.stringify(patch)
     });
   }
 

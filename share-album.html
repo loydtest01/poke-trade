@@ -783,6 +783,15 @@ async function sendShare() {
 
   const result = await sbPost('rest/v1/album_shares', shareData);
 
+  // Race condition: stejné sdílení vytvořené z paralelního tabu
+  if (result?.code === '23505' || (result?.message || '').includes('album_shares_unique_pending')) {
+    toast('Toto album již bylo tomuto uživateli odesláno (možná v jiné záložce).', 'err');
+    btn.disabled = false;
+    btn.textContent = 'Odeslat sdílení →';
+    await loadSent();
+    return;
+  }
+
   if (result && !result.message) {
     // Vytvoř notifikaci pro příjemce
     const shareId = Array.isArray(result) ? result[0]?.id : result?.id;

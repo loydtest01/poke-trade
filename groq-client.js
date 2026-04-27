@@ -166,11 +166,24 @@
     const user = typeof getUser === 'function' ? getUser() : null;
     if (!user) { _state.loaded = true; return false; }
 
+    // Resilient načtení: pokud mistral_key sloupec ještě neexistuje (migrace
+    // nebyla spuštěna), fallback bez něj. Tím modul funguje i před migrací.
+    const trySelect = async (cols) => {
+      try {
+        const res = await _req(`rest/v1/user_api_keys?user_id=eq.${user.id}&select=${cols}`);
+        if (res && (res.code === '42703' || (res.message || '').includes('column'))) return null;
+        return Array.isArray(res) ? res[0] : null;
+      } catch (e) {
+        return null;
+      }
+    };
+
     try {
-      const res = await _req(
-        `rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key`
-      );
-      const data = Array.isArray(res) ? res[0] : null;
+      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key');
+      if (data === null) {
+        console.warn('[AI] Sloupec mistral_key neexistuje — spusť migration_mistral_key.sql! Fallback bez něj.');
+        data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key');
+      }
 
       if (!data) {
         _state.loaded = true;
@@ -181,13 +194,10 @@
       _state.keys.groq       = _parseKeys(data.groq_key);
       _state.keys.cerebras   = _parseKeys(data.cerebras_key);
       _state.keys.openrouter = _parseKeys(data.openrouter_key);
-      _state.keys.deepseek   = _parseKeys(data.deepseek_key);  // ponecháno pro načtení starých záznamů
-      _state.keys.mistral    = _parseKeys(data.mistral_key);
+      _state.keys.deepseek   = _parseKeys(data.deepseek_key);
+      _state.keys.mistral    = _parseKeys(data.mistral_key);   // undefined → []
 
-      // Zpětná kompatibilita: model pro text volání zůstává z Groq
       _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
-      // Modul je "enabled" i když uživatel nemá vlastní klíče — chat() si pak
-      // sáhne na sdílený serverový proxy /api/groq (limit pro non-VIP uživatele)
       _state.enabled = (data.groq_enabled !== false);
       _state.loaded  = true;
 
