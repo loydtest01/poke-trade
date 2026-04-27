@@ -664,6 +664,85 @@ body { background: #06040c; overflow-x: hidden; }
     animation: none;
   }
 }
+
+/* ── Book view (album-style) lesky ──────────────────────────────────
+   Book-card nemá .card-inner wrapper, takže styly aplikujeme přímo na
+   .book-card. Stejný princip jako u .card-slot, jen menší a s position:relative. */
+.book-card.is-holo,
+.book-card.is-reverse,
+.book-card.is-vmax,
+.book-card.is-rainbow {
+  position: relative;
+  overflow: hidden;
+}
+.book-card.is-holo::before,
+.book-card.is-reverse::before,
+.book-card.is-vmax::before,
+.book-card.is-rainbow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: color-dodge;
+  opacity: .55;
+  border-radius: inherit;
+}
+.book-card.is-holo::before {
+  background: linear-gradient(115deg,
+    transparent 20%,
+    rgba(255, 0, 150, .35) 35%,
+    rgba(50, 200, 255, .35) 50%,
+    rgba(255, 200, 0, .35) 65%,
+    transparent 80%);
+  background-size: 200% 200%;
+  animation: holoShine 3s ease-in-out infinite;
+}
+.book-card.is-reverse::before {
+  background: linear-gradient(115deg,
+    transparent 25%,
+    rgba(180, 220, 255, .25) 45%,
+    rgba(255, 255, 255, .35) 50%,
+    rgba(180, 220, 255, .25) 55%,
+    transparent 75%);
+  background-size: 250% 250%;
+  animation: holoShine 4s ease-in-out infinite;
+}
+.book-card.is-vmax::before {
+  background: linear-gradient(115deg,
+    transparent 25%,
+    rgba(120, 180, 255, .35) 40%,
+    rgba(255, 100, 200, .35) 55%,
+    transparent 70%);
+  background-size: 200% 200%;
+  animation: holoShine 3.5s ease-in-out infinite;
+}
+.book-card.is-rainbow::before {
+  background: conic-gradient(
+    from 0deg,
+    rgba(255,  50, 100, .5),
+    rgba(255, 200,   0, .5),
+    rgba(100, 255, 100, .5),
+    rgba( 50, 200, 255, .5),
+    rgba(200, 100, 255, .5),
+    rgba(255,  50, 100, .5));
+  animation: rainbowSpin 6s linear infinite;
+}
+.book-card.is-holo:hover::before,
+.book-card.is-reverse:hover::before,
+.book-card.is-vmax:hover::before,
+.book-card.is-rainbow:hover::before {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .book-card.is-holo::before,
+  .book-card.is-reverse::before,
+  .book-card.is-vmax::before,
+  .book-card.is-rainbow::before {
+    animation: none;
+  }
+}
+
 .card-placeholder {
   width: 100%; height: 100%;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -3183,7 +3262,7 @@ function renderCard(c, albumCardIds) {
 
   return `
     <div class="card-slot-wrap${sel ? ' selected' : ''}">
-    <div class="card-slot ${cls}" data-id="${esc(c.id)}" onclick="cardClick('${esc(c.id)}')">
+    <div class="card-slot ${cls}" data-id="${esc(c.id)}" data-rarity="${esc(c.rarity || '(prázdné)')}" data-name="${esc(c.name || '')}" onclick="cardClick('${esc(c.id)}')">
       ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
       ${photosBadge}
       <div class="card-inner">
@@ -7733,9 +7812,33 @@ function renderBookView() {
     const img   = c.images?.small || c.apiSmall || c.imageUrl || '';
     const emoji = typeEmoji(c.types?.[0] || c.type || '');
     const sel   = selectedIds.has(String(c.id));
+
+    // Foil/Holo class — stejná logika jako v renderCard() pro grid view.
+    // Předtím chyběla → v album view nebyl vidět žádný lesk.
+    let bcCls = '';
+    const _bcRarStr  = String(c.rarity || '').toLowerCase().trim();
+    const _bcNameStr = String(c.name   || '').toLowerCase();
+    const _bcIsRainbow = _bcRarStr === 'rainbow rare'
+      || _bcRarStr === 'hyper rare'
+      || _bcRarStr === 'gold rare'
+      || _bcRarStr.includes('rainbow');
+    if (_bcIsRainbow) {
+      bcCls = ' is-rainbow';
+    } else if (_bcRarStr.includes('vmax') || _bcRarStr.includes('vstar') ||
+               _bcNameStr.endsWith(' vmax') || _bcNameStr.endsWith(' vstar') ||
+               _bcNameStr.endsWith(' v') || _bcRarStr === 'rare holo v') {
+      bcCls = ' is-vmax';
+    } else if (_bcRarStr.includes('reverse')) {
+      bcCls = ' is-reverse';
+    } else if (_bcRarStr.includes('holo') || _bcRarStr.includes('illustration') ||
+               _bcRarStr.includes('full art') || _bcRarStr.includes('ultra') ||
+               _bcRarStr === 'secret rare' || _bcRarStr === 'special illustration rare') {
+      bcCls = ' is-holo';
+    }
+
     return `<div class="book-card-wrap${sel ? ' selected' : ''}">
       ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
-      <div class="book-card" onclick="cardClick('${esc(c.id)}')">
+      <div class="book-card${bcCls}" data-id="${esc(c.id)}" data-rarity="${esc(c.rarity || '(prázdné)')}" data-name="${esc(c.name || '')}" onclick="cardClick('${esc(c.id)}')">
       ${img
         ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="eager">`
         : `<div class="book-card-placeholder">
