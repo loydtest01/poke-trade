@@ -593,18 +593,24 @@ body { background: #06040c; overflow-x: hidden; }
   animation: holoShine 3s ease-in-out infinite;
 }
 
-/* Rainbow / Secret Rare — celá duha */
+/* Rainbow / Secret Rare — duhový lesk
+   Předtím se používal conic-gradient s rotací 360° kolem dokola — to bylo
+   moc rušivé (vypadalo to jako by kolem karty kometa rotovala).
+   Teď stejný princip jako VMAX: statický lineární gradient co se houpe
+   po kartě (background-position animation), žádné rotování, žádné scale. */
 .card-slot.is-rainbow .card-inner::before {
-  background: conic-gradient(
-    from 0deg,
-    rgba(255,  50, 100, .5),
-    rgba(255, 200,   0, .5),
-    rgba(100, 255, 100, .5),
-    rgba( 50, 200, 255, .5),
-    rgba(200, 100, 255, .5),
-    rgba(255,  50, 100, .5)
+  background: linear-gradient(
+    115deg,
+    transparent 15%,
+    rgba(255,  50, 100, .35) 30%,
+    rgba(255, 200,   0, .35) 42%,
+    rgba(100, 255, 100, .35) 50%,
+    rgba( 50, 200, 255, .35) 58%,
+    rgba(200, 100, 255, .35) 70%,
+    transparent 85%
   );
-  animation: rainbowSpin 6s linear infinite;
+  background-size: 250% 250%;
+  animation: holoShine 4s ease-in-out infinite;
 }
 
 /* Hover — efekt zvýrazní */
@@ -661,6 +667,13 @@ body { background: #06040c; overflow-x: hidden; }
 @keyframes rainbowSpin {
   0%   { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+/* Pulse efekt — místo otáčení karty mění intenzitu a polohu gradientu.
+   Kombinace mírného filter saturate + pomalého background-position posunu
+   dělá lesklý "dýchající" efekt bez rušivého rotování. */
+@keyframes rainbowPulse {
+  0%, 100% { filter: saturate(1) brightness(1);   transform: scale(1.0); }
+  50%      { filter: saturate(1.5) brightness(1.15); transform: scale(1.05); }
 }
 @keyframes holoSweep {
   0%, 100% { transform: translateX(-50%) translateY(-50%) rotate(0deg); }
@@ -739,15 +752,16 @@ body { background: #06040c; overflow-x: hidden; }
   animation: holoShine 3.5s ease-in-out infinite;
 }
 .book-card.is-rainbow::before {
-  background: conic-gradient(
-    from 0deg,
-    rgba(255,  50, 100, .5),
-    rgba(255, 200,   0, .5),
-    rgba(100, 255, 100, .5),
-    rgba( 50, 200, 255, .5),
-    rgba(200, 100, 255, .5),
-    rgba(255,  50, 100, .5));
-  animation: rainbowSpin 6s linear infinite;
+  background: linear-gradient(115deg,
+    transparent 15%,
+    rgba(255,  50, 100, .35) 30%,
+    rgba(255, 200,   0, .35) 42%,
+    rgba(100, 255, 100, .35) 50%,
+    rgba( 50, 200, 255, .35) 58%,
+    rgba(200, 100, 255, .35) 70%,
+    transparent 85%);
+  background-size: 250% 250%;
+  animation: holoShine 4s ease-in-out infinite;
 }
 .book-card.is-holo:hover::before,
 .book-card.is-reverse:hover::before,
