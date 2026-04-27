@@ -10113,7 +10113,51 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px">
         <div>
           <label class="ce-label">Vzácnost</label>
-          <input class="ce-inp" id="ceRarity" placeholder="Illustration Rare, Ultra Rare…">
+          <select class="ce-inp ce-select" id="ceRarity" onchange="onRaritySelectChange(this)">
+            <option value="">— Vyber —</option>
+            <optgroup label="Pokémon karty">
+              <option value="Common">Common (běžná)</option>
+              <option value="Uncommon">Uncommon (neobvyklá)</option>
+              <option value="Rare">Rare (vzácná)</option>
+              <option value="Rare Holo">Rare Holo</option>
+              <option value="Rare Holo V">Rare Holo V</option>
+              <option value="Rare Holo VMAX">Rare Holo VMAX</option>
+              <option value="Rare Holo VSTAR">Rare Holo VSTAR</option>
+              <option value="Rare Holo GX">Rare Holo GX</option>
+              <option value="Rare Holo EX">Rare Holo EX</option>
+              <option value="Double Rare">Double Rare</option>
+              <option value="Ultra Rare">Ultra Rare</option>
+              <option value="Illustration Rare">Illustration Rare</option>
+              <option value="Special Illustration Rare">Special Illustration Rare</option>
+              <option value="Hyper Rare">Hyper Rare</option>
+              <option value="Secret Rare">Secret Rare</option>
+              <option value="Rainbow Rare">Rainbow Rare</option>
+              <option value="Gold Rare">Gold Rare</option>
+              <option value="Full Art">Full Art</option>
+              <option value="ACE SPEC Rare">ACE SPEC Rare</option>
+              <option value="Shiny Rare">Shiny Rare</option>
+              <option value="Shiny Ultra Rare">Shiny Ultra Rare</option>
+              <option value="Promo">Promo</option>
+            </optgroup>
+            <optgroup label="Trainer karty">
+              <option value="Trainer Common">Trainer Common</option>
+              <option value="Trainer Uncommon">Trainer Uncommon</option>
+              <option value="Trainer Rare">Trainer Rare</option>
+              <option value="Trainer Holo Rare">Trainer Holo Rare</option>
+              <option value="Trainer Ultra Rare">Trainer Ultra Rare</option>
+              <option value="Trainer Full Art">Trainer Full Art</option>
+              <option value="Trainer Special Illustration">Trainer Special Illustration</option>
+            </optgroup>
+            <optgroup label="Energy karty">
+              <option value="Basic Energy">Basic Energy</option>
+              <option value="Special Energy">Special Energy</option>
+              <option value="Collector Energy">Collector Energy</option>
+            </optgroup>
+            <option value="__custom__">✏️ Vlastní hodnota…</option>
+          </select>
+          <input class="ce-inp" id="ceRarityCustom" type="text"
+                 placeholder="Napiš vlastní vzácnost (filtr ji nemusí poznat)"
+                 style="display:none;margin-top:6px">
         </div>
         <div>
           <label class="ce-label">Jazyk</label>
@@ -10239,6 +10283,18 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 // ── Card Edit Modal ───────────────────────────────────────────
 let _editCard = null;
 
+// Reaguje na změnu vzácnosti dropdown — při "Vlastní hodnota…" ukáže text input.
+function onRaritySelectChange(sel) {
+  const cust = document.getElementById('ceRarityCustom');
+  if (sel.value === '__custom__') {
+    cust.style.display = '';
+    cust.focus();
+  } else {
+    cust.style.display = 'none';
+    cust.value = '';
+  }
+}
+
 function openCardEdit() {
   if (!_detailCard) return;
   _editCard = _detailCard;
@@ -10257,7 +10313,27 @@ function openCardEdit() {
   document.getElementById('ceSet').value         = c.set || '';
   document.getElementById('ceNumber').value      = c.number || c.num || '';
   document.getElementById('ceHp').value          = c.hp || '';
-  document.getElementById('ceRarity').value      = c.rarity || '';
+  // Vzácnost — pokud hodnota odpovídá option v selectu, vyber ji.
+  // Pokud je to vlastní hodnota (nebo pochází ze starých dat jako "Classic Collection"),
+  // přepni do "vlastní" módu a ukáž text input.
+  const raritySel  = document.getElementById('ceRarity');
+  const rarityCust = document.getElementById('ceRarityCustom');
+  const cRarity = c.rarity || '';
+  const knownOpts = Array.from(raritySel.options).map(o => o.value);
+  if (cRarity && knownOpts.includes(cRarity)) {
+    raritySel.value = cRarity;
+    rarityCust.style.display = 'none';
+    rarityCust.value = '';
+  } else if (cRarity) {
+    // Neznámá hodnota → custom mód
+    raritySel.value = '__custom__';
+    rarityCust.style.display = '';
+    rarityCust.value = cRarity;
+  } else {
+    raritySel.value = '';
+    rarityCust.style.display = 'none';
+    rarityCust.value = '';
+  }
   document.getElementById('ceLang').value        = c.lang || '';
   document.getElementById('ceNote').value        = c.note || '';
   document.getElementById('cePriceCzk').value    = c.price_czk || '';
@@ -10376,7 +10452,9 @@ async function saveCardEdit() {
   const newHp       = document.getElementById('ceHp').value.trim();
   const newType     = document.getElementById('ceType').value;
   const newSupertype= document.getElementById('ceSupertype').value;
-  const newRarity   = document.getElementById('ceRarity').value.trim();
+  const rarityRaw  = document.getElementById('ceRarity').value;
+  const rarityCust = document.getElementById('ceRarityCustom').value.trim();
+  const newRarity  = (rarityRaw === '__custom__') ? rarityCust : rarityRaw.trim();
   const newLang     = document.getElementById('ceLang').value;
   const newCondition= document.getElementById('ceCondition').value;
   const newNote     = document.getElementById('ceNote').value.trim();

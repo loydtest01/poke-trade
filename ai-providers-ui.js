@@ -70,6 +70,38 @@
     return s.slice(0, 7) + '…' + s.slice(-5);
   }
 
+  // ── Reveal toggle stav (per-tab session, RAM only) ─────────────
+  // Mapa: "${provider}:${index}" → expirační timestamp (ms).
+  // Když uživatel klikne na 👁, klíč se zobrazí v plné podobě po 24 hodin
+  // (jen v této záložce — zavřením tabu se reset). Není to perzistentní úmyslně,
+  // aby se klíče samy schovaly i kdyby Loyd zapomněl.
+  const REVEAL_MS = 24 * 60 * 60 * 1000;
+  const _revealUntil = new Map();
+  let _revealCheckInterval = null;
+
+  function revealKey(provider, idx) {
+    _revealUntil.set(`${provider}:${idx}`, Date.now() + REVEAL_MS);
+  }
+  function hideKey(provider, idx) {
+    _revealUntil.delete(`${provider}:${idx}`);
+  }
+  function isRevealed(provider, idx) {
+    const exp = _revealUntil.get(`${provider}:${idx}`);
+    if (!exp) return false;
+    if (Date.now() >= exp) {
+      _revealUntil.delete(`${provider}:${idx}`);
+      return false;
+    }
+    return true;
+  }
+  function revealRemainingHours(provider, idx) {
+    const exp = _revealUntil.get(`${provider}:${idx}`);
+    if (!exp) return 0;
+    const ms = exp - Date.now();
+    if (ms <= 0) return 0;
+    return Math.max(1, Math.round(ms / (60 * 60 * 1000)));
+  }
+
   function getToken() {
     return localStorage.getItem('sb_token');
   }
@@ -141,16 +173,32 @@
     if (keys.length === 0) {
       keysHtml = `<div style="padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;color:var(--text3);font-size:13px">Žádné klíče. Přidej svůj první klíč níže.</div>`;
     } else {
-      keysHtml = keys.map((k, i) => `
+      keysHtml = keys.map((k, i) => {
+        const revealed = isRevealed(p.key, i);
+        const remaining = revealRemainingHours(p.key, i);
+        const display = revealed ? k : maskKey(k);
+        const eyeIcon = revealed ? '🙈' : '👁';
+        const eyeTitle = revealed
+          ? `Skrýt klíč (zbývá ${remaining}h)`
+          : 'Zobrazit klíč na 24 hodin';
+        return `
         <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;margin-bottom:6px">
           <span style="font-size:11px;color:var(--text3);min-width:20px;font-weight:700">#${i + 1}</span>
-          <span style="font-family:monospace;font-size:13px;flex:1;color:var(--text)">${maskKey(k)}</span>
+          <span style="font-family:monospace;font-size:13px;flex:1;color:var(--text);word-break:break-all;${revealed ? 'background:rgba(245,200,66,0.08);padding:3px 6px;border-radius:4px' : ''}">${display}</span>
+          ${revealed ? `<span style="font-size:9px;color:rgba(245,200,66,0.7);margin-right:2px" title="Auto-skryje se za ${remaining}h">⏱ ${remaining}h</span>` : ''}
+          <button data-aip-action="${revealed ? 'hide' : 'reveal'}" data-aip-provider="${p.key}" data-aip-idx="${i}"
+                  style="background:transparent;border:none;color:rgba(245,200,66,0.7);font-size:14px;cursor:pointer;padding:0 4px"
+                  title="${eyeTitle}">${eyeIcon}</button>
+          ${revealed ? `<button data-aip-action="copy" data-aip-provider="${p.key}" data-aip-idx="${i}"
+                  style="background:transparent;border:none;color:rgba(116,180,255,0.8);font-size:14px;cursor:pointer;padding:0 4px"
+                  title="Zkopírovat do schránky">📋</button>` : ''}
           <span style="font-size:10px;color:var(--text3);margin-right:4px">${i === 0 ? '🟢 aktivní' : '⏳ záloha'}</span>
           <button data-aip-action="remove" data-aip-provider="${p.key}" data-aip-idx="${i}"
                   style="background:transparent;border:none;color:var(--red);font-size:16px;cursor:pointer;padding:0 4px"
                   title="Odebrat">✕</button>
         </div>
-      `).join('');
+        `;
+      }).join('');
     }
 
     return `
@@ -283,11 +331,62 @@
             const newKeys = (allKeys[provider] || []).filter((_, i) => i !== idx);
             await saveKeysForProvider(user.id, provider, newKeys);
             allKeys[provider] = newKeys;
+            // Po smazání jednoho klíče se posunou indexy → vyresetujeme reveal stavy pro tohoto providera
+            for (const k of Array.from(_revealUntil.keys())) {
+              if (k.startsWith(provider + ':')) _revealUntil.delete(k);
+            }
             rerender();
             feedback(provider, '✅ Klíč odebrán');
           } catch (err) {
             console.error('[AIProviders] remove failed:', err);
             feedback(provider, '❌ ' + (err.message || 'Chyba mazání'), true);
+          }
+        }
+
+        if (action === 'reveal') {
+          const idx = parseInt(target.getAttribute('data-aip-idx'), 10);
+          if (isNaN(idx)) return;
+          revealKey(provider, idx);
+          // Spustí auto-refresh interval pokud ještě neběží (každou minutu zkontroluje expiraci)
+          if (!_revealCheckInterval) {
+            _revealCheckInterval = setInterval(() => {
+              let anyExpired = false;
+              for (const [key, exp] of _revealUntil.entries()) {
+                if (Date.now() >= exp) {
+                  _revealUntil.delete(key);
+                  anyExpired = true;
+                }
+              }
+              if (_revealUntil.size === 0) {
+                clearInterval(_revealCheckInterval);
+                _revealCheckInterval = null;
+              }
+              if (anyExpired) rerender();
+            }, 60_000);
+          }
+          rerender();
+        }
+
+        if (action === 'hide') {
+          const idx = parseInt(target.getAttribute('data-aip-idx'), 10);
+          if (isNaN(idx)) return;
+          hideKey(provider, idx);
+          rerender();
+        }
+
+        if (action === 'copy') {
+          const idx = parseInt(target.getAttribute('data-aip-idx'), 10);
+          if (isNaN(idx)) return;
+          const fullKey = (allKeys[provider] || [])[idx];
+          if (!fullKey) return;
+          try {
+            await navigator.clipboard.writeText(fullKey);
+            feedback(provider, '📋 Klíč zkopírován do schránky');
+          } catch (err) {
+            console.warn('[AIProviders] clipboard failed:', err);
+            // Fallback: prompt s klíčem (user si ho zkopíruje ručně)
+            try { window.prompt('Zkopíruj klíč:', fullKey); } catch (_) {}
+            feedback(provider, '📋 Klíč připraven (manuální kopie)', true);
           }
         }
       });
