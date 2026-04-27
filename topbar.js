@@ -790,6 +790,39 @@ var SETTINGS_HTML = [
   '          </div>',
   '        </div>',
   '      </div>',
+  '      <!-- Mistral -->',
+  '      <div class="sdrop-acc-item" id="sdAccMistral">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccMistral\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">🇫🇷</span>',
+  '            <div><div class="sdrop-acc-title">Mistral AI</div><div class="sdrop-acc-sub" id="accMistralSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="mistralStatus">',
+  '              <span class="groq-dot loading" id="mistralDot"></span>',
+  '              <span id="mistralStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>🇫🇷 Mistral OCR — nejlepší na JP/ZH/KO znaky</strong><br>',
+  '              Mistral OCR 3 a Pixtral 12B čtou CJK znaky výrazně přesněji než Llama. Free tier = 1 miliarda tokenů/měsíc, jen ověření telefonem (žádná kreditka). Použije se primárně pro asijské karty.',
+  '              <a href="https://console.mistral.ai" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
+  '            </div>',
+  '            <label class="groq-label-sm">Mistral API klíče</label>',
+  '            <div id="mistralKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="mistralKeyInput" class="groq-inp" placeholder="… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="mistralAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
+  '              <button class="btn-groq-del-all" id="mistralDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="mistralTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="mistralFeedback"></div>',
+  '            <div id="mistralTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
   '      <!-- Účet -->',
   '      <div class="sdrop-acc-item" id="sdAccAccount">',
   '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccAccount\')">',
@@ -1193,7 +1226,8 @@ function init() {
   try { initGroqPanel(); }      catch(e) { console.error('[topbar] initGroqPanel:', e); }
   try { initCerebrasPanel(); }  catch(e) { console.error('[topbar] initCerebrasPanel:', e); }
   try { initOpenRouterPanel(); }catch(e) { console.error('[topbar] initOpenRouterPanel:', e); }
-  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter)');
+  try { initMistralPanel(); }   catch(e) { console.error('[topbar] initMistralPanel:', e); }
+  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral)');
 }
 
 if (document.readyState === 'loading') {
@@ -1385,6 +1419,146 @@ function _groqParseKeys(raw) {
   return raw.split(',').map(function(k){ return k.trim(); }).filter(function(k){ return k.length > 10; });
 }
 
+/* ══════════════════════════════════════════════════════════════
+   _tbReveal — sdílený "👁 oko toggle" stav pro topbar API klíče
+   ──────────────────────────────────────────────────────────────
+   Mapa: "${prefix}:${idx}" → expirační timestamp (ms).
+   Když uživatel klikne 👁, klíč se zobrazí v plné podobě po 24 hod
+   (jen v této záložce — zavřením tabu se reset). Není to perzistentní
+   úmyslně, aby se klíče samy schovaly i kdyby jsi zapomněl.
+   ══════════════════════════════════════════════════════════════ */
+var _tbRevealUntil = new Map();
+var _tbRevealCheckInterval = null;
+var _TB_REVEAL_MS = 24 * 60 * 60 * 1000;
+
+function _tbIsRevealed(prefix, idx) {
+  var key = prefix + ':' + idx;
+  var exp = _tbRevealUntil.get(key);
+  if (!exp) return false;
+  if (Date.now() >= exp) {
+    _tbRevealUntil.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function _tbRevealRemainingHours(prefix, idx) {
+  var exp = _tbRevealUntil.get(prefix + ':' + idx);
+  if (!exp) return 0;
+  var ms = exp - Date.now();
+  if (ms <= 0) return 0;
+  return Math.max(1, Math.round(ms / (60 * 60 * 1000)));
+}
+
+// Najde live re-render funkci pro daný provider
+function _tbProviderRerender(prefix) {
+  if (prefix === 'groq') {
+    if (typeof _groqRenderKeys === 'function' && Array.isArray(_groqKeys)) {
+      _groqRenderKeys(_groqKeys);
+    }
+  } else {
+    // Cerebras / OpenRouter / Mistral — factory ukládá rerender hook na window
+    var fn = window['_' + prefix + 'Rerender'];
+    if (typeof fn === 'function') fn();
+  }
+}
+
+window._tbRevealKey = function(prefix, idx) {
+  _tbRevealUntil.set(prefix + ':' + idx, Date.now() + _TB_REVEAL_MS);
+  // Spusť kontrolní interval (každou minutu mažeme expirované)
+  if (!_tbRevealCheckInterval) {
+    _tbRevealCheckInterval = setInterval(function() {
+      var anyExpired = false;
+      var prefixes = new Set();
+      _tbRevealUntil.forEach(function(exp, k) {
+        if (Date.now() >= exp) {
+          _tbRevealUntil.delete(k);
+          anyExpired = true;
+          prefixes.add(k.split(':')[0]);
+        }
+      });
+      if (_tbRevealUntil.size === 0) {
+        clearInterval(_tbRevealCheckInterval);
+        _tbRevealCheckInterval = null;
+      }
+      if (anyExpired) {
+        prefixes.forEach(function(p) { _tbProviderRerender(p); });
+      }
+    }, 60000);
+  }
+  _tbProviderRerender(prefix);
+};
+
+window._tbHideKey = function(prefix, idx) {
+  _tbRevealUntil.delete(prefix + ':' + idx);
+  _tbProviderRerender(prefix);
+};
+
+window._tbCopyKey = function(prefix, idx) {
+  // Najde plný klíč podle prefixu
+  var fullKey = null;
+  if (prefix === 'groq' && Array.isArray(_groqKeys)) {
+    fullKey = _groqKeys[idx];
+  } else {
+    var keysGetter = window['_' + prefix + 'GetKeys'];
+    if (typeof keysGetter === 'function') {
+      var arr = keysGetter();
+      if (Array.isArray(arr)) fullKey = arr[idx];
+    }
+  }
+  if (!fullKey) {
+    console.warn('[topbar reveal] Nelze najít klíč ' + prefix + ':' + idx);
+    return;
+  }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(fullKey).then(function() {
+      // Krátká zpětná vazba — najde feedback element pro daný provider
+      var fb = document.getElementById(prefix + 'Feedback');
+      if (fb) {
+        fb.textContent = '📋 Klíč zkopírován do schránky';
+        fb.className = 'groq-fb ok';
+        setTimeout(function() { fb.textContent = ''; fb.className = 'groq-fb'; }, 2500);
+      }
+    }).catch(function() {
+      try { window.prompt('Zkopíruj klíč:', fullKey); } catch(_) {}
+    });
+  } else {
+    try { window.prompt('Zkopíruj klíč:', fullKey); } catch(_) {}
+  }
+};
+
+// Helper pro render řádku s klíčem — používá ho Groq i factory providery.
+// Vrátí HTML řetězec pro jeden klíč (bez wrapperu).
+function _tbRenderKeyRow(prefix, idx, fullKey, maskedKey) {
+  var revealed = _tbIsRevealed(prefix, idx);
+  var hours    = _tbRevealRemainingHours(prefix, idx);
+  var display  = revealed ? fullKey : maskedKey;
+  var displayStyle = revealed
+    ? 'font-family:monospace;font-size:12px;flex:1;color:#f0ece4;background:rgba(245,200,66,.08);padding:3px 6px;border-radius:4px;word-break:break-all;'
+    : 'font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  var statusBadge = idx === 0
+    ? '<span style="font-size:10px;color:rgba(34,197,94,.85);margin-right:2px;white-space:nowrap" title="Hlavní klíč pro tohoto providera">🟢 aktivní</span>'
+    : '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:2px;white-space:nowrap" title="Použije se když selže klíč #1">⏳ záloha</span>';
+  var revealBtn = revealed
+    ? '<button onclick="window._tbHideKey(\'' + prefix + '\',' + idx + ')" style="background:transparent;border:none;color:rgba(245,200,66,.7);font-size:14px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Skrýt klíč (zbývá ' + hours + 'h)">🙈</button>'
+    : '<button onclick="window._tbRevealKey(\'' + prefix + '\',' + idx + ')" style="background:transparent;border:none;color:rgba(245,200,66,.7);font-size:14px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Zobrazit klíč na 24 hodin">👁</button>';
+  var copyBtn = revealed
+    ? '<button onclick="window._tbCopyKey(\'' + prefix + '\',' + idx + ')" style="background:transparent;border:none;color:rgba(116,180,255,.8);font-size:14px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Zkopírovat do schránky">📋</button>'
+    : '';
+  var hoursLabel = revealed
+    ? '<span style="font-size:9px;color:rgba(245,200,66,.6);margin-right:2px" title="Auto-skryje se za ' + hours + ' h">⏱ ' + hours + 'h</span>'
+    : '';
+  return '<div style="display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
+    + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (idx+1) + '</span>'
+    + '<span style="' + displayStyle + '">' + display + '</span>'
+    + hoursLabel
+    + revealBtn
+    + copyBtn
+    + statusBadge
+    + '<button onclick="window._' + prefix + 'RemoveKey(' + idx + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
+    + '</div>';
+}
+
 function _groqRenderKeys(keys) {
   var list = document.getElementById('groqKeysList');
   if (!list) return;
@@ -1393,12 +1567,7 @@ function _groqRenderKeys(keys) {
     return;
   }
   list.innerHTML = keys.map(function(k, i) {
-    return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
-      + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
-      + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + _groqMaskKey(k) + '</span>'
-      + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + ('v rotaci') + '</span>'
-      + '<button onclick="window._groqRemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
-      + '</div>';
+    return _tbRenderKeyRow('groq', i, k, _groqMaskKey(k));
   }).join('');
 }
 
@@ -1594,6 +1763,12 @@ async function _testProviderKey(providerName, apiKey, cfg) {
       body:     null,
       testType: 'auth',
     },
+    mistral: {
+      method:   'GET',
+      url:      'https://api.mistral.ai/v1/models',  // Lehký GET, ověří klíč bez konzumace tokenů
+      body:     null,
+      testType: 'auth',
+    },
   };
   var cfg2 = validators[providerName];
   if (!cfg2) throw new Error('Neznámý provider: ' + providerName);
@@ -1670,14 +1845,14 @@ function _initProviderPanel(cfg) {
       return;
     }
     list.innerHTML = state.keys.map(function(k, i) {
-      return '<div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:8px 12px">'
-        + '<span style="font-size:11px;color:rgba(240,236,228,.35);min-width:20px;font-weight:700">#' + (i+1) + '</span>'
-        + '<span style="font-family:monospace;font-size:12px;flex:1;color:#f0ece4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + mask(k) + '</span>'
-        + '<span style="font-size:10px;color:rgba(240,236,228,.35);margin-right:4px;white-space:nowrap">' + ('v rotaci') + '</span>'
-        + '<button onclick="window._' + cfg.prefix + 'RemoveKey(' + i + ')" style="background:transparent;border:none;color:#f87171;font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0" title="Odebrat">✕</button>'
-        + '</div>';
+      return _tbRenderKeyRow(cfg.prefix, i, k, mask(k));
     }).join('');
   }
+
+  // Vystav rerender + getKeys helpers na window — sdílený eye-toggle handler
+  // (`_tbRevealKey`/`_tbCopyKey`) je potřebuje ke svému callbacku.
+  window['_' + cfg.prefix + 'Rerender'] = render;
+  window['_' + cfg.prefix + 'GetKeys']  = function() { return state.keys.slice(); };
 
   function updateStatus() {
     var n = state.keys.length;
@@ -1775,7 +1950,10 @@ function _initProviderPanel(cfg) {
         var keyInput = el('KeyInput');
         var key = keyInput ? keyInput.value.trim() : '';
         if (!key || key.length < (cfg.minLen || 20)) {
-          setFb('Zadej platný ' + cfg.name + ' API klíč (začíná ' + cfg.keyPrefix + '…)', 'err'); return;
+          var hintMsg = cfg.keyPrefix
+            ? 'Zadej platný ' + cfg.name + ' API klíč (začíná ' + cfg.keyPrefix + '…)'
+            : 'Zadej platný ' + cfg.name + ' API klíč (alespoň ' + (cfg.minLen || 20) + ' znaků)';
+          setFb(hintMsg, 'err'); return;
         }
         if (state.keys.indexOf(key) !== -1) { setFb('Tento klíč už je přidán.', 'err'); return; }
         addBtn.disabled = true; addBtn.textContent = '⏳'; setFb('', '');
@@ -1862,6 +2040,18 @@ function initOpenRouterPanel() {
     minLen:    30,
     countNoun: ['klíč', 'klíče', 'klíčů'],
     subId:     'accOpenRouterSub',  // POZOR: velké R — kapitalizace `charAt(0)` by selhala
+  });
+}
+
+function initMistralPanel() {
+  _initProviderPanel({
+    prefix:    'mistral',
+    name:      'Mistral AI',
+    field:     'mistral_key',
+    keyPrefix: '',           // Mistral klíče nemají specifický prefix (jen alfanumerické)
+    minLen:    20,
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accMistralSub',
   });
 }
 
