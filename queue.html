@@ -251,6 +251,18 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 }
 .ai-row .lbl { color: rgba(240,232,208,0.4); min-width: 60px; flex-shrink: 0; }
 .ai-row .val { color: #f5c842; font-weight: 600; }
+/* Editovatelné AI pole — vypadá jako form input */
+.ai-row-edit {
+  align-items: flex-start;
+  padding: 4px 0;
+}
+.ai-row-edit .lbl { padding-top: 6px; }
+.ai-row-edit .val { flex: 1; min-width: 0; font-weight: 500; }
+.ai-row-edit select:focus,
+.ai-row-edit input:focus {
+  border-color: rgba(245,200,66,0.5) !important;
+  background: rgba(255,255,255,0.10) !important;
+}
 .ai-conf {
   margin-top: 8px; font-size: 11px; text-align: right;
   color: rgba(240,232,208,0.35);
@@ -1415,23 +1427,74 @@ function buildGroupEl(g, gi) {
     </div>`;
   }).join('');
 
-  // AI info rows
+  // AI info rows — VŠECHNY POLE EDITOVATELNÉ
   // Pro JP/ZH/KO karty zobrazit nameEN jako editovatelné pole
   const isNonEnLang = ai.lang && ai.lang !== 'EN';
   const nameEnVal = ai.nameEN || (isNonEnLang ? '' : (ai.name || ''));
 
-  const aiRows = [
-    ['Název (orig.)', ai.name],
-    ['Série',    ai.set],
-    ['Číslo',    ai.number],
-    ['Typ',      ai.type],
-    ['Kategorie',ai.subtype || ai.category],
-    ['HP',       ai.hp],
-    ['Varianta', ai.variant],
-    ['Jazyk',    ai.lang],
-  ].filter(([,v]) => v).map(([l,v]) =>
-    `<div class="ai-row"><span class="lbl">${l}</span><span class="val">${esc(String(v))}</span></div>`
+  // Standardizované hodnoty pro dropdowny (kompatibilní s moje-album.html)
+  const RARITY_OPTIONS = [
+    'Common','Uncommon','Rare','Rare Holo','Rare Holo V','Rare Holo VMAX','Rare Holo VSTAR',
+    'Rare Holo GX','Rare Holo EX','Double Rare','Ultra Rare','Illustration Rare',
+    'Special Illustration Rare','Hyper Rare','Secret Rare','Rainbow Rare','Gold Rare',
+    'Full Art','ACE SPEC Rare','Shiny Rare','Shiny Ultra Rare','Promo'
+  ];
+  const TYPE_OPTIONS = [
+    'Fire','Water','Grass','Lightning','Psychic','Fighting','Darkness','Metal',
+    'Fairy','Dragon','Colorless'
+  ];
+  const VARIANT_OPTIONS = ['Normal','Holo','Reverse Holo','Full Art','Alt Art','Rainbow','Gold'];
+  const CATEGORY_OPTIONS = ['Pokemon','Trainer','Energy'];
+  const LANG_OPTIONS = ['EN','JP','CN','TW','KO','DE','FR','IT','ES','PT','CZ'];
+
+  // Helper pro stavbu select s "Vlastní…" optionem
+  // Když AI vrátila neznámou hodnotu (např. "Classic Collection" pro rarity),
+  // automaticky se přepne do textového input módu.
+  function _buildSelect(fieldName, value, options, gi, withCustomOpt = true) {
+    const valStr = value || '';
+    const isKnown = !valStr || options.includes(valStr);
+    const showCustom = !!valStr && !isKnown;
+    const optsHtml = `<option value="">— Vyber —</option>` +
+      options.map(o => `<option value="${esc(o)}"${o === valStr ? ' selected' : ''}>${esc(o)}</option>`).join('') +
+      `<option value="__custom__"${showCustom ? ' selected' : ''}>✏️ Vlastní…</option>`;
+    const customInput = `<input type="text" id="aiCustom-${fieldName}-${gi}"
+      value="${showCustom ? esc(valStr) : ''}"
+      placeholder="Vlastní hodnota…"
+      oninput="updateAiField(${gi},'${fieldName}',this.value)"
+      style="display:${showCustom ? 'block' : 'none'};margin-top:4px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#f0ece4;font-size:12px;padding:3px 7px;width:100%;font-family:inherit;outline:none">`;
+    return `<select id="aiSel-${fieldName}-${gi}"
+        onchange="onAiSelectChange(${gi},'${fieldName}',this)"
+        style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#f0ece4;font-size:12px;padding:3px 7px;width:100%;font-family:inherit;outline:none;cursor:pointer">${optsHtml}</select>${customInput}`;
+  }
+
+  // Helper pro plain text input (pro Číslo, HP)
+  function _buildInput(fieldName, value, gi, placeholder = '') {
+    return `<input type="text" id="aiInp-${fieldName}-${gi}"
+      value="${esc(value || '')}"
+      placeholder="${placeholder}"
+      oninput="updateAiField(${gi},'${fieldName}',this.value)"
+      style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:#f0ece4;font-size:12px;padding:3px 7px;width:100%;font-family:inherit;outline:none">`;
+  }
+
+  // Mřížka editovatelných řádků
+  const aiFieldsHtml = [
+    ['Název (orig.)', _buildInput('name',     ai.name,     gi, 'Název karty…')],
+    ['Série',         _buildInput('set',      ai.set,      gi, 'Sword & Shield, Scarlet & Violet…')],
+    ['Číslo',         _buildInput('number',   ai.number,   gi, '094/264')],
+    ['Typ',           _buildSelect('type',    ai.type,     TYPE_OPTIONS, gi)],
+    ['Kategorie',     _buildSelect('category',(ai.subtype || ai.category), CATEGORY_OPTIONS, gi)],
+    ['HP',            _buildInput('hp',       ai.hp,       gi, '120')],
+    ['Varianta',      _buildSelect('variant', ai.variant,  VARIANT_OPTIONS, gi)],
+    ['Vzácnost',      _buildSelect('rarity',  ai.rarity,   RARITY_OPTIONS, gi)],
+    ['Jazyk',         _buildSelect('lang',    ai.lang,     LANG_OPTIONS, gi)],
+  ].map(([l, v]) =>
+    `<div class="ai-row ai-row-edit">
+       <span class="lbl">${l}</span>
+       <span class="val" style="display:flex;flex-direction:column">${v}</span>
+     </div>`
   ).join('');
+
+  const aiRows = aiFieldsHtml;
 
   // Editovatelný EN název – vždy zobrazen (i pro EN karty)
   const nameEnRow = `
@@ -2119,6 +2182,47 @@ function updateNameEN(gi, value) {
   // Reset případného předchozího výsledku aby nové vyhledávání proběhlo čerstvě
   cardGroups[gi].resolvedCard = null;
   cardGroups[gi]._manuallySelected = false;
+}
+
+// ── Ruční editace AI polí (Název, Série, Číslo, Typ, Kategorie, HP, Varianta, Vzácnost, Jazyk) ──
+// Volá se při onchange/oninput v selectech a textových inputech v aiRows.
+// Mapping: pole 'category' se ukládá do ai.category I ai.subtype (BC).
+function updateAiField(gi, field, value) {
+  if (!cardGroups[gi]) return;
+  if (!cardGroups[gi].aiResult) cardGroups[gi].aiResult = {};
+  const ai = cardGroups[gi].aiResult;
+  const v = (value == null) ? '' : String(value).trim();
+
+  // Speciální case: když user změní AI pole, vyresetujeme rozpoznanou kartu
+  // aby nové vyhledávání proběhlo čerstvě s novými hodnotami.
+  cardGroups[gi].resolvedCard = null;
+  cardGroups[gi]._manuallySelected = false;
+
+  if (field === 'category') {
+    ai.category = v;
+    ai.subtype = v;   // BC: některý kód čte subtype
+  } else {
+    ai[field] = v;
+  }
+}
+
+// ── Reaguje na change v selectu — pokud "Vlastní…", ukáže text input ──
+function onAiSelectChange(gi, field, sel) {
+  const customInp = document.getElementById(`aiCustom-${field}-${gi}`);
+  if (sel.value === '__custom__') {
+    if (customInp) {
+      customInp.style.display = 'block';
+      customInp.focus();
+    }
+    // Neukládáme nic dokud user nezadá hodnotu
+    updateAiField(gi, field, customInp ? customInp.value : '');
+  } else {
+    if (customInp) {
+      customInp.style.display = 'none';
+      customInp.value = '';
+    }
+    updateAiField(gi, field, sel.value);
+  }
 }
 
 // Uloží ručně zadaný EN název do Supabase (voláno onblur)
