@@ -4,8 +4,12 @@
 //
 //  HISTORIE:
 //    v1: Jen Groq, pole klíčů, rotace při 429
-//    v2: Multi-provider (Groq + Cerebras + OpenRouter + DeepSeek)
+//    v2: Multi-provider (Groq + Cerebras + OpenRouter + Mistral)
 //        Zpětně kompatibilní API: window.GroqClient funguje jako před
+//        + nový alias window.AIClient
+//
+//        DeepSeek schéma (deepseek_key v user_api_keys) ponecháno pro načtení
+//        starých klíčů uživatelů, ale modul je nikdy nepoužívá k volání.
 //
 //  BEZPEČNOST:
 //    - API klíče načteny ze Supabase (user_api_keys), chráněno RLS
@@ -15,7 +19,9 @@
 //  ROTACE:
 //    - Při 429 (rate limit) → další klíč stejného providera
 //    - Při vyčerpání všech klíčů jednoho providera → další provider v řetězci
-//    - Chain default: groq → cerebras → openrouter → deepseek
+//    - Při vyčerpání všech osobních klíčů → fallback na sdílený serverový
+//      proxy /api/groq?provider=X (VIP bez limitu, non-VIP 20/10 denně)
+//    - Chain default: cerebras → groq → openrouter → mistral
 //
 //  VISION:
 //    - Pro CJK karty automaticky preferuje OpenRouter Qwen (nejlepší CJK)
@@ -59,11 +65,22 @@
       ],
     },
     deepseek: {
+      // ZACHOVÁNO pro zpětnou kompatibilitu — pokud má někdo uložený starý klíč
+      // v user_api_keys.deepseek_key, modul ho načte ale nikdy nepoužije
+      // (nedáme do DEFAULT_CHAIN). Lze v budoucnu úplně vypnout.
       name:         'DeepSeek',
       endpoint:     'https://api.deepseek.com/chat/completions',
       validateUrl:  'https://api.deepseek.com/models',
       textModel:    'deepseek-chat',
-      visionModel:  'deepseek-chat',  // V4 multimodal (pokud dostupné)
+      visionModel:  null,
+      deprecated:   true,
+    },
+    mistral: {
+      name:         'Mistral',
+      endpoint:     'https://api.mistral.ai/v1/chat/completions',
+      validateUrl:  'https://api.mistral.ai/v1/models',
+      textModel:    'mistral-small-latest',
+      visionModel:  'pixtral-12b-2409',  // Mistral Pixtral vision
     },
   };
 
@@ -72,21 +89,29 @@
   // (každý obrázek ~6-10k tokenů → po 50-80 skenech je Groq mimo pro celý den).
   // Cerebras má 1M tokenů/den/klíč a je srovnatelně rychlý.
   // Pro CJK karty se OpenRouter (Qwen) stále posouvá na první místo.
-  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'deepseek'];
+  // Mistral je poslední — má vlastní specializovaný OCR endpoint pro CJK
+  // (volá se zvlášť, ne přes chat() funkci).
+  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral'];
+
+  // Providery, které mohou padnout zpět na sdílený serverový proxy (/api/groq?provider=...)
+  // když uživatel nemá vlastní klíč. Groq už má přímou podporu v /api/groq.
+  const SHARED_FALLBACK_PROVIDERS = ['groq', 'cerebras', 'openrouter', 'mistral'];
 
   // ── Stav modulu ──────────────────────────────────────────────────
   const _state = {
-    keys: {        // pole klíčů per provider
+    keys: {        // pole klíčů per provider (osobní klíče uživatele)
       groq:       [],
       cerebras:   [],
       openrouter: [],
-      deepseek:   [],
+      deepseek:   [],   // ponecháno pro načtení starých klíčů, ale nepoužívá se
+      mistral:    [],
     },
     keyIdx: {      // aktuální aktivní klíč per provider
       groq:       0,
       cerebras:   0,
       openrouter: 0,
       deepseek:   0,
+      mistral:    0,
     },
     model:     'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
     enabled:   false,
@@ -143,7 +168,7 @@
 
     try {
       const res = await _req(
-        `rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key`
+        `rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key`
       );
       const data = Array.isArray(res) ? res[0] : null;
 
@@ -156,11 +181,14 @@
       _state.keys.groq       = _parseKeys(data.groq_key);
       _state.keys.cerebras   = _parseKeys(data.cerebras_key);
       _state.keys.openrouter = _parseKeys(data.openrouter_key);
-      _state.keys.deepseek   = _parseKeys(data.deepseek_key);
+      _state.keys.deepseek   = _parseKeys(data.deepseek_key);  // ponecháno pro načtení starých záznamů
+      _state.keys.mistral    = _parseKeys(data.mistral_key);
 
       // Zpětná kompatibilita: model pro text volání zůstává z Groq
       _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
-      _state.enabled = (data.groq_enabled !== false) && _totalKeys() > 0;
+      // Modul je "enabled" i když uživatel nemá vlastní klíče — chat() si pak
+      // sáhne na sdílený serverový proxy /api/groq (limit pro non-VIP uživatele)
+      _state.enabled = (data.groq_enabled !== false);
       _state.loaded  = true;
 
       const counts = Object.entries(_state.keys)
@@ -261,8 +289,8 @@
 
   // ── Hlavní chat funkce s multi-provider rotací ──────────────────
   async function chat(messages, options = {}) {
-    if (!_state.enabled || _totalKeys() === 0) {
-      throw new Error('Žádné AI klíče nejsou nakonfigurované. Přidej klíč v nastavení profilu.');
+    if (!_state.enabled) {
+      throw new Error('AI je vypnuté v nastavení profilu.');
     }
 
     const isVision = _isVision(messages);
@@ -281,10 +309,11 @@
 
     const errors = [];
 
+    // ── Nejprve zkus osobní klíče přes přímé volání ──
     for (const providerName of chain) {
       const provider = PROVIDERS[providerName];
       const keys     = _state.keys[providerName];
-      if (!provider || !keys || !keys.length) continue;
+      if (!provider || provider.deprecated || !keys || !keys.length) continue;
 
       // Přeskoč providera pokud nepodporuje vision (visionModel === null)
       if (isVision && !options.model && provider.visionModel === null) {
@@ -372,7 +401,73 @@
       console.warn(`[AI] Všechny ${provider.name} klíče/modely vyčerpány, zkouším další provider`);
     }
 
-    throw new Error(`Všechny AI providery selhaly:\n${errors.join('\n')}`);
+    // ── Fallback: žádný osobní klíč nefunguje (nebo žádný není) →
+    //    zkus sdílený serverový proxy /api/groq?provider=X
+    //    VIP/owner: bez limitu | non-VIP: 20 search + 10 fake / den
+    if (stream) {
+      // Sdílený proxy zatím nepodporuje SSE → vrátíme chybu
+      throw new Error('Streaming přes sdílený proxy zatím není podporován. Zadej vlastní klíč v profilu.');
+    }
+    const sbToken = (typeof localStorage !== 'undefined') ? localStorage.getItem('sb_token') : null;
+    if (!sbToken) {
+      throw new Error('Pro použití sdílených AI klíčů musíš být přihlášen.');
+    }
+
+    for (const providerName of chain) {
+      const provider = PROVIDERS[providerName];
+      if (!provider || provider.deprecated) continue;
+      if (!SHARED_FALLBACK_PROVIDERS.includes(providerName)) continue;
+      if (isVision && !options.model && provider.visionModel === null) continue;
+
+      const sharedModel = options.model
+        || (isVision ? provider.visionModel : provider.textModel);
+
+      try {
+        console.log(`[AI] Sdílený proxy → ${provider.name} (${sharedModel})`);
+        const r = await fetch('/api/groq', {
+          method: 'POST',
+          headers: {
+            'Content-Type':  'application/json',
+            'Authorization': `Bearer ${sbToken}`,
+          },
+          body: JSON.stringify({
+            provider:    providerName,
+            model:       sharedModel,
+            messages, temperature, max_tokens,
+            usage_type:  options.usage_type || (isVision ? 'fake' : 'search'),
+            ...(options.response_format ? { response_format: options.response_format } : {}),
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          // 429 RATE_LIMITED → ukaž modal "Přidej klíč" + ukonči
+          // 503 NO_SHARED_KEY → admin nezadal env var pro tohoto providera
+          // jiné chyby → log a pokračuj na dalšího providera
+          errors.push(`[shared/${provider.name}] ${data?.error || 'HTTP ' + r.status}`);
+          if (data?.code === 'RATE_LIMITED') {
+            // Globální modal (pokud je rate-limit-modal.js načtený na stránce)
+            if (typeof global.showRateLimitModal === 'function') {
+              global.showRateLimitModal({
+                used:      data.used,
+                limit:     data.limit,
+                reset:     data.reset,
+                usageType: data.usageType || data.usage_type,
+              });
+            }
+            // Vrať okamžitě — jiní providery nepomůžou (limit je per usage_type)
+            throw new Error(data.error || 'Denní limit vyčerpán');
+          }
+          continue;
+        }
+        console.log(`[AI] ✓ Sdílený proxy ${provider.name} OK`);
+        return data.choices?.[0]?.message?.content || '';
+      } catch (err) {
+        if (err.message?.includes('limit') || err.message?.includes('vyčerpán')) throw err;
+        errors.push(`[shared/${provider.name}] ${err.message}`);
+      }
+    }
+
+    throw new Error(`Všechny AI providery selhaly (osobní i sdílené):\n${errors.join('\n')}`);
   }
 
   // ── Streaming helper ─────────────────────────────────────────────
@@ -407,7 +502,14 @@
   }
 
   // ── Getters / info ────────────────────────────────────────────────
-  function isReady()      { return _state.enabled && _totalKeys() > 0; }
+  // isReady: dříve vyžadoval osobní klíč. Nyní stačí přihlášený uživatel,
+  // protože fallback na sdílený serverový proxy je vždy možný.
+  function isReady() {
+    if (!_state.enabled) return false;
+    if (_totalKeys() > 0) return true;
+    return (typeof localStorage !== 'undefined') && !!localStorage.getItem('sb_token');
+  }
+  function hasOwnKeys()   { return _totalKeys() > 0; }
   function isLoaded()     { return _state.loaded; }
   function getModel()     { return _state.model; }
   function getModels()    { return GROQ_MODELS; }
@@ -427,7 +529,7 @@
     loadKey, saveKey, deleteKey, validateKey,
     chat, ask,
     // Status / info
-    isReady, isLoaded, getModel, getModels,
+    isReady, hasOwnKeys, isLoaded, getModel, getModels,
     getProviders, getKeyCounts, getKeysFor,
     // Aliasy / backward compat
     MODELS:    GROQ_MODELS,

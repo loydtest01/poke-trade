@@ -7,7 +7,7 @@
 //    • Pro každý provider (Cerebras / OpenRouter / DeepSeek) nabídne:
 //        - seznam klíčů s maskovaným zobrazením
 //        - tlačítko + pro přidání, × pro smazání
-//    • Uloží je do user_api_keys.{cerebras_key,openrouter_key,deepseek_key}
+//    • Uloží je do user_api_keys.{cerebras_key,openrouter_key,mistral_key}
 //    • GroqClient.loadKey() pak načte všechny klíče a rotuje mezi providery
 //
 //  Instalace: přidej <script src="ai-providers-ui.js"></script> do profile.html
@@ -39,14 +39,14 @@
       icon:         '🌐',
     },
     {
-      key:          'deepseek',
-      name:         'DeepSeek',
-      signupUrl:    'https://platform.deepseek.com',
-      docsUrl:      'https://api-docs.deepseek.com',
-      description:  'Čínský model, 5M tokenů zdarma na signup. Výborný pro CJK texty.',
-      placeholder:  'sk-xxxxxxxxxxxxxxxxxxxx',
-      color:        '#3b82f6',
-      icon:         '🧠',
+      key:          'mistral',
+      name:         'Mistral',
+      signupUrl:    'https://console.mistral.ai',
+      docsUrl:      'https://docs.mistral.ai',
+      description:  'Francouzský model. Mistral OCR 3 čte CJK znaky (JP/ZH/KO) lépe než Llama. 1 mld. tokenů/měsíc zdarma, jen ověření telefonem.',
+      placeholder:  'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+      color:        '#fa7300',
+      icon:         '🇫🇷',
     },
   ];
 
@@ -79,7 +79,7 @@
     if (!token) return {};
     try {
       const res = await supabaseRequest(
-        `rest/v1/user_api_keys?user_id=eq.${userId}&select=cerebras_key,openrouter_key,deepseek_key`,
+        `rest/v1/user_api_keys?user_id=eq.${userId}&select=cerebras_key,openrouter_key,mistral_key`,
         'GET', null, token
       );
       const row = Array.isArray(res) ? res[0] : null;

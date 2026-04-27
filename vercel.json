@@ -13,7 +13,8 @@
     }
   ],
   "rewrites": [
-    { "source": "/api/ping", "destination": "/api/groq" }
+    { "source": "/api/ping", "destination": "/api/groq" },
+    { "source": "/api/ai",   "destination": "/api/groq" }
   ],
   "crons": [
     {

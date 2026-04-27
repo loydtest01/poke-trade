@@ -24,6 +24,18 @@
 'use strict';
 
 /* ══════════════════════════════════════════════════════════════
+   0. RATE-LIMIT MODAL — auto-inject na každé stránce která načítá
+   topbar.js. Modal se aktivuje globálně přes window.showRateLimitModal.
+   Pokud už je načtený, neduplikujeme.
+   ══════════════════════════════════════════════════════════════ */
+if (!window.showRateLimitModal && !document.querySelector('script[src*="rate-limit-modal.js"]')) {
+  var _rlmScript = document.createElement('script');
+  _rlmScript.src = 'rate-limit-modal.js';
+  _rlmScript.defer = true;
+  document.head.appendChild(_rlmScript);
+}
+
+/* ══════════════════════════════════════════════════════════════
    1. NAVIGACE — záložky horní lišty
    Přidej/odeber řádek zde a propíše se na všechny stránky.
    ══════════════════════════════════════════════════════════════ */
