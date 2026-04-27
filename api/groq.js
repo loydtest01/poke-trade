@@ -1,10 +1,44 @@
 /**
- * api/groq.js – Groq AI proxy s rate limitingem
- * GET  /api/groq  → ping (nahrazuje api/ping.js)
- * POST /api/groq  → Groq proxy
+ * api/groq.js – Univerzální AI proxy s dynamickými limity a admin alerty
+ * ─────────────────────────────────────────────────────────────────────
+ *
+ * POZNÁMKA: Soubor zůstává pojmenovaný "groq.js" pro zpětnou kompatibilitu
+ * (34+ míst v projektu volá /api/groq). Nový alias /api/ai je nastaven přes
+ * vercel.json rewrites — oba vedou na tento handler.
+ *
+ *   GET  /api/groq                → ping  { ok, ts }
+ *   GET  /api/groq?info=usage     → vrátí limit info pro přihlášeného usera
+ *                                    (pro UI badge "AI: 142/200 dnes")
+ *   POST /api/groq                → AI proxy
+ *
+ * BODY:
+ *   {
+ *     provider: 'groq' | 'cerebras' | 'openrouter' | 'mistral'  // default: 'groq'
+ *     model, messages, temperature, max_tokens, response_format,
+ *     usage_type: 'search' | 'fake'  // pro rate limit tracking
+ *   }
+ *
+ * HEADERS:
+ *   Authorization: Bearer <sb_token>     (auth)
+ *   X-AI-Key:      <personal_key>        (univerzální override)
+ *   X-Groq-Key:    <personal_key>        (legacy, jen pro provider='groq')
+ *
+ * RATE LIMITS:
+ *   VIP/owner          → bez limitu
+ *   Non-VIP            → POOL-AWARE dynamický limit per usage_type:
+ *                        dynamic_max = min(abs_max, pool × max_per_pool_pct)
+ *                        fair_share  = pool × share / (active_users + buffer)
+ *                        limit       = clamp(fair_share, min, dynamic_max)
+ *                        → Když přidáš klíče → pool roste → max roste automaticky
+ *                        → 20 % poolu zůstává jako rezerva pro VIP/špičky
+ *
+ * ADMIN ALERTY (pro OWNER_EMAIL):
+ *   - Per-provider keys exhausted → notifikace v notifications table
+ *   - Pool < 30 % a active_users > 50 → varovná notifikace
+ *   - Limit per user klesl pod kritickou úroveň → notifikace
+ *   Dedupe per den per typ — admin nedostane spam.
  */
 
-const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions';
 const MAX_BODY = 20 * 1024 * 1024;
 
 export const config = {
@@ -14,6 +48,59 @@ export const config = {
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
+// ── Konfigurace providerů ──────────────────────────────────────────
+// daily_text   = realistický počet textových req/den/klíč (free tier)
+// daily_vision = realistický počet vision req/den/klíč (vision je výrazně dražší
+//                v tokenech, takže pool je menší než pro text)
+//                Cerebras vision nemá → daily_vision = 0
+//                OpenRouter free models mají striktní limit 50/den oba typy
+const PROVIDERS = {
+  groq: {
+    endpoint:        'https://api.groq.com/openai/v1/chat/completions',
+    envKey:          'GROQ_API_KEY',
+    defaultModel:    'meta-llama/llama-4-scout-17b-16e-instruct',
+    signupHost:      'console.groq.com',
+    daily_text:      800,      // 500k tokens/den / ~600 tokens/req
+    daily_vision:    60,       // 500k tokens/den / ~8000 tokens/vision req
+    vision:          true,
+    extraHeaders:    null,
+  },
+  cerebras: {
+    endpoint:        'https://api.cerebras.ai/v1/chat/completions',
+    envKey:          'CEREBRAS_API_KEY',
+    defaultModel:    'gpt-oss-120b',
+    signupHost:      'cloud.cerebras.ai',
+    daily_text:      200,      // 1M tokens/den / ~5000 tokens/req (gpt-oss-120b)
+    daily_vision:    0,        // Cerebras vision nemá
+    vision:          false,
+    extraHeaders:    null,
+  },
+  openrouter: {
+    endpoint:        'https://openrouter.ai/api/v1/chat/completions',
+    envKey:          'OPENROUTER_API_KEY',
+    defaultModel:    'meta-llama/llama-3.3-70b-instruct:free',
+    signupHost:      'openrouter.ai',
+    daily_text:      50,       // free models striktní 50/den/klíč
+    daily_vision:    50,
+    vision:          true,
+    extraHeaders: (req) => ({
+      'HTTP-Referer': req.headers.origin || req.headers.referer || 'https://poke-trade-ruddy.vercel.app',
+      'X-Title':      'PokéTrade',
+    }),
+  },
+  mistral: {
+    endpoint:        'https://api.mistral.ai/v1/chat/completions',
+    envKey:          'MISTRAL_API_KEY',
+    defaultModel:    'mistral-small-latest',
+    signupHost:      'console.mistral.ai',
+    daily_text:      1000,     // 1B tokens/měsíc = 33M/den; ~30k tokens/text req → ~1100/den, conservatively 1000
+    daily_vision:    500,      // vision ~10k tokens/req → ~3000/den, conservatively 500
+    vision:          true,
+    extraHeaders:    null,
+  },
+};
+
+// ── VIP allowlist ──────────────────────────────────────────────────
 const VIP_EMAILS = new Set([
   'adelka.papezova@gmail.com',
   'james.t.kirk1933@gmail.com',
@@ -23,28 +110,213 @@ const VIP_EMAILS = new Set([
   'pokecards.app.info@gmail.com',
 ]);
 const OWNER_EMAIL = 'papez.ondrej@gmail.com';
-const LIMITS = { search: 20, fake: 10 };
+
+// ── Limit konfigurace per usage_type ───────────────────────────────
+// share = jaké procento z poolu si daný typ může vzít (zbytek je rezerva pro VIP)
+// vision = jestli typ vyžaduje vision-capable providera
+// max_per_pool_pct = 1 uživatel nesmí utratit víc než X % poolu (safety)
+// abs_max = absolutní strop (proti runaway loops / attackům)
+//
+// Per-user limit se počítá DYNAMICKY z velikosti poolu:
+//   dynamic_max = min(abs_max, floor(pool × max_per_pool_pct))
+//   fair_share  = floor(pool × share / (active_users + buffer))
+//   limit       = clamp(fair_share, min, dynamic_max)
+//
+// Když přidáš klíče do env vars → pool roste → dynamic_max roste automaticky.
+// Žádné manuální tuning. Notifikace přijde když pool klesne pod kritickou úroveň.
+// ── Limit konfigurace per usage_type ───────────────────────────────
+// share = jaké procento z poolu si daný typ může vzít (zbytek je rezerva)
+// vision = jestli typ vyžaduje vision-capable providera (ovlivní pool)
+// min/max = clamp limit per user (po fair-share výpočtu)
+//
+// Aktuální pool s tvými klíči (6×Groq + 5×Cerebras + 9×OpenRouter + 1×Mistral):
+//   search: 6×800 + 5×200 + 9×50 + 1×1000 = 7250 req/den (text)
+//   fake:   6×60  + 9×50  + 1×500          = 1310 req/den (vision)
+//
+// Pool se přepočítá AUTOMATICKY když změníš počet klíčů ve Vercel ENV
+// (cache TTL 1 minuta, žádný restart/deploy nepotřeba).
+//
+// Když je málo userů → user dostane skoro plný share-cap (ten max).
+// Když je hodně userů → klesá ke min, plus přijde admin notifikace.
+const LIMITS_CONFIG = {
+  search: { min: 20, max: 300, share: 0.50, vision: false },
+  fake:   { min:  5, max: 100, share: 0.30, vision: true  },
+};
+
+const ACTIVE_USERS_BUFFER_PCT    = 0.20;
+const POOL_WARNING_THRESHOLD     = 0.30;
+const ACTIVE_USERS_WARNING_THRES = 50;
+const PER_USER_CRITICAL          = 50;
 
 const CORS = {
   'Access-Control-Allow-Origin':  '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Groq-Key, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, X-Groq-Key, X-AI-Key, Authorization',
 };
 
-// Parser pro Groq klíče oddělené čárkou.
-// Vercel ENV GROQ_API_KEY může obsahovat 1 i N klíčů: "gsk_a,gsk_b,gsk_c"
-// Pokud jeden vrátí 401/429, server zkusí další.
-function parseGroqKeys(raw) {
+// ── Pool kapacity helper (cached per warm start) ───────────────────
+let _cachedKeyCounts = null;
+let _cachedAt        = 0;
+const KEY_CACHE_TTL  = 60_000;
+
+function parseKeys(raw) {
   if (!raw) return [];
   return String(raw).split(',').map(k => k.trim()).filter(k => k.length > 10);
 }
+
+function getKeyCounts() {
+  if (_cachedKeyCounts && Date.now() - _cachedAt < KEY_CACHE_TTL) return _cachedKeyCounts;
+  _cachedKeyCounts = {
+    groq:       parseKeys(process.env.GROQ_API_KEY).length,
+    cerebras:   parseKeys(process.env.CEREBRAS_API_KEY).length,
+    openrouter: parseKeys(process.env.OPENROUTER_API_KEY).length,
+    mistral:    parseKeys(process.env.MISTRAL_API_KEY).length,
+  };
+  _cachedAt = Date.now();
+  return _cachedKeyCounts;
+}
+
+function getDailyPool(forVision = false) {
+  const counts = getKeyCounts();
+  let pool = 0;
+  for (const [name, cfg] of Object.entries(PROVIDERS)) {
+    const capacity = forVision ? cfg.daily_vision : cfg.daily_text;
+    pool += counts[name] * capacity;
+  }
+  return pool;
+}
+
+// ── Owner user_id cache (1 hod TTL) ────────────────────────────────
+let _cachedOwnerId   = null;
+let _ownerCachedAt   = 0;
+const OWNER_CACHE_TTL = 60 * 60 * 1000;
+
+async function getOwnerId() {
+  if (_cachedOwnerId && Date.now() - _ownerCachedAt < OWNER_CACHE_TTL) return _cachedOwnerId;
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?email=eq.${encodeURIComponent(OWNER_EMAIL)}&select=id&limit=1`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    );
+    const rows = await r.json().catch(() => []);
+    if (Array.isArray(rows) && rows[0]?.id) {
+      _cachedOwnerId = rows[0].id;
+      _ownerCachedAt = Date.now();
+      return _cachedOwnerId;
+    }
+  } catch (e) {
+    console.warn('[admin-notify] getOwnerId failed:', e.message);
+  }
+  return null;
+}
+
+// ── Active users count (15s cache) ─────────────────────────────────
+let _cachedActiveUsers = { count: 0, date: '', at: 0 };
+const ACTIVE_CACHE_TTL = 15_000;
+
+async function getActiveUsersToday(today) {
+  if (_cachedActiveUsers.date === today &&
+      Date.now() - _cachedActiveUsers.at < ACTIVE_CACHE_TTL) {
+    return _cachedActiveUsers.count;
+  }
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/groq_usage?date=eq.${today}&select=user_id`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    );
+    const rows = await r.json().catch(() => []);
+    const count = new Set((rows || []).map(r => r.user_id)).size;
+    _cachedActiveUsers = { count, date: today, at: Date.now() };
+    return count;
+  } catch (e) {
+    console.warn('[limits] getActiveUsersToday failed:', e.message);
+    return 1;
+  }
+}
+
+// ── Dynamic limit calculator ───────────────────────────────────────
+async function calculateDynamicLimit(usageType, today) {
+  const config = LIMITS_CONFIG[usageType] || LIMITS_CONFIG.search;
+  const pool = getDailyPool(config.vision);
+
+  if (pool === 0) {
+    return { limit: 0, pool: 0, activeUsers: 0, share: config.share };
+  }
+
+  const activeUsers = await getActiveUsersToday(today);
+  const buffer      = Math.max(1, Math.ceil(activeUsers * ACTIVE_USERS_BUFFER_PCT));
+  const usable      = pool * config.share;
+  const fairShare   = Math.floor(usable / Math.max(1, activeUsers + buffer));
+  const limit       = Math.max(config.min, Math.min(config.max, fairShare));
+
+  return { limit, pool, activeUsers, share: config.share };
+}
+
+// ── Admin notifikace (dedupe per den per typ) ──────────────────────
+async function notifyAdmin({ alertType, title, body, metadata }) {
+  const SVC = process.env.SUPABASE_SERVICE_KEY;
+  if (!SVC) {
+    console.warn('[admin-notify] SUPABASE_SERVICE_KEY není nastavený');
+    return false;
+  }
+  const ownerId = await getOwnerId();
+  if (!ownerId) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const dedupeKey = `${alertType}:${metadata?.provider || 'global'}:${today}`;
+
+  try {
+    const exRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/notifications?user_id=eq.${ownerId}` +
+      `&type=eq.${alertType}` +
+      `&metadata->>dedupe_key=eq.${encodeURIComponent(dedupeKey)}` +
+      `&select=id&limit=1`,
+      { headers: { 'apikey': SVC, 'Authorization': `Bearer ${SVC}` } }
+    );
+    const existing = await exRes.json().catch(() => []);
+    if (Array.isArray(existing) && existing.length > 0) {
+      console.log(`[admin-notify] dedupe hit pro ${dedupeKey}`);
+      return false;
+    }
+
+    const insRes = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+      method: 'POST',
+      headers: {
+        'apikey': SVC,
+        'Authorization': `Bearer ${SVC}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        user_id:  ownerId,
+        type:     alertType,
+        title,
+        body,
+        link:     '/profile.html#ai-providers',
+        metadata: { ...metadata, dedupe_key: dedupeKey, ts: new Date().toISOString() },
+      }),
+    });
+    if (insRes.ok) {
+      console.log(`[admin-notify] ✓ ${alertType}`);
+      return true;
+    }
+    console.warn(`[admin-notify] insert failed: ${insRes.status}`);
+  } catch (e) {
+    console.warn('[admin-notify] error:', e.message);
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HANDLER
+// ═══════════════════════════════════════════════════════════════════
 
 export default async function handler(req, res) {
   Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // ── GET → ping (mobilní app health check, nahrazuje /api/ping) ──
   if (req.method === 'GET') {
+    if (req.query?.info === 'usage') return handleUsageInfo(req, res);
     return res.status(200).json({ ok: true, ts: Date.now() });
   }
 
@@ -56,28 +328,48 @@ export default async function handler(req, res) {
   const body = req.body;
   if (!body?.messages) return res.status(400).json({ error: 'Chybí messages' });
 
-  const safeBody = {
-    model:       body.model || 'meta-llama/llama-4-scout-17b-16e-instruct',
-    messages:    body.messages,
-    temperature: body.temperature ?? 0.1,
-    max_tokens:  Math.min(body.max_tokens ?? 800, 2000),
-    stream:      false,
-  };
-
-  const personalKey = (req.headers['x-groq-key'] || '').trim();
-  if (personalKey.length > 10) {
-    return proxyToGroq(res, personalKey, safeBody);
+  const providerName = String(body.provider || 'groq').toLowerCase();
+  const provider = PROVIDERS[providerName];
+  if (!provider) {
+    return res.status(400).json({
+      error:           `Neznámý provider: ${providerName}`,
+      validProviders:  Object.keys(PROVIDERS),
+    });
   }
 
-  const sharedKeys = parseGroqKeys(process.env.GROQ_API_KEY);
+  const safeBody = {
+    model:       body.model || provider.defaultModel,
+    messages:    body.messages,
+    temperature: body.temperature ?? 0.1,
+    max_tokens:  Math.min(body.max_tokens ?? 800, 4000),
+    stream:      false,
+  };
+  if (body.response_format && typeof body.response_format === 'object') {
+    safeBody.response_format = body.response_format;
+  }
+
+  const personalKey = (
+    req.headers['x-ai-key'] ||
+    (providerName === 'groq' ? req.headers['x-groq-key'] : '') ||
+    ''
+  ).trim();
+
+  if (personalKey.length > 10) {
+    return proxyToProvider(res, req, provider, providerName, personalKey, safeBody);
+  }
+
+  const sharedKeys = parseKeys(process.env[provider.envKey]);
   if (!sharedKeys.length) {
-    return res.status(503).json({ error: 'Groq klíč není nastaven.', code: 'NO_SHARED_KEY' });
+    return res.status(503).json({
+      error:    `${provider.envKey} env var není na serveru nastaven.`,
+      code:     'NO_SHARED_KEY',
+      provider: providerName,
+      hint:     `Admin musí přidat ${provider.envKey} ve Vercel env vars, nebo uživatel musí mít vlastní klíč.`,
+    });
   }
 
   const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
-  if (!token) {
-    return res.status(401).json({ error: 'Nejsi přihlášen.', code: 'NO_AUTH' });
-  }
+  if (!token) return res.status(401).json({ error: 'Nejsi přihlášen.', code: 'NO_AUTH' });
 
   let userEmail, userId;
   try {
@@ -89,16 +381,17 @@ export default async function handler(req, res) {
     userEmail = u?.email || '';
     userId    = u?.id    || '';
   } catch {
-    return res.status(401).json({ error: 'Neplatný přihlašovací token.', code: 'BAD_TOKEN' });
+    return res.status(401).json({ error: 'Neplatný token.', code: 'BAD_TOKEN' });
   }
 
   if (userEmail === OWNER_EMAIL || VIP_EMAILS.has(userEmail)) {
-    return proxyToGroqWithRotation(res, sharedKeys, safeBody);
+    return proxyToProviderWithRotation(res, req, provider, providerName, sharedKeys, safeBody);
   }
 
   const usageType = body.usage_type || 'search';
-  const limit     = LIMITS[usageType] ?? LIMITS.search;
   const today     = new Date().toISOString().slice(0, 10);
+
+  const { limit, pool, activeUsers, share } = await calculateDynamicLimit(usageType, today);
 
   const usageRes = await fetch(
     `${SUPABASE_URL}/rest/v1/groq_usage?user_id=eq.${userId}&date=eq.${today}&select=id,search_count,fake_count`,
@@ -110,14 +403,19 @@ export default async function handler(req, res) {
 
   if (currentCount >= limit) {
     return res.status(429).json({
-      error: `Denní limit vyčerpán (${limit}/den). Zadej si vlastní Groq klíč na console.groq.com.`,
-      code: 'RATE_LIMITED', limit, used: currentCount, reset: 'půlnoc CET',
+      error: `Denní limit vyčerpán (${currentCount}/${limit}). Pro neomezené hledání přidej vlastní klíč v profilu.`,
+      code:  'RATE_LIMITED',
+      limit, used: currentCount, remaining: 0,
+      reset: 'půlnoc CET',
+      providerHint: `Klíč zdarma získáš na ${provider.signupHost}`,
     });
   }
 
-  const groqResult = await proxyToGroqWithRotation(res, sharedKeys, safeBody, true);
+  const result = await proxyToProviderWithRotation(
+    res, req, provider, providerName, sharedKeys, safeBody, true
+  );
 
-  if (groqResult?.ok) {
+  if (result?.ok) {
     const patch = usageType === 'fake'
       ? { fake_count:   (usage?.fake_count   || 0) + 1 }
       : { search_count: (usage?.search_count || 0) + 1 };
@@ -135,73 +433,193 @@ export default async function handler(req, res) {
         body: JSON.stringify({ user_id: userId, date: today, search_count: 0, fake_count: 0, ...patch }),
       }).catch(() => {});
     }
+
+    if (activeUsers > ACTIVE_USERS_WARNING_THRES) {
+      const usagePct = currentCount / Math.max(1, pool * share);
+      if (usagePct > (1 - POOL_WARNING_THRESHOLD)) {
+        notifyAdmin({
+          alertType: 'admin_pool_low',
+          title:     `⚠️ AI pool ${usageType} klesl pod 30 %`,
+          body:      `Aktivních userů dnes: ${activeUsers}, pool: ${pool} req/den. Zvážuj přidání klíčů.`,
+          metadata:  { provider: 'pool', usageType, activeUsers, pool, share },
+        }).catch(() => {});
+      }
+      if (limit < PER_USER_CRITICAL) {
+        notifyAdmin({
+          alertType: 'admin_per_user_low',
+          title:     `📈 Limit per user pro ${usageType} klesl na ${limit}`,
+          body:      `Aktivních userů: ${activeUsers}. Per-user limit je již na minimu — uživatelé budou frustrovaní. Přidej klíče.`,
+          metadata:  { provider: 'pool', usageType, activeUsers, limit },
+        }).catch(() => {});
+      }
+    }
   }
 }
 
-async function proxyToGroq(res, key, body, returnMeta = false) {
+// ── GET ?info=usage handler ───────────────────────────────────────
+async function handleUsageInfo(req, res) {
+  const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+  if (!token) return res.status(401).json({ error: 'Nejsi přihlášen', code: 'NO_AUTH' });
+
+  let userEmail, userId;
   try {
-    const r = await fetch(GROQ_API, {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` },
+    });
+    if (!r.ok) throw new Error('bad token');
+    const u = await r.json();
+    userEmail = (u?.email || '').toLowerCase();
+    userId    = u?.id || '';
+  } catch {
+    return res.status(401).json({ error: 'Neplatný token', code: 'BAD_TOKEN' });
+  }
+
+  const isVip = (userEmail === OWNER_EMAIL) || VIP_EMAILS.has(userEmail);
+  if (isVip) {
+    return res.status(200).json({
+      isVip: true, isOwner: userEmail === OWNER_EMAIL,
+      message: 'Bez limitu (VIP)',
+    });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [searchInfo, fakeInfo, usageRows] = await Promise.all([
+    calculateDynamicLimit('search', today),
+    calculateDynamicLimit('fake',   today),
+    fetch(
+      `${SUPABASE_URL}/rest/v1/groq_usage?user_id=eq.${userId}&date=eq.${today}&select=search_count,fake_count`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
+    ).then(r => r.json()).catch(() => []),
+  ]);
+
+  const usage = Array.isArray(usageRows) ? usageRows[0] : null;
+  const used  = { search: usage?.search_count || 0, fake: usage?.fake_count || 0 };
+
+  return res.status(200).json({
+    isVip:       false,
+    isOwner:     false,
+    today,
+    activeUsers: searchInfo.activeUsers,
+    search: {
+      limit:     searchInfo.limit,
+      used:      used.search,
+      remaining: Math.max(0, searchInfo.limit - used.search),
+      pool:      searchInfo.pool,
+      dynamicMax: searchInfo.dynamicMax,
+    },
+    fake: {
+      limit:     fakeInfo.limit,
+      used:      used.fake,
+      remaining: Math.max(0, fakeInfo.limit - used.fake),
+      pool:      fakeInfo.pool,
+      dynamicMax: fakeInfo.dynamicMax,
+    },
+    keysCount: getKeyCounts(),
+  });
+}
+
+// ── Single-key proxy (osobní klíč) ─────────────────────────────────
+async function proxyToProvider(res, req, provider, providerName, key, body, returnMeta = false) {
+  try {
+    const headers = {
+      'Authorization': `Bearer ${key}`,
+      'Content-Type':  'application/json',
+    };
+    if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
+    const r = await fetch(provider.endpoint, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     });
     const data = await r.json();
     if (!r.ok) {
-      if (!returnMeta) res.status(r.status).json({ error: data?.error?.message || 'Groq error', status: r.status });
+      if (!returnMeta) {
+        res.status(r.status).json({
+          error:    data?.error?.message || `${providerName} error`,
+          status:   r.status,
+          provider: providerName,
+        });
+      }
       return { ok: false };
     }
     res.status(200).json(data);
     return { ok: true };
   } catch (err) {
-    if (!returnMeta) res.status(502).json({ error: 'Nepodařilo se spojit s Groq: ' + err.message });
+    if (!returnMeta) {
+      res.status(502).json({
+        error:    `Nepodařilo se spojit s ${providerName}: ${err.message}`,
+        provider: providerName,
+      });
+    }
     return { ok: false };
   }
 }
 
-// Rotace přes seznam klíčů — pokud první vrátí 401/429, zkusí další.
-// Jiné chyby (5xx, 400 atd.) hlásí hned. Bez ohledu na počet klíčů.
-async function proxyToGroqWithRotation(res, keys, body, returnMeta = false) {
-  let lastErrorStatus = 502;
-  let lastErrorMessage = 'Žádný Groq klíč nefunguje';
+// ── Multi-key rotation (sdílené klíče) ─────────────────────────────
+// Při 401/429 → další klíč. Po vyčerpání všech → admin alert.
+async function proxyToProviderWithRotation(res, req, provider, providerName, keys, body, returnMeta = false) {
+  let lastErrorStatus  = 502;
+  let lastErrorMessage = `Žádný ${providerName} klíč nefunguje`;
+  let exhaustedByLimit = false;
 
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     try {
-      const r = await fetch(GROQ_API, {
+      const headers = {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type':  'application/json',
+      };
+      if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
+      const r = await fetch(provider.endpoint, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       });
 
-      // 401 (neplatný) nebo 429 (rate limit) → zkus další klíč
       if (r.status === 401 || r.status === 429) {
         const errData = await r.json().catch(() => ({}));
-        lastErrorStatus = r.status;
+        lastErrorStatus  = r.status;
         lastErrorMessage = errData?.error?.message || `HTTP ${r.status}`;
-        console.warn(`[groq] Klíč #${i+1}/${keys.length}: ${lastErrorStatus} ${lastErrorMessage} — zkouším další`);
+        exhaustedByLimit = true;
+        console.warn(`[${providerName}] Klíč #${i+1}/${keys.length}: ${lastErrorStatus} — další`);
         continue;
       }
 
-      // Úspěch nebo jiná chyba — vrátit tak jak je
       const data = await r.json();
       if (!r.ok) {
-        if (!returnMeta) res.status(r.status).json({ error: data?.error?.message || 'Groq error', status: r.status });
+        if (!returnMeta) {
+          res.status(r.status).json({
+            error:    data?.error?.message || `${providerName} error`,
+            status:   r.status,
+            provider: providerName,
+          });
+        }
         return { ok: false };
       }
-      console.log(`[groq] ✓ použit klíč #${i+1}/${keys.length}`);
+      console.log(`[${providerName}] ✓ klíč #${i+1}/${keys.length}`);
       res.status(200).json(data);
       return { ok: true };
     } catch (err) {
       lastErrorMessage = err.message;
-      console.warn(`[groq] Klíč #${i+1}/${keys.length}: ${err.message} — zkouším další`);
+      console.warn(`[${providerName}] Klíč #${i+1}/${keys.length}: ${err.message} — další`);
     }
   }
 
-  // Všechny klíče selhaly
+  if (exhaustedByLimit) {
+    notifyAdmin({
+      alertType: 'admin_keys_exhausted',
+      title:     `🔑 ${providerName.toUpperCase()} klíče dnes vyčerpány`,
+      body:      `Všech ${keys.length} ${providerName} klíčů dosáhlo rate limitu nebo selhalo (${lastErrorStatus}). Přidej nový na ${provider.signupHost} a doplň do Vercel env ${provider.envKey}.`,
+      metadata:  { provider: providerName, keysCount: keys.length, lastError: lastErrorMessage },
+    }).catch(() => {});
+  }
+
   if (!returnMeta) {
     res.status(lastErrorStatus).json({
-      error:        `Všech ${keys.length} Groq klíčů selhalo. Poslední chyba: ${lastErrorMessage}`,
-      code:         lastErrorStatus === 429 ? 'ALL_KEYS_RATE_LIMITED' : 'ALL_KEYS_FAILED',
+      error:         `Všech ${keys.length} ${providerName} klíčů selhalo: ${lastErrorMessage}`,
+      code:          lastErrorStatus === 429 ? 'ALL_KEYS_RATE_LIMITED' : 'ALL_KEYS_FAILED',
+      provider:      providerName,
       keysAvailable: keys.length,
     });
   }
