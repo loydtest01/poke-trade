@@ -614,15 +614,22 @@ async function selectAlbum(albumId) {
 
   // Načti plná data karet pro snapshot
   if (album.card_ids && album.card_ids.length > 0) {
-    const cardIds = album.card_ids.map(id => `"${id}"`).join(',');
-    let cards = await sbGet(`rest/v1/user_cards?user_id=eq.${ME.id}&local_id=in.(${cardIds})&select=local_id,card_data`);
+    // Dotazy posíláme po dávkách 200 ID, aby URL nepřekročila limit serveru
+    const CHUNK_SIZE = 200;
+    let allCards = [];
+    for (let i = 0; i < album.card_ids.length; i += CHUNK_SIZE) {
+      const chunk = album.card_ids.slice(i, i + CHUNK_SIZE);
+      const cardIds = chunk.map(id => `"${id}"`).join(',');
+      const batch = await sbGet(`rest/v1/user_cards?user_id=eq.${ME.id}&local_id=in.(${cardIds})&select=local_id,card_data`);
+      if (batch && batch.length) allCards = allCards.concat(batch);
+    }
 
     // FALLBACK: pokud nejsou v Supabase, hledej v lokálních kartách (pkc_cards)
-    if (!cards || !cards.length) {
+    if (!allCards.length) {
       try {
         const localCards = JSON.parse(localStorage.getItem('pkc_cards') || '[]');
         const ids = new Set(album.card_ids);
-        cards = localCards
+        allCards = localCards
           .filter(c => ids.has(c.localId || c.id))
           .map(c => ({ local_id: c.localId || c.id, card_data: c }));
       } catch(e) {}
@@ -631,7 +638,7 @@ async function selectAlbum(albumId) {
     selectedAlbumData = {
       name: album.name,
       card_ids: album.card_ids,
-      cards: (cards || []).map(c => ({ ...c.card_data, _localId: c.local_id }))
+      cards: allCards.map(c => ({ ...c.card_data, _localId: c.local_id }))
     };
   } else {
     selectedAlbumData = { name: album.name, card_ids: [], cards: [] };
