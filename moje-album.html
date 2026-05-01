@@ -1427,78 +1427,64 @@ body { background: #06040c; overflow-x: hidden; }
 .cd-act-btn.delete    { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.25); margin-left: auto; }
 .cd-act-btn:hover     { opacity: .85; transform: translateY(-1px); }
 
-/* ── Book size slider — vnější, mimo album ──────────────────── */
-.book-size-outer-row {
-  display: flex; align-items: center; gap: 16px;
-  padding: 12px 24px 20px;
+/* ── Book size slider — kompaktní inline v toolbaru ─────────── */
+.book-size-inline {
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 2px 0 10px;
+  border-left: 1px solid rgba(255,255,255,0.1);
+  margin-left: 2px; align-self: stretch;
 }
-.book-size-outer-label {
-  font-size: 10px; color: var(--text3); white-space: nowrap;
-  text-transform: uppercase; letter-spacing: .08em;
+.book-size-inline-track {
+  position: relative;
+  padding-bottom: 14px;
+  width: 130px; flex-shrink: 0;
 }
-/* Wrapper pro slider + stupnici */
-.book-size-slider-wrap {
-  flex: 1; max-width: 420px; position: relative;
-  padding-bottom: 22px; /* místo pro stupnici pod sliderem */
-}
-.book-size-slider-wrap input[type=range] {
+.book-size-inline-track input[type=range] {
   -webkit-appearance: none; appearance: none;
   width: 100%; height: 3px;
-  background: rgba(255,255,255,0.14); border-radius: 3px;
+  background: rgba(255,255,255,0.15); border-radius: 3px;
   outline: none; cursor: pointer; transition: background .15s;
-  position: relative; z-index: 1;
+  display: block; position: relative; z-index: 1;
 }
-.book-size-slider-wrap input[type=range]:hover { background: rgba(255,255,255,0.22); }
-.book-size-slider-wrap input[type=range]::-webkit-slider-thumb {
+.book-size-inline-track input[type=range]:hover { background: rgba(255,255,255,0.25); }
+.book-size-inline-track input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 16px; height: 16px; border-radius: 50%;
+  width: 13px; height: 13px; border-radius: 50%;
   background: #f5c842; cursor: pointer;
-  box-shadow: 0 0 10px rgba(245,200,66,0.55);
+  box-shadow: 0 0 7px rgba(245,200,66,0.55);
   transition: transform .15s, box-shadow .15s;
 }
-.book-size-slider-wrap input[type=range]::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
-  box-shadow: 0 0 18px rgba(245,200,66,0.75);
+.book-size-inline-track input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2); box-shadow: 0 0 14px rgba(245,200,66,0.75);
 }
-.book-size-slider-wrap input[type=range]::-moz-range-thumb {
-  width: 16px; height: 16px; border-radius: 50%; border: none;
+.book-size-inline-track input[type=range]::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%; border: none;
   background: #f5c842; cursor: pointer;
-  box-shadow: 0 0 10px rgba(245,200,66,0.55);
 }
-/* Stupnice pod sliderem */
-.book-size-ticks {
-  position: absolute; left: 0; right: 0; top: 18px;
-  height: 20px; pointer-events: none;
+.book-size-inline-ticks {
+  position: absolute; left: 0; right: 0; top: 10px;
+  height: 14px; pointer-events: none;
 }
-/* Každá značka — major má číslo, minor jen čárku */
-.bst {
+.bsit {
   position: absolute; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center;
   left: var(--p);
 }
-/* Čárka major */
-.bst.major::after {
-  content: ''; display: block;
-  width: 1px; height: 7px;
-  background: rgba(255,255,255,0.3);
-  margin-top: 2px;
+.bsit.major {
+  font-size: 7px; color: rgba(255,255,255,0.28);
+  font-family: 'Unbounded', sans-serif; line-height: 1;
 }
-/* Číslo major */
-.bst.major {
-  font-size: 9px; color: rgba(255,255,255,0.35);
-  font-family: 'Unbounded', sans-serif; font-weight: 400;
-  line-height: 1;
+.bsit.major::after {
+  content:''; display:block; width:1px; height:4px;
+  background:rgba(255,255,255,0.22); margin-top:2px;
 }
-/* Čárka minor */
-.bst.minor::after {
-  content: ''; display: block;
-  width: 1px; height: 4px;
-  background: rgba(255,255,255,0.18);
-  margin-top: 7px;
+.bsit.minor::after {
+  content:''; display:block; width:1px; height:3px;
+  background:rgba(255,255,255,0.14); margin-top:4px;
 }
 .book-size-val {
-  font-size: 11px; color: rgba(245,200,66,0.7);
-  min-width: 38px; font-family: 'Unbounded', sans-serif;
+  font-size: 10px; color: rgba(245,200,66,0.7);
+  min-width: 30px; font-family: 'Unbounded', sans-serif;
   font-weight: 700; text-align: right; white-space: nowrap;
 }
 
@@ -2189,6 +2175,21 @@ body { background: #06040c; overflow-x: hidden; }
         <button class="vt-btn" id="vt-book" onclick="setViewMode('book')" title="Album jako v aplikaci">
           📖 Album
         </button>
+        <div class="book-size-inline" id="bookSizeInline" style="display:none">
+          <div class="book-size-inline-track">
+            <input type="range" min="40" max="100" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)" title="Velikost karet v albu">
+            <div class="book-size-inline-ticks" aria-hidden="true">
+              <span class="bsit major" style="--p:0%">40</span>
+              <span class="bsit minor" style="--p:16.667%"></span>
+              <span class="bsit major" style="--p:33.333%">60</span>
+              <span class="bsit minor" style="--p:50%"></span>
+              <span class="bsit major" style="--p:66.667%">80</span>
+              <span class="bsit minor" style="--p:83.333%"></span>
+              <span class="bsit major" style="--p:100%">100</span>
+            </div>
+          </div>
+          <span class="book-size-val" id="bookSizeVal">100%</span>
+        </div>
       </div>
       <div class="stat-chips">
         <div class="stat-chip">Celkem <strong id="statAll">0</strong></div>
@@ -2444,29 +2445,6 @@ body { background: #06040c; overflow-x: hidden; }
 
     <!-- Album book view -->
     <div class="album-book" id="albumBook">
-      <!-- Slider MIMO album — nad book-wrap -->
-      <div class="book-size-outer-row">
-        <label class="book-size-outer-label">Velikost karet</label>
-        <div class="book-size-slider-wrap">
-          <input type="range" min="40" max="100" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
-          <div class="book-size-ticks" aria-hidden="true">
-            <span class="bst major" style="--p:0%">40</span>
-            <span class="bst minor" style="--p:8.333%"></span>
-            <span class="bst major" style="--p:16.667%">50</span>
-            <span class="bst minor" style="--p:25%"></span>
-            <span class="bst major" style="--p:33.333%">60</span>
-            <span class="bst minor" style="--p:41.667%"></span>
-            <span class="bst major" style="--p:50%">70</span>
-            <span class="bst minor" style="--p:58.333%"></span>
-            <span class="bst major" style="--p:66.667%">80</span>
-            <span class="bst minor" style="--p:75%"></span>
-            <span class="bst major" style="--p:83.333%">90</span>
-            <span class="bst minor" style="--p:91.667%"></span>
-            <span class="bst major" style="--p:100%">100</span>
-          </div>
-        </div>
-        <span class="book-size-val" id="bookSizeVal">100%</span>
-      </div>
       <div class="book-wrap">
         <div class="book-nav">
           <button class="book-nav-btn" id="bookPrev" onclick="bookPrevPage()">← Předchozí</button>
@@ -8212,6 +8190,9 @@ function setViewMode(mode) {
   document.getElementById('vt-book').classList.toggle('active', mode === 'book');
   document.getElementById('cardsGrid').classList.toggle('hidden', mode === 'book');
   document.getElementById('albumBook').classList.toggle('visible', mode === 'book');
+  // Slider v toolbaru — zobraz jen v album mode
+  const sInline = document.getElementById('bookSizeInline');
+  if (sInline) sInline.style.display = mode === 'book' ? 'flex' : 'none';
   // Hide top value bar in book mode — price shown inside album nav instead
   const tvBar = document.getElementById('totalValueBar');
   if (tvBar) tvBar.style.display = mode === 'book' ? 'none' : 'flex';
