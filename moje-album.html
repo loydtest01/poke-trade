@@ -769,11 +769,48 @@ body { background: #06040c; overflow-x: hidden; }
 .book-card.is-rainbow:hover::before {
   opacity: 1;
 }
+/* Druhá vrstva — světelný "blesk" jezdící přes kartu (stejně jako u card-slot) */
+.book-card.is-holo::after,
+.book-card.is-reverse::after,
+.book-card.is-vmax::after,
+.book-card.is-rainbow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  mix-blend-mode: screen;
+  opacity: .35;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    transparent 30%,
+    rgba(255,255,255,0.55) 50%,
+    transparent 70%
+  );
+  background-size: 300% 300%;
+  animation: holoSweep 5s ease-in-out infinite;
+}
+/* Pro Holo Rare sweep projíždí jen přes pokémon zónu */
+.book-card.is-holo::after {
+  -webkit-mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+          mask: linear-gradient(to bottom, transparent 22%, #000 28%, #000 62%, transparent 68%);
+}
+.book-card.is-holo:hover::after,
+.book-card.is-reverse:hover::after,
+.book-card.is-vmax:hover::after,
+.book-card.is-rainbow:hover::after {
+  opacity: .7;
+}
 @media (prefers-reduced-motion: reduce) {
   .book-card.is-holo::before,
   .book-card.is-reverse::before,
   .book-card.is-vmax::before,
-  .book-card.is-rainbow::before {
+  .book-card.is-rainbow::before,
+  .book-card.is-holo::after,
+  .book-card.is-reverse::after,
+  .book-card.is-vmax::after,
+  .book-card.is-rainbow::after {
     animation: none;
   }
 }
@@ -1388,43 +1425,79 @@ body { background: #06040c; overflow-x: hidden; }
 .cd-act-btn.delete    { background: rgba(248,113,113,0.1); color: #f87171; border: 1px solid rgba(248,113,113,0.25); margin-left: auto; }
 .cd-act-btn:hover     { opacity: .85; transform: translateY(-1px); }
 
-/* ── Book size slider — modern minimalist ──────────────────── */
-.book-size-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 8px 20px; border-bottom: 1px solid rgba(255,255,255,0.05);
-  background: rgba(0,0,0,0.25);
+/* ── Book size slider — vnější, mimo album ──────────────────── */
+.book-size-outer-row {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 24px 20px;
 }
-.book-size-row label {
+.book-size-outer-label {
   font-size: 10px; color: var(--text3); white-space: nowrap;
-  text-transform: uppercase; letter-spacing: .06em;
+  text-transform: uppercase; letter-spacing: .08em;
 }
-.book-size-row input[type=range] {
+/* Wrapper pro slider + stupnici */
+.book-size-slider-wrap {
+  flex: 1; max-width: 420px; position: relative;
+  padding-bottom: 22px; /* místo pro stupnici pod sliderem */
+}
+.book-size-slider-wrap input[type=range] {
   -webkit-appearance: none; appearance: none;
-  flex: 1; max-width: 160px; height: 2px;
-  background: rgba(255,255,255,0.12); border-radius: 2px;
+  width: 100%; height: 3px;
+  background: rgba(255,255,255,0.14); border-radius: 3px;
   outline: none; cursor: pointer; transition: background .15s;
+  position: relative; z-index: 1;
 }
-.book-size-row input[type=range]:hover { background: rgba(255,255,255,0.2); }
-.book-size-row input[type=range]::-webkit-slider-thumb {
+.book-size-slider-wrap input[type=range]:hover { background: rgba(255,255,255,0.22); }
+.book-size-slider-wrap input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
-  width: 12px; height: 12px; border-radius: 50%;
+  width: 16px; height: 16px; border-radius: 50%;
   background: #f5c842; cursor: pointer;
-  box-shadow: 0 0 8px rgba(245,200,66,0.5);
+  box-shadow: 0 0 10px rgba(245,200,66,0.55);
   transition: transform .15s, box-shadow .15s;
 }
-.book-size-row input[type=range]::-webkit-slider-thumb:hover {
-  transform: scale(1.25);
-  box-shadow: 0 0 14px rgba(245,200,66,0.7);
+.book-size-slider-wrap input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 0 18px rgba(245,200,66,0.75);
 }
-.book-size-row input[type=range]::-moz-range-thumb {
-  width: 12px; height: 12px; border-radius: 50%; border: none;
+.book-size-slider-wrap input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; border: none;
   background: #f5c842; cursor: pointer;
-  box-shadow: 0 0 8px rgba(245,200,66,0.5);
+  box-shadow: 0 0 10px rgba(245,200,66,0.55);
+}
+/* Stupnice pod sliderem */
+.book-size-ticks {
+  position: absolute; left: 0; right: 0; top: 18px;
+  height: 20px; pointer-events: none;
+}
+/* Každá značka — major má číslo, minor jen čárku */
+.bst {
+  position: absolute; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  left: var(--p);
+}
+/* Čárka major */
+.bst.major::after {
+  content: ''; display: block;
+  width: 1px; height: 7px;
+  background: rgba(255,255,255,0.3);
+  margin-top: 2px;
+}
+/* Číslo major */
+.bst.major {
+  font-size: 9px; color: rgba(255,255,255,0.35);
+  font-family: 'Unbounded', sans-serif; font-weight: 400;
+  line-height: 1;
+}
+/* Čárka minor */
+.bst.minor::after {
+  content: ''; display: block;
+  width: 1px; height: 4px;
+  background: rgba(255,255,255,0.18);
+  margin-top: 7px;
 }
 .book-size-val {
-  font-size: 10px; color: rgba(245,200,66,0.6);
-  min-width: 30px; font-family: 'Unbounded', sans-serif;
-  font-weight: 700; text-align: right;
+  font-size: 11px; color: rgba(245,200,66,0.7);
+  min-width: 38px; font-family: 'Unbounded', sans-serif;
+  font-weight: 700; text-align: right; white-space: nowrap;
 }
 
 /* ── Global modern minimal scrollbars ──────────────────────── */
@@ -2255,12 +2328,30 @@ body { background: #06040c; overflow-x: hidden; }
 
     <!-- Album book view -->
     <div class="album-book" id="albumBook">
-      <div class="book-wrap">
-        <div class="book-size-row">
-          <label>Velikost karet</label>
+      <!-- Slider MIMO album — nad book-wrap -->
+      <div class="book-size-outer-row">
+        <label class="book-size-outer-label">Velikost karet</label>
+        <div class="book-size-slider-wrap">
           <input type="range" min="40" max="100" value="100" step="5" id="bookSizeSlider" oninput="setBookSize(this.value)">
-          <span class="book-size-val" id="bookSizeVal">100%</span>
+          <div class="book-size-ticks" aria-hidden="true">
+            <span class="bst major" style="--p:0%">40</span>
+            <span class="bst minor" style="--p:8.333%"></span>
+            <span class="bst major" style="--p:16.667%">50</span>
+            <span class="bst minor" style="--p:25%"></span>
+            <span class="bst major" style="--p:33.333%">60</span>
+            <span class="bst minor" style="--p:41.667%"></span>
+            <span class="bst major" style="--p:50%">70</span>
+            <span class="bst minor" style="--p:58.333%"></span>
+            <span class="bst major" style="--p:66.667%">80</span>
+            <span class="bst minor" style="--p:75%"></span>
+            <span class="bst major" style="--p:83.333%">90</span>
+            <span class="bst minor" style="--p:91.667%"></span>
+            <span class="bst major" style="--p:100%">100</span>
+          </div>
         </div>
+        <span class="book-size-val" id="bookSizeVal">100%</span>
+      </div>
+      <div class="book-wrap">
         <div class="book-nav">
           <button class="book-nav-btn" id="bookPrev" onclick="bookPrevPage()">← Předchozí</button>
           <span class="book-page-info" id="bookPageInfo">Strana 1 / 1</span>
