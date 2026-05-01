@@ -1829,6 +1829,9 @@ body { background: #06040c; overflow-x: hidden; }
     <div class="sb-section">
       <span class="sb-label">🔧 Správa dat</span>
       <button class="sb-btn" onclick="showMergeDupConfirm()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
+      <button class="sb-btn" onclick="fetchMissingPricesOnly()" id="fetchMissingPricesBtn" title="Načte ceny pouze pro karty, které nemají žádnou cenu" style="color:rgba(100,220,120,0.85);border:1px solid rgba(100,220,120,0.2);background:rgba(100,220,120,0.05);">
+        💰 Načíst chybějící ceny
+      </button>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
         🛠️ <span data-i18n="sidebar.repairAuto">Opravit vše automaticky</span>
       </button>
@@ -2602,6 +2605,7 @@ let editingAlbumId = null;
   updateCurrencyUI();
 
   await Promise.all([loadCards(), loadAlbums()]);
+  await cleanOrphanCardIds();
   await loadSharedAlbums();
   await loadFamilyAlbums();
   await loadAllCardPhotos();
@@ -2895,16 +2899,34 @@ async function loadFamilyAlbums() {
         );
         const cardIds = Array.isArray(albumData) && albumData.length ? (albumData[0].card_ids || []) : [];
 
-        // Načti samotné karty
+        // Načti samotné karty (card_data JSON je skutečné úložiště dat)
         let cards = [];
         if (cardIds.length) {
-          const cardRows = await sbReq(
-            `rest/v1/user_cards?user_id=eq.${memberId}&select=local_id,name,set,number,condition,image_url,cm_price_eur`
-          );
-          if (Array.isArray(cardRows)) {
-            const idSet = new Set(cardIds);
-            cards = cardRows.filter(c => idSet.has(c.local_id)).map(c => ({ ...c, _readOnly: true }));
+          const idSet = new Set(cardIds.map(String));
+          // Dávkování po 200 ID (URL limit)
+          const idArr = [...idSet];
+          const CHUNK = 200;
+          let allRows = [];
+          for (let ci = 0; ci < idArr.length; ci += CHUNK) {
+            const chunk = idArr.slice(ci, ci + CHUNK);
+            const rows = await sbReq(
+              `rest/v1/user_cards?user_id=eq.${memberId}&local_id=in.(${chunk.join(',')})&select=local_id,card_data,for_trade,for_sell`
+            );
+            if (Array.isArray(rows)) allRows = allRows.concat(rows);
           }
+          cards = allRows.map(r => {
+            const d = r.card_data || {};
+            return {
+              ...d,
+              id: r.local_id,
+              number: d.number || d.num || '',
+              count: d.count || d.qty || 1,
+              condition: d.condition || d.cond || 'NM',
+              for_trade: r.for_trade,
+              for_sell: r.for_sell,
+              _readOnly: true,
+            };
+          });
         }
 
         allFamilyAlbums.push({
@@ -4855,6 +4877,88 @@ async function syncCardToServer(c) {
 }
 
 
+
+// ── Načtení cen jen pro karty bez ceny ────────────────────────────
+let _fetchMissingRunning = false;
+
+async function fetchMissingPricesOnly() {
+  if (_fetchMissingRunning) return;
+  const missing = allCards.filter(c => !(c.p30d > 0) && !c.pricesFetchedAt);
+  if (!missing.length) { alert('✅ Všechny karty již mají cenu!'); return; }
+
+  const confirmed = confirm(
+    `Načíst ceny pro ${missing.length} karet bez ceny?\n\nKarty se postupně vyhledají na pokemontcg.io. Může to chvíli trvat.\n\nPokračovat?`
+  );
+  if (!confirmed) return;
+
+  _fetchMissingRunning = true;
+  const btn = document.getElementById('fetchMissingPricesBtn');
+  if (btn) btn.disabled = true;
+
+  let panel = document.getElementById('fetchMissingPanel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'fetchMissingPanel';
+    panel.style.cssText = `
+      position:fixed;bottom:80px;left:50%;transform:translateX(-50%);
+      background:var(--bg2,#1a1a2e);border:1px solid var(--border,#333);
+      border-radius:12px;padding:16px 24px;z-index:9999;
+      min-width:320px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+      font-family:inherit;color:var(--text,#fff);text-align:center;
+    `;
+    document.body.appendChild(panel);
+  }
+
+  let done = 0, found = 0, failed = 0;
+  const total = missing.length;
+  const BATCH = 5;
+
+  for (let i = 0; i < missing.length; i += BATCH) {
+    const chunk = missing.slice(i, i + BATCH);
+    await Promise.all(chunk.map(async c => {
+      try {
+        const rawNum = (c.number || c.num || '').toString().split('/')[0];
+        if (!c.name) { done++; return; }
+        let q = `name:"${c.name}"`;
+        if (c.set)  q += ` set.name:"${c.set}"`;
+        if (rawNum) q += ` number:${rawNum}`;
+        const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+        if (!res.ok) { done++; failed++; return; }
+        const data = await res.json();
+        const card = data.data?.[0];
+        if (!card) { done++; failed++; return; }
+        const cm = card.cardmarket?.prices || {};
+        c.p30d            = cm.avg30 || cm.avg7 || 0;
+        c.pMin            = cm.lowPrice   || 0;
+        c.pTrend          = cm.trendPrice || 0;
+        c.cardmarketUrl   = card.cardmarket?.url || '';
+        c.pricesFetchedAt = new Date().toISOString();
+        if (!c.apiSmall && card.images?.small) { c.apiSmall = card.images.small; c.imageUrl = card.images.small; }
+        if (!c.apiLarge && card.images?.large) c.apiLarge = card.images.large;
+        await saveCardUpdates(c);
+        done++;
+        if (c.p30d > 0) found++;
+      } catch(e) {
+        done++; failed++;
+        console.warn('[fetchMissingPrices]', c.name, e);
+      }
+    }));
+    panel.innerHTML = `💰 Načítám chybějící ceny…<br><strong>${done}/${total}</strong> hotovo · ${found} cen nalezeno<br>
+      <div style="margin-top:8px;background:rgba(255,255,255,0.1);border-radius:4px;height:6px;">
+        <div style="width:${Math.round(done/total*100)}%;height:100%;background:var(--yellow,#f5c842);border-radius:4px;"></div>
+      </div>`;
+    if (i + BATCH < missing.length) await new Promise(r => setTimeout(r, 200));
+  }
+
+  _fetchMissingRunning = false;
+  if (btn) btn.disabled = false;
+  panel.innerHTML = `✅ Hotovo! ${found} nových cen načteno z ${total} karet.`;
+  setTimeout(() => panel.remove(), 5000);
+  render();
+  updateStats();
+  saveLocal();
+}
+
 // ── Oprava špatně načtených Cardmarket cen ────────────────────────
 async function resetAllPrices() {
   if (!allCards.length) return alert('Nejprve načti alba.');
@@ -5362,7 +5466,8 @@ function renderAlbumList() {
   el.classList.toggle('multi-mode', multiSelectMode);
   el.innerHTML = regular.map((a, idx) => {
     const ids = new Set((a.cardIds||[]).map(String));
-    const cnt = ids.size;
+    // Počítej jen karty, které skutečně existují v user_cards (ignoruj mrtvá ID)
+    const cnt = allCards.filter(c => ids.has(String(c.id))).length;
     const isActive = activeAlbumIds.has(a.id);
     const isFirst = idx === 0;
     const isLast  = idx === regular.length - 1;
@@ -6891,6 +6996,7 @@ function setCond(c) {
 async function doSync() {
   setSyncState('syncing', 'Synchronizuji…');
   await Promise.all([loadCards(), loadAlbums()]);
+  await cleanOrphanCardIds();
   await loadSharedAlbums();
   await loadFamilyAlbums();
   await loadAllCardPhotos();
@@ -6899,6 +7005,28 @@ async function doSync() {
   renderAlbumList();
   render();
   renderFlatFilterBtns();
+}
+
+// Odstraní z user_albums.card_ids ID karet, které v user_cards neexistují (orphans).
+// Spouští se po každém načtení karet + alb — tiše, bez notifikace.
+async function cleanOrphanCardIds() {
+  if (!userId || !allCards.length || !allAlbums.length) return;
+  const validIds = new Set(allCards.map(c => String(c.id)));
+  for (const alb of allAlbums) {
+    const before = (alb.cardIds || []).map(String);
+    const after  = before.filter(id => validIds.has(id));
+    if (after.length === before.length) continue; // nic k čistění
+    const removed = before.length - after.length;
+    console.log(`[cleanOrphan] Album „${alb.name}": odstraněno ${removed} mrtvých ID`);
+    alb.cardIds = after; // oprav lokálně hned
+    try {
+      await sbReq(`rest/v1/user_albums?id=eq.${alb.id}&user_id=eq.${userId}`, 'PATCH', {
+        card_ids: after
+      });
+    } catch(e) {
+      console.warn('[cleanOrphan] PATCH selhal:', alb.name, e);
+    }
+  }
 }
 
 // Globální handle k aktuálnímu auto-sync intervalu — abychom mohli starý zrušit
