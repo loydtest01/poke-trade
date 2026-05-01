@@ -1030,6 +1030,8 @@ body { background: #06040c; overflow-x: hidden; }
   .book-pages { grid-template-columns: 1fr; }
   .book-page:first-child { border-right: none; border-bottom: 2px solid rgba(0,0,0,0.6); }
   .book-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+  /* Skrýt páteř knihy na mobilu – způsobovala svislou čáru */
+  .book-spine { display: none !important; }
 }
 
 /* ── Card detail modal ─────────────────────────────────────── */
@@ -1672,6 +1674,120 @@ body { background: #06040c; overflow-x: hidden; }
 @media (max-width: 768px) {
   .sidebar { display: none; }
   .cards-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 7px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MOBILNÍ OPTIMALIZACE – S23 Ultra a podobné telefony
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 820px) {
+
+  /* ── Toolbar / filtry ── */
+  .main { padding: 10px 12px; }
+  .toolbar { gap: 6px; }
+  .flat-filter-btns { flex-wrap: nowrap; overflow-x: auto; }
+  .ff-btn { font-size: 10px; padding: 6px 10px; }
+
+  /* ── Navigace alba ── */
+  .book-nav { flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .book-nav-btn { padding: 5px 10px; font-size: 11px; }
+
+  /* ── Card detail modal ── */
+  #cardDetailModal { padding: 0; align-items: flex-end; }
+  .cd-box {
+    flex-direction: column !important;
+    max-height: 95vh;
+    border-radius: 20px 20px 0 0;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+  }
+  .cd-left {
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    padding: 14px 16px 10px;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    gap: 14px;
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
+  .cd-img { max-width: 100px !important; width: 100px !important; }
+  .cd-no-img { width: 100px !important; height: 140px !important; }
+  /* Přesunout název/info vedle obrázku */
+  .cd-left > div:not(#cdImgWrap) { display: none; }
+
+  .cd-right {
+    flex: 1;
+    padding: 12px 14px 10px;
+    overflow-y: auto;
+    gap: 10px;
+  }
+  .cd-name { font-size: 16px !important; }
+  .cd-set  { font-size: 11px !important; }
+  .cd-grid { grid-template-columns: 1fr 1fr !important; gap: 6px !important; }
+
+  /* Fotky panel – schovat na mobilu (je vidět skrze detail) */
+  .cd-photos-panel {
+    flex: 0 0 auto !important;
+    border-left: none !important;
+    border-top: 1px solid rgba(255,255,255,0.07);
+    padding: 10px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .cd-photos-panel-list {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 5px !important;
+  }
+
+  /* Nav buttony v detailu */
+  .cd-nav-btn { width: 36px; height: 56px; font-size: 20px; }
+  .cd-nav-prev { left: 4px; }
+  .cd-nav-next { right: 4px; }
+  .cd-nav-counter { bottom: 10px; font-size: 11px; }
+
+  /* Zavírací tlačítko */
+  .cd-close { top: 10px !important; right: 12px !important; }
+
+  /* Prev/Next navigace musí být nad modalem */
+  .cd-nav-btn { z-index: 650; }
+}
+
+/* ── Photo gallery modal – akční tlačítka nahoře ── */
+@media (max-width: 820px) {
+  #photoGalleryModal > div {
+    border-radius: 16px 16px 0 0 !important;
+    position: fixed !important;
+    bottom: 0; left: 0; right: 0;
+    max-height: 96vh !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  /* Header akční tlačítka – obalit do dvou řádků */
+  #photoGalleryModal > div > div:first-child {
+    flex-wrap: wrap;
+    padding: 10px 12px 8px;
+    gap: 6px;
+  }
+  #photoGalleryModal > div > div:first-child > div:last-child {
+    flex-wrap: wrap;
+    gap: 5px;
+    width: 100%;
+  }
+  /* Tlačítka v hlavičce – menší */
+  #photoGalleryModal > div > div:first-child > div:last-child button {
+    font-size: 11px !important;
+    padding: 5px 8px !important;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    justify-content: center;
+  }
+  /* Zavírací tlačítko – trochu oddělené */
+  #photoGalleryModal > div > div:first-child > div:last-child button:last-child {
+    flex: 0 0 auto !important;
+    padding: 5px 12px !important;
+  }
 }
 
 
@@ -11588,6 +11704,57 @@ function _closeLangDrop() {
 }
 </script>
 <script src="site-tracking.js"></script>
+
+<script>
+/* ═══ MOBILNÍ SWIPE – album book view ═══ */
+(function() {
+  var _tx = 0;
+  function initBookSwipe() {
+    var el = document.getElementById('bookPages');
+    if (!el || el._swipeInit) return;
+    el._swipeInit = true;
+    el.addEventListener('touchstart', function(e) {
+      _tx = e.touches[0].clientX;
+    }, { passive: true });
+    el.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - _tx;
+      if (Math.abs(dx) > 50) {
+        if (dx < 0) bookNextPage();
+        else bookPrevPage();
+      }
+    }, { passive: true });
+  }
+  // Inicializuj po načtení i po každém render
+  document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initBookSwipe, 800);
+  });
+  var _origRender = window.renderBookView;
+  if (typeof _origRender === 'function') {
+    window.renderBookView = function() {
+      _origRender.apply(this, arguments);
+      setTimeout(initBookSwipe, 100);
+    };
+  }
+})();
+
+/* ═══ MOBILNÍ SWIPE – card detail modal (navigate) ═══ */
+(function() {
+  var _tx = 0;
+  document.addEventListener('DOMContentLoaded', function() {
+    var modal = document.getElementById('cardDetailModal');
+    if (!modal) return;
+    modal.addEventListener('touchstart', function(e) {
+      _tx = e.touches[0].clientX;
+    }, { passive: true });
+    modal.addEventListener('touchend', function(e) {
+      var dx = e.changedTouches[0].clientX - _tx;
+      if (Math.abs(dx) > 60) {
+        if (typeof navigateCard === 'function') navigateCard(dx < 0 ? 1 : -1);
+      }
+    }, { passive: true });
+  });
+})();
+</script>
 
 <!-- ══ Modal: Karty bez ceny / broken CM URL ══ -->
 <div id="brokenCmModal" style="display:none;position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,.75);overflow-y:auto;padding:20px 10px">
