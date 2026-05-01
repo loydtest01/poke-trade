@@ -1832,6 +1832,9 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sb-btn" onclick="fetchMissingPricesOnly()" id="fetchMissingPricesBtn" title="Načte ceny pouze pro karty, které nemají žádnou cenu" style="color:rgba(100,220,120,0.85);border:1px solid rgba(100,220,120,0.2);background:rgba(100,220,120,0.05);">
         💰 Načíst chybějící ceny
       </button>
+      <button class="sb-btn" onclick="openBrokenCmModal()" id="brokenCmBtn" title="Zobrazí karty kde se nepodařilo načíst cenu a umožní opravit Cardmarket odkaz" style="color:rgba(255,150,100,0.85);border:1px solid rgba(255,150,100,0.2);background:rgba(255,150,100,0.05);">
+        🔗 Opravit CM odkazy
+      </button>
       <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
         🛠️ <span data-i18n="sidebar.repairAuto">Opravit vše automaticky</span>
       </button>
@@ -4957,6 +4960,132 @@ async function fetchMissingPricesOnly() {
   render();
   updateStats();
   saveLocal();
+}
+
+
+// ══ Oprava broken Cardmarket odkazů ══════════════════════════════
+function openBrokenCmModal() {
+  document.getElementById('brokenCmModal').style.display = '';
+  renderBrokenCmList();
+}
+function closeBrokenCmModal() {
+  document.getElementById('brokenCmModal').style.display = 'none';
+}
+
+function renderBrokenCmList() {
+  const showAll = document.getElementById('brokenCmShowAll')?.checked;
+  // "Broken" = pricesFetchedAt set + p30d===0  (bylo vyzkoušeno, ale cena nenalezena)
+  // Nebo: pricesFetchedAt null + nemá url (ještě nebylo zkoušeno — sem nepatří)
+  const broken = allCards.filter(c => {
+    if (showAll) return !(c.p30d > 0);  // vše bez ceny
+    return c.pricesFetchedAt && !(c.p30d > 0); // jen kde selhalo
+  });
+
+  const countEl = document.getElementById('brokenCmCount');
+  if (countEl) countEl.textContent = broken.length + ' karet bez ceny';
+
+  const list = document.getElementById('brokenCmList');
+  if (!list) return;
+  if (!broken.length) {
+    list.innerHTML = '<div style="text-align:center;padding:32px;color:var(--text3)">✅ Všechny karty mají cenu!</div>';
+    return;
+  }
+  list.innerHTML = broken.map((c, i) => {
+    const cmUrl = c.cardmarketUrl || buildCardmarketUrl(c);
+    const isGenerated = !c.cardmarketUrl; // URL bylo generováno, ne z API
+    return `<div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <img src="${esc(c.apiSmall||c.imageUrl||c.images?.small||'')}" 
+             style="width:36px;height:50px;object-fit:cover;border-radius:4px;background:rgba(255,255,255,0.05)" 
+             onerror="this.style.display='none'">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'?')}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(c.set||'')} · #${esc((c.number||c.num||'?').toString())}</div>
+          ${isGenerated ? '<div style="font-size:10px;color:rgba(255,150,100,0.7);margin-top:1px">⚠️ URL generováno automaticky — může být špatně</div>' : ''}
+        </div>
+        <a href="${esc(cmUrl)}" target="_blank" rel="noopener"
+           style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid rgba(74,158,255,0.3);background:rgba(74,158,255,0.08);color:var(--blue);text-decoration:none;flex-shrink:0">↗ Otevřít</a>
+      </div>
+      <div style="display:flex;gap:6px">
+        <input id="bcm-url-${i}" value="${esc(cmUrl)}" 
+               placeholder="https://www.cardmarket.com/en/Pokemon/Products/Singles/..."
+               style="flex:1;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:7px;padding:6px 10px;color:var(--text);font-size:12px;font-family:inherit;min-width:0"
+               oninput="document.getElementById('bcm-save-${i}').style.background='rgba(245,200,66,0.2)'">
+        <button id="bcm-save-${i}" onclick="saveBrokenCmUrl('${esc(c.id)}', ${i})"
+                style="padding:6px 14px;border-radius:7px;border:1px solid rgba(245,200,66,0.3);background:rgba(245,200,66,0.1);color:#f5c842;font-size:12px;cursor:pointer;font-family:inherit;font-weight:600;flex-shrink:0;white-space:nowrap">
+          💾 Uložit
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function saveBrokenCmUrl(cardId, rowIdx) {
+  const input = document.getElementById('bcm-url-' + rowIdx);
+  const saveBtn = document.getElementById('bcm-save-' + rowIdx);
+  if (!input || !saveBtn) return;
+  const newUrl = input.value.trim();
+  if (!newUrl.includes('cardmarket.com')) {
+    input.style.borderColor = '#f87171';
+    setTimeout(() => input.style.borderColor = '', 2000);
+    return;
+  }
+  const c = allCards.find(x => String(x.id) === String(cardId));
+  if (!c) return;
+
+  saveBtn.disabled = true;
+  saveBtn.textContent = '⏳';
+
+  c.cardmarketUrl = newUrl;
+  // Reset pricesFetchedAt — při příštím otevření detailu se cena znovu načte
+  c.pricesFetchedAt = null;
+  c.p30d = 0; c.pMin = 0; c.pTrend = 0;
+
+  try {
+    await saveCardUpdates(c);
+    saveBtn.textContent = '✅';
+    saveBtn.style.background = 'rgba(74,222,128,0.15)';
+    saveBtn.style.borderColor = 'rgba(74,222,128,0.4)';
+    saveBtn.style.color = '#4ade80';
+    input.style.borderColor = 'rgba(74,222,128,0.4)';
+    // Znovu načti ceny pro tuto kartu hned teď
+    setTimeout(() => fetchPriceForCard(c, rowIdx, saveBtn), 500);
+  } catch(e) {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '❌';
+    setTimeout(() => { saveBtn.textContent = '💾 Uložit'; }, 2000);
+  }
+}
+
+async function fetchPriceForCard(c, rowIdx, saveBtn) {
+  // Pokus o načtení ceny hned z pokemontcg.io (karta+cena v jednom)
+  try {
+    const rawNum = (c.number || c.num || '').toString().split('/')[0];
+    let q = `name:"${c.name}"`;
+    if (c.set)  q += ` set.name:"${c.set}"`;
+    if (rawNum) q += ` number:${rawNum}`;
+    const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
+    if (res.ok) {
+      const data = await res.json();
+      const card = data.data?.[0];
+      if (card) {
+        const cm = card.cardmarket?.prices || {};
+        c.p30d  = cm.avg30 || cm.avg7 || 0;
+        c.pMin  = cm.lowPrice || 0;
+        c.pTrend = cm.trendPrice || 0;
+        if (card.cardmarket?.url) c.cardmarketUrl = card.cardmarket.url;
+        c.pricesFetchedAt = new Date().toISOString();
+        await saveCardUpdates(c);
+      }
+    }
+  } catch(e) { console.warn('[fetchPriceForCard]', c.name, e); }
+
+  if (saveBtn) {
+    const priceText = c.p30d > 0 ? ` · ${c.p30d.toFixed(2)} €` : '';
+    saveBtn.textContent = c.p30d > 0 ? `✅${priceText}` : '✅ uloženo';
+  }
+  render();
+  renderBrokenCmList(); // obnov seznam
 }
 
 // ── Oprava špatně načtených Cardmarket cen ────────────────────────
@@ -11368,5 +11497,25 @@ function _closeLangDrop() {
 }
 </script>
 <script src="site-tracking.js"></script>
+
+<!-- ══ Modal: Karty bez ceny / broken CM URL ══ -->
+<div id="brokenCmModal" style="display:none;position:fixed;inset:0;z-index:10010;background:rgba(0,0,0,.75);overflow-y:auto;padding:20px 10px">
+  <div style="max-width:700px;margin:0 auto;background:var(--bg2,#1a1a2e);border:1px solid var(--border,#333);border-radius:16px;padding:24px;position:relative">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div>
+        <div style="font-size:16px;font-weight:700">🔗 Karty bez ceny — oprava CM odkazu</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">Karty kde se nepodařilo načíst cenu. Vlož správný odkaz z Cardmarket a ulož — cena se znovu načte.</div>
+      </div>
+      <button onclick="closeBrokenCmModal()" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:8px;color:var(--text);font-size:15px;padding:5px 12px;cursor:pointer;font-family:inherit">✕</button>
+    </div>
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span id="brokenCmCount" style="font-size:13px;color:var(--text3)">Načítám…</span>
+      <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text3);cursor:pointer;margin-left:auto">
+        <input type="checkbox" id="brokenCmShowAll" onchange="renderBrokenCmList()"> Zobrazit i karty kde p30d=0 ale byl pokus
+      </label>
+    </div>
+    <div id="brokenCmList" style="display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
 </body>
 </html>
