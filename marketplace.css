@@ -2240,3 +2240,38 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   transition: all .15s; opacity: 0.65;
 }
 .search-img-btn:hover { opacity: 1; background: rgba(245,200,66,0.1); }
+
+/* ══════════════════════════════════════════════════════════════
+   BULK LISTING STYLES
+   ══════════════════════════════════════════════════════════════ */
+
+/* Bulk thumb v listingu */
+.bulk-thumb {
+  background: rgba(245,200,66,0.06) !important;
+  border-color: rgba(245,200,66,0.2) !important;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 2px;
+}
+.bulk-thumb-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.bulk-thumb-count {
+  font-size: 15px; font-weight: 800;
+  font-family: 'Unbounded', sans-serif;
+  color: #f5c842; line-height: 1;
+}
+.bulk-thumb-label {
+  font-size: 8px; font-weight: 800; letter-spacing: .1em;
+  color: rgba(245,200,66,0.5); text-transform: uppercase;
+}
+
+/* Bulk listing row — žlutý levý okraj */
+.listing-row:has(.bulk-thumb) {
+  border-left: 3px solid rgba(245,200,66,0.3);
+}
+
+/* dBulkInfo panel v detailu */
+#dBulkInfo {
+  margin: 10px 0 4px;
+  display: flex; flex-direction: column; gap: 6px;
+}

@@ -62,6 +62,7 @@
       <span class="sb-label" data-i18n="marketplace.sidebar.item_type">Typ položek</span>
       <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"><span data-i18n="marketplace.sidebar.cards">🃏 Karty</span> <span class="sb-count" id="sbCountCards">0</span></label>
       <label class="filter-opt"><input type="checkbox" id="itSealed" checked onchange="applyItemTypeCheckboxes()"><span data-i18n="marketplace.sidebar.sealed">📦 Sealed</span> <span class="sb-count" id="sbCountSealed">0</span></label>
+      <label class="filter-opt"><input type="checkbox" id="itBulk" checked onchange="applyItemTypeCheckboxes()">🎲 Bulk <span class="sb-count" id="sbCountBulk">0</span></label>
     </div>
     <div class="sb-divider"></div>
     <div class="sb-section">
@@ -355,6 +356,7 @@
         </div>
         <div class="detail-info-box">
           <div class="detail-title" id="dTitle">—</div>
+          <div id="dBulkInfo" style="display:none"></div>
           <div class="detail-seller" id="dSeller">—</div>
           <div class="detail-price-row">
             <div class="detail-price" id="dPrice">—</div>
@@ -482,6 +484,7 @@
     <div class="fs-tabs">
       <button class="fs-tab active" id="tabCard" onclick="setListingTab('card')">🃏 Karta</button>
       <button class="fs-tab" id="tabProduct" onclick="setListingTab('product')">📦 Produkt / Sealed</button>
+      <button class="fs-tab" id="tabBulk" onclick="setListingTab('bulk')">🎲 Bulk</button>
     </div>
 
     <!-- ═══ CARD FORM ═══ -->
@@ -745,6 +748,111 @@
         </div>
       </div>
     </div><!-- /productListingForm -->
+
+
+    <!-- ═══ BULK FORM ═══ -->
+    <div id="bulkListingForm" class="fs-body" style="display:none">
+      <div class="fs-grid">
+        <!-- LEFT COLUMN -->
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">🎲 Bulk karet</div>
+            <div class="fs-label">Celkový počet karet v bulku</div>
+            <input id="bulkCount" class="panel-inp" type="number" min="1" placeholder="Např. 250" style="width:180px">
+            <div class="fs-label" style="margin-top:10px">Přibližné složení (nepovinné)</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+              <div>
+                <div class="fs-label" style="font-size:10px">Common / Uncommon</div>
+                <input id="bulkCommon" class="panel-inp" type="number" min="0" placeholder="Např. 200" style="width:100%">
+              </div>
+              <div>
+                <div class="fs-label" style="font-size:10px">Rare / Holo</div>
+                <input id="bulkRare" class="panel-inp" type="number" min="0" placeholder="Např. 40" style="width:100%">
+              </div>
+              <div>
+                <div class="fs-label" style="font-size:10px">Ultra Rare / V / ex</div>
+                <input id="bulkUltra" class="panel-inp" type="number" min="0" placeholder="Např. 8" style="width:100%">
+              </div>
+              <div>
+                <div class="fs-label" style="font-size:10px">Secret / Rainbow / Gold</div>
+                <input id="bulkSecret" class="panel-inp" type="number" min="0" placeholder="Např. 2" style="width:100%">
+              </div>
+            </div>
+            <div class="fs-label" style="margin-top:10px">Série / sety v bulku (nepovinné)</div>
+            <input id="bulkSets" class="panel-inp" placeholder="Např. Scarlet & Violet, 151, Twilight Masquerade..." style="width:100%">
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">💰 Typ nabídky & cena</div>
+            <div class="fs-label">Typ nabídky</div>
+            <div style="display:flex;gap:8px">
+              <button class="tv-btn act" id="bulkTypeSell" onclick="setBulkType('sell')">💰 Prodej</button>
+              <button class="tv-btn" id="bulkTypeTrade" onclick="setBulkType('trade')">🔄 Výměna</button>
+              <button class="tv-btn" id="bulkTypeBoth" onclick="setBulkType('both')">Obojí</button>
+            </div>
+            <div id="bulkPriceRow" style="margin-top:10px">
+              <div class="fs-label">Cena za celý bulk (Kč)</div>
+              <input id="bulkPrice" class="panel-inp" type="number" placeholder="Např. 300" style="width:180px">
+              <div style="font-size:11px;color:var(--text3);margin-top:4px" id="bulkPricePerCard"></div>
+            </div>
+            <div id="bulkTradeRow" style="display:none;margin-top:10px">
+              <div class="fs-label">Co chcete za výměnu?</div>
+              <input id="bulkTradeWants" class="panel-inp" placeholder="Volný text — hledám sealed produkty, rare karty..." style="width:100%">
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📋 Stav & popis</div>
+            <div class="fs-label">Průměrný stav karet</div>
+            <select id="bulkCond" class="sort-sel" style="width:100%">
+              <option value="NM" style="background:#0e0c14;color:#f0ece4;">NM – převážně Mint / Near Mint</option>
+              <option value="LP" style="background:#0e0c14;color:#f0ece4;">LP – převážně lightly played</option>
+              <option value="MP" style="background:#0e0c14;color:#f0ece4;">MP – smíšený stav</option>
+              <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – hrané, bulk kvality</option>
+            </select>
+            <div class="fs-label" style="margin-top:10px">Popis bulku (nepovinné)</div>
+            <textarea id="bulkDesc" class="panel-textarea" style="height:140px;resize:vertical" placeholder="Z jakých setů jsou karty, jestli jsou přesortované, zvláštní kusy, podmínky výměny..."></textarea>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN -->
+        <div class="fs-col">
+          <div class="fs-section">
+            <div class="fs-section-title">📍 Lokalita & předání</div>
+            <div class="fs-label">Odkud jsem (město / kraj)</div>
+            <input id="bulkLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
+            <div class="fs-label" style="margin-top:10px">Způsob předání</div>
+            <div style="display:flex;gap:14px">
+              <label class="filter-opt"><input type="checkbox" id="bulkDeliveryPost" checked> 📬 Poštou</label>
+              <label class="filter-opt"><input type="checkbox" id="bulkDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+          </div>
+
+          <div class="fs-section">
+            <div class="fs-section-title">📸 Fotky bulku</div>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Přidej fotky hromádky — kupující ocení jak bulk vypadá</div>
+            <div class="sale-photos-strip" id="bulkPhotosStrip">
+              <div class="sale-photo-add" onclick="document.getElementById('bulkPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleBulkPhotoDrop(event)">
+                <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none" onchange="handleBulkPhotos(this.files)">
+                <div style="font-size:22px">➕</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Přidat foto</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="fs-section" style="background:rgba(245,200,66,0.04);border:1px solid rgba(245,200,66,0.12);border-radius:12px;padding:14px">
+            <div class="fs-section-title" style="color:var(--yellow)">💡 Tipy pro bulk prodej</div>
+            <div style="font-size:11px;color:var(--text3);line-height:1.7">
+              • Uveď přibližný počet karet — kupující potřebují vědět co kupují<br>
+              • Fotky celého balíku nebo ukázka karet zvyšují zájem<br>
+              • Cena ~1–3 Kč za common/uncommon je standard<br>
+              • Pokud jsou v bulku rare nebo ultra rare, zmiň to v popisu<br>
+              • Přesortovaný bulk (bez duplicit) má vyšší hodnotu
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- /bulkListingForm -->
 
     <!-- FOOTER -->
     <div class="fs-footer">

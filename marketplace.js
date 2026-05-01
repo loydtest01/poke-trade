@@ -250,7 +250,7 @@ async function importFromUrl() {
 }
 
 function updateSidebarCounts(baseListings) {
-  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0, cards:0, sealed:0 };
+  const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0, cards:0, sealed:0, bulk:0 };
   baseListings.forEach(l => {
     if (l.allow_trade === false || l.price_czk > 0) c.sell++;
     if (l.allow_trade === true) c.trade++;
@@ -259,7 +259,9 @@ function updateSidebarCounts(baseListings) {
     else if (cond==='LP')             c.LP++;
     else if (cond==='MP')             c.MP++;
     else if (cond==='HP'||cond==='D') c.HP++;
-    if ((l.listing_type || 'card') === 'product') c.sealed++; else c.cards++;
+    if ((l.listing_type || 'card') === 'product') c.sealed++;
+    else if (l.listing_type === 'bulk') c.bulk++;
+    else c.cards++;
   });
   const upd = (id, val) => {
     const el = document.getElementById(id);
@@ -275,6 +277,7 @@ function updateSidebarCounts(baseListings) {
   upd('sbCountHP',     c.HP);
   upd('sbCountCards',  c.cards);
   upd('sbCountSealed', c.sealed);
+  upd('sbCountBulk', c.bulk);
 }
 
 // ── Filters + Sort ────────────────────────────────────────────
@@ -356,6 +359,9 @@ function applyFilters(){
     }
     // Item type filter (Karty / Sealed)
     const ltype = l.listing_type || 'card';
+    // Bulk filtr
+    const bulkOn = document.getElementById('itBulk')?.checked ?? true;
+    if (ltype === 'bulk' && !bulkOn) return false;
     if(currentItemType === 'card'    && ltype !== 'card')    return false;
     if(currentItemType === 'product' && ltype !== 'product') return false;
 
@@ -438,6 +444,42 @@ function renderListings(){
     const num   = l.card_number|| first.number||first.num||'';
     const cond  = l.card_condition||'NM';
     const isTrade = l.allow_trade;
+    // Bulk listing — speciální render
+    if (ltype === 'bulk') {
+      const price = l.price_czk;
+      const cnt   = l.bulk_count || 0;
+      const cond  = l.card_condition || 'NM';
+      const condColor = cond==='NM'?'tag-nm':cond==='LP'?'tag-lp':cond==='MP'?'tag-mp':'tag-hp';
+      const ppc   = (price && cnt) ? (price/cnt).toFixed(1) : null;
+      return `<div class="listing-row" onclick="openDetail('${esc(l.id)}')">
+        <div class="card-thumb bulk-thumb">
+          <div class="bulk-thumb-inner">
+            <span class="bulk-thumb-count">${cnt ? cnt+'×' : '🎲'}</span>
+            <span class="bulk-thumb-label">BULK</span>
+          </div>
+        </div>
+        <div class="listing-info">
+          <div class="listing-title">${esc(l.title || 'Bulk karet')}</div>
+          <div class="listing-meta">
+            ${cnt ? `<span>${cnt} karet</span>` : ''}
+            ${l.bulk_sets ? `<span title="${esc(l.bulk_sets)}">📦 ${esc(l.bulk_sets.length>40?l.bulk_sets.slice(0,40)+'…':l.bulk_sets)}</span>` : ''}
+          </div>
+          <div class="listing-tags">
+            <span class="tag" style="background:rgba(245,200,66,0.12);color:#f5c842;border-color:rgba(245,200,66,0.25)">🎲 Bulk</span>
+            ${price>0 ? '<span class="tag tag-sell">Prodej</span>' : '<span class="tag tag-trade">Výměna</span>'}
+            ${l.allow_trade && price>0 ? '<span class="tag tag-trade">+ Výměna</span>' : ''}
+            <span class="tag ${condColor}">${esc(cond)}</span>
+            ${ppc ? `<span class="tag" style="background:rgba(255,255,255,0.05);color:var(--text3)">~${ppc} Kč/ks</span>` : ''}
+          </div>
+        </div>
+        <div class="listing-right">
+          ${price>0
+            ? `<div class="price-big">${price.toLocaleString('cs')} Kč<small>~ ${(p25=>(p25<1?p25.toFixed(2):p25<10?p25.toFixed(1):p25.toFixed(0)))(price/25)} €</small></div>`
+            : `<div class="price-trade">Výměna</div>`}
+          <button class="btn-buy" onclick="event.stopPropagation();openDetail('${esc(l.id)}')">Detail</button>
+        </div>
+      </div>`;
+    }
     const price   = l.price_czk;
 
     const condColor = cond==='NM'?'tag-cond':cond==='LP'?'tag-warn':'tag-warn';
@@ -4067,6 +4109,8 @@ document.addEventListener('keydown', function(e) {
 function submitCurrentListing() {
   if (currentListingTab === 'product') {
     submitProductListing();
+  } else if (currentListingTab === 'bulk') {
+    submitBulkListing();
   } else {
     submitListing();
   }
@@ -4571,8 +4615,16 @@ window.setListingTab = function(tab) {
   currentListingTab = tab;
   document.getElementById('tabCard').classList.toggle('active', tab === 'card');
   document.getElementById('tabProduct').classList.toggle('active', tab === 'product');
+  document.getElementById('tabBulk') && document.getElementById('tabBulk').classList.toggle('active', tab === 'bulk');
   document.getElementById('cardListingForm').style.display    = tab === 'card'    ? '' : 'none';
   document.getElementById('productListingForm').style.display = tab === 'product' ? '' : 'none';
+  const bf = document.getElementById('bulkListingForm');
+  if (bf) bf.style.display = tab === 'bulk' ? '' : 'none';
+  // Pre-fill location
+  if (tab === 'bulk') {
+    const bl = document.getElementById('bulkLocation');
+    if (bl && !bl.value) bl.value = localStorage.getItem('mkt_location') || '';
+  }
 };
 
 // ── Listing tab styling ──────────────────────────────────────
@@ -5381,4 +5433,175 @@ async function confirmAlbumPick() {
   if (!sel) { showMktToast('Vyber album nebo „Bez změny"'); return; }
   closeAlbumPicker();
   if (_apmCallback) await _apmCallback(sel.value);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// BULK LISTING — formulář, submit, foto
+// ══════════════════════════════════════════════════════════════
+
+let bulkAddType = 'sell';
+let bulkPhotos  = [];
+
+function setBulkType(type) {
+  bulkAddType = type;
+  ['sell','trade','both'].forEach(t => {
+    const el = document.getElementById('bulkType' + t.charAt(0).toUpperCase() + t.slice(1));
+    if (el) el.classList.toggle('act', t === type);
+  });
+  const pr = document.getElementById('bulkPriceRow');
+  const tr = document.getElementById('bulkTradeRow');
+  if (pr) pr.style.display = (type === 'trade') ? 'none' : '';
+  if (tr) tr.style.display = (type === 'sell')  ? 'none' : '';
+}
+
+// Živý výpočet cena/karta
+(function() {
+  function recalcBulkPpc() {
+    const cnt   = parseInt(document.getElementById('bulkCount')?.value) || 0;
+    const price = parseInt(document.getElementById('bulkPrice')?.value) || 0;
+    const el    = document.getElementById('bulkPricePerCard');
+    if (!el) return;
+    if (cnt > 0 && price > 0) {
+      el.textContent = '≈ ' + (price/cnt).toFixed(2) + ' Kč za kartu';
+      el.style.color = 'rgba(245,200,66,0.7)';
+    } else {
+      el.textContent = '';
+    }
+  }
+  document.addEventListener('input', function(e) {
+    if (e.target.id === 'bulkCount' || e.target.id === 'bulkPrice') recalcBulkPpc();
+  });
+})();
+
+// Foto handling pro bulk
+function handleBulkPhotos(files) {
+  Array.from(files).forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      bulkPhotos.push({ src: e.target.result, mime: file.type });
+      renderBulkPhotos();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleBulkPhotoDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  handleBulkPhotos(e.dataTransfer.files);
+}
+
+function renderBulkPhotos() {
+  const strip = document.getElementById('bulkPhotosStrip');
+  if (!strip) return;
+  // Ponech tlačítko přidat
+  const addBtn = strip.querySelector('.sale-photo-add');
+  strip.innerHTML = '';
+  bulkPhotos.forEach((p, i) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'sale-photo-wrap';
+    wrap.style.cssText = 'position:relative;display:inline-block;';
+    wrap.innerHTML = `<img src="${p.src}" class="sale-photo-thumb" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,0.1)">
+      <button onclick="bulkPhotos.splice(${i},1);renderBulkPhotos()" style="position:absolute;top:-4px;right:-4px;background:#c0392b;border:none;color:#fff;width:16px;height:16px;border-radius:50%;font-size:10px;cursor:pointer;line-height:1">✕</button>`;
+    strip.appendChild(wrap);
+  });
+  if (addBtn) strip.appendChild(addBtn);
+}
+
+// Reset bulk form
+function resetBulkForm() {
+  ['bulkCount','bulkCommon','bulkRare','bulkUltra','bulkSecret','bulkSets','bulkPrice','bulkDesc','bulkLocation','bulkTradeWants'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  const ppc = document.getElementById('bulkPricePerCard');
+  if (ppc) ppc.textContent = '';
+  bulkPhotos = [];
+  renderBulkPhotos();
+  setBulkType('sell');
+  const post = document.getElementById('bulkDeliveryPost');
+  if (post) post.checked = true;
+  const pers = document.getElementById('bulkDeliveryPersonal');
+  if (pers) pers.checked = false;
+}
+
+// Patch closeAddListing, aby resetoval bulk
+const _origCloseForBulk = window.closeAddListing;
+window.closeAddListing = function() {
+  resetBulkForm();
+  if (typeof _origCloseForBulk === 'function') _origCloseForBulk();
+};
+
+// Submit bulk
+async function submitBulkListing() {
+  if (!token) { alert('Přihlas se.'); return; }
+
+  const count  = parseInt(document.getElementById('bulkCount')?.value) || 0;
+  const price  = parseInt(document.getElementById('bulkPrice')?.value) || null;
+  const desc   = document.getElementById('bulkDesc')?.value.trim() || null;
+  const cond   = document.getElementById('bulkCond')?.value || 'NM';
+  const sets   = document.getElementById('bulkSets')?.value.trim() || null;
+  const common = parseInt(document.getElementById('bulkCommon')?.value) || null;
+  const rare   = parseInt(document.getElementById('bulkRare')?.value) || null;
+  const ultra  = parseInt(document.getElementById('bulkUltra')?.value) || null;
+  const secret = parseInt(document.getElementById('bulkSecret')?.value) || null;
+  const wants  = document.getElementById('bulkTradeWants')?.value.trim() || null;
+  const loc    = document.getElementById('bulkLocation')?.value.trim() || null;
+  const dPost  = document.getElementById('bulkDeliveryPost')?.checked ?? true;
+  const dPers  = document.getElementById('bulkDeliveryPersonal')?.checked ?? false;
+
+  if (!count || count < 1) {
+    alert('Zadej počet karet v bulku.'); return;
+  }
+  if (bulkAddType !== 'trade' && !price) {
+    alert('Zadej cenu nebo zvol typ nabídky Výměna.'); return;
+  }
+
+  if (loc) localStorage.setItem('mkt_location', loc);
+
+  const titleParts = [count + ' karet'];
+  if (sets) titleParts.push(sets.split(',')[0].trim());
+  const title = 'Bulk · ' + titleParts.join(' · ');
+
+  const payload = {
+    user_id:           userId,
+    username:          username,
+    title:             title,
+    listing_type:      'bulk',
+    bulk_count:        count,
+    bulk_common:       common,
+    bulk_rare:         rare,
+    bulk_ultra:        ultra,
+    bulk_secret:       secret,
+    bulk_sets:         sets,
+    card_condition:    cond,
+    price_czk:         bulkAddType === 'trade' ? null : price,
+    allow_trade:       bulkAddType === 'trade' || bulkAddType === 'both',
+    allow_offer:       true,
+    trade_wants:       wants,
+    description:       desc,
+    location:          loc,
+    delivery_post:     dPost,
+    delivery_personal: dPers,
+    status:            'active',
+    card_name:         '',
+    card_set:          sets || '',
+    card_number:       '',
+    card_type:         '',
+    card_rarity:       'bulk',
+    api_image_url:     '',
+    cards_data:        [],
+    user_photos:       bulkPhotos.length ? bulkPhotos.map(p => ({ src: p.src, mime: p.mime })) : undefined,
+  };
+
+  const res = await sbReq('rest/v1/listings', 'POST', payload, token);
+  if (res._err) { alert('Chyba: ' + res._err); return; }
+
+  alert('✅ Bulk nabídka zveřejněna!');
+  closeAddListing();
+  const newListing = Array.isArray(res) ? res[0] : res;
+  if (newListing?.id) dispatchListingNotifications(newListing).catch(() => {});
+  if (newListing) allListings.unshift(newListing);
+  applyFilters();
 }
