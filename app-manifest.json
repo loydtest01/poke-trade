@@ -1,0 +1,74 @@
+{
+  "name": "PokéTrade – Výměna karet",
+  "short_name": "PokéTrade",
+  "description": "Vyměňuj, sbírej a skenuj Pokémon kartičky s komunitou",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0608",
+  "theme_color": "#0a0608",
+  "scope": "/",
+  "lang": "cs",
+  "categories": ["games", "entertainment", "social"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "PokéTrade marketplace"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Marketplace",
+      "short_name": "Trh",
+      "url": "/marketplace.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Moje album",
+      "short_name": "Album",
+      "url": "/moje-album.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Skener karet",
+      "short_name": "Skener",
+      "url": "/scanner.html",
+      "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

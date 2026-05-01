@@ -2,8 +2,17 @@
 <html lang="cs">
 <head>
   <link rel="icon" type="image/png" href="favicon.ico">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
 <meta charset="UTF-8">
+  <!-- ═══ PWA meta ═══ -->
+  <link rel="manifest" href="app-manifest.json">
+  <meta name="theme-color" content="#0a0608">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PokéTrade">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- ═══ /PWA meta ═══ -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Moje alba – PokéTrade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1885,6 +1894,10 @@ body { background: #06040c; overflow-x: hidden; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb { background: rgba(245,200,66,.25); border-radius: 3px; }
 #cbSetPickerDrop::-webkit-scrollbar-thumb:hover { background: rgba(245,200,66,.45); }
 </style>
+  <!-- ═══ PWA init + mobile CSS ═══ -->
+  <link rel="stylesheet" href="mobile-responsive.css">
+  <script src="pwa-init.js"></script>
+  <!-- ═══ /PWA init ═══ -->
 </head>
 <body>
 

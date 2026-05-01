@@ -8,8 +8,16 @@
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="/og-image.png">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta charset="UTF-8">
+  <!-- ═══ PWA meta ═══ -->
+  <link rel="manifest" href="app-manifest.json">
+  <meta name="theme-color" content="#0a0608">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PokéTrade">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- ═══ /PWA meta ═══ -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PokéTrade – Výměna Pokémon karet</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -502,6 +510,10 @@ function tcgFetch(url) {
 window.TOPBAR_ACTIVE = 'index';</script>
 <script src="i18n.js"></script>
   <script src="topbar.js"></script>
+  <!-- ═══ PWA init + mobile CSS ═══ -->
+  <link rel="stylesheet" href="mobile-responsive.css">
+  <script src="pwa-init.js"></script>
+  <!-- ═══ /PWA init ═══ -->
 </head>
 <body>
 

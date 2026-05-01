@@ -2,6 +2,15 @@
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
+  <!-- ═══ PWA meta ═══ -->
+  <link rel="manifest" href="app-manifest.json">
+  <meta name="theme-color" content="#0a0608">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="PokéTrade">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- ═══ /PWA meta ═══ -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>📥 Hromadné skenování · PokéTrade</title>
 <link rel="icon" type="image/png" href="favicon.ico">
@@ -200,6 +209,10 @@ canvas#oc { z-index: 2; }
   .btn { padding: 6px 10px; font-size: 12px; }
 }
 </style>
+  <!-- ═══ PWA init + mobile CSS ═══ -->
+  <link rel="stylesheet" href="mobile-responsive.css">
+  <script src="pwa-init.js"></script>
+  <!-- ═══ /PWA init ═══ -->
 </head>
 <body>
 

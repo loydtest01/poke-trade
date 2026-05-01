@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offline – PokéTrade</title>
+<meta name="theme-color" content="#0a0608">
+<style>
+  body { margin:0; background:#0a0608; color:#f0ece4; font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+    display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; padding:20px; box-sizing:border-box; }
+  .card { background:#17102a; border:1px solid rgba(255,255,255,0.08); border-radius:20px; padding:40px 32px; max-width:360px; width:100%; }
+  h1 { font-size:22px; font-weight:800; margin:16px 0 8px; }
+  p { font-size:14px; color:rgba(240,232,208,0.55); line-height:1.6; margin:0 0 24px; }
+  button { background:linear-gradient(135deg,#f5c842,#ff8c00); color:#000; border:none; border-radius:12px;
+    padding:13px 28px; font-size:15px; font-weight:800; cursor:pointer; font-family:inherit; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div style="font-size:52px">📡</div>
+  <h1>Jsi offline</h1>
+  <p>Zkontroluj připojení k internetu a zkus to znovu.</p>
+  <button onclick="location.reload()">Zkusit znovu</button>
+</div>
+</body>
+</html>
