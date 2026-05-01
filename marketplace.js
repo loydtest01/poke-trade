@@ -445,7 +445,7 @@ function renderListings(){
     const cond  = l.card_condition||'NM';
     const isTrade = l.allow_trade;
     // Bulk listing — speciální render
-    if (ltype === 'bulk') {
+    if (l.listing_type === 'bulk') {
       const price = l.price_czk;
       const cnt   = l.bulk_count || 0;
       const cond  = l.card_condition || 'NM';
