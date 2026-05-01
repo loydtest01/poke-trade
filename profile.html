@@ -3578,8 +3578,8 @@ function setProgress(pct, label) {
     // Načti connections + profil obou stran najednou (join obejde RLS na profiles)
     var rows = await sbGet(
       'family_connections?or=(user_id.eq.'+uid+',member_id.eq.'+uid+')&status=eq.accepted' +
-      '&select=*,user_prof:profiles!user_id(username,display_name,avatar_url)' +
-      ',member_prof:profiles!member_id(username,display_name,avatar_url)'
+      '&select=*,user_prof:profiles!user_id(username,email,avatar_url)' +
+      ',member_prof:profiles!member_id(username,email,avatar_url)'
     );
     var wrap = document.getElementById('famMembersList');
     var empty = document.getElementById('famMembersEmpty');
@@ -3594,10 +3594,10 @@ function setProgress(pct, label) {
       var p = (Array.isArray(rawProf) ? rawProf[0] : rawProf) || {};
       // Záložní dotaz pokud join nevracím data (starší schéma)
       if (!p.username && !p.display_name) {
-        var fallback = await sbGet('profiles?id=eq.'+otherId+'&select=id,username,display_name,avatar_url');
+        var fallback = await sbGet('profiles?id=eq.'+otherId+'&select=id,username,email,avatar_url');
         p = fallback[0] || {};
       }
-      var nick = esc(p.display_name || p.username || otherId.slice(0,8));
+      var nick = esc(p.username || (p.email ? p.email.split('@')[0] : null) || otherId.slice(0,8));
       var uname = esc(p.username || '');
       var init = nick.charAt(0).toUpperCase();
       var avStyle = p.avatar_url ? 'background-image:url(\''+p.avatar_url+'\');background:transparent' : '';

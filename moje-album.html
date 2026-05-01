@@ -2882,9 +2882,9 @@ async function loadFamilyAlbums() {
       const memberId = conn.user_id === userId ? conn.member_id : conn.user_id;
 
       // Profil člena
-      const profs = await sbReq(`rest/v1/profiles?id=eq.${memberId}&select=username,display_name`);
+      const profs = await sbReq(`rest/v1/profiles?id=eq.${memberId}&select=username,email,avatar_url`);
       const prof = Array.isArray(profs) && profs.length ? profs[0] : {};
-      const memberNick = prof.display_name || prof.username || 'Člen';
+      const memberNick = prof.username || (prof.email ? prof.email.split('@')[0] : null) || 'Člen';
 
       // Sdílená alba tohoto člena
       const shared = await sbReq(
