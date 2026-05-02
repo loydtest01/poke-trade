@@ -119,6 +119,17 @@
     '.sp-pass-fb { font-size:12px; min-height:16px; margin-top:10px; }',
     '.sp-pass-fb.ok { color:#4ade80; }',
     '.sp-pass-fb.err { color:#f87171; }',
+    /* xAI Preferovat tlačítko — sdílené styly */
+    '.xai-prefer-btn {',
+    '  width: 100%; padding: 10px 14px; border-radius: 10px;',
+    '  border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05);',
+    '  color: rgba(240,236,228,0.65); font-family: inherit; font-size: 13px; font-weight: 600;',
+    '  cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 7px;',
+    '  box-sizing: border-box;',
+    '}',
+    '.xai-prefer-btn:hover { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.4); color: #f5c842; }',
+    '.xai-prefer-btn.xai-preferred { background: rgba(245,200,66,0.16); border-color: rgba(245,200,66,0.5); color: #f5c842; font-weight: 700; box-shadow: 0 0 0 1px rgba(245,200,66,0.2); }',
+    '.xai-prefer-badge { display: inline-block; background: rgba(74,222,128,0.18); border: 1px solid rgba(74,222,128,0.35); color: #4ade80; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 7px; }',
   ].join('\n');
 
   /* ── HTML ────────────────────────────────────────────────────── */
@@ -238,9 +249,25 @@
     '        <div class="sdrop-acc-header" onclick="window.location.href=\'profile.html\'">',
     '          <div class="sdrop-acc-left">',
     '            <span class="sdrop-acc-icon">🤖</span>',
-    '            <div><div class="sdrop-acc-title">Groq AI</div><div class="sdrop-acc-sub">Nastavit v profilu →</div></div>',
+    '            <div><div class="sdrop-acc-title">AI klíče</div><div class="sdrop-acc-sub">Groq, Cerebras, xAI… → profil</div></div>',
     '          </div><span class="sdrop-acc-chevron" style="opacity:0.5">›</span>',
     '        </div>',
+    '      </div>',
+
+    '      <!-- xAI Grok — Preferovat přepínač (dostupný i bez profilu) -->',
+    '      <div class="sdrop-acc-item" id="sdAccXaiQuick">',
+    '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccXaiQuick\')">',
+    '          <div class="sdrop-acc-left">',
+    '            <span class="sdrop-acc-icon">🔮</span>',
+    '            <div><div class="sdrop-acc-title">xAI Grok</div><div class="sdrop-acc-sub" id="spXaiPreferSub">Načítám…</div></div>',
+    '          </div><span class="sdrop-acc-chevron">▼</span>',
+    '        </div>',
+    '        <div class="sdrop-acc-body"><div class="sdrop-acc-inner">',
+    '          <div style="font-size:12px;color:rgba(240,236,228,0.55);margin-bottom:10px;line-height:1.5">',
+    '            Když je <strong style="color:#f5c842">Preferovat</strong> zapnuté, xAI Grok se použije jako první provider před Cerebras a ostatními.',
+    '          </div>',
+    '          <button class="xai-prefer-btn" id="spXaiPreferBtn" type="button" onclick="spXaiTogglePrefer()">☆ Preferovat — použít jako první</button>',
+    '        </div></div>',
     '      </div>',
 
 
@@ -423,10 +450,52 @@
     }
   }
 
+  /* ── xAI Preferovat (quick toggle v každém panelu) ─────────── */
+  function _spXaiUpdatePreferBtn() {
+    var preferred = localStorage.getItem('xai_preferred') === '1';
+    // settings-panel.js quick btn
+    var btn = document.getElementById('spXaiPreferBtn');
+    var sub = document.getElementById('spXaiPreferSub');
+    if (btn) {
+      if (preferred) {
+        btn.classList.add('xai-preferred');
+        btn.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+      } else {
+        btn.classList.remove('xai-preferred');
+        btn.innerHTML = '☆ Preferovat — použít jako první';
+      }
+    }
+    if (sub) sub.textContent = preferred ? '⭐ Preferováno jako první' : 'Použít jako první provider';
+    // topbar.js profile panel btn (pokud existuje na stejné stránce)
+    var btn2 = document.getElementById('xaiPreferBtn');
+    if (btn2) {
+      if (preferred) {
+        btn2.classList.add('xai-preferred');
+        btn2.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+      } else {
+        btn2.classList.remove('xai-preferred');
+        btn2.innerHTML = '☆ Preferovat — použít jako první';
+      }
+    }
+  }
+
+  window.spXaiTogglePrefer = function () {
+    var preferred = localStorage.getItem('xai_preferred') === '1';
+    var next = !preferred;
+    localStorage.setItem('xai_preferred', next ? '1' : '0');
+    if (window.GroqClient && typeof GroqClient.setXaiPreferred === 'function') {
+      GroqClient.setXaiPreferred(next);
+    }
+    _spXaiUpdatePreferBtn();
+    // Synchronizace i s topbar.js tlačítkem (pokud stránka používá oba soubory)
+    if (typeof window.xaiTogglePrefer !== 'function') return; // topbar.js se stará sám
+  };
+
   /* ── Spuštění ────────────────────────────────────────────────── */
   function run() {
     inject();
     initValues();
+    _spXaiUpdatePreferBtn();
   }
 
   if (document.readyState === 'loading') {

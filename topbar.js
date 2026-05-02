@@ -268,6 +268,26 @@ function injectStyles() {
     .sp-pass-btn:hover { background:rgba(79,142,247,0.15); border-color:rgba(79,142,247,0.6); }
     .sp-pass-btn-red { border-color:rgba(248,113,113,0.35); background:rgba(248,113,113,0.07); color:#f87171; }
     .sp-pass-btn-red:hover { background:rgba(248,113,113,0.15); border-color:rgba(248,113,113,0.6); }
+
+    /* ── xAI Preferovat tlačítko ── */
+    .xai-prefer-btn {
+      width: 100%; padding: 10px 14px; border-radius: 10px; margin-top: 2px; margin-bottom: 4px;
+      border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.05);
+      color: rgba(240,236,228,0.65); font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 7px;
+      box-sizing: border-box; text-align: center;
+    }
+    .xai-prefer-btn:hover { background: rgba(245,200,66,0.1); border-color: rgba(245,200,66,0.4); color: #f5c842; }
+    .xai-prefer-btn.xai-preferred {
+      background: rgba(245,200,66,0.16); border-color: rgba(245,200,66,0.5);
+      color: #f5c842; font-weight: 700;
+      box-shadow: 0 0 0 1px rgba(245,200,66,0.2);
+    }
+    .xai-prefer-badge {
+      display: inline-block; background: rgba(74,222,128,0.18); border: 1px solid rgba(74,222,128,0.35);
+      color: #4ade80; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 7px;
+      letter-spacing: 0.04em;
+    }
     .sp-pass-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.78); z-index:9999; align-items:center; justify-content:center; padding:20px; }
     .sp-pass-overlay.open { display:flex; }
     .sp-pass-box { background:rgba(14,12,20,.98); border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:28px 24px; width:100%; max-width:380px; backdrop-filter:blur(20px); box-shadow:0 20px 60px rgba(0,0,0,.7); }
@@ -823,6 +843,40 @@ var SETTINGS_HTML = [
   '          </div>',
   '        </div>',
   '      </div>',
+  '      <!-- xAI Grok -->',
+  '      <div class="sdrop-acc-item" id="sdAccXai">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccXai\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">🔮</span>',
+  '            <div><div class="sdrop-acc-title">xAI Grok</div><div class="sdrop-acc-sub" id="accXaiSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="xaiStatus">',
+  '              <span class="groq-dot loading" id="xaiDot"></span>',
+  '              <span id="xaiStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>🔮 Grok 4 Vision — nejlepší pro rozpoznávání karet</strong><br>',
+  '              Grok 4 podporuje vision, čte i špatně vyfocené karty a japonské znaky. Tlačítko Preferovat zařadí xAI před Cerebras a ostatní poskytovatele jako první volbu při skenování.',
+  '              <a href="https://console.x.ai" target="_blank" rel="noopener">Získat klíč →</a>',
+  '            </div>',
+  '            <button class="xai-prefer-btn" id="xaiPreferBtn" type="button" onclick="xaiTogglePrefer()">☆ Preferovat — použít jako první</button>',
+  '            <label class="groq-label-sm" style="margin-top:10px">xAI API klíče</label>',
+  '            <div id="xaiKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="xaiKeyInput" class="groq-inp" placeholder="xai-… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="xaiAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
+  '              <button class="btn-groq-del-all" id="xaiDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="xaiTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="xaiFeedback"></div>',
+  '            <div id="xaiTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
   '      <!-- Účet -->',
   '      <div class="sdrop-acc-item" id="sdAccAccount">',
   '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccAccount\')">',
@@ -1227,7 +1281,8 @@ function init() {
   try { initCerebrasPanel(); }  catch(e) { console.error('[topbar] initCerebrasPanel:', e); }
   try { initOpenRouterPanel(); }catch(e) { console.error('[topbar] initOpenRouterPanel:', e); }
   try { initMistralPanel(); }   catch(e) { console.error('[topbar] initMistralPanel:', e); }
-  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral)');
+  try { initXaiPanel(); }       catch(e) { console.error('[topbar] initXaiPanel:', e); }
+  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI)');
 }
 
 if (document.readyState === 'loading') {
@@ -2053,6 +2108,45 @@ function initMistralPanel() {
     countNoun: ['klíč', 'klíče', 'klíčů'],
     subId:     'accMistralSub',
   });
+}
+
+function initXaiPanel() {
+  _initProviderPanel({
+    prefix:    'xai',
+    name:      'xAI Grok',
+    field:     'xai_key',
+    keyPrefix: 'xai-',
+    minLen:    20,
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accXaiSub',
+  });
+  // Init stavu tlačítka Preferovat
+  _xaiUpdatePreferBtn();
+}
+
+// Globální funkce — volána z onclick v HTML
+window.xaiTogglePrefer = function() {
+  var preferred = localStorage.getItem('xai_preferred') === '1';
+  var next = !preferred;
+  localStorage.setItem('xai_preferred', next ? '1' : '0');
+  // Předat do GroqClient, pokud je dostupný
+  if (window.GroqClient && typeof GroqClient.setXaiPreferred === 'function') {
+    GroqClient.setXaiPreferred(next);
+  }
+  _xaiUpdatePreferBtn();
+};
+
+function _xaiUpdatePreferBtn() {
+  var preferred = localStorage.getItem('xai_preferred') === '1';
+  var btn = document.getElementById('xaiPreferBtn');
+  if (!btn) return;
+  if (preferred) {
+    btn.classList.add('xai-preferred');
+    btn.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+  } else {
+    btn.classList.remove('xai-preferred');
+    btn.innerHTML = '☆ Preferovat — použít jako první';
+  }
 }
 
 })();
