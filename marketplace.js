@@ -121,6 +121,7 @@ const MY_LISTINGS_MODE = new URLSearchParams(location.search).get('my') === '1';
     return;
   }
   allListings = res;
+  updateElementFilters();
 
   if (MY_LISTINGS_MODE) {
     // Aktivuj banner
@@ -281,6 +282,74 @@ function updateSidebarCounts(baseListings) {
 }
 
 // ── Filters + Sort ────────────────────────────────────────────
+// ── Dynamické element-filtry s ikonkami ─────────────────────────────────────
+// Zobrazí jen typy, které mají alespoň jednu aktivní kartu v allListings.
+// Energi ikonky (kulaté TCG) kde existují, jinak elements/ sada.
+const EL_TYPE_DEFS = [
+  { id:'fNormal',   match:['colorless','normal'],           icon:'energi/colorless.png',  fallback:'elements/normal.png',   label:'Normální'  },
+  { id:'fFire',     match:['fire'],                         icon:'energi/fire.png',        fallback:'elements/fire.png',      label:'Ohnivý'    },
+  { id:'fWater',    match:['water'],                        icon:'energi/water.png',       fallback:'elements/water.png',     label:'Vodní'     },
+  { id:'fElec',     match:['lightning','electric'],         icon:'energi/lightning.png',   fallback:'elements/electric.png',  label:'Elektrický'},
+  { id:'fGrass',    match:['grass'],                        icon:'energi/grass.png',       fallback:'elements/grass.png',     label:'Travní'    },
+  { id:'fIce',      match:['ice'],                          icon:'elements/ice.png',       fallback:'elements/ice.png',       label:'Ledový'    },
+  { id:'fFighting', match:['fighting'],                     icon:'energi/fighting.png',    fallback:'elements/fighting.png',  label:'Bojový'    },
+  { id:'fPoison',   match:['poison'],                       icon:'elements/poison.png',    fallback:'elements/poison.png',    label:'Jedový'    },
+  { id:'fGround',   match:['ground'],                       icon:'elements/ground.png',    fallback:'elements/ground.png',    label:'Zemní'     },
+  { id:'fFlying',   match:['flying'],                       icon:'elements/flying.png',    fallback:'elements/flying.png',    label:'Létající'  },
+  { id:'fPsychic',  match:['psychic'],                      icon:'energi/psychic.png',     fallback:'elements/psychic.png',   label:'Psychický' },
+  { id:'fBug',      match:['bug'],                          icon:'elements/bug.png',       fallback:'elements/bug.png',       label:'Hmyzí'     },
+  { id:'fRock',     match:['rock'],                         icon:'elements/rock.png',      fallback:'elements/rock.png',      label:'Skalní'    },
+  { id:'fGhost',    match:['ghost'],                        icon:'elements/ghost.png',     fallback:'elements/ghost.png',     label:'Přízračný' },
+  { id:'fDragon',   match:['dragon'],                       icon:'energi/dragon.png',      fallback:'elements/dragon.png',    label:'Dračí'     },
+  { id:'fDark',     match:['darkness','dark'],              icon:'energi/darkness.png',    fallback:'elements/dark.png',      label:'Temný'     },
+  { id:'fMetal',    match:['metal','steel'],                icon:'energi/metal.png',       fallback:'elements/steel.png',     label:'Ocelový'   },
+  { id:'fFairy',    match:['fairy'],                        icon:'energi/fairy.png',       fallback:'elements/fairy.png',     label:'Vílovitý'  },
+];
+
+function updateElementFilters() {
+  const container = document.getElementById('elementFilterList');
+  if (!container) return;
+
+  // Spočítej karty per typ
+  const counts = {};
+  EL_TYPE_DEFS.forEach(d => { counts[d.id] = 0; });
+  (allListings || []).forEach(l => {
+    const t = (l.card_type || '').toLowerCase().trim();
+    if (!t) return;
+    EL_TYPE_DEFS.forEach(d => {
+      if (d.match.some(m => t === m || t.startsWith(m))) counts[d.id]++;
+    });
+  });
+
+  const active = EL_TYPE_DEFS.filter(d => counts[d.id] > 0);
+
+  if (!active.length) {
+    container.innerHTML = '<span style="color:var(--text3);font-size:12px;padding:2px 4px">Žádné kartičky</span>';
+    return;
+  }
+
+  container.innerHTML = active.map(d => {
+    const isChecked = document.getElementById(d.id)?.checked !== false;
+    return `<button
+      class="el-pill${isChecked ? ' active' : ''}"
+      onclick="elPillToggle('${d.id}', this)"
+      title="${d.label}"
+      type="button">
+      <img src="${d.icon}" class="el-pill-icon" onerror="this.src='${d.fallback}';this.onerror=null" alt="">
+      <span class="el-pill-label">${d.label}</span>
+      <span class="el-pill-count">${counts[d.id]}</span>
+    </button>`;
+  }).join('');
+}
+
+function elPillToggle(checkboxId, btn) {
+  const cb = document.getElementById(checkboxId);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  btn.classList.toggle('active', cb.checked);
+  applyFilters();
+}
+
 function applyFilters(){
   // Also update demands if in demand mode
   if (typeof marketMode !== 'undefined' && marketMode === 'demand' && typeof applyDemandFilters === 'function') {

@@ -112,24 +112,29 @@
         <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="sb-acc-body" hidden>
-        <label class="filter-opt"><input type="checkbox" id="fNormal"   checked onchange="applyFilters()"> ⬜ Normální</label>
-        <label class="filter-opt"><input type="checkbox" id="fFire"     checked onchange="applyFilters()"> 🔥 Ohnivý</label>
-        <label class="filter-opt"><input type="checkbox" id="fWater"    checked onchange="applyFilters()"> 💧 Vodní</label>
-        <label class="filter-opt"><input type="checkbox" id="fElec"     checked onchange="applyFilters()"> ⚡ Elektrický</label>
-        <label class="filter-opt"><input type="checkbox" id="fGrass"    checked onchange="applyFilters()"> 🌿 Travní</label>
-        <label class="filter-opt"><input type="checkbox" id="fIce"      checked onchange="applyFilters()"> ❄️ Ledový</label>
-        <label class="filter-opt"><input type="checkbox" id="fFighting" checked onchange="applyFilters()"> 🥊 Bojový</label>
-        <label class="filter-opt"><input type="checkbox" id="fPoison"   checked onchange="applyFilters()"> ☠️ Jedový</label>
-        <label class="filter-opt"><input type="checkbox" id="fGround"   checked onchange="applyFilters()"> 🌍 Zemní</label>
-        <label class="filter-opt"><input type="checkbox" id="fFlying"   checked onchange="applyFilters()"> 🦅 Létající</label>
-        <label class="filter-opt"><input type="checkbox" id="fPsychic"  checked onchange="applyFilters()"> 🔮 Psychický</label>
-        <label class="filter-opt"><input type="checkbox" id="fBug"      checked onchange="applyFilters()"> 🐛 Hmyzí</label>
-        <label class="filter-opt"><input type="checkbox" id="fRock"     checked onchange="applyFilters()"> 🪨 Skalní</label>
-        <label class="filter-opt"><input type="checkbox" id="fGhost"    checked onchange="applyFilters()"> 👻 Přízračný</label>
-        <label class="filter-opt"><input type="checkbox" id="fDragon"   checked onchange="applyFilters()"> 🐉 Dračí</label>
-        <label class="filter-opt"><input type="checkbox" id="fDark"     checked onchange="applyFilters()"> 🌑 Temný</label>
-        <label class="filter-opt"><input type="checkbox" id="fMetal"    checked onchange="applyFilters()"> ⚙️ Ocelový</label>
-        <label class="filter-opt"><input type="checkbox" id="fFairy"    checked onchange="applyFilters()"> 🧚 Vílovitý</label>
+        <!-- Skryté checkboxy — applyFilters() je čte přímo podle ID -->
+        <div style="position:absolute;visibility:hidden;pointer-events:none;height:0;overflow:hidden" aria-hidden="true">
+          <input type="checkbox" id="fNormal"   checked onchange="applyFilters()">
+          <input type="checkbox" id="fFire"     checked onchange="applyFilters()">
+          <input type="checkbox" id="fWater"    checked onchange="applyFilters()">
+          <input type="checkbox" id="fElec"     checked onchange="applyFilters()">
+          <input type="checkbox" id="fGrass"    checked onchange="applyFilters()">
+          <input type="checkbox" id="fIce"      checked onchange="applyFilters()">
+          <input type="checkbox" id="fFighting" checked onchange="applyFilters()">
+          <input type="checkbox" id="fPoison"   checked onchange="applyFilters()">
+          <input type="checkbox" id="fGround"   checked onchange="applyFilters()">
+          <input type="checkbox" id="fFlying"   checked onchange="applyFilters()">
+          <input type="checkbox" id="fPsychic"  checked onchange="applyFilters()">
+          <input type="checkbox" id="fBug"      checked onchange="applyFilters()">
+          <input type="checkbox" id="fRock"     checked onchange="applyFilters()">
+          <input type="checkbox" id="fGhost"    checked onchange="applyFilters()">
+          <input type="checkbox" id="fDragon"   checked onchange="applyFilters()">
+          <input type="checkbox" id="fDark"     checked onchange="applyFilters()">
+          <input type="checkbox" id="fMetal"    checked onchange="applyFilters()">
+          <input type="checkbox" id="fFairy"    checked onchange="applyFilters()">
+        </div>
+        <!-- Dynamicky generované pill-ikonky — jen typy co mají karty -->
+        <div id="elementFilterList" class="el-filter-grid"></div>
       </div>
     </div>
     <div class="sb-divider"></div>

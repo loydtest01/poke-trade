@@ -126,6 +126,70 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .filter-opt:hover { background: rgba(255,255,255,0.05); }
 .filter-opt input { width: 14px; height: 14px; accent-color: var(--yellow); flex-shrink: 0; }
 .price-row { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--text3); }
+
+/* ── Element filter pills ──────────────────────────────────────── */
+.el-filter-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 4px;
+}
+.el-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border-radius: 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text3);
+  text-align: left;
+  transition: background .12s, color .12s, opacity .12s;
+  opacity: 0.55;
+}
+.el-pill:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text2);
+  opacity: 0.8;
+}
+.el-pill.active {
+  color: var(--text);
+  opacity: 1;
+}
+.el-pill.active .el-pill-icon {
+  filter: none;
+}
+.el-pill-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: grayscale(0.4) brightness(0.75);
+  transition: filter .12s;
+}
+.el-pill.active .el-pill-icon {
+  filter: none;
+}
+.el-pill-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.el-pill-count {
+  font-size: 10px;
+  color: var(--text3);
+  background: rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
 .price-inp {
   width: 62px; padding: 5px 7px; border-radius: 7px;
   border: 1px solid var(--border); background: rgba(255,255,255,0.05);
