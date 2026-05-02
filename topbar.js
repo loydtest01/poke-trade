@@ -877,6 +877,40 @@ var SETTINGS_HTML = [
   '          </div>',
   '        </div>',
   '      </div>',
+  '      <!-- Google Gemini -->',
+  '      <div class="sdrop-acc-item" id="sdAccGemini">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccGemini\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">♊</span>',
+  '            <div><div class="sdrop-acc-title">Google Gemini</div><div class="sdrop-acc-sub" id="accGeminiSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="geminiStatus">',
+  '              <span class="groq-dot loading" id="geminiDot"></span>',
+  '              <span id="geminiStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>♊ Gemini 1.5 Flash — nativní multimodální vision zdarma</strong><br>',
+  '              Jeden klíč zvládne text i obrázky (karty). Free tier: 15 req/min, 100 req/den, 2 obrázky/min — žádná platební karta. Tlačítko Preferovat zařadí Gemini jako první provider.',
+  '              <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
+  '            </div>',
+  '            <button class="xai-prefer-btn" id="geminiPreferBtn" type="button" onclick="geminiTogglePrefer()">☆ Preferovat — použít jako první</button>',
+  '            <label class="groq-label-sm" style="margin-top:10px">Gemini API klíče</label>',
+  '            <div id="geminiKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="geminiKeyInput" class="groq-inp" placeholder="AIza… (vlož nový klíč)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="geminiAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
+  '              <button class="btn-groq-del-all" id="geminiDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="geminiTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="geminiFeedback"></div>',
+  '            <div id="geminiTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
   '      <!-- Účet -->',
   '      <div class="sdrop-acc-item" id="sdAccAccount">',
   '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccAccount\')">',
@@ -1282,7 +1316,8 @@ function init() {
   try { initOpenRouterPanel(); }catch(e) { console.error('[topbar] initOpenRouterPanel:', e); }
   try { initMistralPanel(); }   catch(e) { console.error('[topbar] initMistralPanel:', e); }
   try { initXaiPanel(); }       catch(e) { console.error('[topbar] initXaiPanel:', e); }
-  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI)');
+  try { initGeminiPanel(); }    catch(e) { console.error('[topbar] initGeminiPanel:', e); }
+  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI + Gemini)');
 }
 
 if (document.readyState === 'loading') {
@@ -2139,6 +2174,42 @@ window.xaiTogglePrefer = function() {
 function _xaiUpdatePreferBtn() {
   var preferred = localStorage.getItem('xai_preferred') === '1';
   var btn = document.getElementById('xaiPreferBtn');
+  if (!btn) return;
+  if (preferred) {
+    btn.classList.add('xai-preferred');
+    btn.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+  } else {
+    btn.classList.remove('xai-preferred');
+    btn.innerHTML = '☆ Preferovat — použít jako první';
+  }
+}
+
+function initGeminiPanel() {
+  _initProviderPanel({
+    prefix:    'gemini',
+    name:      'Google Gemini',
+    field:     'gemini_key',
+    keyPrefix: 'AIza',
+    minLen:    20,
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accGeminiSub',
+  });
+  _geminiUpdatePreferBtn();
+}
+
+window.geminiTogglePrefer = function() {
+  var preferred = localStorage.getItem('gemini_preferred') === '1';
+  var next = !preferred;
+  localStorage.setItem('gemini_preferred', next ? '1' : '0');
+  if (window.GroqClient && typeof GroqClient.setGeminiPreferred === 'function') {
+    GroqClient.setGeminiPreferred(next);
+  }
+  _geminiUpdatePreferBtn();
+};
+
+function _geminiUpdatePreferBtn() {
+  var preferred = localStorage.getItem('gemini_preferred') === '1';
+  var btn = document.getElementById('geminiPreferBtn');
   if (!btn) return;
   if (preferred) {
     btn.classList.add('xai-preferred');

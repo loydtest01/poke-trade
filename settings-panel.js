@@ -270,6 +270,22 @@
     '        </div></div>',
     '      </div>',
 
+    '      <!-- Google Gemini — Preferovat přepínač -->',
+    '      <div class="sdrop-acc-item" id="sdAccGeminiQuick">',
+    '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccGeminiQuick\')">',
+    '          <div class="sdrop-acc-left">',
+    '            <span class="sdrop-acc-icon">♊</span>',
+    '            <div><div class="sdrop-acc-title">Google Gemini</div><div class="sdrop-acc-sub" id="spGeminiPreferSub">Načítám…</div></div>',
+    '          </div><span class="sdrop-acc-chevron">▼</span>',
+    '        </div>',
+    '        <div class="sdrop-acc-body"><div class="sdrop-acc-inner">',
+    '          <div style="font-size:12px;color:rgba(240,236,228,0.55);margin-bottom:10px;line-height:1.5">',
+    '            Gemini 1.5 Flash — nativní vision, 15 req/min, 100 req/den zdarma. <strong style="color:#f5c842">Preferovat</strong> ho zařadí na první místo.',
+    '          </div>',
+    '          <button class="xai-prefer-btn" id="spGeminiPreferBtn" type="button" onclick="spGeminiTogglePrefer()">☆ Preferovat — použít jako první</button>',
+    '        </div></div>',
+    '      </div>',
+
 
     '      <!-- Účet -->',
     '      <div class="sdrop-acc-item" id="sdAccAccount">',
@@ -487,15 +503,51 @@
       GroqClient.setXaiPreferred(next);
     }
     _spXaiUpdatePreferBtn();
-    // Synchronizace i s topbar.js tlačítkem (pokud stránka používá oba soubory)
-    if (typeof window.xaiTogglePrefer !== 'function') return; // topbar.js se stará sám
   };
+
+  window.spGeminiTogglePrefer = function () {
+    var preferred = localStorage.getItem('gemini_preferred') === '1';
+    var next = !preferred;
+    localStorage.setItem('gemini_preferred', next ? '1' : '0');
+    if (window.GroqClient && typeof GroqClient.setGeminiPreferred === 'function') {
+      GroqClient.setGeminiPreferred(next);
+    }
+    _spGeminiUpdatePreferBtn();
+  };
+
+  function _spGeminiUpdatePreferBtn() {
+    var preferred = localStorage.getItem('gemini_preferred') === '1';
+    var btn = document.getElementById('spGeminiPreferBtn');
+    var sub = document.getElementById('spGeminiPreferSub');
+    if (btn) {
+      if (preferred) {
+        btn.classList.add('xai-preferred');
+        btn.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+      } else {
+        btn.classList.remove('xai-preferred');
+        btn.innerHTML = '☆ Preferovat — použít jako první';
+      }
+    }
+    if (sub) sub.textContent = preferred ? '⭐ Preferováno jako první' : 'Nativní vision zdarma';
+    // Sync s topbar.js profilem
+    var btn2 = document.getElementById('geminiPreferBtn');
+    if (btn2) {
+      if (preferred) {
+        btn2.classList.add('xai-preferred');
+        btn2.innerHTML = '⭐ Preferováno — jede jako první &nbsp;<span class="xai-prefer-badge">AKTIVNÍ</span>';
+      } else {
+        btn2.classList.remove('xai-preferred');
+        btn2.innerHTML = '☆ Preferovat — použít jako první';
+      }
+    }
+  }
 
   /* ── Spuštění ────────────────────────────────────────────────── */
   function run() {
     inject();
     initValues();
     _spXaiUpdatePreferBtn();
+    _spGeminiUpdatePreferBtn();
   }
 
   if (document.readyState === 'loading') {
