@@ -2871,11 +2871,25 @@ async function loadAllCardPhotos() {
 async function loadCards() {
   setSyncState('syncing', 'Načítám karty…');
   try {
-    const res = await sbReq(
-      `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk,updated_at&order=updated_at.desc`
-    );
-    if (res._err || res.message) throw new Error(res.message || res._err);
-    allCards = (Array.isArray(res) ? res : []).map(r => {
+    // Supabase defaultně vrací max 1000 řádků – načítáme po stránkách dokud nedostaneme vše
+    const PAGE = 1000;
+    let allRows = [];
+    let offset  = 0;
+    const base  = `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data,for_trade,for_sell,price_czk,updated_at&order=updated_at.desc`;
+    while (true) {
+      const res = await sbReq(base, 'GET', null, {
+        'Range':      `${offset}-${offset + PAGE - 1}`,
+        'Range-Unit': 'items',
+      });
+      // 416 = range mimo rozsah → konec dat
+      if (res._err && String(res._err).includes('416')) break;
+      if (res._err || res.message) throw new Error(res.message || res._err);
+      const rows = Array.isArray(res) ? res : [];
+      allRows = allRows.concat(rows);
+      if (rows.length < PAGE) break;   // méně než stránka → poslední strana
+      offset += PAGE;
+    }
+    allCards = allRows.map(r => {
       const d = r.card_data || {};
       return {
         ...d,
@@ -7695,12 +7709,13 @@ async function tryRefreshToken() {
   return _refreshing;
 }
 
-async function sbReq(path, method = 'GET', body = null) {
+async function sbReq(path, method = 'GET', body = null, extraHeaders = {}) {
   const makeHeaders = () => ({
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON,
     'Authorization': 'Bearer ' + (token || SUPABASE_ANON),
     ...(['POST','PATCH'].includes(method) ? { 'Prefer': 'return=representation' } : {}),
+    ...extraHeaders,
   });
   try {
     let res = await fetch(`${SUPABASE_URL}/${path}`, {
