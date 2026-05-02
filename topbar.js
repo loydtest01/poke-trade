@@ -1855,18 +1855,36 @@ async function _testProviderKey(providerName, apiKey, cfg) {
     },
     mistral: {
       method:   'GET',
-      url:      'https://api.mistral.ai/v1/models',  // Lehký GET, ověří klíč bez konzumace tokenů
+      url:      'https://api.mistral.ai/v1/models',
       body:     null,
       testType: 'auth',
+    },
+    xai: {
+      method:   'POST',
+      url:      'https://api.x.ai/v1/chat/completions',
+      body:     JSON.stringify({ model: 'grok-3-mini', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
+      testType: 'chat',
+    },
+    gemini: {
+      method:   'POST',
+      url:      null,
+      body:     JSON.stringify({ contents: [{ parts: [{ text: 'Say OK' }] }], generationConfig: { maxOutputTokens: 5 } }),
+      testType: 'gemini',
     },
   };
   var cfg2 = validators[providerName];
   if (!cfg2) throw new Error('Neznámý provider: ' + providerName);
 
-  var headers = {
-    'Authorization': 'Bearer ' + apiKey,
-  };
-  if (cfg2.method === 'POST') headers['Content-Type'] = 'application/json';
+  // Gemini používá ?key= query param místo Bearer tokenu
+  var fetchUrl = cfg2.url;
+  var headers = {};
+  if (providerName === 'gemini') {
+    fetchUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    headers['Content-Type'] = 'application/json';
+  } else {
+    headers['Authorization'] = 'Bearer ' + apiKey;
+    if (cfg2.method === 'POST') headers['Content-Type'] = 'application/json';
+  }
   if (providerName === 'openrouter') {
     headers['HTTP-Referer'] = window.location.origin;
     headers['X-Title']      = 'PokéTrade Test';
@@ -1881,7 +1899,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
       signal:  AbortSignal.timeout(10000),
     };
     if (cfg2.body) fetchOpts.body = cfg2.body;
-    r = await fetch(cfg2.url, fetchOpts);
+    r = await fetch(fetchUrl, fetchOpts);
   } catch(e) {
     throw new Error('síťová chyba: ' + e.message);
   }
@@ -1895,6 +1913,11 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   }
 
   var data = await r.json();
+  if (cfg2.testType === 'gemini') {
+    // Gemini: { candidates: [{ content: { parts: [{ text: '...' }] } }] }
+    var geminiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '?';
+    return { model: 'gemini-1.5-flash', time: t1 - t0, reply: geminiText.slice(0, 30) };
+  }
   if (cfg2.testType === 'auth') {
     // OpenRouter auth/key endpoint → { data: { label, usage, limit, ... } }
     var info = data?.data || data;
