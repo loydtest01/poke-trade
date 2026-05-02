@@ -227,6 +227,7 @@
                   : provider === 'cerebras' ? 'cerebras_key'
                   : provider === 'openrouter' ? 'openrouter_key'
                   : provider === 'deepseek' ? 'deepseek_key'
+                  : provider === 'mistral' ? 'mistral_key'
                   : 'groq_key';
       const payload = { user_id: user.id, [field]: valid };
       if (provider === 'groq' && model) payload.groq_model = model;
@@ -234,6 +235,13 @@
 
       const existing = await _req(`rest/v1/user_api_keys?user_id=eq.${user.id}&select=id`);
       const hasRow = Array.isArray(existing) && existing.length > 0;
+
+      // Nový řádek (uživatel nemá žádné klíče): groq_key má DEFAULT '' takže
+      // INSERT projde i bez Groq klíče. groq_enabled=true aby has_groq_key() fungovalo.
+      if (!hasRow && provider !== 'groq') {
+        payload.groq_key     = '';
+        payload.groq_enabled = true;
+      }
 
       const res = await _req(
         hasRow ? `rest/v1/user_api_keys?user_id=eq.${user.id}` : 'rest/v1/user_api_keys',

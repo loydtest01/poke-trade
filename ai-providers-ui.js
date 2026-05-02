@@ -152,6 +152,14 @@
     const hasRow = Array.isArray(existing) && existing.length > 0;
     const payload = { user_id: userId, [`${provider}_key`]: keys.join(',') };
 
+    // Nový řádek (žádné klíče dosud): groq_key má po migraci DEFAULT '',
+    // ale pro jistotu ho explicitně zahrneme + nastavíme groq_enabled=true
+    // aby has_groq_key() fungovalo (nyní kontroluje všechny providery).
+    if (!hasRow && provider !== 'groq') {
+      payload.groq_key     = '';
+      payload.groq_enabled = true;
+    }
+
     const res = await supabaseRequest(
       hasRow ? `rest/v1/user_api_keys?user_id=eq.${userId}` : 'rest/v1/user_api_keys',
       hasRow ? 'PATCH' : 'POST',
