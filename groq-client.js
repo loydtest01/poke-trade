@@ -87,11 +87,11 @@
       endpoint:         'https://api.x.ai/v1/chat/completions',
       validateUrl:      'https://api.x.ai/v1/models',
       textModel:        'grok-3-mini',
-      // grok-4 je nejschopnější xAI model pro vision (obrázky). Jako fallback
-      // grok-2-vision-1212 – starší dedicated vision model.
+      // grok-2-vision-1212 je ověřený dedicated vision model od xAI.
+      // grok-4 je novější ale pro OCR karet méně spolehlivý → dáme jako fallback.
       // xAI podporuje POUZE jpg/jpeg a png — webp automaticky konvertujeme níže.
-      visionModel:      'grok-4',
-      visionFallbacks:  ['grok-2-vision-1212'],
+      visionModel:      'grok-2-vision-1212',
+      visionFallbacks:  ['grok-4', 'grok-2-vision-1212'],
       requiresJpeg:     true,   // xAI nepodporuje webp → konvertuj na jpeg
     },
     gemini: {
@@ -509,7 +509,16 @@
               return await _handleStream(res, options.onChunk);
             }
             const data = await res.json();
-            return data.choices?.[0]?.message?.content || '';
+            const content = data.choices?.[0]?.message?.content;
+            // Prázdná odpověď u vision → loguj a zkus další provider
+            // (některé modely vrátí HTTP 200 ale s prázdným content při špatném obrázku)
+            if (isVision && (content === null || content === undefined || content.trim() === '')) {
+              const finishReason = data.choices?.[0]?.finish_reason || '?';
+              console.warn(`[AI] ${provider.name}/${model.split('/').pop()} vrátil prázdný obsah (finish_reason: ${finishReason}) — zkouším další provider`);
+              errors.push(`[${provider.name}/${model.split('/').pop()}] prázdná odpověď (${finishReason})`);
+              break; // zkus další model / provider
+            }
+            return content || '';
           }
 
           const errBody = await res.json().catch(() => ({}));
