@@ -10739,20 +10739,54 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
         </div>
         <div>
           <label class="ce-label">Typ / Element</label>
-          <select class="ce-inp ce-select" id="ceType">
-            <option value="">— nezadán —</option>
-            <option value="Fire">🔥 Fire</option>
-            <option value="Water">💧 Water</option>
-            <option value="Grass">🌿 Grass</option>
-            <option value="Lightning">⚡ Lightning</option>
-            <option value="Psychic">🔮 Psychic</option>
-            <option value="Fighting">👊 Fighting</option>
-            <option value="Darkness">🌑 Darkness</option>
-            <option value="Metal">⚙️ Metal</option>
-            <option value="Dragon">🐉 Dragon</option>
-            <option value="Colorless">⭐ Colorless</option>
-            <option value="Fairy">🌸 Fairy</option>
-          </select>
+          <!-- Custom type picker s energi ikonkami — hodnota jde do hidden inputu #ceType -->
+          <div class="ce-type-picker" id="ceTypePicker">
+            <button type="button" class="ce-type-btn" id="ceTypeBtn" onclick="ceTypeToggle(event)">
+              <img id="ceTypeIcon" src="" class="ce-type-icon" style="display:none" alt="">
+              <span id="ceTypeLabel">— nezadán —</span>
+              <svg width="10" height="6" viewBox="0 0 10 6" class="ce-type-arrow"><path d="M0 0l5 6 5-6z" fill="rgba(240,236,228,0.35)"/></svg>
+            </button>
+            <div class="ce-type-dropdown" id="ceTypeDropdown" hidden>
+              <div class="ce-type-opt" data-val="" onclick="ceTypeSelect('')">
+                <span class="ce-type-opt-spacer"></span>
+                <span>— nezadán —</span>
+              </div>
+              <div class="ce-type-opt" data-val="Fire" onclick="ceTypeSelect('Fire')">
+                <img src="energi/fire.png" class="ce-type-icon" alt=""> Fire
+              </div>
+              <div class="ce-type-opt" data-val="Water" onclick="ceTypeSelect('Water')">
+                <img src="energi/water.png" class="ce-type-icon" alt=""> Water
+              </div>
+              <div class="ce-type-opt" data-val="Grass" onclick="ceTypeSelect('Grass')">
+                <img src="energi/grass.png" class="ce-type-icon" alt=""> Grass
+              </div>
+              <div class="ce-type-opt" data-val="Lightning" onclick="ceTypeSelect('Lightning')">
+                <img src="energi/lightning.png" class="ce-type-icon" alt=""> Lightning
+              </div>
+              <div class="ce-type-opt" data-val="Psychic" onclick="ceTypeSelect('Psychic')">
+                <img src="energi/psychic.png" class="ce-type-icon" alt=""> Psychic
+              </div>
+              <div class="ce-type-opt" data-val="Fighting" onclick="ceTypeSelect('Fighting')">
+                <img src="energi/fighting.png" class="ce-type-icon" alt=""> Fighting
+              </div>
+              <div class="ce-type-opt" data-val="Darkness" onclick="ceTypeSelect('Darkness')">
+                <img src="energi/darkness.png" class="ce-type-icon" alt=""> Darkness
+              </div>
+              <div class="ce-type-opt" data-val="Metal" onclick="ceTypeSelect('Metal')">
+                <img src="energi/metal.png" class="ce-type-icon" alt=""> Metal
+              </div>
+              <div class="ce-type-opt" data-val="Dragon" onclick="ceTypeSelect('Dragon')">
+                <img src="energi/dragon.png" class="ce-type-icon" alt=""> Dragon
+              </div>
+              <div class="ce-type-opt" data-val="Colorless" onclick="ceTypeSelect('Colorless')">
+                <img src="energi/colorless.png" class="ce-type-icon" alt=""> Colorless
+              </div>
+              <div class="ce-type-opt" data-val="Fairy" onclick="ceTypeSelect('Fairy')">
+                <img src="energi/fairy.png" class="ce-type-icon" alt=""> Fairy
+              </div>
+            </div>
+            <input type="hidden" id="ceType" value="">
+          </div>
         </div>
         <div>
           <label class="ce-label">Supertyp</label>
@@ -10922,6 +10956,69 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 }
 .ce-select option { background: #0e0c14; color: #f0ece4; }
 
+/* ── Custom type picker ─────────────────────────────────────────── */
+.ce-type-picker {
+  position: relative;
+  width: 100%;
+}
+.ce-type-btn {
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: #f0ece4;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color .15s;
+}
+.ce-type-btn:hover, .ce-type-btn:focus {
+  border-color: rgba(116,180,255,0.5);
+  outline: none;
+}
+.ce-type-btn .ce-type-label { flex: 1; }
+.ce-type-arrow { flex-shrink: 0; transition: transform .18s; }
+.ce-type-picker.open .ce-type-arrow { transform: rotate(180deg); }
+.ce-type-icon {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.ce-type-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  z-index: 9999;
+  background: #0e0c14;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  padding: 4px 0;
+}
+.ce-type-opt {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: #f0ece4;
+  cursor: pointer;
+  transition: background .1s;
+}
+.ce-type-opt:hover { background: rgba(255,255,255,0.08); }
+.ce-type-opt.selected { background: rgba(116,180,255,0.12); color: #74b4ff; }
+.ce-type-opt-spacer { width: 20px; height: 20px; flex-shrink: 0; }
+
 /* ── TCG Catalog Tabs ───────────────────────────────── */
 #cbTabBtn1, #cbTabBtn2, #cbTabBtn3 {
   transition: all .2s;
@@ -10997,14 +11094,9 @@ function openCardEdit() {
   document.getElementById('ceForTrade').checked  = !!c.for_trade;
   document.getElementById('ceForSell').checked   = !!c.for_sell;
 
-  // Type select — match first type
+  // Type picker — nastav hodnotu a ikonu
   const firstType = (c.types && c.types[0]) || c.type || '';
-  const typeEl = document.getElementById('ceType');
-  let typeMatched = false;
-  for (let opt of typeEl.options) {
-    if (opt.value.toLowerCase() === firstType.toLowerCase()) { opt.selected = true; typeMatched = true; break; }
-  }
-  if (!typeMatched) typeEl.value = '';
+  ceTypeSelect(firstType || '');
 
   // Supertype
   const stEl = document.getElementById('ceSupertype');
@@ -11043,6 +11135,62 @@ function openCardEdit() {
   document.getElementById('ceSaveStatus').textContent = '';
   document.getElementById('cardEditModal').style.display = 'flex';
 }
+
+// ── Custom type picker funkce ─────────────────────────────────────
+const CE_TYPE_ICONS = {
+  fire:      'energi/fire.png',
+  water:     'energi/water.png',
+  grass:     'energi/grass.png',
+  lightning: 'energi/lightning.png',
+  psychic:   'energi/psychic.png',
+  fighting:  'energi/fighting.png',
+  darkness:  'energi/darkness.png',
+  metal:     'energi/metal.png',
+  dragon:    'energi/dragon.png',
+  colorless: 'energi/colorless.png',
+  fairy:     'energi/fairy.png',
+};
+
+function ceTypeToggle(e) {
+  e && e.stopPropagation();
+  const dd = document.getElementById('ceTypeDropdown');
+  const picker = document.getElementById('ceTypePicker');
+  const isOpen = !dd.hidden;
+  dd.hidden = isOpen;
+  picker.classList.toggle('open', !isOpen);
+}
+
+function ceTypeSelect(val) {
+  document.getElementById('ceType').value = val;
+  const icon = document.getElementById('ceTypeIcon');
+  const label = document.getElementById('ceTypeLabel');
+  const iconSrc = CE_TYPE_ICONS[val.toLowerCase()];
+  if (iconSrc) {
+    icon.src = iconSrc;
+    icon.style.display = '';
+  } else {
+    icon.style.display = 'none';
+    icon.src = '';
+  }
+  label.textContent = val || '— nezadán —';
+  // Zvýraznění aktivní volby
+  document.querySelectorAll('#ceTypeDropdown .ce-type-opt').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.val === val);
+  });
+  const dd = document.getElementById('ceTypeDropdown');
+  const picker = document.getElementById('ceTypePicker');
+  if (dd) dd.hidden = true;
+  if (picker) picker.classList.remove('open');
+}
+
+// Zavři picker při kliknutí mimo
+document.addEventListener('click', function(e) {
+  const picker = document.getElementById('ceTypePicker');
+  if (picker && !picker.contains(e.target)) {
+    document.getElementById('ceTypeDropdown').hidden = true;
+    picker.classList.remove('open');
+  }
+});
 
 function ceUpdateImgPreview() {
   const url = document.getElementById('ceApiSmall').value.trim();
