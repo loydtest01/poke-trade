@@ -19,6 +19,18 @@
 
   const PROVIDERS = [
     {
+      key:          'xai',
+      name:         'xAI (Grok)',
+      signupUrl:    'https://console.x.ai',
+      docsUrl:      'https://docs.x.ai',
+      description:  'Grok 4 Vision – nejschopnější xAI model pro rozpoznání karet z fotek (i rozmazaných). Grok 3 Mini pro text. Klíč začíná "xai-". Podporuje jpg/png (webp se auto-konvertuje).',
+      placeholder:  'xai-xxxxxxxxxxxxxxxxxxxx',
+      color:        '#ffffff',
+      bgColor:      '#111111',
+      icon:         '𝕏',
+      canPrefer:    true,   // zobrazí Preferovat tlačítko
+    },
+    {
       key:          'cerebras',
       name:         'Cerebras',
       signupUrl:    'https://cloud.cerebras.ai',
@@ -127,9 +139,9 @@
       }
     };
 
-    let row = await trySelect('cerebras_key,openrouter_key,mistral_key');
+    let row = await trySelect('cerebras_key,openrouter_key,mistral_key,xai_key');
     if (row === null) {
-      console.warn('[AIProviders] Sloupec mistral_key neexistuje — spusť migration_mistral_key.sql v Supabase! Fallback bez něj…');
+      console.warn('[AIProviders] Sloupec mistral_key/xai_key neexistuje — spusť migrace v Supabase! Fallback bez nich…');
       row = await trySelect('cerebras_key,openrouter_key') || {};
     }
 
@@ -175,8 +187,11 @@
   }
 
   // ── Vygeneruj HTML jedné provider sekce ─────────────────────────
-  function buildProviderCard(p, keys) {
+  function buildProviderCard(p, keys, xaiPreferred) {
     const safeDesc = p.description.replace(/</g, '&lt;');
+    const isXai = p.key === 'xai';
+    const cardBg = isXai ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.02)';
+    const borderColor = isXai && xaiPreferred ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.08)';
     let keysHtml = '';
     if (keys.length === 0) {
       keysHtml = `<div style="padding:10px 12px;background:rgba(255,255,255,0.03);border-radius:8px;color:var(--text3);font-size:13px">Žádné klíče. Přidej svůj první klíč níže.</div>`;
@@ -209,20 +224,42 @@
       }).join('');
     }
 
+    // Preferovat tlačítko — jen pro providery s canPrefer=true (xAI)
+    const preferStyle = xaiPreferred
+      ? 'background:#ffffff;color:#000000;border:none;box-shadow:0 0 0 2px rgba(255,255,255,0.5)'
+      : 'background:transparent;color:rgba(255,255,255,0.5);border:1px solid rgba(255,255,255,0.25)';
+    const preferHtml = p.canPrefer ? `
+      <button data-aip-action="toggle-prefer" data-aip-provider="${p.key}"
+              title="${xaiPreferred ? 'Vypnout preferenci — xAI pojede v pořadí' : 'Preferovat xAI — pojede jako první'}"
+              style="display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;${preferStyle}">
+        ${xaiPreferred ? '⭐ Preferováno' : '☆ Preferovat'}
+      </button>
+    ` : '';
+
+    const preferredBadge = isXai && xaiPreferred ? ' · <span style="color:#4ade80">✓ Preferováno</span>' : '';
+    const iconStyle = isXai ? 'font-size:22px;font-weight:900;font-family:serif' : 'font-size:22px';
+    const addBtnStyle = isXai
+      ? 'padding:8px 16px;background:#ffffff;border:none;border-radius:8px;color:#000;font-weight:600;cursor:pointer'
+      : `padding:8px 16px;background:${p.color};border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer`;
+    const cardBoxShadow = isXai && xaiPreferred ? 'box-shadow:0 0 0 1px rgba(255,255,255,0.15);' : '';
+
     return `
-      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:14px;background:rgba(255,255,255,0.02)">
+      <div style="border:1px solid ${borderColor};border-radius:12px;padding:16px;margin-bottom:14px;background:${cardBg};${cardBoxShadow}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">${p.icon}</span>
+            <span style="${iconStyle}">${p.icon}</span>
             <div>
               <div style="font-weight:700;font-size:15px;color:${p.color}">${p.name}</div>
-              <div style="font-size:11px;color:var(--text3)">${keys.length} klíč${keys.length === 1 ? '' : keys.length < 5 ? 'e' : 'ů'}</div>
+              <div style="font-size:11px;color:var(--text3)">${keys.length} klíč${keys.length === 1 ? '' : keys.length < 5 ? 'e' : 'ů'}${preferredBadge}</div>
             </div>
           </div>
-          <a href="${p.signupUrl}" target="_blank" rel="noopener"
-             style="padding:6px 12px;border:1px solid ${p.color};border-radius:8px;color:${p.color};text-decoration:none;font-size:12px;font-weight:600">
-             Registrovat →
-          </a>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${preferHtml}
+            <a href="${p.signupUrl}" target="_blank" rel="noopener"
+               style="padding:6px 12px;border:1px solid ${p.color};border-radius:8px;color:${p.color};text-decoration:none;font-size:12px;font-weight:600">
+               Registrovat →
+            </a>
+          </div>
         </div>
         <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">${safeDesc}</div>
         <div id="aip-keys-${p.key}">${keysHtml}</div>
@@ -230,7 +267,7 @@
           <input type="text" id="aip-input-${p.key}" placeholder="${p.placeholder}"
                  style="flex:1;padding:8px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:var(--text);font-family:monospace;font-size:13px">
           <button data-aip-action="add" data-aip-provider="${p.key}"
-                  style="padding:8px 16px;background:${p.color};border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer">
+                  style="${addBtnStyle}">
             + Přidat
           </button>
         </div>
@@ -238,6 +275,7 @@
       </div>
     `;
   }
+
 
   function feedback(providerKey, msg, isError = false) {
     const el = document.getElementById(`aip-feedback-${providerKey}`);
@@ -291,8 +329,11 @@
       const listEl = document.getElementById('aip-providers-list');
       const allKeys = await loadAllKeys(user.id);
 
+      // Načti xAI preferenci z localStorage
+      let _xaiPreferred = localStorage.getItem('xai_preferred') === '1';
+
       function rerender() {
-        listEl.innerHTML = PROVIDERS.map(p => buildProviderCard(p, allKeys[p.key] || [])).join('');
+        listEl.innerHTML = PROVIDERS.map(p => buildProviderCard(p, allKeys[p.key] || [], _xaiPreferred)).join('');
       }
       rerender();
 
@@ -380,6 +421,24 @@
           if (isNaN(idx)) return;
           hideKey(provider, idx);
           rerender();
+        }
+
+        if (action === 'toggle-prefer') {
+          // Toggle xAI preference
+          _xaiPreferred = !_xaiPreferred;
+          try {
+            if (_xaiPreferred) {
+              localStorage.setItem('xai_preferred', '1');
+            } else {
+              localStorage.removeItem('xai_preferred');
+            }
+          } catch (_) {}
+          // Synchronizuj s GroqClient runtime
+          if (window.GroqClient && typeof window.GroqClient.setXaiPreferred === 'function') {
+            window.GroqClient.setXaiPreferred(_xaiPreferred);
+          }
+          rerender();
+          feedback(provider, _xaiPreferred ? '⭐ xAI bude volán jako první' : '☆ xAI pojede v normálním pořadí');
         }
 
         if (action === 'copy') {

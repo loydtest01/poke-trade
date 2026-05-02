@@ -82,6 +82,18 @@
       textModel:    'mistral-small-latest',
       visionModel:  'pixtral-12b-2409',  // Mistral Pixtral vision
     },
+    xai: {
+      name:             'xAI (Grok)',
+      endpoint:         'https://api.x.ai/v1/chat/completions',
+      validateUrl:      'https://api.x.ai/v1/models',
+      textModel:        'grok-3-mini',
+      // grok-4 je nejschopnější xAI model pro vision (obrázky). Jako fallback
+      // grok-2-vision-1212 – starší dedicated vision model.
+      // xAI podporuje POUZE jpg/jpeg a png — webp automaticky konvertujeme níže.
+      visionModel:      'grok-4',
+      visionFallbacks:  ['grok-2-vision-1212'],
+      requiresJpeg:     true,   // xAI nepodporuje webp → konvertuj na jpeg
+    },
   };
 
   // DEFAULT_CHAIN: Cerebras jde první.
@@ -91,11 +103,11 @@
   // Pro CJK karty se OpenRouter (Qwen) stále posouvá na první místo.
   // Mistral je poslední — má vlastní specializovaný OCR endpoint pro CJK
   // (volá se zvlášť, ne přes chat() funkci).
-  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral'];
+  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral', 'xai'];
 
   // Providery, které mohou padnout zpět na sdílený serverový proxy (/api/groq?provider=...)
   // když uživatel nemá vlastní klíč. Groq už má přímou podporu v /api/groq.
-  const SHARED_FALLBACK_PROVIDERS = ['groq', 'cerebras', 'openrouter', 'mistral'];
+  const SHARED_FALLBACK_PROVIDERS = ['groq', 'cerebras', 'openrouter', 'mistral', 'xai'];
 
   // ── Stav modulu ──────────────────────────────────────────────────
   const _state = {
@@ -105,6 +117,7 @@
       openrouter: [],
       deepseek:   [],   // ponecháno pro načtení starých klíčů, ale nepoužívá se
       mistral:    [],
+      xai:        [],
     },
     keyIdx: {      // aktuální aktivní klíč per provider
       groq:       0,
@@ -112,10 +125,12 @@
       openrouter: 0,
       deepseek:   0,
       mistral:    0,
+      xai:        0,
     },
-    model:     'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
-    enabled:   false,
-    loaded:    false,
+    model:        'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
+    enabled:      false,
+    loaded:       false,
+    xaiPreferred: false,  // xAI jde jako první v chainu (uloženo v localStorage)
   };
 
   // ── GROQ_MODELS (zpětná kompatibilita) ────────────────────────────
@@ -156,6 +171,44 @@
     } catch { return false; }
   }
 
+  // Konvertuj webp obrázky na jpeg pro providery s requiresJpeg=true (xAI)
+  // Funguje jen v browser kontextu (canvas API). Na serveru se přeskočí.
+  async function _convertImagesForProvider(messages, provider) {
+    if (!provider.requiresJpeg) return messages;
+    if (typeof document === 'undefined' || typeof HTMLCanvasElement === 'undefined') return messages;
+
+    const converted = JSON.parse(JSON.stringify(messages));  // deep clone
+    for (const msg of converted) {
+      if (!Array.isArray(msg.content)) continue;
+      for (const part of msg.content) {
+        if (part.type !== 'image_url') continue;
+        const url = part.image_url?.url || '';
+        // Pokud je to data URL s webp → konvertuj na jpeg přes canvas
+        if (url.startsWith('data:image/webp')) {
+          try {
+            const jpegUrl = await new Promise((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas  = document.createElement('canvas');
+                canvas.width  = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', 0.92));
+              };
+              img.onerror = reject;
+              img.src = url;
+            });
+            part.image_url.url = jpegUrl;
+            console.log('[AI] webp → jpeg konverze pro xAI (canvas)');
+          } catch (convErr) {
+            console.warn('[AI] webp konverze selhala, zkouším bez konverze:', convErr);
+          }
+        }
+      }
+    }
+    return converted;
+  }
+
   // Vrať celkový počet klíčů napříč všemi providery
   function _totalKeys() {
     return Object.values(_state.keys).reduce((sum, arr) => sum + arr.length, 0);
@@ -179,9 +232,9 @@
     };
 
     try {
-      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key');
+      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key');
       if (data === null) {
-        console.warn('[AI] Sloupec mistral_key neexistuje — spusť migration_mistral_key.sql! Fallback bez něj.');
+        console.warn('[AI] Sloupec mistral_key/xai_key neexistuje — spusť migrace! Fallback bez nich.');
         data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key');
       }
 
@@ -196,10 +249,14 @@
       _state.keys.openrouter = _parseKeys(data.openrouter_key);
       _state.keys.deepseek   = _parseKeys(data.deepseek_key);
       _state.keys.mistral    = _parseKeys(data.mistral_key);   // undefined → []
+      _state.keys.xai        = _parseKeys(data.xai_key);       // undefined → []
 
       _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
       _state.enabled = (data.groq_enabled !== false);
       _state.loaded  = true;
+
+      // Načti xAI preferenci z localStorage
+      _state.xaiPreferred = localStorage.getItem('xai_preferred') === '1';
 
       const counts = Object.entries(_state.keys)
         .filter(([, arr]) => arr.length)
@@ -228,6 +285,7 @@
                   : provider === 'openrouter' ? 'openrouter_key'
                   : provider === 'deepseek' ? 'deepseek_key'
                   : provider === 'mistral' ? 'mistral_key'
+                  : provider === 'xai' ? 'xai_key'
                   : 'groq_key';
       const payload = { user_id: user.id, [field]: valid };
       if (provider === 'groq' && model) payload.groq_model = model;
@@ -316,6 +374,13 @@
 
     // Chain: pokud je vision + CJK → preferuj OpenRouter (Qwen) jako první
     let chain = options.providerChain || DEFAULT_CHAIN.slice();
+
+    // xAI preferováno → posuň na první místo v chainu
+    if (_state.xaiPreferred && _state.keys.xai && _state.keys.xai.length > 0) {
+      chain = chain.filter(p => p !== 'xai');
+      chain.unshift('xai');
+    }
+
     if (hasCjk) {
       chain = chain.filter(p => p !== 'openrouter');
       chain.unshift('openrouter');
@@ -349,12 +414,17 @@
 
       let providerDone = false;
 
+      // xAI nepodporuje webp → konvertuj na jpeg pokud je potřeba
+      const messagesForProvider = isVision && provider.requiresJpeg
+        ? await _convertImagesForProvider(messages, provider)
+        : messages;
+
       for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
         const model = modelsToTry[modelIdx];
         const isModelFallback = modelIdx > 0;
         if (providerDone) break;
 
-        const body = JSON.stringify({ model, messages, temperature, max_tokens, stream });
+        const body = JSON.stringify({ model, messages: messagesForProvider, temperature, max_tokens, stream });
 
         // Rotace klíčů v rámci providera (při 429)
         for (let attempt = 0; attempt < keys.length; attempt++) {
@@ -541,6 +611,20 @@
     return (_state.keys[provider] || []).slice();
   }
 
+  // ── xAI Preference ───────────────────────────────────────────────
+  function setXaiPreferred(val) {
+    _state.xaiPreferred = !!val;
+    try {
+      if (val) {
+        localStorage.setItem('xai_preferred', '1');
+      } else {
+        localStorage.removeItem('xai_preferred');
+      }
+    } catch (_) {}
+    console.log(`[AI] xAI preferováno: ${_state.xaiPreferred}`);
+  }
+  function isXaiPreferred() { return _state.xaiPreferred; }
+
   // ── Public API ───────────────────────────────────────────────────
   const GroqClient = {
     // Multi-provider
@@ -549,6 +633,8 @@
     // Status / info
     isReady, hasOwnKeys, isLoaded, getModel, getModels,
     getProviders, getKeyCounts, getKeysFor,
+    // xAI preference
+    setXaiPreferred, isXaiPreferred,
     // Aliasy / backward compat
     MODELS:    GROQ_MODELS,
     PROVIDERS,
