@@ -94,6 +94,17 @@
       visionFallbacks:  ['grok-2-vision-1212'],
       requiresJpeg:     true,   // xAI nepodporuje webp → konvertuj na jpeg
     },
+    gemini: {
+      name:           'Google Gemini',
+      // Gemini používá jiný URL formát — endpointBase slouží jako základ,
+      // skutečný URL se sestaví v _geminiChat(): base/model:generateContent?key=KEY
+      endpointBase:   'https://generativelanguage.googleapis.com/v1/models',
+      validateUrl:    null,   // Gemini nemá /models endpoint bez klíče — validate přes chat
+      textModel:      'gemini-1.5-flash-latest',
+      visionModel:    'gemini-1.5-flash-latest',  // stejný model dělá text i vision
+      isGemini:       true,   // příznak pro speciální API handling
+      // Free tier: 15 req/min, 100 req/den, 2 img/min — žádná platební karta
+    },
   };
 
   // DEFAULT_CHAIN: Cerebras jde první.
@@ -103,7 +114,7 @@
   // Pro CJK karty se OpenRouter (Qwen) stále posouvá na první místo.
   // Mistral je poslední — má vlastní specializovaný OCR endpoint pro CJK
   // (volá se zvlášť, ne přes chat() funkci).
-  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral', 'xai'];
+  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral', 'xai', 'gemini'];
 
   // Providery, které mohou padnout zpět na sdílený serverový proxy (/api/groq?provider=...)
   // když uživatel nemá vlastní klíč. Groq už má přímou podporu v /api/groq.
@@ -118,6 +129,7 @@
       deepseek:   [],   // ponecháno pro načtení starých klíčů, ale nepoužívá se
       mistral:    [],
       xai:        [],
+      gemini:     [],
     },
     keyIdx: {      // aktuální aktivní klíč per provider
       groq:       0,
@@ -126,11 +138,13 @@
       deepseek:   0,
       mistral:    0,
       xai:        0,
+      gemini:     0,
     },
-    model:        'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
-    enabled:      false,
-    loaded:       false,
-    xaiPreferred: false,  // xAI jde jako první v chainu (uloženo v localStorage)
+    model:           'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
+    enabled:         false,
+    loaded:          false,
+    xaiPreferred:    false,  // xAI jde jako první v chainu (uloženo v localStorage)
+    geminiPreferred: false,  // Gemini jde jako první v chainu (uloženo v localStorage)
   };
 
   // ── GROQ_MODELS (zpětná kompatibilita) ────────────────────────────
@@ -232,7 +246,11 @@
     };
 
     try {
-      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key');
+      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key,gemini_key');
+      if (data === null) {
+        // Zkus bez gemini_key (migrace zatím nespuštěna)
+        data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key');
+      }
       if (data === null) {
         console.warn('[AI] Sloupec mistral_key/xai_key neexistuje — spusť migrace! Fallback bez nich.');
         data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key');
@@ -250,13 +268,15 @@
       _state.keys.deepseek   = _parseKeys(data.deepseek_key);
       _state.keys.mistral    = _parseKeys(data.mistral_key);   // undefined → []
       _state.keys.xai        = _parseKeys(data.xai_key);       // undefined → []
+      _state.keys.gemini     = _parseKeys(data.gemini_key);    // undefined → []
 
       _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
       _state.enabled = (data.groq_enabled !== false);
       _state.loaded  = true;
 
-      // Načti xAI preferenci z localStorage
-      _state.xaiPreferred = localStorage.getItem('xai_preferred') === '1';
+      // Načti preference z localStorage
+      _state.xaiPreferred    = localStorage.getItem('xai_preferred')    === '1';
+      _state.geminiPreferred = localStorage.getItem('gemini_preferred') === '1';
 
       const counts = Object.entries(_state.keys)
         .filter(([, arr]) => arr.length)
@@ -286,6 +306,7 @@
                   : provider === 'deepseek' ? 'deepseek_key'
                   : provider === 'mistral' ? 'mistral_key'
                   : provider === 'xai' ? 'xai_key'
+                  : provider === 'gemini' ? 'gemini_key'
                   : 'groq_key';
       const payload = { user_id: user.id, [field]: valid };
       if (provider === 'groq' && model) payload.groq_model = model;
@@ -381,6 +402,12 @@
       chain.unshift('xai');
     }
 
+    // Gemini preferováno → posuň na první místo v chainu (před xAI pokud není xAI preferred)
+    if (_state.geminiPreferred && _state.keys.gemini && _state.keys.gemini.length > 0) {
+      chain = chain.filter(p => p !== 'gemini');
+      chain.unshift('gemini');
+    }
+
     if (hasCjk) {
       chain = chain.filter(p => p !== 'openrouter');
       chain.unshift('openrouter');
@@ -401,6 +428,30 @@
       // Přeskoč providera pokud nepodporuje vision (visionModel === null)
       if (isVision && !options.model && provider.visionModel === null) {
         console.log(`[AI] ${provider.name} nepodporuje vision – přeskočen`);
+        continue;
+      }
+
+      // ── Gemini: speciální API (jiný URL, jiný auth, jiný formát) ──
+      if (provider.isGemini) {
+        const geminiKeys = keys;
+        const geminiModel = options.model || (isVision ? provider.visionModel : provider.textModel);
+        for (let attempt = 0; attempt < geminiKeys.length; attempt++) {
+          const keyIdx = (_state.keyIdx['gemini'] + attempt) % geminiKeys.length;
+          const key    = geminiKeys[keyIdx];
+          try {
+            const result = await _geminiChat(key, geminiModel, messages, { max_tokens, temperature });
+            _state.keyIdx['gemini'] = keyIdx;
+            console.log(`[AI] ✓ Gemini klíč #${keyIdx + 1} (${isVision ? 'vision' : 'text'})`);
+            return result;
+          } catch (gemErr) {
+            const msg = gemErr.message || String(gemErr);
+            errors.push(`[Gemini #${keyIdx + 1}] ${msg}`);
+            // 429 → zkus další klíč; ostatní chyby → přeruš
+            if (!msg.includes('429') && !msg.includes('RATE')) break;
+            console.warn(`[AI] Gemini klíč #${keyIdx + 1} rate limited, zkouším další…`);
+          }
+        }
+        console.warn('[AI] Všechny Gemini klíče vyčerpány, zkouším další provider');
         continue;
       }
 
@@ -611,6 +662,83 @@
     return (_state.keys[provider] || []).slice();
   }
 
+  // ── Gemini API helper ────────────────────────────────────────────
+  // Gemini nepoužívá Bearer token ani OpenAI formát. Konvertuje OpenAI messages
+  // (role: user/assistant/system, content: string|array) na Gemini contents[].
+  async function _geminiChat(apiKey, model, messages, opts = {}) {
+    const { max_tokens = 1024, temperature = 0.7 } = opts;
+
+    // Konverze OpenAI messages → Gemini contents
+    const contents = [];
+    let systemInstruction = null;
+
+    for (const msg of messages) {
+      // System message → systemInstruction (Gemini 1.5 feature)
+      if (msg.role === 'system') {
+        systemInstruction = { parts: [{ text: msg.content }] };
+        continue;
+      }
+
+      const role = msg.role === 'assistant' ? 'model' : 'user';
+      const parts = [];
+
+      if (typeof msg.content === 'string') {
+        parts.push({ text: msg.content });
+      } else if (Array.isArray(msg.content)) {
+        for (const part of msg.content) {
+          if (part.type === 'text') {
+            parts.push({ text: part.text });
+          } else if (part.type === 'image_url') {
+            const url = part.image_url?.url || '';
+            if (url.startsWith('data:')) {
+              // base64 data URL → inline_data
+              const [header, data] = url.split(',');
+              const mimeType = (header.match(/data:([^;]+)/) || [])[1] || 'image/jpeg';
+              parts.push({ inline_data: { mime_type: mimeType, data } });
+            } else {
+              // Externý URL → file_data (může selhat bez Files API klíče)
+              parts.push({ file_data: { mime_type: 'image/jpeg', file_uri: url } });
+            }
+          }
+        }
+      }
+
+      if (parts.length > 0) contents.push({ role, parts });
+    }
+
+    const reqBody = {
+      contents,
+      generationConfig: {
+        maxOutputTokens: max_tokens,
+        temperature,
+      },
+    };
+    if (systemInstruction) reqBody.system_instruction = systemInstruction;
+
+    const url = `${PROVIDERS.gemini.endpointBase}/${model}:generateContent?key=${apiKey}`;
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(reqBody),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const errMsg  = errBody?.error?.message || `HTTP ${res.status}`;
+      throw new Error(errMsg);
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (text === undefined || text === null) {
+      // Blocked / no candidates
+      const reason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason || 'prázdná odpověď';
+      throw new Error(`Gemini: ${reason}`);
+    }
+    return text;
+  }
+
   // ── xAI Preference ───────────────────────────────────────────────
   function setXaiPreferred(val) {
     _state.xaiPreferred = !!val;
@@ -625,6 +753,20 @@
   }
   function isXaiPreferred() { return _state.xaiPreferred; }
 
+  // ── Gemini Preference ────────────────────────────────────────────
+  function setGeminiPreferred(val) {
+    _state.geminiPreferred = !!val;
+    try {
+      if (val) {
+        localStorage.setItem('gemini_preferred', '1');
+      } else {
+        localStorage.removeItem('gemini_preferred');
+      }
+    } catch (_) {}
+    console.log(`[AI] Gemini preferováno: ${_state.geminiPreferred}`);
+  }
+  function isGeminiPreferred() { return _state.geminiPreferred; }
+
   // ── Public API ───────────────────────────────────────────────────
   const GroqClient = {
     // Multi-provider
@@ -635,6 +777,8 @@
     getProviders, getKeyCounts, getKeysFor,
     // xAI preference
     setXaiPreferred, isXaiPreferred,
+    // Gemini preference
+    setGeminiPreferred, isGeminiPreferred,
     // Aliasy / backward compat
     MODELS:    GROQ_MODELS,
     PROVIDERS,
