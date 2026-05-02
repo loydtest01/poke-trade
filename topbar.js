@@ -1317,7 +1317,7 @@ function init() {
   try { initMistralPanel(); }   catch(e) { console.error('[topbar] initMistralPanel:', e); }
   try { initXaiPanel(); }       catch(e) { console.error('[topbar] initXaiPanel:', e); }
   try { initGeminiPanel(); }    catch(e) { console.error('[topbar] initGeminiPanel:', e); }
-  console.log('[topbar] v2 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI + Gemini)');
+  console.log('[topbar] v2.3 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI + Gemini)');
 }
 
 if (document.readyState === 'loading') {
@@ -1879,7 +1879,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   var fetchUrl = cfg2.url;
   var headers = {};
   if (providerName === 'gemini') {
-    fetchUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    fetchUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey;
     headers['Content-Type'] = 'application/json';
   } else {
     headers['Authorization'] = 'Bearer ' + apiKey;
@@ -1916,7 +1916,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   if (cfg2.testType === 'gemini') {
     // Gemini: { candidates: [{ content: { parts: [{ text: '...' }] } }] }
     var geminiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '?';
-    return { model: 'gemini-1.5-flash', time: t1 - t0, reply: geminiText.slice(0, 30) };
+    return { model: 'gemini-1.5-flash-latest', time: t1 - t0, reply: geminiText.slice(0, 30) };
   }
   if (cfg2.testType === 'auth') {
     // OpenRouter auth/key endpoint → { data: { label, usage, limit, ... } }
