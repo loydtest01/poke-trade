@@ -105,6 +105,22 @@ let tradeViewMode='img', selectedTradeIds=new Set();
 // ── Load listings ─────────────────────────────────────────────
 const MY_LISTINGS_MODE = new URLSearchParams(location.search).get('my') === '1';
 
+// Featured listingy — načítáme zvlášť přes RPC `get_featured_rotation` co aplikuje
+// fair rotation na serveru. Globální cache — refresh jen při loadListings (ne při filtru).
+let featuredListings = [];
+
+async function loadFeaturedRotation() {
+  // Skrýt featured v "Mé inzeráty" módu — tam má smysl ukázat všechny své
+  if (MY_LISTINGS_MODE) { featuredListings = []; return; }
+  try {
+    const res = await sbReq('rest/v1/rpc/get_featured_rotation', 'POST', { p_limit: 3 });
+    featuredListings = Array.isArray(res) ? res : [];
+  } catch (e) {
+    console.warn('[marketplace] Featured rotation fail:', e);
+    featuredListings = [];
+  }
+}
+
 (async function loadListings(){
   document.getElementById('listingsWrap').innerHTML =
     Array(5).fill('<div class="skeleton-row"></div>').join('');
@@ -114,7 +130,12 @@ const MY_LISTINGS_MODE = new URLSearchParams(location.search).get('my') === '1';
     ? `rest/v1/listings?user_id=eq.${userId}&select=*&order=created_at.desc&limit=200`
     : 'rest/v1/listings?status=eq.active&select=*&order=created_at.desc&limit=100';
 
-  const res = await sbReq(url, 'GET', null, MY_LISTINGS_MODE ? token : null);
+  // Featured a běžné listingy paralelně (oba potřebujeme než vyrenderujeme)
+  const [res, _] = await Promise.all([
+    sbReq(url, 'GET', null, MY_LISTINGS_MODE ? token : null),
+    loadFeaturedRotation(),
+  ]);
+
   if(!Array.isArray(res) || res._err){
     document.getElementById('listingsWrap').innerHTML =
       '<div class="empty-state"><div class="icon">⚠️</div><h3>Chyba načítání</h3></div>';
@@ -187,6 +208,8 @@ function clearAllFilters() {
   ['fPriceMin','fPriceMax'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
   // Stav karty — vše zaškrtnuto
   ['fNM','fLP','fMP','fHP'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
+  // Jazyk karty — vše zaškrtnuto
+  ['fLangEN','fLangJP','fLangCN','fLangKO','fLangDE','fLangFR','fLangIT','fLangES','fLangCZ','fLangOther'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
   // Elementy — vše zaškrtnuto
   ['fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy'].forEach(id => { const el = document.getElementById(id); if(el) el.checked = true; });
   // Vzácnost — vše zaškrtnuto
@@ -252,6 +275,16 @@ async function importFromUrl() {
 
 function updateSidebarCounts(baseListings) {
   const c = { sell:0, trade:0, NM:0, LP:0, MP:0, HP:0, cards:0, sealed:0, bulk:0 };
+  // Jazyk karty countery
+  const langC = { EN:0, JP:0, CN:0, KO:0, DE:0, FR:0, IT:0, ES:0, CZ:0, Other:0 };
+  function _detectLang(l) {
+    let raw = l.lang || (l.cards_data && l.cards_data[0] && l.cards_data[0].lang) || 'EN';
+    raw = String(raw).toUpperCase().trim();
+    if (raw === 'JA') raw = 'JP';
+    if (raw === 'ZH' || raw === 'TW') raw = 'CN';
+    return langC.hasOwnProperty(raw) ? raw : 'Other';
+  }
+
   baseListings.forEach(l => {
     if (l.allow_trade === false || l.price_czk > 0) c.sell++;
     if (l.allow_trade === true) c.trade++;
@@ -263,6 +296,8 @@ function updateSidebarCounts(baseListings) {
     if ((l.listing_type || 'card') === 'product') c.sealed++;
     else if (l.listing_type === 'bulk') c.bulk++;
     else c.cards++;
+    // Jazyk
+    langC[_detectLang(l)]++;
   });
   const upd = (id, val) => {
     const el = document.getElementById(id);
@@ -279,6 +314,17 @@ function updateSidebarCounts(baseListings) {
   upd('sbCountCards',  c.cards);
   upd('sbCountSealed', c.sealed);
   upd('sbCountBulk', c.bulk);
+  // Jazyk countery
+  upd('sbCountLangEN',    langC.EN);
+  upd('sbCountLangJP',    langC.JP);
+  upd('sbCountLangCN',    langC.CN);
+  upd('sbCountLangKO',    langC.KO);
+  upd('sbCountLangDE',    langC.DE);
+  upd('sbCountLangFR',    langC.FR);
+  upd('sbCountLangIT',    langC.IT);
+  upd('sbCountLangES',    langC.ES);
+  upd('sbCountLangCZ',    langC.CZ);
+  upd('sbCountLangOther', langC.Other);
 }
 
 // ── Filters + Sort ────────────────────────────────────────────
@@ -364,6 +410,35 @@ function applyFilters(){
   const fHP     = document.getElementById('fHP').checked;
   const prMin   = parseFloat(document.getElementById('fPriceMin').value)||0;
   const prMax   = parseFloat(document.getElementById('fPriceMax').value)||Infinity;
+
+  // ── Jazyk karty filter ─────────────────────────────────────────
+  // Listing může mít l.lang nebo l.cards_data[i].lang. Default 'EN' když není.
+  // Kanonické kódy: EN, JP, CN, KO, DE, FR, IT, ES, CZ, Other.
+  const ALL_LANG_IDS = ['fLangEN','fLangJP','fLangCN','fLangKO','fLangDE','fLangFR','fLangIT','fLangES','fLangCZ','fLangOther'];
+  const langFilters = new Set();
+  if(document.getElementById('fLangEN')?.checked)    langFilters.add('EN');
+  if(document.getElementById('fLangJP')?.checked)    langFilters.add('JP');
+  if(document.getElementById('fLangCN')?.checked)    langFilters.add('CN');
+  if(document.getElementById('fLangKO')?.checked)    langFilters.add('KO');
+  if(document.getElementById('fLangDE')?.checked)    langFilters.add('DE');
+  if(document.getElementById('fLangFR')?.checked)    langFilters.add('FR');
+  if(document.getElementById('fLangIT')?.checked)    langFilters.add('IT');
+  if(document.getElementById('fLangES')?.checked)    langFilters.add('ES');
+  if(document.getElementById('fLangCZ')?.checked)    langFilters.add('CZ');
+  if(document.getElementById('fLangOther')?.checked) langFilters.add('Other');
+  const checkedLangCount = ALL_LANG_IDS.filter(id => document.getElementById(id)?.checked).length;
+  const anyLang = checkedLangCount === 0 || checkedLangCount === ALL_LANG_IDS.length;
+
+  // Helper: extract canonical language code z listingu
+  function getListingLang(l) {
+    // Priorita: l.lang → cards_data[0].lang → 'EN' default
+    let raw = l.lang || (l.cards_data && l.cards_data[0] && l.cards_data[0].lang) || 'EN';
+    raw = String(raw).toUpperCase().trim();
+    if (raw === 'JA') raw = 'JP';
+    if (raw === 'ZH' || raw === 'TW') raw = 'CN';
+    const known = ['EN','JP','CN','KO','DE','FR','IT','ES','CZ'];
+    return known.includes(raw) ? raw : 'Other';
+  }
 
   // Element filters — všechny zaškrtnuté = zobraz vše
   const ALL_EL_IDS = ['fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy'];
@@ -453,6 +528,12 @@ function applyFilters(){
     if(!fMP && cond==='MP') return false;
     if(!fHP && (cond==='HP'||cond==='D')) return false;
 
+    // Jazyk karty
+    if(!anyLang) {
+      const lang = getListingLang(l);
+      if(!langFilters.has(lang)) return false;
+    }
+
     const price = l.price_czk||0;
     if(price > 0 && (price < prMin || price > prMax)) return false;
 
@@ -504,7 +585,44 @@ function renderListings(){
     if (cnt) cnt.textContent = `${filteredListings.length} inzerátů`;
   }
 
-  wrap.innerHTML = filteredListings.map(l => {
+  // ── FEATURED LISTINGY (Featured rotace) ────────────────────────
+  // Server-side fair rotation — `get_featured_rotation(p_limit=3)` vrátí 3 listingy
+  // seřazené podle nejdéle nezobrazovaného (viz SQL migrace pro detail).
+  // Featured se zobrazí jen pokud nejsou aktivní žádné filtry kromě defaultních
+  // (= mimo vyhledávání + rozšířený filtr by featured nedávalo smysl).
+  const featuredIds = new Set(featuredListings.map(f => f.id));
+  const hasActiveFilters = (
+    (document.getElementById('searchInput')?.value || '').trim().length > 0 ||
+    (advFilterData && Object.keys(advFilterData).length > 0)
+  );
+  const showFeatured = !MY_LISTINGS_MODE && !hasActiveFilters && featuredListings.length > 0;
+  // Filtruj featured z hlavního seznamu aby se nezdvojily
+  const mainListings = showFeatured
+    ? filteredListings.filter(l => !featuredIds.has(l.id))
+    : filteredListings;
+
+  // Featured render = stejná HTML šablona, jen wrappnutá v sekci se zlatým rámečkem
+  const renderListingHtml = (l) => _renderSingleListing(l);
+  let html = '';
+  if (showFeatured) {
+    html += '<div class="featured-section">'
+      + '<div class="featured-header">'
+      + '<span class="featured-icon">⭐</span>'
+      + '<span class="featured-title">Featured nabídky <small>VIP</small></span>'
+      + '<span class="featured-info" title="VIP členové mohou zviditelnit své inzeráty. Rotuje se aby všichni měli stejné šance.">ⓘ</span>'
+      + '</div>'
+      + '<div class="featured-listings">'
+      + featuredListings.map(renderListingHtml).join('')
+      + '</div>'
+      + '</div>';
+  }
+  html += mainListings.map(renderListingHtml).join('');
+  wrap.innerHTML = html;
+  return;
+}
+
+// Single listing renderer — extrahováno z renderListings aby šlo použít i pro featured.
+function _renderSingleListing(l) {
     const cards = l.cards_data||[];
     const first = cards[0]||{};
     const img   = l.api_image_url || first.imageUrl || first.apiSmall || first.images?.small || '';
@@ -607,7 +725,6 @@ function renderListings(){
         `}
       </div>
     </div>`;
-  }).join('');
 }
 
 function timeAgo(iso){
@@ -725,6 +842,20 @@ async function openDetail(id){
     const editBtn = document.getElementById('ownerBtnEdit');
     if (editBtn) editBtn.style.display = isReserved ? 'none' : '';
     document.getElementById('ownerBtnCancel').style.display   = isReserved ? 'none' : '';
+
+    // Featured tlačítko — jen pro VIP, jen když není rezervováno
+    const featBtn = document.getElementById('ownerBtnFeatured');
+    if (featBtn) {
+      const isVipUser = window.VIP && (window.VIP.isVIP() || window.VIP.isLifetime());
+      if (isVipUser && !isReserved) {
+        featBtn.style.display = '';
+        const isFeatured = !!l.is_featured && (!l.featured_until || new Date(l.featured_until) > new Date());
+        featBtn.textContent = isFeatured ? '⭐ Zobrazit normálně' : '⭐ Zviditelnit (VIP)';
+        featBtn.classList.toggle('is-featured', isFeatured);
+      } else {
+        featBtn.style.display = 'none';
+      }
+    }
     if (isReserved) {
       document.getElementById('ownerReservedInfo').style.display = '';
       document.getElementById('ownerReservedText').textContent = `🔒 Rezervováno pro: ${esc(l.reserved_by_username||'?')}`;
@@ -4855,6 +4986,56 @@ async function cancelListing() {
   showMktToast('🗑️ Inzerát byl zrušen.');
   showList();
   renderListings();
+}
+
+// VIP-only: zviditelní listing v "⭐ Featured" sekci marketplace.
+// Server-side RPC `toggle_featured_listing` ověří VIP status, owner check
+// a max 3 současně featured listingy per uživatel.
+async function toggleFeaturedListing() {
+  if (!currentListing) return;
+  const btn = document.getElementById('ownerBtnFeatured');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Pracuji…'; }
+  try {
+    const res = await sbReq('rest/v1/rpc/toggle_featured_listing', 'POST', {
+      p_listing_id:  currentListing.id,
+      p_max_featured: 3,
+    });
+    if (res && res.success) {
+      currentListing.is_featured     = res.featured;
+      currentListing.featured_until  = res.until || null;
+      // Aktualizuj i v hlavním seznamu (kdyby user přepnul a vrátil se zpět)
+      const listIdx = allListings.findIndex(l => l.id === currentListing.id);
+      if (listIdx >= 0) {
+        allListings[listIdx].is_featured    = res.featured;
+        allListings[listIdx].featured_until = res.until || null;
+      }
+      showMktToast(res.featured
+        ? '⭐ Listing je zviditelněn v Featured sekci! Rotuje se s ostatními VIP nabídkami.'
+        : '✓ Listing už není ve Featured sekci.');
+      // Reload featured rotace aby nový stav byl viditelný hned
+      await loadFeaturedRotation();
+      // Aktualizuj tlačítko bez plného re-renderu detailu
+      btn.classList.toggle('is-featured', res.featured);
+      btn.textContent = res.featured ? '⭐ Zobrazit normálně' : '⭐ Zviditelnit (VIP)';
+    } else {
+      const reason = res?.reason || 'unknown';
+      const msg = reason === 'limit_reached'
+        ? `⚠️ Máš už ${res.current}/${res.limit} aktivních Featured. Zruš jeden nejdřív.`
+        : reason === 'not_vip'
+          ? '⚠️ Featured je VIP funkce. Pozvi 1 kámoše a získáš VIP zdarma!'
+          : reason === 'not_owner'
+            ? '⚠️ Nejsi vlastník tohoto inzerátu.'
+            : `⚠️ Chyba: ${reason}`;
+      showMktToast(msg);
+      btn.textContent = currentListing.is_featured ? '⭐ Zobrazit normálně' : '⭐ Zviditelnit (VIP)';
+    }
+  } catch (e) {
+    console.error('[toggleFeaturedListing]', e);
+    showMktToast('⚠️ Chyba spojení. Zkus to znovu.');
+    btn.textContent = currentListing.is_featured ? '⭐ Zobrazit normálně' : '⭐ Zviditelnit (VIP)';
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // Seller potvrdí prodej rezervované karty → vytvoří transakci

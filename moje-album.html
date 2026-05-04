@@ -2677,6 +2677,7 @@ body { background: #06040c; overflow-x: hidden; }
 </div>
 
 <script src="app.js"></script>
+<script src="vip-referral.js"></script>
 <script>
 // ── TCG Proxy Helper ─────────────────────────────────────────────
 // Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
@@ -5148,6 +5149,26 @@ async function fetchMissingPricesOnly() {
         c.pTrend          = cm.trendPrice || 0;
         c.cardmarketUrl   = card.cardmarket?.url || '';
         c.pricesFetchedAt = new Date().toISOString();
+
+        // TCGplayer fallback — pokud Cardmarket nemá ceny, zkus TCGplayer (USD → EUR)
+        // Časté u JP karet a promo edicí. pokemontcg.io vrací card.tcgplayer.prices.
+        if (c.p30d <= 0 && c.pTrend <= 0 && card.tcgplayer?.prices) {
+          const tp = card.tcgplayer.prices;
+          const variants = ['holofoil', 'reverseHolofoil', '1stEditionHolofoil', 'normal',
+                            'unlimitedHolofoil', '1stEditionNormal'];
+          let tpMarket = 0, tpLow = 0;
+          for (const v of variants) {
+            if (tp[v]?.market > 0) { tpMarket = tp[v].market; tpLow = tp[v].low || 0; break; }
+          }
+          if (tpMarket > 0) {
+            const usdToEur = (typeof window !== 'undefined' && window.USD_EUR_RATE) ? window.USD_EUR_RATE : 0.93;
+            c.pMin   = tpLow * usdToEur;
+            c.pTrend = tpMarket * usdToEur;
+            c.p30d   = tpMarket * usdToEur;
+            c.priceSource = 'tcgplayer';
+          }
+        }
+
         if (!c.apiSmall && card.images?.small) { c.apiSmall = card.images.small; c.imageUrl = card.images.small; }
         if (!c.apiLarge && card.images?.large) c.apiLarge = card.images.large;
         await saveCardUpdates(c);
@@ -5628,6 +5649,31 @@ async function fetchLivePrices(c, el) {
     c.setCode       = card.set?.ptcgoCode || c.setCode || '';
     c.hp            = card.hp || c.hp || '';
     c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
+
+    // ── TCGplayer fallback ───────────────────────────────────────
+    // Když Cardmarket nemá ceny (časté u JP karet, novějších promo nebo méně populárních),
+    // zkus TCGplayer (americký trh — USD ceny). pokemontcg.io vrací:
+    //   card.tcgplayer.prices.{normal|holofoil|reverseHolofoil|1stEditionHolofoil|...}.{market|low|mid|high}
+    // Hodnoty USD → konvertujeme na EUR (kurz 1 USD ≈ 0.93 EUR k jaru 2026).
+    if (c.p30d <= 0 && c.pTrend <= 0 && card.tcgplayer?.prices) {
+      const tp = card.tcgplayer.prices;
+      // Vyber první variantu s nenulovou market cenou (preferuj holofoil > reverse > normal)
+      const variants = ['holofoil', 'reverseHolofoil', '1stEditionHolofoil', 'normal',
+                        'unlimitedHolofoil', '1stEditionNormal'];
+      let tpMarket = 0, tpLow = 0;
+      for (const v of variants) {
+        if (tp[v]?.market > 0) { tpMarket = tp[v].market; tpLow = tp[v].low || 0; break; }
+      }
+      if (tpMarket > 0) {
+        // USD → EUR kurz (možno přepsat přes window.USD_EUR_RATE)
+        const usdToEur = (typeof window !== 'undefined' && window.USD_EUR_RATE) ? window.USD_EUR_RATE : 0.93;
+        c.pMin   = tpLow * usdToEur;
+        c.pTrend = tpMarket * usdToEur;
+        c.p30d   = tpMarket * usdToEur;
+        c.priceSource = 'tcgplayer';
+        console.log(`[fetchLivePrices] Cardmarket prázdný → použit TCGplayer pro ${c.name} (#${c.number}): $${tpMarket.toFixed(2)} → €${(tpMarket * usdToEur).toFixed(2)}`);
+      }
+    }
     if (c.pTrend > 0 || c.pMin > 0) {
       renderPrices(c, el);
       // Ulož ceny do Supabase
@@ -9477,6 +9523,16 @@ async function cbAddCardDirect(encodedData) {
 
     closeCardBrowser();
     _cbToast(`✅ ${card.name} přidána!`);
+
+    // ── Referral qualification trigger ────────────────────────────
+    // Pokud user má pending referral event a teď nahrál 5+ karet,
+    // server přepne event na 'rewarded' a referrerovi přidá +30 dní VIP.
+    // Volání je bezpečné spustit při každém pushe (server check je idempotentní).
+    if (window.VIP && typeof window.VIP.checkReferralQualification === 'function') {
+      window.VIP.checkReferralQualification(allCards.length).catch(function(e) {
+        console.warn('[VIP] Referral check fail:', e);
+      });
+    }
 
   } catch(e) { alert('Chyba při přidávání karty: ' + e.message); }
   if (addMsg) addMsg.style.display = 'none';

@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Admin · PokéTrade</title>
+<meta name="robots" content="noindex,nofollow">
+<style>
+:root {
+  --bg: #0a0608;
+  --card: #14101a;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0ece4;
+  --muted: #9ca3af;
+  --yellow: #f5c842;
+  --red: #ef4444;
+  --green: #4ade80;
+  --orange: #fb923c;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px;
+}
+.adm-wrap { max-width: 1280px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.adm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
+}
+.adm-header h1 { margin: 0; font-size: 1.4rem; color: var(--yellow); }
+.adm-header .user { color: var(--muted); font-size: .85rem; }
+
+.adm-stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.adm-stat {
+  flex: 1; min-width: 160px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem;
+}
+.adm-stat-num { font-size: 1.8rem; font-weight: 700; color: var(--yellow); }
+.adm-stat-num.red { color: var(--red); }
+.adm-stat-num.green { color: var(--green); }
+.adm-stat-num.orange { color: var(--orange); }
+.adm-stat-label { font-size: .78rem; color: var(--muted); margin-top: .15rem; }
+
+.adm-tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.adm-tab {
+  background: none; border: none; color: var(--muted); padding: .8rem 1.2rem;
+  cursor: pointer; font-size: .88rem; border-bottom: 2px solid transparent;
+  transition: all .15s;
+}
+.adm-tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+.adm-tab:hover { color: var(--text); }
+
+.adm-section { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; overflow-x: auto; }
+.adm-section h3 { margin: 0 0 .8rem; font-size: .95rem; color: #d1d5db; }
+
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { padding: .6rem .8rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
+tbody tr:hover { background: rgba(255,255,255,.02); }
+
+.badge { display: inline-block; padding: .15rem .5rem; border-radius: 4px; font-size: .7rem; font-weight: 600; }
+.badge-low    { background: rgba(156,163,175,.2); color: var(--muted); }
+.badge-medium { background: rgba(251,146,60,.18); color: var(--orange); }
+.badge-high   { background: rgba(239,68,68,.18); color: var(--red); }
+.badge-ok     { background: rgba(74,222,128,.18); color: var(--green); }
+.badge-vip    { background: rgba(245,200,66,.15); color: var(--yellow); }
+
+.btn {
+  background: rgba(245,200,66,.12); border: 1px solid rgba(245,200,66,.3);
+  color: var(--yellow); padding: .4rem .9rem; border-radius: 7px; cursor: pointer;
+  font-size: .78rem; font-weight: 500;
+}
+.btn:hover { background: rgba(245,200,66,.22); }
+.btn-sm { padding: .25rem .65rem; font-size: .73rem; }
+.btn-danger { background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.3); color: var(--red); }
+.btn-danger:hover { background: rgba(239,68,68,.22); }
+
+.empty { text-align: center; color: var(--muted); padding: 2rem; font-size: .85rem; }
+.loading { text-align: center; color: var(--muted); padding: 2rem; }
+.error { color: var(--red); padding: 1rem; background: rgba(239,68,68,.08); border-radius: 8px; }
+
+details summary { cursor: pointer; padding: .3rem 0; color: var(--muted); }
+details pre { background: rgba(0,0,0,.4); padding: .6rem; border-radius: 6px; font-size: .72rem; overflow-x: auto; }
+
+.fp-cluster {
+  background: rgba(239,68,68,.05); border-left: 3px solid var(--red); padding: .8rem 1rem;
+  margin: .6rem 0; border-radius: 4px;
+}
+.fp-cluster code { background: rgba(0,0,0,.4); padding: .15rem .4rem; border-radius: 4px; font-size: .75rem; }
+.fp-account { display: flex; justify-content: space-between; padding: .3rem 0; font-size: .82rem; }
+
+#tabs > div { display: none; }
+#tabs > div.active { display: block; }
+
+/* VIP tab — suggestion list pro vyhledávání uživatelů */
+.suggestion-row {
+  padding: .5rem .75rem;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: .25rem;
+  cursor: pointer;
+  font-size: .82rem;
+  transition: background .15s;
+}
+.suggestion-row:hover {
+  background: rgba(245,200,66,.08);
+  border-color: rgba(245,200,66,.3);
+}
+
+.refresh-bar { display: flex; gap: .5rem; align-items: center; margin-bottom: .8rem; }
+.refresh-bar input[type="checkbox"] { accent-color: var(--yellow); }
+</style>
+</head>
+<body>
+<div class="adm-wrap">
+  <div class="adm-header">
+    <h1>🛡️ Admin Panel — Podezřelé chování</h1>
+    <div class="user">
+      <span id="adminEmail">…</span> ·
+      <a href="index.html" style="color: var(--muted)">← Zpět</a>
+    </div>
+  </div>
+
+  <div id="authError" class="error" style="display:none">
+    Tento panel je dostupný jen pro administrátory. Pokud jsi admin a vidíš tuto chybu, ujisti se že jsi přihlášen.
+  </div>
+
+  <div id="content" style="display:none">
+    <!-- Stats overview -->
+    <div class="adm-stats">
+      <div class="adm-stat">
+        <div class="adm-stat-num red" id="stUnreviewed">–</div>
+        <div class="adm-stat-label">⚠️ Neprozkoumáno</div>
+      </div>
+      <div class="adm-stat">
+        <div class="adm-stat-num orange" id="stLast24">–</div>
+        <div class="adm-stat-label">📅 Posl. 24h</div>
+      </div>
+      <div class="adm-stat">
+        <div class="adm-stat-num" id="stTotal">–</div>
+        <div class="adm-stat-label">📊 Celkem eventů</div>
+      </div>
+      <div class="adm-stat">
+        <div class="adm-stat-num orange" id="stDupFp">–</div>
+        <div class="adm-stat-label">👯 Duplicitní FP</div>
+      </div>
+      <div class="adm-stat">
+        <div class="adm-stat-num green" id="stLifetime">–</div>
+        <div class="adm-stat-label">⭐ Lifetime VIP <span id="stLifetimeRem" style="font-size:.7em;opacity:.7"></span></div>
+      </div>
+    </div>
+
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="events">⚠️ Události</button>
+      <button class="adm-tab" data-tab="clusters">👯 FP klastry</button>
+      <button class="adm-tab" data-tab="signups">📅 Posl. registrace</button>
+      <button class="adm-tab" data-tab="vips">⭐ VIP správa</button>
+    </div>
+
+    <div id="tabs">
+      <!-- TAB: Events -->
+      <div id="tab-events" class="active">
+        <div class="adm-section">
+          <h3>Nedávné podezřelé události</h3>
+          <div class="refresh-bar">
+            <label><input type="checkbox" id="filterUnreviewed" checked> Jen neprozkoumáno</label>
+            <button class="btn btn-sm" onclick="loadEvents()">🔄 Načíst</button>
+          </div>
+          <div id="eventsTable">
+            <div class="loading">Načítám…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: FP Clusters -->
+      <div id="tab-clusters">
+        <div class="adm-section">
+          <h3>👯 Účty se stejným browser fingerprint</h3>
+          <p style="color: var(--muted); font-size: .82rem; margin: 0 0 1rem;">
+            Skupiny účtů se shodným zařízením/browserem. <strong>Pozor</strong> — sdílené počítače
+            (rodina, práce) jsou taky cluster, takže před banem ověř další signály
+            (registrační čas, IP od jiného poskytovatele, atd.).
+          </p>
+          <button class="btn btn-sm" onclick="loadClusters()">🔄 Načíst</button>
+          <div id="clustersTable" style="margin-top: .8rem"><div class="loading">Načítám…</div></div>
+        </div>
+      </div>
+
+      <!-- TAB: Recent signups -->
+      <div id="tab-signups">
+        <div class="adm-section">
+          <h3>📅 Posledních 50 registrací</h3>
+          <button class="btn btn-sm" onclick="loadSignups()">🔄 Načíst</button>
+          <div id="signupsTable" style="margin-top: .8rem"><div class="loading">Načítám…</div></div>
+        </div>
+      </div>
+
+      <!-- TAB: VIP správa -->
+      <div id="tab-vips">
+        <!-- Section 1: Aktuální VIP seznam se spotřebou -->
+        <div class="adm-section">
+          <h3>⭐ Aktivní VIP účty <span style="font-weight:400;color:var(--muted);font-size:.85em">(seřazeno podle spotřeby za 7 dní)</span></h3>
+          <div class="refresh-bar">
+            <input type="text" id="vipSearchInput" placeholder="🔍 Hledat email nebo username…"
+                   style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.85rem;flex:1;max-width:300px"
+                   oninput="onVipSearchInput(event)">
+            <button class="btn btn-sm" onclick="loadVips()">🔄 Načíst</button>
+          </div>
+          <div id="vipsTable" style="margin-top: .8rem"><div class="loading">Načítám…</div></div>
+        </div>
+
+        <!-- Section 2: Manuální grant -->
+        <div class="adm-section">
+          <h3>🎁 Udělit VIP manuálně</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 1rem">
+            Zadej email nebo username uživatele, vyber dobu (nebo lifetime). Pokud uživatel
+            už je VIP, doba se přičte k jeho aktuálnímu vip_until (extend, ne reset).
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <input type="text" id="grantUserInput" placeholder="email@example.com nebo username"
+                   style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .85rem;border-radius:7px;font-size:.85rem;flex:1;min-width:240px"
+                   oninput="onGrantSearch(event)">
+            <select id="grantDays" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .85rem;border-radius:7px;font-size:.85rem">
+              <option value="7">+ 7 dní</option>
+              <option value="14">+ 14 dní</option>
+              <option value="30" selected>+ 30 dní</option>
+              <option value="90">+ 90 dní (kvartál)</option>
+              <option value="365">+ 365 dní (rok)</option>
+              <option value="-1">⭐ Lifetime (navždy)</option>
+            </select>
+            <button class="btn" onclick="grantVip()">✅ Udělit</button>
+          </div>
+          <div id="grantSuggestions" style="margin-top:.5rem;max-height:200px;overflow-y:auto"></div>
+          <div id="grantResult" style="margin-top:.8rem;display:none"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const ADMIN_EMAILS = ['papez.ondrej@gmail.com', 'loydtest@gmail.com'];
+// Sloučeno do v1 catch-all routeru — uvolnilo to slot na Vercelu.
+// URL: /api/v1/admin/suspicious?action=...&t=<token>
+const API_BASE = '/api/v1/admin/suspicious';
+
+let _token = null;
+
+async function init() {
+  // Auth check
+  _token = localStorage.getItem('sb_token');
+  let user = null;
+  try {
+    const raw = localStorage.getItem('sb_user');
+    if (raw) user = JSON.parse(raw);
+  } catch (e) {}
+
+  const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+
+  if (!isAdmin) {
+    document.getElementById('authError').style.display = 'block';
+    return;
+  }
+
+  document.getElementById('adminEmail').textContent = user.email;
+  document.getElementById('content').style.display = 'block';
+
+  // Tabs handler
+  document.querySelectorAll('.adm-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.adm-tab').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('#tabs > div').forEach(x => x.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+      // Lazy load
+      if (t.dataset.tab === 'clusters') loadClusters();
+      else if (t.dataset.tab === 'signups') loadSignups();
+      else if (t.dataset.tab === 'vips') loadVips();
+    });
+  });
+
+  // Load initial
+  await Promise.all([loadStats(), loadEvents()]);
+}
+
+async function api(action, params = {}, body = null) {
+  const qs = new URLSearchParams({ t: _token, action, ...params });
+  const opts = body
+    ? {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` },
+        body: JSON.stringify(body),
+      }
+    : {};
+  const r = await fetch(`${API_BASE}?${qs}`, opts);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function loadStats() {
+  try {
+    const s = await api('stats');
+    document.getElementById('stUnreviewed').textContent = s.unreviewed || 0;
+    document.getElementById('stLast24').textContent     = s.last24h || 0;
+    document.getElementById('stTotal').textContent      = s.total || 0;
+    document.getElementById('stDupFp').textContent      = s.duplicateFingerprints || 0;
+    // Lifetime status (paralelně, neblokuje hlavní stats)
+    api('lifetime_status').then(ls => {
+      const granted = ls.granted || 0, total = ls.total || 20, rem = ls.remaining || 0;
+      document.getElementById('stLifetime').textContent     = `${granted}/${total}`;
+      document.getElementById('stLifetimeRem').textContent  = rem > 0 ? `(${rem} volných)` : '(plno)';
+    }).catch(()=>{});
+  } catch (e) {
+    console.error('Stats error:', e);
+  }
+}
+
+// ═══ VIP MANAGEMENT ═══════════════════════════════════════════════
+let _vipSearchTimer = null;
+let _grantSearchTimer = null;
+
+function onVipSearchInput(e) {
+  clearTimeout(_vipSearchTimer);
+  _vipSearchTimer = setTimeout(() => loadVips(e.target.value), 300);
+}
+
+async function loadVips(query = '') {
+  const cont = document.getElementById('vipsTable');
+  cont.innerHTML = '<div class="loading">Načítám…</div>';
+  try {
+    const data = await api('vip_list', query ? { q: query } : {});
+    const vips = data.vips || [];
+    if (!vips.length) {
+      cont.innerHTML = '<div class="empty">Žádní VIP nenalezeni.</div>';
+      return;
+    }
+
+    let html = '<table><thead><tr>'
+      + '<th>Email / Username</th>'
+      + '<th>Zdroj</th>'
+      + '<th>Platí do</th>'
+      + '<th title="Spotřeba dnes">Dnes</th>'
+      + '<th title="Spotřeba za 7 dní">7d</th>'
+      + '<th title="Spotřeba celkem">Total</th>'
+      + '<th>Doporučil</th>'
+      + '<th>Akce</th>'
+      + '</tr></thead><tbody>';
+
+    vips.forEach(v => {
+      const until = v.is_lifetime ? '<span class="badge badge-vip">⭐ LIFETIME</span>'
+                                  : new Date(v.vip_until).toLocaleDateString('cs-CZ');
+      const sourceLabel = ({
+        'whitelist':         '<span class="badge badge-vip">whitelist</span>',
+        'lifetime_first_10': '<span class="badge badge-vip">prvních 10</span>',
+        'first_100':         '<span class="badge badge-ok">prvních 100</span>',
+        'standard':          '<span class="badge badge-low">14 dní</span>',
+        'extended':          '<span class="badge badge-ok">referral+</span>',
+        'manual':            '<span class="badge badge-medium">manuálně</span>',
+      })[v.vip_source] || `<span class="badge badge-low">${escapeHtml(v.vip_source || '')}</span>`;
+
+      const today = (v.search_today || 0) + (v.fake_today || 0);
+      const week  = v.requests_7d || 0;
+      const total = v.requests_total || 0;
+
+      html += `<tr>
+        <td><strong>${escapeHtml(v.username || '–')}</strong><br><small style="color:var(--muted)">${escapeHtml(v.email || '')}</small></td>
+        <td>${sourceLabel}</td>
+        <td>${until}</td>
+        <td>${today}</td>
+        <td><strong>${week}</strong></td>
+        <td>${total}</td>
+        <td>${v.referrals_count || 0}</td>
+        <td>
+          <button class="btn btn-sm" onclick="extendVipPrompt('${v.id}', '${escapeHtml(v.email)}')">+ Prodloužit</button>
+          <button class="btn btn-sm btn-danger" onclick="revokeVipConfirm('${v.id}', '${escapeHtml(v.email)}')">Odebrat</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function extendVipPrompt(userId, email) {
+  const days = prompt(`Kolik dní přidat ${email}?\n\n(Zadej -1 pro lifetime)`, '30');
+  if (days === null) return;
+  const d = parseInt(days);
+  if (isNaN(d)) { alert('Neplatné číslo'); return; }
+  try {
+    const r = await api('vip_grant', {}, { user_id: userId, days: d, reason: 'admin_extend' });
+    if (r.success) {
+      alert(d === -1 ? `✅ ${email} má teď LIFETIME VIP` : `✅ Přidáno ${d} dní pro ${email}`);
+      await loadVips(document.getElementById('vipSearchInput').value);
+      await loadStats();
+    } else {
+      alert('Chyba: ' + (r.reason || 'unknown'));
+    }
+  } catch (e) {
+    alert('Chyba: ' + e.message);
+  }
+}
+
+async function revokeVipConfirm(userId, email) {
+  if (!confirm(`Opravdu odebrat VIP od ${email}?\n\nPokud byl whitelist, smaže se i z vip_users.`)) return;
+  try {
+    const r = await api('vip_revoke', {}, { user_id: userId });
+    if (r.success) {
+      const wl = r.was_whitelist ? '\n(byl odebrán i z whitelistu)' : '';
+      alert(`✅ VIP odebráno od ${email}${wl}`);
+      await loadVips(document.getElementById('vipSearchInput').value);
+      await loadStats();
+    } else {
+      alert('Chyba: ' + (r.reason || 'unknown'));
+    }
+  } catch (e) {
+    alert('Chyba: ' + e.message);
+  }
+}
+
+function onGrantSearch(e) {
+  clearTimeout(_grantSearchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) {
+    document.getElementById('grantSuggestions').innerHTML = '';
+    return;
+  }
+  _grantSearchTimer = setTimeout(async () => {
+    try {
+      const data = await api('search_user', { q });
+      const users = data.users || [];
+      const div = document.getElementById('grantSuggestions');
+      if (!users.length) {
+        div.innerHTML = '<small style="color:var(--muted)">Žádný uživatel nenalezen.</small>';
+        return;
+      }
+      div.innerHTML = users.map(u => {
+        const isVip = u.vip_until && new Date(u.vip_until) > new Date();
+        const status = isVip
+          ? `<span class="badge badge-vip">VIP do ${new Date(u.vip_until).toLocaleDateString('cs-CZ')}</span>`
+          : '<span class="badge badge-low">Není VIP</span>';
+        return `<div class="suggestion-row" onclick="selectGrantUser('${escapeHtml(u.email)}')">
+          <strong>${escapeHtml(u.username)}</strong> · <small>${escapeHtml(u.email)}</small> · ${status}
+        </div>`;
+      }).join('');
+    } catch (e) {
+      console.error('search_user error:', e);
+    }
+  }, 250);
+}
+
+function selectGrantUser(email) {
+  document.getElementById('grantUserInput').value = email;
+  document.getElementById('grantSuggestions').innerHTML = '';
+}
+
+async function grantVip() {
+  const input = document.getElementById('grantUserInput').value.trim();
+  if (!input) { alert('Zadej email nebo username'); return; }
+  const days = parseInt(document.getElementById('grantDays').value);
+  const result = document.getElementById('grantResult');
+  result.style.display = 'block';
+  result.innerHTML = '<div class="loading">Pracuji…</div>';
+  try {
+    // Pokud obsahuje @ → email, jinak hledej user_id přes search
+    let body;
+    if (input.includes('@')) {
+      body = { email: input, days, reason: 'admin_manual' };
+    } else {
+      // Najdi user_id přes username
+      const sr = await api('search_user', { q: input });
+      const u = (sr.users || []).find(x => x.username.toLowerCase() === input.toLowerCase());
+      if (!u) { result.innerHTML = '<div class="error">Username nenalezen.</div>'; return; }
+      body = { user_id: u.id, days, reason: 'admin_manual' };
+    }
+    const r = await api('vip_grant', {}, body);
+    if (r.success) {
+      const labelDays = days === -1 ? 'LIFETIME' : `${days} dní`;
+      result.innerHTML = `<div class="badge badge-ok" style="display:block;padding:.6rem .8rem">
+        ✅ VIP uděleno (${labelDays}) pro ${escapeHtml(r.email || input)}<br>
+        <small>Platí do: ${r.lifetime ? 'NAVŽDY' : new Date(r.until).toLocaleString('cs-CZ')}</small>
+      </div>`;
+      document.getElementById('grantUserInput').value = '';
+      await loadVips();
+      await loadStats();
+    } else {
+      result.innerHTML = `<div class="error">Chyba: ${r.reason || 'unknown'}</div>`;
+    }
+  } catch (e) {
+    result.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function loadEvents() {
+  const cont = document.getElementById('eventsTable');
+  cont.innerHTML = '<div class="loading">Načítám…</div>';
+  const onlyUnreviewed = document.getElementById('filterUnreviewed').checked;
+
+  try {
+    const data = await api('list', onlyUnreviewed ? { unreviewed: '1' } : {});
+    const events = data.events || [];
+
+    if (events.length === 0) {
+      cont.innerHTML = '<div class="empty">Žádné události. 🎉</div>';
+      return;
+    }
+
+    let html = '<table><thead><tr><th>Čas</th><th>Severity</th><th>Typ</th><th>Uživatel</th><th>Detail</th><th>Akce</th></tr></thead><tbody>';
+    events.forEach(ev => {
+      const time  = new Date(ev.created_at).toLocaleString('cs-CZ');
+      const sev   = ev.severity || 'low';
+      const user  = ev.profiles ? `${ev.profiles.username || '–'}<br><small style="color:var(--muted)">${ev.profiles.email || ''}</small>` : '<em>—</em>';
+      const detail = `<details><summary>JSON</summary><pre>${escapeHtml(JSON.stringify(ev.details || {}, null, 2))}</pre></details>`;
+      const reviewed = ev.reviewed ? '<span class="badge badge-ok">✓ Zkontrolováno</span>' : `<button class="btn btn-sm" onclick="markReviewed('${ev.id}')">Označit jako OK</button>`;
+      html += `<tr>
+        <td>${time}</td>
+        <td><span class="badge badge-${sev}">${sev}</span></td>
+        <td>${escapeHtml(ev.event_type)}</td>
+        <td>${user}</td>
+        <td>${detail}</td>
+        <td>${reviewed}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function markReviewed(id) {
+  try {
+    await api('review', { id });
+    await loadEvents();
+    await loadStats();
+  } catch (e) {
+    alert('Chyba: ' + e.message);
+  }
+}
+
+async function loadClusters() {
+  const cont = document.getElementById('clustersTable');
+  cont.innerHTML = '<div class="loading">Načítám…</div>';
+
+  try {
+    const data = await api('fingerprint_clusters');
+    const clusters = data.clusters || [];
+
+    if (clusters.length === 0) {
+      cont.innerHTML = '<div class="empty">Žádné duplicitní fingerprinty. 🎉</div>';
+      return;
+    }
+
+    let html = '';
+    clusters.forEach(c => {
+      html += `<div class="fp-cluster">
+        <strong>${c.count} účtů</strong> · FP: <code>${c.fp.slice(0, 16)}…</code>`;
+      c.accounts.forEach(acc => {
+        const isVip = acc.vip_until && new Date(acc.vip_until) > new Date();
+        const banned = acc.is_banned ? '<span class="badge badge-high">BAN</span>' : '';
+        html += `<div class="fp-account">
+          <span><strong>${escapeHtml(acc.username || '–')}</strong> <small style="color:var(--muted)">${escapeHtml(acc.email || '')}</small></span>
+          <span>${banned} ${isVip ? '<span class="badge badge-vip">VIP</span>' : ''} <small>${new Date(acc.created_at).toLocaleDateString('cs-CZ')}</small></span>
+        </div>`;
+      });
+      html += '</div>';
+    });
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;
+  }
+}
+
+async function loadSignups() {
+  const cont = document.getElementById('signupsTable');
+  cont.innerHTML = '<div class="loading">Načítám…</div>';
+
+  try {
+    const data = await api('recent_signups');
+    const sus = data.signups || [];
+
+    if (sus.length === 0) { cont.innerHTML = '<div class="empty">Nic.</div>'; return; }
+
+    let html = '<table><thead><tr><th>Vytvořeno</th><th>Uživatel</th><th>Email</th><th>VIP</th><th>Skóre</th><th>Status</th></tr></thead><tbody>';
+    sus.forEach(s => {
+      const isVip = s.vip_until && new Date(s.vip_until) > new Date();
+      const score = s.suspicious_score || 0;
+      const scoreColor = score >= 50 ? 'red' : score >= 20 ? 'orange' : '';
+      html += `<tr>
+        <td>${new Date(s.created_at).toLocaleString('cs-CZ')}</td>
+        <td>${escapeHtml(s.username || '')}</td>
+        <td>${escapeHtml(s.email || '')}</td>
+        <td>${isVip ? `<span class="badge badge-vip">${s.vip_source || 'VIP'}</span>` : '–'}</td>
+        <td style="color: var(--${scoreColor || 'muted'})">${score}</td>
+        <td>${s.is_banned ? '<span class="badge badge-high">BAN</span>' : '<span class="badge badge-ok">OK</span>'}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch (e) {
+    cont.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;
+  }
+}
+
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

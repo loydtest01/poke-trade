@@ -857,11 +857,10 @@ var SETTINGS_HTML = [
   '              <span id="xaiStatusText">Načítám…</span>',
   '            </div>',
   '            <div class="groq-info-box">',
-  '              <strong>🔮 Grok 4 Vision — nejlepší pro rozpoznávání karet</strong><br>',
-  '              Grok 4 podporuje vision, čte i špatně vyfocené karty a japonské znaky. Tlačítko Preferovat zařadí xAI před Cerebras a ostatní poskytovatele jako první volbu při skenování.',
-  '              <a href="https://console.x.ai" target="_blank" rel="noopener">Získat klíč →</a>',
+  '              <strong>💡 xAI Grok — pro budoucí chat funkce</strong><br>',
+  '              Grok-2-vision je horší než Llama 4 Scout pro rozpoznávání Pokémon karet a Grok 4 Vision je drahý. Pro karty doporučujeme Cerebras / Groq / Mistral (vše zdarma) — xAI klíč si zde můžeš nechat pro <strong>chat funkce</strong> co teprve plánujeme. Máš $150/měs free credits přes <em>data sharing program</em> v xAI konzoli.',
+  '              <a href="https://console.x.ai" target="_blank" rel="noopener">Spravovat klíče →</a>',
   '            </div>',
-  '            <button class="xai-prefer-btn" id="xaiPreferBtn" type="button" onclick="xaiTogglePrefer()">☆ Preferovat — použít jako první</button>',
   '            <label class="groq-label-sm" style="margin-top:10px">xAI API klíče</label>',
   '            <div id="xaiKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
   '            <div class="groq-key-row">',
@@ -908,6 +907,41 @@ var SETTINGS_HTML = [
   '            </div>',
   '            <div class="groq-fb" id="geminiFeedback"></div>',
   '            <div id="geminiTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
+  '          </div>',
+  '        </div>',
+  '      </div>',
+  '      <!-- Cloudflare Workers AI -->',
+  '      <div class="sdrop-acc-item" id="sdAccCloudflare">',
+  '        <div class="sdrop-acc-header" onclick="toggleSdAcc(\'sdAccCloudflare\')">',
+  '          <div class="sdrop-acc-left"><span class="sdrop-acc-icon">☁️</span>',
+  '            <div><div class="sdrop-acc-title">Cloudflare Workers AI</div><div class="sdrop-acc-sub" id="accCloudflareSub">Načítám…</div></div>',
+  '          </div><span class="sdrop-acc-chevron">▼</span>',
+  '        </div>',
+  '        <div class="sdrop-acc-body sdrop-acc-body-groq">',
+  '          <div class="sdrop-acc-inner">',
+  '            <div class="groq-status" id="cloudflareStatus">',
+  '              <span class="groq-dot loading" id="cloudflareDot"></span>',
+  '              <span id="cloudflareStatusText">Načítám…</span>',
+  '            </div>',
+  '            <div class="groq-info-box">',
+  '              <strong>☁️ Cloudflare Llama 3.2 11B Vision — 10 000 Neuronů/den zdarma</strong><br>',
+  '              Žádná kreditka. ~1000+ scanů karet denně. Vyžaduje <strong>Account ID + API Token</strong> (oba najdeš v Cloudflare dashboard).<br>',
+  '              <strong>Formát klíče:</strong> <code style="background:rgba(0,0,0,.4);padding:1px 5px;border-radius:3px;font-size:11px">account_id:token</code><br>',
+  '              <strong>Důležité:</strong> Při prvním použití Llama Vision modelu Cloudflare vyžaduje souhlas s <a href="https://www.llama.com/llama3/license/" target="_blank" rel="noopener">Meta License</a> — potvrď v Cloudflare dashboardu.',
+  '              <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" rel="noopener" style="display:block;margin-top:6px">Vytvořit API Token →</a>',
+  '            </div>',
+  '            <label class="groq-label-sm" style="margin-top:10px">Cloudflare klíče</label>',
+  '            <div id="cloudflareKeysList" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px"></div>',
+  '            <div class="groq-key-row">',
+  '              <input type="text" id="cloudflareKeyInput" class="groq-inp" placeholder="account_id:token (oba spojené dvojtečkou)" autocomplete="off" spellcheck="false">',
+  '              <button class="btn-groq-add" id="cloudflareAddBtn" type="button">+ Přidat</button>',
+  '            </div>',
+  '            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">',
+  '              <button class="btn-groq-del-all" id="cloudflareDeleteBtn" type="button" style="display:none">🗑 Odebrat vše</button>',
+  '              <button class="btn-groq-add" id="cloudflareTestBtn" type="button" style="display:none">⚡ Otestovat</button>',
+  '            </div>',
+  '            <div class="groq-fb" id="cloudflareFeedback"></div>',
+  '            <div id="cloudflareTestResult" style="display:none;margin-top:10px;padding:10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:12px;white-space:pre-wrap;max-height:140px;overflow:auto"></div>',
   '          </div>',
   '        </div>',
   '      </div>',
@@ -1003,7 +1037,23 @@ function _spUpdateLangUI(lang) {
 /* ── Globální funkce pro settings panel ── */
 window.toggleSettingsDrop = function () {
   var d = document.getElementById('settingsDrop');
-  if (d) d.classList.toggle('open');
+  if (!d) return;
+  var willOpen = !d.classList.contains('open');
+  d.classList.toggle('open');
+
+  // Při otevření refresh klíčů všech AI providerů — řeší race condition kdy se
+  // topbar inicializuje DŘÍV než dorazí Supabase session response. Bez tohoto
+  // by uživatel viděl prázdný panel "Přidej první klíč" dokud nedá Ctrl+Shift+R.
+  // Refresh běží na pozadí, neblokuje otevření dropdownu.
+  if (willOpen) {
+    var providers = ['groq', 'cerebras', 'openrouter', 'mistral', 'xai', 'gemini', 'cloudflare'];
+    providers.forEach(function(p) {
+      var fn = window['_' + p + 'Reload'];
+      if (typeof fn === 'function') {
+        try { fn(); } catch(e) { console.warn('[settings reload ' + p + ']', e); }
+      }
+    });
+  }
 };
 window.toggleSdAcc = function (id) {
   var item = document.getElementById(id);
@@ -1317,6 +1367,7 @@ function init() {
   try { initMistralPanel(); }   catch(e) { console.error('[topbar] initMistralPanel:', e); }
   try { initXaiPanel(); }       catch(e) { console.error('[topbar] initXaiPanel:', e); }
   try { initGeminiPanel(); }    catch(e) { console.error('[topbar] initGeminiPanel:', e); }
+  try { initCloudflarePanel(); } catch(e) { console.error('[topbar] initCloudflarePanel:', e); }
   console.log('[topbar] v2.3 loaded (Groq + Cerebras + OpenRouter + Mistral + xAI + Gemini)');
 }
 
@@ -1966,6 +2017,12 @@ function _initProviderPanel(cfg) {
   // (`_tbRevealKey`/`_tbCopyKey`) je potřebuje ke svému callbacku.
   window['_' + cfg.prefix + 'Rerender'] = render;
   window['_' + cfg.prefix + 'GetKeys']  = function() { return state.keys.slice(); };
+  // Vystav i load() — voláno z toggleSettingsDrop() pro refresh klíčů při otevření
+  // dropdown panelu (race condition: init běží před login, klíče by zůstaly prázdné
+  // a uživatel viděl "Přidej první klíč" dokud nedá Ctrl+Shift+R).
+  window['_' + cfg.prefix + 'Reload']   = function() {
+    return load().catch(function(e) { console.warn('[' + cfg.name + ' reload]', e); });
+  };
 
   function updateStatus() {
     var n = state.keys.length;
@@ -2067,6 +2124,11 @@ function _initProviderPanel(cfg) {
             ? 'Zadej platný ' + cfg.name + ' API klíč (začíná ' + cfg.keyPrefix + '…)'
             : 'Zadej platný ' + cfg.name + ' API klíč (alespoň ' + (cfg.minLen || 20) + ' znaků)';
           setFb(hintMsg, 'err'); return;
+        }
+        // Volitelná custom validace — pro Cloudflare ověříme account_id:token formát
+        if (typeof cfg.validateFormat === 'function') {
+          var err = cfg.validateFormat(key);
+          if (err) { setFb(err, 'err'); return; }
         }
         if (state.keys.indexOf(key) !== -1) { setFb('Tento klíč už je přidán.', 'err'); return; }
         addBtn.disabled = true; addBtn.textContent = '⏳'; setFb('', '');
@@ -2241,6 +2303,27 @@ function _geminiUpdatePreferBtn() {
     btn.classList.remove('xai-preferred');
     btn.innerHTML = '☆ Preferovat — použít jako první';
   }
+}
+
+function initCloudflarePanel() {
+  _initProviderPanel({
+    prefix:    'cloudflare',
+    name:      'Cloudflare Workers AI',
+    field:     'cloudflare_key',
+    // Cloudflare klíč má speciální formát 'account_id:token' — minLen je tedy mírně vyšší.
+    // Validace formátu se dělá ve _initProviderPanel přes addBtn handler (níže).
+    keyPrefix: '',     // klíč není čistě prefixovaný (account_id může být cokoliv hex)
+    minLen:    25,     // ~ 32 hex chars + ':' + 40 chars token
+    countNoun: ['klíč', 'klíče', 'klíčů'],
+    subId:     'accCloudflareSub',
+    validateFormat: function(key) {
+      // Musí obsahovat ':' a obě části musí mít smysl
+      var colon = key.indexOf(':');
+      if (colon < 8) return 'Chybí Account ID před dvojtečkou';
+      if (key.length - colon < 16) return 'Token (po dvojtečce) je příliš krátký';
+      return null; // OK
+    },
+  });
 }
 
 })();

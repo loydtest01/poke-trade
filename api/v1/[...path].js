@@ -22,6 +22,12 @@
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
+// Admin emaily — JEN tito uživatelé mají přístup k /admin/* routes
+const ADMIN_EMAILS = [
+  'papez.ondrej@gmail.com',
+  'loydtest@gmail.com',
+];
+
 // ═══════════════════════════════════════════════════════
 // CORS helper – přijímáme volání z Electron app
 // ═══════════════════════════════════════════════════════
@@ -185,6 +191,227 @@ export default async function handler(req, res) {
 
       await sbFetch(`rest/v1/listings?id=eq.${id}&user_id=eq.${user.id}`, 'DELETE', null, token);
       return jsonOk(res, { message: 'Nabídka stažena' });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // ADMIN ROUTES — sloučeno z bývalého /api/admin-suspicious.js
+    // (uvolnili jsme tím funkční slot na Vercelu — limit 12)
+    //
+    // Routes:
+    //   GET    /admin/suspicious?action=list[&unreviewed=1][&limit=N]
+    //   PATCH  /admin/suspicious?action=review&id=<event_id>
+    //   GET    /admin/suspicious?action=user_summary&user_id=<uuid>
+    //   GET    /admin/suspicious?action=stats
+    //   GET    /admin/suspicious?action=fingerprint_clusters
+    //   GET    /admin/suspicious?action=recent_signups
+    //
+    // Bezpečnost:
+    //   - Volající musí mít platný token (getUserFromToken)
+    //   - Email musí být v ADMIN_EMAILS (jinak vrací 404 — neprozradí endpoint)
+    //   - Použije service_role klíč pro přístup k tabulkám s RLS=false
+    // ═══════════════════════════════════════════════════════
+    if (path.startsWith('/admin/suspicious')) {
+      // Auth — token z Authorization header NEBO z ?t= query parametru (kvůli starým klientům)
+      const adminToken = token !== SUPABASE_ANON ? token : (req.query?.t || '');
+      const user = await getUserFromToken(adminToken);
+      if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+        // Tichý 404 — neprozradí non-adminům že endpoint existuje
+        return jsonError(res, 404, 'Endpoint nenalezen');
+      }
+
+      const SVC_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON;
+      // Helper s service_role klíčem (umí číst tabulky s RLS=false)
+      async function dbAdminQuery(qpath, init = {}) {
+        const headers = {
+          'apikey': SVC_KEY,
+          'Authorization': `Bearer ${SVC_KEY}`,
+          'Content-Type': 'application/json',
+        };
+        if (init.method === 'PATCH') headers['Prefer'] = 'return=representation';
+        return fetch(`${SUPABASE_URL}/rest/v1/${qpath}`, { ...init, headers });
+      }
+
+      const action = req.query?.action || 'list';
+
+      try {
+        // ── list: všechny eventy seřazené od nejnovějších ─────────
+        if (action === 'list') {
+          const limit = Math.min(parseInt(req.query?.limit) || 100, 500);
+          const onlyUnreviewed = req.query?.unreviewed === '1';
+          let url = `suspicious_events?select=*,profiles(username,email)&order=created_at.desc&limit=${limit}`;
+          if (onlyUnreviewed) url += '&reviewed=eq.false';
+          const r = await dbAdminQuery(url);
+          return jsonOk(res, { events: await r.json() });
+        }
+
+        // ── review: označí event jako prozkoumaný ──────────────────
+        if (action === 'review') {
+          const id = req.query?.id;
+          if (!id) return jsonError(res, 400, 'Missing id');
+          const r = await dbAdminQuery(`suspicious_events?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ reviewed: true, reviewed_at: new Date().toISOString() }),
+          });
+          const data = await r.json();
+          return jsonOk(res, { event: data[0] || null });
+        }
+
+        // ── user_summary: detail uživatele pro investigace ─────────
+        if (action === 'user_summary') {
+          const userId = req.query?.user_id;
+          if (!userId) return jsonError(res, 400, 'Missing user_id');
+          const [profileR, refSentR, refReceivedR, suspR] = await Promise.all([
+            dbAdminQuery(`profiles?id=eq.${userId}&select=*`),
+            dbAdminQuery(`referral_events?referrer_id=eq.${userId}&select=*,profiles!referee_id(username,email)&order=created_at.desc`),
+            dbAdminQuery(`referral_events?referee_id=eq.${userId}&select=*,profiles!referrer_id(username,email)`),
+            dbAdminQuery(`suspicious_events?user_id=eq.${userId}&select=*&order=created_at.desc&limit=20`),
+          ]);
+          const profile     = (await profileR.json())[0] || null;
+          const refSent     = await refSentR.json();
+          const refReceived = await refReceivedR.json();
+          const suspicious  = await suspR.json();
+          let fpMatches = [];
+          if (profile && profile.browser_fp) {
+            const r = await dbAdminQuery(`profiles?browser_fp=eq.${encodeURIComponent(profile.browser_fp)}&select=id,username,email,created_at,vip_until,is_banned`);
+            fpMatches = (await r.json()).filter(p => p.id !== userId);
+          }
+          return jsonOk(res, { profile, refSent, refReceived, suspicious, fpMatches });
+        }
+
+        // ── stats: dashboard čísla ──────────────────────────────────
+        if (action === 'stats') {
+          const [allR, unreviewedR, last24R] = await Promise.all([
+            dbAdminQuery('suspicious_events?select=event_type,severity'),
+            dbAdminQuery('suspicious_events?reviewed=eq.false&select=id'),
+            dbAdminQuery(`suspicious_events?created_at=gte.${new Date(Date.now() - 86400000).toISOString()}&select=id`),
+          ]);
+          const all     = await allR.json();
+          const unrev   = await unreviewedR.json();
+          const last24  = await last24R.json();
+          const allFps  = await dbAdminQuery('profiles?select=browser_fp').then(r => r.json());
+          const fpCounts = {};
+          allFps.forEach(p => {
+            if (p.browser_fp && p.browser_fp.length > 16) fpCounts[p.browser_fp] = (fpCounts[p.browser_fp] || 0) + 1;
+          });
+          const duplicateFps = Object.values(fpCounts).filter(c => c > 1).length;
+          const byType = {}, bySeverity = {};
+          all.forEach(e => {
+            byType[e.event_type] = (byType[e.event_type] || 0) + 1;
+            bySeverity[e.severity] = (bySeverity[e.severity] || 0) + 1;
+          });
+          return jsonOk(res, {
+            total: all.length, unreviewed: unrev.length, last24h: last24.length,
+            duplicateFingerprints: duplicateFps, byType, bySeverity,
+          });
+        }
+
+        // ── fingerprint_clusters: účty se stejným FP ────────────────
+        if (action === 'fingerprint_clusters') {
+          const r = await dbAdminQuery('profiles?browser_fp=not.is.null&select=id,username,email,browser_fp,created_at,vip_until,is_banned&order=created_at.desc');
+          const profiles = await r.json();
+          const clusters = {};
+          profiles.forEach(p => {
+            if (!p.browser_fp || p.browser_fp.length < 16) return;
+            if (!clusters[p.browser_fp]) clusters[p.browser_fp] = [];
+            clusters[p.browser_fp].push(p);
+          });
+          const result = Object.entries(clusters)
+            .filter(([_, accounts]) => accounts.length > 1)
+            .map(([fp, accounts]) => ({ fp, count: accounts.length, accounts }))
+            .sort((a, b) => b.count - a.count);
+          return jsonOk(res, { clusters: result });
+        }
+
+        // ── recent_signups: posledních 50 registrací ────────────────
+        if (action === 'recent_signups') {
+          const r = await dbAdminQuery('profiles?select=id,username,email,created_at,vip_until,vip_source,referred_by,suspicious_score,is_banned&order=created_at.desc&limit=50');
+          return jsonOk(res, { signups: await r.json() });
+        }
+
+        // ── vip_list: všichni aktivní VIP s spotřebou ───────────────
+        // Optionally filter by query: ?q=<email_or_username_substr>
+        if (action === 'vip_list') {
+          const q = (req.query?.q || '').trim().toLowerCase();
+          let url = 'admin_vip_overview?select=*&order=requests_7d.desc.nullslast,vip_until.desc';
+          if (q) {
+            // OR filter: username ilike OR email ilike
+            const enc = encodeURIComponent(`%${q}%`);
+            url = `admin_vip_overview?select=*&or=(username.ilike.${enc},email.ilike.${enc})&order=requests_7d.desc.nullslast,vip_until.desc`;
+          }
+          const r = await dbAdminQuery(url);
+          return jsonOk(res, { vips: await r.json() });
+        }
+
+        // ── vip_grant: udělit / prodloužit VIP konkrétnímu uživateli ─
+        // Tělo: { user_id?: UUID, email?: string, days: number, reason?: string }
+        // days = -1 znamená lifetime
+        if (action === 'vip_grant' && method === 'POST') {
+          const { user_id, email, days, reason } = body || {};
+          if (typeof days !== 'number') return jsonError(res, 400, 'Missing days (number, -1 = lifetime)');
+          if (!user_id && !email) return jsonError(res, 400, 'Missing user_id or email');
+
+          // Použijeme RPC s service_role klíčem aby SECURITY DEFINER fungoval
+          // (admin RPC ověří caller-a přes auth.uid() — proto musíme volat RPC s tokenem
+          // Loyda, ne service_role. Použijeme proto fetch s tokenem volajícího.)
+          const callerToken = adminToken;
+          const rpcName = email ? 'admin_grant_vip_by_email' : 'admin_grant_vip';
+          const rpcBody = email
+            ? { p_target_email: email, p_days: days, p_reason: reason || 'manual' }
+            : { p_target_user_id: user_id, p_days: days, p_reason: reason || 'manual' };
+
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${rpcName}`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON,
+              'Authorization': `Bearer ${callerToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(rpcBody),
+          });
+          const result = await r.json();
+          return jsonOk(res, result);
+        }
+
+        // ── vip_revoke: odebrat VIP ──────────────────────────────────
+        // Tělo: { user_id: UUID }
+        if (action === 'vip_revoke' && method === 'POST') {
+          const { user_id } = body || {};
+          if (!user_id) return jsonError(res, 400, 'Missing user_id');
+
+          const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/admin_revoke_vip`, {
+            method: 'POST',
+            headers: {
+              'apikey': SUPABASE_ANON,
+              'Authorization': `Bearer ${adminToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ p_target_user_id: user_id }),
+          });
+          const result = await r.json();
+          return jsonOk(res, result);
+        }
+
+        // ── lifetime_status: kolik míst zbývá z prvních 20 ──────────
+        if (action === 'lifetime_status') {
+          const r = await dbAdminQuery('lifetime_vip_status?select=*');
+          const data = await r.json();
+          return jsonOk(res, data[0] || { granted: 0, remaining: 20, total: 20, available: true });
+        }
+
+        // ── search_user: najdi uživatele podle email/username (pro grant UI) ─
+        if (action === 'search_user') {
+          const q = (req.query?.q || '').trim();
+          if (q.length < 2) return jsonOk(res, { users: [] });
+          const enc = encodeURIComponent(`%${q.toLowerCase()}%`);
+          const r = await dbAdminQuery(`profiles?select=id,username,email,vip_until,vip_source&or=(username.ilike.${enc},email.ilike.${enc})&limit=20`);
+          return jsonOk(res, { users: await r.json() });
+        }
+
+        return jsonError(res, 400, 'Unknown action: ' + action);
+      } catch (e) {
+        console.error('[admin/suspicious]', e);
+        return jsonError(res, 500, 'Internal error: ' + e.message);
+      }
     }
 
     return jsonError(res, 404, 'Endpoint nenalezen: ' + path);

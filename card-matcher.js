@@ -623,9 +623,14 @@ DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see
       // Multi-provider: groq-client.js automaticky vybere vision model podle providera
       // (Groq/Cerebras → Llama-4-Scout, OpenRouter → Qwen 2.5-VL pro CJK, atd.)
       // Detekce vision je automatická (přítomnost image_url v messages).
+      // Pokud hint obsahuje jazyk (JP/ZH/KO), předáme to clientovi aby preferoval
+      // Mistral Pixtral (primární) a OpenRouter Qwen VL (záloha) — oba lepší na CJK znaky.
+      const _hintLang = (hint && hint.lang) ? String(hint.lang).toUpperCase() : '';
+      const _isCjk    = /^(JP|ZH|CN|TW|KO|JA)$/.test(_hintLang);
       const raw = await GroqClient.chat(messages, {
         temperature: 0,
         max_tokens: 200,
+        cjkLang:    _isCjk ? _hintLang : null,
       });
       const json = JSON.parse(raw.replace(/```json?|```/g, '').trim());
 

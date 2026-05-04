@@ -2339,3 +2339,85 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   margin: 10px 0 4px;
   display: flex; flex-direction: column; gap: 6px;
 }
+
+/* ═══ ⭐ FEATURED SECTION (VIP boosted listings) ═══════════════════ */
+.featured-section {
+  margin-bottom: 24px;
+  padding: 14px 14px 18px;
+  background: linear-gradient(135deg, rgba(245,200,66,0.07), rgba(245,140,0,0.04));
+  border: 1px solid rgba(245,200,66,0.28);
+  border-radius: 14px;
+  position: relative;
+}
+.featured-section::before {
+  /* Jemný shine na hraně */
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(245,200,66,0.08), transparent 30%);
+}
+.featured-header {
+  display: flex; align-items: center; gap: 8px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+.featured-icon {
+  font-size: 16px;
+  filter: drop-shadow(0 0 6px rgba(245,200,66,0.6));
+}
+.featured-title {
+  font-weight: 700;
+  color: #f5c842;
+  letter-spacing: 0.02em;
+}
+.featured-title small {
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(245,200,66,0.18);
+  color: #f5c842;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-left: 4px;
+  letter-spacing: 0.05em;
+}
+.featured-info {
+  margin-left: auto;
+  color: rgba(245,200,66,0.5);
+  font-size: 12px;
+  cursor: help;
+}
+.featured-listings {
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* Listing v featured sekci dostane lehký zlatý border highlight */
+.featured-section .listing-row {
+  border-color: rgba(245,200,66,0.22);
+  background: linear-gradient(180deg, rgba(245,200,66,0.04), var(--bg1));
+}
+.featured-section .listing-row:hover {
+  border-color: rgba(245,200,66,0.45);
+  background: linear-gradient(180deg, rgba(245,200,66,0.07), var(--bg2));
+}
+
+/* Tlačítko "Featured" v detailu (zobrazí se jen VIP majiteli listingu) */
+.btn-featured-toggle {
+  background: rgba(245,200,66,0.12);
+  border: 1px solid rgba(245,200,66,0.35);
+  color: #f5c842;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn-featured-toggle:hover { background: rgba(245,200,66,0.22); }
+.btn-featured-toggle.is-featured {
+  background: linear-gradient(135deg, rgba(245,200,66,0.25), rgba(245,140,0,0.18));
+  border-color: rgba(245,200,66,0.6);
+}
+.btn-featured-toggle:disabled {
+  opacity: 0.5; cursor: not-allowed;
+}

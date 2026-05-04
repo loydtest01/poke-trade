@@ -108,6 +108,25 @@
     <div class="sb-divider"></div>
     <div class="sb-section sb-acc-wrap">
       <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
+        <span data-i18n="marketplace.sidebar.language">🌐 Jazyk karty</span>
+        <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="sb-acc-body" hidden>
+        <label class="filter-opt"><input type="checkbox" id="fLangEN" checked onchange="applyFilters()"> 🇬🇧 EN <span class="sb-count" id="sbCountLangEN">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangJP" checked onchange="applyFilters()"> 🇯🇵 JP <span class="sb-count" id="sbCountLangJP">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangCN" checked onchange="applyFilters()"> 🇨🇳 CN <span class="sb-count" id="sbCountLangCN">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangKO" checked onchange="applyFilters()"> 🇰🇷 KO <span class="sb-count" id="sbCountLangKO">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangDE" checked onchange="applyFilters()"> 🇩🇪 DE <span class="sb-count" id="sbCountLangDE">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangFR" checked onchange="applyFilters()"> 🇫🇷 FR <span class="sb-count" id="sbCountLangFR">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangIT" checked onchange="applyFilters()"> 🇮🇹 IT <span class="sb-count" id="sbCountLangIT">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangES" checked onchange="applyFilters()"> 🇪🇸 ES <span class="sb-count" id="sbCountLangES">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangCZ" checked onchange="applyFilters()"> 🇨🇿 CZ <span class="sb-count" id="sbCountLangCZ">0</span></label>
+        <label class="filter-opt"><input type="checkbox" id="fLangOther" checked onchange="applyFilters()"> ❓ Ostatní <span class="sb-count" id="sbCountLangOther">0</span></label>
+      </div>
+    </div>
+    <div class="sb-divider"></div>
+    <div class="sb-section sb-acc-wrap">
+      <button class="sb-acc-hdr" onclick="sbToggle(this)" aria-expanded="false">
         <span data-i18n="marketplace.sidebar.element">Element</span>
         <svg class="sb-acc-arrow" width="10" height="10" viewBox="0 0 10 10"><polyline points="2,3 5,7 8,3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
@@ -412,6 +431,8 @@
               <button id="ownerBtnRelist"   class="btn-owner-relist"   onclick="relistListing()"     style="display:none">↩️ Vystavit znova</button>
               <button id="ownerBtnMarkSold" class="btn-owner-sold"     onclick="markListingAsSold()" style="display:none">✅ Prodáno</button>
               <button id="ownerBtnEdit"     class="btn-owner-edit"     onclick="openEditListing()"   style="display:none;background:rgba(79,142,247,0.15);color:#4f8ef7;border:1px solid rgba(79,142,247,0.4);padding:8px 16px;border-radius:8px;font-weight:700;font-family:inherit;cursor:pointer">✏️ Upravit</button>
+              <!-- VIP-only: zviditelnit listing v "Featured" sekci marketplace -->
+              <button id="ownerBtnFeatured" class="btn-featured-toggle" onclick="toggleFeaturedListing()" style="display:none">⭐ Zviditelnit (VIP)</button>
               <button id="ownerBtnCancel"   class="btn-owner-cancel"   onclick="cancelListing()"     style="display:none">🗑️ Zrušit inzerát</button>
             </div>
           </div>
@@ -1144,6 +1165,7 @@
 </div>
 
 <script src="app.js"></script>
+<script src="vip-referral.js"></script>
 <script src="card-search.js"></script>
 <script src="image-search.js"></script>
 <script src="fake-detector.js"></script>

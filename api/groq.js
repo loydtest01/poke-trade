@@ -101,6 +101,8 @@ const PROVIDERS = {
 };
 
 // ── VIP allowlist ──────────────────────────────────────────────────
+// Hardcoded fallback — používá se pokud DB tabulka vip_users není dostupná
+// nebo selže. Skutečný zdroj pravdy je tabulka `vip_users` (viz isVipDb()).
 const VIP_EMAILS = new Set([
   'adelka.papezova@gmail.com',
   'james.t.kirk1933@gmail.com',
@@ -110,6 +112,75 @@ const VIP_EMAILS = new Set([
   'pokecards.app.info@gmail.com',
 ]);
 const OWNER_EMAIL = 'papez.ondrej@gmail.com';
+
+// ── DB-based VIP cache (5 minut) — preferovaný zdroj pravdy ────────
+// Dříve byl jen hardcoded VIP_EMAILS Set. Teď čteme z `vip_users` tabulky aby
+// admin mohl přidávat VIP účty bez deploye. Hardcoded set zůstává jako fallback
+// (pokud DB query selže, čteme z něj).
+let _vipDbCache = null;
+let _vipDbCacheTime = 0;
+const VIP_DB_CACHE_TTL = 5 * 60 * 1000;
+
+async function isVipDb(email) {
+  if (!email) return false;
+  // Owner je vždy VIP, nemusí čekat na DB
+  if (email === OWNER_EMAIL) return true;
+  const now = Date.now();
+  if (!_vipDbCache || now - _vipDbCacheTime > VIP_DB_CACHE_TTL) {
+    try {
+      const svcKey = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON;
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/vip_users?select=email`, {
+        headers: { 'apikey': svcKey, 'Authorization': `Bearer ${svcKey}` },
+      });
+      if (r.ok) {
+        const rows = await r.json();
+        _vipDbCache = new Set((rows || []).map(row => String(row.email || '').toLowerCase()));
+        _vipDbCacheTime = now;
+      }
+    } catch (e) {
+      console.error('[groq] VIP DB cache chyba:', e.message);
+    }
+  }
+  if (_vipDbCache?.has(email.toLowerCase())) return true;
+  // Fallback: hardcoded set (pokud DB nefunguje)
+  return VIP_EMAILS.has(email);
+}
+
+// ── User VIP tier detection ────────────────────────────────────────
+// 3 tiers:
+//   1. 'lifetime' — whitelist (vip_users) NEBO vip_source IN (whitelist, lifetime_first_10)
+//      → BEZ limitů (proxy direct)
+//   2. 'regular'  — aktivní VIP s vip_source IN (first_100, standard, extended, manual...)
+//      → 80% lifetime fairShare limitu
+//   3. 'free'     — bez VIP nebo expirovaný
+//      → fixed 20 search/5 fake denní limit (LIMITS_CONFIG.min)
+//
+// Tato funkce vrací typ tieru pro daného user_id. Lookup do profiles tabulky.
+async function getUserVipTier(userId, userEmail) {
+  // Lifetime přes vip_users tabulku (whitelist) — fastpath, žádný DB query do profiles
+  if (await isVipDb(userEmail)) return 'lifetime';
+
+  // Načti vip_source a vip_until z profiles
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=vip_source,vip_until`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${SUPABASE_ANON}` } }
+    );
+    if (!r.ok) return 'free';
+    const rows = await r.json();
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row || !row.vip_until) return 'free';
+    // VIP expirovaný?
+    if (new Date(row.vip_until) <= new Date()) return 'free';
+    // Lifetime přes vip_source (např. 'lifetime_first_10')
+    if (row.vip_source === 'lifetime_first_10' || row.vip_source === 'whitelist') return 'lifetime';
+    // Vše ostatní s aktivním vip_until = regular tier (first_100, standard, extended, manual)
+    return 'regular';
+  } catch (e) {
+    console.error('[groq] getUserVipTier error:', e.message);
+    return 'free';
+  }
+}
 
 // ── Limit konfigurace per usage_type ───────────────────────────────
 // share = jaké procento z poolu si daný typ může vzít (zbytek je rezerva pro VIP)
@@ -316,7 +387,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (req.method === 'GET') {
-    if (req.query?.info === 'usage') return handleUsageInfo(req, res);
+    // Sub-routes podle query stringu (router pattern — uvolňuje funkční slot na Vercelu)
+    if (req.query?.action === 'get-key') return handleGetKey(req, res);
+    if (req.query?.info   === 'usage')   return handleUsageInfo(req, res);
     return res.status(200).json({ ok: true, ts: Date.now() });
   }
 
@@ -384,14 +457,31 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Neplatný token.', code: 'BAD_TOKEN' });
   }
 
-  if (userEmail === OWNER_EMAIL || VIP_EMAILS.has(userEmail)) {
+  // ── VIP tier detection ──────────────────────────────────────────
+  // 3 vrstvy: lifetime (žádný limit) / regular (80% kvóta) / free (20+5/den).
+  const tier = await getUserVipTier(userId, userEmail);
+
+  // Lifetime = whitelist + prvních 10 reálných uživatelů → bez limitu
+  if (tier === 'lifetime') {
     return proxyToProviderWithRotation(res, req, provider, providerName, sharedKeys, safeBody);
   }
 
   const usageType = body.usage_type || 'search';
   const today     = new Date().toISOString().slice(0, 10);
 
-  const { limit, pool, activeUsers, share } = await calculateDynamicLimit(usageType, today);
+  // Spočítej fair-share limit (lifetime tier limit) — to je 100% pro reference
+  const { limit: lifetimeLimit, pool, activeUsers, share } = await calculateDynamicLimit(usageType, today);
+
+  // Tier multipliery:
+  //   regular VIP (first_100/standard/extended/manual) = 80% lifetime kvóty
+  //   free        = pevné minimum z LIMITS_CONFIG (20 search / 5 fake) — neovlivněno poolem
+  let limit;
+  if (tier === 'regular') {
+    limit = Math.max(LIMITS_CONFIG[usageType]?.min || 20, Math.floor(lifetimeLimit * 0.80));
+  } else {
+    // free — pevné denní minimum
+    limit = LIMITS_CONFIG[usageType]?.min || (usageType === 'fake' ? 5 : 20);
+  }
 
   const usageRes = await fetch(
     `${SUPABASE_URL}/rest/v1/groq_usage?user_id=eq.${userId}&date=eq.${today}&select=id,search_count,fake_count`,
@@ -402,9 +492,14 @@ export default async function handler(req, res) {
   const currentCount = usage ? (usageType === 'fake' ? usage.fake_count : usage.search_count) : 0;
 
   if (currentCount >= limit) {
+    const tierLabel = tier === 'regular' ? 'VIP' : 'free';
+    const upgrade = tier === 'free'
+      ? 'Zaregistruj se a získej 14 dní VIP zdarma (5× větší limit). Nebo přidej vlastní AI klíč v profilu pro neomezené použití.'
+      : 'Pro neomezené hledání přidej vlastní klíč v profilu nebo pozvi 1 kámoše a získej +30 dní VIP zdarma.';
     return res.status(429).json({
-      error: `Denní limit vyčerpán (${currentCount}/${limit}). Pro neomezené hledání přidej vlastní klíč v profilu.`,
+      error: `Denní limit vyčerpán (${currentCount}/${limit}, ${tierLabel}). ${upgrade}`,
       code:  'RATE_LIMITED',
+      tier,
       limit, used: currentCount, remaining: 0,
       reset: 'půlnoc CET',
       providerHint: `Klíč zdarma získáš na ${provider.signupHost}`,
@@ -456,6 +551,85 @@ export default async function handler(req, res) {
   }
 }
 
+// ── GET ?action=get-key handler ───────────────────────────────────
+// Sloučeno z bývalého /api/groq-key.js endpointu — uvolnili jsme tím 1 slot
+// z 12 Vercel serverless funkcí. Stejné chování jako dřív, jen jiná URL.
+//
+// Volá se z mobile.html (Electron flow) přes:
+//   GET /api/groq?action=get-key&t=<supabase_token>
+// Vrací JSON s: groq_key, cerebras_key, openrouter_key, source, vip
+async function handleGetKey(req, res) {
+  const token = req.query.t || (req.headers.authorization || '').replace('Bearer ', '').trim();
+  if (!token) return res.status(401).json({ error: 'Chybí token' });
+
+  try {
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` }
+    });
+    if (!userRes.ok) return res.status(401).json({ error: 'Neplatný token' });
+    const user = await userRes.json();
+    if (!user?.id) return res.status(401).json({ error: 'Neplatný token' });
+
+    const userEmail = user.email || '';
+    const vip = await isVipDb(userEmail);
+
+    // 1. Vlastní klíče uživatele → priorita (načti všechny 3 providery)
+    const keyRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${user.id}&select=groq_key,groq_enabled,cerebras_key,openrouter_key`,
+      { headers: { 'apikey': SUPABASE_ANON, 'Authorization': `Bearer ${token}` } }
+    );
+    const rows = await keyRes.json();
+    const row  = Array.isArray(rows) ? rows[0] : null;
+
+    const hasPersonal = row && ((row.groq_key && row.groq_enabled !== false) || row.cerebras_key || row.openrouter_key);
+
+    if (hasPersonal) {
+      return res.status(200).json({
+        groq_key:       (row.groq_enabled !== false) ? (row.groq_key || null) : null,
+        cerebras_key:   row.cerebras_key   || null,
+        openrouter_key: row.openrouter_key || null,
+        // Legacy kompatibilita pro starší klienty:
+        key:            (row.groq_enabled !== false) ? (row.groq_key || null) : null,
+        enabled:        true,
+        source:         'personal',
+        vip,
+      });
+    }
+
+    // 2. Sdílený klíč pro všechny přihlášené (jen Groq v env)
+    const sharedKey = (process.env.GROQ_API_KEY || '').trim();
+    if (sharedKey) {
+      const validKeys = sharedKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
+      if (validKeys.length > 0) {
+        const sharedJoined = validKeys.join(',');
+        return res.status(200).json({
+          groq_key:       sharedJoined,
+          cerebras_key:   null,
+          openrouter_key: null,
+          key:            sharedJoined,
+          enabled:        true,
+          source:         'shared',
+          keysCount:      validKeys.length,
+          vip,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      groq_key:       null,
+      cerebras_key:   null,
+      openrouter_key: null,
+      key:            null,
+      enabled:        false,
+      vip,
+    });
+
+  } catch (err) {
+    console.error('[groq get-key]', err);
+    return res.status(500).json({ error: 'Interní chyba' });
+  }
+}
+
 // ── GET ?info=usage handler ───────────────────────────────────────
 async function handleUsageInfo(req, res) {
   const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
@@ -474,11 +648,12 @@ async function handleUsageInfo(req, res) {
     return res.status(401).json({ error: 'Neplatný token', code: 'BAD_TOKEN' });
   }
 
-  const isVip = (userEmail === OWNER_EMAIL) || VIP_EMAILS.has(userEmail);
-  if (isVip) {
+  const tier = await getUserVipTier(userId, userEmail);
+  if (tier === 'lifetime') {
     return res.status(200).json({
       isVip: true, isOwner: userEmail === OWNER_EMAIL,
-      message: 'Bez limitu (VIP)',
+      tier: 'lifetime',
+      message: 'Bez limitu (Lifetime VIP)',
     });
   }
 
@@ -496,24 +671,35 @@ async function handleUsageInfo(req, res) {
   const usage = Array.isArray(usageRows) ? usageRows[0] : null;
   const used  = { search: usage?.search_count || 0, fake: usage?.fake_count || 0 };
 
+  // Aplikuj tier multiplier na limit (regular = 80%, free = pevné minimum)
+  const applyTier = (info, type) => {
+    if (tier === 'regular') {
+      return Math.max(LIMITS_CONFIG[type]?.min || 20, Math.floor(info.limit * 0.80));
+    }
+    // free
+    return LIMITS_CONFIG[type]?.min || (type === 'fake' ? 5 : 20);
+  };
+
+  const searchLimit = applyTier(searchInfo, 'search');
+  const fakeLimit   = applyTier(fakeInfo,   'fake');
+
   return res.status(200).json({
-    isVip:       false,
+    isVip:       tier !== 'free',
     isOwner:     false,
+    tier,         // 'regular' nebo 'free'
     today,
     activeUsers: searchInfo.activeUsers,
     search: {
-      limit:     searchInfo.limit,
+      limit:     searchLimit,
       used:      used.search,
-      remaining: Math.max(0, searchInfo.limit - used.search),
+      remaining: Math.max(0, searchLimit - used.search),
       pool:      searchInfo.pool,
-      dynamicMax: searchInfo.dynamicMax,
     },
     fake: {
-      limit:     fakeInfo.limit,
+      limit:     fakeLimit,
       used:      used.fake,
-      remaining: Math.max(0, fakeInfo.limit - used.fake),
+      remaining: Math.max(0, fakeLimit - used.fake),
       pool:      fakeInfo.pool,
-      dynamicMax: fakeInfo.dynamicMax,
     },
     keysCount: getKeyCounts(),
   });

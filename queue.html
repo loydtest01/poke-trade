@@ -1318,14 +1318,22 @@ async function retryAi(gi) {
 
     let content = '';
 
-    // ── PRIMÁRNÍ: GroqClient.chat() → multi-provider rotace (Groq/Cerebras/OpenRouter)
+    // ── PRIMÁRNÍ: GroqClient.chat() → multi-provider rotace (Cerebras/Groq/OpenRouter/Mistral/Gemini)
     //    Pokud Groq má vyčerpaný denní TPD limit (500k tokens/day), přejde na Cerebras.
-    //    CJK karty automaticky routují na OpenRouter Qwen VL.
+    //    CJK karty (JP/ZH/KO) automaticky routují na Mistral Pixtral (primární)
+    //    a OpenRouter Qwen VL (záloha) — oba lepší na CJK znaky než Llama.
+    //    xAI Grok je z vision chainu vynechán (drahý + horší než free providery pro karty).
     if (window.GroqClient && window.GroqClient.isReady && window.GroqClient.isReady()) {
       try {
+        // Pokud uživatel ručně označil jazyk karty (JP/ZH/KO) v UI nebo
+        // předchozí AI rozpoznala neEN jazyk, předáme to clientovi aby preferoval
+        // Mistral/OpenRouter (oba lepší na CJK znaky než Llama).
+        const _existingLang = (g.aiResult && g.aiResult.lang) ? String(g.aiResult.lang).toUpperCase() : '';
+        const _isCjk = /^(JP|ZH|CN|TW|KO|JA)$/.test(_existingLang);
         content = await window.GroqClient.chat(messages, {
           temperature: 0.1,
           max_tokens:  500,
+          cjkLang:     _isCjk ? _existingLang : null,
           // model se vybere automaticky podle providera (vision detekce)
         });
       } catch (clientErr) {

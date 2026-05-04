@@ -1185,10 +1185,11 @@ async function loadGroqInBackground() {
     updateStatusChips(); return;
   }
 
-  // Pokus 1: náš server /api/groq-key (vrací všechny 3 providery)
+  // Pokus 1: náš server /api/groq?action=get-key (vrací všechny 3 providery).
+  // Sloučeno do groq.js — uvolnilo to slot na Vercelu (limit 12 funkcí).
   if (mobileToken) {
     try {
-      const r = await fetch(`${SERVER}/api/groq-key?t=${mobileToken}`, { signal: AbortSignal.timeout(5000) });
+      const r = await fetch(`${SERVER}/api/groq?action=get-key&t=${mobileToken}`, { signal: AbortSignal.timeout(5000) });
       if (r.ok) {
         const d = await r.json();
         // Nový formát odpovědi (multi-provider): { groq_key, cerebras_key, openrouter_key, ... }

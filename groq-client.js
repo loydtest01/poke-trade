@@ -105,20 +105,38 @@
       isGemini:       true,   // příznak pro speciální API handling
       // Free tier: 15 req/min, 100 req/den, 2 img/min — žádná platební karta
     },
+    cloudflare: {
+      name:           'Cloudflare Workers AI',
+      // Cloudflare endpoint vyžaduje account_id v URL → klíč je `account_id:token`.
+      // Při použití v _cloudflareChat() klíč rozparsujeme a zkonstruujeme dynamic URL:
+      //   https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1/chat/completions
+      endpoint:       'https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/v1/chat/completions',
+      validateUrl:    null,   // Cloudflare nemá /models bez auth → validujeme přes ping na chat
+      textModel:      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      visionModel:    '@cf/meta/llama-3.2-11b-vision-instruct',
+      isCloudflare:   true,   // příznak pro speciální URL parsing
+      // Free tier: 10 000 Neuronů/den (žádná kreditka). 1 Neuron ≈ 1k tokenů.
+      // Pro vision karty ~5-10 Neuronů per scan = ~1000+ scanů denně zdarma.
+    },
   };
 
-  // DEFAULT_CHAIN: Cerebras jde první.
-  // Důvod: Groq free tier má jen 500k tokenů/den, což vision rychle vyčerpá
-  // (každý obrázek ~6-10k tokenů → po 50-80 skenech je Groq mimo pro celý den).
-  // Cerebras má 1M tokenů/den/klíč a je srovnatelně rychlý.
-  // Pro CJK karty se OpenRouter (Qwen) stále posouvá na první místo.
-  // Mistral je poslední — má vlastní specializovaný OCR endpoint pro CJK
-  // (volá se zvlášť, ne přes chat() funkci).
-  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral', 'xai', 'gemini'];
+  // DEFAULT_CHAIN — pořadí providerů pro vision (rozpoznávání karet).
+  // POZOR: xAI Grok je v chain ZÁMĚRNĚ vynechaný!
+  //   - Grok-2-vision je horší než Llama 4 Scout pro rozpoznávání Pokémon karet
+  //   - Grok 4 Vision stojí $0.05-0.15 za scan vs free providery (Cerebras/Groq/Mistral/OR)
+  //   - Pro CJK karty jsou Mistral Pixtral / OpenRouter Qwen výrazně lepší
+  // xAI klíče zůstávají v _state.keys.xai pro budoucí chat/Q&A funkce
+  // (Loyd má $150/měs free credits přes data sharing program — využijeme jinde).
+  //
+  // Cerebras jde první (1M tokens/day/key vs Groq 500k).
+  // Pro CJK karty se Mistral (Pixtral) posouvá na první, OpenRouter (Qwen) druhé místo.
+  // Cloudflare (Llama 3.2 11B Vision) je na konci jako další free fallback (10k Neuronů/den).
+  const DEFAULT_CHAIN = ['cerebras', 'groq', 'openrouter', 'mistral', 'gemini', 'cloudflare'];
 
   // Providery, které mohou padnout zpět na sdílený serverový proxy (/api/groq?provider=...)
-  // když uživatel nemá vlastní klíč. Groq už má přímou podporu v /api/groq.
-  const SHARED_FALLBACK_PROVIDERS = ['groq', 'cerebras', 'openrouter', 'mistral', 'xai'];
+  // když uživatel nemá vlastní klíč. xAI vynechán — drahý a pro karty zbytečný.
+  // Cloudflare vynechán — vyžaduje per-user account_id, nelze sdílet z env proměnné.
+  const SHARED_FALLBACK_PROVIDERS = ['groq', 'cerebras', 'openrouter', 'mistral'];
 
   // ── Stav modulu ──────────────────────────────────────────────────
   const _state = {
@@ -130,6 +148,7 @@
       mistral:    [],
       xai:        [],
       gemini:     [],
+      cloudflare: [],   // Cloudflare Workers AI — formát: 'account_id:token'
     },
     keyIdx: {      // aktuální aktivní klíč per provider
       groq:       0,
@@ -139,6 +158,7 @@
       mistral:    0,
       xai:        0,
       gemini:     0,
+      cloudflare: 0,
     },
     model:           'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
     enabled:         false,
@@ -246,9 +266,14 @@
     };
 
     try {
-      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key,gemini_key');
+      // Try with cloudflare_key (latest migration)
+      let data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key,gemini_key,cloudflare_key');
       if (data === null) {
-        // Zkus bez gemini_key (migrace zatím nespuštěna)
+        // Zkus bez cloudflare_key (migrace zatím nespuštěna)
+        data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key,gemini_key');
+      }
+      if (data === null) {
+        // Zkus bez gemini_key (starší schéma)
         data = await trySelect('groq_key,groq_model,groq_enabled,cerebras_key,openrouter_key,deepseek_key,mistral_key,xai_key');
       }
       if (data === null) {
@@ -266,9 +291,10 @@
       _state.keys.cerebras   = _parseKeys(data.cerebras_key);
       _state.keys.openrouter = _parseKeys(data.openrouter_key);
       _state.keys.deepseek   = _parseKeys(data.deepseek_key);
-      _state.keys.mistral    = _parseKeys(data.mistral_key);   // undefined → []
-      _state.keys.xai        = _parseKeys(data.xai_key);       // undefined → []
-      _state.keys.gemini     = _parseKeys(data.gemini_key);    // undefined → []
+      _state.keys.mistral    = _parseKeys(data.mistral_key);     // undefined → []
+      _state.keys.xai        = _parseKeys(data.xai_key);         // undefined → []
+      _state.keys.gemini     = _parseKeys(data.gemini_key);      // undefined → []
+      _state.keys.cloudflare = _parseKeys(data.cloudflare_key);  // formát: 'account_id:token'
 
       _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
       _state.enabled = (data.groq_enabled !== false);
@@ -307,6 +333,7 @@
                   : provider === 'mistral' ? 'mistral_key'
                   : provider === 'xai' ? 'xai_key'
                   : provider === 'gemini' ? 'gemini_key'
+                  : provider === 'cloudflare' ? 'cloudflare_key'
                   : 'groq_key';
       const payload = { user_id: user.id, [field]: valid };
       if (provider === 'groq' && model) payload.groq_model = model;
@@ -391,26 +418,41 @@
     }
 
     const isVision = _isVision(messages);
-    const hasCjk   = isVision && _hasCjkContext(messages);
+    // CJK detekce — preferuj Mistral Pixtral (nejlepší na CJK znaky), pak OpenRouter Qwen.
+    // POZOR: Předchozí implementace hledala CJK znaky regex-em v JSON.stringify(messages).
+    // To nikdy nefungovalo, protože vision karta z Asie obsahuje base64 obrázek
+    // (žádné textové CJK znaky → regex vždy false → Mistral/Qwen se nikdy nepreferovaly).
+    //
+    // Nový způsob: caller posílá `options.cjkLang` (např. 'JP', 'ZH', 'KO').
+    // Pokud zaslán → CJK chain. Fallback: regex-detekce pro případ že caller cjkLang
+    // nepošle, ale text v messages obsahuje CJK znaky (např. nameEN z předchozího OCR).
+    const explicitCjk = options.cjkLang && /^(JP|ZH|CN|TW|KO|JA)$/i.test(String(options.cjkLang));
+    const hasCjk = isVision && (explicitCjk || _hasCjkContext(messages));
 
-    // Chain: pokud je vision + CJK → preferuj OpenRouter (Qwen) jako první
+    // Chain: výchozí pořadí providerů
     let chain = options.providerChain || DEFAULT_CHAIN.slice();
 
-    // xAI preferováno → posuň na první místo v chainu
-    if (_state.xaiPreferred && _state.keys.xai && _state.keys.xai.length > 0) {
+    // xAI preferováno → posuň na první místo, ALE JEN PRO TEXT (chat/Q&A).
+    // Pro vision calls (rozpoznávání karet) ignorujeme — Grok-2-vision je horší
+    // než Llama 4 Scout a Grok 4 Vision je drahý. xAI klíče tak slouží jen
+    // pro budoucí chat/Q&A funkce kde Grok exceluje (humor, real-time X data).
+    if (_state.xaiPreferred && _state.keys.xai && _state.keys.xai.length > 0 && !isVision) {
       chain = chain.filter(p => p !== 'xai');
       chain.unshift('xai');
     }
 
-    // Gemini preferováno → posuň na první místo v chainu (před xAI pokud není xAI preferred)
+    // Gemini preferováno → posuň na první místo (Gemini je dobrý i pro vision)
     if (_state.geminiPreferred && _state.keys.gemini && _state.keys.gemini.length > 0) {
       chain = chain.filter(p => p !== 'gemini');
       chain.unshift('gemini');
     }
 
     if (hasCjk) {
-      chain = chain.filter(p => p !== 'openrouter');
+      // Pro CJK karty: Mistral Pixtral první (nejlepší na CJK), OpenRouter Qwen druhý
+      chain = chain.filter(p => p !== 'mistral' && p !== 'openrouter');
       chain.unshift('openrouter');
+      chain.unshift('mistral');
+      console.log(`[AI] CJK karta detekována (lang=${options.cjkLang || 'auto'}) → chain:`, chain);
     }
 
     const max_tokens  = options.max_tokens  ?? 1024;
@@ -452,6 +494,42 @@
           }
         }
         console.warn('[AI] Všechny Gemini klíče vyčerpány, zkouším další provider');
+        continue;
+      }
+
+      // ── Cloudflare Workers AI: speciální URL (account_id v cestě) ──
+      // Klíč je uložen ve formátu 'account_id:token'. Parsujeme a sestavíme URL dynamicky.
+      if (provider.isCloudflare) {
+        const cfModel = options.model || (isVision ? provider.visionModel : provider.textModel);
+        for (let attempt = 0; attempt < keys.length; attempt++) {
+          const keyIdx = (_state.keyIdx['cloudflare'] + attempt) % keys.length;
+          const rawKey = keys[keyIdx];
+          // Parse 'account_id:token'
+          const colon = rawKey.indexOf(':');
+          if (colon < 1) {
+            errors.push(`[Cloudflare #${keyIdx + 1}] Neplatný formát klíče (chybí ':')`);
+            continue;
+          }
+          const accountId = rawKey.slice(0, colon).trim();
+          const token     = rawKey.slice(colon + 1).trim();
+          if (!accountId || !token) {
+            errors.push(`[Cloudflare #${keyIdx + 1}] Account ID nebo token prázdný`);
+            continue;
+          }
+          try {
+            const result = await _cloudflareChat(accountId, token, cfModel, messages, { max_tokens, temperature });
+            _state.keyIdx['cloudflare'] = keyIdx;
+            console.log(`[AI] ✓ Cloudflare klíč #${keyIdx + 1} (${isVision ? 'vision' : 'text'})`);
+            return result;
+          } catch (cfErr) {
+            const msg = cfErr.message || String(cfErr);
+            errors.push(`[Cloudflare #${keyIdx + 1}] ${msg}`);
+            // 429 / Neuron exhausted → zkus další klíč; jiné chyby → přeruš
+            if (!msg.includes('429') && !msg.includes('rate') && !msg.includes('Neuron') && !msg.includes('quota')) break;
+            console.warn(`[AI] Cloudflare klíč #${keyIdx + 1} rate limited, zkouším další…`);
+          }
+        }
+        console.warn('[AI] Všechny Cloudflare klíče vyčerpány, zkouším další provider');
         continue;
       }
 
@@ -744,6 +822,49 @@
       // Blocked / no candidates
       const reason = data?.promptFeedback?.blockReason || data?.candidates?.[0]?.finishReason || 'prázdná odpověď';
       throw new Error(`Gemini: ${reason}`);
+    }
+    return text;
+  }
+
+  // ── Cloudflare Workers AI chat ───────────────────────────────────
+  // Cloudflare používá OpenAI-compatible endpoint, ale URL obsahuje account_id.
+  // Klíč je ve formátu 'account_id:token' (uloženo společně v jednom poli).
+  //
+  // První použití Llama 3.2 11B Vision modelu vyžaduje souhlas s Meta License v
+  // Cloudflare dashboardu (jednorázově). Bez něj endpoint vrací 403.
+  async function _cloudflareChat(accountId, token, model, messages, opts = {}) {
+    const { max_tokens = 1024, temperature = 0.7 } = opts;
+
+    const url = PROVIDERS.cloudflare.endpoint.replace('{ACCOUNT_ID}', encodeURIComponent(accountId));
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type':  'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        max_tokens,
+        temperature,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      // Cloudflare specific error: 403 = Meta License nesouhlas, 429 = rate limit / Neuron exhausted
+      if (res.status === 403) {
+        throw new Error(`Cloudflare 403: Souhlas s Meta License chybí. Otevři dashboard Cloudflare → Workers AI → použij Llama Vision model jednou ručně (potvrzení souhlasu).`);
+      }
+      throw new Error(`Cloudflare ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    // OpenAI-compatible response: choices[0].message.content
+    const text = data?.choices?.[0]?.message?.content;
+    if (text === undefined || text === null) {
+      throw new Error(`Cloudflare: prázdná odpověď (${JSON.stringify(data).slice(0, 200)})`);
     }
     return text;
   }

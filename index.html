@@ -100,6 +100,130 @@ body {
   text-shadow: 0 0 15px rgba(245,200,66,0.3);
 }
 
+/* ═══ VIP LÁKADLO BANNER (pro nepřihlášené) ═══ */
+.vip-promo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin: 24px 0;
+  background: linear-gradient(135deg, rgba(245,200,66,0.12), rgba(255,140,0,0.08));
+  border: 1px solid rgba(245,200,66,0.35);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(245,200,66,0.1);
+  max-width: 600px;
+}
+.vip-promo-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 0 8px rgba(245,200,66,0.6));
+  flex-shrink: 0;
+}
+.vip-promo-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vip-promo-text strong {
+  color: #f5c842;
+  font-size: 16px;
+  line-height: 1.3;
+}
+.vip-promo-text small {
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  line-height: 1.45;
+}
+#vipPromoRemaining {
+  color: #4ade80;
+  font-weight: 700;
+  font-size: 15px;
+}
+.vip-promo-cta {
+  background: #f5c842;
+  color: #1a0e08;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .15s, box-shadow .15s;
+  flex-shrink: 0;
+}
+.vip-promo-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245,200,66,0.4);
+}
+
+/* ═══ VIP STATUS BANNER (pro přihlášené VIP členy) ═══ */
+.vip-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  margin: 24px 0;
+  background: linear-gradient(135deg, rgba(74,222,128,0.08), rgba(52,211,153,0.05));
+  border: 1px solid rgba(74,222,128,0.3);
+  border-radius: 14px;
+  max-width: 600px;
+}
+.vip-status-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 0 8px rgba(74,222,128,0.5));
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.vip-status-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vip-status-text strong {
+  color: #4ade80;
+  font-size: 15px;
+}
+.vip-status-text small {
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.vip-referral-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.vip-referral-row input {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(74,222,128,0.3);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.vip-copy-btn {
+  background: rgba(74,222,128,0.15);
+  border: 1px solid rgba(74,222,128,0.4);
+  color: #4ade80;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.vip-copy-btn:hover { background: rgba(74,222,128,0.25); }
+
+@media (max-width: 600px) {
+  .vip-promo, .vip-status {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vip-promo-cta { text-align: center; }
+}
+
 /* ═══ ZBYTEK STRÁNKY – tmavý bez tapety ═══ */
 .section { background: transparent; }
 
@@ -569,6 +693,36 @@ window.TOPBAR_ACTIVE = 'index';</script>
       PokéTrade není jen tržnice — je to tvůj digitální Pokédex, trezor na poklady a rodinný klan v jednom.
       Skenuj, sdílej a hlídej hodnotu sbírky. <strong>Vždy zdarma, fanouškovsky, bez manipulace s penězi.</strong>
     </p>
+
+    <!-- ═══ VIP LÁKADLO PRO NOVÉ — banner zobrazen jen pro nepřihlášené ═══ -->
+    <!-- Se serveru se nahraje first_100_status, JS rozhodne co se zobrazí.
+         Až dojde 100 míst, banner se přepne na "14 dní VIP zdarma + referral". -->
+    <div id="vipPromoBanner" class="vip-promo" style="display:none">
+      <div class="vip-promo-icon">⭐</div>
+      <div class="vip-promo-text">
+        <strong id="vipPromoTitle">Prvních 100 nových uživatelů má VIP měsíc zdarma!</strong>
+        <small id="vipPromoSub">
+          <span id="vipPromoRemaining">…</span> míst zbývá. VIP = AI sken karet, hromadný import,
+          hlídání cen, neomezené listingy v Tržnici.
+        </small>
+      </div>
+      <a href="register.html" class="vip-promo-cta">Získat VIP →</a>
+    </div>
+
+    <!-- ═══ VIP STATUS PRO PŘIHLÁŠENÉ — referral CTA ═══ -->
+    <div id="vipStatusBanner" class="vip-status" style="display:none">
+      <div class="vip-status-icon">⭐</div>
+      <div class="vip-status-text">
+        <strong id="vipStatusTitle">Tvůj VIP končí za <span id="vipDaysLeft">–</span> dní.</strong>
+        <small id="vipStatusSub">Pozvi kámoše a získej <strong>+30 dní VIP zdarma</strong> za každého. Jen sdílej svůj odkaz:</small>
+        <div class="vip-referral-row">
+          <input id="vipReferralInput" type="text" readonly value="…" onclick="this.select()">
+          <button class="vip-copy-btn" type="button" onclick="copyReferralLink()">📋 Kopírovat</button>
+        </div>
+        <small style="opacity:0.7">Tvůj kámoš musí potvrdit email a nahrát aspoň 5 karet. Aktuálně doporučili: <strong id="vipReferralsCount">0</strong></small>
+      </div>
+    </div>
+
     <div class="hero-btns">
       <a href="register.html" class="btn-primary">✨ Volím si PokéTrade!</a>
       <a href="marketplace.html" class="btn-ghost">Prozkoumat trh →</a>
@@ -714,12 +868,112 @@ window.TOPBAR_ACTIVE = 'index';</script>
 </footer>
 
 <script src="app.js"></script>
+<script src="vip-referral.js"></script>
 <script>
 
 function doLogout() {
   ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(function(k){localStorage.removeItem(k)});
   location.href = 'login.html';
 }
+
+// ═══ VIP BANNER LOGIC ═══════════════════════════════════════════════
+// Rozhodne který banner (lákadlo pro nepřihlášené / status pro VIP) zobrazit
+// a naplní data. Spouští se po DOMContentLoaded + na auth změnu.
+async function refreshVipBanner() {
+  var promo  = document.getElementById('vipPromoBanner');
+  var status = document.getElementById('vipStatusBanner');
+  if (!promo && !status) return;
+
+  var user = (typeof getUser === 'function') ? getUser() : null;
+
+  if (!user) {
+    // ─ Nepřihlášený → zobraz lákadlo s počtem volných míst
+    if (status) status.style.display = 'none';
+    if (!window.VIP) return;  // vip-referral.js ještě nenačten
+    try {
+      // Paralelně načteme oba countery (lifetime má prioritu — atraktivnější)
+      var [lifetime, first100] = await Promise.all([
+        window.VIP.getLifetimeStatus().catch(()=>null),
+        window.VIP.getFirst100Status().catch(()=>null),
+      ]);
+      var titleEl = document.getElementById('vipPromoTitle');
+      var subEl   = document.getElementById('vipPromoRemaining');
+      var subParent = document.getElementById('vipPromoSub');
+
+      if (lifetime && lifetime.available && lifetime.remaining > 0) {
+        // ⭐ LIFETIME — prvních 10 dostává navždy
+        if (titleEl) titleEl.textContent = '⭐ Prvních 10 uživatelů dostane VIP NAVŽDY zdarma!';
+        if (subEl)   subEl.textContent   = lifetime.remaining;
+        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + lifetime.remaining + '</span> míst zbývá z 10. <strong>VIP NAVŽDY</strong> = AI sken karet bez limitu, featured listings, neomezené listingy v Tržnici, hlídání cen.';
+      } else if (first100 && first100.available && first100.remaining > 0) {
+        // 🎉 First 100 — měsíc VIP
+        if (titleEl) titleEl.textContent = '🎉 Prvních 100 nových uživatelů má VIP měsíc zdarma!';
+        if (subEl)   subEl.textContent   = first100.remaining;
+        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + first100.remaining + '</span> míst zbývá. VIP = AI sken karet, hromadný import, hlídání cen, neomezené listingy v Tržnici.';
+      } else {
+        // Vyčerpáno → 14 dní + referral
+        if (titleEl) titleEl.textContent = 'Při registraci dostaneš 14 dní VIP zdarma!';
+        if (subParent) subParent.innerHTML = '<strong>14 dní VIP</strong> + bonus +30 dní za každého kámoše kterého přivedeš. Doporuč 5 lidí = 5 měsíců VIP.';
+      }
+      if (promo) promo.style.display = 'flex';
+    } catch (e) {
+      console.warn('[VIP banner] Načtení selhalo:', e);
+    }
+    return;
+  }
+
+  // ─ Přihlášený → zobraz status + referral
+  if (promo) promo.style.display = 'none';
+  if (!window.VIP) return;
+  // Počkej na load
+  if (!window.VIP.state().loaded) {
+    await window.VIP.refresh();
+  }
+  var s = window.VIP.state();
+  if (s.isVip && status) {
+    var titleEl = document.getElementById('vipStatusTitle');
+    var subEl   = document.getElementById('vipStatusSub');
+    var daysEl  = document.getElementById('vipDaysLeft');
+    var refIn   = document.getElementById('vipReferralInput');
+    var refCnt  = document.getElementById('vipReferralsCount');
+    if (s.isLifetime) {
+      // Lifetime VIP — žádný odpočet, jiné CTA
+      if (titleEl) titleEl.innerHTML = '⭐ Máš <strong>VIP NAVŽDY</strong> — všechny prémiové funkce zdarma.';
+      if (subEl)   subEl.innerHTML   = 'Pozvi kámoše a získej <strong>+30 dní</strong> dobré karmy 😊 Sdílej odkaz:';
+    } else {
+      if (titleEl) titleEl.innerHTML = 'Tvůj VIP končí za <span id="vipDaysLeft">' + s.daysLeft + '</span> dní.';
+      if (subEl)   subEl.innerHTML   = 'Pozvi kámoše a získej <strong>+30 dní VIP zdarma</strong> za každého. Jen sdílej svůj odkaz:';
+    }
+    if (refIn)  refIn.value = window.VIP.referralUrl() || '(generuje se…)';
+    if (refCnt) refCnt.textContent = window.VIP.referralsCount();
+    status.style.display = 'flex';
+  } else if (status) {
+    status.style.display = 'none';
+  }
+}
+
+function copyReferralLink() {
+  var input = document.getElementById('vipReferralInput');
+  if (!input) return;
+  input.select();
+  try {
+    navigator.clipboard.writeText(input.value).then(function(){
+      var btn = document.querySelector('.vip-copy-btn');
+      if (btn) {
+        var orig = btn.textContent;
+        btn.textContent = '✓ Zkopírováno';
+        setTimeout(function(){ btn.textContent = orig; }, 2000);
+      }
+    });
+  } catch (e) {
+    document.execCommand('copy');
+  }
+}
+
+// Po DOM ready + s pauzou aby vip-referral.js stihl init
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(refreshVipBanner, 600);
+});
 </script>
 <script>
 /* ── Unified Header Auth Init ── */
