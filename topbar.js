@@ -48,6 +48,31 @@ var PAGES = [
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
 ];
 
+/* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
+var _VIP_EMAILS   = ['adelka.papezova@gmail.com','james.t.kirk1933@gmail.com','lasovlas@seznam.cz','loydtest@gmail.com','pan.spock30@gmail.com','pokecards.app.info@gmail.com','papez.ondrej@gmail.com'];
+var _ADMIN_EMAILS = ['papez.ondrej@gmail.com','loydtest@gmail.com'];
+
+/* Vrátí email přihlášeného uživatele z localStorage (lowercase), nebo '' */
+function _getLocalEmail() {
+  try {
+    var u = JSON.parse(localStorage.getItem('sb_user') || 'null');
+    return ((u && u.email) || '').toLowerCase();
+  } catch(e) { return ''; }
+}
+
+/* Sestav finální pole stránek dle role — volá se v renderNav */
+function _buildPages() {
+  var pages = PAGES.slice();
+  var email = _getLocalEmail();
+  if (email && _VIP_EMAILS.indexOf(email) !== -1) {
+    pages.push({ href: 'bulk-scan.html', icon: 'energi/scanner.png', label: 'Bulk Scan', id: 'bulk-scan' });
+  }
+  if (email && _ADMIN_EMAILS.indexOf(email) !== -1) {
+    pages.push({ href: 'admin-loyd.html', icon: 'energi/obchod.png', label: 'Admin', id: 'admin-loyd' });
+  }
+  return pages;
+}
+
 /* ══════════════════════════════════════════════════════════════
    2. STYLY — navigace + nastavení + notifikace
    ══════════════════════════════════════════════════════════════ */
@@ -461,7 +486,8 @@ function renderNav() {
   var active = window.TOPBAR_ACTIVE || '';
 
   /* ── Desktop nav pills ── */
-  nav.innerHTML = PAGES.map(function (p) {
+  var pages = _buildPages();
+  nav.innerHTML = pages.map(function (p) {
     var cls   = (p.id === active) ? ' class="active"' : '';
     var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
     return '<a href="' + p.href + '"' + cls + '>'
@@ -482,7 +508,7 @@ function renderNav() {
 
   /* ── Mobilní drawer overlay ── */
   if (!document.getElementById('mobNavOverlay')) {
-    var linksHtml = PAGES.map(function(p) {
+    var linksHtml = (typeof pages !== 'undefined' ? pages : _buildPages()).map(function(p) {
       var cls   = (p.id === active) ? ' active' : '';
       var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
       return '<a href="' + p.href + '" class="' + cls + '">'
