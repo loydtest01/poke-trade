@@ -38,13 +38,18 @@ const CORS_HEADERS = {
   'Content-Type': 'application/json',
 };
 
+function setCorsHeaders(res) {
+  Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+}
+
 // ═══════════════════════════════════════════════════════
 // Vercel serverless handler  (api/v1/[...path].js)
 // ═══════════════════════════════════════════════════════
 export default async function handler(req, res) {
   // Preflight
   if (req.method === 'OPTIONS') {
-    return res.status(200).set(CORS_HEADERS).end();
+    setCorsHeaders(res);
+    return res.status(200).end();
   }
 
   const path   = req.url.replace('/api/v1', '').replace('/v1', '');
@@ -79,6 +84,11 @@ export default async function handler(req, res) {
   }
 
   try {
+
+    // ── PING (debug) ─────────────────────────────────────
+    if (path.startsWith('/ping')) {
+      return jsonOk(res, { ok: true, path, query: req.query });
+    }
 
     // ── POST /auth/login ─────────────────────────────
     if (path === '/auth/login' && method === 'POST') {
@@ -194,33 +204,17 @@ export default async function handler(req, res) {
     }
 
     // ═══════════════════════════════════════════════════════
-    // ADMIN ROUTES — sloučeno z bývalého /api/admin-suspicious.js
-    // (uvolnili jsme tím funkční slot na Vercelu — limit 12)
-    //
-    // Routes:
-    //   GET    /admin/suspicious?action=list[&unreviewed=1][&limit=N]
-    //   PATCH  /admin/suspicious?action=review&id=<event_id>
-    //   GET    /admin/suspicious?action=user_summary&user_id=<uuid>
-    //   GET    /admin/suspicious?action=stats
-    //   GET    /admin/suspicious?action=fingerprint_clusters
-    //   GET    /admin/suspicious?action=recent_signups
-    //
-    // Bezpečnost:
-    //   - Volající musí mít platný token (getUserFromToken)
-    //   - Email musí být v ADMIN_EMAILS (jinak vrací 404 — neprozradí endpoint)
-    //   - Použije service_role klíč pro přístup k tabulkám s RLS=false
+    // ADMIN ROUTES
     // ═══════════════════════════════════════════════════════
     if (path.startsWith('/admin/suspicious')) {
-      // Auth — token z Authorization header NEBO z ?t= query parametru (kvůli starým klientům)
+      // Auth — token z Authorization header NEBO z ?t= query parametru
       const adminToken = token !== SUPABASE_ANON ? token : (req.query?.t || '');
       const user = await getUserFromToken(adminToken);
       if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
-        // Tichý 404 — neprozradí non-adminům že endpoint existuje
-        return jsonError(res, 404, 'Endpoint nenalezen');
+        return jsonError(res, 403, 'Přístup odepřen');
       }
 
       const SVC_KEY = process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON;
-      // Helper s service_role klíčem (umí číst tabulky s RLS=false)
       async function dbAdminQuery(qpath, init = {}) {
         const headers = {
           'apikey': SVC_KEY,
@@ -234,7 +228,6 @@ export default async function handler(req, res) {
       const action = req.query?.action || 'list';
 
       try {
-        // ── list: všechny eventy seřazené od nejnovějších ─────────
         if (action === 'list') {
           const limit = Math.min(parseInt(req.query?.limit) || 100, 500);
           const onlyUnreviewed = req.query?.unreviewed === '1';
@@ -244,7 +237,6 @@ export default async function handler(req, res) {
           return jsonOk(res, { events: await r.json() });
         }
 
-        // ── review: označí event jako prozkoumaný ──────────────────
         if (action === 'review') {
           const id = req.query?.id;
           if (!id) return jsonError(res, 400, 'Missing id');
@@ -256,7 +248,6 @@ export default async function handler(req, res) {
           return jsonOk(res, { event: data[0] || null });
         }
 
-        // ── user_summary: detail uživatele pro investigace ─────────
         if (action === 'user_summary') {
           const userId = req.query?.user_id;
           if (!userId) return jsonError(res, 400, 'Missing user_id');
@@ -278,7 +269,6 @@ export default async function handler(req, res) {
           return jsonOk(res, { profile, refSent, refReceived, suspicious, fpMatches });
         }
 
-        // ── stats: dashboard čísla ──────────────────────────────────
         if (action === 'stats') {
           const [allR, unreviewedR, last24R] = await Promise.all([
             dbAdminQuery('suspicious_events?select=event_type,severity'),
@@ -305,7 +295,6 @@ export default async function handler(req, res) {
           });
         }
 
-        // ── fingerprint_clusters: účty se stejným FP ────────────────
         if (action === 'fingerprint_clusters') {
           const r = await dbAdminQuery('profiles?browser_fp=not.is.null&select=id,username,email,browser_fp,created_at,vip_until,is_banned&order=created_at.desc');
           const profiles = await r.json();
@@ -322,19 +311,15 @@ export default async function handler(req, res) {
           return jsonOk(res, { clusters: result });
         }
 
-        // ── recent_signups: posledních 50 registrací ────────────────
         if (action === 'recent_signups') {
           const r = await dbAdminQuery('profiles?select=id,username,email,created_at,vip_until,vip_source,referred_by,suspicious_score,is_banned&order=created_at.desc&limit=50');
           return jsonOk(res, { signups: await r.json() });
         }
 
-        // ── vip_list: všichni aktivní VIP s spotřebou ───────────────
-        // Optionally filter by query: ?q=<email_or_username_substr>
         if (action === 'vip_list') {
           const q = (req.query?.q || '').trim().toLowerCase();
           let url = 'admin_vip_overview?select=*&order=requests_7d.desc.nullslast,vip_until.desc';
           if (q) {
-            // OR filter: username ilike OR email ilike
             const enc = encodeURIComponent(`%${q}%`);
             url = `admin_vip_overview?select=*&or=(username.ilike.${enc},email.ilike.${enc})&order=requests_7d.desc.nullslast,vip_until.desc`;
           }
@@ -342,17 +327,11 @@ export default async function handler(req, res) {
           return jsonOk(res, { vips: await r.json() });
         }
 
-        // ── vip_grant: udělit / prodloužit VIP konkrétnímu uživateli ─
-        // Tělo: { user_id?: UUID, email?: string, days: number, reason?: string }
-        // days = -1 znamená lifetime
         if (action === 'vip_grant' && method === 'POST') {
           const { user_id, email, days, reason } = body || {};
           if (typeof days !== 'number') return jsonError(res, 400, 'Missing days (number, -1 = lifetime)');
           if (!user_id && !email) return jsonError(res, 400, 'Missing user_id or email');
 
-          // Použijeme RPC s service_role klíčem aby SECURITY DEFINER fungoval
-          // (admin RPC ověří caller-a přes auth.uid() — proto musíme volat RPC s tokenem
-          // Loyda, ne service_role. Použijeme proto fetch s tokenem volajícího.)
           const callerToken = adminToken;
           const rpcName = email ? 'admin_grant_vip_by_email' : 'admin_grant_vip';
           const rpcBody = email
@@ -372,8 +351,6 @@ export default async function handler(req, res) {
           return jsonOk(res, result);
         }
 
-        // ── vip_revoke: odebrat VIP ──────────────────────────────────
-        // Tělo: { user_id: UUID }
         if (action === 'vip_revoke' && method === 'POST') {
           const { user_id } = body || {};
           if (!user_id) return jsonError(res, 400, 'Missing user_id');
@@ -391,14 +368,12 @@ export default async function handler(req, res) {
           return jsonOk(res, result);
         }
 
-        // ── lifetime_status: kolik míst zbývá z prvních 20 ──────────
         if (action === 'lifetime_status') {
           const r = await dbAdminQuery('lifetime_vip_status?select=*');
           const data = await r.json();
           return jsonOk(res, data[0] || { granted: 0, remaining: 20, total: 20, available: true });
         }
 
-        // ── search_user: najdi uživatele podle email/username (pro grant UI) ─
         if (action === 'search_user') {
           const q = (req.query?.q || '').trim();
           if (q.length < 2) return jsonOk(res, { users: [] });
@@ -413,10 +388,7 @@ export default async function handler(req, res) {
         return jsonError(res, 500, 'Internal error: ' + e.message);
       }
     }
-// TEMPORARY DEBUG
-if (path.startsWith('/ping')) {
-  return jsonOk(res, { ok: true, path, query: req.query });
-}
+
     return jsonError(res, 404, 'Endpoint nenalezen: ' + path);
 
   } catch (err) {
@@ -470,20 +442,13 @@ async function fetchJWKS() {
   } catch { return null; }
 }
 
-/**
- * Ověří JWT podpis lokálně — bez externího API volání.
- * Podporuje HS256 (legacy shared secret) i ES256 (ECC P-256, nové klíče).
- * Vrátí payload nebo null.
- */
 async function verifyJWTLocally(token) {
   const decoded = decodeJwtParts(token);
   if (!decoded) return null;
   const { header, payload, parts } = decoded;
 
-  // Odmítni anon tokeny hned
   if (!payload.sub || payload.role === 'anon') return null;
 
-  // Odmítni tokeny expirované o víc než 24 hodin (tolerance pro admin)
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && payload.exp < now - 86400) return null;
 
@@ -491,23 +456,21 @@ async function verifyJWTLocally(token) {
   const sigInput = parts[0] + '.' + parts[1];
   const fix = s => s.replace(/-/g, '+').replace(/_/g, '/');
 
-  // ── HS256 (Legacy shared secret) ─────────────────────────────────────
   if (alg === 'HS256') {
     const secret = process.env.SUPABASE_JWT_SECRET;
-    if (!secret) return payload; // secret není nastaven → důvěřuj (fallback)
+    if (!secret) return payload;
     try {
       const { createHmac } = await import('node:crypto');
       const expected = createHmac('sha256', secret)
         .update(sigInput).digest('base64url');
       if (expected !== parts[2]) return null;
       return payload;
-    } catch { return payload; } // crypto error → fallback
+    } catch { return payload; }
   }
 
-  // ── ES256 (ECC P-256, nové Supabase klíče) ───────────────────────────
   if (alg === 'ES256') {
     const jwks = await fetchJWKS();
-    if (!jwks?.keys?.length) return payload; // JWKS nedostupné → fallback
+    if (!jwks?.keys?.length) return payload;
 
     const jwk = jwks.keys.find(k => k.kid === header.kid) ?? jwks.keys[0];
     if (!jwk) return payload;
@@ -527,25 +490,15 @@ async function verifyJWTLocally(token) {
       );
       if (!valid) return null;
       return payload;
-    } catch { return payload; } // crypto error → fallback
+    } catch { return payload; }
   }
 
-  // Neznámý alg → fallback bez ověření
   return payload;
 }
 
-/**
- * Hlavní autentizační funkce.
- * 1) Lokální JWT ověření (rychlé, bez sítě)
- * 2) Supabase /auth/v1/user (pro platné tokeny)
- * 3) Admin API přes service key (pro expirované tokeny)
- */
 async function getUserFromToken(token) {
   if (!token || token === SUPABASE_ANON) return null;
 
-  // ── KROK 0: Rychlé dekódování JWT payload (bez ověření podpisu) ───────
-  // Toto funguje VŽDY — pro expirované i platné tokeny, HS256 i ES256.
-  // Supabase JWT payload obsahuje: sub, email, role, exp
   const decoded = decodeJwtParts(token);
   const rawPayload = decoded?.payload;
 
@@ -554,13 +507,7 @@ async function getUserFromToken(token) {
                || rawPayload.user_metadata?.email
                || rawPayload.app_metadata?.email;
     if (email) {
-      // Token je uživatelský (ne anon) a obsahuje email — vrať rovnou.
-      // Server volá getUserFromToken jen aby zjistil email pro ADMIN_EMAILS check.
-      // Bezpečnost: pokud někdo podvrhne JWT → projde tímto check, ale Supabase
-      // RLS ho stejně zastaví u každého DB dotazu (service key je pouze pro admin routes,
-      // a admin routes mají svůj ADMIN_EMAILS check hned za tím).
       try {
-        // Pokus o načtení username (neblokující — pokud selže, nic se neděje)
         const profileRes = await sbFetch(
           `rest/v1/profiles?id=eq.${rawPayload.sub}&select=username`,
           'GET', null, SUPABASE_ANON
@@ -573,7 +520,6 @@ async function getUserFromToken(token) {
     }
   }
 
-  // ── KROK 1: Supabase Auth API (platný, neexpirovaný token) ───────────
   try {
     const userRes = await sbFetch('auth/v1/user', 'GET', null, token);
     if (userRes?.id) {
@@ -586,7 +532,6 @@ async function getUserFromToken(token) {
     }
   } catch { /* pokračuj */ }
 
-  // ── KROK 2: Admin API přes service key (fallback) ────────────────────
   try {
     const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
     if (!SVC_KEY || SVC_KEY === SUPABASE_ANON) return null;
@@ -605,8 +550,11 @@ async function getUserFromToken(token) {
 }
 
 function jsonOk(res, data) {
-  return res.status(200).set(CORS_HEADERS).json(data);
+  setCorsHeaders(res);
+  return res.status(200).json(data);
 }
+
 function jsonError(res, status, message) {
-  return res.status(status).set(CORS_HEADERS).json({ error: true, message });
+  setCorsHeaders(res);
+  return res.status(status).json({ error: true, message });
 }
