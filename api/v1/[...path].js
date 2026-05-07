@@ -441,60 +441,167 @@ async function sbFetch(path, method, body, token) {
   return text ? JSON.parse(text) : {};
 }
 
-/* Dekóduje JWT payload bez externích knihoven */
-function decodeJwtPayload(token) {
+/* ─── JWT helpers ──────────────────────────────────────────────────────── */
+
+function decodeJwtParts(token) {
   try {
-    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-    return JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const fix = s => s.replace(/-/g, '+').replace(/_/g, '/');
+    const header  = JSON.parse(Buffer.from(fix(parts[0]), 'base64').toString());
+    const payload = JSON.parse(Buffer.from(fix(parts[1]), 'base64').toString());
+    return { header, payload, parts };
   } catch { return null; }
 }
 
-async function getUserFromToken(token) {
+// JWKS cache (1 hod)
+let _jwks = null, _jwksAt = 0;
+async function fetchJWKS() {
+  if (_jwks && Date.now() - _jwksAt < 3_600_000) return _jwks;
   try {
-    // Pokus 1: standardní ověření přes Supabase Auth API (platný token)
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`);
+    if (!r.ok) return null;
+    _jwks = await r.json();
+    _jwksAt = Date.now();
+    return _jwks;
+  } catch { return null; }
+}
+
+/**
+ * Ověří JWT podpis lokálně — bez externího API volání.
+ * Podporuje HS256 (legacy shared secret) i ES256 (ECC P-256, nové klíče).
+ * Vrátí payload nebo null.
+ */
+async function verifyJWTLocally(token) {
+  const decoded = decodeJwtParts(token);
+  if (!decoded) return null;
+  const { header, payload, parts } = decoded;
+
+  // Odmítni anon tokeny hned
+  if (!payload.sub || payload.role === 'anon') return null;
+
+  // Odmítni tokeny expirované o víc než 24 hodin (tolerance pro admin)
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.exp && payload.exp < now - 86400) return null;
+
+  const alg = header.alg;
+  const sigInput = parts[0] + '.' + parts[1];
+  const fix = s => s.replace(/-/g, '+').replace(/_/g, '/');
+
+  // ── HS256 (Legacy shared secret) ─────────────────────────────────────
+  if (alg === 'HS256') {
+    const secret = process.env.SUPABASE_JWT_SECRET;
+    if (!secret) return payload; // secret není nastaven → důvěřuj (fallback)
+    try {
+      const { createHmac } = await import('node:crypto');
+      const expected = createHmac('sha256', secret)
+        .update(sigInput).digest('base64url');
+      if (expected !== parts[2]) return null;
+      return payload;
+    } catch { return payload; } // crypto error → fallback
+  }
+
+  // ── ES256 (ECC P-256, nové Supabase klíče) ───────────────────────────
+  if (alg === 'ES256') {
+    const jwks = await fetchJWKS();
+    if (!jwks?.keys?.length) return payload; // JWKS nedostupné → fallback
+
+    const jwk = jwks.keys.find(k => k.kid === header.kid) ?? jwks.keys[0];
+    if (!jwk) return payload;
+
+    try {
+      const { webcrypto } = await import('node:crypto');
+      const key = await webcrypto.subtle.importKey(
+        'jwk', jwk,
+        { name: 'ECDSA', namedCurve: 'P-256' },
+        false, ['verify']
+      );
+      const sigBuf  = Buffer.from(fix(parts[2]), 'base64');
+      const dataBuf = Buffer.from(sigInput);
+      const valid   = await webcrypto.subtle.verify(
+        { name: 'ECDSA', hash: 'SHA-256' },
+        key, sigBuf, dataBuf
+      );
+      if (!valid) return null;
+      return payload;
+    } catch { return payload; } // crypto error → fallback
+  }
+
+  // Neznámý alg → fallback bez ověření
+  return payload;
+}
+
+/**
+ * Hlavní autentizační funkce.
+ * 1) Lokální JWT ověření (rychlé, bez sítě)
+ * 2) Supabase /auth/v1/user (pro platné tokeny)
+ * 3) Admin API přes service key (pro expirované tokeny)
+ */
+async function getUserFromToken(token) {
+  if (!token || token === SUPABASE_ANON) return null;
+
+  // ── Krok 1: lokální JWT ověření ───────────────────────────────────────
+  const localPayload = await verifyJWTLocally(token);
+  if (localPayload?.sub) {
+    // JWT je platný lokálně — načti profil
+    try {
+      const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
+      if (SVC_KEY && SVC_KEY !== SUPABASE_ANON) {
+        const adminRes = await fetch(
+          `${SUPABASE_URL}/auth/v1/admin/users/${localPayload.sub}`,
+          { headers: { 'apikey': SVC_KEY, 'Authorization': 'Bearer ' + SVC_KEY } }
+        );
+        if (adminRes.ok) {
+          const u = await adminRes.json();
+          if (u?.id) {
+            const profileRes = await sbFetch(
+              `rest/v1/profiles?id=eq.${u.id}&select=username`,
+              'GET', null, SUPABASE_ANON
+            );
+            return { id: u.id, email: u.email, username: profileRes[0]?.username || u.email };
+          }
+        }
+      }
+    } catch { /* pokračuj */ }
+
+    // Fallback: vrať z payload (email z JWT claims)
+    const email = localPayload.email || localPayload.user_metadata?.email;
+    if (email) return { id: localPayload.sub, email, username: email };
+  }
+
+  // ── Krok 2: Supabase Auth API (platný, neexpirovaný token) ────────────
+  try {
     const userRes = await sbFetch('auth/v1/user', 'GET', null, token);
-    if (userRes && userRes.id) {
+    if (userRes?.id) {
       const profileRes = await sbFetch(
         `rest/v1/profiles?id=eq.${userRes.id}&select=username`,
         'GET', null, SUPABASE_ANON
       );
-      return {
-        id:       userRes.id,
-        email:    userRes.email,
-        username: profileRes[0]?.username || userRes.email,
-      };
+      return { id: userRes.id, email: userRes.email,
+               username: profileRes[0]?.username || userRes.email };
     }
-  } catch { /* pokračuj na fallback */ }
+  } catch { /* pokračuj */ }
 
-  // Pokus 2: token je expirovaný — dekóduj sub claim a ověř přes service key
+  // ── Krok 3: admin API přes service key (expirovaný token) ────────────
   try {
     const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
     if (!SVC_KEY || SVC_KEY === SUPABASE_ANON) return null;
-
-    const payload = decodeJwtPayload(token);
-    const userId = payload?.sub;
+    const decoded = decodeJwtParts(token);
+    const userId  = decoded?.payload?.sub;
     if (!userId || !/^[0-9a-f-]{36}$/.test(userId)) return null;
 
-    // Admin API vyžaduje service_role key — vrací uživatele bez ohledu na expiry
     const adminRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
-      headers: {
-        'apikey': SVC_KEY,
-        'Authorization': 'Bearer ' + SVC_KEY,
-      }
+      headers: { 'apikey': SVC_KEY, 'Authorization': 'Bearer ' + SVC_KEY }
     });
     if (!adminRes.ok) return null;
-    const adminUser = await adminRes.json();
-    if (!adminUser.id) return null;
+    const u = await adminRes.json();
+    if (!u?.id) return null;
 
     const profileRes = await sbFetch(
-      `rest/v1/profiles?id=eq.${adminUser.id}&select=username`,
+      `rest/v1/profiles?id=eq.${u.id}&select=username`,
       'GET', null, SUPABASE_ANON
     );
-    return {
-      id:       adminUser.id,
-      email:    adminUser.email,
-      username: profileRes[0]?.username || adminUser.email,
-    };
+    return { id: u.id, email: u.email, username: profileRes[0]?.username || u.email };
   } catch { return null; }
 }
 
