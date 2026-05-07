@@ -110,6 +110,8 @@ details pre { background: rgba(0,0,0,.4); padding: .6rem; border-radius: 6px; fo
 .refresh-bar { display: flex; gap: .5rem; align-items: center; margin-bottom: .8rem; }
 .refresh-bar input[type="checkbox"] { accent-color: var(--yellow); }
 </style>
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 <script>window.TOPBAR_ACTIVE = 'admin-loyd';</script>
@@ -327,50 +329,6 @@ const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 
 let _token = null;
 
-/* Přečte access_token z localStorage — podporuje Supabase v1 (sb_token)
-   i Supabase v2 (sb-{ref}-auth-token jako JSON objekt) */
-function readStoredToken() {
-  // Supabase v1 klíče (naše custom ukládání)
-  const v1 = localStorage.getItem('sb_token');
-  if (v1 && v1.length > 20 && !v1.startsWith('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6')) {
-    // sb_token existuje a není anon key
-    return v1;
-  }
-  // Supabase v2 klíč: sb-{project_ref}-auth-token
-  const SB_REF = SBU.match(/\/\/([^.]+)\./)?.[1] || '';
-  const v2raw = localStorage.getItem(`sb-${SB_REF}-auth-token`);
-  if (v2raw) {
-    try {
-      const v2 = JSON.parse(v2raw);
-      const at = v2?.access_token || v2?.currentSession?.access_token;
-      const rt = v2?.refresh_token || v2?.currentSession?.refresh_token;
-      if (at) {
-        // Synchronizuj do v1 klíčů pro zbytek kódu
-        localStorage.setItem('sb_token', at);
-        if (rt) localStorage.setItem('sb_refresh_token', rt);
-        if (v2?.user || v2?.currentSession?.user) {
-          const u = v2.user || v2.currentSession.user;
-          localStorage.setItem('sb_user', JSON.stringify(u));
-          localStorage.setItem('sb_email', u.email || '');
-        }
-        return at;
-      }
-    } catch(e) {}
-  }
-  // Fallback: jakýkoliv klíč obsahující 'auth-token'
-  for (let i = 0; i < localStorage.length; i++) {
-    const k = localStorage.key(i);
-    if (k && k.includes('auth-token') && k !== 'sb_token') {
-      try {
-        const raw = JSON.parse(localStorage.getItem(k));
-        const at = raw?.access_token || raw?.currentSession?.access_token;
-        if (at) return at;
-      } catch(e) {}
-    }
-  }
-  return v1 || null;
-}
-
 /* Dekóduje exp claim z JWT bez externí knihovny */
 function jwtExpiresAt(token) {
   try {
@@ -388,13 +346,7 @@ function isTokenExpiredOrSoon(token) {
 
 /* Zkusí refreshnout access token pomocí refresh_token — vrátí nový token nebo null */
 async function tryRefreshToken() {
-  const refreshToken = localStorage.getItem('sb_refresh_token') || (() => {
-    const SB_REF = SBU.match(/\/\/([^.]+)\./)?.[1] || '';
-    try {
-      const v2 = JSON.parse(localStorage.getItem(`sb-${SB_REF}-auth-token`) || '{}');
-      return v2?.refresh_token || v2?.currentSession?.refresh_token || null;
-    } catch { return null; }
-  })();
+  const refreshToken = localStorage.getItem('sb_refresh_token');
   if (!refreshToken) return null;
   try {
     const r = await fetch(SBU + '/auth/v1/token?grant_type=refresh_token', {
@@ -426,7 +378,7 @@ async function ensureFreshToken() {
 
 async function init() {
   // Auth check
-  _token = readStoredToken();
+  _token = localStorage.getItem('sb_token');
 
   // Okamžitě refreshni token pokud je prošlý nebo brzy expiruje
   if (isTokenExpiredOrSoon(_token)) {
