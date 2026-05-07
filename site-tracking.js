@@ -60,7 +60,7 @@
 
   /* ── 3. Panel jen pro admina, jen na index.html ── */
   var page = location.pathname.replace(/.*\//, '');
-  var isIndex = (page === 'index.html' || page === '' || page === '/');
+  var isIndex = (page === '' || page === '/');
   if (userEmail !== ADMIN_EMAIL || !isIndex) return;
 
   var panel = document.getElementById('adminVisitorPanel');

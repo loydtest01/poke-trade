@@ -125,9 +125,9 @@
         console.log(`[VIP] Referral kód uložen: ${code}`);
       }
 
-      // Pokud je na /r/{code}, redirect na /index.html (čistá URL)
+      // Pokud je na /r/{code}, redirect na / (čistá URL)
       if (m) {
-        window.location.replace('/index.html');
+        window.location.replace('/');
       }
     }
   }

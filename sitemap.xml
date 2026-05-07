@@ -26,11 +26,6 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://www.poke-trade.eu/download.html</loc>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://www.poke-trade.eu/privacy.html</loc>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>

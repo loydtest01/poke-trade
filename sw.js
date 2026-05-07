@@ -4,7 +4,7 @@
 const CACHE_NAME = 'poketrade-v2';
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
+  '/',
   '/marketplace.html',
   '/moje-album.html',
   '/style.css',

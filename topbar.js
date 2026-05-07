@@ -14,7 +14,7 @@
  *
  * Hodnoty TOPBAR_ACTIVE:
  *   'marketplace' | 'moje-album' | 'compare' | 'share' | 'scanner'
- *   'queue' | 'download' | 'transactions'
+ *   'queue' | 'transactions'
  *
  * ================================================================
  * PŘIDAT/ODEBRAT záložku: stačí upravit pole PAGES níže.
@@ -46,7 +46,6 @@ var PAGES = [
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
   { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
-  { href: 'download.html',     icon: 'energi/ke_stazeni.png',       labelKey: 'nav.download',    label: 'Ke stažení',        id: 'download'    },
 ];
 
 /* ══════════════════════════════════════════════════════════════
@@ -497,7 +496,7 @@ function renderNav() {
     overlay.innerHTML =
       '<div class="mob-nav-drawer">'
     +   '<div class="mob-nav-header">'
-    +     '<a href="index.html" class="mob-nav-logo">Poké<strong>Trade</strong></a>'
+    +     '<a href="/" class="mob-nav-logo">Poké<strong>Trade</strong></a>'
     +     '<button class="mob-nav-close" onclick="closeMobNav()" aria-label="Zavřít">&#x2715;</button>'
     +   '</div>'
     +   '<div class="mob-nav-links">' + linksHtml + '</div>'
