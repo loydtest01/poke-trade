@@ -1385,9 +1385,9 @@ function _initUserChip() {
   if (!chip && !avatarEl) return;
 
   var token = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null;
-  var uid   = localStorage.getItem('sb_user_id') || null;
   var userObj = null;
   try { userObj = JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch(e) {}
+  var uid = localStorage.getItem('sb_user_id') || (userObj && userObj.id) || null;
 
   if (!token || !uid) {
     if (chip)      chip.style.display      = 'none';

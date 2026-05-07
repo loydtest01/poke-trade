@@ -1596,6 +1596,14 @@ function renderProfile(p) {
     heroEl.style.backgroundImage = `url(${p.avatar_url})`;
     heroEl.style.backgroundSize = 'cover';
     heroEl.style.backgroundPosition = 'center';
+    // Ulož do cache jen pro vlastní profil → topbar ji okamžitě použije
+    try {
+      const _cu = JSON.parse(localStorage.getItem('sb_user') || 'null');
+      if (_cu && _cu.id && _cu.id === profileUserId) {
+        localStorage.setItem('pkc_avatar_local', p.avatar_url);
+        if (window._topbarRefreshUser) window._topbarRefreshUser();
+      }
+    } catch(e) {}
   }
   document.getElementById('heroUsername').textContent = uname;
 
