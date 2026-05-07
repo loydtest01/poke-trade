@@ -83,6 +83,50 @@ html, body {
   transition: all .15s;
 }
 .upload-label:hover { background: var(--surf3); border-color: rgba(245,200,66,0.35); }
+.nav-icon { width: 16px; height: 16px; vertical-align: middle; opacity: .8; }
+
+/* ── ALBUM IMPORT MODAL ───────────────────────────────────── */
+#albumModal {
+  position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 9999;
+  display: none; align-items: center; justify-content: center;
+}
+#albumModal.open { display: flex; }
+.album-modal-box {
+  background: var(--surf2); border: 1px solid var(--border); border-radius: 14px;
+  width: min(760px, 95vw); max-height: 85vh; display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.album-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.album-modal-head h2 { margin: 0; font-size: 16px; }
+.album-modal-search {
+  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.album-modal-search input {
+  width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surf3); color: var(--text); font-size: 13px; box-sizing: border-box;
+}
+.album-modal-grid {
+  flex: 1; overflow-y: auto; padding: 16px 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;
+}
+.album-card-thumb {
+  background: var(--surf3); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; cursor: pointer; transition: all .15s; text-align: center;
+}
+.album-card-thumb:hover { border-color: var(--gold); transform: translateY(-2px); }
+.album-card-thumb img {
+  width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block;
+}
+.album-card-thumb .alb-name {
+  font-size: 11px; padding: 4px 6px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; color: var(--muted);
+}
+.album-modal-empty {
+  grid-column: 1/-1; text-align: center; padding: 40px; color: var(--muted); font-size: 14px;
+}
 
 /* ── WORKSPACE ─────────────────────────────────────── */
 .workspace { display: flex; flex: 1; overflow: hidden; }
@@ -298,6 +342,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         📁 Nahrát sken
         <input type="file" id="fi" accept="image/*" style="display:none">
       </label>
+      <button class="upload-label" id="albumImportBtn" title="Načíst kartu z mého alba">🖼️ Z alba</button>
       <button id="detectBtn" class="btn btn-primary" disabled>🔍 Detekovat karty</button>
       <button id="aiDetectBtn" class="btn" disabled title="Použij AI, pokud automatická detekce selhala">🤖 AI fallback</button>
       <button id="addBtn" class="btn btn-ghost btn-sm" disabled>✏️ Přidat ručně</button>
@@ -346,6 +391,22 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <div id="spin" class="spin"></div>
     <span id="statusMsg">Připraveno · nahraj sken obrázku</span>
     <span id="dimInfo" style="margin-left:auto;font-size:11px;"></span>
+  </div>
+</div>
+
+<!-- ALBUM IMPORT MODAL -->
+<div id="albumModal">
+  <div class="album-modal-box">
+    <div class="album-modal-head">
+      <h2>🖼️ Načíst kartu z alba</h2>
+      <button onclick="closeAlbumModal()" class="btn btn-ghost btn-sm">✕ Zavřít</button>
+    </div>
+    <div class="album-modal-search">
+      <input id="albumSearch" type="text" placeholder="🔍 Hledat podle názvu karty…" autocomplete="off">
+    </div>
+    <div class="album-modal-grid" id="albumGrid">
+      <div class="album-modal-empty">Klikni „Z alba" pro načtení fotek…</div>
+    </div>
   </div>
 </div>
 
@@ -1258,6 +1319,100 @@ function doLogout() {
   ['sb_token','sb_user','sb_refresh_token','sb_user_id','sb_email','sb_username','pkc_avatar_local','pkc_online_session'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
   window.location.href = 'login.html';
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   IMPORT Z ALBA — načti kartu z user_card_photos
+═══════════════════════════════════════════════════════════════════ */
+let _albumPhotos   = null;   // cache: pole {url, name, local_id, created_at}
+let _albumFiltered = [];
+
+document.getElementById('albumImportBtn').addEventListener('click', openAlbumModal);
+
+function openAlbumModal() {
+  document.getElementById('albumModal').classList.add('open');
+  document.getElementById('albumSearch').value = '';
+  if (!_albumPhotos) {
+    fetchAlbumPhotos();
+  } else {
+    renderAlbumGrid(_albumPhotos);
+  }
+}
+
+function closeAlbumModal() {
+  document.getElementById('albumModal').classList.remove('open');
+}
+
+async function fetchAlbumPhotos() {
+  const grid = document.getElementById('albumGrid');
+  grid.innerHTML = '<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
+  try {
+    const tok = localStorage.getItem('sb_token') || '';
+    const uid = localStorage.getItem('sb_user_id') || USER_ID || '';
+    if (!uid) { grid.innerHTML = '<div class="album-modal-empty">⚠️ Nejsi přihlášen</div>'; return; }
+
+    // Načti fotky + info o kartě v jednom joinu
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/user_card_photos?user_id=eq.${uid}&select=id,url,side,created_at,user_card_local_id,user_cards!inner(card_data)&order=created_at.desc&limit=200`,
+      { headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs', Authorization: 'Bearer ' + tok } }
+    );
+    let rows = await resp.json();
+    if (!Array.isArray(rows)) rows = [];
+
+    _albumPhotos = rows.map(r => {
+      const cd = r.user_cards?.card_data;
+      let name = '';
+      try { name = (typeof cd === 'string' ? JSON.parse(cd) : cd)?.name || ''; } catch {}
+      return { id: r.id, url: r.url, side: r.side, name, local_id: r.user_card_local_id, created_at: r.created_at };
+    }).filter(r => r.url);
+
+    if (_albumPhotos.length === 0) {
+      grid.innerHTML = '<div class="album-modal-empty">📭 Nemáš žádné naskenované fotky v albu</div>';
+      return;
+    }
+    renderAlbumGrid(_albumPhotos);
+  } catch (e) {
+    grid.innerHTML = `<div class="album-modal-empty">❌ Chyba: ${e.message}</div>`;
+  }
+}
+
+function renderAlbumGrid(photos) {
+  const q = document.getElementById('albumSearch').value.toLowerCase().trim();
+  const filtered = q ? photos.filter(p => p.name.toLowerCase().includes(q)) : photos;
+  const grid = document.getElementById('albumGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="album-modal-empty">🔍 Žádná karta neodpovídá hledání</div>';
+    return;
+  }
+  grid.innerHTML = filtered.map(p => `
+    <div class="album-card-thumb" onclick="importAlbumPhoto(${JSON.stringify(p.url).replace(/</g,'\\u003c')}, ${JSON.stringify(p.name).replace(/</g,'\\u003c')})">
+      <img src="${p.url}" alt="${p.name || 'karta'}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 63 88%22><rect fill=%22%23333%22 width=%2263%22 height=%2288%22/></svg>'">
+      <div class="alb-name">${p.name || ('karta '+(p.side||''))} <span style="opacity:.5;font-size:10px">${p.side||''}</span></div>
+    </div>
+  `).join('');
+}
+
+async function importAlbumPhoto(url, name) {
+  closeAlbumModal();
+  toast('⏳ Načítám fotku z alba…', 'info');
+  try {
+    const resp = await fetch(url);
+    const blob = await resp.blob();
+    const ext  = blob.type.split('/')[1] || 'jpg';
+    const file = new File([blob], (name || 'karta') + '.' + ext, { type: blob.type });
+    loadImage(file);
+    toast(`✅ Načteno: ${name || 'karta'}`, 'ok');
+  } catch (e) {
+    toast('❌ Nepodařilo se načíst fotku: ' + e.message, 'error');
+  }
+}
+
+document.getElementById('albumSearch').addEventListener('input', () => {
+  if (_albumPhotos) renderAlbumGrid(_albumPhotos);
+});
+// Kliknutí mimo modal = zavřít
+document.getElementById('albumModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('albumModal')) closeAlbumModal();
+});
 
 </script>
 <script src="notif-bell.js"></script>

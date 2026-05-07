@@ -159,6 +159,7 @@ details pre { background: rgba(0,0,0,.4); padding: .6rem; border-radius: 6px; fo
 }
 button.btn-nav-outline { background: transparent !important; -webkit-appearance: none; }
 .btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+.nav-icon { width: 16px; height: 16px; vertical-align: middle; opacity: .8; }
 </style>
 <header class="app-topbar">
   <a href="/" class="app-logo">
@@ -407,13 +408,14 @@ async function init() {
 
 async function api(action, params = {}, body = null) {
   const qs = new URLSearchParams({ t: _token, action, ...params });
+  // Vždy posílej Authorization header — i pro GET requesty
   const opts = body
     ? {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` },
         body: JSON.stringify(body),
       }
-    : {};
+    : { headers: { 'Authorization': `Bearer ${_token}` } };
   const r = await fetch(`${API_BASE}?${qs}`, opts);
   if (r.status === 404 || r.status === 401) {
     // Token mohl expirovat — zkus refresh a opakuj
@@ -423,7 +425,7 @@ async function api(action, params = {}, body = null) {
       const qs2 = new URLSearchParams({ t: _token, action, ...params });
       const opts2 = body
         ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` }, body: JSON.stringify(body) }
-        : {};
+        : { headers: { 'Authorization': `Bearer ${_token}` } };
       const r2 = await fetch(`${API_BASE}?${qs2}`, opts2);
       if (!r2.ok) throw new Error(`HTTP ${r2.status}`);
       return r2.json();
