@@ -312,6 +312,21 @@ const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 
 let _token = null;
 
+/* Dekóduje exp claim z JWT bez externí knihovny */
+function jwtExpiresAt(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    return payload.exp ? payload.exp * 1000 : 0;
+  } catch { return 0; }
+}
+
+/* Vrátí true pokud token expiruje za méně než 5 minut */
+function isTokenExpiredOrSoon(token) {
+  if (!token) return true;
+  const exp = jwtExpiresAt(token);
+  return exp === 0 || exp - Date.now() < 5 * 60 * 1000;
+}
+
 /* Zkusí refreshnout access token pomocí refresh_token — vrátí nový token nebo null */
 async function tryRefreshToken() {
   const refreshToken = localStorage.getItem('sb_refresh_token');
@@ -336,9 +351,24 @@ async function tryRefreshToken() {
   } catch(e) { return null; }
 }
 
+/* Zajistí platný token — refreshne proaktivně pokud brzy expiruje */
+async function ensureFreshToken() {
+  if (isTokenExpiredOrSoon(_token)) {
+    const fresh = await tryRefreshToken();
+    if (fresh) _token = fresh;
+  }
+}
+
 async function init() {
   // Auth check
   _token = localStorage.getItem('sb_token');
+
+  // Okamžitě refreshni token pokud je prošlý nebo brzy expiruje
+  if (isTokenExpiredOrSoon(_token)) {
+    const fresh = await tryRefreshToken();
+    if (fresh) _token = fresh;
+  }
+
   let user = null;
   try {
     const raw = localStorage.getItem('sb_user');
@@ -367,15 +397,11 @@ async function init() {
       }
     } catch(e) {}
   } else if (user && user.email && _token) {
-    // Ověř platnost tokenu na pozadí — pokud expiroval, refreshni
-    fetch(SBU + '/auth/v1/user', {
-      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + _token }
-    }).then(async r => {
-      if (r.status === 401) {
-        const newToken = await tryRefreshToken();
-        if (newToken) _token = newToken;
-      }
-    }).catch(()=>{});
+    // Synchronní check přes JWT — bez zbytečného fetch pokud token platí
+    if (isTokenExpiredOrSoon(_token)) {
+      const fresh = await tryRefreshToken();
+      if (fresh) _token = fresh;
+    }
   }
 
   const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
@@ -407,6 +433,8 @@ async function init() {
 }
 
 async function api(action, params = {}, body = null) {
+  // Proaktivně refresh token pokud brzy expiruje
+  await ensureFreshToken();
   const qs = new URLSearchParams({ t: _token, action, ...params });
   // Vždy posílej Authorization header — i pro GET requesty
   const opts = body

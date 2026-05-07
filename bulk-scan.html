@@ -516,6 +516,9 @@ function toast(msg, type = '') {
     return;
   }
 
+  // Pojistka: vždy yield před initScanner(), i když žádný await neproběhl
+  await Promise.resolve();
+
   // Ověřeno → ukaž app
   gate.style.display = 'none';
   document.getElementById('appRoot').style.visibility = 'visible';
