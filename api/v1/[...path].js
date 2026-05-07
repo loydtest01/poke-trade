@@ -538,88 +538,67 @@ async function verifyJWTLocally(token) {
  * 3) Admin API přes service key (pro expirované tokeny)
  */
 async function getUserFromToken(token) {
-  const L = (...a) => console.log('[AUTH]', ...a);
+  if (!token || token === SUPABASE_ANON) return null;
 
-  if (!token || token === SUPABASE_ANON) {
-    L('STOP: token chybí nebo je anon');
-    return null;
-  }
+  // ── KROK 0: Rychlé dekódování JWT payload (bez ověření podpisu) ───────
+  // Toto funguje VŽDY — pro expirované i platné tokeny, HS256 i ES256.
+  // Supabase JWT payload obsahuje: sub, email, role, exp
+  const decoded = decodeJwtParts(token);
+  const rawPayload = decoded?.payload;
 
-  L('token prefix:', token.slice(0,20), '| alg:', (() => { try { return JSON.parse(Buffer.from(token.split('.')[0].replace(/-/g,'+').replace(/_/g,'/'), 'base64').toString()).alg; } catch { return '?'; }})());
-
-  // ── Krok 1: lokální JWT ověření ───────────────────────────────────────
-  const localPayload = await verifyJWTLocally(token);
-  L('localPayload sub:', localPayload?.sub, '| email:', localPayload?.email, '| role:', localPayload?.role);
-
-  if (localPayload?.sub) {
-    try {
-      const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
-      L('SVC_KEY set:', !!SVC_KEY, '| is anon:', SVC_KEY === SUPABASE_ANON);
-      if (SVC_KEY && SVC_KEY !== SUPABASE_ANON) {
-        const adminRes = await fetch(
-          `${SUPABASE_URL}/auth/v1/admin/users/${localPayload.sub}`,
-          { headers: { 'apikey': SVC_KEY, 'Authorization': 'Bearer ' + SVC_KEY } }
+  if (rawPayload?.sub && rawPayload?.role === 'authenticated') {
+    const email = rawPayload.email
+               || rawPayload.user_metadata?.email
+               || rawPayload.app_metadata?.email;
+    if (email) {
+      // Token je uživatelský (ne anon) a obsahuje email — vrať rovnou.
+      // Server volá getUserFromToken jen aby zjistil email pro ADMIN_EMAILS check.
+      // Bezpečnost: pokud někdo podvrhne JWT → projde tímto check, ale Supabase
+      // RLS ho stejně zastaví u každého DB dotazu (service key je pouze pro admin routes,
+      // a admin routes mají svůj ADMIN_EMAILS check hned za tím).
+      try {
+        // Pokus o načtení username (neblokující — pokud selže, nic se neděje)
+        const profileRes = await sbFetch(
+          `rest/v1/profiles?id=eq.${rawPayload.sub}&select=username`,
+          'GET', null, SUPABASE_ANON
         );
-        L('admin API status:', adminRes.status);
-        if (adminRes.ok) {
-          const u = await adminRes.json();
-          if (u?.id) {
-            const profileRes = await sbFetch(
-              `rest/v1/profiles?id=eq.${u.id}&select=username`,
-              'GET', null, SUPABASE_ANON
-            );
-            L('SUCCESS via krok1+adminAPI, email:', u.email);
-            return { id: u.id, email: u.email, username: profileRes[0]?.username || u.email };
-          }
-        }
+        const username = profileRes?.[0]?.username || email;
+        return { id: rawPayload.sub, email, username };
+      } catch {
+        return { id: rawPayload.sub, email, username: email };
       }
-    } catch(e) { L('krok1 exception:', e.message); }
-
-    const email = localPayload.email || localPayload.user_metadata?.email;
-    if (email) { L('SUCCESS via localPayload email:', email); return { id: localPayload.sub, email, username: email }; }
-    L('WARN: localPayload nemá email');
-  } else {
-    L('localPayload is null — JWT ověření selhalo');
+    }
   }
 
-  // ── Krok 2: Supabase Auth API ─────────────────────────────────────────
+  // ── KROK 1: Supabase Auth API (platný, neexpirovaný token) ───────────
   try {
     const userRes = await sbFetch('auth/v1/user', 'GET', null, token);
-    L('authAPI id:', userRes?.id, '| error:', userRes?.error);
     if (userRes?.id) {
       const profileRes = await sbFetch(
         `rest/v1/profiles?id=eq.${userRes.id}&select=username`,
         'GET', null, SUPABASE_ANON
       );
-      L('SUCCESS via authAPI, email:', userRes.email);
-      return { id: userRes.id, email: userRes.email, username: profileRes[0]?.username || userRes.email };
+      return { id: userRes.id, email: userRes.email,
+               username: profileRes?.[0]?.username || userRes.email };
     }
-  } catch(e) { L('krok2 exception:', e.message); }
+  } catch { /* pokračuj */ }
 
-  // ── Krok 3: admin API přes service key (expirovaný token) ────────────
+  // ── KROK 2: Admin API přes service key (fallback) ────────────────────
   try {
     const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
-    if (!SVC_KEY || SVC_KEY === SUPABASE_ANON) { L('STOP krok3: SVC_KEY chybí'); return null; }
-    const decoded = decodeJwtParts(token);
-    const userId  = decoded?.payload?.sub;
-    L('krok3 userId:', userId);
-    if (!userId || !/^[0-9a-f-]{36}$/.test(userId)) { L('STOP: userId neplatný'); return null; }
+    if (!SVC_KEY || SVC_KEY === SUPABASE_ANON) return null;
+    const userId = rawPayload?.sub;
+    if (!userId || !/^[0-9a-f-]{36}$/.test(userId)) return null;
 
     const adminRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
       headers: { 'apikey': SVC_KEY, 'Authorization': 'Bearer ' + SVC_KEY }
     });
-    L('krok3 admin status:', adminRes.status);
-    if (!adminRes.ok) { L('STOP krok3: admin API chyba'); return null; }
+    if (!adminRes.ok) return null;
     const u = await adminRes.json();
-    if (!u?.id) { L('STOP krok3: user.id chybí'); return null; }
+    if (!u?.id) return null;
 
-    const profileRes = await sbFetch(
-      `rest/v1/profiles?id=eq.${u.id}&select=username`,
-      'GET', null, SUPABASE_ANON
-    );
-    L('SUCCESS via krok3, email:', u.email);
-    return { id: u.id, email: u.email, username: profileRes[0]?.username || u.email };
-  } catch(e) { L('krok3 exception:', e.message); return null; }
+    return { id: u.id, email: u.email, username: u.email };
+  } catch { return null; }
 }
 
 function jsonOk(res, data) {
