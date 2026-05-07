@@ -456,6 +456,45 @@ const RETURN_TO  = URL_PARAMS.get('return') || '';
 
 let TOKEN = null, USER_ID = null, USER_EMAIL = '';
 
+/** Najde skutečný user access token (role='authenticated') ve všech localStorage klíčích */
+function readStoredToken() {
+  const candidates = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    const val = localStorage.getItem(key);
+    if (!val) continue;
+    if (val.startsWith('eyJ') && val.includes('.')) {
+      candidates.push({ key, token: val, score: key === 'sb_token' ? 10 : 1 });
+    } else if (val.startsWith('{')) {
+      try {
+        const obj = JSON.parse(val);
+        const at = obj?.access_token || obj?.currentSession?.access_token;
+        const rt = obj?.refresh_token || obj?.currentSession?.refresh_token;
+        if (at && at.startsWith('eyJ')) {
+          candidates.push({ key, token: at, refreshToken: rt, obj, score: key.includes('auth-token') ? 20 : 5 });
+        }
+      } catch(e) {}
+    }
+  }
+  function getRole(t) {
+    try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role || ''; } catch { return ''; }
+  }
+  const userTokens = candidates.filter(c => getRole(c.token) === 'authenticated');
+  if (!userTokens.length) return null;
+  userTokens.sort((a, b) => b.score - a.score);
+  const best = userTokens[0];
+  try {
+    localStorage.setItem('sb_token', best.token);
+    if (best.refreshToken) localStorage.setItem('sb_refresh_token', best.refreshToken);
+    if (best.obj) {
+      const u = best.obj.user || best.obj.currentSession?.user;
+      if (u) { localStorage.setItem('sb_user', JSON.stringify(u)); localStorage.setItem('sb_email', u.email||''); localStorage.setItem('sb_user_id', u.id||''); }
+    }
+  } catch(e) {}
+  return best.token;
+}
+
 /* ── Toast helper ─────────────────────────────────────── */
 function toast(msg, type = '') {
   const t = document.createElement('div');
@@ -469,7 +508,7 @@ function toast(msg, type = '') {
 (async function checkAccess() {
   const gate = document.getElementById('accessGate');
 
-  TOKEN   = localStorage.getItem('sb_token');
+  TOKEN   = readStoredToken();
   let sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
 
   // Pokud chybí sb_user ale máme token, načti uživatele ze Supabase Auth
@@ -1366,7 +1405,7 @@ async function fetchAlbumPhotos() {
   const grid = document.getElementById('albumGrid');
   grid.innerHTML = '<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
   try {
-    const tok = localStorage.getItem('sb_token') || '';
+    const tok = TOKEN || readStoredToken() || '';
     const uid = localStorage.getItem('sb_user_id') || USER_ID || '';
     if (!uid) { grid.innerHTML = '<div class="album-modal-empty">⚠️ Nejsi přihlášen</div>'; return; }
 

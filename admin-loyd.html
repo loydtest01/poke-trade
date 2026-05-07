@@ -329,6 +329,71 @@ const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 
 let _token = null;
 
+/**
+ * Najde skutečný user access token v localStorage.
+ * Prohledá VŠECHNY klíče, dekóduje JWT a vrátí pouze token s role='authenticated'.
+ * NIKDY nevrátí anon key ani null pokud existuje platná session.
+ */
+function readStoredToken() {
+  const candidates = [];
+
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key) continue;
+    const val = localStorage.getItem(key);
+    if (!val) continue;
+
+    // Přímý JWT string
+    if (val.startsWith('eyJ') && val.includes('.')) {
+      candidates.push({ key, token: val, score: key === 'sb_token' ? 10 : 1 });
+      continue;
+    }
+
+    // JSON objekt (Supabase v2 session)
+    if (val.startsWith('{')) {
+      try {
+        const obj = JSON.parse(val);
+        const at = obj?.access_token || obj?.currentSession?.access_token;
+        const rt = obj?.refresh_token || obj?.currentSession?.refresh_token;
+        if (at && at.startsWith('eyJ')) {
+          const score = key.includes('auth-token') ? 20 : 5;
+          candidates.push({ key, token: at, refreshToken: rt, obj, score });
+        }
+      } catch(e) {}
+    }
+  }
+
+  // Filtruj — chceme jen 'authenticated' role, ne 'anon'
+  function getRole(token) {
+    try {
+      return JSON.parse(atob(token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role || '';
+    } catch { return ''; }
+  }
+
+  const userTokens = candidates.filter(c => getRole(c.token) === 'authenticated');
+  if (!userTokens.length) return null;
+
+  // Vyber nejlepšího kandidáta (nejvyšší score)
+  userTokens.sort((a, b) => b.score - a.score);
+  const best = userTokens[0];
+
+  // Synchronizuj do starých klíčů pro zbytek kódu
+  try {
+    localStorage.setItem('sb_token', best.token);
+    if (best.refreshToken) localStorage.setItem('sb_refresh_token', best.refreshToken);
+    if (best.obj) {
+      const u = best.obj.user || best.obj.currentSession?.user;
+      if (u) {
+        localStorage.setItem('sb_user', JSON.stringify(u));
+        localStorage.setItem('sb_email', u.email || '');
+        localStorage.setItem('sb_user_id', u.id || '');
+      }
+    }
+  } catch(e) {}
+
+  return best.token;
+}
+
 /* Dekóduje exp claim z JWT bez externí knihovny */
 function jwtExpiresAt(token) {
   try {
@@ -346,7 +411,21 @@ function isTokenExpiredOrSoon(token) {
 
 /* Zkusí refreshnout access token pomocí refresh_token — vrátí nový token nebo null */
 async function tryRefreshToken() {
-  const refreshToken = localStorage.getItem('sb_refresh_token');
+  // Hledej refresh token ve všech localStorage klíčích
+  let refreshToken = localStorage.getItem('sb_refresh_token');
+  if (!refreshToken) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      const v = localStorage.getItem(k);
+      if (v && v.startsWith('{')) {
+        try {
+          const obj = JSON.parse(v);
+          const rt = obj?.refresh_token || obj?.currentSession?.refresh_token;
+          if (rt) { refreshToken = rt; break; }
+        } catch(e) {}
+      }
+    }
+  }
   if (!refreshToken) return null;
   try {
     const r = await fetch(SBU + '/auth/v1/token?grant_type=refresh_token', {
@@ -378,7 +457,7 @@ async function ensureFreshToken() {
 
 async function init() {
   // Auth check
-  _token = localStorage.getItem('sb_token');
+  _token = readStoredToken();
 
   // Okamžitě refreshni token pokud je prošlý nebo brzy expiruje
   if (isTokenExpiredOrSoon(_token)) {
