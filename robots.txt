@@ -1,0 +1,33 @@
+User-agent: *
+Allow: /
+Allow: /marketplace.html
+Allow: /register.html
+Allow: /login.html
+Allow: /compare.html
+Allow: /privacy.html
+
+# Uživatelské stránky – nepřístupné bez přihlášení
+Disallow: /album.html
+Disallow: /moje-album.html
+Disallow: /profile.html
+Disallow: /chat.html
+Disallow: /transactions.html
+Disallow: /queue.html
+Disallow: /scanner.html
+Disallow: /bulk-scan.html
+Disallow: /share-album.html
+Disallow: /reset-password.html
+Disallow: /dashboard.html
+Disallow: /mobile.html
+Disallow: /offline.html
+
+# Admin stránky
+Disallow: /admin-ip.html
+Disallow: /admin-loyd.html
+
+# API a interní
+Disallow: /api/
+Disallow: /sql/
+Disallow: /supabase/
+
+Sitemap: https://www.poke-trade.eu/sitemap.xml
