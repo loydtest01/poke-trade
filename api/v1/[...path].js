@@ -413,7 +413,10 @@ export default async function handler(req, res) {
         return jsonError(res, 500, 'Internal error: ' + e.message);
       }
     }
-
+// TEMPORARY DEBUG
+if (path.startsWith('/ping')) {
+  return jsonOk(res, { ok: true, path, query: req.query });
+}
     return jsonError(res, 404, 'Endpoint nenalezen: ' + path);
 
   } catch (err) {
