@@ -267,6 +267,42 @@ canvas#oc { z-index: 2; }
   .header-mid { gap: 4px; }
   .btn { padding: 6px 10px; font-size: 12px; }
 }
+
+/* ── Album scan queue panel ──────────────────────── */
+#scanQueuePanel {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: #1a1520;
+  border-top: 2px solid #ffa700;
+  padding: 10px 16px 12px;
+  z-index: 900;
+  max-height: 190px;
+}
+.sq-head {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.sq-title { color: #ffa700; font-weight: 700; font-size: 13px; }
+.sq-count { color: #aaa; font-size: 11px; }
+.sq-close {
+  margin-left: auto; background: transparent;
+  border: 1px solid rgba(255,255,255,0.2); color: #aaa;
+  border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px;
+}
+.sq-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.sq-card {
+  flex-shrink: 0; text-align: center; cursor: pointer;
+  border: 2px solid transparent; border-radius: 6px; padding: 2px;
+  transition: border-color .15s;
+}
+.sq-card:hover { border-color: #ffa700; }
+.sq-card.done { opacity: 0.35; }
+.sq-card img { width: 46px; height: 64px; object-fit: contain; border-radius: 4px; background: #111; display: block; }
+.sq-card .sq-name {
+  font-size: 9px; color: #ccc; width: 50px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;
+}
+
 </style>
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
@@ -440,6 +476,49 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+
+// ── Album scan queue ─────────────────────────────────────────────
+(function initAlbumQueue() {
+  const raw = localStorage.getItem('pkc_album_scan_queue');
+  if (!raw) return;
+  try {
+    const cards = JSON.parse(raw);
+    if (!cards.length) return;
+    const panel = document.getElementById('scanQueuePanel');
+    const list  = document.getElementById('sqList');
+    const count = document.getElementById('sqCount');
+    count.textContent = cards.length + ' karet';
+    const BLANK = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 64'><rect fill='%23333' width='46' height='64'/></svg>";
+    list.innerHTML = cards.map((c, i) => {
+      const img = c.image || BLANK;
+      const name = (c.name || 'karta').replace(/"/g, '&quot;');
+      const label = c.number ? c.name + ' #' + c.number : c.name;
+      return `<div class="sq-card" id="sqc${i}" title="${name}" onclick="sqSelectCard(${i}, ${JSON.stringify(label).replace(/</g,'\u003c')})">
+        <img src="${img}" onerror="this.src='${BLANK}'" loading="lazy">
+        <div class="sq-name">${c.name || '—'}</div>
+      </div>`;
+    }).join('');
+    panel.style.display = 'block';
+  } catch(e) { console.warn('[ScanQueue]', e); }
+})();
+
+function sqSelectCard(idx, label) {
+  // Označ jako aktivní
+  document.querySelectorAll('.sq-card').forEach(el => el.style.borderColor = '');
+  const el = document.getElementById('sqc' + idx);
+  if (el) el.style.borderColor = '#ffa700';
+  // Předvyplň název karty pokud existuje pole pro název
+  const nameInput = document.getElementById('cardNameInp') || document.getElementById('cardName') || document.querySelector('input[placeholder*="název"]');
+  if (nameInput) {
+    nameInput.value = label;
+    nameInput.dispatchEvent(new Event('input'));
+  }
+  // Toast
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = '📋 Karta: ' + label;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2500);
+}
 
 const VIP_EMAILS = [
   'adelka.papezova@gmail.com',
@@ -1477,5 +1556,17 @@ document.getElementById('albumModal').addEventListener('click', e => {
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
 <script src="site-tracking.js"></script>
+
+<!-- ALBUM SCAN QUEUE PANEL -->
+<div id="scanQueuePanel">
+  <div class="sq-head">
+    <span class="sq-title">📋 Fronta z alba</span>
+    <span class="sq-count" id="sqCount"></span>
+    <span style="color:#aaa;font-size:11px;margin-left:4px">· klikni na kartu pro předvyplnění názvu</span>
+    <button class="sq-close" onclick="document.getElementById('scanQueuePanel').style.display='none';localStorage.removeItem('pkc_album_scan_queue')">✕ Zavřít</button>
+  </div>
+  <div class="sq-list" id="sqList"></div>
+</div>
+
 </body>
 </html>
