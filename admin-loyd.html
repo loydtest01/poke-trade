@@ -112,6 +112,68 @@ details pre { background: rgba(0,0,0,.4); padding: .6rem; border-radius: 6px; fo
 </style>
 </head>
 <body>
+<script>window.TOPBAR_ACTIVE = 'admin-loyd';</script>
+<script src="i18n.js"></script>
+<script src="topbar.js?v=2"></script>
+<style>
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: #f5c842; }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: rgba(240,232,208,0.6); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: #f0ece4; }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: #f5c842; }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
+  text-decoration: none; color: #f0ece4; transition: all .15s;
+}
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: #f5c842; color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
+}
+.btn-nav-outline {
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(240,232,208,0.7); border-radius: 8px; padding: 5px 12px; font-size: 13px;
+  cursor: pointer; font-family: inherit; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 5px; transition: all .15s;
+}
+button.btn-nav-outline { background: transparent !important; -webkit-appearance: none; }
+.btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+</style>
+<header class="app-topbar">
+  <a href="/" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks" id="mainNav"></nav>
+  <div class="topbar-right">
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
+  </div>
+</header>
 <div class="adm-wrap">
   <div class="adm-header">
     <h1>🛡️ Admin Panel — Podezřelé chování</h1>
@@ -624,7 +686,15 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+function doLogout() {
+  ['sb_token','sb_user','sb_refresh_token','sb_user_id','sb_email','sb_username','pkc_avatar_local','pkc_online_session'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  window.location.href = 'login.html';
+}
+
 document.addEventListener('DOMContentLoaded', init);
 </script>
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
+<script src="site-tracking.js"></script>
 </body>
 </html>
