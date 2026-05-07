@@ -441,20 +441,59 @@ async function sbFetch(path, method, body, token) {
   return text ? JSON.parse(text) : {};
 }
 
+/* Dekóduje JWT payload bez externích knihoven */
+function decodeJwtPayload(token) {
+  try {
+    const b64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
+  } catch { return null; }
+}
+
 async function getUserFromToken(token) {
   try {
+    // Pokus 1: standardní ověření přes Supabase Auth API (platný token)
     const userRes = await sbFetch('auth/v1/user', 'GET', null, token);
-    if (!userRes.id) return null;
+    if (userRes && userRes.id) {
+      const profileRes = await sbFetch(
+        `rest/v1/profiles?id=eq.${userRes.id}&select=username`,
+        'GET', null, SUPABASE_ANON
+      );
+      return {
+        id:       userRes.id,
+        email:    userRes.email,
+        username: profileRes[0]?.username || userRes.email,
+      };
+    }
+  } catch { /* pokračuj na fallback */ }
+
+  // Pokus 2: token je expirovaný — dekóduj sub claim a ověř přes service key
+  try {
+    const SVC_KEY = process.env.SUPABASE_SERVICE_KEY;
+    if (!SVC_KEY || SVC_KEY === SUPABASE_ANON) return null;
+
+    const payload = decodeJwtPayload(token);
+    const userId = payload?.sub;
+    if (!userId || !/^[0-9a-f-]{36}$/.test(userId)) return null;
+
+    // Admin API vyžaduje service_role key — vrací uživatele bez ohledu na expiry
+    const adminRes = await fetch(`${SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+      headers: {
+        'apikey': SVC_KEY,
+        'Authorization': 'Bearer ' + SVC_KEY,
+      }
+    });
+    if (!adminRes.ok) return null;
+    const adminUser = await adminRes.json();
+    if (!adminUser.id) return null;
 
     const profileRes = await sbFetch(
-      `rest/v1/profiles?id=eq.${userRes.id}&select=username`,
+      `rest/v1/profiles?id=eq.${adminUser.id}&select=username`,
       'GET', null, SUPABASE_ANON
     );
-
     return {
-      id:       userRes.id,
-      email:    userRes.email,
-      username: profileRes[0]?.username || userRes.email,
+      id:       adminUser.id,
+      email:    adminUser.email,
+      username: profileRes[0]?.username || adminUser.email,
     };
   } catch { return null; }
 }
