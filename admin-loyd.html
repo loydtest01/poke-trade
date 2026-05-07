@@ -244,6 +244,8 @@ const ADMIN_EMAILS = ['papez.ondrej@gmail.com', 'loydtest@gmail.com'];
 // Sloučeno do v1 catch-all routeru — uvolnilo to slot na Vercelu.
 // URL: /api/v1/admin/suspicious?action=...&t=<token>
 const API_BASE = '/api/v1/admin/suspicious';
+const SBU = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
 let _token = null;
 
@@ -255,6 +257,19 @@ async function init() {
     const raw = localStorage.getItem('sb_user');
     if (raw) user = JSON.parse(raw);
   } catch (e) {}
+
+  // Fallback: pokud sb_user chybí nebo neobsahuje email, zeptej se Supabase Auth API
+  if ((!user || !user.email) && _token) {
+    try {
+      const r = await fetch(SBU + '/auth/v1/user', {
+        headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + _token }
+      });
+      if (r.ok) {
+        user = await r.json();
+        try { localStorage.setItem('sb_user', JSON.stringify(user)); } catch(e) {}
+      }
+    } catch(e) {}
+  }
 
   const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
 

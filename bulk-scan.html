@@ -19,7 +19,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="rate-limit-modal.js" defer></script>
 <script src="rate-limit-modal.js"></script>
 <style>
 :root {
@@ -330,11 +329,25 @@ function toast(msg, type = '') {
   const gate = document.getElementById('accessGate');
 
   TOKEN   = localStorage.getItem('sb_token');
-  const sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
-  USER_ID = sbUser?.id || localStorage.getItem('sb_user_id');
-  USER_EMAIL = (sbUser?.email || '').toLowerCase();
+  let sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
 
-  if (!TOKEN || !USER_ID || !USER_EMAIL) {
+  // Pokud chybí sb_user ale máme token, načti uživatele ze Supabase Auth
+  if (!sbUser && TOKEN) {
+    try {
+      const r = await fetch(SUPABASE_URL + '/auth/v1/user', {
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN }
+      });
+      if (r.ok) {
+        sbUser = await r.json();
+        try { localStorage.setItem('sb_user', JSON.stringify(sbUser)); } catch(e) {}
+      }
+    } catch(e) {}
+  }
+
+  USER_ID    = (sbUser && sbUser.id) || localStorage.getItem('sb_user_id') || '';
+  USER_EMAIL = ((sbUser && sbUser.email) || '').toLowerCase();
+
+  if (!TOKEN || !USER_ID) {
     gate.innerHTML = `
       <div class="gate-card">
         <div class="gate-icon">🔒</div>
@@ -345,7 +358,27 @@ function toast(msg, type = '') {
     return;
   }
 
-  if (!VIP_EMAILS.includes(USER_EMAIL)) {
+  // 1. Rychlý check přes hardcoded email list
+  let isVip = VIP_EMAILS.includes(USER_EMAIL);
+
+  // 2. Fallback: zeptej se Supabase (dynamický VIP status z DB)
+  if (!isVip && USER_ID) {
+    try {
+      const r = await fetch(
+        SUPABASE_URL + '/rest/v1/profiles?id=eq.' + USER_ID + '&select=is_vip,vip_until',
+        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN } }
+      );
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d[0]) {
+          const p = d[0];
+          isVip = p.is_vip === true || (p.vip_until && new Date(p.vip_until) > new Date());
+        }
+      }
+    } catch(e) {}
+  }
+
+  if (!isVip) {
     gate.innerHTML = `
       <div class="gate-card">
         <div class="gate-icon">⭐</div>
