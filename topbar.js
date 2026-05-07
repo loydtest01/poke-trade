@@ -1392,7 +1392,7 @@ function _initUserChip() {
   // Čerstvá data ze Supabase (async, potichu)
   (function() {
     var SBU = (typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '') || 'https://xrduqwrinzvmpixgmqta.supabase.co';
-    var SBA = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') || '';
+    var SBA = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
     if (!SBU || !SBA) return;
     fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=username,avatar_url', {
       headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + token }
