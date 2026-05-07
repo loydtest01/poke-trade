@@ -1347,6 +1347,80 @@ window._toggleLangDrop = _toggleLangDrop;
 document.addEventListener('i18n:changed', function() { _updateLangBtn(); renderNav(); });
 document.addEventListener('i18n:ready',   function() { _updateLangBtn(); renderNav(); });
 
+/* ══════════════════════════════════════════════════════════════
+   UNIVERSAL USER CHIP INIT — funguje na všech stránkách
+   ══════════════════════════════════════════════════════════════ */
+function _initUserChip() {
+  var chip      = document.getElementById('userChip');
+  var nameEl    = document.getElementById('userName');
+  var avatarEl  = document.getElementById('userAvatar');
+  var loginLink = document.getElementById('loginLink');
+  var logoutBtn = document.getElementById('logoutBtn');
+  if (!chip && !avatarEl) return;
+
+  var token = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || null;
+  var uid   = localStorage.getItem('sb_user_id') || null;
+  var userObj = null;
+  try { userObj = JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch(e) {}
+
+  if (!token || !uid) {
+    if (chip)      chip.style.display      = 'none';
+    if (loginLink) loginLink.style.display = '';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    return;
+  }
+
+  if (chip)      chip.style.display      = '';
+  if (loginLink) loginLink.style.display = 'none';
+  if (logoutBtn) logoutBtn.style.display = '';
+
+  var uname = (userObj && ((userObj.user_metadata && userObj.user_metadata.username) || userObj.email))
+              || localStorage.getItem('sb_username') || uid.slice(0, 6);
+  if (nameEl)   nameEl.textContent   = uname;
+  if (avatarEl) avatarEl.textContent = (uname[0] || '?').toUpperCase();
+
+  // Okamžitě z cache
+  var cached = null;
+  try { cached = localStorage.getItem('pkc_avatar_local'); } catch(e) {}
+  if (cached && avatarEl) {
+    avatarEl.textContent = '';
+    avatarEl.style.backgroundImage    = 'url(' + cached + ')';
+    avatarEl.style.backgroundSize     = 'cover';
+    avatarEl.style.backgroundPosition = 'center';
+  }
+
+  // Čerstvá data ze Supabase (async, potichu)
+  (function() {
+    var SBU = (typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '') || 'https://xrduqwrinzvmpixgmqta.supabase.co';
+    var SBA = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') || '';
+    if (!SBU || !SBA) return;
+    fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=username,avatar_url', {
+      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + token }
+    })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(d) {
+      if (!d || !d[0]) return;
+      var p = d[0];
+      if (p.username) {
+        if (nameEl)   nameEl.textContent = p.username;
+        if (avatarEl && !cached) avatarEl.textContent = (p.username[0] || '?').toUpperCase();
+        try { localStorage.setItem('sb_username', p.username); } catch(e) {}
+      }
+      if (p.avatar_url && avatarEl) {
+        avatarEl.textContent = '';
+        avatarEl.style.backgroundImage    = 'url(' + p.avatar_url + ')';
+        avatarEl.style.backgroundSize     = 'cover';
+        avatarEl.style.backgroundPosition = 'center';
+        try { localStorage.setItem('pkc_avatar_local', p.avatar_url); } catch(e) {}
+      }
+    })
+    .catch(function() {});
+  })();
+}
+
+// Vystav globálně — stránky si mohou refreshnout chip po přihlášení
+window._topbarRefreshUser = _initUserChip;
+
 function init() {
   console.log('[topbar] v2-multi-provider loading…');
   // Každá funkce v try/catch — aby chyba v jedné nezabila ostatní
@@ -1356,6 +1430,7 @@ function init() {
   try { initSettingsValues(); } catch(e) { console.error('[topbar] initSettingsValues:', e); }
   try { injectBell(); }         catch(e) { console.error('[topbar] injectBell:', e); }
   try { injectAuthChip(); }     catch(e) { console.error('[topbar] injectAuthChip:', e); }
+  try { _initUserChip(); }      catch(e) { console.error('[topbar] _initUserChip:', e); }
   // FIX: Topbar dropdown přepínač jazyků zrušen — Loyd chtěl jeden přepínač
   // pouze v Settings panelu (žádné dva oddělené widgety pro to samé).
   // Funkce injectLangSwitch zůstává v souboru pro případnou budoucí potřebu.
