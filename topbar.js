@@ -55,8 +55,17 @@ var _ADMIN_EMAILS = ['papez.ondrej@gmail.com','loydtest@gmail.com'];
 /* Vrátí email přihlášeného uživatele z localStorage (lowercase), nebo '' */
 function _getLocalEmail() {
   try {
+    // 1) přímý klíč sb_email
+    var direct = localStorage.getItem('sb_email');
+    if (direct && direct.includes('@')) return direct.toLowerCase();
+    // 2) sb_user objekt — email nebo user_metadata.email
     var u = JSON.parse(localStorage.getItem('sb_user') || 'null');
-    return ((u && u.email) || '').toLowerCase();
+    if (u) {
+      var e = u.email || (u.user_metadata && u.user_metadata.email) || '';
+      if (e && e.includes('@')) return e.toLowerCase();
+    }
+    // 3) pkc_online_session (username může být prefix emailu — nelze použít)
+    return '';
   } catch(e) { return ''; }
 }
 
@@ -507,15 +516,20 @@ function renderNav() {
   }
 
   /* ── Mobilní drawer overlay ── */
-  if (!document.getElementById('mobNavOverlay')) {
-    var linksHtml = (typeof pages !== 'undefined' ? pages : _buildPages()).map(function(p) {
-      var cls   = (p.id === active) ? ' active' : '';
-      var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
-      return '<a href="' + p.href + '" class="' + cls + '">'
-           + '<img src="' + p.icon + '" class="nav-icon"> '
-           + label + '</a>';
-    }).join('');
+  var _mobLinksHtml = pages.map(function(p) {
+    var cls   = (p.id === active) ? ' active' : '';
+    var label = (window.pt && p.labelKey) ? window.pt(p.labelKey, p.label) : p.label;
+    return '<a href="' + p.href + '" class="' + cls + '">'
+         + '<img src="' + p.icon + '" class="nav-icon"> '
+         + label + '</a>';
+  }).join('');
 
+  var existingOverlay = document.getElementById('mobNavOverlay');
+  if (existingOverlay) {
+    // Re-render linky při každém volání renderNav (nové stránky pro VIP/admin)
+    var lc = existingOverlay.querySelector('.mob-nav-links');
+    if (lc) lc.innerHTML = _mobLinksHtml;
+  } else {
     var overlay = document.createElement('div');
     overlay.id = 'mobNavOverlay';
     overlay.className = 'mob-nav-overlay';
@@ -525,7 +539,7 @@ function renderNav() {
     +     '<a href="/" class="mob-nav-logo">Poké<strong>Trade</strong></a>'
     +     '<button class="mob-nav-close" onclick="closeMobNav()" aria-label="Zavřít">&#x2715;</button>'
     +   '</div>'
-    +   '<div class="mob-nav-links">' + linksHtml + '</div>'
+    +   '<div class="mob-nav-links">' + _mobLinksHtml + '</div>'
     + '</div>';
     overlay.addEventListener('click', function(e) {
       if (e.target === overlay) closeMobNav();
@@ -1399,6 +1413,14 @@ function _initUserChip() {
   if (chip)      chip.style.display      = '';
   if (loginLink) loginLink.style.display = 'none';
   if (logoutBtn) logoutBtn.style.display = '';
+
+  // Ulož email do sb_email pro _getLocalEmail() — záloha pro _buildPages()
+  var _confirmedEmail = (userObj && (userObj.email || (userObj.user_metadata && userObj.user_metadata.email))) || '';
+  if (_confirmedEmail && !localStorage.getItem('sb_email')) {
+    try { localStorage.setItem('sb_email', _confirmedEmail); } catch(e) {}
+    // Re-renderuj nav — poprvé mohl být rendernut bez emailu
+    try { renderNav(); } catch(e) {}
+  }
 
   var uname = (userObj && ((userObj.user_metadata && userObj.user_metadata.username) || userObj.email))
               || localStorage.getItem('sb_username') || uid.slice(0, 6);
