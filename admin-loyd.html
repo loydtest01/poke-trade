@@ -160,6 +160,21 @@ details pre { background: rgba(0,0,0,.4); padding: .6rem; border-radius: 6px; fo
 button.btn-nav-outline { background: transparent !important; -webkit-appearance: none; }
 .btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
 .nav-icon { width: 16px; height: 16px; vertical-align: middle; opacity: .8; }
+/* Tlačítka v topbaru (notifikace, nastavení) — definováno zde protože admin nemá style.css */
+.chat-icon-btn {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(240,236,228,0.65); text-decoration: none;
+  transition: all .15s; cursor: pointer; font-family: inherit;
+}
+.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; border-color: rgba(255,255,255,0.14); }
+.chat-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+  border-radius: 9px; background: #f87171; color: #fff;
+  font-size: 10px; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; padding: 0 5px; line-height: 1;
+}
 </style>
 <header class="app-topbar">
   <a href="/" class="app-logo">
