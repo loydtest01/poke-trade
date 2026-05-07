@@ -467,7 +467,38 @@ function toast(msg, type = '') {
 (async function checkAccess() {
   const gate = document.getElementById('accessGate');
 
-  TOKEN   = localStorage.getItem('sb_token');
+  // Čti token — podporuje Supabase v1 (sb_token) i v2 (sb-{ref}-auth-token JSON)
+  function readStoredToken() {
+    const ANON_PREFIX = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6';
+    const v1 = localStorage.getItem('sb_token');
+    if (v1 && v1.length > 20 && !v1.startsWith(ANON_PREFIX)) return v1;
+    const SB_REF = SUPABASE_URL.match(/\/\/([^.]+)\./)?.[1] || '';
+    const v2raw = localStorage.getItem(`sb-${SB_REF}-auth-token`);
+    if (v2raw) {
+      try {
+        const v2 = JSON.parse(v2raw);
+        const at = v2?.access_token || v2?.currentSession?.access_token;
+        const rt = v2?.refresh_token || v2?.currentSession?.refresh_token;
+        if (at) {
+          localStorage.setItem('sb_token', at);
+          if (rt) localStorage.setItem('sb_refresh_token', rt);
+          const u = v2.user || v2?.currentSession?.user;
+          if (u) { localStorage.setItem('sb_user', JSON.stringify(u)); localStorage.setItem('sb_email', u.email || ''); }
+          return at;
+        }
+      } catch(e) {}
+    }
+    // Fallback — projdi všechny klíče
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.includes('auth-token') && k !== 'sb_token') {
+        try { const at = JSON.parse(localStorage.getItem(k))?.access_token; if (at) return at; } catch(e) {}
+      }
+    }
+    return v1 || null;
+  }
+
+  TOKEN   = readStoredToken();
   let sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
 
   // Pokud chybí sb_user ale máme token, načti uživatele ze Supabase Auth
@@ -1364,7 +1395,7 @@ async function fetchAlbumPhotos() {
   const grid = document.getElementById('albumGrid');
   grid.innerHTML = '<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
   try {
-    const tok = localStorage.getItem('sb_token') || '';
+    const tok = TOKEN || localStorage.getItem('sb_token') || '';
     const uid = localStorage.getItem('sb_user_id') || USER_ID || '';
     if (!uid) { grid.innerHTML = '<div class="album-modal-empty">⚠️ Nejsi přihlášen</div>'; return; }
 
