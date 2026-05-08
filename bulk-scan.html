@@ -268,40 +268,13 @@ canvas#oc { z-index: 2; }
   .btn { padding: 6px 10px; font-size: 12px; }
 }
 
-/* ── Album scan queue panel ──────────────────────── */
-#scanQueuePanel {
-  display: none;
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  background: #1a1520;
-  border-top: 2px solid #ffa700;
-  padding: 10px 16px 12px;
-  z-index: 900;
-  max-height: 190px;
-}
-.sq-head {
-  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
-}
-.sq-title { color: #ffa700; font-weight: 700; font-size: 13px; }
-.sq-count { color: #aaa; font-size: 11px; }
-.sq-close {
-  margin-left: auto; background: transparent;
-  border: 1px solid rgba(255,255,255,0.2); color: #aaa;
-  border-radius: 6px; padding: 2px 8px; cursor: pointer; font-size: 12px;
-}
-.sq-list { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
-.sq-card {
-  flex-shrink: 0; text-align: center; cursor: pointer;
-  border: 2px solid transparent; border-radius: 6px; padding: 2px;
-  transition: border-color .15s;
-}
-.sq-card:hover { border-color: #ffa700; }
-.sq-card.done { opacity: 0.35; }
-.sq-card img { width: 46px; height: 64px; object-fit: contain; border-radius: 4px; background: #111; display: block; }
-.sq-card .sq-name {
-  font-size: 9px; color: #ccc; width: 50px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px;
-}
+/* ── Community image panel ── */
+.community-badge { display:inline-block; background:rgba(100,180,255,.15); border:1px solid rgba(100,180,255,.3); color:#64b4ff; border-radius:5px; padding:2px 7px; font-size:10px; font-weight:700; }
+#albumReturnBanner { position:fixed; top:58px; left:50%; transform:translateX(-50%); background:#1a1520; border:1px solid #64b4ff; border-radius:10px; padding:10px 16px; z-index:810; display:none; align-items:center; gap:10px; font-size:12px; color:#f0ece4; max-width:92vw; box-shadow:0 4px 20px rgba(0,0,0,.5); }
+#albumReturnBanner strong { color:#64b4ff; }
+.btn-save-album { background:rgba(80,200,100,.18); border:1px solid rgba(80,200,100,.4); color:#4fc870; border-radius:7px; padding:5px 14px; cursor:pointer; font-size:12px; font-family:inherit; }
+.btn-share-community { background:rgba(100,180,255,.15); border:1px solid rgba(100,180,255,.35); color:#64b4ff; border-radius:7px; padding:5px 14px; cursor:pointer; font-size:12px; font-family:inherit; }
+#setAsMainChk { accent-color:#f5c842; cursor:pointer; }
 
 </style>
   <!-- ═══ PWA init + mobile CSS ═══ -->
@@ -476,49 +449,6 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
-
-
-// ── Album scan queue ─────────────────────────────────────────────
-(function initAlbumQueue() {
-  const raw = localStorage.getItem('pkc_album_scan_queue');
-  if (!raw) return;
-  try {
-    const cards = JSON.parse(raw);
-    if (!cards.length) return;
-    const panel = document.getElementById('scanQueuePanel');
-    const list  = document.getElementById('sqList');
-    const count = document.getElementById('sqCount');
-    count.textContent = cards.length + ' karet';
-    const BLANK = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 64'><rect fill='%23333' width='46' height='64'/></svg>";
-    list.innerHTML = cards.map((c, i) => {
-      const img = c.image || BLANK;
-      const name = (c.name || 'karta').replace(/"/g, '&quot;');
-      const label = c.number ? c.name + ' #' + c.number : c.name;
-      return `<div class="sq-card" id="sqc${i}" title="${name}" onclick="sqSelectCard(${i}, ${JSON.stringify(label).replace(/</g,'\u003c')})">
-        <img src="${img}" onerror="this.src='${BLANK}'" loading="lazy">
-        <div class="sq-name">${c.name || '—'}</div>
-      </div>`;
-    }).join('');
-    panel.style.display = 'block';
-  } catch(e) { console.warn('[ScanQueue]', e); }
-})();
-
-function sqSelectCard(idx, label) {
-  // Označ jako aktivní
-  document.querySelectorAll('.sq-card').forEach(el => el.style.borderColor = '');
-  const el = document.getElementById('sqc' + idx);
-  if (el) el.style.borderColor = '#ffa700';
-  // Předvyplň název karty pokud existuje pole pro název
-  const nameInput = document.getElementById('cardNameInp') || document.getElementById('cardName') || document.querySelector('input[placeholder*="název"]');
-  if (nameInput) {
-    nameInput.value = label;
-    nameInput.dispatchEvent(new Event('input'));
-  }
-  // Toast
-  const t = document.createElement('div');
-  t.className = 'toast'; t.textContent = '📋 Karta: ' + label;
-  document.body.appendChild(t); setTimeout(() => t.remove(), 2500);
-}
 
 const VIP_EMAILS = [
   'adelka.papezova@gmail.com',
@@ -1555,17 +1485,154 @@ document.getElementById('albumModal').addEventListener('click', e => {
 </script>
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
-<script src="site-tracking.js"></script>
+<script src="site-tracking.js">
+// ══ ALBUM → BULK SCAN → ALBUM RETURN ══════════════════════════════
+let _arbEntry = null;
 
-<!-- ALBUM SCAN QUEUE PANEL -->
-<div id="scanQueuePanel">
-  <div class="sq-head">
-    <span class="sq-title">📋 Fronta z alba</span>
-    <span class="sq-count" id="sqCount"></span>
-    <span style="color:#aaa;font-size:11px;margin-left:4px">· klikni na kartu pro předvyplnění názvu</span>
-    <button class="sq-close" onclick="document.getElementById('scanQueuePanel').style.display='none';localStorage.removeItem('pkc_album_scan_queue')">✕ Zavřít</button>
-  </div>
-  <div class="sq-list" id="sqList"></div>
+(function initAlbumReturn() {
+  const raw = localStorage.getItem('pkc_album_to_bulkscan');
+  if (!raw) return;
+  try {
+    _arbEntry = JSON.parse(raw);
+    if (!_arbEntry.photoUrl) return;
+
+    // Zobraz banner
+    const banner = document.getElementById('albumReturnBanner');
+    document.getElementById('arbCardName').textContent = _arbEntry.name || 'bez názvu';
+    banner.style.display = 'flex';
+
+    // Načti fotku
+    setTimeout(async () => {
+      try {
+        toast('⏳ Načítám fotku z alba…', 'info');
+        const resp = await fetch(_arbEntry.photoUrl);
+        const blob = await resp.blob();
+        const ext  = blob.type.split('/')[1] || 'jpg';
+        const file = new File([blob], (_arbEntry.name || 'karta') + '.' + ext, { type: blob.type });
+        loadImage(file);
+        toast('✅ Fotka načtena — uprav nebo najdi kartu', 'ok');
+      } catch(e) { toast('⚠️ Foto nelze načíst: ' + e.message, 'error'); }
+
+      // Prefill name
+      const ni = document.getElementById('cardNameInp') || document.querySelector('input[placeholder*="název"]');
+      if (ni && _arbEntry.name) { ni.value = _arbEntry.name; ni.dispatchEvent(new Event('input')); }
+    }, 700);
+
+    // Automaticky prohledej review panel pokud existuje
+    setTimeout(() => {
+      if (typeof renderReviewPanel === 'function' && processed.length > 0) renderReviewPanel();
+    }, 2000);
+  } catch(e) { console.warn('[AlbumReturn init]', e); }
+})();
+
+function arbDiscard() {
+  localStorage.removeItem('pkc_album_to_bulkscan');
+  document.getElementById('albumReturnBanner').style.display = 'none';
+  _arbEntry = null;
+}
+
+async function arbSaveBack() {
+  if (!_arbEntry) return;
+  const result = {
+    cardLocalId: _arbEntry.cardLocalId,
+    name:        _arbEntry.name,
+    setAsMain:   document.getElementById('setAsMainChk').checked,
+    apiCard:     null,
+    newPhotoUrl: null,
+    storagePath: null,
+  };
+
+  // Vezmi data z reviewData[0] pokud existuje
+  if (typeof reviewData !== 'undefined' && reviewData[0]) {
+    const rd = reviewData[0];
+    if (rd.name)    result.name    = rd.name;
+    if (rd.apiCard) result.apiCard = rd.apiCard;
+  }
+
+  // Upload oříznuté/zpracované fotky do storage
+  if (typeof processed !== 'undefined' && processed[0] && TOKEN && USER_ID) {
+    try {
+      const p = processed[0];
+      const sp = `${USER_ID}/album_bulkscan_${_arbEntry.cardLocalId}_${Date.now()}.jpg`;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
+        body: p.blob
+      });
+      if (up.ok) {
+        result.newPhotoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;
+        result.storagePath = sp;
+        // Ulož do user_card_photos
+        await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ user_id: USER_ID, user_card_local_id: _arbEntry.cardLocalId, url: result.newPhotoUrl, storage_path: sp, side: 'front' })
+        });
+      }
+    } catch(e) { console.warn('[arbSaveBack photo]', e); }
+  }
+
+  localStorage.setItem('pkc_bulkscan_album_result', JSON.stringify(result));
+  localStorage.removeItem('pkc_album_to_bulkscan');
+  document.getElementById('albumReturnBanner').innerHTML = '<span style="color:#4fc870">✅ Uloženo! Zavři záložku a obnov album.</span>';
+  _arbEntry = null;
+}
+
+async function arbShareCommunity() {
+  // Sdílení do komunity — uloží obrázek do community_card_images tabulky
+  if (!TOKEN || !USER_ID) { toast('❌ Nejsi přihlášen', 'error'); return; }
+  if (!_arbEntry) return;
+
+  const apiCard = (typeof reviewData !== 'undefined' && reviewData[0]?.apiCard) || null;
+  const apiId   = apiCard?.id || _arbEntry.apiId || '';
+  const name    = (typeof reviewData !== 'undefined' && reviewData[0]?.name) || _arbEntry.name || '';
+
+  if (!apiId) { toast('⚠️ Nejprve najdi kartu přes 🔍 aby bylo možné sdílet', 'warn'); return; }
+
+  // Upload do shared storage
+  let communityUrl = '';
+  if (typeof processed !== 'undefined' && processed[0]) {
+    try {
+      const p  = processed[0];
+      const sp = `community/${apiId}_${USER_ID}_${Date.now()}.jpg`;
+      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`, {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
+        body: p.blob
+      });
+      if (up.ok) communityUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;
+    } catch(e) { toast('❌ Upload selhal: ' + e.message, 'error'); return; }
+  }
+
+  if (!communityUrl) { toast('⚠️ Nejprve zpracuj kartu (Zpracovat vše)', 'warn'); return; }
+
+  // Ulož do community_card_images
+  const ins = await fetch(`${SUPABASE_URL}/rest/v1/community_card_images`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ api_card_id: apiId, card_name: name, image_url: communityUrl, contributor_id: USER_ID, verified: false, created_at: new Date().toISOString() })
+  });
+
+  if (ins.ok) {
+    toast('🌍 Sdíleno do komunitní databáze! Ostatní sběratelé to uvidí.', 'ok');
+    document.getElementById('albumReturnBanner').querySelector('.btn-share-community').textContent = '✅ Sdíleno!';
+  } else {
+    toast('❌ Sdílení selhalo: ' + await ins.text(), 'error');
+  }
+}
+
+</script>
+
+<!-- Album return banner -->
+<div id="albumReturnBanner">
+  <strong>📷 Album karta:</strong>
+  <span id="arbCardName">—</span>
+  <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#ccc;cursor:pointer">
+    <input type="checkbox" id="setAsMainChk"> Nastavit jako hlavní foto
+  </label>
+  <button class="btn-save-album" onclick="arbSaveBack()">✅ Uložit zpět do alba</button>
+  <button class="btn-share-community" onclick="arbShareCommunity()">🌍 Sdílet do komunity</button>
+  <button onclick="arbDiscard()" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:16px;padding:2px 6px">✕</button>
 </div>
 
 </body>

@@ -748,9 +748,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <div class="new-album-wrap" id="globalNewAlbumWrap">
         <input class="new-album-inp" id="globalNewAlbumInp" placeholder="Název nového alba…">
       </div>
-      <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled>
-        💾 Zařadit vše
-      </button>
+
       <button class="btn-outline" onclick="loadQueue()">🔄 Obnovit</button>
     </div>
   </div>
@@ -1444,6 +1442,11 @@ function buildGroupEl(g, gi) {
         <button onclick="openCrop(${gi},${pi})"
           style="background:rgba(245,200,66,.12);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit">
           ✂️ Oříznout
+        </button>
+        <button onclick="sendQueueToBulkScan(${gi},${pi})"
+          style="background:rgba(100,180,255,.12);border:1px solid rgba(100,180,255,.3);color:#64b4ff;border-radius:5px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;font-family:inherit"
+          title="Otevři v Bulk Scan pro opravu">
+          🔬 Bulk Scan
         </button>
         ${p.croppedUrl ? `<button onclick="resetPhotoTile(${gi},${pi})" title="Obnovit originál"
           style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(255,255,255,.4);border-radius:5px;padding:3px 6px;font-size:10px;cursor:pointer">↺</button>` : ''}
@@ -4675,6 +4678,71 @@ function fileToBase64(file) {
 
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
-<script src="site-tracking.js"></script>
+<script src="site-tracking.js">
+// ── Poslat kartu z fronty do Bulk Scan ───────────────────────────
+function sendQueueToBulkScan(gi, pi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  const photo = g.photos[pi] || g.photos.find(p => p.side === 'front') || g.photos[0];
+  if (!photo) return;
+  const ai = g.aiResult || {};
+  const entry = {
+    source:        'queue',
+    gi,
+    queueId:       photo.queueId || null,
+    photoUrl:      photo.croppedUrl || photo.url || '',
+    storagePath:   photo.storagePath || null,
+    name:          ai.nameEN || ai.name || '',
+    set:           ai.set    || '',
+    number:        ai.number || '',
+    lang:          ai.lang   || 'EN',
+    condition:     ai.condition || 'NM',
+    batchId:       g.batchId || '',
+    returnToQueue: true,
+  };
+  localStorage.setItem('pkc_queue_to_bulkscan', JSON.stringify(entry));
+  window.open('/bulk-scan.html', '_blank');
+}
+
+// ── Komunita: vyhledej obrázek karty v komunitní databázi ────────
+async function searchCommunityImage(gi) {
+  const g = cardGroups[gi];
+  if (!g) return null;
+  const resolvedCard = g.resolvedCard;
+  const apiId = resolvedCard?.id || g.aiResult?.apiId || '';
+  if (!apiId) return null;
+  try {
+    const r = await sbReq(
+      `rest/v1/community_card_images?api_card_id=eq.${encodeURIComponent(apiId)}&order=created_at.desc&limit=3`,
+      'GET'
+    );
+    const imgs = await r.json();
+    if (Array.isArray(imgs) && imgs.length > 0) return imgs[0].image_url;
+  } catch(e) { console.warn('[community search]', e); }
+  return null;
+}
+
+// ── Přijmi výsledek z Bulk Scan ──────────────────────────────────
+(function checkBulkScanQueueReturn() {
+  const raw = localStorage.getItem('pkc_bulkscan_result');
+  if (!raw) return;
+  localStorage.removeItem('pkc_bulkscan_result');
+  try {
+    const res = JSON.parse(raw);
+    const gi = res.gi;
+    if (gi == null || !cardGroups[gi]) return;
+    const g = cardGroups[gi];
+    if (!g.aiResult) g.aiResult = {};
+    if (res.name)    { g.aiResult.nameEN = res.name; g.aiResult.name = res.name; }
+    if (res.set)     { g.aiResult.set    = res.set; }
+    if (res.number)  { g.aiResult.number = res.number; }
+    if (res.condition) { g.aiResult.condition = res.condition; }
+    if (res.apiCard) { g.resolvedCard = res.apiCard; g._manuallySelected = true; }
+    if (typeof renderGroup === 'function') renderGroup(gi);
+    showToast?.('✅ Karta aktualizována z Bulk Scan', 'ok');
+  } catch(e) { console.warn('[BulkScanReturn]', e); }
+})();
+
+</script>
 </body>
 </html>

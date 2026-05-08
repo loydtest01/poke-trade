@@ -2056,7 +2056,6 @@ body { background: #06040c; overflow-x: hidden; }
       <button class="sel-action-btn" onclick="bulkSetSell(false)"  style="background:rgba(255,255,255,0.07);color:var(--text2);border:1px solid rgba(255,255,255,0.1)">✕ Zrušit prodej</button>
       <button class="sel-action-btn" id="btnMarkCompleted" onclick="openMarkCompletedModal()" style="display:none;background:rgba(245,200,66,0.15);color:#f5c842;border:1px solid rgba(245,200,66,0.3)">✅ Označit jako dokončeno</button>
       <button class="sel-action-btn sel-remove"  onclick="bulkDelete()" style="margin-left:auto">🗑 Smazat</button>
-      <button class="sel-action-btn" onclick="sendToBulkScan()" style="background:rgba(255,170,0,0.15);color:#ffa700;border:1px solid rgba(255,170,0,0.3)">📤 Do Bulk Scan</button>
       <button class="sel-action-btn sel-cancel"  onclick="cancelSelect()">✕ Zrušit výběr</button>
     </div>
 
@@ -2110,18 +2109,18 @@ body { background: #06040c; overflow-x: hidden; }
       <div class="f-accordion" id="fa-element" data-group="pokemon">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setType('')" data-i18n="type.all">Vše</button>
-          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire"><img src="elements/fire.png" class="fi" onerror="this.style.display='none'"> Ohnivý</button>
-          <button class="type-chip" onclick="setType('water')" data-i18n="type.water"><img src="elements/water.png" class="fi" onerror="this.style.display='none'"> Vodní</button>
-          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass"><img src="elements/grass.png" class="fi" onerror="this.style.display='none'"> Travní</button>
-          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning"><img src="elements/electric.png" class="fi" onerror="this.style.display='none'"> Elektrický</button>
-          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic"><img src="elements/psychic.png" class="fi" onerror="this.style.display='none'"> Psychický</button>
-          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness"><img src="elements/dark.png" class="fi" onerror="this.style.display='none'"> Temný</button>
-          <button class="type-chip" onclick="setType('dragon')" data-i18n="type.dragon"><img src="elements/dragon.png" class="fi" onerror="this.style.display='none'"> Dračí</button>
-          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal"><img src="elements/steel.png" class="fi" onerror="this.style.display='none'"> Kovový</button>
-          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting"><img src="elements/fighting.png" class="fi" onerror="this.style.display='none'"> Bojový</button>
-          <button class="type-chip" onclick="setType('fairy')" data-i18n="type.fairy"><img src="elements/fairy.png" class="fi" onerror="this.style.display='none'"> Víla</button>
-          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless"><img src="elements/normal.png" class="fi" onerror="this.style.display='none'"> Bezbarvý</button>
-          <button class="type-chip" onclick="setType('normal')" data-i18n="type.colorless"><img src="elements/normal.png" class="fi" onerror="this.style.display='none'"> Normální</button>
+          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire"><img src="energi/fire.png" class="fi" onerror="this.style.display='none'"> Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')" data-i18n="type.water"><img src="energi/water.png" class="fi" onerror="this.style.display='none'"> Vodní</button>
+          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass"><img src="energi/grass.png" class="fi" onerror="this.style.display='none'"> Travní</button>
+          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning"><img src="energi/lightning.png" class="fi" onerror="this.style.display='none'"> Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic"><img src="energi/psychic.png" class="fi" onerror="this.style.display='none'"> Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness"><img src="energi/darkness.png" class="fi" onerror="this.style.display='none'"> Temný</button>
+          <button class="type-chip" onclick="setType('dragon')" data-i18n="type.dragon"><img src="energi/dragon.png" class="fi" onerror="this.style.display='none'"> Dračí</button>
+          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal"><img src="energi/metal.png" class="fi" onerror="this.style.display='none'"> Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting"><img src="energi/fighting.png" class="fi" onerror="this.style.display='none'"> Bojový</button>
+          <button class="type-chip" onclick="setType('fairy')" data-i18n="type.fairy"><img src="energi/fairy.png" class="fi" onerror="this.style.display='none'"> Víla</button>
+          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless"><img src="energi/colorless.png" class="fi" onerror="this.style.display='none'"> Bezbarvý</button>
+          <button class="type-chip" onclick="setType('normal')" data-i18n="type.colorless"><img src="energi/colorless.png" class="fi" onerror="this.style.display='none'"> Normální</button>
         </div></div>
       </div>
       <div class="f-accordion" id="fa-rarity-trainer" data-group="trainer">
@@ -2154,15 +2153,15 @@ body { background: #06040c; overflow-x: hidden; }
       <div class="f-accordion" id="fa-energy-type" data-group="energy">
         <div class="f-acc-body"><div class="f-acc-chips">
           <button class="type-chip active" onclick="setType('')" data-i18n="type.all">Vše</button>
-          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire"><img src="elements/fire.png" class="fi" onerror="this.style.display='none'"> Ohnivý</button>
-          <button class="type-chip" onclick="setType('water')" data-i18n="type.water"><img src="elements/water.png" class="fi" onerror="this.style.display='none'"> Vodní</button>
-          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass"><img src="elements/grass.png" class="fi" onerror="this.style.display='none'"> Travní</button>
-          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning"><img src="elements/electric.png" class="fi" onerror="this.style.display='none'"> Elektrický</button>
-          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic"><img src="elements/psychic.png" class="fi" onerror="this.style.display='none'"> Psychický</button>
-          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness"><img src="elements/dark.png" class="fi" onerror="this.style.display='none'"> Temný</button>
-          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal"><img src="elements/steel.png" class="fi" onerror="this.style.display='none'"> Kovový</button>
-          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting"><img src="elements/fighting.png" class="fi" onerror="this.style.display='none'"> Bojový</button>
-          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless"><img src="elements/normal.png" class="fi" onerror="this.style.display='none'"> Bezbarvý</button>
+          <button class="type-chip" onclick="setType('fire')" data-i18n="type.fire"><img src="energi/fire.png" class="fi" onerror="this.style.display='none'"> Ohnivý</button>
+          <button class="type-chip" onclick="setType('water')" data-i18n="type.water"><img src="energi/water.png" class="fi" onerror="this.style.display='none'"> Vodní</button>
+          <button class="type-chip" onclick="setType('grass')" data-i18n="type.grass"><img src="energi/grass.png" class="fi" onerror="this.style.display='none'"> Travní</button>
+          <button class="type-chip" onclick="setType('lightning')" data-i18n="type.lightning"><img src="energi/lightning.png" class="fi" onerror="this.style.display='none'"> Elektrický</button>
+          <button class="type-chip" onclick="setType('psychic')" data-i18n="type.psychic"><img src="energi/psychic.png" class="fi" onerror="this.style.display='none'"> Psychický</button>
+          <button class="type-chip" onclick="setType('darkness')" data-i18n="type.darkness"><img src="energi/darkness.png" class="fi" onerror="this.style.display='none'"> Temný</button>
+          <button class="type-chip" onclick="setType('metal')" data-i18n="type.metal"><img src="energi/metal.png" class="fi" onerror="this.style.display='none'"> Kovový</button>
+          <button class="type-chip" onclick="setType('fighting')" data-i18n="type.fighting"><img src="energi/fighting.png" class="fi" onerror="this.style.display='none'"> Bojový</button>
+          <button class="type-chip" onclick="setType('colorless')" data-i18n="type.colorless"><img src="energi/colorless.png" class="fi" onerror="this.style.display='none'"> Bezbarvý</button>
         </div></div>
       </div>
     </div>
@@ -2184,7 +2183,6 @@ body { background: #06040c; overflow-x: hidden; }
         <option value="evolution" style="background:#0e0c14;color:#f0ece4;">🧬 Evoluční řada</option>
         <option value="price_desc" style="background:#0e0c14;color:#f0ece4;">💰 Nejdražší první</option>
         <option value="price_asc" style="background:#0e0c14;color:#f0ece4;">💰 Nejlevnější první</option>
-        <option value="no_price" style="background:#0e0c14;color:#f0ece4;">⚠️ Bez ceny první</option>
       </select>
       <div class="view-toggle">
         <button class="vt-btn active" id="vt-grid" onclick="setViewMode('grid')" title="Mřížka">
@@ -6126,26 +6124,6 @@ async function removeSelectedFromAlbum() {
 // ══════════════════════════════════════════════════════════════════
 
 /** Označí / odznačí vybrané karty jako k výměně – nejprve vybere fotosady */
-
-// ── Send to Bulk Scan ────────────────────────────────────────────
-function sendToBulkScan() {
-  if (!selectedIds.size) { alert('Nejprve vyber karty pomocí ☑️ Vybrat víc.'); return; }
-  const cards = [...selectedIds].map(id => {
-    const c = allCards.find(x => String(x.id) === String(id));
-    if (!c) return null;
-    return {
-      id:     c.id,
-      name:   c.name   || '',
-      set:    c.set    || '',
-      number: c.number || c.num || '',
-      image:  c.images?.small || c.apiSmall || c.imageUrl || ''
-    };
-  }).filter(Boolean);
-  if (!cards.length) return;
-  localStorage.setItem('pkc_album_scan_queue', JSON.stringify(cards));
-  window.open('/bulk-scan.html', '_blank');
-}
-
 async function bulkSetTrade(forTrade) {
   if (!selectedIds.size) return;
   if (!forTrade) {
@@ -8244,13 +8222,6 @@ function sortCards(cards) {
     if (pb === 0) return -1;
     return pa - pb;
   });
-  if (activeSort === 'no_price') return c.sort((a,b) => {
-    const ha = !a.p30d || a.p30d === 0;
-    const hb = !b.p30d || b.p30d === 0;
-    if (ha && !hb) return -1;
-    if (!ha && hb) return 1;
-    return (a.name||'').localeCompare(b.name||'', 'cs');
-  });
   if (activeSort === 'evolution') return c.sort((a,b) => {
     const ra = getEvoRoot(a.name), rb = getEvoRoot(b.name);
     const famCmp = ra.localeCompare(rb, 'cs');
@@ -9784,6 +9755,11 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           border-radius:8px; color:#7dd3fc; font-size:12px; padding:5px 12px;
           cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
         " onmouseover="this.style.background='rgba(56,189,248,0.2)'" onmouseout="this.style.background='rgba(56,189,248,0.1)'" title="Lupa – zvětšení detailů fotky">🔍 Lupa</button>
+        <button onclick="pgmSendToBulkScan()" id="pgmBulkBtn" style="
+          background:rgba(100,180,255,0.1); border:1px solid rgba(100,180,255,0.3);
+          border-radius:8px; color:#64b4ff; font-size:12px; padding:5px 12px;
+          cursor:pointer; font-family:inherit; transition:all .15s; white-space:nowrap;
+        " onmouseover="this.style.background='rgba(100,180,255,0.2)'" onmouseout="this.style.background='rgba(100,180,255,0.1)'" title="Otevři v Bulk Scan pro opravu nebo přidání do komunitní databáze">🔬 Bulk Scan</button>
         <button onclick="closePhotoGallery()" style="
           background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1);
           border-radius:8px; color:#fff; font-size:16px; padding:4px 11px;
@@ -9893,6 +9869,90 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     const cardName = (_detailCard && (_detailCard.name || '')) || '';
     window.openPhotoGallery(rows, startIdx, cardName);
   };
+
+
+    // ── Poslat fotku z galerie do Bulk Scan ──────────────────────
+    function pgmSendToBulkScan() {
+      const photo = _pgmPhotos[_pgmIdx];
+      if (!photo) return;
+      const c = _detailCard;
+      const entry = {
+        source:       'album',
+        photoUrl:     photo.croppedUrl || photo.url || '',
+        photoId:      photo.id || null,
+        storagePath:  photo.storagePath || null,
+        cardLocalId:  c ? (String(c.id || c.local_id || '')) : '',
+        name:         c ? (c.name || '') : _pgmCardName || '',
+        set:          c ? (c.set  || '') : '',
+        number:       c ? (c.number || c.num || '') : '',
+        apiSmall:     c ? (c.images?.small || c.apiSmall || '') : '',
+        apiLarge:     c ? (c.images?.large || c.apiLarge || '') : '',
+        apiId:        c ? (c.apiId || '') : '',
+        returnToAlbum: true,
+      };
+      localStorage.setItem('pkc_album_to_bulkscan', JSON.stringify(entry));
+      window.open('/bulk-scan.html', '_blank');
+    }
+
+    // ── Přijmi výsledek z Bulk Scan ──────────────────────────────
+    (function checkBulkScanAlbumReturn() {
+      const raw = localStorage.getItem('pkc_bulkscan_album_result');
+      if (!raw) return;
+      localStorage.removeItem('pkc_bulkscan_album_result');
+      try {
+        const res = JSON.parse(raw);
+        const localId = res.cardLocalId;
+        if (!localId) return;
+
+        // Najdi kartu a aktualizuj data
+        const card = allCards.find(c => String(c.id || c.local_id) === String(localId));
+        if (!card) { showToast('Karta nenalezena v albu', 'err'); return; }
+
+        // Pokud přišel nový obrázek → ulož jako foto a volitelně jako hlavní
+        if (res.newPhotoUrl) {
+          showToast(`✅ Nová fotka přidána ke kartě ${res.name || ''}`, 'ok');
+          // Pokud uživatel zvolil jako hlavní → aktualizuj card_data.photoUrl
+          if (res.setAsMain) {
+            card.imageUrl = res.newPhotoUrl;
+            if (!card.card_data) card.card_data = {};
+            card.card_data.photoUrl = res.newPhotoUrl;
+            // PATCH do Supabase
+            const userId2 = typeof userId !== 'undefined' ? userId : '';
+            if (userId2 && localId) {
+              sbReq2(`rest/v1/user_cards?user_id=eq.${userId2}&local_id=eq.${localId}`, 'PATCH', {
+                card_data: card.card_data,
+                updated_at: new Date().toISOString()
+              }).catch(()=>{});
+            }
+          }
+          // Přidej do allCardPhotosMap
+          if (!allCardPhotosMap[localId]) allCardPhotosMap[localId] = [];
+          allCardPhotosMap[localId].unshift({ url: res.newPhotoUrl, side: 'front', storagePath: res.storagePath });
+        }
+
+        // Aktualizuj API info pokud přišel
+        if (res.apiCard && card) {
+          const ac = res.apiCard;
+          if (!card.card_data) card.card_data = {};
+          if (ac.name)   { card.name = ac.name; card.card_data.name = ac.name; }
+          if (ac.set?.name) { card.set = ac.set.name; card.card_data.set = ac.set.name; }
+          if (ac.number) { card.number = ac.number; card.card_data.number = ac.number; }
+          if (ac.images?.small) { card.apiSmall = ac.images.small; card.card_data.apiSmall = ac.images.small; }
+          showToast(`✅ API data aktualizována: ${ac.name || ''}`, 'ok');
+        }
+
+        renderCards();
+      } catch(e) { console.warn('[BulkScanAlbumReturn]', e); }
+    })();
+
+    // Helper: sbReq pro album scope
+    async function sbReq2(path, method, body) {
+      const token2 = typeof TOKEN !== 'undefined' ? TOKEN : '';
+      const h = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token2, 'Content-Type': 'application/json' };
+      if (method !== 'GET') h['Prefer'] = 'return=minimal';
+      const r = await fetch(SUPABASE_URL + '/' + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
+      return r;
+    }
 
   window.closePhotoGallery = function() {
     document.getElementById('photoGalleryModal').style.display = 'none';
@@ -10840,37 +10900,37 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
                 <span>— nezadán —</span>
               </div>
               <div class="ce-type-opt" data-val="Fire" onclick="ceTypeSelect('Fire')">
-                <img src="elements/fire.png" class="ce-type-icon" alt=""> Fire
+                <img src="energi/fire.png" class="ce-type-icon" alt=""> Fire
               </div>
               <div class="ce-type-opt" data-val="Water" onclick="ceTypeSelect('Water')">
-                <img src="elements/water.png" class="ce-type-icon" alt=""> Water
+                <img src="energi/water.png" class="ce-type-icon" alt=""> Water
               </div>
               <div class="ce-type-opt" data-val="Grass" onclick="ceTypeSelect('Grass')">
-                <img src="elements/grass.png" class="ce-type-icon" alt=""> Grass
+                <img src="energi/grass.png" class="ce-type-icon" alt=""> Grass
               </div>
               <div class="ce-type-opt" data-val="Lightning" onclick="ceTypeSelect('Lightning')">
-                <img src="elements/electric.png" class="ce-type-icon" alt=""> Lightning
+                <img src="energi/lightning.png" class="ce-type-icon" alt=""> Lightning
               </div>
               <div class="ce-type-opt" data-val="Psychic" onclick="ceTypeSelect('Psychic')">
-                <img src="elements/psychic.png" class="ce-type-icon" alt=""> Psychic
+                <img src="energi/psychic.png" class="ce-type-icon" alt=""> Psychic
               </div>
               <div class="ce-type-opt" data-val="Fighting" onclick="ceTypeSelect('Fighting')">
-                <img src="elements/fighting.png" class="ce-type-icon" alt=""> Fighting
+                <img src="energi/fighting.png" class="ce-type-icon" alt=""> Fighting
               </div>
               <div class="ce-type-opt" data-val="Darkness" onclick="ceTypeSelect('Darkness')">
-                <img src="elements/dark.png" class="ce-type-icon" alt=""> Darkness
+                <img src="energi/darkness.png" class="ce-type-icon" alt=""> Darkness
               </div>
               <div class="ce-type-opt" data-val="Metal" onclick="ceTypeSelect('Metal')">
-                <img src="elements/steel.png" class="ce-type-icon" alt=""> Metal
+                <img src="energi/metal.png" class="ce-type-icon" alt=""> Metal
               </div>
               <div class="ce-type-opt" data-val="Dragon" onclick="ceTypeSelect('Dragon')">
-                <img src="elements/dragon.png" class="ce-type-icon" alt=""> Dragon
+                <img src="energi/dragon.png" class="ce-type-icon" alt=""> Dragon
               </div>
               <div class="ce-type-opt" data-val="Colorless" onclick="ceTypeSelect('Colorless')">
-                <img src="elements/normal.png" class="ce-type-icon" alt=""> Colorless
+                <img src="energi/colorless.png" class="ce-type-icon" alt=""> Colorless
               </div>
               <div class="ce-type-opt" data-val="Fairy" onclick="ceTypeSelect('Fairy')">
-                <img src="elements/fairy.png" class="ce-type-icon" alt=""> Fairy
+                <img src="energi/fairy.png" class="ce-type-icon" alt=""> Fairy
               </div>
             </div>
             <input type="hidden" id="ceType" value="">
@@ -11226,17 +11286,17 @@ function openCardEdit() {
 
 // ── Custom type picker funkce ─────────────────────────────────────
 const CE_TYPE_ICONS = {
-  fire:      'elements/fire.png',
-  water:     'elements/water.png',
-  grass:     'elements/grass.png',
-  lightning: 'elements/electric.png',
-  psychic:   'elements/psychic.png',
-  fighting:  'elements/fighting.png',
-  darkness:  'elements/dark.png',
-  metal:     'elements/steel.png',
-  dragon:    'elements/dragon.png',
-  colorless: 'elements/normal.png',
-  fairy:     'elements/fairy.png',
+  fire:      'energi/fire.png',
+  water:     'energi/water.png',
+  grass:     'energi/grass.png',
+  lightning: 'energi/lightning.png',
+  psychic:   'energi/psychic.png',
+  fighting:  'energi/fighting.png',
+  darkness:  'energi/darkness.png',
+  metal:     'energi/metal.png',
+  dragon:    'energi/dragon.png',
+  colorless: 'energi/colorless.png',
+  fairy:     'energi/fairy.png',
 };
 
 function ceTypeToggle(e) {
