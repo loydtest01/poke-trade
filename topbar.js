@@ -2047,7 +2047,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
     cloudflare: {
       method:   'POST',
       url:      null,
-      body:     JSON.stringify({ prompt: 'Say OK', max_tokens: 5 }),
+      body:     JSON.stringify({ messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5 }),
       testType: 'cloudflare',
     },
   };
@@ -2061,14 +2061,15 @@ async function _testProviderKey(providerName, apiKey, cfg) {
     fetchUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey;
     headers['Content-Type'] = 'application/json';
   } else if (providerName === 'cloudflare') {
-    // Cloudflare: klíč je 'account_id:token', URL obsahuje account_id
+    // Cloudflare CORS: přímý fetch z prohlížeče blokuje CORS → validujeme jen formát klíče
     var cfParts = apiKey.split(':');
     if (cfParts.length < 2) throw new Error('Cloudflare klíč musí být ve formátu account_id:token');
     var cfAccountId = cfParts[0];
     var cfToken = cfParts.slice(1).join(':');
-    fetchUrl = 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(cfAccountId) + '/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
-    headers['Authorization'] = 'Bearer ' + cfToken;
-    headers['Content-Type'] = 'application/json';
+    if (cfAccountId.length < 8) throw new Error('Account ID je příliš krátký');
+    if (cfToken.length < 16) throw new Error('API Token je příliš krátký');
+    // Formát OK — vrátíme výsledek přímo bez API volání (CORS blokuje)
+    return { model: 'format-ok', time: 0, reply: 'Formát klíče OK — bude ověřen při prvním scanu' };
   } else {
     headers['Authorization'] = 'Bearer ' + apiKey;
     if (cfg2.method === 'POST') headers['Content-Type'] = 'application/json';
@@ -2318,7 +2319,10 @@ function _initProviderPanel(cfg) {
           var label = '#' + (i+1) + ' ' + key.slice(0, 10) + '…';
           try {
             var response = await _testProviderKey(cfg.prefix, key, cfg);
-            results.push('✓ ' + label + ' → ' + response.model + ' (' + response.time + 'ms)');
+            var resultLine = response.model === 'format-ok'
+              ? ('✓ ' + label + ' → ' + response.reply)
+              : ('✓ ' + label + ' → ' + response.model + ' (' + response.time + 'ms)');
+            results.push(resultLine);
           } catch(e) {
             results.push('✗ ' + label + ' → ' + e.message);
           }
