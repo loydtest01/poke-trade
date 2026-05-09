@@ -243,25 +243,27 @@ body {
 
 /* ── Modal ── */
 .modal-bg {
-  position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 200;
+  position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 200;
   display: flex; align-items: center; justify-content: center;
-  padding: 1rem; backdrop-filter: blur(4px);
+  padding: 1rem; backdrop-filter: blur(8px);
   opacity: 0; pointer-events: none; transition: opacity .2s;
 }
 .modal-bg.open { opacity: 1; pointer-events: all; }
 .modal {
   background: var(--card); border: 1px solid var(--border);
-  border-radius: 16px; width: 100%; max-width: 760px;
-  max-height: 90vh; overflow-y: auto;
-  transform: translateY(20px); transition: transform .25s;
+  border-radius: 20px; width: 100%; max-width: 920px;
+  max-height: 92vh; overflow-y: auto;
+  transform: scale(.96) translateY(16px); transition: transform .28s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 32px 80px rgba(0,0,0,.7);
 }
 .modal-bg.open .modal { transform: none; }
 .modal-header {
   display: flex; justify-content: space-between; align-items: center;
   padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0;
-  background: var(--card); z-index: 1;
+  background: var(--card); z-index: 1; border-radius: 20px 20px 0 0;
 }
-.modal-header h2 { font-size: 1.1rem; }
+.modal-header h2 { font-size: 1.15rem; font-weight: 700; }
+.modal-header-actions { display: flex; align-items: center; gap: .5rem; }
 .modal-close {
   background: none; border: none; color: var(--muted); font-size: 1.3rem;
   cursor: pointer; width: 32px; height: 32px; border-radius: 6px;
@@ -270,15 +272,30 @@ body {
 .modal-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
 .modal-body { padding: 1.5rem; }
 .modal-grid {
-  display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem;
+  display: grid; grid-template-columns: 260px 1fr; gap: 2rem;
 }
-@media(max-width:560px) { .modal-grid { grid-template-columns: 1fr; } }
-.modal-card-img { width: 100%; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+@media(max-width:640px) { .modal-grid { grid-template-columns: 1fr; } }
+.modal-img-col { position: relative; }
+.modal-card-img {
+  width: 100%; border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.6);
+  cursor: zoom-in; transition: transform .2s;
+  display: block;
+}
+.modal-card-img:hover { transform: scale(1.02); }
 .modal-card-img-placeholder {
   width: 100%; aspect-ratio: 2.5/3.5;
-  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
   display: flex; align-items: center; justify-content: center; font-size: 3rem; opacity: .3;
 }
+
+/* Image zoom lightbox */
+.img-zoom-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.95); z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  cursor: zoom-out; opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.img-zoom-bg.open { opacity: 1; pointer-events: all; }
+.img-zoom-bg img { max-width: 90vw; max-height: 90vh; border-radius: 10px; box-shadow: 0 0 80px rgba(0,0,0,.8); }
 .modal-info {}
 .modal-name { font-size: 1.3rem; font-weight: 700; margin-bottom: .15rem; }
 .modal-name-cs { color: var(--muted); font-style: italic; margin-bottom: .8rem; font-size: .9rem; }
@@ -471,7 +488,37 @@ body {
 .toast-item.info { border-color: rgba(96,165,250,.4); color: var(--blue); }
 @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
 
-/* ── Scrollbar ── */
+/* ── Image search ── */
+.img-search-btn {
+  background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.3);
+  color: var(--purple); padding: 0 1rem; border-radius: 10px; cursor: pointer;
+  font-size: .85rem; font-weight: 500; transition: all .15s; display: inline-flex;
+  align-items: center; gap: .4rem; white-space: nowrap; height: 44px;
+}
+.img-search-btn:hover { background: rgba(167,139,250,.22); }
+.img-search-btn.loading { opacity: .6; cursor: wait; }
+#img-search-input { display: none; }
+
+.img-search-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.9); z-index: 300;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s; padding: 2rem;
+  backdrop-filter: blur(12px);
+}
+.img-search-overlay.open { opacity: 1; pointer-events: all; }
+.img-search-box {
+  background: var(--card); border: 2px dashed rgba(167,139,250,.4); border-radius: 20px;
+  padding: 2.5rem; text-align: center; max-width: 480px; width: 100%;
+  transition: border-color .2s;
+}
+.img-search-box.dragover { border-color: var(--purple); background: rgba(167,139,250,.08); }
+.img-search-box h3 { font-size: 1.1rem; margin-bottom: .5rem; color: var(--purple); }
+.img-search-box p { color: var(--muted); font-size: .85rem; margin-bottom: 1.5rem; line-height: 1.6; }
+.img-preview { max-width: 200px; border-radius: 10px; margin: 1rem auto; display: block; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.img-search-status { color: var(--muted); font-size: .85rem; margin-top: 1rem; min-height: 1.4em; }
+.img-search-result { margin-top: 1.2rem; }
+.img-search-result .btn { width: 100%; justify-content: center; }
+
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
@@ -505,13 +552,42 @@ body {
 <!-- ── Toast ── -->
 <div id="toast"></div>
 
+<!-- ── Image zoom lightbox ── -->
+<div class="img-zoom-bg" id="img-zoom-bg" onclick="closeZoom()">
+  <img id="img-zoom-img" src="" alt="">
+</div>
+
+<!-- ── Image search overlay ── -->
+<div class="img-search-overlay" id="img-search-overlay">
+  <div class="img-search-box" id="img-search-box">
+    <div style="font-size:2.5rem;margin-bottom:.8rem">📷</div>
+    <h3>Hledat kartu podle obrázku</h3>
+    <p>Nahraj fotografii Pokémon karty (fyzické nebo digitální). AI ji identifikuje a vyhledá v databázi.</p>
+    <button class="btn" onclick="document.getElementById('img-search-input').click()" style="width:100%;justify-content:center;margin-bottom:.7rem">
+      📁 Vybrat obrázek
+    </button>
+    <button class="btn btn-sm" onclick="closeImgSearch()" style="width:100%;justify-content:center;background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:var(--muted)">
+      Zrušit
+    </button>
+    <div id="img-preview-wrap" style="display:none">
+      <img id="img-preview" class="img-preview" src="" alt="Náhled">
+      <div class="img-search-status" id="img-search-status"></div>
+      <div class="img-search-result" id="img-search-result"></div>
+    </div>
+  </div>
+</div>
+<input type="file" id="img-search-input" accept="image/*">
+
 <!-- ── Card detail modal ───────────────────────────────────── -->
 <div class="modal-bg" id="card-modal" onclick="closeModalBg(event)">
   <div class="modal" id="modal-inner">
-    <div class="modal-header">
-      <h2 id="modal-title">Karta</h2>
+  <div class="modal-header">
+    <h2 id="modal-title">Karta</h2>
+    <div class="modal-header-actions">
+      <button class="modal-close" id="modal-zoom-btn" onclick="" title="Zvětšit obrázek" style="font-size:1rem;display:none">🔍</button>
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
+  </div>
     <div class="modal-body" id="modal-body"></div>
   </div>
 </div>
@@ -540,6 +616,7 @@ body {
         <input type="text" id="q" placeholder="Hledat kartu (jméno, číslo, typ…)" oninput="debouncedSearch()">
       </div>
       <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
+      <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
     </div>
 
     <!-- Filters -->
@@ -1200,20 +1277,38 @@ async function openCard(id) {
 function renderModal(c) {
   document.getElementById('modal-title').textContent = c.name || c.id;
   const img = c.image_url || c.image_thumb_url || '';
+  const hiRes = c.image_hires_url || img;
   const types = (c.types || []).map(t =>
     `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join(' ');
-  const attacks = (c.attacks || []).map(a => `
+
+  // Zoom button setup
+  const zoomBtn = document.getElementById('modal-zoom-btn');
+  if (img) {
+    zoomBtn.style.display = 'flex';
+    zoomBtn.onclick = () => openZoom(hiRes || img);
+  } else {
+    zoomBtn.style.display = 'none';
+  }
+
+  const attacks = (c.attacks || []).map(a => {
+    const costEmojis = (a.cost || []).map(costType => {
+      const costMap = {Fire:'🔥',Water:'💧',Grass:'🌿',Lightning:'⚡',Psychic:'🔮',
+        Fighting:'🥊',Darkness:'🌑',Metal:'⚙️',Dragon:'🐉',Fairy:'🧚',Colorless:'◉'};
+      return costMap[costType] || costType;
+    }).join('');
+    return `
     <div class="attack-row">
-      <div class="attack-cost">Cena: ${(a.cost || []).join(', ') || '—'}</div>
       <div class="attack-name">
-        ${escH(a.name || '')}
-        <span class="attack-damage">${escH(a.damage || '')}</span>
+        <span>${costEmojis ? `<span style="font-size:.85rem;margin-right:.4rem">${costEmojis}</span>` : ''}${escH(a.name || '')}</span>
+        ${a.damage ? `<span class="attack-damage">${escH(a.damage)}</span>` : ''}
       </div>
       ${a.text ? `<div class="attack-text">${escH(a.text)}</div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
   const abilities = (c.abilities || []).map(a => `
-    <div class="attack-row" style="border-left:2px solid var(--purple)">
-      <div class="attack-cost" style="color:var(--purple)">Schopnost</div>
+    <div class="attack-row" style="border-left:3px solid var(--purple);padding-left:1rem">
+      <div class="attack-cost" style="color:var(--purple);font-weight:600">⚡ Schopnost</div>
       <div class="attack-name">${escH(a.name || '')}</div>
       ${a.text ? `<div class="attack-text">${escH(a.text)}</div>` : ''}
     </div>`).join('');
@@ -1222,48 +1317,55 @@ function renderModal(c) {
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-grid">
-      <div>
+      <div class="modal-img-col">
         ${img
-          ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}">`
+          ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}" onclick="openZoom('${escH(hiRes || img)}')" title="Klikni pro zvětšení">`
           : `<div class="modal-card-img-placeholder">🃏</div>`}
-        ${c.image_hires_url ? `<a href="${escH(c.image_hires_url)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res obrázek</a>` : ''}
+        ${hiRes && hiRes !== img ? `<a href="${escH(hiRes)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res</a>` : ''}
+        <div style="margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem">
+          <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem">ID karty</div>
+          <div style="font-family:monospace;font-size:.78rem;color:var(--blue);word-break:break-all">${escH(c.id||'')}</div>
+        </div>
       </div>
       <div class="modal-info">
         <div class="modal-name">${escH(c.name || '')}</div>
-        ${c.name_cs && c.name_cs !== c.name ? `<div class="modal-name-cs">${escH(c.name_cs)}</div>` : ''}
-        <div class="modal-badges">
+        ${c.name_original && c.name_original !== c.name ? `<div class="modal-name-cs" style="color:var(--orange)">🇯🇵 ${escH(c.name_original)}</div>` : ''}
+        ${c.name_cs && c.name_cs !== c.name ? `<div class="modal-name-cs">🇨🇿 ${escH(c.name_cs)}</div>` : ''}
+        <div class="modal-badges" style="margin-top:.6rem">
           ${types}
           ${c.supertype ? `<span class="type-badge" style="background:rgba(255,255,255,.07);color:var(--text)">${escH(c.supertype)}</span>` : ''}
-          ${c.rarity ? `<span class="type-badge" style="background:rgba(245,200,66,.1);color:var(--yellow)">${escH(c.rarity)}</span>` : ''}
+          ${c.rarity ? `<span class="type-badge" style="background:rgba(245,200,66,.1);color:var(--yellow)">✨ ${escH(c.rarity)}</span>` : ''}
           ${c.verified ? `<span class="type-badge badge-ok">✅ Ověřeno</span>` : ''}
         </div>
-        <div class="info-grid">
-          ${c.hp ? infoItem('HP', c.hp) : ''}
+        <div class="info-grid" style="margin-top:.8rem">
+          ${c.hp ? infoItem('HP', `<span style="color:var(--red);font-weight:700;font-size:1rem">${c.hp}</span>`) : ''}
           ${c.set_name ? infoItem('Série', c.set_name) : ''}
-          ${c.number ? infoItem('Číslo', '#' + c.number) : ''}
-          ${c.artist ? infoItem('Illustrátor', c.artist) : ''}
-          ${c.retreat_cost !== undefined ? infoItem('Ústup', c.retreat_cost + ' ⚡') : ''}
+          ${c.number ? infoItem('Číslo v sérii', '#' + c.number) : ''}
+          ${c.artist ? infoItem('Ilustrátor', c.artist) : ''}
+          ${c.retreat_cost !== undefined && c.retreat_cost !== null ? infoItem('Ústup', c.retreat_cost + ' ⚡') : ''}
           ${(c.subtypes||[]).length ? infoItem('Subtyp', c.subtypes.join(', ')) : ''}
+          ${c.evolves_from ? infoItem('Vyvíjí se z', c.evolves_from) : ''}
+          ${c.regulation_mark ? infoItem('Reg. mark', c.regulation_mark) : ''}
         </div>
         ${(c.weaknesses||[]).length || (c.resistances||[]).length ? `
-        <div style="margin-top:.5rem">
-          ${(c.weaknesses||[]).length ? `<div style="margin-bottom:.3rem">
-            <span style="font-size:.7rem;color:var(--muted)">SLABOSTI</span>
+        <div style="display:flex;gap:1rem;margin-top:.5rem;flex-wrap:wrap">
+          ${(c.weaknesses||[]).length ? `<div>
+            <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">🔴 Slabosti</div>
             <div class="weakness-row">${c.weaknesses.map(w =>
               `<span class="wkrs-tag weakness-tag">${escH(w.type)} ${escH(w.value)}</span>`).join('')}</div>
           </div>` : ''}
           ${(c.resistances||[]).length ? `<div>
-            <span style="font-size:.7rem;color:var(--muted)">ODOLNOSTI</span>
+            <div style="font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:.3rem">🟢 Odolnosti</div>
             <div class="weakness-row">${c.resistances.map(r =>
               `<span class="wkrs-tag resistance-tag">${escH(r.type)} ${escH(r.value)}</span>`).join('')}</div>
           </div>` : ''}
         </div>` : ''}
       </div>
     </div>
-    ${abilities ? `<div class="attacks-section"><div class="attacks-title">⚡ Schopnosti</div>${abilities}</div>` : ''}
-    ${attacks ? `<div class="attacks-section"><div class="attacks-title">⚔️ Útoky</div>${attacks}</div>` : ''}
-    <div class="modal-api-block">
-      <div class="modal-api-label">API endpoint</div>
+    ${abilities ? `<div class="attacks-section" style="margin-top:1.5rem"><div class="attacks-title">⚡ Schopnosti</div>${abilities}</div>` : ''}
+    ${attacks ? `<div class="attacks-section" style="margin-top:1rem"><div class="attacks-title">⚔️ Útoky</div>${attacks}</div>` : ''}
+    <div class="modal-api-block" style="margin-top:1.5rem">
+      <div class="modal-api-label">API endpoint pro tuto kartu</div>
       <div class="modal-api-url">
         <span>${escH(apiUrl)}</span>
         <button class="copy-btn" onclick="navigator.clipboard.writeText('${escH(apiUrl)}');toast('Zkopírováno!','ok')">Kopírovat</button>
@@ -1271,8 +1373,9 @@ function renderModal(c) {
     </div>`;
 }
 
-function infoItem(label, val) {
-  return `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${escH(String(val))}</div></div>`;
+function infoItem(label, val, raw) {
+  const displayVal = raw ? val : escH(String(val));
+  return `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${displayVal}</div></div>`;
 }
 
 function closeModal() {
@@ -1280,7 +1383,171 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 function closeModalBg(e) { if (e.target.id === 'card-modal') closeModal(); }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ════════════════════════════════════════════════════
+   IMAGE ZOOM
+════════════════════════════════════════════════════ */
+function openZoom(url) {
+  const bg = document.getElementById('img-zoom-bg');
+  document.getElementById('img-zoom-img').src = url;
+  bg.classList.add('open');
+}
+function closeZoom() {
+  document.getElementById('img-zoom-bg').classList.remove('open');
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); closeZoom(); closeImgSearch(); }
+});
+
+/* ════════════════════════════════════════════════════
+   IMAGE SEARCH (via Claude Vision API)
+════════════════════════════════════════════════════ */
+function openImgSearch() {
+  document.getElementById('img-search-overlay').classList.add('open');
+  document.getElementById('img-preview-wrap').style.display = 'none';
+  document.getElementById('img-search-result').innerHTML = '';
+  document.getElementById('img-search-status').textContent = '';
+}
+function closeImgSearch() {
+  document.getElementById('img-search-overlay').classList.remove('open');
+}
+
+// File input → preview → identify
+document.getElementById('img-search-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  await processImgSearch(file);
+  e.target.value = ''; // reset so same file can be re-picked
+});
+
+// Drag & drop support
+const imgBox = document.getElementById('img-search-box');
+imgBox.addEventListener('dragover', e => { e.preventDefault(); imgBox.classList.add('dragover'); });
+imgBox.addEventListener('dragleave', () => imgBox.classList.remove('dragover'));
+imgBox.addEventListener('drop', async e => {
+  e.preventDefault(); imgBox.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type.startsWith('image/')) await processImgSearch(file);
+});
+
+async function processImgSearch(file) {
+  const preview = document.getElementById('img-preview');
+  const wrap = document.getElementById('img-preview-wrap');
+  const status = document.getElementById('img-search-status');
+  const resultDiv = document.getElementById('img-search-result');
+
+  // Show preview
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    preview.src = ev.target.result;
+    wrap.style.display = 'block';
+    resultDiv.innerHTML = '';
+    status.textContent = '⏳ Analyzuji obrázek pomocí AI…';
+
+    const base64 = ev.target.result.split(',')[1];
+    const mediaType = file.type || 'image/jpeg';
+
+    try {
+      // Call Claude Vision API to identify the card
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 400,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: mediaType, data: base64 }
+              },
+              {
+                type: 'text',
+                text: `You are identifying a Pokémon Trading Card Game card from an image. Respond ONLY with a JSON object (no markdown, no other text):
+{"name":"<English card name exactly as printed>","set":"<set/expansion name exactly as printed on the card, e.g. Twilight Masquerade, Paldea Evolved, 151, Scarlet & Violet, Brilliant Stars>","number":"<card number if visible, e.g. 025/167>","confidence":"high|medium|low","search_query":"<1-3 word search query using just the Pokemon name, no subtypes>"}
+Important: The set name is usually printed at the bottom of the card. Return it exactly as written.`
+              }
+            ]
+          }]
+        })
+      });
+
+      if (!resp.ok) throw new Error('AI API nedostupná');
+      const aiData = await resp.json();
+      const text = aiData.content?.find(b => b.type === 'text')?.text || '';
+
+      let parsed;
+      try {
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        throw new Error('AI nerozpoznala kartu – zkus ostřejší / rovnější foto');
+      }
+
+      // Try to match detected set against our DB
+      const matchedSet = parsed.set ? findSetByName(parsed.set) : null;
+      const confLabel = parsed.confidence === 'high' ? '✅' : parsed.confidence === 'medium' ? '🟡' : '⚠️';
+      status.textContent = `${confLabel} Identifikováno: "${parsed.name}"${matchedSet ? ' · ' + matchedSet.name : parsed.set ? ' · ' + parsed.set : ''}`;
+
+      const q = parsed.search_query || parsed.name;
+      const setId = matchedSet ? matchedSet.id : '';
+      const setLine = matchedSet
+        ? `<br>Série: <strong style="color:var(--purple)">${escH(matchedSet.name)}</strong>`
+        : parsed.set ? `<br>Série (nerozpoznána): <span style="color:var(--muted)">${escH(parsed.set)}</span>` : '';
+      const numLine = parsed.number ? `<br>Číslo: <strong style="color:var(--yellow)">#${escH(parsed.number)}</strong>` : '';
+      resultDiv.innerHTML = `
+        <div style="margin-bottom:.7rem;font-size:.82rem;color:var(--muted)">
+          Karta: <strong style="color:var(--text)">${escH(parsed.name)}</strong>${setLine}${numLine}
+        </div>
+        <button class="btn" style="width:100%;justify-content:center;margin-bottom:.5rem"
+          onclick="applyImgSearchQuery('${escH(q)}', '${escH(setId)}')">
+          🔍 Hledat ${matchedSet ? '(jméno + série)' : 'podle jména'}
+        </button>
+        ${matchedSet ? `<button class="btn btn-sm" style="width:100%;justify-content:center;background:rgba(167,139,250,.1);border-color:rgba(167,139,250,.3);color:var(--purple)"
+          onclick="applyImgSearchQuery('', '${escH(setId)}')">
+          📦 Celá série: ${escH(matchedSet.name)}
+        </button>` : ''}`;
+
+    } catch (err) {
+      status.textContent = '❌ ' + (err.message || 'Chyba identifikace');
+      resultDiv.innerHTML = `<div style="font-size:.8rem;color:var(--muted);margin-top:.5rem">Tip: Použij ostré, rovné foto přední strany karty.</div>`;
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+/* Fuzzy match AI-detected set name against DB sets */
+function findSetByName(aiName) {
+  if (!aiName || !state.setsData.length) return null;
+  const q = aiName.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
+  // 1. exact
+  let m = state.setsData.find(s => s.name.toLowerCase().replace(/[^a-z0-9 ]/g,'') === q);
+  if (m) return m;
+  // 2. DB name contains AI name or vice versa
+  m = state.setsData.find(s => {
+    const n = s.name.toLowerCase().replace(/[^a-z0-9 ]/g,'');
+    return n.includes(q) || q.includes(n);
+  });
+  if (m) return m;
+  // 3. word overlap >= 2 significant words
+  const qWords = q.split(' ').filter(w => w.length > 2);
+  let best = null, bestCount = 1;
+  state.setsData.forEach(s => {
+    const nWords = s.name.toLowerCase().replace(/[^a-z0-9 ]/g,'').split(' ');
+    const common = qWords.filter(w => nWords.includes(w)).length;
+    if (common > bestCount) { bestCount = common; best = s; }
+  });
+  return best;
+}
+
+function applyImgSearchQuery(q, setId) {
+  closeImgSearch();
+  document.getElementById('q').value = q || '';
+  if (setId) document.getElementById('f-set').value = setId;
+  doSearch(1);
+  switchPage('browse', document.querySelectorAll('.nav-tab')[0]);
+}
 
 /* ════════════════════════════════════════════════════
    SETS PAGE
