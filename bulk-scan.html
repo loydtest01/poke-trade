@@ -1394,20 +1394,84 @@ async function sendToQueue(){
 //  ALBUM IMPORT
 // ══════════════════════════════════════════════════════════════════
 let _albumPhotos=null;
-function openAlbumModal(){ document.getElementById('albumModal').classList.add('open'); document.getElementById('albumSearch').value=''; if(!_albumPhotos)fetchAlbumPhotos(); else renderAlbumGrid(_albumPhotos); }
+
+function openAlbumModal(){
+  document.getElementById('albumModal').classList.add('open');
+  document.getElementById('albumSearch').value='';
+  _albumPhotos=null; // always refresh
+  fetchAlbumPhotos();
+}
 function closeAlbumModal(){ document.getElementById('albumModal').classList.remove('open'); }
+
 async function fetchAlbumPhotos(){
   const grid=document.getElementById('albumGrid');
   grid.innerHTML='<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
+
+  const tok = TOKEN || readStoredToken() || SUPABASE_ANON;
+  const uid = USER_ID
+    || localStorage.getItem('sb_user_id')
+    || (()=>{ try{ return JSON.parse(localStorage.getItem('pkc_online_session')||'{}').userId||''; }catch{return '';} })();
+
+  if(!uid){
+    grid.innerHTML='<div class="album-modal-empty">⚠ Nejsi přihlášen · <a href="login.html" style="color:var(--gold)">Přihlásit se</a></div>';
+    return;
+  }
+
+  let allPhotos=[];
+
+  // Zdroj 1: user_card_photos — LEFT join (zobrazí i fotky bez karty)
   try{
-    const tok=TOKEN||readStoredToken()||'', uid=localStorage.getItem('sb_user_id')||USER_ID||'';
-    if(!uid){grid.innerHTML='<div class="album-modal-empty">⚠ Nejsi přihlášen</div>';return;}
-    const resp=await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos?user_id=eq.${uid}&select=id,url,side,created_at,user_card_local_id,user_cards!inner(card_data)&order=created_at.desc&limit=200`,{headers:{apikey:SUPABASE_ANON,Authorization:'Bearer '+tok}});
-    let rows=await resp.json(); if(!Array.isArray(rows))rows=[];
-    _albumPhotos=rows.map(r=>{const cd=r.user_cards?.card_data;let name='';try{name=(typeof cd==='string'?JSON.parse(cd):cd)?.name||'';}catch{}return{id:r.id,url:r.url,side:r.side,name,local_id:r.user_card_local_id,created_at:r.created_at};}).filter(r=>r.url);
-    if(!_albumPhotos.length){grid.innerHTML='<div class="album-modal-empty">📭 Nemáš žádné naskenované fotky</div>';return;}
-    renderAlbumGrid(_albumPhotos);
-  }catch(e){grid.innerHTML=`<div class="album-modal-empty">❌ Chyba: ${e.message}</div>`;}
+    const r=await fetch(
+      SUPABASE_URL+'/rest/v1/user_card_photos?user_id=eq.'+uid+'&select=id,url,side,created_at,user_card_local_id,user_cards(card_data)&order=created_at.desc&limit=300',
+      {headers:{apikey:SUPABASE_ANON,Authorization:'Bearer '+tok}}
+    );
+    if(r.ok){
+      const rows=await r.json();
+      if(Array.isArray(rows)){
+        rows.forEach(r2=>{
+          const cd=r2.user_cards?.card_data;
+          let name=''; try{ name=(typeof cd==='string'?JSON.parse(cd):cd)?.name||''; }catch{}
+          if(r2.url) allPhotos.push({id:r2.id,url:r2.url,side:r2.side,name,local_id:r2.user_card_local_id,src:'album',created_at:r2.created_at});
+        });
+      }
+    } else {
+      const txt=await r.text().catch(()=>'');
+      console.warn('[album] HTTP',r.status,txt.slice(0,120));
+    }
+  }catch(e){console.warn('[album] user_card_photos:',e);}
+
+  // Zdroj 2: photo_queue (naskenované, ještě ve frontě)
+  try{
+    const r=await fetch(
+      SUPABASE_URL+'/rest/v1/photo_queue?user_id=eq.'+uid+'&select=id,storage_path,filename,created_at,metadata&order=created_at.desc&limit=100',
+      {headers:{apikey:SUPABASE_ANON,Authorization:'Bearer '+tok}}
+    );
+    if(r.ok){
+      const rows=await r.json();
+      if(Array.isArray(rows)){
+        rows.forEach(r2=>{
+          if(!r2.storage_path)return;
+          const url=SUPABASE_URL+'/storage/v1/object/public/card-photo/'+r2.storage_path;
+          const meta=r2.metadata||{};
+          const name=r2.filename?.replace(/\.[^.]+$/,'')||meta.cardName||('Fronta #'+(meta.cardIndex||''));
+          allPhotos.push({id:'q_'+r2.id,url,side:meta.side||'front',name,local_id:null,src:'queue',created_at:r2.created_at});
+        });
+      }
+    }
+  }catch(e){console.warn('[album] photo_queue:',e);}
+
+  // Deduplicate by URL, sort newest first
+  const seen=new Set();
+  allPhotos=allPhotos.filter(p=>{ if(seen.has(p.url))return false; seen.add(p.url); return true; });
+  allPhotos.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+
+  _albumPhotos=allPhotos;
+
+  if(!_albumPhotos.length){
+    grid.innerHTML='<div class="album-modal-empty">📭 Žádné fotky nenalezeny<br><span style="font-size:11px;opacity:.6">uid: '+uid.slice(0,8)+'…</span></div>';
+    return;
+  }
+  renderAlbumGrid(_albumPhotos);
 }
 function renderAlbumGrid(photos){
   const q=document.getElementById('albumSearch').value.toLowerCase().trim();
