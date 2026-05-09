@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>PokéDB – Databáze Pokémon karet</title>
+<meta name="description" content="Veřejná databáze Pokémon karet s API. Prohledávej tisíce karet, filtruj podle série, typu, HP a dalších atributů.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta property="og:title" content="PokéDB – Databáze Pokémon karet">
+<meta property="og:description" content="Prohledávej databázi Pokémon karet. Filtry, překlady, veřejné API.">
+<style>
+:root {
+  --bg: #0a0608;
+  --card: #14101a;
+  --card2: #1a1424;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0ece4;
+  --muted: #9ca3af;
+  --yellow: #f5c842;
+  --red: #ef4444;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --blue: #60a5fa;
+  --purple: #a78bfa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px; min-height: 100vh;
+}
+
+/* ── Tabs navigation ── */
+.page-nav {
+  background: var(--card); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.page-nav-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; align-items: center; gap: 0;
+  padding: 0 1rem;
+}
+.page-nav-logo {
+  font-size: 1.1rem; font-weight: 700; color: var(--yellow);
+  padding: .85rem 1.2rem .85rem 0; border-right: 1px solid var(--border);
+  margin-right: .5rem; display: flex; align-items: center; gap: .4rem;
+  white-space: nowrap;
+}
+.nav-tab {
+  background: none; border: none; color: var(--muted);
+  padding: .85rem 1rem; cursor: pointer; font-size: .85rem;
+  border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap;
+}
+.nav-tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+.nav-tab:hover:not(.active) { color: var(--text); }
+.nav-spacer { flex: 1; }
+.nav-api-badge {
+  background: rgba(96,165,250,.12); border: 1px solid rgba(96,165,250,.3);
+  color: var(--blue); padding: .25rem .65rem; border-radius: 6px;
+  font-size: .72rem; font-weight: 600; letter-spacing: .04em;
+}
+
+/* ── Layout ── */
+.wrap { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+/* ── Page panels ── */
+.page-panel { display: none; }
+.page-panel.active { display: block; }
+
+/* ── Hero banner ── */
+.hero {
+  text-align: center; padding: 3rem 1rem 2rem;
+  background: linear-gradient(180deg, rgba(245,200,66,.04) 0%, transparent 100%);
+  border-bottom: 1px solid var(--border); margin-bottom: 2rem;
+}
+.hero-icon { font-size: 3.5rem; margin-bottom: .8rem; line-height: 1; }
+.hero h1 { font-size: 2rem; font-weight: 800; color: var(--yellow); margin-bottom: .5rem; }
+.hero p { color: var(--muted); font-size: .95rem; max-width: 520px; margin: 0 auto 1.5rem; line-height: 1.6; }
+.hero-stats {
+  display: inline-flex; gap: 2rem; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; padding: .8rem 2rem;
+}
+.hero-stat { text-align: center; }
+.hero-stat-num { font-size: 1.4rem; font-weight: 700; color: var(--yellow); }
+.hero-stat-num.b { color: var(--blue); }
+.hero-stat-num.g { color: var(--green); }
+.hero-stat-label { font-size: .7rem; color: var(--muted); margin-top: .1rem; }
+
+/* ── Search bar ── */
+.search-bar {
+  display: flex; gap: .6rem; margin-bottom: 1rem; flex-wrap: wrap;
+}
+.search-main {
+  flex: 1; min-width: 200px;
+  display: flex; align-items: center; gap: .5rem;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0 1rem;
+}
+.search-main input {
+  background: none; border: none; color: var(--text); font-size: .9rem;
+  width: 100%; padding: .75rem 0; outline: none;
+}
+.search-main .si { color: var(--muted); font-size: 1rem; }
+.search-main input::placeholder { color: var(--muted); }
+
+/* ── Filters row ── */
+.filters {
+  display: flex; gap: .6rem; margin-bottom: 1.2rem; flex-wrap: wrap; align-items: center;
+}
+.filter-select {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: .5rem .8rem;
+  font-size: .82rem; cursor: pointer; outline: none;
+}
+.filter-select:focus { border-color: rgba(245,200,66,.4); }
+.filter-select option { background: #1a1424; }
+.filter-active-tags { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+.filter-tag {
+  background: rgba(245,200,66,.1); border: 1px solid rgba(245,200,66,.25);
+  color: var(--yellow); padding: .2rem .55rem; border-radius: 20px;
+  font-size: .72rem; display: flex; align-items: center; gap: .35rem; cursor: pointer;
+}
+.filter-tag:hover { background: rgba(245,200,66,.18); }
+
+/* ── Sort + view toggle ── */
+.toolbar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 1rem; flex-wrap: wrap; gap: .6rem;
+}
+.toolbar-left { display: flex; align-items: center; gap: .6rem; }
+.result-count { color: var(--muted); font-size: .82rem; }
+.view-toggle { display: flex; gap: .3rem; }
+.view-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--muted); width: 32px; height: 32px;
+  border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: .9rem; transition: all .15s;
+}
+.view-btn.active { background: rgba(245,200,66,.12); border-color: rgba(245,200,66,.3); color: var(--yellow); }
+
+/* ── Card grid ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+.card-grid.list-view { grid-template-columns: 1fr; gap: .5rem; }
+
+/* ── Pokémon card tile ── */
+.poke-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; cursor: pointer;
+  transition: all .2s; position: relative;
+}
+.poke-card:hover { transform: translateY(-3px); border-color: rgba(245,200,66,.3); box-shadow: 0 8px 24px rgba(0,0,0,.4); }
+.poke-card-img-wrap {
+  background: linear-gradient(135deg, #1a1424, #14101a);
+  display: flex; align-items: center; justify-content: center;
+  padding: .8rem; min-height: 150px;
+}
+.poke-card-img { width: 100%; max-width: 120px; border-radius: 6px; display: block; object-fit: contain; }
+.poke-card-img-placeholder {
+  width: 90px; height: 125px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; font-size: 2rem; opacity: .3;
+}
+.poke-card-body { padding: .7rem .8rem; }
+.poke-card-name { font-size: .82rem; font-weight: 600; margin-bottom: .25rem; line-height: 1.3; }
+.poke-card-name-cs { font-size: .72rem; color: var(--muted); margin-bottom: .4rem; font-style: italic; }
+.poke-card-meta { display: flex; align-items: center; justify-content: space-between; }
+.poke-card-hp { font-size: .7rem; background: rgba(239,68,68,.1); color: var(--red); padding: .1rem .4rem; border-radius: 4px; font-weight: 700; }
+.poke-card-type { font-size: .75rem; }
+.poke-card-set { font-size: .68rem; color: var(--muted); margin-top: .3rem; }
+.poke-card-verified { position: absolute; top: .5rem; right: .5rem; font-size: .7rem; }
+
+/* List view card */
+.card-grid.list-view .poke-card {
+  display: grid; grid-template-columns: 60px 1fr; gap: 0;
+}
+.card-grid.list-view .poke-card-img-wrap {
+  min-height: auto; padding: .5rem; width: 60px;
+}
+.card-grid.list-view .poke-card-img { max-width: 50px; }
+.card-grid.list-view .poke-card-img-placeholder { width: 46px; height: 64px; }
+.card-grid.list-view .poke-card-body {
+  padding: .55rem .8rem; display: flex; align-items: center;
+  gap: 1rem; flex-wrap: wrap;
+}
+.card-grid.list-view .poke-card-name { margin: 0; font-size: .85rem; }
+.card-grid.list-view .poke-card-name-cs { margin: 0; }
+.card-grid.list-view .poke-card-meta { flex-wrap: wrap; gap: .4rem; }
+.card-grid.list-view .poke-card-set { margin: 0; }
+
+/* ── Type color dots ── */
+.type-badge {
+  display: inline-block; padding: .1rem .4rem;
+  border-radius: 4px; font-size: .65rem; font-weight: 600;
+}
+.type-fire     { background: rgba(239,68,68,.15); color: #fca5a5; }
+.type-water    { background: rgba(96,165,250,.15); color: #93c5fd; }
+.type-grass    { background: rgba(74,222,128,.15); color: #86efac; }
+.type-lightning{ background: rgba(245,200,66,.15); color: #fde047; }
+.type-psychic  { background: rgba(167,139,250,.15); color: #c4b5fd; }
+.type-fighting { background: rgba(251,146,60,.15); color: #fdba74; }
+.type-darkness { background: rgba(107,114,128,.15); color: #9ca3af; }
+.type-metal    { background: rgba(148,163,184,.15); color: #cbd5e1; }
+.type-dragon   { background: rgba(139,92,246,.15); color: #a78bfa; }
+.type-colorless{ background: rgba(255,255,255,.1); color: #e5e7eb; }
+.type-fairy    { background: rgba(244,114,182,.15); color: #f9a8d4; }
+
+/* ── Pagination ── */
+.pagination {
+  display: flex; justify-content: center; align-items: center;
+  gap: .5rem; margin-top: 2rem; flex-wrap: wrap;
+}
+.page-btn {
+  background: var(--card); border: 1px solid var(--border);
+  color: var(--text); width: 36px; height: 36px; border-radius: 8px;
+  cursor: pointer; font-size: .82rem; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.page-btn.active { background: rgba(245,200,66,.15); border-color: rgba(245,200,66,.4); color: var(--yellow); font-weight: 700; }
+.page-btn:hover:not(.active):not(:disabled) { border-color: rgba(245,200,66,.2); color: var(--yellow); }
+.page-btn:disabled { opacity: .35; cursor: not-allowed; }
+.page-info { color: var(--muted); font-size: .8rem; }
+
+/* ── Loading skeleton ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--card) 25%, var(--card2) 50%, var(--card) 75%);
+  background-size: 200% 100%; animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.skel-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.skel-img { height: 160px; }
+.skel-body { padding: .7rem .8rem; }
+.skel-line { height: 10px; margin-bottom: .5rem; }
+.skel-line.w70 { width: 70%; }
+.skel-line.w40 { width: 40%; }
+
+/* ── Empty state ── */
+.empty { text-align: center; color: var(--muted); padding: 3rem; font-size: .85rem; grid-column: 1/-1; }
+.empty-icon { font-size: 2.5rem; margin-bottom: .8rem; opacity: .4; }
+
+/* ── Modal ── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 1rem; backdrop-filter: blur(4px);
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal-bg.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; width: 100%; max-width: 760px;
+  max-height: 90vh; overflow-y: auto;
+  transform: translateY(20px); transition: transform .25s;
+}
+.modal-bg.open .modal { transform: none; }
+.modal-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); position: sticky; top: 0;
+  background: var(--card); z-index: 1;
+}
+.modal-header h2 { font-size: 1.1rem; }
+.modal-close {
+  background: none; border: none; color: var(--muted); font-size: 1.3rem;
+  cursor: pointer; width: 32px; height: 32px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; transition: all .15s;
+}
+.modal-close:hover { background: rgba(255,255,255,.06); color: var(--text); }
+.modal-body { padding: 1.5rem; }
+.modal-grid {
+  display: grid; grid-template-columns: 200px 1fr; gap: 1.5rem;
+}
+@media(max-width:560px) { .modal-grid { grid-template-columns: 1fr; } }
+.modal-card-img { width: 100%; border-radius: 10px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.modal-card-img-placeholder {
+  width: 100%; aspect-ratio: 2.5/3.5;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 3rem; opacity: .3;
+}
+.modal-info {}
+.modal-name { font-size: 1.3rem; font-weight: 700; margin-bottom: .15rem; }
+.modal-name-cs { color: var(--muted); font-style: italic; margin-bottom: .8rem; font-size: .9rem; }
+.modal-badges { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.info-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .4rem .8rem; margin-bottom: 1rem;
+}
+.info-item {}
+.info-label { font-size: .68rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.info-value { font-size: .85rem; margin-top: .1rem; }
+.attacks-section { margin-top: 1rem; }
+.attacks-title { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .6rem; }
+.attack-row {
+  background: var(--card2); border: 1px solid var(--border); border-radius: 8px;
+  padding: .6rem .9rem; margin-bottom: .4rem;
+}
+.attack-name { font-weight: 600; font-size: .85rem; margin-bottom: .2rem; display: flex; justify-content: space-between; }
+.attack-damage { color: var(--red); font-weight: 700; }
+.attack-text { color: var(--muted); font-size: .78rem; line-height: 1.4; }
+.attack-cost { font-size: .7rem; color: var(--orange); margin-bottom: .2rem; }
+.weakness-row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .3rem; }
+.wkrs-tag { font-size: .72rem; padding: .15rem .45rem; border-radius: 4px; }
+.weakness-tag { background: rgba(239,68,68,.12); color: var(--red); }
+.resistance-tag { background: rgba(74,222,128,.12); color: var(--green); }
+.modal-api-block {
+  margin-top: 1.2rem; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: .8rem 1rem;
+}
+.modal-api-label { font-size: .7rem; color: var(--muted); margin-bottom: .4rem; letter-spacing: .03em; }
+.modal-api-url {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: .75rem; color: var(--blue);
+  word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: .5rem;
+}
+.copy-btn {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  padding: .15rem .4rem; border-radius: 4px; cursor: pointer; font-size: .7rem;
+  white-space: nowrap; transition: all .15s; flex-shrink: 0;
+}
+.copy-btn:hover { border-color: rgba(245,200,66,.3); color: var(--yellow); }
+
+/* ── Buttons ── */
+.btn {
+  background: rgba(245,200,66,.12); border: 1px solid rgba(245,200,66,.3);
+  color: var(--yellow); padding: .45rem 1rem; border-radius: 8px; cursor: pointer;
+  font-size: .82rem; font-weight: 500; transition: all .15s; display: inline-flex;
+  align-items: center; gap: .4rem; text-decoration: none;
+}
+.btn:hover { background: rgba(245,200,66,.22); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-blue { background: rgba(96,165,250,.1); border-color: rgba(96,165,250,.3); color: var(--blue); }
+.btn-blue:hover { background: rgba(96,165,250,.2); }
+.btn-green { background: rgba(74,222,128,.1); border-color: rgba(74,222,128,.3); color: var(--green); }
+.btn-green:hover { background: rgba(74,222,128,.2); }
+.btn-sm { padding: .25rem .65rem; font-size: .75rem; }
+
+/* ── API Documentation page ── */
+.api-hero { text-align: center; padding: 2.5rem 1rem 2rem; margin-bottom: 2rem; }
+.api-hero h1 { font-size: 1.7rem; font-weight: 800; color: var(--blue); margin-bottom: .5rem; }
+.api-hero p { color: var(--muted); font-size: .9rem; max-width: 480px; margin: 0 auto 1.5rem; line-height: 1.6; }
+
+.tier-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem; margin-bottom: 2.5rem;
+}
+.tier-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.2rem;
+}
+.tier-name { font-weight: 700; font-size: .9rem; margin-bottom: .3rem; }
+.tier-limit { font-size: 1.5rem; font-weight: 800; color: var(--yellow); margin-bottom: .2rem; }
+.tier-limit.b { color: var(--blue); }
+.tier-limit.g { color: var(--green); }
+.tier-desc { color: var(--muted); font-size: .78rem; line-height: 1.5; }
+
+.endpoint-group { margin-bottom: 2rem; }
+.endpoint-group-title {
+  font-size: .75rem; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; margin-bottom: .8rem; padding-bottom: .5rem;
+  border-bottom: 1px solid var(--border);
+}
+.endpoint-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: .6rem; overflow: hidden;
+}
+.endpoint-header {
+  display: flex; align-items: center; gap: .8rem; padding: .8rem 1rem;
+  cursor: pointer; user-select: none;
+}
+.endpoint-header:hover { background: rgba(255,255,255,.02); }
+.method {
+  padding: .2rem .55rem; border-radius: 5px; font-size: .68rem;
+  font-weight: 700; font-family: monospace; letter-spacing: .03em;
+}
+.method-get { background: rgba(74,222,128,.15); color: var(--green); }
+.method-post { background: rgba(96,165,250,.15); color: var(--blue); }
+.endpoint-path {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: .82rem; color: var(--text); flex: 1;
+}
+.endpoint-summary { color: var(--muted); font-size: .78rem; }
+.endpoint-chevron { color: var(--muted); font-size: .8rem; transition: transform .2s; margin-left: auto; }
+.endpoint-card.open .endpoint-chevron { transform: rotate(90deg); }
+.endpoint-body { display: none; padding: 0 1rem 1rem; }
+.endpoint-card.open .endpoint-body { display: block; }
+.endpoint-desc { color: var(--muted); font-size: .82rem; margin-bottom .8rem; line-height: 1.5; margin-bottom: .8rem; }
+.params-title { font-size: .73rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin-bottom: .5rem; margin-top: .8rem; }
+.param-row {
+  display: grid; grid-template-columns: 140px 80px 1fr; gap: .5rem;
+  padding: .4rem 0; border-top: 1px solid var(--border); align-items: start;
+}
+.param-name { font-family: monospace; font-size: .8rem; color: var(--orange); }
+.param-type { font-size: .72rem; color: var(--purple); }
+.param-desc { font-size: .78rem; color: var(--muted); }
+.code-block {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: .9rem 1rem; font-family: 'SF Mono','Fira Code',monospace;
+  font-size: .78rem; overflow-x: auto; line-height: 1.6;
+  position: relative; margin-top: .8rem;
+}
+.code-block pre { margin: 0; white-space: pre; }
+.code-copy {
+  position: absolute; top: .5rem; right: .5rem;
+  background: var(--card); border: 1px solid var(--border); color: var(--muted);
+  padding: .2rem .5rem; border-radius: 5px; cursor: pointer; font-size: .68rem;
+  transition: all .15s;
+}
+.code-copy:hover { color: var(--yellow); border-color: rgba(245,200,66,.3); }
+.json-key { color: var(--blue); }
+.json-str { color: var(--green); }
+.json-num { color: var(--orange); }
+.json-bool { color: var(--purple); }
+.json-null { color: var(--muted); }
+
+/* ── API key registration ── */
+.register-box {
+  background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+  padding: 2rem; max-width: 540px; margin: 0 auto;
+}
+.register-box h2 { font-size: 1.1rem; margin-bottom: .4rem; }
+.register-box p { color: var(--muted); font-size: .85rem; line-height: 1.5; margin-bottom: 1.3rem; }
+.field { margin-bottom: .9rem; }
+.field label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .3rem; }
+.field input, .field select {
+  width: 100%; padding: .6rem .9rem; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: .88rem;
+}
+.field input:focus, .field select:focus { outline: none; border-color: rgba(245,200,66,.45); }
+.field select option { background: #1a1424; }
+.key-reveal {
+  background: var(--bg); border: 1px solid rgba(74,222,128,.3);
+  border-radius: 10px; padding: 1.2rem; text-align: center; margin-top: .8rem; display: none;
+}
+.key-reveal .key-label { font-size: .75rem; color: var(--muted); margin-bottom: .5rem; }
+.key-reveal .key-value {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: .88rem; color: var(--green);
+  word-break: break-all; margin-bottom: .7rem; background: var(--card);
+  padding: .6rem .9rem; border-radius: 6px; border: 1px solid var(--border);
+}
+.key-reveal .key-warn { color: var(--orange); font-size: .75rem; }
+
+/* ── Sets browser ── */
+.sets-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .8rem;
+}
+.set-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: 1rem; cursor: pointer; transition: all .2s;
+}
+.set-card:hover { border-color: rgba(96,165,250,.3); transform: translateY(-2px); }
+.set-card-logo { height: 40px; margin-bottom: .7rem; display: flex; align-items: center; }
+.set-card-logo img { max-height: 40px; max-width: 100%; object-fit: contain; }
+.set-card-logo-placeholder { font-size: 2rem; opacity: .3; }
+.set-name { font-weight: 600; font-size: .85rem; margin-bottom: .2rem; }
+.set-series { font-size: .72rem; color: var(--purple); margin-bottom: .4rem; }
+.set-count { font-size: .72rem; color: var(--muted); }
+.set-year { font-size: .7rem; color: var(--muted); }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+  display: flex; flex-direction: column; gap: .5rem; pointer-events: none;
+}
+.toast-item {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: .7rem 1.1rem; font-size: .83rem; max-width: 300px;
+  animation: toastIn .25s ease; pointer-events: auto;
+}
+.toast-item.ok   { border-color: rgba(74,222,128,.4); color: var(--green); }
+.toast-item.err  { border-color: rgba(239,68,68,.4); color: var(--red); }
+.toast-item.info { border-color: rgba(96,165,250,.4); color: var(--blue); }
+@keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
+
+/* ── Responsive ── */
+@media(max-width:600px) {
+  .hero h1 { font-size: 1.5rem; }
+  .hero-stats { gap: 1.2rem; padding: .7rem 1.2rem; }
+  .card-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .7rem; }
+  .modal-grid { grid-template-columns: 1fr; }
+  .param-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Navigation ─────────────────────────────────────────── -->
+<nav class="page-nav">
+  <div class="page-nav-inner">
+    <div class="page-nav-logo">🎴 PokéDB</div>
+    <button class="nav-tab active" onclick="switchPage('browse',this)">Procházet</button>
+    <button class="nav-tab" onclick="switchPage('sets',this)">Série</button>
+    <button class="nav-tab" onclick="switchPage('api',this)">API</button>
+    <button class="nav-tab" onclick="switchPage('register',this)">API klíč</button>
+    <div class="nav-spacer"></div>
+    <span class="nav-api-badge">PUBLIC API</span>
+  </div>
+</nav>
+
+<!-- ── Toast ── -->
+<div id="toast"></div>
+
+<!-- ── Card detail modal ───────────────────────────────────── -->
+<div class="modal-bg" id="card-modal" onclick="closeModalBg(event)">
+  <div class="modal" id="modal-inner">
+    <div class="modal-header">
+      <h2 id="modal-title">Karta</h2>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: BROWSE
+══════════════════════════════════════════════════════ -->
+<div class="page-panel active" id="page-browse">
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-icon">🎴</div>
+    <h1>Databáze Pokémon karet</h1>
+    <p>Prohledávej tisíce karet z celé historie TCG. Filtry, CS překlady, volné API.</p>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="hero-stat-num" id="h-cards">–</div><div class="hero-stat-label">Karet</div></div>
+      <div class="hero-stat"><div class="hero-stat-num b" id="h-sets">–</div><div class="hero-stat-label">Sérií</div></div>
+      <div class="hero-stat"><div class="hero-stat-num g" id="h-translated">–</div><div class="hero-stat-label">CS přeloženo</div></div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- Search -->
+    <div class="search-bar">
+      <div class="search-main">
+        <span class="si">🔍</span>
+        <input type="text" id="q" placeholder="Hledat kartu (jméno, číslo, typ…)" oninput="debouncedSearch()">
+      </div>
+      <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+      <select class="filter-select" id="f-set" onchange="doSearch()">
+        <option value="">📦 Všechny série</option>
+      </select>
+      <select class="filter-select" id="f-type" onchange="doSearch()">
+        <option value="">⚡ Typ energie</option>
+        <option value="Fire">🔥 Fire</option>
+        <option value="Water">💧 Water</option>
+        <option value="Grass">🌿 Grass</option>
+        <option value="Lightning">⚡ Lightning</option>
+        <option value="Psychic">🔮 Psychic</option>
+        <option value="Fighting">🥊 Fighting</option>
+        <option value="Darkness">🌑 Darkness</option>
+        <option value="Metal">⚙️ Metal</option>
+        <option value="Dragon">🐉 Dragon</option>
+        <option value="Fairy">🧚 Fairy</option>
+        <option value="Colorless">⭐ Colorless</option>
+      </select>
+      <select class="filter-select" id="f-supertype" onchange="doSearch()">
+        <option value="">🃏 Všechny typy</option>
+        <option value="Pokémon">Pokémon</option>
+        <option value="Trainer">Trainer</option>
+        <option value="Energy">Energy</option>
+      </select>
+      <select class="filter-select" id="f-rarity" onchange="doSearch()">
+        <option value="">✨ Vzácnost</option>
+        <option value="Common">Common</option>
+        <option value="Uncommon">Uncommon</option>
+        <option value="Rare">Rare</option>
+        <option value="Rare Holo">Rare Holo</option>
+        <option value="Rare Ultra">Rare Ultra</option>
+        <option value="Rare Secret">Rare Secret</option>
+        <option value="Special Illustration Rare">Special Illustration Rare</option>
+        <option value="Illustration Rare">Illustration Rare</option>
+        <option value="Hyper Rare">Hyper Rare</option>
+      </select>
+      <select class="filter-select" id="f-sort" onchange="doSearch()">
+        <option value="name">Seřadit: Jméno A–Z</option>
+        <option value="-hp">Seřadit: HP ↓</option>
+        <option value="hp">Seřadit: HP ↑</option>
+        <option value="-id">Seřadit: Nejnovější</option>
+        <option value="number">Seřadit: Číslo ↑</option>
+      </select>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <span class="result-count" id="result-count"></span>
+        <div class="filter-active-tags" id="active-tags"></div>
+      </div>
+      <div class="view-toggle">
+        <button class="view-btn active" id="vbtn-grid" onclick="setView('grid')" title="Grid">⊞</button>
+        <button class="view-btn" id="vbtn-list" onclick="setView('list')" title="Seznam">☰</button>
+      </div>
+    </div>
+
+    <!-- Cards grid -->
+    <div class="card-grid" id="card-grid"></div>
+
+    <!-- Pagination -->
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: SETS
+══════════════════════════════════════════════════════ -->
+<div class="page-panel" id="page-sets">
+  <div class="wrap">
+    <div style="margin-bottom:1.2rem">
+      <h2 style="font-size:1.2rem;color:var(--yellow);margin-bottom:.3rem">📦 Pokémon TCG Série</h2>
+      <p style="color:var(--muted);font-size:.85rem">Klikni na sérii pro zobrazení karet.</p>
+    </div>
+    <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;flex-wrap:wrap">
+      <input type="text" id="set-search" placeholder="🔍 Hledat sérii…"
+        oninput="filterSets()"
+        style="background:var(--card);border:1px solid var(--border);border-radius:8px;
+               color:var(--text);padding:.55rem 1rem;font-size:.88rem;outline:none;flex:1;min-width:180px">
+      <select class="filter-select" id="set-series-filter" onchange="filterSets()">
+        <option value="">Všechny generace</option>
+      </select>
+    </div>
+    <div class="sets-grid" id="sets-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: API DOCS
+══════════════════════════════════════════════════════ -->
+<div class="page-panel" id="page-api">
+  <div class="wrap">
+    <div class="api-hero">
+      <h1>⚡ Veřejné API</h1>
+      <p>REST API pro přístup k databázi Pokémon karet. JSON odpovědi, rate limiting, CORS povoleno.</p>
+      <code style="background:var(--card);border:1px solid var(--border);border-radius:8px;
+                   padding:.5rem 1rem;font-size:.82rem;color:var(--blue);" id="api-base-url">
+        https://api.poke-trade.eu/v1
+      </code>
+    </div>
+
+    <!-- Rate limit tiers -->
+    <h3 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Rate limity dle tier</h3>
+    <div class="tier-grid">
+      <div class="tier-card">
+        <div class="tier-name">🌐 Anonymní</div>
+        <div class="tier-limit">50</div>
+        <div class="tier-desc">požadavků / hodinu<br>bez API klíče</div>
+      </div>
+      <div class="tier-card">
+        <div class="tier-name">🔑 Free tier</div>
+        <div class="tier-limit b">1 000</div>
+        <div class="tier-desc">požadavků / hodinu<br>zdarma po registraci</div>
+      </div>
+      <div class="tier-card">
+        <div class="tier-name">💼 Pro tier</div>
+        <div class="tier-limit g">10 000</div>
+        <div class="tier-desc">požadavků / hodinu<br>kontaktuj správce</div>
+      </div>
+    </div>
+
+    <p style="color:var(--muted);font-size:.8rem;margin-bottom:2rem">
+      API klíč odesílej jako HTTP header: <code style="color:var(--orange)">X-API-Key: pk_xxx…</code>
+      nebo jako query param <code style="color:var(--orange)">?api_key=pk_xxx…</code>
+    </p>
+
+    <!-- Endpoints -->
+    <div class="endpoint-group">
+      <div class="endpoint-group-title">Karty</div>
+
+      <div class="endpoint-card" id="ep-search">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep-search')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/api/v1/cards</span>
+          <span class="endpoint-summary">Vyhledávání a filtrování karet</span>
+          <span class="endpoint-chevron">›</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc">Vrací stránkovaný seznam karet. Podporuje fulltextové vyhledávání, filtrování a řazení.</div>
+          <div class="params-title">Query parametry</div>
+          <div class="param-row"><span class="param-name">q</span><span class="param-type">string</span><span class="param-desc">Fulltextové vyhledávání (jméno, CS jméno)</span></div>
+          <div class="param-row"><span class="param-name">set_id</span><span class="param-type">string</span><span class="param-desc">ID série (např. <code>sv6</code>)</span></div>
+          <div class="param-row"><span class="param-name">type</span><span class="param-type">string</span><span class="param-desc">Typ energie (Fire, Water, Grass…)</span></div>
+          <div class="param-row"><span class="param-name">supertype</span><span class="param-type">string</span><span class="param-desc">Pokémon | Trainer | Energy</span></div>
+          <div class="param-row"><span class="param-name">rarity</span><span class="param-type">string</span><span class="param-desc">Vzácnost (Common, Rare, Rare Holo…)</span></div>
+          <div class="param-row"><span class="param-name">hp_min</span><span class="param-type">integer</span><span class="param-desc">Minimální HP</span></div>
+          <div class="param-row"><span class="param-name">hp_max</span><span class="param-type">integer</span><span class="param-desc">Maximální HP</span></div>
+          <div class="param-row"><span class="param-name">sort</span><span class="param-type">string</span><span class="param-desc">name | hp | -hp | -id | number (prefix - = desc)</span></div>
+          <div class="param-row"><span class="param-name">page</span><span class="param-type">integer</span><span class="param-desc">Stránka (výchozí: 1)</span></div>
+          <div class="param-row"><span class="param-name">limit</span><span class="param-type">integer</span><span class="param-desc">Výsledků na stránku, max 100 (výchozí: 36)</span></div>
+          <div class="code-block">
+            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+            <pre id="ex-search">GET /api/v1/cards?q=Pikachu&amp;type=Lightning&amp;limit=20
+
+{
+  "data": [
+    {
+      "id": "sv6-25",
+      "name": "Pikachu ex",
+      "name_cs": "Pikachu ex",
+      "supertype": "Pokémon",
+      "types": ["Lightning"],
+      "hp": 190,
+      "rarity": "Double Rare",
+      "set_id": "sv6",
+      "set_name": "Twilight Masquerade",
+      "number": "25",
+      "image_url": "https://r2.example.com/cards/sv6-25/main.webp"
+    }
+  ],
+  "total": 42,
+  "page": 1,
+  "limit": 20,
+  "pages": 3
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint-card" id="ep-card">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep-card')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/api/v1/cards/:id</span>
+          <span class="endpoint-summary">Detail karty se všemi atributy</span>
+          <span class="endpoint-chevron">›</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc">Vrací kompletní data jedné karty včetně překladu, útoků, slabostí a cen.</div>
+          <div class="params-title">Path parametry</div>
+          <div class="param-row"><span class="param-name">id</span><span class="param-type">string</span><span class="param-desc">ID karty (např. <code>sv6-25</code>)</span></div>
+          <div class="code-block">
+            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+            <pre>GET /api/v1/cards/sv6-25
+
+{
+  "id": "sv6-25",
+  "name": "Pikachu ex",
+  "name_cs": "Pikachu ex",
+  "supertype": "Pokémon",
+  "subtypes": ["Basic", "ex"],
+  "types": ["Lightning"],
+  "hp": 190,
+  "rarity": "Double Rare",
+  "artist": "PLANETA Tsuji",
+  "set": { "id": "sv6", "name": "Twilight Masquerade" },
+  "attacks": [
+    {
+      "name": "Thunder Shock",
+      "cost": ["Lightning"],
+      "damage": "30",
+      "text": "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed."
+    }
+  ],
+  "weaknesses": [{ "type": "Fighting", "value": "×2" }],
+  "resistances": [],
+  "retreat_cost": 1,
+  "image_url": "https://r2.example.com/cards/sv6-25/main.webp",
+  "image_hires_url": "https://r2.example.com/cards/sv6-25/hires.webp"
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint-group">
+      <div class="endpoint-group-title">Série (Sety)</div>
+
+      <div class="endpoint-card" id="ep-sets">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep-sets')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/api/v1/sets</span>
+          <span class="endpoint-summary">Seznam všech sérií</span>
+          <span class="endpoint-chevron">›</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc">Vrací seznam všech sérií s počtem karet a metadaty.</div>
+          <div class="code-block">
+            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+            <pre>GET /api/v1/sets
+
+{
+  "data": [
+    {
+      "id": "sv6",
+      "name": "Twilight Masquerade",
+      "series": "Scarlet & Violet",
+      "total": 167,
+      "release_date": "2024-05-24",
+      "logo_url": "https://r2.example.com/sets/sv6-logo.webp"
+    }
+  ]
+}</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="endpoint-card" id="ep-set-detail">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep-set-detail')">
+          <span class="method method-get">GET</span>
+          <span class="endpoint-path">/api/v1/sets/:id</span>
+          <span class="endpoint-summary">Detail série s kartami</span>
+          <span class="endpoint-chevron">›</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc">Vrací metadata série a první stránku karet z dané série.</div>
+          <div class="code-block">
+            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+            <pre>GET /api/v1/sets/sv6</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="endpoint-group">
+      <div class="endpoint-group-title">API klíče</div>
+
+      <div class="endpoint-card" id="ep-register">
+        <div class="endpoint-header" onclick="toggleEndpoint('ep-register')">
+          <span class="method method-post">POST</span>
+          <span class="endpoint-path">/api/v1/keys/register</span>
+          <span class="endpoint-summary">Registrace nového API klíče</span>
+          <span class="endpoint-chevron">›</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc">Vygeneruje bezplatný API klíč (free tier, 1 000 req/h). Klíč je zobrazen pouze jednou.</div>
+          <div class="code-block">
+            <button class="code-copy" onclick="copyCode(this)">Copy</button>
+            <pre>POST /api/v1/keys/register
+Content-Type: application/json
+
+{ "name": "Moje aplikace", "email": "email@example.com" }
+
+→ { "key": "pk_live_xxxxxxxxxxxxxxxxxxxx", "tier": "free" }</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Response headers info -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-top:1rem">
+      <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.8rem">Response Headers (rate limit)</div>
+      <div class="param-row"><span class="param-name">X-RateLimit-Limit</span><span class="param-type">integer</span><span class="param-desc">Maximální počet požadavků za hodinu</span></div>
+      <div class="param-row"><span class="param-name">X-RateLimit-Remaining</span><span class="param-type">integer</span><span class="param-desc">Zbývající požadavky v aktuálním okně</span></div>
+      <div class="param-row"><span class="param-name">X-RateLimit-Reset</span><span class="param-type">unix ts</span><span class="param-desc">Čas resetování okna (Unix timestamp)</span></div>
+      <div class="param-row"><span class="param-name">X-Request-Id</span><span class="param-type">uuid</span><span class="param-desc">Unikátní ID požadavku pro debugging</span></div>
+    </div>
+
+    <!-- Error codes -->
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-top:1rem;margin-bottom:2rem">
+      <div style="font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.8rem">HTTP Chybové kódy</div>
+      <div class="param-row"><span class="param-name" style="color:var(--green)">200</span><span class="param-type">OK</span><span class="param-desc">Úspěšný požadavek</span></div>
+      <div class="param-row"><span class="param-name" style="color:var(--orange)">400</span><span class="param-type">Bad Request</span><span class="param-desc">Neplatné parametry</span></div>
+      <div class="param-row"><span class="param-name" style="color:var(--orange)">401</span><span class="param-type">Unauthorized</span><span class="param-desc">Neplatný nebo chybějící API klíč</span></div>
+      <div class="param-row"><span class="param-name" style="color:var(--red)">404</span><span class="param-type">Not Found</span><span class="param-desc">Karta nebo série nenalezena</span></div>
+      <div class="param-row"><span class="param-name" style="color:var(--red)">429</span><span class="param-type">Too Many Requests</span><span class="param-desc">Překročen rate limit</span></div>
+      <div class="param-row"><span class="param-name" style="color:var(--red)">500</span><span class="param-type">Server Error</span><span class="param-desc">Interní chyba serveru</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     PAGE: REGISTER API KEY
+══════════════════════════════════════════════════════ -->
+<div class="page-panel" id="page-register">
+  <div class="wrap" style="max-width:600px;margin:0 auto;padding-top:2rem">
+    <div class="register-box">
+      <h2>🔑 Získat API klíč</h2>
+      <p>Bezplatný klíč dává 1 000 požadavků za hodinu. Po registraci obdržíš klíč – uchovej ho, zobrazí se jen jednou.</p>
+
+      <div class="field">
+        <label>Název aplikace / projektu</label>
+        <input type="text" id="reg-name" placeholder="Moje Pokémon aplikace">
+      </div>
+      <div class="field">
+        <label>E-mail (pro kontakt při problémech)</label>
+        <input type="email" id="reg-email" placeholder="email@example.com">
+      </div>
+      <div class="field">
+        <label>Popis použití <span style="color:var(--muted)">(volitelné)</span></label>
+        <input type="text" id="reg-desc" placeholder="Stránka pro sběratele, mobilní appka…">
+      </div>
+
+      <button class="btn btn-full" id="reg-btn" onclick="registerKey()" style="width:100%;justify-content:center;padding:.75rem;font-size:.9rem;margin-top:.3rem">
+        🔑 Vygenerovat klíč zdarma
+      </button>
+
+      <div class="key-reveal" id="key-reveal">
+        <div class="key-label">Tvůj API klíč – zkopíruj ho teď!</div>
+        <div class="key-value" id="key-value"></div>
+        <button class="btn btn-sm btn-green" onclick="copyKey()">📋 Kopírovat klíč</button>
+        <div class="key-warn" style="margin-top:.7rem">⚠️ Klíč se zobrazí pouze jednou. Ulož si ho na bezpečné místo.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.5rem;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:.8rem;font-weight:600">Jak klíč používat</div>
+      <div class="code-block" style="margin-top:0">
+        <button class="code-copy" onclick="copyCode(this)">Copy</button>
+        <pre>// Header (doporučeno)
+fetch('/api/v1/cards?q=Charizard', {
+  headers: { 'X-API-Key': 'pk_live_xxx' }
+})
+
+// Query parametr
+fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════
+   CONFIG
+════════════════════════════════════════════════════ */
+const API_BASE = 'https://api.poke-trade.eu/v1';
+let state = {
+  page: 1, limit: 36, view: 'grid',
+  q: '', set_id: '', type: '', supertype: '', rarity: '', sort: 'name',
+  totalCards: 0, totalPages: 0,
+  setsData: [], loading: false
+};
+
+/* ════════════════════════════════════════════════════
+   PAGE SWITCHING
+════════════════════════════════════════════════════ */
+function switchPage(id, btn) {
+  document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  btn.classList.add('active');
+
+  if (id === 'sets' && !state.setsLoaded) loadSets();
+}
+
+/* ════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════ */
+async function init() {
+  loadStats();
+  loadSetFilter();
+  doSearch();
+  // Set API base URL display
+  document.getElementById('api-base-url').textContent = location.origin + '/api/v1';
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API_BASE}/sets`);
+    if (!r.ok) return;
+    const data = await r.json();
+    const sets = data.data || [];
+    const totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
+    document.getElementById('h-cards').textContent = totalCards.toLocaleString('cs');
+    document.getElementById('h-sets').textContent = sets.length;
+    // rough translated count — if API returns it
+    if (data.translated_count !== undefined) {
+      document.getElementById('h-translated').textContent = data.translated_count.toLocaleString('cs');
+    }
+  } catch {}
+}
+
+async function loadSetFilter() {
+  try {
+    const r = await fetch(`${API_BASE}/sets`);
+    if (!r.ok) return;
+    const data = await r.json();
+    state.setsData = data.data || [];
+    const sel = document.getElementById('f-set');
+    const serSel = document.getElementById('set-series-filter');
+    const series = [...new Set(state.setsData.map(s => s.series).filter(Boolean))].sort();
+    series.forEach(s => {
+      const o = document.createElement('option'); o.value = s; o.textContent = s;
+      serSel && serSel.appendChild(o);
+    });
+    state.setsData.forEach(s => {
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = `${s.name} (${s.id})`;
+      sel.appendChild(o);
+    });
+    state.setsLoaded = true;
+  } catch {}
+}
+
+/* ════════════════════════════════════════════════════
+   SEARCH
+════════════════════════════════════════════════════ */
+let debTimer;
+function debouncedSearch() { clearTimeout(debTimer); debTimer = setTimeout(() => doSearch(1), 400); }
+
+function doSearch(pg) {
+  state.q = document.getElementById('q').value.trim();
+  state.set_id = document.getElementById('f-set').value;
+  state.type = document.getElementById('f-type').value;
+  state.supertype = document.getElementById('f-supertype').value;
+  state.rarity = document.getElementById('f-rarity').value;
+  state.sort = document.getElementById('f-sort').value;
+  state.page = pg || 1;
+  fetchCards();
+  updateActiveTags();
+}
+
+function clearSearch() {
+  document.getElementById('q').value = '';
+  document.getElementById('f-set').value = '';
+  document.getElementById('f-type').value = '';
+  document.getElementById('f-supertype').value = '';
+  document.getElementById('f-rarity').value = '';
+  document.getElementById('f-sort').value = 'name';
+  doSearch(1);
+}
+
+function updateActiveTags() {
+  const tags = document.getElementById('active-tags');
+  tags.innerHTML = '';
+  const active = [
+    state.q && {label: `"${state.q}"`, key: 'q'},
+    state.set_id && {label: state.set_id, key: 'set_id'},
+    state.type && {label: state.type, key: 'type'},
+    state.supertype && {label: state.supertype, key: 'supertype'},
+    state.rarity && {label: state.rarity, key: 'rarity'},
+  ].filter(Boolean);
+  active.forEach(f => {
+    const t = document.createElement('span');
+    t.className = 'filter-tag'; t.textContent = f.label + ' ✕';
+    t.onclick = () => {
+      if (f.key === 'q') document.getElementById('q').value = '';
+      else document.getElementById('f-' + f.key.replace('_id','') + (f.key==='set_id'?'-set':'')).value = '';
+      doSearch(1);
+    };
+    tags.appendChild(t);
+  });
+}
+
+
+  } finally {
+    state.loading = false;
+  }
+}
+
+async function fetchCards() {
+  if (state.loading) return;
+  state.loading = true;
+  renderSkeletons();
+
+  // Parametry přesně odpovídají backendu (worker.js)
+  const params = new URLSearchParams({ page: state.page, limit: state.limit });
+  if (state.q)         params.set('q',         state.q);
+  if (state.set_id)    params.set('set_id',     state.set_id);
+  if (state.type)      params.set('type',       state.type);
+  if (state.supertype) params.set('supertype',  state.supertype);
+  if (state.rarity)    params.set('rarity',     state.rarity);
+  if (state.sort)      params.set('sort',       state.sort);
+
+  try {
+    const r = await fetch(`${API_BASE}/cards?${params}`);
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'API chyba');
+    // Worker vrací: { data, total, page, pages, limit }
+    state.totalCards = data.total || 0;
+    state.totalPages = data.pages || 1;
+    renderCards(data.data || []);
+    renderPagination();
+    document.getElementById('result-count').textContent =
+      state.totalCards === 0 ? 'Žádné výsledky' : `${state.totalCards.toLocaleString('cs')} karet`;
+  } catch (e) {
+    renderError(e.message);
+  } finally {
+    state.loading = false;
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   RENDER CARDS
+════════════════════════════════════════════════════ */
+function renderSkeletons() {
+  const g = document.getElementById('card-grid');
+  g.innerHTML = Array(12).fill(0).map(() => `
+    <div class="skel-card">
+      <div class="skel-img skeleton"></div>
+      <div class="skel-body">
+        <div class="skel-line skeleton w70"></div>
+        <div class="skel-line skeleton w40"></div>
+      </div>
+    </div>`).join('');
+}
+
+function getTypeClass(t) {
+  const m = {Fire:'fire',Water:'water',Grass:'grass',Lightning:'lightning',Psychic:'psychic',
+    Fighting:'fighting',Darkness:'darkness',Metal:'metal',Dragon:'dragon',Colorless:'colorless',Fairy:'fairy'};
+  return m[t] || 'colorless';
+}
+
+function renderCards(cards) {
+  const g = document.getElementById('card-grid');
+  if (!cards.length) {
+    g.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>Žádné karty neodpovídají filtru</div>`;
+    return;
+  }
+  g.innerHTML = cards.map(c => {
+    const img = c.image_thumb_url || c.image_url || '';
+    const imgHtml = img
+      ? `<img class="poke-card-img" src="${escH(img)}" alt="${escH(c.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
+    const types = (c.types || []).map(t =>
+      `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
+    return `
+    <div class="poke-card" onclick="openCard('${escH(c.id)}')">
+      ${c.verified ? '<span class="poke-card-verified" title="Ověřeno">✅</span>' : ''}
+      <div class="poke-card-img-wrap">
+        ${imgHtml}
+        <div class="poke-card-img-placeholder" ${img ? 'style="display:none"' : ''}>🃏</div>
+      </div>
+      <div class="poke-card-body">
+        <div class="poke-card-name">${escH(c.name)}</div>
+        ${c.name_cs && c.name_cs !== c.name ? `<div class="poke-card-name-cs">${escH(c.name_cs)}</div>` : ''}
+        <div class="poke-card-meta">
+          ${c.hp ? `<span class="poke-card-hp">${c.hp} HP</span>` : ''}
+          <span class="poke-card-type">${types}</span>
+        </div>
+        ${c.set_name ? `<div class="poke-card-set">${escH(c.set_name)} · #${c.number || '?'}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderError(msg) {
+  document.getElementById('card-grid').innerHTML =
+    `<div class="empty"><div class="empty-icon">⚠️</div>${escH(msg || 'Chyba načítání')}</div>`;
+  document.getElementById('result-count').textContent = '';
+}
+
+/* ════════════════════════════════════════════════════
+   PAGINATION
+════════════════════════════════════════════════════ */
+function renderPagination() {
+  const p = document.getElementById('pagination');
+  const { page, totalPages } = state;
+  if (totalPages <= 1) { p.innerHTML = ''; return; }
+  const maxBtns = 7;
+  let pages = [];
+  if (totalPages <= maxBtns) {
+    pages = Array.from({length: totalPages}, (_,i) => i+1);
+  } else {
+    pages = [1];
+    let s = Math.max(2, page-2), e = Math.min(totalPages-1, page+2);
+    if (s > 2) pages.push('…');
+    for (let i=s;i<=e;i++) pages.push(i);
+    if (e < totalPages-1) pages.push('…');
+    pages.push(totalPages);
+  }
+  p.innerHTML = `
+    <button class="page-btn" ${page===1?'disabled':''} onclick="goPage(${page-1})">‹</button>
+    ${pages.map(pg => pg==='…'
+      ? `<span class="page-info">…</span>`
+      : `<button class="page-btn ${pg===page?'active':''}" onclick="goPage(${pg})">${pg}</button>`
+    ).join('')}
+    <button class="page-btn" ${page===totalPages?'disabled':''} onclick="goPage(${page+1})">›</button>
+    <span class="page-info">str. ${page} / ${totalPages}</span>`;
+}
+
+function goPage(pg) {
+  if (pg < 1 || pg > state.totalPages) return;
+  state.page = pg;
+  fetchCards();
+  document.getElementById('page-browse').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+/* ════════════════════════════════════════════════════
+   VIEW TOGGLE
+════════════════════════════════════════════════════ */
+function setView(v) {
+  state.view = v;
+  const g = document.getElementById('card-grid');
+  g.classList.toggle('list-view', v==='list');
+  document.getElementById('vbtn-grid').classList.toggle('active', v==='grid');
+  document.getElementById('vbtn-list').classList.toggle('active', v==='list');
+}
+
+/* ════════════════════════════════════════════════════
+   CARD DETAIL MODAL
+════════════════════════════════════════════════════ */
+async function openCard(id) {
+  const modal = document.getElementById('card-modal');
+  const body = document.getElementById('modal-body');
+  document.getElementById('modal-title').textContent = 'Načítám…';
+  body.innerHTML = `<div style="text-align:center;padding:2rem;color:var(--muted)">
+    <div style="font-size:2rem;margin-bottom:.5rem">⏳</div>Načítám kartu…</div>`;
+  modal.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  try {
+    const r = await fetch(`${API_BASE}/cards/${encodeURIComponent(id)}`);
+    if (!r.ok) throw new Error('Karta nenalezena');
+    const c = await r.json();
+    renderModal(c);
+  } catch (e) {
+    body.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${escH(e.message)}</div>`;
+  }
+}
+
+function renderModal(c) {
+  document.getElementById('modal-title').textContent = c.name || c.id;
+  const img = c.image_url || c.image_thumb_url || '';
+  const types = (c.types || []).map(t =>
+    `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join(' ');
+  const attacks = (c.attacks || []).map(a => `
+    <div class="attack-row">
+      <div class="attack-cost">Cena: ${(a.cost || []).join(', ') || '—'}</div>
+      <div class="attack-name">
+        ${escH(a.name || '')}
+        <span class="attack-damage">${escH(a.damage || '')}</span>
+      </div>
+      ${a.text ? `<div class="attack-text">${escH(a.text)}</div>` : ''}
+    </div>`).join('');
+  const abilities = (c.abilities || []).map(a => `
+    <div class="attack-row" style="border-left:2px solid var(--purple)">
+      <div class="attack-cost" style="color:var(--purple)">Schopnost</div>
+      <div class="attack-name">${escH(a.name || '')}</div>
+      ${a.text ? `<div class="attack-text">${escH(a.text)}</div>` : ''}
+    </div>`).join('');
+
+  const apiUrl = `https://api.poke-trade.eu/v1/cards/${encodeURIComponent(c.id)}`;
+
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-grid">
+      <div>
+        ${img
+          ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}">`
+          : `<div class="modal-card-img-placeholder">🃏</div>`}
+        ${c.image_hires_url ? `<a href="${escH(c.image_hires_url)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res obrázek</a>` : ''}
+      </div>
+      <div class="modal-info">
+        <div class="modal-name">${escH(c.name || '')}</div>
+        ${c.name_cs && c.name_cs !== c.name ? `<div class="modal-name-cs">${escH(c.name_cs)}</div>` : ''}
+        <div class="modal-badges">
+          ${types}
+          ${c.supertype ? `<span class="type-badge" style="background:rgba(255,255,255,.07);color:var(--text)">${escH(c.supertype)}</span>` : ''}
+          ${c.rarity ? `<span class="type-badge" style="background:rgba(245,200,66,.1);color:var(--yellow)">${escH(c.rarity)}</span>` : ''}
+          ${c.verified ? `<span class="type-badge badge-ok">✅ Ověřeno</span>` : ''}
+        </div>
+        <div class="info-grid">
+          ${c.hp ? infoItem('HP', c.hp) : ''}
+          ${c.set_name ? infoItem('Série', c.set_name) : ''}
+          ${c.number ? infoItem('Číslo', '#' + c.number) : ''}
+          ${c.artist ? infoItem('Illustrátor', c.artist) : ''}
+          ${c.retreat_cost !== undefined ? infoItem('Ústup', c.retreat_cost + ' ⚡') : ''}
+          ${(c.subtypes||[]).length ? infoItem('Subtyp', c.subtypes.join(', ')) : ''}
+        </div>
+        ${(c.weaknesses||[]).length || (c.resistances||[]).length ? `
+        <div style="margin-top:.5rem">
+          ${(c.weaknesses||[]).length ? `<div style="margin-bottom:.3rem">
+            <span style="font-size:.7rem;color:var(--muted)">SLABOSTI</span>
+            <div class="weakness-row">${c.weaknesses.map(w =>
+              `<span class="wkrs-tag weakness-tag">${escH(w.type)} ${escH(w.value)}</span>`).join('')}</div>
+          </div>` : ''}
+          ${(c.resistances||[]).length ? `<div>
+            <span style="font-size:.7rem;color:var(--muted)">ODOLNOSTI</span>
+            <div class="weakness-row">${c.resistances.map(r =>
+              `<span class="wkrs-tag resistance-tag">${escH(r.type)} ${escH(r.value)}</span>`).join('')}</div>
+          </div>` : ''}
+        </div>` : ''}
+      </div>
+    </div>
+    ${abilities ? `<div class="attacks-section"><div class="attacks-title">⚡ Schopnosti</div>${abilities}</div>` : ''}
+    ${attacks ? `<div class="attacks-section"><div class="attacks-title">⚔️ Útoky</div>${attacks}</div>` : ''}
+    <div class="modal-api-block">
+      <div class="modal-api-label">API endpoint</div>
+      <div class="modal-api-url">
+        <span>${escH(apiUrl)}</span>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('${escH(apiUrl)}');toast('Zkopírováno!','ok')">Kopírovat</button>
+      </div>
+    </div>`;
+}
+
+function infoItem(label, val) {
+  return `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${escH(String(val))}</div></div>`;
+}
+
+function closeModal() {
+  document.getElementById('card-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function closeModalBg(e) { if (e.target.id === 'card-modal') closeModal(); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ════════════════════════════════════════════════════
+   SETS PAGE
+════════════════════════════════════════════════════ */
+async function loadSets() {
+  if (state.setsLoaded && state.setsData.length) {
+    renderSetsGrid(state.setsData);
+    return;
+  }
+  try {
+    const r = await fetch(`${API_BASE}/sets`);
+    const data = await r.json();
+    state.setsData = data.data || [];
+    state.setsLoaded = true;
+    renderSetsGrid(state.setsData);
+  } catch {
+    document.getElementById('sets-grid').innerHTML = `<div class="empty">Chyba načítání sérií</div>`;
+  }
+}
+
+function renderSetsGrid(sets) {
+  const g = document.getElementById('sets-grid');
+  if (!sets.length) { g.innerHTML = `<div class="empty">Žádné série v databázi</div>`; return; }
+  g.innerHTML = sets.map(s => {
+    const logoHtml = s.logo_url
+      ? `<img src="${escH(s.logo_url)}" alt="${escH(s.name)}" onerror="this.style.display='none'">`
+      : `<span class="set-card-logo-placeholder">📦</span>`;
+    const year = s.release_date ? s.release_date.slice(0,4) : '';
+    return `<div class="set-card" onclick="browseSet('${escH(s.id)}')">
+      <div class="set-card-logo">${logoHtml}</div>
+      <div class="set-name">${escH(s.name)}</div>
+      <div class="set-series">${escH(s.series || '')}</div>
+      <div class="set-count">${(s.card_count||s.total||0)} karet ${year ? '· ' + year : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterSets() {
+  const q = (document.getElementById('set-search').value || '').toLowerCase();
+  const ser = document.getElementById('set-series-filter').value;
+  const filtered = state.setsData.filter(s =>
+    (!q || s.name.toLowerCase().includes(q) || (s.id||'').toLowerCase().includes(q)) &&
+    (!ser || s.series === ser)
+  );
+  renderSetsGrid(filtered);
+}
+
+function browseSet(setId) {
+  // Přepni na Browse záložku
+  document.querySelectorAll('.page-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-browse').classList.add('active');
+  document.querySelectorAll('.nav-tab')[0].classList.add('active');
+  // Nastav filtr série a prohledej
+  document.getElementById('f-set').value = setId;
+  doSearch(1);
+}
+
+/* ════════════════════════════════════════════════════
+   API KEY REGISTRATION
+════════════════════════════════════════════════════ */
+async function registerKey() {
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const desc = document.getElementById('reg-desc').value.trim();
+  if (!name) { toast('Zadej název aplikace', 'err'); return; }
+  if (!email || !email.includes('@')) { toast('Zadej platný e-mail', 'err'); return; }
+
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true; btn.textContent = '⏳ Generuji…';
+
+  try {
+    const r = await fetch(`${API_BASE}/keys/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, description: desc })
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || 'Chyba registrace');
+    const reveal = document.getElementById('key-reveal');
+    document.getElementById('key-value').textContent = data.key || data.api_key || '';
+    reveal.style.display = 'block';
+    toast('API klíč vygenerován!', 'ok');
+    btn.textContent = '✅ Hotovo';
+  } catch (e) {
+    toast(e.message, 'err');
+    btn.disabled = false; btn.textContent = '🔑 Vygenerovat klíč zdarma';
+  }
+}
+
+function copyKey() {
+  const k = document.getElementById('key-value').textContent;
+  navigator.clipboard.writeText(k).then(() => toast('Klíč zkopírován!', 'ok'));
+}
+
+/* ════════════════════════════════════════════════════
+   ENDPOINT DOCS TOGGLE
+════════════════════════════════════════════════════ */
+function toggleEndpoint(id) {
+  document.getElementById(id).classList.toggle('open');
+}
+
+/* ════════════════════════════════════════════════════
+   COPY CODE
+════════════════════════════════════════════════════ */
+function copyCode(btn) {
+  const pre = btn.parentElement.querySelector('pre');
+  navigator.clipboard.writeText(pre.textContent).then(() => {
+    btn.textContent = 'Zkopírováno!';
+    setTimeout(() => { btn.textContent = 'Copy'; }, 1800);
+  });
+}
+
+/* ════════════════════════════════════════════════════
+   TOAST
+════════════════════════════════════════════════════ */
+function toast(msg, type='info') {
+  const t = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`;
+  el.textContent = msg;
+  t.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+/* ════════════════════════════════════════════════════
+   UTILS
+════════════════════════════════════════════════════ */
+function escH(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ── Start ── */
+init();
+</script>
+</body>
+</html>

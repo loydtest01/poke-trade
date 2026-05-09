@@ -1,116 +1,66 @@
 {
+  "version": 2,
+  "buildCommand": "echo 'No build needed'",
+  "outputDirectory": ".",
+
+  "rewrites": [
+    { "source": "/api/ai",         "destination": "/api/groq" },
+    { "source": "/api/ai/:path*",  "destination": "/api/groq" }
+  ],
+
+  "routes": [
+    {
+      "src":  "/api/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, X-API-Key"
+      },
+      "continue": true
+    },
+
+    { "src": "/api/groq(.*)",         "dest": "/api/groq.js" },
+    { "src": "/api/tcg(.*)",          "dest": "/api/tcg.js" },
+    { "src": "/api/cm-prices(.*)",    "dest": "/api/cm-prices.js" },
+    { "src": "/api/card-cache(.*)",   "dest": "/api/card-cache.js" },
+    { "src": "/api/scan-result(.*)",  "dest": "/api/scan-result.js" },
+    { "src": "/api/jp-card(.*)",      "dest": "/api/jp-card.js" },
+    { "src": "/api/translate-jp(.*)", "dest": "/api/translate-jp.js" },
+    { "src": "/api/groq-key(.*)",     "dest": "/api/groq-key.js" },
+
+    { "src": "/api/v1/(.*)",          "dest": "/api/v1/[...path].js" },
+    { "src": "/api/cron/(.*)",        "dest": "/api/cron/email-digest.js" },
+
+    { "src": "/pokedb-admin",         "dest": "/pokedb-admin.html" },
+    { "src": "/pokedb",               "dest": "/pokedb.html" },
+
+    { "src": "/",                     "dest": "/index.html" },
+    { "src": "/(.*)\\.html",          "dest": "/$1.html" },
+    { "src": "/(.*)\\.js",            "dest": "/$1.js" },
+    { "src": "/(.*)\\.css",           "dest": "/$1.css" },
+    { "src": "/(.*)\\.json",          "dest": "/$1.json" },
+    { "src": "/(.*)\\.png",           "dest": "/$1.png" },
+    { "src": "/(.*)\\.ico",           "dest": "/$1.ico" },
+    { "src": "/(.*)\\.xml",           "dest": "/$1.xml" },
+    { "src": "/(.*)\\.txt",           "dest": "/$1.txt" },
+    { "src": "/.*",                   "dest": "/index.html" }
+  ],
+
   "headers": [
     {
-      "source": "/admin-loyd.html",
+      "source": "/sw.js",
       "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
       ]
     },
     {
-      "source": "/admin-ip.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
-      ]
+      "source": "/(.*)\\.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "source": "/bulk-scan.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
-      ]
-    },
-    {
-      "source": "/topbar.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Pragma",
-          "value": "no-cache"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "SAMEORIGIN"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        },
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=self, microphone=()"
-        },
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        }
-      ]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/ping",
-      "destination": "/api/groq"
-    },
-    {
-      "source": "/api/ai",
-      "destination": "/api/groq"
-    }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron/email-digest?mode=daily",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/email-digest?mode=weekly",
-      "schedule": "0 7 * * 1"
-    },
-    {
-      "path": "/api/card-cache?action=facts-generate",
-      "schedule": "0 4 * * *"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/index.html",
-      "destination": "/",
-      "permanent": true
+      "source": "/(.*)\\.css",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ]
 }

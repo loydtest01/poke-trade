@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>PokéDB Admin</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #0a0608;
+  --card: #14101a;
+  --card2: #1a1424;
+  --border: rgba(255,255,255,0.08);
+  --text: #f0ece4;
+  --muted: #9ca3af;
+  --yellow: #f5c842;
+  --red: #ef4444;
+  --green: #4ade80;
+  --orange: #fb923c;
+  --blue: #60a5fa;
+  --purple: #a78bfa;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px; min-height: 100vh;
+}
+
+/* ── Auth overlay ── */
+#auth-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; z-index: 999;
+}
+.auth-box {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2rem 2.5rem; width: 360px; text-align: center;
+}
+.auth-box h2 { color: var(--yellow); font-size: 1.3rem; margin-bottom: .4rem; }
+.auth-box p { color: var(--muted); font-size: .85rem; margin-bottom: 1.5rem; }
+.auth-box input {
+  width: 100%; padding: .7rem 1rem; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: .9rem; margin-bottom: .8rem;
+}
+.auth-box input:focus { outline: none; border-color: rgba(245,200,66,.5); }
+.auth-err { color: var(--red); font-size: .8rem; margin-top: .4rem; min-height: 1.2rem; }
+
+/* ── Layout ── */
+.wrap { max-width: 1300px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding-bottom: 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem;
+}
+.header h1 { font-size: 1.4rem; color: var(--yellow); display: flex; align-items: center; gap: .5rem; }
+.header-right { display: flex; align-items: center; gap: 1rem; }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+.conn-dot.ok { background: var(--green); }
+.conn-dot.err { background: var(--red); }
+
+/* ── Stats ── */
+.stats { display: flex; gap: .8rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.stat {
+  flex: 1; min-width: 140px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; padding: .9rem 1.1rem;
+}
+.stat-num { font-size: 1.8rem; font-weight: 700; color: var(--yellow); line-height: 1; }
+.stat-num.g { color: var(--green); }
+.stat-num.b { color: var(--blue); }
+.stat-num.o { color: var(--orange); }
+.stat-num.p { color: var(--purple); }
+.stat-label { font-size: .75rem; color: var(--muted); margin-top: .25rem; }
+
+/* ── Tabs ── */
+.tabs { display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.tab {
+  background: none; border: none; color: var(--muted); padding: .8rem 1.1rem;
+  cursor: pointer; font-size: .85rem; border-bottom: 2px solid transparent;
+  transition: all .15s; white-space: nowrap;
+}
+.tab.active { color: var(--yellow); border-bottom-color: var(--yellow); }
+.tab:hover:not(.active) { color: var(--text); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── Cards / Sections ── */
+.section {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem;
+}
+.section h3 { font-size: .9rem; color: var(--muted); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: .05em; }
+.section-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media(max-width:700px) { .section-row { grid-template-columns: 1fr; } }
+
+/* ── Form elements ── */
+.field { margin-bottom: .9rem; }
+.field label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: .3rem; }
+.field input, .field select, .field textarea {
+  width: 100%; padding: .6rem .9rem; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-size: .88rem;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none; border-color: rgba(245,200,66,.45);
+}
+.field textarea { resize: vertical; min-height: 70px; font-family: inherit; }
+.field select option { background: #1a1424; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; }
+.field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .8rem; }
+@media(max-width:600px) { .field-row, .field-row3 { grid-template-columns: 1fr; } }
+
+/* ── Buttons ── */
+.btn {
+  background: rgba(245,200,66,.12); border: 1px solid rgba(245,200,66,.3);
+  color: var(--yellow); padding: .45rem 1rem; border-radius: 8px; cursor: pointer;
+  font-size: .82rem; font-weight: 500; transition: all .15s; display: inline-flex;
+  align-items: center; gap: .4rem;
+}
+.btn:hover { background: rgba(245,200,66,.22); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-green { background: rgba(74,222,128,.1); border-color: rgba(74,222,128,.3); color: var(--green); }
+.btn-green:hover { background: rgba(74,222,128,.2); }
+.btn-red { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: var(--red); }
+.btn-red:hover { background: rgba(239,68,68,.2); }
+.btn-blue { background: rgba(96,165,250,.1); border-color: rgba(96,165,250,.3); color: var(--blue); }
+.btn-blue:hover { background: rgba(96,165,250,.2); }
+.btn-sm { padding: .25rem .65rem; font-size: .75rem; }
+.btn-full { width: 100%; justify-content: center; padding: .7rem; font-size: .9rem; }
+
+/* ── Drag & drop image zone ── */
+.drop-zone {
+  border: 2px dashed var(--border); border-radius: 12px;
+  padding: 1.5rem; text-align: center; cursor: pointer;
+  transition: border-color .2s; position: relative;
+  min-height: 140px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: .5rem;
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: rgba(245,200,66,.5); }
+.drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.drop-zone .dz-icon { font-size: 2rem; opacity: .4; }
+.drop-zone .dz-text { color: var(--muted); font-size: .82rem; }
+.drop-zone .dz-preview {
+  max-height: 120px; max-width: 90px; border-radius: 6px;
+  object-fit: contain; display: none;
+}
+.drop-zone.has-image .dz-preview { display: block; }
+.drop-zone.has-image .dz-icon, .drop-zone.has-image .dz-text { display: none; }
+
+/* ── Tables ── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { padding: .55rem .8rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 500; font-size: .73rem; text-transform: uppercase; letter-spacing: .04em; }
+tbody tr:hover { background: rgba(255,255,255,.02); }
+td img { width: 36px; border-radius: 4px; vertical-align: middle; }
+
+/* ── Badges ── */
+.badge {
+  display: inline-block; padding: .15rem .5rem; border-radius: 4px;
+  font-size: .68rem; font-weight: 600;
+}
+.badge-ok     { background: rgba(74,222,128,.15); color: var(--green); }
+.badge-warn   { background: rgba(251,146,60,.15); color: var(--orange); }
+.badge-err    { background: rgba(239,68,68,.15); color: var(--red); }
+.badge-blue   { background: rgba(96,165,250,.15); color: var(--blue); }
+.badge-muted  { background: rgba(156,163,175,.1); color: var(--muted); }
+
+/* ── Progress / log ── */
+.log {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: .8rem 1rem; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: .78rem; max-height: 240px; overflow-y: auto; display: none;
+}
+.log.show { display: block; }
+.log-line { padding: .1rem 0; }
+.log-ok   { color: var(--green); }
+.log-err  { color: var(--red); }
+.log-info { color: var(--blue); }
+.log-warn { color: var(--orange); }
+.progress-bar {
+  height: 4px; background: var(--border); border-radius: 2px;
+  margin: .6rem 0; overflow: hidden; display: none;
+}
+.progress-bar.show { display: block; }
+.progress-fill { height: 100%; background: var(--yellow); border-radius: 2px; transition: width .3s; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+  display: flex; flex-direction: column; gap: .5rem; pointer-events: none;
+}
+.toast-item {
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  padding: .7rem 1.1rem; font-size: .83rem; max-width: 340px;
+  animation: toastIn .25s ease; pointer-events: auto;
+}
+.toast-item.ok   { border-color: rgba(74,222,128,.4); color: var(--green); }
+.toast-item.err  { border-color: rgba(239,68,68,.4); color: var(--red); }
+.toast-item.info { border-color: rgba(96,165,250,.4); color: var(--blue); }
+@keyframes toastIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+/* ── Attack rows (dynamic) ── */
+.atk-row {
+  display: grid; grid-template-columns: 1fr 1fr 80px 80px; gap: .5rem;
+  align-items: start; margin-bottom: .5rem;
+}
+.atk-row button { align-self: end; margin-bottom: 0; }
+
+/* ── Verify queue ── */
+.verify-card {
+  display: grid; grid-template-columns: 80px 1fr; gap: 1rem;
+  padding: 1rem; border: 1px solid var(--border); border-radius: 10px;
+  margin-bottom: .8rem; align-items: start;
+}
+.verify-card img { width: 80px; border-radius: 6px; }
+.verify-card .vc-name { font-weight: 600; margin-bottom: .3rem; }
+.verify-card .vc-meta { color: var(--muted); font-size: .78rem; margin-bottom: .6rem; }
+.verify-actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .6rem; }
+
+.empty { text-align: center; color: var(--muted); padding: 2.5rem; font-size: .85rem; }
+.loading-spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--yellow); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- ── Auth overlay ─────────────────────────────────────── -->
+<div id="auth-overlay">
+  <div class="auth-box">
+    <div style="font-size:2.5rem;margin-bottom:.5rem">🎴</div>
+    <h2>PokéDB Admin</h2>
+    <p>Zadej admin heslo pro přístup</p>
+    <input type="password" id="auth-input" placeholder="POKEDB_ADMIN_SECRET" autocomplete="current-password">
+    <button class="btn btn-full" onclick="doAuth()">Přihlásit se</button>
+    <div class="auth-err" id="auth-err"></div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<!-- ── Main app ──────────────────────────────────────────── -->
+<div class="wrap" id="app" style="display:none">
+
+  <div class="header">
+    <h1>🎴 PokéDB Admin</h1>
+    <div class="header-right">
+      <span id="conn-status" style="font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.4rem">
+        <span class="conn-dot" id="conn-dot"></span>
+        <span id="conn-text">Připojuji…</span>
+      </span>
+      <button class="btn btn-sm btn-red" onclick="logout()">Odhlásit</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats" id="stats-row">
+    <div class="stat"><div class="stat-num" id="s-cards">–</div><div class="stat-label">Karet celkem</div></div>
+    <div class="stat"><div class="stat-num b" id="s-sets">–</div><div class="stat-label">Setů</div></div>
+    <div class="stat"><div class="stat-num o" id="s-unverified">–</div><div class="stat-label">Čeká ověření</div></div>
+    <div class="stat"><div class="stat-num g" id="s-translated">–</div><div class="stat-label">CS přeloženo</div></div>
+    <div class="stat"><div class="stat-num p" id="s-api-calls">–</div><div class="stat-label">API volání dnes</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('import',this)">📥 Import z TCG API</button>
+    <button class="tab" onclick="switchTab('upload',this)">➕ Upload karty</button>
+    <button class="tab" onclick="switchTab('sets',this)">📦 Správa setů</button>
+    <button class="tab" onclick="switchTab('verify',this)">✅ Fronta ověření <span id="verify-badge" style="display:none;background:var(--orange);color:#000;border-radius:10px;padding:0 .4rem;font-size:.7rem;margin-left:.3rem"></span></button>
+    <button class="tab" onclick="switchTab('apikeys',this)">🔑 API klíče</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 1 – Import z TCG API
+  ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-import">
+    <div class="section">
+      <h3>Import setu z pokemontcg.io</h3>
+      <div class="section-row">
+        <div>
+          <div class="field">
+            <label>Set ID (např. sv6, swsh1, base1)</label>
+            <input type="text" id="imp-setid" placeholder="sv6" style="font-family:monospace">
+          </div>
+          <div class="field">
+            <label>TCG API klíč <span style="color:var(--muted)">(volitelné – zvýší rate limit)</span></label>
+            <input type="text" id="imp-apikey" placeholder="pk_xxx...">
+          </div>
+          <div class="field">
+            <label style="display:flex;align-items:center;gap:.6rem;cursor:pointer">
+              <input type="checkbox" id="imp-images" style="width:auto">
+              Stáhnout obrázky na Cloudflare R2 (pomalejší)
+            </label>
+          </div>
+          <div style="display:flex;gap:.7rem;flex-wrap:wrap">
+            <button class="btn" id="imp-btn" onclick="doImport()">📥 Spustit import</button>
+            <button class="btn btn-blue btn-sm" onclick="previewSet()">👁 Náhled setu</button>
+          </div>
+        </div>
+        <div>
+          <div class="section" style="background:var(--bg);margin:0">
+            <h3>Rychlé sety</h3>
+            <div style="display:flex;flex-wrap:wrap;gap:.4rem" id="quick-sets">
+              <button class="btn btn-sm" onclick="quickImport('sv9')">sv9 – Destined Rivals</button>
+              <button class="btn btn-sm" onclick="quickImport('sv8pt5')">sv8pt5 – Prismatic</button>
+              <button class="btn btn-sm" onclick="quickImport('sv8')">sv8 – Surging Sparks</button>
+              <button class="btn btn-sm" onclick="quickImport('sv7')">sv7 – Stellar Crown</button>
+              <button class="btn btn-sm" onclick="quickImport('sv6pt5')">sv6pt5 – Shrouded</button>
+              <button class="btn btn-sm" onclick="quickImport('sv6')">sv6 – Twilight Masq.</button>
+              <button class="btn btn-sm" onclick="quickImport('sv5')">sv5 – Temporal Forces</button>
+              <button class="btn btn-sm" onclick="quickImport('sv4pt5')">sv4pt5 – Paldean Fates</button>
+              <button class="btn btn-sm" onclick="quickImport('sv4')">sv4 – Paradox Rift</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="progress-bar" id="imp-progress"><div class="progress-fill" id="imp-progress-fill" style="width:0%"></div></div>
+      <div class="log" id="imp-log"></div>
+      <div id="imp-result" style="margin-top:.8rem"></div>
+    </div>
+
+    <!-- Náhled setu -->
+    <div class="section" id="set-preview" style="display:none">
+      <h3>Náhled setu</h3>
+      <div id="set-preview-content"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 2 – Upload karty
+  ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-upload">
+    <div class="section">
+      <h3>Základní informace</h3>
+      <div class="field-row3">
+        <div class="field">
+          <label>Set ID *</label>
+          <input type="text" id="up-setid" placeholder="sv6">
+        </div>
+        <div class="field">
+          <label>Číslo karty *</label>
+          <input type="text" id="up-number" placeholder="001">
+        </div>
+        <div class="field">
+          <label>ID karty *</label>
+          <input type="text" id="up-id" placeholder="sv6-001" style="font-family:monospace">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Originální název (EN) *</label>
+          <input type="text" id="up-name" placeholder="Pikachu">
+        </div>
+        <div class="field">
+          <label>Název CS</label>
+          <input type="text" id="up-name-cs" placeholder="Pikachu">
+        </div>
+      </div>
+      <div class="field-row3">
+        <div class="field">
+          <label>Supertyp *</label>
+          <select id="up-supertype">
+            <option>Pokémon</option>
+            <option>Trainer</option>
+            <option>Energy</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>HP</label>
+          <input type="number" id="up-hp" placeholder="60" min="0" max="999">
+        </div>
+        <div class="field">
+          <label>Regulation mark</label>
+          <input type="text" id="up-regmark" placeholder="H" maxlength="1">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Typy (oddělené čárkou)</label>
+          <input type="text" id="up-types" placeholder="Fire, Water">
+        </div>
+        <div class="field">
+          <label>Subtypy (oddělené čárkou)</label>
+          <input type="text" id="up-subtypes" placeholder="Basic, ex">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Rarita</label>
+          <select id="up-rarity">
+            <option value="">– nevybráno –</option>
+            <option>Common</option><option>Uncommon</option><option>Rare</option>
+            <option>Rare Holo</option><option>Rare Holo EX</option><option>Rare Holo GX</option>
+            <option>Rare Holo V</option><option>Rare Holo VMAX</option><option>Rare Holo VSTAR</option>
+            <option>Double Rare</option><option>Ultra Rare</option><option>Illustration Rare</option>
+            <option>Special Illustration Rare</option><option>Hyper Rare</option>
+            <option>ACE SPEC Rare</option><option>Rare Secret</option><option>Rare Rainbow</option>
+            <option>Promo</option><option>Amazing Rare</option><option>Unknown</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Umělec</label>
+          <input type="text" id="up-artist" placeholder="5ban Graphics">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Evolves from</label>
+          <input type="text" id="up-evolvesfrom" placeholder="Pichu">
+        </div>
+        <div class="field">
+          <label>Ústupové náklady (čárkou: Fire, Colorless)</label>
+          <input type="text" id="up-retreat" placeholder="Colorless, Colorless">
+        </div>
+      </div>
+      <div class="field">
+        <label>Flavor text (EN)</label>
+        <textarea id="up-flavortext" placeholder="Text pod obrázkem karty..."></textarea>
+      </div>
+      <div class="field">
+        <label>Flavor text (CS)</label>
+        <textarea id="up-flavortext-cs" placeholder="Český překlad flavor textu..."></textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Útoky</h3>
+      <div id="attacks-container"></div>
+      <button class="btn btn-sm btn-blue" onclick="addAttack()">+ Přidat útok</button>
+    </div>
+
+    <div class="section">
+      <h3>Obrázek karty</h3>
+      <div style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+        <div>
+          <div class="drop-zone" id="drop-zone">
+            <input type="file" accept="image/*" onchange="handleImageSelect(this)">
+            <div class="dz-icon">🖼️</div>
+            <div class="dz-text">Klikni nebo přetáhni obrázek karty<br><span style="color:var(--muted);font-size:.72rem">JPG, PNG, WebP – max 10 MB</span></div>
+            <img class="dz-preview" id="img-preview" src="" alt="">
+          </div>
+        </div>
+        <div style="flex:1;min-width:180px">
+          <div class="field">
+            <label>Nebo URL obrázku</label>
+            <input type="text" id="up-imgurl" placeholder="https://images.pokemontcg.io/...">
+          </div>
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;font-size:.82rem;color:var(--muted)">
+            <input type="checkbox" id="up-verified" style="width:auto">
+            Označit jako ověřenou
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:.7rem">
+      <button class="btn btn-full" style="max-width:220px" onclick="doUpload()">💾 Uložit kartu</button>
+      <button class="btn btn-sm" onclick="clearUploadForm()">Vymazat</button>
+    </div>
+    <div id="up-result" style="margin-top:.8rem"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 3 – Správa setů
+  ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-sets">
+    <div class="section-row" style="margin-bottom:1rem">
+      <div class="section" style="margin:0">
+        <h3>Vytvořit / Aktualizovat set</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>ID setu *</label>
+            <input type="text" id="set-id" placeholder="sv6" style="font-family:monospace">
+          </div>
+          <div class="field">
+            <label>Název (EN) *</label>
+            <input type="text" id="set-name" placeholder="Twilight Masquerade">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Název (CS)</label>
+            <input type="text" id="set-name-cs" placeholder="Soumračná maškaráda">
+          </div>
+          <div class="field">
+            <label>Série *</label>
+            <input type="text" id="set-series" placeholder="Scarlet & Violet">
+          </div>
+        </div>
+        <div class="field-row3">
+          <div class="field">
+            <label>Datum vydání</label>
+            <input type="date" id="set-release">
+          </div>
+          <div class="field">
+            <label>Karet (bez secret)</label>
+            <input type="number" id="set-printed" placeholder="162">
+          </div>
+          <div class="field">
+            <label>Karet celkem</label>
+            <input type="number" id="set-total" placeholder="217">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Symbol URL</label>
+            <input type="text" id="set-symbol" placeholder="https://...symbol.png">
+          </div>
+          <div class="field">
+            <label>Logo URL</label>
+            <input type="text" id="set-logo" placeholder="https://...logo.png">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>PTCGO kód</label>
+            <input type="text" id="set-ptcgo" placeholder="TWM">
+          </div>
+          <div class="field" style="align-self:end">
+            <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding-bottom:.6rem">
+              <input type="checkbox" id="set-promo" style="width:auto"> Promo set
+            </label>
+          </div>
+        </div>
+        <button class="btn btn-full" onclick="doSaveSet()">📦 Uložit set</button>
+        <div id="set-result" style="margin-top:.7rem"></div>
+      </div>
+
+      <div class="section" style="margin:0">
+        <h3>Import setu z TCG API (auto-fill)</h3>
+        <div class="field">
+          <label>Set ID pro auto-fill</label>
+          <input type="text" id="set-autofill-id" placeholder="sv6" style="font-family:monospace">
+        </div>
+        <button class="btn btn-blue" onclick="autoFillSet()">🔍 Načíst z TCG API</button>
+        <div style="margin-top:1.5rem">
+          <h3 style="margin-bottom:.7rem">Existující sety v DB</h3>
+          <div id="sets-list"><div class="loading"><span class="loading-spin"></span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 4 – Fronta ověření
+  ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-verify">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 style="margin:0">Karty čekající na ověření</h3>
+        <div style="display:flex;gap:.5rem">
+          <input type="text" id="verify-search" placeholder="Hledat…" style="padding:.4rem .7rem;background:var(--bg);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:.83rem;width:160px" oninput="filterVerifyQueue()">
+          <button class="btn btn-sm" onclick="loadVerifyQueue()">↺ Obnovit</button>
+        </div>
+      </div>
+      <div id="verify-queue"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TAB 5 – API klíče
+  ══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-apikeys">
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+        <h3 style="margin:0">Registrované API klíče</h3>
+        <button class="btn btn-sm" onclick="loadApiKeys()">↺ Obnovit</button>
+      </div>
+      <div class="tbl-wrap">
+        <table id="apikeys-table">
+          <thead>
+            <tr>
+              <th>Prefix</th><th>Vlastník</th><th>Email</th><th>Tier</th>
+              <th>Req dnes</th><th>Celkem req</th><th>Ceny</th><th>Aktivní</th><th>Akce</th>
+            </tr>
+          </thead>
+          <tbody id="apikeys-body">
+            <tr><td colspan="9" class="loading"><span class="loading-spin"></span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="section">
+      <h3>Generovat interní klíč</h3>
+      <div class="field-row">
+        <div class="field">
+          <label>Název</label>
+          <input type="text" id="key-name" placeholder="Interní web klíč">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="key-email" placeholder="admin@tvujweb.cz">
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Tier</label>
+          <select id="key-tier">
+            <option value="free">free (100/hod)</option>
+            <option value="basic">basic (1 000/hod)</option>
+            <option value="pro">pro (10 000/hod)</option>
+            <option value="internal" selected>internal (∞)</option>
+          </select>
+        </div>
+        <div class="field" style="align-self:end">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding-bottom:.6rem">
+            <input type="checkbox" id="key-prices" checked style="width:auto"> Přístup k cenám
+          </label>
+        </div>
+      </div>
+      <button class="btn" onclick="generateKey()">🔑 Vygenerovat klíč</button>
+      <div id="key-result" style="margin-top:.8rem"></div>
+    </div>
+  </div>
+
+</div><!-- /wrap -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════════════════════════
+const API_WORKER = 'https://api.poke-trade.eu';
+const API = API_WORKER;     // Worker: /admin/* a /v1/*
+const TCG = 'https://api.pokemontcg.io/v2';
+
+let SECRET = '';
+let verifyQueue = [];
+let attackCount = 0;
+let selectedImageFile = null;
+
+// ════════════════════════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════════════════════════
+function doAuth() {
+  const val = document.getElementById('auth-input').value.trim();
+  if (!val) { document.getElementById('auth-err').textContent = 'Zadej heslo'; return; }
+  SECRET = val;
+  sessionStorage.setItem('pokedb_admin', val);
+  // Ověř heslo real dotazem
+  fetch(`${API}/v1/sets?limit=1`, { headers: { 'X-Admin-Secret': SECRET } })
+    .then(() => {
+      // Pokud server běží, heslo se ověří při prvním admin requestu
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      init();
+    })
+    .catch(() => {
+      // Offline/dev mode – povol přístup
+      document.getElementById('auth-overlay').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      init();
+    });
+}
+
+document.getElementById('auth-input').addEventListener('keydown', e => { if (e.key==='Enter') doAuth(); });
+
+function logout() {
+  sessionStorage.removeItem('pokedb_admin');
+  location.reload();
+}
+
+// Auto-fill z sessionStorage
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = sessionStorage.getItem('pokedb_admin');
+  if (saved) { SECRET = saved; document.getElementById('auth-overlay').style.display='none'; document.getElementById('app').style.display='block'; init(); }
+});
+
+// ════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════
+async function init() {
+  await loadStats();
+  checkConnection();
+  loadSetsList();
+  loadVerifyQueue();
+  loadApiKeys();
+  initDragDrop();
+  addAttack(); // prázdný útok jako výchozí
+}
+
+async function checkConnection() {
+  try {
+    const r = await fetch(`${API}/v1/sets?limit=1`);
+    if (r.ok) {
+      document.getElementById('conn-dot').className = 'conn-dot ok';
+      document.getElementById('conn-text').textContent = 'DB připojena';
+    } else throw new Error();
+  } catch {
+    document.getElementById('conn-dot').className = 'conn-dot err';
+    document.getElementById('conn-text').textContent = 'DB nedostupná';
+  }
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/v1/cards?limit=1`);
+    const d = await r.json();
+    document.getElementById('s-cards').textContent = fmt(d.pagination?.total ?? '–');
+  } catch {}
+  try {
+    const r = await fetch(`${API}/v1/sets?limit=1`);
+    const d = await r.json();
+    document.getElementById('s-sets').textContent = fmt(d.pagination?.total ?? '–');
+  } catch {}
+}
+
+// ════════════════════════════════════════════════════════════
+// TABS
+// ════════════════════════════════════════════════════════════
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════
+// IMPORT z TCG API
+// ════════════════════════════════════════════════════════════
+async function doImport() {
+  const setId = document.getElementById('imp-setid').value.trim();
+  if (!setId) return toast('Zadej Set ID', 'err');
+  const tcgKey   = document.getElementById('imp-apikey').value.trim();
+  const images   = document.getElementById('imp-images').checked;
+  const btn      = document.getElementById('imp-btn');
+  const log      = document.getElementById('imp-log');
+  const progress = document.getElementById('imp-progress');
+  const fill     = document.getElementById('imp-progress-fill');
+  const result   = document.getElementById('imp-result');
+
+  btn.disabled = true; btn.innerHTML = '<span class="loading-spin"></span> Importuji…';
+  log.className = 'log show'; log.innerHTML = '';
+  progress.className = 'progress-bar show'; fill.style.width = '5%';
+  result.innerHTML = '';
+
+  addLog(log, `Spouštím import setu: ${setId}`, 'info');
+  if (images) addLog(log, 'Obrázky budou stahovány na R2 (může trvat déle)', 'warn');
+
+  try {
+    fill.style.width = '20%';
+    const res = await fetch(`${API}/admin/import`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': SECRET },
+      body: JSON.stringify({ mode: 'tcgapi', set_id: setId, tcg_api_key: tcgKey || undefined, import_images: images }),
+    });
+    fill.style.width = '90%';
+    const d = await res.json();
+    fill.style.width = '100%';
+
+    if (!res.ok) {
+      addLog(log, `Chyba: ${d.error}`, 'err');
+      result.innerHTML = errBox(d.error || 'Import selhal');
+    } else {
+      addLog(log, `✓ Importováno: ${d.imported} karet`, 'ok');
+      addLog(log, `↷ Přeskočeno:  ${d.skipped} karet`, 'warn');
+      if (d.errors?.length) d.errors.slice(0,5).forEach(e => addLog(log, `✗ ${e.id}: ${e.error}`, 'err'));
+      result.innerHTML = okBox(`Import dokončen: ${d.imported} karet importováno, ${d.skipped} přeskočeno`);
+      loadStats(); loadSetsList();
+    }
+  } catch (e) {
+    addLog(log, `Síťová chyba: ${e.message}`, 'err');
+    result.innerHTML = errBox(e.message);
+  }
+
+  btn.disabled = false; btn.innerHTML = '📥 Spustit import';
+}
+
+function quickImport(setId) {
+  document.getElementById('imp-setid').value = setId;
+  switchTab('import', document.querySelector('.tab'));
+  document.querySelector('.tab').classList.add('active');
+}
+
+async function previewSet() {
+  const setId = document.getElementById('imp-setid').value.trim();
+  if (!setId) return toast('Zadej Set ID', 'err');
+  const box = document.getElementById('set-preview');
+  const content = document.getElementById('set-preview-content');
+  box.style.display = 'block';
+  content.innerHTML = '<div class="loading"><span class="loading-spin"></span> Načítám z TCG API…</div>';
+  try {
+    const r = await fetch(`${TCG}/sets/${setId}`);
+    if (!r.ok) throw new Error('Set nenalezen');
+    const { data: s } = await r.json();
+    content.innerHTML = `
+      <div style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+        ${s.images?.logo ? `<img src="${s.images.logo}" style="height:50px;object-fit:contain">` : ''}
+        <div>
+          <div style="font-size:1.1rem;font-weight:600">${s.name}</div>
+          <div style="color:var(--muted);font-size:.82rem">${s.series} · ${s.releaseDate || '–'} · ${s.total} karet (${s.printedTotal} bez secret)</div>
+          <div style="color:var(--muted);font-size:.82rem;margin-top:.2rem">PTCGO: ${s.ptcgoCode || '–'} · ID: <code style="font-family:monospace">${s.id}</code></div>
+        </div>
+      </div>`;
+  } catch(e) { content.innerHTML = errBox(e.message); }
+}
+
+// ════════════════════════════════════════════════════════════
+// UPLOAD KARTY
+// ════════════════════════════════════════════════════════════
+function addAttack() {
+  const i = attackCount++;
+  const c = document.getElementById('attacks-container');
+  const div = document.createElement('div');
+  div.className = 'atk-row'; div.id = `atk-${i}`;
+  div.innerHTML = `
+    <div class="field" style="margin:0">
+      <label>Název útoku</label>
+      <input type="text" id="atk-name-${i}" placeholder="Thunderbolt">
+    </div>
+    <div class="field" style="margin:0">
+      <label>Název CS</label>
+      <input type="text" id="atk-name-cs-${i}" placeholder="Bleskový úder">
+    </div>
+    <div class="field" style="margin:0">
+      <label>Poškození</label>
+      <input type="text" id="atk-dmg-${i}" placeholder="120">
+    </div>
+    <button class="btn btn-sm btn-red" onclick="removeAttack(${i})">✕</button>
+  `;
+  c.appendChild(div);
+}
+
+function removeAttack(i) {
+  const el = document.getElementById(`atk-${i}`);
+  if (el) el.remove();
+}
+
+function getAttacks() {
+  const attacks = [];
+  document.querySelectorAll('.atk-row').forEach((row, pos) => {
+    const id = row.id.replace('atk-','');
+    const name = document.getElementById(`atk-name-${id}`)?.value?.trim();
+    if (name) attacks.push({
+      name,
+      name_cs: document.getElementById(`atk-name-cs-${id}`)?.value?.trim() || null,
+      damage: document.getElementById(`atk-dmg-${id}`)?.value?.trim() || null,
+    });
+  });
+  return attacks;
+}
+
+function handleImageSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  selectedImageFile = file;
+  const preview = document.getElementById('img-preview');
+  preview.src = URL.createObjectURL(file);
+  document.getElementById('drop-zone').classList.add('has-image');
+}
+
+function initDragDrop() {
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file?.type.startsWith('image/')) {
+      selectedImageFile = file;
+      const preview = document.getElementById('img-preview');
+      preview.src = URL.createObjectURL(file);
+      dz.classList.add('has-image');
+    }
+  });
+  // Auto ID generování
+  ['up-setid','up-number'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const s = document.getElementById('up-setid').value.trim();
+      const n = document.getElementById('up-number').value.trim().padStart(3,'0');
+      if (s && n) document.getElementById('up-id').value = `${s}-${n}`;
+    });
+  });
+}
+
+async function doUpload() {
+  const id = document.getElementById('up-id').value.trim();
+  const setId = document.getElementById('up-setid').value.trim();
+  const number = document.getElementById('up-number').value.trim();
+  const name = document.getElementById('up-name').value.trim();
+  if (!id || !setId || !number || !name) return toast('Vyplň povinná pole (ID, Set ID, Číslo, Název)', 'err');
+
+  const fd = new FormData();
+  fd.append('id', id); fd.append('set_id', setId); fd.append('number', number); fd.append('name', name);
+  fd.append('supertype', document.getElementById('up-supertype').value);
+
+  const optFields = {
+    name_cs: 'up-name-cs', hp: 'up-hp', regulation_mark: 'up-regmark',
+    rarity: 'up-rarity', artist: 'up-artist', evolves_from: 'up-evolvesfrom',
+    flavor_text: 'up-flavortext', flavor_text_cs: 'up-flavortext-cs',
+    image_url: 'up-imgurl',
+  };
+  for (const [key, elId] of Object.entries(optFields)) {
+    const v = document.getElementById(elId)?.value?.trim();
+    if (v) fd.append(key, v);
+  }
+
+  // Typy a subtypy
+  const types = document.getElementById('up-types').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (types.length) fd.append('types', JSON.stringify(types));
+  const subtypes = document.getElementById('up-subtypes').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (subtypes.length) fd.append('subtypes', JSON.stringify(subtypes));
+  const retreat = document.getElementById('up-retreat').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if (retreat.length) fd.append('retreat_cost', JSON.stringify(retreat));
+
+  const attacks = getAttacks();
+  if (attacks.length) fd.append('attacks', JSON.stringify(attacks));
+  if (document.getElementById('up-verified').checked) fd.append('is_verified', 'true');
+  if (selectedImageFile) fd.append('image', selectedImageFile);
+
+  const result = document.getElementById('up-result');
+  result.innerHTML = '<span class="loading-spin"></span> Ukládám…';
+
+  try {
+    const r = await fetch(`${API}/admin/upload`, { method:'POST', headers:{'X-Admin-Secret': SECRET}, body: fd });
+    const d = await r.json();
+    if (r.ok) {
+      result.innerHTML = okBox(`✓ Karta '${d.card_id}' uložena`);
+      toast('Karta uložena', 'ok');
+      loadStats();
+    } else {
+      result.innerHTML = errBox(d.error);
+      toast(d.error, 'err');
+    }
+  } catch(e) { result.innerHTML = errBox(e.message); }
+}
+
+function clearUploadForm() {
+  ['up-setid','up-number','up-id','up-name','up-name-cs','up-hp','up-regmark',
+   'up-types','up-subtypes','up-rarity','up-artist','up-evolvesfrom','up-retreat',
+   'up-flavortext','up-flavortext-cs','up-imgurl'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('attacks-container').innerHTML = '';
+  attackCount = 0; addAttack();
+  selectedImageFile = null;
+  document.getElementById('drop-zone').classList.remove('has-image');
+  document.getElementById('img-preview').src = '';
+  document.getElementById('up-result').innerHTML = '';
+}
+
+// ════════════════════════════════════════════════════════════
+// SETY
+// ════════════════════════════════════════════════════════════
+async function loadSetsList() {
+  const el = document.getElementById('sets-list');
+  try {
+    const r = await fetch(`${API}/v1/sets?limit=100&sort=-id`);
+    const d = await r.json();
+    if (!d.data?.length) { el.innerHTML = '<div class="empty">Žádné sety v databázi</div>'; return; }
+    el.innerHTML = `<div class="tbl-wrap"><table>
+      <thead><tr><th>ID</th><th>Název</th><th>Série</th><th>Vydání</th><th>Karet</th></tr></thead>
+      <tbody>${d.data.map(s => `<tr>
+        <td><code style="font-family:monospace;font-size:.8rem">${s.id}</code></td>
+        <td style="display:flex;align-items:center;gap:.4rem">
+          ${s.images?.symbol ? `<img src="${s.images.symbol}" style="width:20px;height:20px;object-fit:contain">` : ''}
+          ${s.name}${s.name_cs ? `<span style="color:var(--muted);font-size:.75rem"> / ${s.name_cs}</span>` : ''}
+        </td>
+        <td>${s.series}</td>
+        <td style="color:var(--muted)">${s.release_date || '–'}</td>
+        <td>${s.card_count ?? s.total ?? '–'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+async function doSaveSet() {
+  const id = document.getElementById('set-id').value.trim();
+  const name = document.getElementById('set-name').value.trim();
+  const series = document.getElementById('set-series').value.trim();
+  if (!id || !name || !series) return toast('Vyplň ID, Název a Sérii', 'err');
+  const result = document.getElementById('set-result');
+  result.innerHTML = '<span class="loading-spin"></span>';
+  try {
+    const r = await fetch(`${API}/admin/set`, {
+      method:'POST', headers:{'Content-Type':'application/json','X-Admin-Secret':SECRET},
+      body: JSON.stringify({
+        id, name, series,
+        name_cs: document.getElementById('set-name-cs').value.trim() || undefined,
+        release_date: document.getElementById('set-release').value || undefined,
+        printed_total: document.getElementById('set-printed').value ? parseInt(document.getElementById('set-printed').value) : undefined,
+        total: document.getElementById('set-total').value ? parseInt(document.getElementById('set-total').value) : undefined,
+        symbol_image: document.getElementById('set-symbol').value.trim() || undefined,
+        logo_image: document.getElementById('set-logo').value.trim() || undefined,
+        ptcgo_code: document.getElementById('set-ptcgo').value.trim() || undefined,
+        is_promo: document.getElementById('set-promo').checked,
+      }),
+    });
+    const d = await r.json();
+    if (r.ok) { result.innerHTML = okBox(`✓ Set '${d.set_id}' uložen`); toast('Set uložen', 'ok'); loadSetsList(); }
+    else { result.innerHTML = errBox(d.error); toast(d.error, 'err'); }
+  } catch(e) { result.innerHTML = errBox(e.message); }
+}
+
+async function autoFillSet() {
+  const id = document.getElementById('set-autofill-id').value.trim();
+  if (!id) return toast('Zadej Set ID', 'err');
+  toast('Načítám z TCG API…', 'info');
+  try {
+    const r = await fetch(`${TCG}/sets/${id}`);
+    if (!r.ok) throw new Error('Set nenalezen v TCG API');
+    const { data: s } = await r.json();
+    document.getElementById('set-id').value = s.id;
+    document.getElementById('set-name').value = s.name;
+    document.getElementById('set-series').value = s.series;
+    if (s.releaseDate) document.getElementById('set-release').value = s.releaseDate;
+    if (s.printedTotal) document.getElementById('set-printed').value = s.printedTotal;
+    if (s.total) document.getElementById('set-total').value = s.total;
+    if (s.images?.symbol) document.getElementById('set-symbol').value = s.images.symbol;
+    if (s.images?.logo) document.getElementById('set-logo').value = s.images.logo;
+    if (s.ptcgoCode) document.getElementById('set-ptcgo').value = s.ptcgoCode;
+    toast('Formulář vyplněn z TCG API', 'ok');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ════════════════════════════════════════════════════════════
+// VERIFY QUEUE
+// ════════════════════════════════════════════════════════════
+async function loadVerifyQueue() {
+  const el = document.getElementById('verify-queue');
+  el.innerHTML = '<div class="loading"><span class="loading-spin"></span> Načítám…</div>';
+  try {
+    const r = await fetch(`${API}/v1/cards?limit=50&page=1`, {
+      headers: { 'X-Admin-Secret': SECRET }
+    });
+    const d = await r.json();
+    // Filtruj neverifikované – v reálném provozu by byl admin endpoint
+    // Prozatím zobrazíme všechny s is_verified=false z response
+    verifyQueue = (d.data || []).filter(c => !c.is_verified);
+    renderVerifyQueue(verifyQueue);
+    const badge = document.getElementById('verify-badge');
+    if (verifyQueue.length) { badge.style.display='inline'; badge.textContent = verifyQueue.length; }
+    else { badge.style.display='none'; }
+    document.getElementById('s-unverified').textContent = verifyQueue.length;
+  } catch(e) { el.innerHTML = errBox(e.message); }
+}
+
+function renderVerifyQueue(cards) {
+  const el = document.getElementById('verify-queue');
+  if (!cards.length) { el.innerHTML = '<div class="empty">🎉 Všechny karty jsou ověřeny!</div>'; return; }
+  el.innerHTML = cards.map(c => `
+    <div class="verify-card" id="vc-${c.id}">
+      <div>
+        ${c.images?.small ? `<img src="${c.images.small}" alt="${c.name}" loading="lazy">` : `<div style="width:80px;height:112px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.5rem">🃏</div>`}
+      </div>
+      <div>
+        <div class="vc-name">${c.name} <span style="color:var(--muted);font-size:.78rem">#${c.number}</span></div>
+        <div class="vc-meta">
+          ${c.set?.name || c.set_id} · ${c.types?.join(', ') || '–'} · ${c.rarity || '–'} · HP ${c.hp || '–'}
+        </div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.5rem">
+          <div class="field" style="margin:0;flex:1;min-width:150px">
+            <label>Název CS</label>
+            <input type="text" id="vq-name-cs-${c.id}" placeholder="Český překlad…" value="${c.name_translated || ''}">
+          </div>
+          <div class="field" style="margin:0;flex:2;min-width:200px">
+            <label>Flavor text CS</label>
+            <input type="text" id="vq-flavor-cs-${c.id}" placeholder="Český flavor text…">
+          </div>
+        </div>
+        <div class="verify-actions">
+          <button class="btn btn-sm btn-green" onclick="verifyCard('${c.id}', true)">✓ Ověřit</button>
+          <button class="btn btn-sm" onclick="verifyCard('${c.id}', false)">✗ Zamítnout</button>
+          <button class="btn btn-sm btn-blue" onclick="openCardDetail('${c.id}')">🔍 Detail</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterVerifyQueue() {
+  const q = document.getElementById('verify-search').value.toLowerCase();
+  const filtered = q ? verifyQueue.filter(c => c.name.toLowerCase().includes(q)) : verifyQueue;
+  renderVerifyQueue(filtered);
+}
+
+async function verifyCard(cardId, verified) {
+  const nameCsEl = document.getElementById(`vq-name-cs-${cardId}`);
+  const flavorCsEl = document.getElementById(`vq-flavor-cs-${cardId}`);
+  try {
+    const r = await fetch(`${API}/admin/verify`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Admin-Secret':SECRET},
+      body: JSON.stringify({
+        card_id: cardId, is_verified: verified,
+        name_cs: nameCsEl?.value.trim() || undefined,
+        flavor_text_cs: flavorCsEl?.value.trim() || undefined,
+      }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      document.getElementById(`vc-${cardId}`)?.remove();
+      verifyQueue = verifyQueue.filter(c => c.id !== cardId);
+      const badge = document.getElementById('verify-badge');
+      badge.textContent = verifyQueue.length;
+      if (!verifyQueue.length) {
+        badge.style.display='none';
+        document.getElementById('verify-queue').innerHTML = '<div class="empty">🎉 Všechny karty jsou ověřeny!</div>';
+      }
+      toast(verified ? `✓ ${cardId} ověřena` : `✗ ${cardId} zamítnuta`, verified ? 'ok' : 'err');
+      document.getElementById('s-unverified').textContent = verifyQueue.length;
+    } else { toast(d.error, 'err'); }
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function openCardDetail(cardId) {
+  try {
+    const r = await fetch(`${API}/v1/cards/${cardId}`);
+    const d = await r.json();
+    const w = window.open('', '_blank', 'width=500,height=700');
+    w.document.write(`<pre style="background:#0a0608;color:#f0ece4;padding:1rem;font-size:12px;white-space:pre-wrap">${JSON.stringify(d, null, 2)}</pre>`);
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ════════════════════════════════════════════════════════════
+// API KLÍČE
+// ════════════════════════════════════════════════════════════
+async function loadApiKeys() {
+  // Admin endpoint pro výpis klíčů by byl potřeba v DB
+  // Zobrazíme placeholder s info
+  document.getElementById('apikeys-body').innerHTML = `
+    <tr><td colspan="9" class="empty" style="color:var(--muted)">
+      Pro výpis klíčů přidej admin endpoint <code>/api/admin/keys</code> (viz PHASE2_HANDOFF.md).
+      <br>Klíče jsou uloženy v tabulce <code>api_keys</code> v Neon DB.
+    </td></tr>`;
+}
+
+async function generateKey() {
+  const name = document.getElementById('key-name').value.trim();
+  const email = document.getElementById('key-email').value.trim();
+  const tier = document.getElementById('key-tier').value;
+  const prices = document.getElementById('key-prices').checked;
+  if (!name || !email) return toast('Vyplň název a email', 'err');
+
+  const result = document.getElementById('key-result');
+  result.innerHTML = '<span class="loading-spin"></span>';
+
+  try {
+    const r = await fetch(`${API}/v1/keys/register`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ name, email }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      result.innerHTML = `
+        <div style="background:var(--bg);border:1px solid rgba(74,222,128,.3);border-radius:8px;padding:1rem;margin-top:.5rem">
+          <div style="color:var(--green);font-size:.8rem;margin-bottom:.4rem">✓ Klíč vygenerován – uložte si ho!</div>
+          <code style="font-family:monospace;font-size:.85rem;color:var(--yellow);word-break:break-all">${d.api_key}</code>
+          <div style="color:var(--muted);font-size:.75rem;margin-top:.4rem">Tier: ${d.tier} · ${d.limits?.requests_per_hour} req/hod</div>
+          <button class="btn btn-sm" style="margin-top:.5rem" onclick="copyText('${d.api_key}')">📋 Kopírovat</button>
+        </div>`;
+      toast('Klíč vygenerován', 'ok');
+    } else { result.innerHTML = errBox(d.error); }
+  } catch(e) { result.innerHTML = errBox(e.message); }
+}
+
+// ════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════
+function toast(msg, type='info') {
+  const wrap = document.getElementById('toast');
+  const el = document.createElement('div');
+  el.className = `toast-item ${type}`; el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function addLog(el, msg, type='info') {
+  const line = document.createElement('div');
+  line.className = `log-line log-${type}`;
+  line.textContent = `[${new Date().toLocaleTimeString('cs')}] ${msg}`;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+
+function okBox(msg) { return `<div style="padding:.6rem 1rem;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:8px;color:var(--green);font-size:.83rem">${msg}</div>`; }
+function errBox(msg) { return `<div style="padding:.6rem 1rem;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;color:var(--red);font-size:.83rem">${msg}</div>`; }
+function fmt(n) { return typeof n === 'number' ? n.toLocaleString('cs') : n; }
+function copyText(t) { navigator.clipboard.writeText(t).then(()=>toast('Zkopírováno','ok')); }
+</script>
+</body>
+</html>
