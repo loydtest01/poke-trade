@@ -749,6 +749,9 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
         <input class="new-album-inp" id="globalNewAlbumInp" placeholder="Název nového alba…">
       </div>
 
+      <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled style="display:none">
+        💾 Zařadit vše
+      </button>
       <button class="btn-outline" onclick="loadQueue()">🔄 Obnovit</button>
     </div>
   </div>
@@ -1125,7 +1128,7 @@ async function loadQueue() {
           <p>Všechny fotky jsou zařazeny, nebo ještě žádné nepřišly z mobilu.<br>Vyfoť karty v aplikaci PhotoBridge a pošli je na PC.</p>
         </div>`;
       document.getElementById('totalBadge').style.display = 'none';
-      document.getElementById('assignAllBtn').disabled = true;
+      const _aab = document.getElementById('assignAllBtn'); if (_aab) { _aab.disabled = true; _aab.style.display = 'none'; }
       return;
     }
 
@@ -1204,7 +1207,7 @@ async function loadQueue() {
     const total = cardGroups.length;
     document.getElementById('totalBadge').textContent = total;
     document.getElementById('totalBadge').style.display = '';
-    document.getElementById('assignAllBtn').disabled = false;
+    const _aab2 = document.getElementById('assignAllBtn'); if (_aab2) { _aab2.disabled = false; _aab2.style.display = ''; }
 
     renderGroups();
 
@@ -1820,9 +1823,9 @@ async function assignAll() {
   const newName    = document.getElementById('globalNewAlbumInp')?.value || '';
   const albumId    = await ensureAlbum(rawAlbumId, newName);
   const btn = document.getElementById('assignAllBtn');
-  btn.disabled = true; btn.textContent = '⏳ Zařazuji…';
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Zařazuji…'; }
   await doAssign([...cardGroups], albumId);
-  btn.disabled = false; btn.textContent = '💾 Zařadit vše';
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Zařadit vše'; }
 }
 
 // ── Upload oříznuté fotky do Storage ──────────────────────────
@@ -2722,6 +2725,30 @@ async function tcgSearch(gi, autoMode = false) {
         }
       }
 
+      // ── FALLBACK PokéDB: vlastní databáze ────────────────────────────────
+      // Vlastní karta data stažená z pokemontcg.io + importované vlastní sady.
+      // Funguje i offline/při výpadku pokemontcg.io API.
+      if (!cards.length) {
+        try {
+          statusEl.textContent = '🗃 Hledám ve vlastní PokéDB…';
+          const _pdbName = (ai.nameEN || ai.name || '').trim();
+          const _pdbCards = await searchInPokeDB(_pdbName, {
+            set:    isNonEn ? '' : (ai.set || ''),
+            number: isNonEn ? '' : cardNumber,
+            type:   ai.type || '',
+          });
+          if (_pdbCards.length) {
+            // Zkus najít nejlepší shodu
+            const _pdbBest = _matchPokeDBCard(ai.name || ai.nameEN, ai.set, cardNumber, _pdbCards);
+            cards = _pdbBest ? [_pdbBest, ..._pdbCards.filter(x => x !== _pdbBest)] : _pdbCards;
+            statusEl.textContent = `🗃 Nalezeno ${cards.length} karet v PokéDB – vyber správnou:`;
+            console.log(`[PokeDB] fallback hit: ${cards.length} karet pro "${_pdbName}"`);
+          }
+        } catch (_pdbErr) {
+          console.warn('[PokeDB] fallback selhal:', _pdbErr.message);
+        }
+      }
+
       // ── FALLBACK B: Komunitní cache (card_cache) + RapidAPI ─────────────
       // POUZE pro EN karty (pojistka — scénář vzácný). Pro non-EN už scraper
       // proběhl výše jako PRIORITY a jeho výsledek by tady už byl v `cards`.
@@ -3168,6 +3195,74 @@ async function translateCardNameViaAI(cardName, category, hp, lang) {
 // Zpětná kompatibilita
 async function translateJpNameViaAI(jpName, category, hp) {
   return translateCardNameViaAI(jpName, category, hp, 'JP');
+}
+
+
+// ════════════════════════════════════════════════════════════════
+// POKEDB INTEGRATION – záložní zdroj (vlastní databáze)
+// Hledá karty v https://pokedb-api.poketrade.workers.dev/v1/cards
+// a vrací je ve stejném formátu jako PkSearch.
+// ════════════════════════════════════════════════════════════════
+const POKEDB_API = 'https://pokedb-api.poketrade.workers.dev/v1';
+
+async function searchInPokeDB(query, opts = {}) {
+  if (!query) return [];
+  try {
+    const params = new URLSearchParams({ q: query, limit: 20 });
+    if (opts.set)    params.set('set_id',    opts.set);
+    if (opts.number) params.set('number',    opts.number);
+    if (opts.type)   params.set('type',      opts.type);
+
+    const res = await fetch(`${POKEDB_API}/cards?${params}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const cards = (data.data || []).map(c => ({
+      _source:    'pokedb',
+      apiId:      c.id || '',
+      name:       c.name || '',
+      name_cs:    c.name_cs || '',
+      set:        c.set_name || c.set_id || '',
+      setCode:    c.set_id || '',
+      number:     c.number || '',
+      imageUrl:   c.image_thumb_url || c.image_url || '',
+      apiSmall:   c.image_thumb_url || c.image_url || '',
+      apiLarge:   c.image_url || '',
+      hp:         String(c.hp || ''),
+      types:      c.types || [],
+      supertype:  c.supertype || '',
+      rarity:     c.rarity || '',
+      pMin: 0, pTrend: 0, p30d: 0,
+      cardmarketUrl: '',
+      sourceUrl: '',
+    }));
+    console.log(`[PokeDB] "${query}" → ${cards.length} výsledků`);
+    return cards;
+  } catch(e) {
+    console.warn('[PokeDB] search selhal:', e.message);
+    return [];
+  }
+}
+
+// Porovnej název karty z AI s výsledky PokéDB – vrátí nejlepší shodu nebo null
+function _matchPokeDBCard(aiName, aiSet, aiNumber, pokedbCards) {
+  if (!pokedbCards.length) return null;
+  const q = (aiName || '').toLowerCase().trim();
+  const num = (aiNumber || '').split('/')[0].trim();
+  // 1. Přesná shoda jméno + číslo
+  let m = pokedbCards.find(c => c.name.toLowerCase() === q && (num ? c.number === num : true));
+  if (m) return m;
+  // 2. Číslo + série
+  if (num && aiSet) {
+    m = pokedbCards.find(c => c.number === num &&
+      (c.set.toLowerCase().includes(aiSet.toLowerCase()) || c.setCode.toLowerCase() === aiSet.toLowerCase()));
+    if (m) return m;
+  }
+  // 3. Přesné jméno
+  m = pokedbCards.find(c => c.name.toLowerCase() === q);
+  if (m) return m;
+  // 4. Jméno startsWith
+  m = pokedbCards.find(c => c.name.toLowerCase().startsWith(q.split(' ')[0]));
+  return m || null;
 }
 
 const _urlCache = {}; // url → { imageUrl, apiSmall, apiLarge, apiId, name, set, number }
@@ -3655,11 +3750,11 @@ function updateBadge() {
   const btn   = document.getElementById('assignAllBtn');
   if (!cardGroups.length) {
     badge.style.display = 'none';
-    btn.disabled = true;
+    if (btn) { btn.disabled = true; btn.style.display = 'none'; }
   } else {
     badge.textContent = cardGroups.length;
     badge.style.display = '';
-    btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.style.display = ''; }
   }
 }
 
