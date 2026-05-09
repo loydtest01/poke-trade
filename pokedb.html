@@ -640,7 +640,7 @@ body {
       <p>REST API pro přístup k databázi Pokémon karet. JSON odpovědi, rate limiting, CORS povoleno.</p>
       <code style="background:var(--card);border:1px solid var(--border);border-radius:8px;
                    padding:.5rem 1rem;font-size:.82rem;color:var(--blue);" id="api-base-url">
-        https://api.poke-trade.eu/v1
+        https://pokedb-api.poketrade.workers.dev/v1
       </code>
     </div>
 
@@ -917,7 +917,7 @@ fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
 /* ════════════════════════════════════════════════════
    CONFIG
 ════════════════════════════════════════════════════ */
-const API_BASE = 'https://api.poke-trade.eu/v1';
+const API_BASE = 'https://pokedb-api.poketrade.workers.dev/v1';
 let state = {
   page: 1, limit: 36, view: 'grid',
   q: '', set_id: '', type: '', supertype: '', rarity: '', sort: 'name',
@@ -1218,7 +1218,7 @@ function renderModal(c) {
       ${a.text ? `<div class="attack-text">${escH(a.text)}</div>` : ''}
     </div>`).join('');
 
-  const apiUrl = `https://api.poke-trade.eu/v1/cards/${encodeURIComponent(c.id)}`;
+  const apiUrl = `https://pokedb-api.poketrade.workers.dev/v1/cards/${encodeURIComponent(c.id)}`;
 
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-grid">
