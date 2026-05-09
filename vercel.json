@@ -1,16 +1,8 @@
 {
   "version": 2,
-  "buildCommand": "echo 'No build needed'",
-  "outputDirectory": ".",
-
-  "rewrites": [
-    { "source": "/api/ai",         "destination": "/api/groq" },
-    { "source": "/api/ai/:path*",  "destination": "/api/groq" }
-  ],
-
   "routes": [
     {
-      "src":  "/api/(.*)",
+      "src": "/api/(.*)",
       "headers": {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
@@ -18,34 +10,29 @@
       },
       "continue": true
     },
-
-    { "src": "/api/groq(.*)",         "dest": "/api/groq.js" },
-    { "src": "/api/tcg(.*)",          "dest": "/api/tcg.js" },
-    { "src": "/api/cm-prices(.*)",    "dest": "/api/cm-prices.js" },
-    { "src": "/api/card-cache(.*)",   "dest": "/api/card-cache.js" },
-    { "src": "/api/scan-result(.*)",  "dest": "/api/scan-result.js" },
-    { "src": "/api/jp-card(.*)",      "dest": "/api/jp-card.js" },
+    { "src": "/api/groq(.*)", "dest": "/api/groq.js" },
+    { "src": "/api/tcg(.*)", "dest": "/api/tcg.js" },
+    { "src": "/api/cm-prices(.*)", "dest": "/api/cm-prices.js" },
+    { "src": "/api/card-cache(.*)", "dest": "/api/card-cache.js" },
+    { "src": "/api/scan-result(.*)", "dest": "/api/scan-result.js" },
+    { "src": "/api/jp-card(.*)", "dest": "/api/jp-card.js" },
     { "src": "/api/translate-jp(.*)", "dest": "/api/translate-jp.js" },
-    { "src": "/api/groq-key(.*)",     "dest": "/api/groq-key.js" },
-
-    { "src": "/api/v1/(.*)",          "dest": "/api/v1/[...path].js" },
-    { "src": "/api/cron/(.*)",        "dest": "/api/cron/email-digest.js" },
-
-    { "src": "/pokedb-admin",         "dest": "/pokedb-admin.html" },
-    { "src": "/pokedb",               "dest": "/pokedb.html" },
-
-    { "src": "/",                     "dest": "/index.html" },
-    { "src": "/(.*)\\.html",          "dest": "/$1.html" },
-    { "src": "/(.*)\\.js",            "dest": "/$1.js" },
-    { "src": "/(.*)\\.css",           "dest": "/$1.css" },
-    { "src": "/(.*)\\.json",          "dest": "/$1.json" },
-    { "src": "/(.*)\\.png",           "dest": "/$1.png" },
-    { "src": "/(.*)\\.ico",           "dest": "/$1.ico" },
-    { "src": "/(.*)\\.xml",           "dest": "/$1.xml" },
-    { "src": "/(.*)\\.txt",           "dest": "/$1.txt" },
-    { "src": "/.*",                   "dest": "/index.html" }
+    { "src": "/api/groq-key(.*)", "dest": "/api/groq-key.js" },
+    { "src": "/api/v1/(.*)", "dest": "/api/v1/[...path].js" },
+    { "src": "/api/cron/(.*)", "dest": "/api/cron/email-digest.js" },
+    { "src": "/pokedb-admin", "dest": "/pokedb-admin.html" },
+    { "src": "/pokedb", "dest": "/pokedb.html" },
+    { "src": "/", "dest": "/index.html" },
+    { "src": "/(.*)\\.html", "dest": "/$1.html" },
+    { "src": "/(.*)\\.js", "dest": "/$1.js" },
+    { "src": "/(.*)\\.css", "dest": "/$1.css" },
+    { "src": "/(.*)\\.json", "dest": "/$1.json" },
+    { "src": "/(.*)\\.png", "dest": "/$1.png" },
+    { "src": "/(.*)\\.ico", "dest": "/$1.ico" },
+    { "src": "/(.*)\\.xml", "dest": "/$1.xml" },
+    { "src": "/(.*)\\.txt", "dest": "/$1.txt" },
+    { "src": "/.*", "dest": "/index.html" }
   ],
-
   "headers": [
     {
       "source": "/sw.js",
@@ -53,14 +40,6 @@
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "Service-Worker-Allowed", "value": "/" }
       ]
-    },
-    {
-      "source": "/(.*)\\.js",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    },
-    {
-      "source": "/(.*)\\.css",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ]
 }
