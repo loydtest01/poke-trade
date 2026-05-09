@@ -1036,12 +1036,6 @@ function updateActiveTags() {
   });
 }
 
-
-  } finally {
-    state.loading = false;
-  }
-}
-
 async function fetchCards() {
   if (state.loading) return;
   state.loading = true;
