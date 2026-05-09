@@ -2044,6 +2044,12 @@ async function _testProviderKey(providerName, apiKey, cfg) {
       body:     JSON.stringify({ contents: [{ parts: [{ text: 'Say OK' }] }], generationConfig: { maxOutputTokens: 5 } }),
       testType: 'gemini',
     },
+    cloudflare: {
+      method:   'POST',
+      url:      null,
+      body:     JSON.stringify({ prompt: 'Say OK', max_tokens: 5 }),
+      testType: 'cloudflare',
+    },
   };
   var cfg2 = validators[providerName];
   if (!cfg2) throw new Error('Neznámý provider: ' + providerName);
@@ -2053,6 +2059,15 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   var headers = {};
   if (providerName === 'gemini') {
     fetchUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey;
+    headers['Content-Type'] = 'application/json';
+  } else if (providerName === 'cloudflare') {
+    // Cloudflare: klíč je 'account_id:token', URL obsahuje account_id
+    var cfParts = apiKey.split(':');
+    if (cfParts.length < 2) throw new Error('Cloudflare klíč musí být ve formátu account_id:token');
+    var cfAccountId = cfParts[0];
+    var cfToken = cfParts.slice(1).join(':');
+    fetchUrl = 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(cfAccountId) + '/ai/run/@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+    headers['Authorization'] = 'Bearer ' + cfToken;
     headers['Content-Type'] = 'application/json';
   } else {
     headers['Authorization'] = 'Bearer ' + apiKey;
@@ -2086,6 +2101,11 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   }
 
   var data = await r.json();
+  if (cfg2.testType === 'cloudflare') {
+    // Cloudflare Workers AI: { result: { response: '...' } } nebo { result: { response: '...' } }
+    var cfReply = data?.result?.response || data?.choices?.[0]?.message?.content || '?';
+    return { model: 'llama-3.3-70b-fp8', time: t1 - t0, reply: cfReply.slice(0, 30) };
+  }
   if (cfg2.testType === 'gemini') {
     // Gemini: { candidates: [{ content: { parts: [{ text: '...' }] } }] }
     var geminiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '?';
