@@ -2005,7 +2005,8 @@ function processDetailPhoto(dataUrl) {
   toast(`📷 Fotodetail ${n}/10 přidán`);
 
   // Pokud karta dosud nebyla rozpoznána, zkus AI automaticky z tohoto detailu
-  if (groqKey && !cards[_cardIdx].frontAI?.name) {
+  const _hasAI3 = groqKey || useSharedProxy || _aiKeys.cerebras.length > 0 || _aiKeys.openrouter.length > 0;
+  if (_hasAI3 && !cards[_cardIdx].frontAI?.name) {
     const aiBox = document.getElementById('aiResultBox');
     if (aiBox) {
       aiBox.style.display = '';
@@ -2212,7 +2213,7 @@ function showAiResult(r) {
   aiBox.style.display = '';
   if (!r || !r.name) {
     const errMsg = r?._error || '';
-    const is429 = errMsg.includes('Limit Groq') || errMsg.includes('429') || errMsg.includes('rate limit');
+    const is429 = errMsg.includes('Limit Groq') || errMsg.includes('429') || errMsg.includes('rate limit') || errMsg.includes('rate_limit') || errMsg.includes('vyčerpán') || errMsg.includes('Limit AI');
     const errHtml = is429
       ? `<div style="margin-top:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:8px 10px">
            <div style="font-size:11px;color:#fbbf24;font-weight:700;margin-bottom:4px">⚠️ Limit Groq klíčů vyčerpán</div>
@@ -2346,7 +2347,8 @@ async function _loadCardPreview(nameEN, number) {
 async function retryAI() {
   const _cardIdx = currentCard;
   const photo = cards[_cardIdx]?.frontPhoto;
-  if (!photo || !groqKey) return;
+  const _hasAI = groqKey || useSharedProxy || _aiKeys.cerebras.length > 0 || _aiKeys.openrouter.length > 0;
+  if (!photo || !_hasAI) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším znovu…</div>';
   const result = await identifyCard(photo);
@@ -2361,7 +2363,8 @@ async function retryAI() {
 async function retryWithDetails() {
   const _cardIdx = currentCard;
   const details = cards[_cardIdx]?.detailPhotos || [];
-  if (!details.length || !groqKey) return;
+  const _hasAI2 = groqKey || useSharedProxy || _aiKeys.cerebras.length > 0 || _aiKeys.openrouter.length > 0;
+  if (!details.length || !_hasAI2) return;
   const aiBox = document.getElementById('aiResultBox');
   aiBox.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> Zkouším z detailních fotek…</div>';
   let result = null;
@@ -2785,8 +2788,11 @@ async function getVisionModels() {
 // AI – identifikace karty (batch, bez stavu)
 // ══════════════════════════════════════════════
 async function identifyCard(dataUrl) {
-  if (!groqKey && !useSharedProxy) return { _error: 'AI není k dispozici – přihlas se' };
-  dbg('identifyCard START: groqKey=' + (groqKey?.slice(0,8)||'null') + ' proxy=' + useSharedProxy);
+  // Zkontroluj dostupnost AI — groqKey je jen Groq, ale máme i Cerebras/OpenRouter
+  const _hasAnyKey = groqKey || useSharedProxy
+    || _aiKeys.cerebras.length > 0 || _aiKeys.openrouter.length > 0;
+  if (!_hasAnyKey) return { _error: 'AI není k dispozici – přihlas se nebo přidej API klíč v Profilu' };
+  dbg('identifyCard START: groq=' + (groqKey?.slice(0,8)||'—') + ' cerebras=' + _aiKeys.cerebras.length + ' or=' + _aiKeys.openrouter.length + ' proxy=' + useSharedProxy);
 
   const compressed = await compressImage(dataUrl, 1200, 0.80);
   const { mt, b64 } = splitDataUrl(compressed);
@@ -2795,43 +2801,53 @@ async function identifyCard(dataUrl) {
 CRITICAL RULE: If the card text is in Japanese (katakana/hiragana/kanji), write the name in Japanese exactly as on the card, and set lang="JP".
 WARNING: The "name" field must contain ONLY the Japanese characters (e.g. "ガルダマンネギ"). NEVER write sentences like "The Japanese name is X", "The card reads X", "The name on the card reads X". Output ONLY the raw characters themselves (e.g. "ギャロップ" or "炎兔儿"), nothing else before or after.
 If the card text is in English, write the name in English, set lang="EN".
-Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Holo/Reverse Holo/Full Art/normalni).
+Also read: set name, card number, type, category (Pokemon/Trainer/Energy), subtype (V/VMAX/VSTAR/ex/GX/EX/Radiant/Ancient/Future/Tera/ACE SPEC), HP, variant (Normal/Holo/Reverse Holo/Full Art/Alt Art/Rainbow/Gold).
 Estimate CONDITION (NM/LP/MP/HP/D) from visible edge damage, scratches, creases, surface wear.
 Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English name — REQUIRED for JP/ZH/KO cards, same as name for EN","set":"","number":"","type":"","category":"","subtype":"","hp":"","variant":"","condition":"NM","conditionNotes":"brief note in Czech","lang":"EN","confidence":"high/medium/low","notes":""}`;
 
-  const MODELS = await getVisionModels();
+  // groqFetch se stará o multi-provider rotaci (Cerebras → Groq → OpenRouter → proxy).
+  // Stačí jedno volání — interně zkouší všechny providery + klíče.
+  // Retry provedeme pouze jednou při síťové chybě (nestabilní mobilní připojení).
+  const bodyObj = {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct', // groqFetch přepíše dle providera
+    max_tokens: 500, temperature: 0.05,
+    messages: [{ role: 'user', content: [
+      { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
+      { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
+    ]}]
+  };
 
+  // Prodloužený timeout pro mobilní sítě — vision volání s base64 obrázkem potřebuje čas
+  const sig = AbortSignal.timeout(30000);
   let lastErr = '';
   let lastRaw = '';
 
-  for (const model of MODELS) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const resp = await groqFetch({
-        model, max_tokens: 500, temperature: 0.05,
-        messages: [{ role: 'user', content: [
-          { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
-          { type: 'text', text: PROMPT + '\n\nRozpoznej tuto Pokemon kartu. POUZE JSON.' }
-        ]}]
-      });
-
+      const resp = await groqFetch(bodyObj, sig);
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => '');
-        if (resp.status === 429) {
-          lastErr = '⚠️ Limit AI vyčerpán – zkus to za chvíli nebo přidej vlastní klíč';
-        } else {
-          lastErr = `${model}: HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
-        }
-        continue; // zkus další model
+        const is429 = resp.status === 429 || errBody.includes('rate_limit') || errBody.includes('rate limit');
+        lastErr = is429
+          ? '⚠️ Limit AI vyčerpán – zkus to za chvíli nebo přidej vlastní klíč'
+          : `HTTP ${resp.status} – ${errBody.slice(0, 120)}`;
+        break; // 4xx/5xx — groqFetch už vyzkoušel všechny providery, retry nepomůže
       }
-
       const data = await resp.json();
       lastRaw = data.choices?.[0]?.message?.content || '';
       const p = parseJson(lastRaw);
       if (p?.name) { p.name = cleanPokemonName(p.name); return p; }
-
-      lastErr = `${model}: JSON bez name – "${lastRaw.slice(0, 80)}"`;
+      lastErr = `JSON bez name – "${lastRaw.slice(0, 80)}"`;
+      break;
     } catch (e) {
-      lastErr = `${model}: ${e.message || e}`;
+      lastErr = e.message || String(e);
+      // Síťová/timeout chyba → retry jednou (mobilní výpadek)
+      if (attempt === 0 && (e.name === 'TimeoutError' || e.name === 'AbortError' || lastErr.includes('fetch'))) {
+        dbg('[AI] síťová chyba, zkouším znovu: ' + lastErr);
+        await new Promise(r => setTimeout(r, 1500));
+        continue;
+      }
+      break;
     }
   }
 
