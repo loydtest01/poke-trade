@@ -235,6 +235,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <button class="adm-tab" data-tab="clusters">👯 FP klastry</button>
       <button class="adm-tab" data-tab="signups">📅 Posl. registrace</button>
       <button class="adm-tab" data-tab="vips">⭐ VIP správa</button>
+      <button class="adm-tab" data-tab="admins">🛡️ Správci</button>
     </div>
 
     <div id="tabs">
@@ -314,6 +315,36 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <div id="grantResult" style="margin-top:.8rem;display:none"></div>
         </div>
       </div>
+      <!-- TAB: Správa adminů -->
+      <div id="tab-admins">
+        <div class="adm-section">
+          <h3>🛡️ Aktuální administrátoři</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 1rem">
+            Administrátoři mají přístup k tomuto panelu. Změny se projeví okamžitě —
+            uživatel musí obnovit stránku. Tvůj účet (<strong id="adminSelfEmail">–</strong>) nelze odebrat.
+          </p>
+          <button class="btn btn-sm" onclick="loadAdmins()">🔄 Načíst</button>
+          <div id="adminsTable" style="margin-top:.8rem"><div class="loading">Načítám…</div></div>
+        </div>
+
+        <div class="adm-section">
+          <h3>➕ Přidat administrátora</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 1rem">
+            Zadej email nebo username. Uživatel musí být registrován.
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-start">
+            <div style="flex:1;min-width:240px">
+              <input type="text" id="adminGrantInput"
+                placeholder="email@example.com nebo username"
+                style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .85rem;border-radius:7px;font-size:.85rem;width:100%;font-family:inherit;box-sizing:border-box"
+                oninput="onAdminSearchInput(event)">
+              <div id="adminGrantSuggestions" style="margin-top:.4rem;max-height:200px;overflow-y:auto"></div>
+            </div>
+            <button class="btn" onclick="grantAdmin()" style="white-space:nowrap">🛡️ Udělit admin</button>
+          </div>
+          <div id="adminGrantResult" style="margin-top:.8rem;display:none"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -321,6 +352,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <script src="app.js"></script>
 <script>
 const ADMIN_EMAILS = ['papez.ondrej@gmail.com', 'loydtest@gmail.com'];
+let _currentUserEmail = '';
+let _currentUserId    = '';
 // Sloučeno do v1 catch-all routeru — uvolnilo to slot na Vercelu.
 // URL: /api/v1/admin/suspicious?action=...&t=<token>
 const API_BASE = '/api/v1/admin/suspicious';
@@ -500,14 +533,30 @@ async function init() {
     }
   }
 
-  const isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  // Admin check: hardcoded list NEBO is_admin=true v profiles (Supabase)
+  let isAdmin = user && user.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+  if (!isAdmin && user?.id && _token) {
+    try {
+      const r = await fetch(`${SBU}/rest/v1/profiles?id=eq.${user.id}&select=is_admin`, {
+        headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + _token }
+      });
+      if (r.ok) {
+        const rows = await r.json();
+        if (rows?.[0]?.is_admin === true) isAdmin = true;
+      }
+    } catch(e) {}
+  }
 
   if (!isAdmin) {
     document.getElementById('authError').style.display = 'block';
     return;
   }
 
+  _currentUserEmail = user.email;
+  _currentUserId    = user.id;
   document.getElementById('adminEmail').textContent = user.email;
+  const selfEl = document.getElementById('adminSelfEmail');
+  if (selfEl) selfEl.textContent = user.email;
   document.getElementById('content').style.display = 'block';
 
   // Tabs handler
@@ -521,6 +570,7 @@ async function init() {
       if (t.dataset.tab === 'clusters') loadClusters();
       else if (t.dataset.tab === 'signups') loadSignups();
       else if (t.dataset.tab === 'vips') loadVips();
+      else if (t.dataset.tab === 'admins') loadAdmins();
     });
   });
 
@@ -869,6 +919,173 @@ function escapeHtml(s) {
   if (s == null) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// SPRÁVA ADMINISTRÁTORŮ
+// ══════════════════════════════════════════════════════════════════════════
+
+// Supabase REST helper — vrátí JSON nebo hodí error
+async function sbAdmin(method, path, body = null) {
+  await ensureFreshToken();
+  const opts = {
+    method,
+    headers: {
+      'apikey': SBA,
+      'Authorization': 'Bearer ' + _token,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+    },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(SBU + '/rest/v1/' + path, opts);
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '');
+    throw new Error(`HTTP ${r.status}: ${txt.slice(0, 120)}`);
+  }
+  return r.json();
+}
+
+// Načti seznam adminů z profiles (is_admin=true)
+async function loadAdmins() {
+  const cont = document.getElementById('adminsTable');
+  cont.innerHTML = '<div class="loading">Načítám…</div>';
+  try {
+    const rows = await sbAdmin('GET', 'profiles?is_admin=eq.true&select=id,email,username&order=email.asc');
+    if (!rows.length) {
+      cont.innerHTML = '<div class="empty">Žádní administrátoři nenalezeni (jen hardcoded list).</div>';
+      return;
+    }
+    let html = '<table><thead><tr>'
+      + '<th>Email</th><th>Username</th><th>Akce</th>'
+      + '</tr></thead><tbody>';
+    rows.forEach(u => {
+      const isSelf = u.email?.toLowerCase() === _currentUserEmail?.toLowerCase();
+      const isHard = ADMIN_EMAILS.includes((u.email||'').toLowerCase());
+      html += `<tr>
+        <td>${escapeHtml(u.email || '–')}${isHard ? ' <span class="badge badge-vip" title="Hardcoded v kódu">HC</span>' : ''}</td>
+        <td>${escapeHtml(u.username || '–')}</td>
+        <td>${isSelf
+          ? '<em style="color:var(--muted);font-size:.8rem">Nelze odebrat sebe</em>'
+          : `<button class="btn btn-sm btn-danger" onclick="revokeAdmin('${u.id}','${escapeHtml(u.email)}')">❌ Odebrat</button>`
+        }</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    cont.innerHTML = html;
+  } catch(e) {
+    cont.innerHTML = `<div class="error">Chyba: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// Vyhledávání při psaní do input pole
+let _adminSearchTimer = null;
+function onAdminSearchInput(e) {
+  clearTimeout(_adminSearchTimer);
+  const q = e.target.value.trim();
+  if (q.length < 2) { document.getElementById('adminGrantSuggestions').innerHTML = ''; return; }
+  _adminSearchTimer = setTimeout(() => _adminSearchFetch(q), 300);
+}
+
+let _adminSearchResults = [];
+async function _adminSearchFetch(q) {
+  try {
+    const enc = encodeURIComponent(q);
+    const [byEmail, byUser] = await Promise.all([
+      sbAdmin('GET', `profiles?email=ilike.*${enc}*&select=id,email,username&limit=5`),
+      sbAdmin('GET', `profiles?username=ilike.*${enc}*&select=id,email,username&limit=5`),
+    ]);
+    // Deduplicate by id
+    const seen = new Set();
+    _adminSearchResults = [...byEmail, ...byUser].filter(u => {
+      if (seen.has(u.id)) return false;
+      seen.add(u.id); return true;
+    }).slice(0, 8);
+
+    const box = document.getElementById('adminGrantSuggestions');
+    if (!_adminSearchResults.length) { box.innerHTML = '<div style="color:var(--muted);font-size:.82rem;padding:4px 0">Žádný výsledek</div>'; return; }
+    box.innerHTML = _adminSearchResults.map((u, i) =>
+      `<div class="suggestion-row" onclick="selectAdminUser(${i})" style="padding:6px 10px;cursor:pointer;border-radius:6px;font-size:.85rem;border:1px solid transparent"
+        onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background=''">
+        <strong>${escapeHtml(u.email || '–')}</strong>
+        ${u.username ? ` · <span style="color:var(--muted)">${escapeHtml(u.username)}</span>` : ''}
+      </div>`
+    ).join('');
+  } catch(e) {
+    console.warn('[adminSearch]', e);
+  }
+}
+
+let _selectedAdminUser = null;
+function selectAdminUser(idx) {
+  _selectedAdminUser = _adminSearchResults[idx];
+  document.getElementById('adminGrantInput').value = _selectedAdminUser.email || '';
+  document.getElementById('adminGrantSuggestions').innerHTML = '';
+}
+
+async function grantAdmin() {
+  const resultEl = document.getElementById('adminGrantResult');
+  resultEl.style.display = 'none';
+
+  const input = document.getElementById('adminGrantInput').value.trim();
+  if (!input) { alert('Vyplň email nebo username'); return; }
+
+  // Resolve user — buď z výběru nebo fetch
+  let targetUser = _selectedAdminUser;
+  if (!targetUser || (targetUser.email?.toLowerCase() !== input.toLowerCase() && targetUser.username?.toLowerCase() !== input.toLowerCase())) {
+    // Fetch čerstvě
+    try {
+      const enc = encodeURIComponent(input);
+      const byEmail = await sbAdmin('GET', `profiles?email=ilike.${enc}&select=id,email,username&limit=1`);
+      if (byEmail.length) { targetUser = byEmail[0]; }
+      else {
+        const byUser = await sbAdmin('GET', `profiles?username=ilike.${enc}&select=id,email,username&limit=1`);
+        if (byUser.length) targetUser = byUser[0];
+      }
+    } catch(e) { alert('Chyba při hledání uživatele: ' + e.message); return; }
+  }
+
+  if (!targetUser?.id) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'error';
+    resultEl.textContent = '❌ Uživatel nenalezen. Ujisti se že je zaregistrován.';
+    return;
+  }
+
+  if (targetUser.email?.toLowerCase() === _currentUserEmail?.toLowerCase()) {
+    alert('Sám sobě admin práva měnit nemůžeš (už je máš).'); return;
+  }
+
+  if (!confirm(`Udělit admin práva uživateli ${targetUser.email}?`)) return;
+
+  try {
+    await sbAdmin('PATCH', `profiles?id=eq.${targetUser.id}`, { is_admin: true });
+    resultEl.style.display = 'block';
+    resultEl.className = 'ok';
+    resultEl.innerHTML = `✅ <strong>${escapeHtml(targetUser.email)}</strong> je nyní administrátor.`;
+    document.getElementById('adminGrantInput').value = '';
+    _selectedAdminUser = null;
+    await loadAdmins();
+  } catch(e) {
+    resultEl.style.display = 'block';
+    resultEl.className = 'error';
+    resultEl.textContent = '❌ Chyba: ' + e.message;
+  }
+}
+
+async function revokeAdmin(userId, email) {
+  if (!confirm(`Odebrat admin práva uživateli ${email}?`)) return;
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    if (!confirm(`⚠️ ${email} je v hardcoded listu ADMIN_EMAILS — odebráním is_admin z databáze přístup neztratí dokud nevymažeš i hardcoded záznam. Pokračovat?`)) return;
+  }
+  try {
+    await sbAdmin('PATCH', `profiles?id=eq.${userId}`, { is_admin: false });
+    await loadAdmins();
+  } catch(e) {
+    alert('Chyba: ' + e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
 
 function doLogout() {
   ['sb_token','sb_user','sb_refresh_token','sb_user_id','sb_email','sb_username','pkc_avatar_local','pkc_online_session'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
