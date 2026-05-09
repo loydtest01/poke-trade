@@ -1076,13 +1076,28 @@ async function grantAdmin() {
   if (!confirm(`Udělit admin práva uživateli ${targetUser.email}?`)) return;
 
   try {
+    // Supabase PATCH vrátí HTTP 200 i když RLS zablokuje zápis — vrátí jen prázdné []
+    // Proto po zápisu ověříme čtením jestli se is_admin skutečně uložil.
     await sbAdmin('PATCH', `profiles?id=eq.${targetUser.id}`, { is_admin: true });
+
+    // Ověření — přečti řádek zpět
+    const verify = await sbAdmin('GET', `profiles?id=eq.${targetUser.id}&select=id,is_admin`);
+    const saved  = verify?.[0]?.is_admin === true;
+
     resultEl.style.display = 'block';
-    resultEl.className = 'ok';
-    resultEl.innerHTML = `✅ <strong>${escapeHtml(targetUser.email)}</strong> je nyní administrátor.`;
-    document.getElementById('adminGrantInput').value = '';
-    _selectedAdminUser = null;
-    await loadAdmins();
+    if (saved) {
+      resultEl.className = 'ok';
+      resultEl.innerHTML = `✅ <strong>${escapeHtml(targetUser.email)}</strong> je nyní administrátor.`;
+      document.getElementById('adminGrantInput').value = '';
+      _selectedAdminUser = null;
+      await loadAdmins();
+    } else {
+      // PATCH proběhl bez chyby ale data se nezapsala — RLS problém nebo chybějící migrace
+      resultEl.className = 'error';
+      resultEl.innerHTML = `❌ Uložení se nezdařilo — pravděpodobně chybí RLS policy nebo nebyla spuštěna migrace <code>migration_is_admin.sql</code>.<br>
+        <small style="opacity:.7">Spusť v Supabase SQL editoru:<br>
+        <code>UPDATE profiles SET is_admin = true WHERE email = '${escapeHtml(targetUser.email)}';</code></small>`;
+    }
   } catch(e) {
     resultEl.style.display = 'block';
     resultEl.className = 'error';
@@ -1097,6 +1112,12 @@ async function revokeAdmin(userId, email) {
   }
   try {
     await sbAdmin('PATCH', `profiles?id=eq.${userId}`, { is_admin: false });
+    // Ověření
+    const verify = await sbAdmin('GET', `profiles?id=eq.${userId}&select=id,is_admin`);
+    if (verify?.[0]?.is_admin === true) {
+      alert(`⚠️ Odebrání se nezdařilo — zkontroluj RLS policy v Supabase.`);
+      return;
+    }
     await loadAdmins();
   } catch(e) {
     alert('Chyba: ' + e.message);
