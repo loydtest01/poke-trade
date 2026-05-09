@@ -1977,10 +1977,20 @@ async function doAssign(groups, albumId) {
           enImageUrl: (g._origImage && rc?.apiSmall) ? rc.apiSmall : undefined,
           apiId:     rc?.apiId    || '',
           sourceUrl: rc?.sourceUrl || g.cardUrl || '',
-          pMin:           rc?.pMin          || 0,
-          pTrend:         rc?.pTrend        || 0,
-          p30d:           rc?.p30d          || 0,
-          cardmarketUrl:  rc?.cardmarketUrl || '',
+          // Reverse Holo má jinou cenu než Normal → ?isReverseHolo=Y
+          // pokemontcg.io API vrací vždy Normal cenu, proto ji nulujeme —
+          // album si fetche správnou cenu z Cardmarket přes opravený buildCardmarketUrl().
+          ...(() => {
+            const _isRev = (ai.variant || '').toLowerCase().includes('reverse');
+            const _cmBase = (rc?.cardmarketUrl || '').split('?')[0];
+            const _cmUrl = _cmBase ? _cmBase + (_isRev ? '?isReverseHolo=Y' : '') : '';
+            return {
+              pMin:          _isRev ? 0 : (rc?.pMin   || 0),
+              pTrend:        _isRev ? 0 : (rc?.pTrend || 0),
+              p30d:          _isRev ? 0 : (rc?.p30d   || 0),
+              cardmarketUrl: _cmUrl,
+            };
+          })(),
           setCode:        rc?.setCode || '',
           pricesFetchedAt: rc?.pricesFetchedAt || null,
           count: qty, qty,
@@ -2433,6 +2443,12 @@ function _renderCardGrid(gi, cards) {
     if (c._learned)         scBadges.push(`<span class="sc-badge sc-badge-learned">🧠 Naučeno</span>`);
     if (c._imagePick)       scBadges.push(`<span class="sc-badge sc-badge-photo">📸 Foto</span>`);
     if (idx === 0 && !c._learned) scBadges.push(`<span class="sc-badge sc-badge-top">⭐ Nejlepší</span>`);
+
+    // Upozornění pro Reverse Holo: cena z pokemontcg.io je normální verze
+    const _aiVariant = (g?.aiResult?.variant || '').toLowerCase();
+    const _isRevCard  = _aiVariant.includes('reverse');
+    if (_isRevCard) scBadges.push(`<span class="sc-badge" style="background:rgba(167,139,250,.25);color:#c4b5fd;border-color:rgba(167,139,250,.4)">✨ Reverse Holo</span>`);
+
     const badgeRow = scBadges.length
       ? `<div class="sc-badge-row">${scBadges.join('')}</div>` : '';
 
@@ -3079,10 +3095,14 @@ function tcgSelectCard(gi, idx) {
   const _fullCard = _tcgPageState[gi]?.cards?.[idx];
   if (_fullCard) {
     const _cm = _fullCard.cardmarket?.prices || {};
-    cardData.pMin            = _cm.lowPrice   || 0;
-    cardData.pTrend          = _cm.trendPrice || 0;
-    cardData.p30d            = _cm.avg30 || _cm.avg7 || 0;
-    cardData.cardmarketUrl   = _fullCard.cardmarket?.url || cardData.cardmarketUrl || '';
+    // Oprav URL pro Reverse Holo a nuluj ceny (Normal cena z pokemontcg.io není správná)
+    const _selVariant = (cardGroups[gi]?.aiResult?.variant || '').toLowerCase();
+    const _selIsRev   = _selVariant.includes('reverse');
+    const _selCmBase  = (_fullCard.cardmarket?.url || cardData.cardmarketUrl || '').split('?')[0];
+    cardData.pMin          = _selIsRev ? 0 : (_cm.lowPrice   || 0);
+    cardData.pTrend        = _selIsRev ? 0 : (_cm.trendPrice || 0);
+    cardData.p30d          = _selIsRev ? 0 : (_cm.avg30 || _cm.avg7 || 0);
+    cardData.cardmarketUrl = _selCmBase ? _selCmBase + (_selIsRev ? '?isReverseHolo=Y' : '') : '';
     cardData.setCode         = _fullCard.set?.ptcgoCode || '';
     cardData.pricesFetchedAt = new Date().toISOString();
   }
@@ -3112,6 +3132,13 @@ function tcgSelectCard(gi, idx) {
   g.resolvedCard = cardData;
   g._manuallySelected = true; // Pojistka: zabrání autoSearchAll přepsat ruční výběr
   g.cardUrl = ''; // URL input není potřeba
+
+  // Informuj uživatele pokud je to Reverse Holo — cena bude doplněna v albu
+  const _confirmVariant = (cardGroups[gi]?.aiResult?.variant || '').toLowerCase();
+  if (_confirmVariant.includes('reverse')) {
+    statusEl.className = 'cg-search-status ok';
+    statusEl.innerHTML = `✅ Vybráno jako <strong>Reverse Holo</strong> · Cena bude načtena z Cardmarket po přidání do alba`;
+  }
 
   // ── AI učení: zapamatuj správnou shodu pro příště ──────────────────────
   if (typeof PkSearch !== 'undefined' && cardData.apiId) {
