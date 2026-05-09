@@ -1694,6 +1694,32 @@ function buildGroupEl(g, gi) {
         <!-- Source toggle buttons (rendered by JS after init) -->
         <div class="src-toggles" id="srcToggles-${gi}"></div>
 
+        <!-- Variant picker — mění cardmarketUrl bez resetu výsledku -->
+        <div id="variantPicker-${gi}" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+          ${(() => {
+            const v = ai.variant || 'Normal';
+            const isNorm = !v || v === 'Normal';
+            const isHolo = v === 'Holo';
+            const isRev  = v.toLowerCase().includes('reverse');
+            const btnBase = 'border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid;transition:all .15s';
+            const active  = (col) => `background:rgba(${col},.22);border-color:rgba(${col},.7);color:#fff;`;
+            const inactive = 'background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.45);';
+            return `<span style="font-size:11px;color:rgba(255,255,255,.4);align-self:center;margin-right:2px">Varianta:</span>
+              <button id="vbtn-normal-${gi}" onclick="setVariantQuick(${gi},'Normal')"
+                style="${btnBase};${isNorm ? active('220,200,140') : inactive}">
+                ⬜ Normální
+              </button>
+              <button id="vbtn-holo-${gi}" onclick="setVariantQuick(${gi},'Holo')"
+                style="${btnBase};${isHolo ? active('250,200,60') : inactive}">
+                ✨ Holo
+              </button>
+              <button id="vbtn-reverse-${gi}" onclick="setVariantQuick(${gi},'Reverse Holo')"
+                style="${btnBase};${isRev ? active('167,139,250') : inactive}">
+                🔮 Reverse Holo
+              </button>`;
+          })()}
+        </div>
+
         <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
           🔍 Vyhledat v databázi
         </button>
@@ -2235,8 +2261,25 @@ function updateAiField(gi, field, value) {
   const ai = cardGroups[gi].aiResult;
   const v = (value == null) ? '' : String(value).trim();
 
-  // Speciální case: když user změní AI pole, vyresetujeme rozpoznanou kartu
-  // aby nové vyhledávání proběhlo čerstvě s novými hodnotami.
+  if (field === 'variant') {
+    // Varianta NEMAŽE nalezené výsledky — jen přepočítá cardmarketUrl
+    // (Normal → bez param, Reverse Holo → ?isReverseHolo=Y)
+    ai.variant = v;
+    const rc = cardGroups[gi].resolvedCard;
+    if (rc) {
+      const isRev = v.toLowerCase().includes('reverse');
+      const base  = (rc.cardmarketUrl || '').split('?')[0];
+      if (base) rc.cardmarketUrl = base + (isRev ? '?isReverseHolo=Y' : '');
+      // Nuluj ceny pro Reverse Holo (Normal cena z API je neplatná)
+      if (isRev) { rc.pMin = 0; rc.pTrend = 0; rc.p30d = 0; }
+    }
+    // Sync se starým dropdown v AI polích
+    const sel = document.getElementById(`aiSel-variant-${gi}`);
+    if (sel) sel.value = v;
+    return;
+  }
+
+  // Ostatní pole: reset search výsledku, aby proběhlo čerstvé hledání
   cardGroups[gi].resolvedCard = null;
   cardGroups[gi]._manuallySelected = false;
 
@@ -2245,6 +2288,42 @@ function updateAiField(gi, field, value) {
     ai.subtype = v;   // BC: některý kód čte subtype
   } else {
     ai[field] = v;
+  }
+}
+
+// Rychlá volba varianty z picker tlačítek
+function setVariantQuick(gi, variant) {
+  updateAiField(gi, 'variant', variant);
+
+  // Přebarvi tlačítka
+  const btnBase = 'border-radius:8px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;border:1.5px solid;transition:all .15s;';
+  const active  = (col) => btnBase + `background:rgba(${col},.22);border-color:rgba(${col},.7);color:#fff;`;
+  const inactive = btnBase + 'background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.12);color:rgba(255,255,255,.45);';
+
+  const isNorm = !variant || variant === 'Normal';
+  const isHolo = variant === 'Holo';
+  const isRev  = variant.toLowerCase().includes('reverse');
+
+  const n = document.getElementById(`vbtn-normal-${gi}`);
+  const h = document.getElementById(`vbtn-holo-${gi}`);
+  const r = document.getElementById(`vbtn-reverse-${gi}`);
+  if (n) n.style.cssText = isNorm ? active('220,200,140') : inactive;
+  if (h) h.style.cssText = isHolo ? active('250,200,60')  : inactive;
+  if (r) r.style.cssText = isRev  ? active('167,139,250') : inactive;
+
+  // Aktualizuj status pokud je karta už vybraná
+  const g = cardGroups[gi];
+  if (g?.resolvedCard) {
+    const statusEl = document.getElementById(`searchStatus-${gi}`);
+    if (statusEl) {
+      const cm = g.resolvedCard.cardmarketUrl || '';
+      const isRevCard = isRev;
+      statusEl.className = 'cg-search-status ok';
+      statusEl.innerHTML = `✅ ${esc(g.resolvedCard.name || '')} · `
+        + `<strong>${esc(variant)}</strong> `
+        + (cm ? `· <a href="${esc(cm)}" target="_blank" rel="noopener" style="color:#f5c842;text-decoration:none;font-size:11px">🔗 Cardmarket</a>` : '')
+        + (isRevCard ? ` <span style="font-size:11px;color:rgba(167,139,250,.9)">· cena se načte v albu</span>` : '');
+    }
   }
 }
 
@@ -2576,9 +2655,18 @@ async function tcgSearch(gi, autoMode = false) {
             groq:  '🤖 Groq vision',
           }[matchResult.source] || matchResult.source;
 
+          // Sestav CM URL se správným reverse param hned po CardMatcher hitu
+          const _matchVariant = (ai.variant || '').toLowerCase();
+          const _matchIsRev = _matchVariant.includes('reverse');
+          const _matchCmBase = (matchResult.cardmarketUrl || '').split('?')[0];
+          if (matchResult.cardmarketUrl && _matchCmBase) {
+            matchResult.cardmarketUrl = _matchCmBase + (_matchIsRev ? '?isReverseHolo=Y' : '');
+          }
+
           statusEl.className = 'cg-search-status ok';
           statusEl.innerHTML = `✅ ${srcLabel} · ${matchResult.name || matchResult.cardId} `
-            + `<small style="opacity:.6">(${Math.round(matchResult.confidence * 100)} %)</small>`;
+            + `<small style="opacity:.6">(${Math.round(matchResult.confidence * 100)} %)</small>`
+            + (_matchIsRev ? ` <span style="font-size:11px;color:rgba(167,139,250,.9)">· Reverse Holo</span>` : '');
 
           // Sestav resolvedCard ze shody
           g.resolvedCard = {
