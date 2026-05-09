@@ -3,332 +3,231 @@
 <head>
 <meta charset="UTF-8">
 <meta name="robots" content="noindex, nofollow">
-  <!-- ═══ PWA meta ═══ -->
-  <link rel="manifest" href="app-manifest.json">
-  <meta name="theme-color" content="#0a0608">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="PokéTrade">
-  <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <!-- ═══ /PWA meta ═══ -->
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📥 Hromadné skenování · PokéTrade</title>
-<link rel="icon" type="image/png" href="favicon.ico">
+<link rel="manifest" href="app-manifest.json">
 <meta name="theme-color" content="#0a0608">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PokéTrade">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>📥 Bulk Scan Pro · PokéTrade</title>
+<link rel="icon" type="image/png" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="rate-limit-modal.js"></script>
+<link rel="stylesheet" href="mobile-responsive.css">
+<script src="pwa-init.js"></script>
 <style>
 :root {
-  --bg:        #0a0608;
-  --surf:      #15101a;
-  --surf2:     #1d1726;
-  --surf3:     #261d33;
-  --gold:      #f5c842;
-  --gold2:     #ff8c00;
-  --gold-dk:   #a87c1a;
-  --text:      #f0ece4;
-  --muted:     rgba(240,236,228,0.45);
-  --border:    rgba(255,255,255,0.10);
-  --green:     #22c55e;
-  --red:       #ef4444;
-  --blue:      #6ea0ff;
-  --r:         10px;
-  --r-lg:      16px;
+  --bg:#0a0608; --surf:#15101a; --surf2:#1d1726; --surf3:#261d33; --surf4:#2f2540;
+  --gold:#f5c842; --gold2:#ff8c00; --gold-dk:#a87c1a;
+  --text:#f0ece4; --muted:rgba(240,236,228,0.45); --border:rgba(255,255,255,0.10);
+  --green:#22c55e; --red:#ef4444; --blue:#6ea0ff; --teal:#2dd4bf;
 }
-*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  height: 100%; overflow: hidden;
-  font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text);
-  font-size: 14px;
-}
-.app { display: flex; flex-direction: column; height: 100vh; }
+/* Zone colors */
+:root{--z0:#f5c842;--z1:#6ea0ff;--z2:#2dd4bf;--z3:#f472b6;--z4:#a78bfa;--z5:#fb923c;--z6:#4ade80;--z7:#f87171;--z8:#38bdf8;--z9:#fbbf24;}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
 
-/* ── HEADER ───────────────────────────────────────── */
-.header {
-  display: flex; align-items: center; gap: 12px; padding: 10px 20px;
-  background: var(--surf); border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.logo {
-  font-family: 'Unbounded', sans-serif; font-size: 18px; font-weight: 800;
-  letter-spacing: 1px; color: var(--gold); display: flex; align-items: center; gap: 8px;
-}
-.logo span { color: var(--text); font-weight: 600; }
-.header-mid { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.btn {
-  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
-  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
-  font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
-  color: var(--text); white-space: nowrap; transition: all .15s;
-}
-.btn:hover:not(:disabled) { background: var(--surf3); border-color: rgba(245,200,66,0.35); }
-.btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.btn-primary {
-  background: linear-gradient(135deg, var(--gold) 0%, var(--gold2) 100%);
-  border-color: var(--gold-dk); color: #1a1208;
-}
-.btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--gold-lt, #ffd460) 0%, var(--gold) 100%);
-}
-.btn-success { background: rgba(34,197,94,0.18); border-color: rgba(34,197,94,0.4); color: #86efac; }
-.btn-success:hover:not(:disabled) { background: rgba(34,197,94,0.28); }
-.btn-ghost { background: transparent; }
-.btn-sm { padding: 6px 10px; font-size: 12px; }
-.upload-label {
-  display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
-  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
-  font-size: 13px; font-weight: 600; cursor: pointer; color: var(--text); white-space: nowrap;
-  transition: all .15s;
-}
-.upload-label:hover { background: var(--surf3); border-color: rgba(245,200,66,0.35); }
-.nav-icon { width: 16px; height: 16px; vertical-align: middle; opacity: .8; }
-/* Tlačítka v topbaru (notifikace, nastavení) — definováno zde protože bulk-scan nemá style.css */
-.chat-icon-btn {
-  position: relative; display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 8px;
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-  color: rgba(240,236,228,0.65); text-decoration: none;
-  transition: all .15s; cursor: pointer; font-family: inherit;
-}
-.chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; border-color: rgba(255,255,255,0.14); }
-.chat-badge {
-  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
-  border-radius: 9px; background: #f87171; color: #fff;
-  font-size: 10px; font-weight: 800; display: flex; align-items: center;
-  justify-content: center; padding: 0 5px; line-height: 1;
-}
+/* ── TOPBAR (shared with other pages) ─────────────────────── */
+.app-topbar{position:sticky;top:0;z-index:200;background:rgba(8,8,12,0.92);border-bottom:1px solid rgba(255,255,255,0.06);backdrop-filter:blur(16px);display:flex;align-items:center;height:56px;padding:0 20px;gap:0;}
+.app-logo{font-family:'Unbounded',sans-serif;font-size:14px;font-weight:800;color:#fff;display:flex;align-items:center;gap:6px;text-decoration:none;margin-right:28px;white-space:nowrap;}
+.app-logo strong{color:var(--gold);}
+.nav-lnks{display:flex;gap:2px;flex:1;}
+.nav-lnks a{padding:6px 14px;border-radius:8px;font-size:13px;font-weight:500;color:rgba(240,232,208,0.6);text-decoration:none;transition:all .15s;}
+.nav-lnks a:hover{background:rgba(255,255,255,0.07);color:#f0ece4;}
+.nav-lnks a.active{background:rgba(245,200,66,0.12);color:#f5c842;}
+.topbar-right{display:flex;align-items:center;gap:10px;margin-left:auto;}
+.user-chip{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:4px 12px 4px 6px;font-size:13px;text-decoration:none;color:#f0ece4;transition:all .15s;}
+.user-avatar{width:30px;height:30px;border-radius:8px;background:var(--gold);color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background-size:cover;background-position:center;overflow:hidden;flex-shrink:0;}
+.btn-nav-outline{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(240,232,208,0.7);border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer;font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:all .15s;}
+button.btn-nav-outline{background:transparent!important;-webkit-appearance:none;}
+.btn-nav-outline:hover{background:rgba(255,255,255,0.1);color:#f0ece4;}
+.nav-icon{width:16px;height:16px;vertical-align:middle;opacity:.8;}
+.chat-icon-btn{position:relative;display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);color:rgba(240,236,228,0.65);text-decoration:none;transition:all .15s;cursor:pointer;font-family:inherit;}
+.chat-icon-btn:hover{background:rgba(255,255,255,0.1);color:#f0ece4;border-color:rgba(255,255,255,0.14);}
+.chat-badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;border-radius:9px;background:#f87171;color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;line-height:1;}
 
-/* ── ALBUM IMPORT MODAL ───────────────────────────────────── */
-#albumModal {
-  position: fixed; inset: 0; background: rgba(0,0,0,.75); z-index: 9999;
-  display: none; align-items: center; justify-content: center;
-}
-#albumModal.open { display: flex; }
-.album-modal-box {
-  background: var(--surf2); border: 1px solid var(--border); border-radius: 14px;
-  width: min(760px, 95vw); max-height: 85vh; display: flex; flex-direction: column;
-  overflow: hidden;
-}
-.album-modal-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.album-modal-head h2 { margin: 0; font-size: 16px; }
-.album-modal-search {
-  padding: 12px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-.album-modal-search input {
-  width: 100%; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border);
-  background: var(--surf3); color: var(--text); font-size: 13px; box-sizing: border-box;
-}
-.album-modal-grid {
-  flex: 1; overflow-y: auto; padding: 16px 20px;
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px;
-}
-.album-card-thumb {
-  background: var(--surf3); border: 1px solid var(--border); border-radius: 10px;
-  overflow: hidden; cursor: pointer; transition: all .15s; text-align: center;
-}
-.album-card-thumb:hover { border-color: var(--gold); transform: translateY(-2px); }
-.album-card-thumb img {
-  width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block;
-}
-.album-card-thumb .alb-name {
-  font-size: 11px; padding: 4px 6px; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis; color: var(--muted);
-}
-.album-modal-empty {
-  grid-column: 1/-1; text-align: center; padding: 40px; color: var(--muted); font-size: 14px;
-}
+/* ── APP LAYOUT ──────────────────────────────────────────── */
+.app{display:flex;flex-direction:column;height:calc(100vh - 56px);}
 
-/* ── WORKSPACE ─────────────────────────────────────── */
-.workspace { display: flex; flex: 1; overflow: hidden; }
-.canvas-area {
-  flex: 1; position: relative; overflow: hidden;
-  background: #06060c;
-  background-image: radial-gradient(circle at 10% 80%, rgba(245,200,66,0.04) 0%, transparent 45%),
-                    radial-gradient(circle at 90% 20%, rgba(110,160,255,0.03) 0%, transparent 45%);
-}
-#dz {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 12px;
-  color: var(--muted); pointer-events: none; padding: 40px;
-}
-.dz-icon { font-size: 64px; opacity: .4; }
-.dz-title { font-family: 'Unbounded'; font-size: 22px; font-weight: 600; color: var(--text); }
-.dz-sub { font-size: 14px; }
-.dz-hint { font-size: 12px; color: rgba(240,236,228,0.3); margin-top: 8px; text-align: center; }
-canvas#ic, canvas#oc { position: absolute; top: 0; left: 0; }
-canvas#oc { z-index: 2; }
+/* ── HEADER (tool controls) ──────────────────────────────── */
+.header{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.logo{font-family:'Unbounded';font-size:15px;font-weight:800;letter-spacing:.5px;color:var(--gold);white-space:nowrap;}
+.logo em{font-style:normal;color:var(--text);font-weight:400;font-size:11px;opacity:.55;}
+.hdr-sep{width:1px;height:20px;background:var(--border);flex-shrink:0;}
+.upload-label{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap;transition:all .15s;}
+.upload-label:hover{background:var(--surf3);border-color:rgba(245,200,66,.3);}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;color:var(--text);white-space:nowrap;transition:all .15s;}
+.btn:hover:not(:disabled){background:var(--surf3);border-color:rgba(245,200,66,.3);}
+.btn:disabled{opacity:.35;cursor:not-allowed;}
+.btn-primary{background:linear-gradient(135deg,var(--gold),var(--gold2));border-color:var(--gold-dk);color:#1a1208;font-weight:700;}
+.btn-primary:hover:not(:disabled){filter:brightness(1.08);}
+.btn-success{background:rgba(34,197,94,.15);border-color:rgba(34,197,94,.4);color:#86efac;}
+.btn-success:hover:not(:disabled){background:rgba(34,197,94,.25);}
+.btn-teal{background:rgba(45,212,191,.12);border-color:rgba(45,212,191,.3);color:var(--teal);}
+.btn-teal:hover:not(:disabled){background:rgba(45,212,191,.22);}
+.btn-ghost{background:transparent;}
 
-/* ── SIDE PANEL ────────────────────────────────────── */
-.side {
-  width: 340px; flex-shrink: 0; background: var(--surf);
-  border-left: 1px solid var(--border); overflow-y: auto;
-  display: flex; flex-direction: column;
-}
-.section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
-.section.grow { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.section h3 {
-  font-family: 'Unbounded'; font-size: 11px; font-weight: 600;
-  letter-spacing: 1.2px; text-transform: uppercase;
-  color: var(--gold); margin-bottom: 10px;
-}
-.sl-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.sl-label { width: 60px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
-.sl-row input[type=range] { flex: 1; accent-color: var(--gold); }
-.sl-val { width: 30px; text-align: right; font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+/* ── WORKSPACE ───────────────────────────────────────────── */
+.workspace{display:flex;flex:1;overflow:hidden;}
 
-.card-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-.card-item {
-  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
-  cursor: pointer; transition: all .15s;
-}
-.card-item:hover { background: var(--surf3); }
-.card-item.sel { border-color: var(--gold); background: rgba(245,200,66,0.08); }
-.c-badge {
-  width: 22px; height: 22px; border-radius: 50%; background: var(--blue);
-  color: #fff; display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700; flex-shrink: 0;
-}
-.card-item.sel .c-badge { background: var(--gold); color: #1a1208; }
-.c-info { flex: 1; min-width: 0; }
-.c-name { font-size: 13px; font-weight: 600; }
-.c-dims { font-size: 10px; color: var(--muted); }
-.c-del {
-  background: transparent; border: none; color: var(--muted);
-  font-size: 18px; cursor: pointer; padding: 0 6px;
-}
-.c-del:hover { color: var(--red); }
+/* ── CANVAS AREA ─────────────────────────────────────────── */
+.canvas-area{flex:1;position:relative;overflow:hidden;background:#06060c;
+  background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
+  background-size:28px 28px;}
+#dz{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);pointer-events:none;padding:40px;}
+.dz-icon{font-size:64px;opacity:.4;}
+.dz-title{font-family:'Unbounded';font-size:20px;font-weight:600;color:var(--text);}
+.dz-sub{font-size:13px;}
+.dz-hint{font-size:11px;color:rgba(240,236,228,0.3);margin-top:6px;text-align:center;}
+canvas#ic,canvas#oc{position:absolute;top:0;left:0;}
+canvas#oc{z-index:2;cursor:default;}
+.canvas-area.drag-over::after{content:'';position:absolute;inset:6px;border:2px dashed var(--gold);border-radius:10px;pointer-events:none;animation:bdPulse 1s ease infinite;}
+@keyframes bdPulse{50%{opacity:.35;}}
 
-.thumb-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.thumb-row img {
-  width: 100%; aspect-ratio: 0.715; object-fit: cover;
-  border-radius: 6px; border: 1px solid var(--border); cursor: pointer;
-  transition: transform .15s;
-}
-.thumb-row img:hover { transform: scale(1.05); border-color: var(--gold); }
+/* ── LOUPE ───────────────────────────────────────────────── */
+#loupe{position:absolute;z-index:50;pointer-events:none;display:none;filter:drop-shadow(0 4px 18px rgba(0,0,0,.85));}
+#loupe.vis{display:block;}
+#loupeCv{border-radius:50%;display:block;}
+.loupe-ring{position:absolute;inset:-3px;border-radius:50%;border:3px solid var(--gold);box-shadow:0 0 0 1px rgba(0,0,0,.5),inset 0 0 0 1px rgba(0,0,0,.4);}
+.loupe-xy{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-family:'DM Mono';font-size:9px;color:var(--gold);background:rgba(10,6,8,.9);padding:2px 5px;border-radius:3px;border:1px solid rgba(245,200,66,.25);white-space:nowrap;}
 
-/* ── STATUS BAR ────────────────────────────────────── */
-.status {
-  display: flex; align-items: center; gap: 10px; padding: 8px 16px;
-  background: var(--surf); border-top: 1px solid var(--border);
-  font-size: 12px; color: var(--muted); flex-shrink: 0;
-}
-.spin {
-  display: none; width: 14px; height: 14px; border: 2px solid rgba(245,200,66,0.2);
-  border-top-color: var(--gold); border-radius: 50%; animation: spin 0.6s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
+/* ── SIDE PANEL ──────────────────────────────────────────── */
+.side{width:320px;flex-shrink:0;background:var(--surf);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sec{padding:11px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sec h3{font-family:'Unbounded';font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+.sec h3 .pill{font-family:'DM Sans';letter-spacing:0;text-transform:none;font-size:10px;font-weight:500;padding:1px 7px;background:var(--surf3);border-radius:20px;color:var(--muted);}
+.sl-row{display:flex;align-items:center;gap:8px;margin-bottom:7px;}
+.sl-label{width:60px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.sl-row input[type=range]{flex:1;accent-color:var(--gold);-webkit-appearance:none;height:3px;background:var(--surf3);border-radius:2px;cursor:pointer;}
+.sl-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--gold);cursor:pointer;box-shadow:0 0 5px rgba(245,200,66,.5);}
+.sl-val{width:28px;text-align:right;font-size:10px;font-family:'DM Mono';}
 
-/* ── ACCESS GATE ───────────────────────────────────── */
-#accessGate {
-  position: fixed; inset: 0; z-index: 9999;
-  background: var(--bg); display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-}
-.gate-card {
-  max-width: 460px; padding: 32px; background: var(--surf);
-  border: 1px solid var(--border); border-radius: var(--r-lg); text-align: center;
-}
-.gate-icon { font-size: 56px; margin-bottom: 16px; }
-.gate-card h2 { font-family: 'Unbounded'; font-size: 22px; margin-bottom: 10px; color: var(--gold); }
-.gate-card p { color: var(--muted); line-height: 1.6; margin-bottom: 20px; font-size: 13px; }
-.gate-card a {
-  display: inline-block; padding: 10px 18px;
-  background: var(--surf2); border: 1px solid var(--border); border-radius: 8px;
-  color: var(--text); text-decoration: none; font-weight: 600; font-size: 13px;
-  transition: all .15s;
-}
-.gate-card a:hover { background: var(--surf3); border-color: var(--gold); }
+/* ── ZONE LIST ───────────────────────────────────────────── */
+.zone-list{flex:1;overflow-y:auto;padding:6px 12px;display:flex;flex-direction:column;gap:4px;scrollbar-width:thin;scrollbar-color:var(--surf3) transparent;}
+.zone-item{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surf2);cursor:pointer;transition:all .13s;}
+.zone-item:hover{background:var(--surf3);}
+.zone-item.active{border-color:var(--zc,var(--gold));background:rgba(245,200,66,.06);}
+.zone-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.zone-num{font-family:'Unbounded';font-size:10px;font-weight:700;flex-shrink:0;}
+.zone-coords{flex:1;font-family:'DM Mono';font-size:9px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.zone-mode{font-size:9px;padding:1px 5px;border-radius:3px;border:1px solid var(--border);color:var(--muted);flex-shrink:0;}
+.zone-mode.persp{border-color:rgba(45,212,191,.3);color:var(--teal);}
+.zone-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px;transition:color .13s;line-height:1;}
+.zone-del:hover{color:#fca5a5;}
+.zone-done{width:13px;height:13px;border-radius:50%;background:rgba(34,197,94,.3);border:1px solid rgba(34,197,94,.5);flex-shrink:0;display:none;align-items:center;justify-content:center;font-size:7px;}
+.zone-done.vis{display:flex;}
 
-/* ── TOAST ────────────────────────────────────────── */
-.toast {
-  position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%);
-  padding: 10px 18px; background: var(--surf2); border: 1px solid var(--border);
-  border-radius: 8px; color: var(--text); font-size: 13px; z-index: 100;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-  animation: toastIn .25s ease;
-}
-.toast.error { border-color: rgba(239,68,68,0.5); background: rgba(239,68,68,0.15); }
-.toast.success { border-color: rgba(34,197,94,0.5); background: rgba(34,197,94,0.15); }
-@keyframes toastIn { from { opacity: 0; transform: translate(-50%, 10px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* ── KEY BADGES ──────────────────────────────────────────── */
+.key-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;}
+.key-badge{display:flex;align-items:center;justify-content:space-between;padding:4px 7px;background:var(--surf3);border:1px solid var(--border);border-radius:5px;font-size:9px;font-weight:600;color:var(--muted);transition:all .2s;}
+.key-badge.ok{border-color:rgba(34,197,94,.3);color:#86efac;background:rgba(34,197,94,.07);}
+.key-badge.err{border-color:rgba(239,68,68,.3);color:#fca5a5;background:rgba(239,68,68,.07);}
+.key-badge span{font-family:'DM Mono';font-size:8px;}
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--surf3); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--gold-dk); }
+/* ── THUMB GRID ──────────────────────────────────────────── */
+.thumb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:8px 0;}
+.thumb-item{position:relative;border-radius:6px;overflow:hidden;border:1px solid var(--border);background:var(--surf3);aspect-ratio:3/4;cursor:pointer;transition:all .13s;}
+.thumb-item:hover{border-color:var(--gold);transform:translateY(-2px);}
+.thumb-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.thumb-num{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.8);font-family:'Unbounded';font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;}
 
-@media (max-width: 900px) {
-  .side { width: 280px; }
-  .header-mid { gap: 4px; }
-  .btn { padding: 6px 10px; font-size: 12px; }
-}
+/* ── STATUS BAR ──────────────────────────────────────────── */
+.status{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--surf);border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0;}
+.spin{display:none;width:12px;height:12px;border:2px solid rgba(245,200,66,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
 
-/* ── Community image panel ── */
-.community-badge { display:inline-block; background:rgba(100,180,255,.15); border:1px solid rgba(100,180,255,.3); color:#64b4ff; border-radius:5px; padding:2px 7px; font-size:10px; font-weight:700; }
-#albumReturnBanner { position:fixed; top:58px; left:50%; transform:translateX(-50%); background:#1a1520; border:1px solid #64b4ff; border-radius:10px; padding:10px 16px; z-index:810; display:none; align-items:center; gap:10px; font-size:12px; color:#f0ece4; max-width:92vw; box-shadow:0 4px 20px rgba(0,0,0,.5); }
-#albumReturnBanner strong { color:#64b4ff; }
-.btn-save-album { background:rgba(80,200,100,.18); border:1px solid rgba(80,200,100,.4); color:#4fc870; border-radius:7px; padding:5px 14px; cursor:pointer; font-size:12px; font-family:inherit; }
-.btn-share-community { background:rgba(100,180,255,.15); border:1px solid rgba(100,180,255,.35); color:#64b4ff; border-radius:7px; padding:5px 14px; cursor:pointer; font-size:12px; font-family:inherit; }
-#setAsMainChk { accent-color:#f5c842; cursor:pointer; }
+/* ── ACCESS GATE ─────────────────────────────────────────── */
+#accessGate{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:20px;}
+.gate-card{max-width:460px;padding:32px;background:var(--surf);border:1px solid var(--border);border-radius:16px;text-align:center;}
+.gate-icon{font-size:56px;margin-bottom:16px;}
+.gate-card h2{font-family:'Unbounded';font-size:22px;margin-bottom:10px;color:var(--gold);}
+.gate-card p{color:var(--muted);line-height:1.6;margin-bottom:20px;font-size:13px;}
+.gate-card a{display:inline-block;padding:10px 18px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);text-decoration:none;font-weight:600;font-size:13px;transition:all .15s;}
+.gate-card a:hover{background:var(--surf3);border-color:var(--gold);}
+
+/* ── TOAST ───────────────────────────────────────────────── */
+.toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);padding:9px 16px;background:var(--surf2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.4);animation:toastIn .25s ease;pointer-events:none;}
+.toast.error{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.15);}
+.toast.success{border-color:rgba(34,197,94,.5);background:rgba(34,197,94,.15);}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px);}to{opacity:1;transform:translate(-50%,0);}}
+
+/* ── PROGRESS ────────────────────────────────────────────── */
+.prog-wrap{margin-top:5px;background:var(--surf3);border-radius:3px;overflow:hidden;height:3px;display:none;}
+.prog-wrap.vis{display:block;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--teal),var(--blue));border-radius:3px;transition:width .25s;}
+
+/* ── ALBUM MODAL ─────────────────────────────────────────── */
+#albumModal{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:none;align-items:center;justify-content:center;}
+#albumModal.open{display:flex;}
+.album-modal-box{background:var(--surf2);border:1px solid var(--border);border-radius:14px;width:min(760px,95vw);max-height:85vh;display:flex;flex-direction:column;overflow:hidden;}
+.album-modal-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.album-modal-head h2{margin:0;font-size:15px;}
+.album-modal-search{padding:10px 18px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.album-modal-search input{width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surf3);color:var(--text);font-size:12px;box-sizing:border-box;outline:none;}
+.album-modal-grid{flex:1;overflow-y:auto;padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;}
+.album-card-thumb{background:var(--surf3);border:1px solid var(--border);border-radius:9px;overflow:hidden;cursor:pointer;transition:all .15s;text-align:center;}
+.album-card-thumb:hover{border-color:var(--gold);transform:translateY(-2px);}
+.album-card-thumb img{width:100%;aspect-ratio:3/4;object-fit:cover;display:block;}
+.album-card-thumb .alb-name{font-size:10px;padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
+.album-modal-empty{grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);font-size:13px;}
+
+/* ── ALBUM RETURN BANNER ─────────────────────────────────── */
+#albumReturnBanner{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:#1a1520;border:1px solid #64b4ff;border-radius:10px;padding:9px 14px;z-index:810;display:none;align-items:center;gap:10px;font-size:11px;color:#f0ece4;max-width:92vw;box-shadow:0 4px 20px rgba(0,0,0,.5);}
+#albumReturnBanner strong{color:#64b4ff;}
+.btn-save-album{background:rgba(80,200,100,.18);border:1px solid rgba(80,200,100,.4);color:#4fc870;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;font-family:inherit;}
+.btn-share-community{background:rgba(100,180,255,.15);border:1px solid rgba(100,180,255,.35);color:#64b4ff;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:11px;font-family:inherit;}
+#setAsMainChk{accent-color:var(--gold);cursor:pointer;}
+
+/* ── PREVIEW MODAL ───────────────────────────────────────── */
+#prevModal{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px);}
+#prevModal.open{display:flex;}
+.prev-box{background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;align-items:center;max-width:92vw;max-height:92vh;box-shadow:0 20px 60px rgba(0,0,0,.7);}
+.prev-box h2{font-family:'Unbounded';font-size:11px;color:var(--gold);letter-spacing:1px;}
+#prevImgWrap{background:repeating-conic-gradient(#1d1726 0% 25%,#261d33 0% 50%) 0 0/18px 18px;border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+#prevImg{display:block;max-width:82vw;max-height:68vh;object-fit:contain;}
+
+/* ── SIZE GRID ───────────────────────────────────────────── */
+.size-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px;}
+.size-opt{display:flex;align-items:center;gap:5px;padding:5px 8px;background:var(--surf2);border:1px solid var(--border);border-radius:5px;cursor:pointer;font-size:10px;transition:all .13s;}
+.size-opt input[type=radio]{accent-color:var(--gold);}
+.size-opt.sel{border-color:rgba(245,200,66,.4);background:rgba(245,200,66,.07);color:var(--gold);}
+
+/* ── AI KEY INPUT ────────────────────────────────────────── */
+.ai-key-inp{width:100%;padding:5px 8px;background:var(--surf3);border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'DM Mono';font-size:10px;outline:none;margin-bottom:5px;transition:border-color .13s;}
+.ai-key-inp:focus{border-color:rgba(45,212,191,.4);}
+.ai-key-inp::placeholder{color:var(--muted);}
+details summary{font-size:10px;color:var(--muted);cursor:pointer;user-select:none;padding:3px 0;list-style:none;}
+details summary::-webkit-details-marker{display:none;}
+
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--surf3);border-radius:3px;}
+
+/* ── SIZE OPTIONS ── */
+#sizeGrid input[type=radio]{display:none;}
+/* ── AI ENHANCE ── */
+.ai-enhance-btn{width:100%;display:flex;align-items:center;justify-content:center;gap:7px;padding:8px 14px;margin-bottom:8px;background:linear-gradient(135deg,rgba(45,212,191,.15),rgba(110,160,255,.15));border:1px solid rgba(45,212,191,.35);border-radius:8px;font-family:inherit;font-size:11px;font-weight:700;cursor:pointer;color:var(--teal);transition:all .18s;overflow:hidden;}
+.ai-enhance-btn:hover:not(:disabled){background:linear-gradient(135deg,rgba(45,212,191,.25),rgba(110,160,255,.25));border-color:rgba(45,212,191,.55);}
+.ai-enhance-btn:disabled{opacity:.4;cursor:not-allowed;}
+.ai-enhance-btn.loading{animation:aeGlow 1.2s ease-in-out infinite;}
+@keyframes aeGlow{0%,100%{box-shadow:0 0 0 0 rgba(45,212,191,.2);}50%{box-shadow:0 0 12px rgba(45,212,191,.35);}}
+.ai-enhance-result{font-size:9px;color:var(--muted);line-height:1.5;padding:6px 8px;background:var(--surf3);border-radius:5px;border-left:2px solid var(--teal);display:none;margin-bottom:6px;}
+.ai-enhance-result.vis{display:block;}
+.sl-row.ai-set .sl-label{color:var(--teal);}
+.sl-row.ai-set .sl-val{color:var(--teal);font-weight:700;}
+.sl-row.ai-set input[type=range]{accent-color:var(--teal);}
+.ai-prov-badge{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;padding:2px 7px;border-radius:10px;margin-bottom:5px;background:rgba(45,212,191,.1);border:1px solid rgba(45,212,191,.25);color:var(--teal);}
 
 </style>
-  <!-- ═══ PWA init + mobile CSS ═══ -->
-  <link rel="stylesheet" href="mobile-responsive.css">
-  <script src="pwa-init.js"></script>
-  <!-- ═══ /PWA init ═══ -->
-<style>
-/* ═══ TOP BAR ═══ */
-.app-topbar {
-  position: sticky; top: 0; z-index: 200;
-  background: rgba(8,8,12,0.92);
-  border-bottom: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(16px);
-  display: flex; align-items: center;
-  height: 56px; padding: 0 20px; gap: 0;
-}
-.app-logo {
-  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
-  color: #fff; display: flex; align-items: center; gap: 6px;
-  text-decoration: none; margin-right: 28px; white-space: nowrap;
-}
-.app-logo strong { color: var(--gold, #f5c842); }
-.nav-lnks { display: flex; gap: 2px; flex: 1; }
-.nav-lnks a {
-  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
-  color: rgba(240,232,208,0.6); text-decoration: none; transition: all .15s;
-}
-.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: #f0ece4; }
-.nav-lnks a.active { background: rgba(245,200,66,0.12); color: #f5c842; }
-.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-.user-chip {
-  display: flex; align-items: center; gap: 8px;
-  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
-  text-decoration: none; color: #f0ece4; transition: all .15s;
-}
-.user-avatar {
-  width: 30px; height: 30px; border-radius: 8px;
-  background: var(--gold, #f5c842); color: #000;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800;
-  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
-}
-.btn-nav-outline {
-  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-  color: rgba(240,232,208,0.7); border-radius: 8px; padding: 5px 12px; font-size: 13px;
-  cursor: pointer; font-family: inherit; text-decoration: none;
-  display: inline-flex; align-items: center; gap: 5px; transition: all .15s;
-}
-button.btn-nav-outline { background: transparent !important; -webkit-appearance: none; }
-.btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+<style>/* topbar override for this page */
+.app-topbar { position: relative; }
 </style>
-  <script defer src="/_vercel/insights/script.js"></script>
-  <script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 <script>window.TOPBAR_ACTIVE = 'bulk-scan';</script>
@@ -340,92 +239,168 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   </a>
   <nav class="nav-lnks" id="mainNav"></nav>
   <div class="topbar-right">
-    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none">
       <div class="user-avatar" id="userAvatar">?</div>
       <span id="userName"></span>
     </a>
-    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
-    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none">Přihlásit se</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;background:transparent;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
 </header>
 
-<!-- ═══ ACCESS GATE (zobrazí se, dokud se neověří VIP) ═══ -->
+<!-- ACCESS GATE -->
 <div id="accessGate">
   <div class="gate-card">
     <div class="gate-icon">⏳</div>
     <h2>Ověřuji přístup…</h2>
-    <p>Kontroluji, jestli máš oprávnění k bulk scanneru.</p>
+    <p>Kontroluji oprávnění k Bulk Scan Pro.</p>
   </div>
 </div>
 
 <div class="app" id="appRoot" style="visibility:hidden">
 
-  <!-- HEADER -->
+  <!-- TOOL HEADER -->
   <div class="header">
-    <div class="logo">⚡ <span>Bulk</span> Scan</div>
-    <div class="header-mid">
-      <label class="upload-label">
-        📁 Nahrát sken
-        <input type="file" id="fi" accept="image/*" style="display:none">
-      </label>
-      <button class="upload-label" id="albumImportBtn" title="Načíst kartu z mého alba">🖼️ Z alba</button>
-      <button id="detectBtn" class="btn btn-primary" disabled>🔍 Detekovat karty</button>
-      <button id="aiDetectBtn" class="btn" disabled title="Použij AI, pokud automatická detekce selhala">🤖 AI fallback</button>
-      <button id="addBtn" class="btn btn-ghost btn-sm" disabled>✏️ Přidat ručně</button>
-    </div>
-    <div style="display:flex;gap:7px;align-items:center;">
-      <button id="processBtn" class="btn" disabled>✨ Zpracovat vše</button>
-      <button id="exportBtn" class="btn" disabled>📦 ZIP</button>
-      <button id="sendQueueBtn" class="btn btn-success" disabled title="Pošli vše do PokéTrade fronty">🚀 Do fronty</button>
-      <a href="queue.html" class="btn btn-ghost btn-sm" id="returnLink" style="display:none">← Zpět na frontu</a>
-    </div>
+    <div class="logo">⚡ Bulk <em>Scan Pro</em></div>
+    <div class="hdr-sep"></div>
+    <label class="upload-label">📁 Nahrát sken<input type="file" id="fi" accept="image/*" style="display:none"></label>
+    <button class="btn" id="albumImportBtn">🖼 Z alba</button>
+    <div class="hdr-sep"></div>
+    <button class="btn" id="detectBtn" disabled>🔍 Auto-detekce</button>
+    <button class="btn btn-teal" id="aiDetectBtn" disabled>✦ AI detekce</button>
+    <button class="btn btn-ghost" id="addBtn" disabled>✏ Přidat zónu</button>
+    <div class="hdr-sep"></div>
+    <button class="btn btn-primary" id="processBtn" disabled>⚡ Zpracovat vše</button>
+    <button class="btn" id="exportBtn" disabled>📦 ZIP</button>
+    <button class="btn btn-success" id="sendQueueBtn" disabled>🚀 Do fronty</button>
+    <a href="queue.html" class="btn btn-ghost" id="returnLink" style="display:none">← Zpět na frontu</a>
+    <span id="dimInfo" style="font-family:'DM Mono';font-size:10px;color:var(--muted);margin-left:4px;"></span>
   </div>
 
   <!-- WORKSPACE -->
   <div class="workspace">
+
+    <!-- CANVAS -->
     <div class="canvas-area" id="cvArea">
       <div id="dz">
         <div class="dz-icon">🃏</div>
-        <div class="dz-title">Přetáhni sken sem</div>
-        <div class="dz-sub">nebo klikni na „Nahrát sken"</div>
-        <div class="dz-hint">JPG · PNG · WEBP &nbsp;·&nbsp; Stolní skener nebo fotka shora</div>
+        <div class="dz-title">Přetáhni sken nebo fotografii</div>
+        <div class="dz-sub">nebo klikni „Nahrát sken" nahoře</div>
+        <div class="dz-hint">JPG · PNG · WEBP &nbsp;·&nbsp; A4 sken nebo fotka shora</div>
       </div>
       <canvas id="ic"></canvas>
       <canvas id="oc"></canvas>
+      <!-- Loupe -->
+      <div id="loupe">
+        <canvas id="loupeCv" width="130" height="130"></canvas>
+        <div class="loupe-ring"></div>
+        <div class="loupe-xy" id="loupeXY">0,0</div>
+      </div>
     </div>
 
+    <!-- SIDE PANEL -->
     <div class="side">
-      <div class="section">
+
+      <!-- STATUS -->
+      <div class="sec">
+        <div id="statusEl" style="font-size:11px;color:var(--muted);line-height:1.4">Připraveno · nahraj sken</div>
+        <div class="prog-wrap" id="progWrap"><div class="prog-bar" id="progBar" style="width:0%"></div></div>
+      </div>
+
+      <!-- AI KEYS (auto-loaded from Supabase) -->
+      <div class="sec">
+        <h3>AI Klíče <div class="pill" id="keysPill">načítám…</div></h3>
+        <div class="key-grid">
+          <div class="key-badge" id="kb-gemini">Gemini <span>—</span></div>
+          <div class="key-badge" id="kb-groq">Groq <span>—</span></div>
+          <div class="key-badge" id="kb-xai">Grok/xAI <span>—</span></div>
+          <div class="key-badge" id="kb-mistral">Mistral <span>—</span></div>
+        </div>
+        <details>
+          <summary>⚙ Zadat klíče ručně (záloha)</summary>
+          <div style="margin-top:6px">
+            <input class="ai-key-inp" id="keyGemini" type="password" placeholder="AIzaSy… (Gemini)">
+            <input class="ai-key-inp" id="keyGroq"   type="password" placeholder="gsk_… (Groq)">
+            <input class="ai-key-inp" id="keyGrok"   type="password" placeholder="xai-… (Grok/xAI)">
+          </div>
+        </details>
+      </div>
+
+      <!-- ZONES -->
+      <div class="sec" style="padding-bottom:6px">
+        <h3>Zóny ořezu <div class="pill" id="zoneCount">0</div></h3>
+        <div style="display:flex;gap:5px">
+          <button class="btn" style="font-size:10px;flex:1" id="btnClearZones" disabled>🗑 Smazat vše</button>
+          <button class="btn" style="font-size:10px;flex:1" id="btnAutoRect" disabled>⊞ Celý obdélník</button>
+        </div>
+      </div>
+      <div class="zone-list" id="zoneList">
+        <div style="text-align:center;color:var(--muted);font-size:11px;padding:16px 0">Načtěte sken a přidejte zóny</div>
+      </div>
+
+      <!-- ENHANCEMENT -->
+      <div class="sec">
         <h3>Vylepšení obrazu</h3>
-        <div class="sl-row"><span class="sl-label">Jas</span><input type="range" id="sBr" min="-50" max="50" value="0" step="1"><span class="sl-val" id="vBr">0</span></div>
-        <div class="sl-row"><span class="sl-label">Kontrast</span><input type="range" id="sCo" min="-50" max="80" value="15" step="1"><span class="sl-val" id="vCo">15</span></div>
-        <div class="sl-row"><span class="sl-label">Sytost</span><input type="range" id="sSa" min="-50" max="80" value="10" step="1"><span class="sl-val" id="vSa">10</span></div>
-        <div class="sl-row"><span class="sl-label">Ostrost</span><input type="range" id="sSh" min="0" max="100" value="40" step="1"><span class="sl-val" id="vSh">40</span></div>
+        <button class="ai-enhance-btn" id="btnAiEnhance" disabled>
+          <span class="aie-icon">✦</span> AI nastavení vylepšení
+        </button>
+        <div class="ai-prov-badge" id="aiEnhProv" style="display:none">· načítám ·</div>
+        <div class="ai-enhance-result" id="aiEnhResult"></div>
+        <div class="sl-row"><span class="sl-label">Jas</span><input type="range" id="sBr" min="-50" max="50" value="0"><span class="sl-val" id="vBr">0</span></div>
+        <div class="sl-row"><span class="sl-label">Kontrast</span><input type="range" id="sCo" min="-50" max="80" value="15"><span class="sl-val" id="vCo">15</span></div>
+        <div class="sl-row"><span class="sl-label">Sytost</span><input type="range" id="sSa" min="-50" max="80" value="10"><span class="sl-val" id="vSa">10</span></div>
+        <div class="sl-row"><span class="sl-label">Ostrost</span><input type="range" id="sSh" min="0" max="200" value="60"><span class="sl-val" id="vSh">60</span></div>
+        <div class="sl-row"><span class="sl-label">Stíny</span><input type="range" id="sShadow" min="0" max="100" value="25"><span class="sl-val" id="vShadow">25</span></div>
+        <div class="sl-row"><span class="sl-label">Odlesky</span><input type="range" id="sHL" min="0" max="100" value="30"><span class="sl-val" id="vHL">30</span></div>
       </div>
-      <div class="section grow">
-        <h3>Karty <span id="cardCount" style="color:var(--muted);font-weight:400">(0)</span></h3>
-        <div id="cardList" class="card-list"></div>
+
+      <!-- OUTPUT -->
+      <div class="sec">
+        <h3>Výstup</h3>
+        <div class="size-grid" id="sizeGrid">
+          <label class="size-opt"><input type="radio" name="sz" value="auto"> Auto (orig.)</label>
+          <label class="size-opt sel"><input type="radio" name="sz" value="600x840" checked> 600×840</label>
+          <label class="size-opt"><input type="radio" name="sz" value="744x1039"> 744×1039</label>
+          <label class="size-opt"><input type="radio" name="sz" value="1000x1400"> 1000×1400</label>
+        </div>
+        <div class="sl-row">
+          <span class="sl-label">Rádius</span>
+          <input type="range" id="sRadius" min="0" max="60" value="0">
+          <span class="sl-val" id="vRadius">0</span>
+        </div>
+        <div style="font-size:9px;color:var(--muted)">Zaoblení rohů (PNG s průhledností)</div>
       </div>
-      <div class="section" id="thumbSection" style="display:none;">
-        <h3>Zpracované · klikni pro stažení</h3>
-        <div id="thumbRow" class="thumb-row"></div>
+
+      <!-- PROCESS ACTIONS -->
+      <div class="sec">
+        <button class="btn btn-primary" id="processBtnSide" disabled style="width:100%;justify-content:center;margin-bottom:6px">⚡ Zpracovat vybrané zóny</button>
+        <button class="btn btn-success" id="exportBtnSide" disabled style="width:100%;justify-content:center;margin-bottom:4px">📦 Stáhnout ZIP</button>
+        <button class="btn btn-success" id="sendQueueBtnSide" disabled style="width:100%;justify-content:center;margin-bottom:6px">🚀 Poslat do fronty</button>
+        <button class="btn" style="width:100%;justify-content:center;font-size:10px;color:#fca5a5;border-color:rgba(239,68,68,.25)" id="btnReset">✕ Nový sken</button>
       </div>
+
+      <!-- RESULTS THUMBS -->
+      <div class="sec" id="thumbSection" style="display:none">
+        <h3>Výsledky <div class="pill" id="thumbCount">0</div></h3>
+        <div class="thumb-grid" id="thumbGrid"></div>
+      </div>
+
     </div>
   </div>
 
   <div class="status">
     <div id="spin" class="spin"></div>
-    <span id="statusMsg">Připraveno · nahraj sken obrázku</span>
-    <span id="dimInfo" style="margin-left:auto;font-size:11px;"></span>
+    <span id="statusMsg">Připraveno · nahraj sken obrázku s kartami</span>
+    <span id="dimInfo2" style="margin-left:auto;font-size:10px;font-family:'DM Mono'"></span>
   </div>
 </div>
 
-<!-- ALBUM IMPORT MODAL -->
+<!-- ALBUM MODAL -->
 <div id="albumModal">
   <div class="album-modal-box">
     <div class="album-modal-head">
-      <h2>🖼️ Načíst kartu z alba</h2>
-      <button onclick="closeAlbumModal()" class="btn btn-ghost btn-sm">✕ Zavřít</button>
+      <h2>🖼 Načíst kartu z alba</h2>
+      <button onclick="closeAlbumModal()" class="btn">✕ Zavřít</button>
     </div>
     <div class="album-modal-search">
       <input id="albumSearch" type="text" placeholder="🔍 Hledat podle názvu karty…" autocomplete="off">
@@ -436,1204 +411,1067 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   </div>
 </div>
 
+<!-- PREVIEW MODAL -->
+<div id="prevModal">
+  <div class="prev-box">
+    <h2 id="prevTitle">Karta #1</h2>
+    <div id="prevImgWrap"><img id="prevImg" alt=""></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="btnPrevDl">⬇ Stáhnout</button>
+      <button class="btn" style="color:#fca5a5" id="btnPrevDel">🗑 Smazat</button>
+      <button class="btn" id="btnPrevClose">✕ Zavřít</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALBUM RETURN BANNER -->
+<div id="albumReturnBanner">
+  <strong>📷 Album karta:</strong>
+  <span id="arbCardName">—</span>
+  <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:#ccc;cursor:pointer">
+    <input type="checkbox" id="setAsMainChk"> Nastavit jako hlavní foto
+  </label>
+  <button class="btn-save-album" onclick="arbSaveBack()">✅ Uložit zpět do alba</button>
+  <button class="btn-share-community" onclick="arbShareCommunity()">🌍 Sdílet do komunity</button>
+  <button onclick="arbDiscard()" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:15px;padding:2px 6px">✕</button>
+</div>
+
 <script>
+'use strict';
 /* ═══════════════════════════════════════════════════════════════════
-   BULK SCAN – VIP-only pro PokéTrade
-   ─────────────────────────────────────────────────────────────────
-   1. Access gate (Supabase JWT + email allowlist)
-   2. Pure-canvas detekce (primární, free, ~200ms)
-   3. AI fallback přes /api/groq (existující endpoint, Groq vision)
-   4. Manuální editace bounding boxů
-   5. Export: ZIP nebo přímo do photo_queue (queue.html)
+   BULK SCAN PRO — merged: queue · album · VIP gate · 4-corner zones
+   · perspective homography · Supabase key loading · Gemini/Groq/Grok
 ═══════════════════════════════════════════════════════════════════ */
 
 const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
 
 const VIP_EMAILS = [
-  'adelka.papezova@gmail.com',
-  'james.t.kirk1933@gmail.com',
-  'lasovlas@seznam.cz',
-  'loydtest@gmail.com',
-  'pan.spock30@gmail.com',
-  'pokecards.app.info@gmail.com',
-  'papez.ondrej@gmail.com',
+  'adelka.papezova@gmail.com','james.t.kirk1933@gmail.com','lasovlas@seznam.cz',
+  'loydtest@gmail.com','pan.spock30@gmail.com','pokecards.app.info@gmail.com','papez.ondrej@gmail.com',
 ];
 
-const URL_PARAMS = new URLSearchParams(location.search);
-const RETURN_TO  = URL_PARAMS.get('return') || '';
-
+const ZONE_COLORS = ['#f5c842','#6ea0ff','#2dd4bf','#f472b6','#a78bfa','#fb923c','#4ade80','#f87171','#38bdf8','#fbbf24'];
+const URL_PARAMS  = new URLSearchParams(location.search);
+const RETURN_TO   = URL_PARAMS.get('return') || '';
 let TOKEN = null, USER_ID = null, USER_EMAIL = '';
 
-/** Najde skutečný user access token (role='authenticated') ve všech localStorage klíčích */
-function readStoredToken() {
-  const candidates = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    const val = localStorage.getItem(key);
-    if (!val) continue;
-    if (val.startsWith('eyJ') && val.includes('.')) {
-      candidates.push({ key, token: val, score: key === 'sb_token' ? 10 : 1 });
-    } else if (val.startsWith('{')) {
-      try {
-        const obj = JSON.parse(val);
-        const at = obj?.access_token || obj?.currentSession?.access_token;
-        const rt = obj?.refresh_token || obj?.currentSession?.refresh_token;
-        if (at && at.startsWith('eyJ')) {
-          candidates.push({ key, token: at, refreshToken: rt, obj, score: key.includes('auth-token') ? 20 : 5 });
-        }
-      } catch(e) {}
-    }
-  }
-  function getRole(t) {
-    try { return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role || ''; } catch { return ''; }
-  }
-  const userTokens = candidates.filter(c => getRole(c.token) === 'authenticated');
-  if (!userTokens.length) return null;
-  userTokens.sort((a, b) => b.score - a.score);
-  const best = userTokens[0];
+// ── AI keys (loaded from Supabase user_api_keys) ──────────────────
+const _keys = { gemini:[], groq:[], xai:[], mistral:[], _idx:{} };
+function parseKeys(v){ return v ? v.split(',').map(k=>k.trim()).filter(Boolean) : []; }
+function pickKey(p){ const a=_keys[p]; if(!a?.length) return null; const i=(_keys._idx[p]||0)%a.length; _keys._idx[p]=i+1; return a[i]; }
+function setKeyBadge(id,n){ const e=document.getElementById('kb-'+id); if(!e) return; e.className='key-badge'+(n>0?' ok':' err'); e.querySelector('span').textContent=n>0?(n>1?n+' klíčů':'1 klíč'):'chybí'; }
+
+async function loadKeysFromSupabase(){
+  document.getElementById('keysPill').textContent='načítám…';
+  const uid = USER_ID || (() => { try { return JSON.parse(localStorage.getItem('pkc_online_session')||'{}').userId; } catch{return null;} })();
+  if (!uid) { document.getElementById('keysPill').textContent='nepřihlášen'; checkManualKeys(); return; }
   try {
-    localStorage.setItem('sb_token', best.token);
-    if (best.refreshToken) localStorage.setItem('sb_refresh_token', best.refreshToken);
-    if (best.obj) {
-      const u = best.obj.user || best.obj.currentSession?.user;
-      if (u) { localStorage.setItem('sb_user', JSON.stringify(u)); localStorage.setItem('sb_email', u.email||''); localStorage.setItem('sb_user_id', u.id||''); }
-    }
-  } catch(e) {}
+    const tok = TOKEN || SUPABASE_ANON;
+    const r = await fetch(`${SUPABASE_URL}/rest/v1/user_api_keys?user_id=eq.${uid}&select=groq_key,gemini_key,xai_key,mistral_key&limit=1`,
+      {headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+tok}});
+    if (!r.ok) throw new Error(r.status);
+    const rows = await r.json(); const row = rows[0]||{};
+    _keys.groq   = parseKeys(row.groq_key);
+    _keys.gemini = parseKeys(row.gemini_key);
+    _keys.xai    = parseKeys(row.xai_key);
+    _keys.mistral= parseKeys(row.mistral_key);
+    setKeyBadge('gemini',_keys.gemini.length); setKeyBadge('groq',_keys.groq.length);
+    setKeyBadge('xai',_keys.xai.length);       setKeyBadge('mistral',_keys.mistral.length);
+    const total=_keys.gemini.length+_keys.groq.length+_keys.xai.length+_keys.mistral.length;
+    document.getElementById('keysPill').textContent=total>0?total+' klíčů':'žádné';
+  } catch(e){ document.getElementById('keysPill').textContent='chyba'; checkManualKeys(); }
+}
+function checkManualKeys(){
+  const g=document.getElementById('keyGemini')?.value.trim();
+  const r=document.getElementById('keyGroq')?.value.trim();
+  const x=document.getElementById('keyGrok')?.value.trim();
+  if(g)_keys.gemini=[g]; if(r)_keys.groq=[r]; if(x)_keys.xai=[x];
+  setKeyBadge('gemini',_keys.gemini.length); setKeyBadge('groq',_keys.groq.length); setKeyBadge('xai',_keys.xai.length);
+}
+['keyGemini','keyGroq','keyGrok'].forEach(id=>{
+  document.getElementById(id)?.addEventListener('input',checkManualKeys);
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════════════════
+function readStoredToken(){
+  const candidates=[];
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i); if(!key) continue;
+    const val=localStorage.getItem(key); if(!val) continue;
+    if(val.startsWith('eyJ')&&val.includes('.'))candidates.push({key,token:val,score:key==='sb_token'?10:1});
+    else if(val.startsWith('{')){try{const o=JSON.parse(val);const at=o?.access_token||o?.currentSession?.access_token;const rt=o?.refresh_token||o?.currentSession?.refresh_token;if(at?.startsWith('eyJ'))candidates.push({key,token:at,refreshToken:rt,obj:o,score:key.includes('auth-token')?20:5});}catch(e){}}
+  }
+  function getRole(t){try{return JSON.parse(atob(t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).role||'';}catch{return '';}}
+  const userTokens=candidates.filter(c=>getRole(c.token)==='authenticated');
+  if(!userTokens.length)return null;
+  userTokens.sort((a,b)=>b.score-a.score);
+  const best=userTokens[0];
+  try{localStorage.setItem('sb_token',best.token);if(best.refreshToken)localStorage.setItem('sb_refresh_token',best.refreshToken);if(best.obj){const u=best.obj.user||best.obj.currentSession?.user;if(u){localStorage.setItem('sb_user',JSON.stringify(u));localStorage.setItem('sb_email',u.email||'');localStorage.setItem('sb_user_id',u.id||'');}}}catch(e){}
   return best.token;
 }
 
-/* ── Toast helper ─────────────────────────────────────── */
-function toast(msg, type = '') {
-  const t = document.createElement('div');
-  t.className = 'toast' + (type ? ' ' + type : '');
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3000);
+function toast(msg,type=''){const t=document.createElement('div');t.className='toast'+(type?' '+type:'');t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),3200);}
+
+(async function checkAccess(){
+  const gate=document.getElementById('accessGate');
+  TOKEN=readStoredToken();
+  let sbUser=(()=>{try{return JSON.parse(localStorage.getItem('sb_user')||'null');}catch{return null;}})();
+  if(!sbUser&&TOKEN){try{const r=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN}});if(r.ok){sbUser=await r.json();try{localStorage.setItem('sb_user',JSON.stringify(sbUser));}catch(e){}}}catch(e){}}
+  USER_ID=sbUser?.id||localStorage.getItem('sb_user_id')||'';
+  USER_EMAIL=((sbUser?.email)||'').toLowerCase();
+  if(!TOKEN||!USER_ID){gate.innerHTML=`<div class="gate-card"><div class="gate-icon">🔒</div><h2>Nejsi přihlášen</h2><p>Bulk Scan Pro vyžaduje přihlášení.</p><a href="login.html?return=bulk-scan.html">Přihlásit se</a></div>`;return;}
+  let isVip=VIP_EMAILS.includes(USER_EMAIL);
+  if(!isVip&&USER_ID){try{const r=await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+USER_ID+'&select=is_vip,vip_until',{headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN}});if(r.ok){const d=await r.json();if(d&&d[0]){const p=d[0];isVip=p.is_vip===true||(p.vip_until&&new Date(p.vip_until)>new Date());}}}catch(e){}}
+  if(!isVip){gate.innerHTML=`<div class="gate-card"><div class="gate-icon">⭐</div><h2>Bulk Scan je VIP</h2><p>Dostupné pouze pro VIP účty.</p><a href="${RETURN_TO==='queue'?'queue.html':'/'}">← Zpět</a></div>`;return;}
+  await Promise.resolve();
+  gate.style.display='none';
+  document.getElementById('appRoot').style.visibility='visible';
+  if(RETURN_TO==='queue') document.getElementById('returnLink').style.display='';
+  initScanner();
+  setTimeout(loadKeysFromSupabase, 500);
+  initAlbumReturn();
+})();
+
+function doLogout(){['sb_token','sb_user','sb_refresh_token','sb_user_id','sb_email','sb_username','pkc_avatar_local','pkc_online_session'].forEach(k=>{try{localStorage.removeItem(k);}catch(e){}});window.location.href='login.html';}
+
+// ══════════════════════════════════════════════════════════════════
+//  ZONE SYSTEM  (4-corner perspective zones)
+// ══════════════════════════════════════════════════════════════════
+let srcImg=null, zones=[], activeZoneIdx=-1, results=[], _zId=0;
+let dragInfo=null, addMode=false, addRectStart=null;
+
+// zone = { id, name, corners:[{x,y}×4 TL/TR/BL/BR in IMG pixels], persp:bool, done:false, dataURL:null }
+function makeZone(tl,tr,bl,br,persp=false){ return {id:++_zId,name:'Karta '+_zId,corners:[tl,tr,bl,br],persp,done:false,dataURL:null}; }
+function rectToZone(x,y,w,h){
+  return makeZone({x,y},{x:x+w,y},{x,y:y+h},{x:x+w,y:y+h},false);
 }
 
-/* ── ACCESS GATE ─────────────────────────────────────── */
-(async function checkAccess() {
-  const gate = document.getElementById('accessGate');
+// ══════════════════════════════════════════════════════════════════
+//  CANVAS / DISPLAY
+// ══════════════════════════════════════════════════════════════════
+let cvArea,dz,ic,oc,ctx,ovCtx,loupeDom,loupeCvEl,loupeCtx;
+let detectBtn,aiDetectBtn,addBtn,processBtn,exportBtn,sendQueueBtn;
+let statusMsgEl,spinEl,dimInfo;
 
-  TOKEN   = readStoredToken();
-  let sbUser = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
+const LOUPE_SIZE=130, LOUPE_ZOOM=4;
 
-  // Pokud chybí sb_user ale máme token, načti uživatele ze Supabase Auth
-  if (!sbUser && TOKEN) {
-    try {
-      const r = await fetch(SUPABASE_URL + '/auth/v1/user', {
-        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN }
-      });
-      if (r.ok) {
-        sbUser = await r.json();
-        try { localStorage.setItem('sb_user', JSON.stringify(sbUser)); } catch(e) {}
-      }
-    } catch(e) {}
-  }
+function initScanner(){
+  cvArea=document.getElementById('cvArea'); dz=document.getElementById('dz');
+  ic=document.getElementById('ic'); oc=document.getElementById('oc');
+  ctx=ic.getContext('2d'); ovCtx=oc.getContext('2d');
+  loupeDom=document.getElementById('loupe'); loupeCvEl=document.getElementById('loupeCv');
+  loupeCtx=loupeCvEl.getContext('2d');
+  detectBtn=document.getElementById('detectBtn'); aiDetectBtn=document.getElementById('aiDetectBtn');
+  addBtn=document.getElementById('addBtn'); processBtn=document.getElementById('processBtn');
+  exportBtn=document.getElementById('exportBtn'); sendQueueBtn=document.getElementById('sendQueueBtn');
+  statusMsgEl=document.getElementById('statusMsg'); spinEl=document.getElementById('spin');
+  dimInfo=document.getElementById('dimInfo');
+  resizeCanvases(); bindEvents();
 
-  USER_ID    = (sbUser && sbUser.id) || localStorage.getItem('sb_user_id') || '';
-  USER_EMAIL = ((sbUser && sbUser.email) || '').toLowerCase();
+  // Wire side-panel buttons to header buttons
+  document.getElementById('processBtnSide').addEventListener('click',()=>processBtn.click());
+  document.getElementById('exportBtnSide').addEventListener('click',()=>exportBtn.click());
+  document.getElementById('sendQueueBtnSide').addEventListener('click',()=>sendQueueBtn.click());
 
-  if (!TOKEN || !USER_ID) {
-    gate.innerHTML = `
-      <div class="gate-card">
-        <div class="gate-icon">🔒</div>
-        <h2>Nejsi přihlášen</h2>
-        <p>Bulk scanner vyžaduje přihlášení k tvému PokéTrade účtu.</p>
-        <a href="login.html?return=bulk-scan.html">Přihlásit se</a>
-      </div>`;
-    return;
-  }
+  // Wire sliders
+  [['sBr','vBr'],['sCo','vCo'],['sSa','vSa'],['sSh','vSh'],['sShadow','vShadow'],['sHL','vHL'],['sRadius','vRadius']].forEach(([s,v])=>{
+    document.getElementById(s).addEventListener('input',()=>document.getElementById(v).textContent=document.getElementById(s).value);
+  });
 
-  // 1. Rychlý check přes hardcoded email list
-  let isVip = VIP_EMAILS.includes(USER_EMAIL);
+  // Size options
+  document.querySelectorAll('.size-opt').forEach(opt=>{
+    opt.querySelector('input').addEventListener('change',()=>{
+      document.querySelectorAll('.size-opt').forEach(o=>o.classList.remove('sel')); opt.classList.add('sel');
+    });
+  });
 
-  // 2. Fallback: zeptej se Supabase (dynamický VIP status z DB)
-  if (!isVip && USER_ID) {
-    try {
-      const r = await fetch(
-        SUPABASE_URL + '/rest/v1/profiles?id=eq.' + USER_ID + '&select=is_vip,vip_until',
-        { headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN } }
-      );
-      if (r.ok) {
-        const d = await r.json();
-        if (d && d[0]) {
-          const p = d[0];
-          isVip = p.is_vip === true || (p.vip_until && new Date(p.vip_until) > new Date());
-        }
-      }
-    } catch(e) {}
-  }
+  // Zone buttons
+  document.getElementById('btnClearZones').addEventListener('click',()=>{zones=[];activeZoneIdx=-1;renderZoneList();drawOverlay();st('Zóny vymazány');});
+  document.getElementById('btnAutoRect').addEventListener('click',()=>{if(!srcImg)return;const p=0.03;zones=[rectToZone(srcImg.naturalWidth*p,srcImg.naturalHeight*p,srcImg.naturalWidth*(1-2*p),srcImg.naturalHeight*(1-2*p))];activeZoneIdx=0;renderZoneList();drawOverlay();});
 
-  if (!isVip) {
-    gate.innerHTML = `
-      <div class="gate-card">
-        <div class="gate-icon">⭐</div>
-        <h2>Bulk scanner je VIP</h2>
-        <p>
-          Tato stránka umožňuje hromadné skenování až 50 karet z jednoho
-          obrázku najednou — proto je dostupná pouze pro VIP účty.
-        </p>
-        <a href="${RETURN_TO === 'queue' ? 'queue.html' : '/'}">← Zpět</a>
-      </div>`;
-    return;
-  }
-
-  // Pojistka: vždy yield před initScanner(), i když žádný await neproběhl
-  await Promise.resolve();
-
-  // Ověřeno → ukaž app
-  gate.style.display = 'none';
-  document.getElementById('appRoot').style.visibility = 'visible';
-  if (RETURN_TO === 'queue') {
-    document.getElementById('returnLink').style.display = '';
-  }
-  initScanner();
-})();
-/* ═══════════════════════════════════════════════════════════════════
-   SCANNER CORE
-═══════════════════════════════════════════════════════════════════ */
-
-let srcImg = null, cards = [], selCard = null, addMode = false;
-let addRect = null, drag = null, processed = [];
-
-let cvArea, dz, ic, oc, ctx, ovCtx;
-let detectBtn, aiDetectBtn, addBtn, processBtn, exportBtn, sendQueueBtn;
-let cardListEl, cardCountEl, statusMsg, spinEl, dimInfo, thumbRow, thumbSection;
-
-function initScanner() {
-  cvArea       = document.getElementById('cvArea');
-  dz           = document.getElementById('dz');
-  ic           = document.getElementById('ic');
-  oc           = document.getElementById('oc');
-  ctx          = ic.getContext('2d');
-  ovCtx        = oc.getContext('2d');
-  detectBtn    = document.getElementById('detectBtn');
-  aiDetectBtn  = document.getElementById('aiDetectBtn');
-  addBtn       = document.getElementById('addBtn');
-  processBtn   = document.getElementById('processBtn');
-  exportBtn    = document.getElementById('exportBtn');
-  sendQueueBtn = document.getElementById('sendQueueBtn');
-  cardListEl   = document.getElementById('cardList');
-  cardCountEl  = document.getElementById('cardCount');
-  statusMsg    = document.getElementById('statusMsg');
-  spinEl       = document.getElementById('spin');
-  dimInfo      = document.getElementById('dimInfo');
-  thumbRow     = document.getElementById('thumbRow');
-  thumbSection = document.getElementById('thumbSection');
-
-  resizeCanvases();
-  bindEvents();
   st('Připraveno · nahraj sken obrázku s kartami');
 }
 
-/* ── Helpers ─────────────────────────────────────────── */
-function st(msg, spin = false) {
-  statusMsg.textContent = msg;
-  spinEl.style.display = spin ? 'block' : 'none';
-}
-function getTx() {
-  if (!srcImg) return { ox: 0, oy: 0, sc: 1 };
-  const cw = ic.width, ch = ic.height;
-  const iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-  const sc = Math.min(cw / iw, ch / ih, 1);
-  return { ox: (cw - iw * sc) / 2, oy: (ch - ih * sc) / 2, sc };
-}
-function imgPx(x, y)  { const { ox, oy, sc } = getTx(); return { x: x * sc + ox, y: y * sc + oy }; }
-function cvPx(mx, my) { const { ox, oy, sc } = getTx(); return { x: (mx - ox) / sc, y: (my - oy) / sc }; }
+function st(msg,spin=false){ statusMsgEl.textContent=msg; spinEl.style.display=spin?'block':'none'; }
 
-function resizeCanvases() {
-  const w = cvArea.clientWidth, h = cvArea.clientHeight;
-  ic.width  = oc.width  = w;
-  ic.height = oc.height = h;
-  ic.style.width = oc.style.width = w + 'px';
-  ic.style.height = oc.style.height = h + 'px';
+function getTx(){
+  if(!srcImg) return {ox:0,oy:0,sc:1};
+  const cw=ic.width,ch=ic.height,iw=srcImg.naturalWidth,ih=srcImg.naturalHeight;
+  const sc=Math.min(cw/iw,ch/ih,1);
+  return {ox:(cw-iw*sc)/2,oy:(ch-ih*sc)/2,sc};
+}
+function i2d(c){ const{ox,oy,sc}=getTx(); return{x:c.x*sc+ox,y:c.y*sc+oy}; }
+function d2i(d){ const{ox,oy,sc}=getTx(); return{x:(d.x-ox)/sc,y:(d.y-oy)/sc}; }
+function clampImg(p){ return{x:Math.max(0,Math.min(srcImg.naturalWidth,p.x)),y:Math.max(0,Math.min(srcImg.naturalHeight,p.y))}; }
+
+function resizeCanvases(){
+  const w=cvArea.clientWidth,h=cvArea.clientHeight;
+  ic.width=oc.width=w; ic.height=oc.height=h;
+  ic.style.width=oc.style.width=w+'px'; ic.style.height=oc.style.height=h+'px';
   renderAll();
 }
 
-/* ── RENDER ──────────────────────────────────────────── */
-function renderAll() {
-  const w = ic.width, h = ic.height;
-  ctx.clearRect(0, 0, w, h);
-  ovCtx.clearRect(0, 0, w, h);
-  if (!srcImg) return;
-  const { ox, oy, sc } = getTx();
-  ctx.drawImage(srcImg, ox, oy, srcImg.naturalWidth * sc, srcImg.naturalHeight * sc);
-  cards.forEach((c, i) => drawCard(c, i));
-  if (addRect) {
-    const p1 = imgPx(addRect.x1, addRect.y1), p2 = imgPx(addRect.x2, addRect.y2);
-    ovCtx.strokeStyle = 'rgba(245,200,66,0.85)';
-    ovCtx.lineWidth = 1.5;
-    ovCtx.setLineDash([4, 3]);
-    ovCtx.strokeRect(Math.min(p1.x, p2.x), Math.min(p1.y, p2.y), Math.abs(p2.x - p1.x), Math.abs(p2.y - p1.y));
+function renderAll(){
+  const w=ic.width,h=ic.height;
+  ctx.clearRect(0,0,w,h); ovCtx.clearRect(0,0,w,h);
+  if(!srcImg)return;
+  const{ox,oy,sc}=getTx();
+  ctx.drawImage(srcImg,ox,oy,srcImg.naturalWidth*sc,srcImg.naturalHeight*sc);
+  // Draw add mode rect
+  if(addMode&&addRectStart){
+    const p1=i2d(addRectStart), p2=i2d(addRectCur||addRectStart);
+    ovCtx.strokeStyle='rgba(245,200,66,.8)'; ovCtx.lineWidth=1.5; ovCtx.setLineDash([4,3]);
+    ovCtx.strokeRect(Math.min(p1.x,p2.x),Math.min(p1.y,p2.y),Math.abs(p2.x-p1.x),Math.abs(p2.y-p1.y));
     ovCtx.setLineDash([]);
   }
+  drawOverlay();
 }
+let addRectCur=null;
 
-function drawCard(card, i) {
-  const { sc, ox, oy } = getTx();
-  const iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-  const px = card.x * iw * sc + ox, py = card.y * ih * sc + oy;
-  const pw = card.w * iw * sc,      ph = card.h * ih * sc;
-  const sel = card === selCard;
-  ovCtx.fillStyle   = sel ? 'rgba(245,200,66,0.13)' : 'rgba(110,160,255,0.08)';
-  ovCtx.fillRect(px, py, pw, ph);
-  ovCtx.strokeStyle = sel ? '#f5c842' : '#6ea0ff';
-  ovCtx.lineWidth   = sel ? 2 : 1.5;
-  ovCtx.strokeRect(px, py, pw, ph);
-  // Badge
-  ovCtx.fillStyle = sel ? '#f5c842' : '#6ea0ff';
-  ovCtx.beginPath(); ovCtx.arc(px + 13, py + 13, 11, 0, Math.PI * 2); ovCtx.fill();
-  ovCtx.fillStyle = sel ? '#1a1208' : '#fff';
-  ovCtx.font = 'bold 11px DM Sans, sans-serif';
-  ovCtx.textAlign = 'center'; ovCtx.textBaseline = 'middle';
-  ovCtx.fillText(i + 1, px + 13, py + 13);
-  if (sel) {
-    const pts = [
-      [px, py], [px + pw, py], [px + pw, py + ph], [px, py + ph],
-      [px + pw / 2, py], [px + pw, py + ph / 2], [px + pw / 2, py + ph], [px, py + ph / 2]
-    ];
-    pts.forEach(([hx, hy]) => {
-      ovCtx.fillStyle = '#f5c842';
-      ovCtx.beginPath(); ovCtx.arc(hx, hy, 5, 0, Math.PI * 2); ovCtx.fill();
-      ovCtx.strokeStyle = '#000'; ovCtx.lineWidth = 1; ovCtx.stroke();
+function drawOverlay(){
+  ovCtx.clearRect(0,0,oc.width,oc.height);
+  if(!srcImg||!zones.length)return;
+  zones.forEach((z,zi)=>{
+    const col=ZONE_COLORS[zi%ZONE_COLORS.length];
+    const dp=z.corners.map(c=>i2d(c));
+    const isActive=(zi===activeZoneIdx);
+    // Darken outside active zone
+    if(isActive){
+      ovCtx.save(); ovCtx.fillStyle='rgba(0,0,0,.38)'; ovCtx.fillRect(0,0,oc.width,oc.height);
+      ovCtx.globalCompositeOperation='destination-out';
+      ovCtx.beginPath(); ovCtx.moveTo(dp[0].x,dp[0].y); ovCtx.lineTo(dp[1].x,dp[1].y);
+      ovCtx.lineTo(dp[3].x,dp[3].y); ovCtx.lineTo(dp[2].x,dp[2].y); ovCtx.closePath(); ovCtx.fill();
+      ovCtx.restore();
+    }
+    // Quad outline
+    ovCtx.save(); ovCtx.strokeStyle=col; ovCtx.lineWidth=isActive?2:1.5;
+    ovCtx.globalAlpha=isActive?1:.65; ovCtx.setLineDash(isActive?[]:[5,4]);
+    ovCtx.beginPath(); ovCtx.moveTo(dp[0].x,dp[0].y); ovCtx.lineTo(dp[1].x,dp[1].y);
+    ovCtx.lineTo(dp[3].x,dp[3].y); ovCtx.lineTo(dp[2].x,dp[2].y); ovCtx.closePath(); ovCtx.stroke();
+    ovCtx.setLineDash([]);
+    // Number badge
+    const cx=(dp[0].x+dp[1].x+dp[2].x+dp[3].x)/4, cy=(dp[0].y+dp[1].y+dp[2].y+dp[3].y)/4;
+    ovCtx.globalAlpha=1; ovCtx.fillStyle=col; ovCtx.beginPath(); ovCtx.arc(cx,cy,isActive?14:10,0,Math.PI*2); ovCtx.fill();
+    ovCtx.fillStyle='#0a0608'; ovCtx.font=`bold ${isActive?11:9}px Unbounded,sans-serif`;
+    ovCtx.textAlign='center'; ovCtx.textBaseline='middle'; ovCtx.fillText(zi+1,cx,cy+1);
+    // Corner handles
+    dp.forEach(p=>{
+      ovCtx.strokeStyle=col; ovCtx.fillStyle=isActive?'rgba(245,200,66,.2)':'rgba(0,0,0,.4)';
+      ovCtx.lineWidth=isActive?2:1.5; const r=isActive?7:5;
+      ovCtx.beginPath(); ovCtx.arc(p.x,p.y,r,0,Math.PI*2); ovCtx.fill(); ovCtx.stroke();
     });
+    // Done indicator
+    if(z.done){ ovCtx.fillStyle='rgba(34,197,94,.7)'; ovCtx.beginPath(); ovCtx.arc(dp[1].x-5,dp[0].y+5,6,0,Math.PI*2); ovCtx.fill(); ovCtx.fillStyle='#fff'; ovCtx.font='bold 8px sans-serif'; ovCtx.textAlign='center'; ovCtx.textBaseline='middle'; ovCtx.fillText('✓',dp[1].x-5,dp[0].y+5); }
+    ovCtx.restore();
+  });
+}
+
+// ── LOUPE ──────────────────────────────────────────────────────
+function showLoupe(areaX,areaY,imgPt){
+  const dp=i2d(imgPt); const r=LOUPE_SIZE/(2*LOUPE_ZOOM);
+  loupeCtx.clearRect(0,0,LOUPE_SIZE,LOUPE_SIZE);
+  loupeCtx.save(); loupeCtx.beginPath(); loupeCtx.arc(LOUPE_SIZE/2,LOUPE_SIZE/2,LOUPE_SIZE/2-1,0,Math.PI*2); loupeCtx.clip();
+  loupeCtx.drawImage(ic,dp.x-r,dp.y-r,r*2,r*2,0,0,LOUPE_SIZE,LOUPE_SIZE);
+  loupeCtx.strokeStyle='rgba(245,200,66,.9)'; loupeCtx.lineWidth=1.5;
+  loupeCtx.beginPath(); loupeCtx.moveTo(LOUPE_SIZE/2,0); loupeCtx.lineTo(LOUPE_SIZE/2,LOUPE_SIZE); loupeCtx.moveTo(0,LOUPE_SIZE/2); loupeCtx.lineTo(LOUPE_SIZE,LOUPE_SIZE/2); loupeCtx.stroke();
+  loupeCtx.fillStyle='rgba(245,200,66,.9)'; loupeCtx.beginPath(); loupeCtx.arc(LOUPE_SIZE/2,LOUPE_SIZE/2,2.5,0,Math.PI*2); loupeCtx.fill();
+  loupeCtx.restore();
+  document.getElementById('loupeXY').textContent=`${Math.round(imgPt.x)}, ${Math.round(imgPt.y)}`;
+  const ar=cvArea.getBoundingClientRect();
+  let lx=areaX+24,ly=areaY-LOUPE_SIZE-24;
+  if(lx+LOUPE_SIZE+10>ar.width)lx=areaX-LOUPE_SIZE-24; if(ly<4)ly=areaY+24;
+  loupeDom.style.left=lx+'px'; loupeDom.style.top=ly+'px'; loupeDom.classList.add('vis');
+}
+function hideLoupe(){ loupeDom.classList.remove('vis'); }
+
+// ── INTERACTION ─────────────────────────────────────────────────
+const HANDLE_HIT = 12; // px
+
+function findNearestHandle(dx,dy){
+  let best=null,bestDist=HANDLE_HIT*2;
+  const order=activeZoneIdx>=0?[activeZoneIdx,...zones.map((_,i)=>i).filter(i=>i!==activeZoneIdx)]:zones.map((_,i)=>i);
+  for(const zi of order){
+    zones[zi].corners.forEach((c,ci)=>{
+      const dp=i2d(c), dist=Math.hypot(dx-dp.x,dy-dp.y);
+      if(dist<bestDist){bestDist=dist;best={zi,ci};}
+    });
+    if(best?.zi===activeZoneIdx)break;
   }
+  return best;
 }
 
-/* ── INTERACTION (move/resize/add) ───────────────────── */
-function getHandle(mx, my) {
-  if (!selCard) return null;
-  const { sc, ox, oy } = getTx(), iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-  const px = selCard.x * iw * sc + ox, py = selCard.y * ih * sc + oy;
-  const pw = selCard.w * iw * sc,      ph = selCard.h * ih * sc;
-  const pts = [
-    { x: px, y: py, h: 'TL' }, { x: px+pw, y: py, h: 'TR' },
-    { x: px+pw, y: py+ph, h: 'BR' }, { x: px, y: py+ph, h: 'BL' },
-    { x: px+pw/2, y: py, h: 'T' }, { x: px+pw, y: py+ph/2, h: 'R' },
-    { x: px+pw/2, y: py+ph, h: 'B' }, { x: px, y: py+ph/2, h: 'L' },
-  ];
-  return pts.find(p => (mx - p.x) ** 2 + (my - p.y) ** 2 <= 64) || null;
-}
-function cardAt(mx, my) {
-  const { sc, ox, oy } = getTx(), iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-  for (let i = cards.length - 1; i >= 0; i--) {
-    const c = cards[i];
-    const px = c.x * iw * sc + ox, py = c.y * ih * sc + oy;
-    if (mx >= px && mx <= px + c.w * iw * sc && my >= py && my <= py + c.h * ih * sc) return c;
-  }
-  return null;
+function bindEvents(){
+  document.getElementById('fi').addEventListener('change',e=>loadImage(e.target.files[0]));
+  cvArea.addEventListener('dragover',e=>{e.preventDefault();cvArea.classList.add('drag-over');});
+  cvArea.addEventListener('dragleave',()=>cvArea.classList.remove('drag-over'));
+  cvArea.addEventListener('drop',e=>{e.preventDefault();cvArea.classList.remove('drag-over');if(e.dataTransfer.files[0]?.type.startsWith('image/'))loadImage(e.dataTransfer.files[0]);});
+  dz.addEventListener('click',()=>document.getElementById('fi').click());
+  detectBtn.addEventListener('click',detectCanvasMethod);
+  aiDetectBtn.addEventListener('click',detectAIMethod);
+  addBtn.addEventListener('click',toggleAddMode);
+  processBtn.addEventListener('click',processAllZones);
+  exportBtn.addEventListener('click',exportZip);
+  sendQueueBtn.addEventListener('click',sendToQueue);
+  document.getElementById('albumImportBtn').addEventListener('click',openAlbumModal);
+  document.getElementById('btnReset').addEventListener('click',resetAll);
+  window.addEventListener('resize',resizeCanvases);
+
+  oc.addEventListener('mousedown',onDown);
+  oc.addEventListener('touchstart',onDown,{passive:false});
+  oc.addEventListener('mousemove',onMove2);
+  oc.addEventListener('mouseup',onUp2);
 }
 
-function bindEvents() {
-  oc.addEventListener('mousedown', e => {
-    const r = oc.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
-    if (addMode) { const p = cvPx(mx, my); addRect = { x1: p.x, y1: p.y, x2: p.x, y2: p.y }; return; }
-    const h = getHandle(mx, my);
-    if (h) { drag = { type: 'handle', h, card: selCard, orig: { ...selCard }, sx: mx, sy: my }; return; }
-    const c = cardAt(mx, my);
-    if (c) { selCard = c; drag = { type: 'move', card: c, orig: { ...c }, sx: mx, sy: my }; renderAll(); updateList(); return; }
-    selCard = null; renderAll(); updateList();
-  });
+function getEvPt(e){ const r=oc.getBoundingClientRect(); const p=e.touches?e.touches[0]:e; return{x:p.clientX-r.left,y:p.clientY-r.top}; }
 
-  oc.addEventListener('mousemove', e => {
-    const r = oc.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
-    if (addMode && addRect) { const p = cvPx(mx, my); addRect.x2 = p.x; addRect.y2 = p.y; renderAll(); return; }
-    if (!drag) {
-      const h = getHandle(mx, my);
-      oc.style.cursor = h ? 'crosshair' : cardAt(mx, my) ? 'move' : addMode ? 'crosshair' : 'default';
-      return;
-    }
-    const { sc } = getTx(), iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-    const dx = (mx - drag.sx) / (sc * iw), dy = (my - drag.sy) / (sc * ih);
-    const c = drag.card, o = drag.orig, mn = 0.03;
-    if (drag.type === 'move') {
-      c.x = Math.max(0, Math.min(1 - c.w, o.x + dx));
-      c.y = Math.max(0, Math.min(1 - c.h, o.y + dy));
-    } else {
-      const hh = drag.h.h;
-      if      (hh==='TL') { c.x=Math.min(o.x+o.w-mn,o.x+dx); c.y=Math.min(o.y+o.h-mn,o.y+dy); c.w=o.w-(c.x-o.x); c.h=o.h-(c.y-o.y); }
-      else if (hh==='TR') { c.w=Math.max(mn,o.w+dx); c.y=Math.min(o.y+o.h-mn,o.y+dy); c.h=o.h-(c.y-o.y); }
-      else if (hh==='BR') { c.w=Math.max(mn,o.w+dx); c.h=Math.max(mn,o.h+dy); }
-      else if (hh==='BL') { c.x=Math.min(o.x+o.w-mn,o.x+dx); c.w=o.w-(c.x-o.x); c.h=Math.max(mn,o.h+dy); }
-      else if (hh==='T')  { c.y=Math.min(o.y+o.h-mn,o.y+dy); c.h=o.h-(c.y-o.y); }
-      else if (hh==='B')  { c.h=Math.max(mn,o.h+dy); }
-      else if (hh==='L')  { c.x=Math.min(o.x+o.w-mn,o.x+dx); c.w=o.w-(c.x-o.x); }
-      else if (hh==='R')  { c.w=Math.max(mn,o.w+dx); }
-    }
-    renderAll();
-  });
-
-  oc.addEventListener('mouseup', () => {
-    if (addMode && addRect) {
-      const x1 = Math.min(addRect.x1, addRect.x2), y1 = Math.min(addRect.y1, addRect.y2);
-      const x2 = Math.max(addRect.x1, addRect.x2), y2 = Math.max(addRect.y1, addRect.y2);
-      const iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-      const w = (x2 - x1) / iw, h = (y2 - y1) / ih;
-      if (w > 0.03 && h > 0.03) {
-        const newCard = {
-          id: Date.now(), name: 'Karta ' + (cards.length + 1),
-          x: x1 / iw, y: y1 / ih, w, h
-        };
-        cards.push(newCard); selCard = newCard;
-        processBtn.disabled = false;
-        updateList();
-      }
-      addRect = null; renderAll();
-    }
-    drag = null;
-  });
-
-  document.getElementById('fi').addEventListener('change', e => loadImage(e.target.files[0]));
-  cvArea.addEventListener('dragover', e => { e.preventDefault(); });
-  cvArea.addEventListener('drop', e => { e.preventDefault(); loadImage(e.dataTransfer.files[0]); });
-  dz.addEventListener('click', () => document.getElementById('fi').click());
-
-  detectBtn.addEventListener('click', detectCanvasMethod);
-  aiDetectBtn.addEventListener('click', detectAIMethod);
-  addBtn.addEventListener('click', () => {
-    addMode = !addMode;
-    addBtn.textContent = addMode ? '❌ Zrušit' : '✏️ Přidat ručně';
-    addBtn.style.background = addMode ? 'rgba(239,68,68,0.18)' : '';
-    oc.style.cursor = addMode ? 'crosshair' : 'default';
-    st(addMode ? 'Nakresli obdélník kolem karty' : 'Připraveno');
-  });
-
-  processBtn.addEventListener('click', processAllCards);
-  exportBtn.addEventListener('click', exportZip);
-  sendQueueBtn.addEventListener('click', sendToQueue);
-
-  ['Br','Co','Sa','Sh'].forEach(k => {
-    const sl = document.getElementById('s' + k), val = document.getElementById('v' + k);
-    sl.addEventListener('input', () => val.textContent = sl.value);
-  });
-
-  window.addEventListener('resize', resizeCanvases);
-}
-
-/* ── LOAD IMAGE ──────────────────────────────────────── */
-function loadImage(file) {
-  if (!file || !file.type.startsWith('image/')) {
-    toast('Soubor není obrázek', 'error');
+function onDown(e){
+  e.preventDefault();
+  const{x,y}=getEvPt(e);
+  if(addMode){ addRectStart=clampImg(d2i({x,y})); addRectCur=addRectStart; return; }
+  const h=findNearestHandle(x,y);
+  if(h){
+    dragInfo=h; if(h.zi!==activeZoneIdx){activeZoneIdx=h.zi;renderZoneList();}
+    const onMv=ev=>{
+      ev.preventDefault();
+      const{x:ex,y:ey}=getEvPt(ev);
+      zones[dragInfo.zi].corners[dragInfo.ci]=clampImg(d2i({x:ex,y:ey}));
+      zones[dragInfo.zi].persp=true;
+      drawOverlay(); renderZoneList();
+      const ar=cvArea.getBoundingClientRect();
+      const pt=ev.touches?ev.touches[0]:ev;
+      showLoupe(pt.clientX-ar.left,pt.clientY-ar.top,zones[dragInfo.zi].corners[dragInfo.ci]);
+    };
+    const onUp=()=>{ dragInfo=null; hideLoupe(); document.removeEventListener('mousemove',onMv); document.removeEventListener('mouseup',onUp); document.removeEventListener('touchmove',onMv); document.removeEventListener('touchend',onUp); };
+    document.addEventListener('mousemove',onMv); document.addEventListener('mouseup',onUp);
+    document.addEventListener('touchmove',onMv,{passive:false}); document.addEventListener('touchend',onUp);
     return;
   }
-  const rd = new FileReader();
-  rd.onload = ev => {
-    const img = new Image();
-    img.onload = () => {
-      srcImg = img;
-      cards = []; selCard = null; processed = [];
-      dz.style.display = 'none';
-      detectBtn.disabled = aiDetectBtn.disabled = addBtn.disabled = false;
-      processBtn.disabled = exportBtn.disabled = sendQueueBtn.disabled = true;
-      thumbSection.style.display = 'none';
-      thumbRow.innerHTML = '';
-      dimInfo.textContent = img.naturalWidth + ' × ' + img.naturalHeight + ' px';
-      st('Obrázek načten · klikni „Detekovat karty"');
-      renderAll(); updateList();
+  // Click on zone body → select
+  zones.forEach((z,zi)=>{
+    const dp=z.corners.map(c=>i2d(c));
+    const xs=dp.map(p=>p.x),ys=dp.map(p=>p.y);
+    if(x>=Math.min(...xs)&&x<=Math.max(...xs)&&y>=Math.min(...ys)&&y<=Math.max(...ys)){activeZoneIdx=zi;renderZoneList();drawOverlay();}
+  });
+}
+function onMove2(e){
+  if(addMode&&addRectStart){
+    addRectCur=clampImg(d2i(getEvPt(e))); renderAll(); return;
+  }
+  const{x,y}=getEvPt(e);
+  const h=findNearestHandle(x,y);
+  oc.style.cursor=h?'crosshair':addMode?'crosshair':'default';
+}
+function onUp2(e){
+  if(addMode&&addRectStart&&addRectCur){
+    const x1=Math.min(addRectStart.x,addRectCur.x),y1=Math.min(addRectStart.y,addRectCur.y);
+    const x2=Math.max(addRectStart.x,addRectCur.x),y2=Math.max(addRectStart.y,addRectCur.y);
+    if(x2-x1>20&&y2-y1>20){
+      zones.push(rectToZone(x1,y1,x2-x1,y2-y1));
+      activeZoneIdx=zones.length-1; renderZoneList(); enableProcessBtns();
+      st(`Zóna #${zones.length} přidána`);
+    }
+    addRectStart=null; addRectCur=null; renderAll();
+    toggleAddMode();
+  }
+}
+function toggleAddMode(){
+  addMode=!addMode;
+  addBtn.textContent=addMode?'❌ Zrušit':'✏ Přidat zónu';
+  addBtn.style.background=addMode?'rgba(239,68,68,.18)':'';
+  oc.style.cursor=addMode?'crosshair':'default';
+  st(addMode?'Nakresli obdélník kolem karty':'Připraveno');
+}
+
+// ── ZONE LIST UI ──────────────────────────────────────────────
+function renderZoneList(){
+  const el=document.getElementById('zoneList');
+  const cnt=document.getElementById('zoneCount');
+  cnt.textContent=zones.length;
+  if(!zones.length){el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:11px;padding:14px 0">Načtěte sken a přidejte zóny</div>';return;}
+  el.innerHTML=zones.map((z,zi)=>{
+    const col=ZONE_COLORS[zi%ZONE_COLORS.length];
+    const c=z.corners; const cx=Math.round((c[0].x+c[3].x)/2),cy=Math.round((c[0].y+c[3].y)/2);
+    return`<div class="zone-item${zi===activeZoneIdx?' active':''}" style="--zc:${col}" onclick="selectZone(${zi})" data-zi="${zi}">
+      <div class="zone-dot" style="background:${col}"></div>
+      <span class="zone-num" style="color:${col}">#${zi+1}</span>
+      <span class="zone-coords">${Math.round(c[0].x)},${Math.round(c[0].y)} → ${Math.round(c[3].x)},${Math.round(c[3].y)}</span>
+      <span class="zone-mode${z.persp?' persp':''}">${z.persp?'persp':'rect'}</span>
+      <div class="zone-done${z.done?' vis':''}">✓</div>
+      <button class="zone-del" onclick="event.stopPropagation();removeZone(${zi})">✕</button>
+    </div>`;
+  }).join('');
+}
+function selectZone(zi){ activeZoneIdx=zi; renderZoneList(); drawOverlay(); }
+function removeZone(zi){ zones.splice(zi,1); if(activeZoneIdx>=zones.length)activeZoneIdx=zones.length-1; renderZoneList(); drawOverlay(); }
+function enableProcessBtns(){
+  processBtn.disabled=false; document.getElementById('processBtnSide').disabled=false;
+  document.getElementById('btnClearZones').disabled=false; document.getElementById('btnAutoRect').disabled=false;
+}
+
+// ── LOAD IMAGE ────────────────────────────────────────────────
+function loadImage(file){
+  if(!file||!file.type.startsWith('image/')){toast('Soubor není obrázek','error');return;}
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      srcImg=img; zones=[]; activeZoneIdx=-1; results=[]; addMode=false; oc.style.cursor='default';
+      dz.style.display='none';
+      detectBtn.disabled=aiDetectBtn.disabled=addBtn.disabled=false;
+      document.getElementById('btnAiEnhance').disabled=false;
+      processBtn.disabled=exportBtn.disabled=sendQueueBtn.disabled=true;
+      document.getElementById('processBtnSide').disabled=document.getElementById('exportBtnSide').disabled=document.getElementById('sendQueueBtnSide').disabled=true;
+      document.getElementById('thumbSection').style.display='none';
+      document.getElementById('thumbGrid').innerHTML='';
+      results=[];
+      dimInfo.textContent=img.naturalWidth+'×'+img.naturalHeight+'px';
+      document.getElementById('dimInfo2').textContent=img.naturalWidth+'×'+img.naturalHeight+'px';
+      st('Obrázek načten · klikni „Auto-detekce" nebo „AI detekce"');
+      resizeCanvases(); renderZoneList();
     };
-    img.src = ev.target.result;
+    img.src=ev.target.result;
   };
   rd.readAsDataURL(file);
 }
-/* ═══════════════════════════════════════════════════════════════════
-   DETECTION – pure-canvas (primary) + AI fallback
-═══════════════════════════════════════════════════════════════════ */
 
-/**
- * Pure-canvas detekce karet pomocí background subtraction
- * + connected component labeling. Pracuje na downsamplované verzi
- * pro rychlost (max 800px na delší straně), pak mapuje souřadnice zpět.
- *
- * Funguje na typický scanner output (karty na rovnoměrném pozadí).
- * Vrací: pole { x, y, w, h } v normalizovaných souřadnicích (0–1).
- */
-function detectCardsPureCanvas(srcImage) {
-  const MAX = 800;
-  const iw = srcImage.naturalWidth, ih = srcImage.naturalHeight;
-  const sc = Math.min(1, MAX / Math.max(iw, ih));
-  const w = Math.round(iw * sc), h = Math.round(ih * sc);
+function resetAll(){
+  srcImg=null; zones=[]; activeZoneIdx=-1; results=[];
+  dz.style.display=''; if(ctx)ctx.clearRect(0,0,ic.width,ic.height); if(ovCtx)ovCtx.clearRect(0,0,oc.width,oc.height);
+  ['detectBtn','aiDetectBtn','addBtn','processBtn','exportBtn','sendQueueBtn','btnAiEnhance'].forEach(id=>{document.getElementById(id).disabled=true;});
+  ['processBtnSide','exportBtnSide','sendQueueBtnSide','btnClearZones','btnAutoRect'].forEach(id=>{document.getElementById(id).disabled=true;});
+  document.getElementById('thumbSection').style.display='none';
+  dimInfo.textContent=''; document.getElementById('dimInfo2').textContent='';
+  renderZoneList(); st('Připraveno · nahraj sken');
+}
 
-  const tmp = document.createElement('canvas');
-  tmp.width = w; tmp.height = h;
-  const tctx = tmp.getContext('2d', { willReadFrequently: true });
-  tctx.drawImage(srcImage, 0, 0, w, h);
-  const imd = tctx.getImageData(0, 0, w, h);
-  const data = imd.data;
+// ══════════════════════════════════════════════════════════════════
+//  DETECTION
+// ══════════════════════════════════════════════════════════════════
 
-  // ── 1. Sample background z 4 rohů (medián)
-  const cornerSize = Math.max(8, Math.round(Math.min(w, h) * 0.02));
-  const samples = { r: [], g: [], b: [] };
-  const corners = [[0, 0], [w - cornerSize, 0], [0, h - cornerSize], [w - cornerSize, h - cornerSize]];
-  for (const [cx, cy] of corners) {
-    for (let dy = 0; dy < cornerSize; dy++) {
-      for (let dx = 0; dx < cornerSize; dx++) {
-        const i = ((cy + dy) * w + (cx + dx)) * 4;
-        samples.r.push(data[i]); samples.g.push(data[i+1]); samples.b.push(data[i+2]);
-      }
-    }
+// ── Pure-canvas (background subtraction + CCL) ────────────────
+function detectCardsPureCanvas(srcImage){
+  const MAX=800,iw=srcImage.naturalWidth,ih=srcImage.naturalHeight;
+  const sc=Math.min(1,MAX/Math.max(iw,ih));
+  const w=Math.round(iw*sc),h=Math.round(ih*sc);
+  const tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
+  const tctx=tmp.getContext('2d',{willReadFrequently:true});
+  tctx.drawImage(srcImage,0,0,w,h);
+  const data=tctx.getImageData(0,0,w,h).data;
+  const cs=Math.max(8,Math.round(Math.min(w,h)*0.02));
+  const smp={r:[],g:[],b:[]};
+  [[0,0],[w-cs,0],[0,h-cs],[w-cs,h-cs]].forEach(([cx,cy])=>{for(let dy=0;dy<cs;dy++)for(let dx=0;dx<cs;dx++){const i=((cy+dy)*w+(cx+dx))*4;smp.r.push(data[i]);smp.g.push(data[i+1]);smp.b.push(data[i+2]);}});
+  const med=a=>{const s=[...a].sort((a,b)=>a-b);return s[s.length>>1];};
+  const bg=[med(smp.r),med(smp.g),med(smp.b)];
+  const mask=new Uint8Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(y*w+x)*4;const d=data[i]-bg[0],e=data[i+1]-bg[1],f=data[i+2]-bg[2];mask[y*w+x]=Math.sqrt(d*d+e*e+f*f)>35?1:0;}
+  const dil=morphDilate(mask,w,h,2),clo=morphErode(dil,w,h,2);
+  const labels=new Int32Array(w*h); const comps=[]; let nl=1;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const idx=y*w+x;if(clo[idx]&&!labels[idx]){const stk=[idx];labels[idx]=nl;let mnX=x,mxX=x,mnY=y,mxY=y,area=0;while(stk.length){const cur=stk.pop();area++;const cx=cur%w,cy=(cur-cx)/w;if(cx<mnX)mnX=cx;if(cx>mxX)mxX=cx;if(cy<mnY)mnY=cy;if(cy>mxY)mxY=cy;if(cx>0){const n=cur-1;if(clo[n]&&!labels[n]){labels[n]=nl;stk.push(n);}}if(cx<w-1){const n=cur+1;if(clo[n]&&!labels[n]){labels[n]=nl;stk.push(n);}}if(cy>0){const n=cur-w;if(clo[n]&&!labels[n]){labels[n]=nl;stk.push(n);}}if(cy<h-1){const n=cur+w;if(clo[n]&&!labels[n]){labels[n]=nl;stk.push(n);}}}comps.push({mnX,mxX,mnY,mxY,area});nl++;}}
+  const tot=w*h,PR=0.715;
+  const filt=comps.filter(c=>{const cw=c.mxX-c.mnX+1,ch=c.mxY-c.mnY+1;const ba=cw*ch;const fill=c.area/ba,tr=ba/tot;if(tr<0.005||tr>0.5||fill<0.55)return false;const r=cw/ch;return Math.abs(r-PR)<0.18||Math.abs(r-1/PR)<0.20;});
+  return filt.map(c=>({x:c.mnX/w*iw,y:c.mnY/h*ih,w:(c.mxX-c.mnX+1)/w*iw,h:(c.mxY-c.mnY+1)/h*ih}))
+    .sort((a,b)=>{const ra=Math.round(a.y/ih*10),rb=Math.round(b.y/ih*10);return ra!==rb?ra-rb:a.x-b.x});
+}
+
+function morphDilate(mask,w,h,iter){let cur=mask;for(let it=0;it<iter;it++){const out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(cur[i]){out[i]=1;continue;}if((x>0&&cur[i-1])||(x<w-1&&cur[i+1])||(y>0&&cur[i-w])||(y<h-1&&cur[i+w]))out[i]=1;}cur=out;}return cur;}
+function morphErode(mask,w,h,iter){let cur=mask;for(let it=0;it<iter;it++){const out=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(!cur[i])continue;if((x>0&&!cur[i-1])||(x<w-1&&!cur[i+1])||(y>0&&!cur[i-w])||(y<h-1&&!cur[i+w]))continue;out[i]=1;}cur=out;}return cur;}
+
+async function detectCanvasMethod(){
+  if(!srcImg)return;
+  detectBtn.disabled=true; st('Detekuji karty (canvas)…',true);
+  try{
+    const t0=performance.now();
+    const det=detectCardsPureCanvas(srcImg);
+    const ms=Math.round(performance.now()-t0);
+    if(!det.length){st(`Canvas: žádné karty (${ms}ms) · zkus AI detekci`);return;}
+    zones=det.map(d=>rectToZone(d.x,d.y,d.w,d.h));
+    activeZoneIdx=0; enableProcessBtns();
+    st(`Nalezeno ${zones.length} karet (${ms}ms) · uprav rohy nebo zpracuj`);
+    renderZoneList(); drawOverlay();
+  }catch(e){st('Chyba canvas: '+e.message);}finally{detectBtn.disabled=false;}
+}
+
+// ── AI Detection (Gemini → /api/groq fallback → Grok) ─────────
+async function detectAIMethod(){
+  if(!srcImg)return;
+  checkManualKeys();
+  const gemKey=pickKey('gemini'), groqAvail=!!pickKey('groq'), grokKey=pickKey('xai');
+
+  aiDetectBtn.disabled=true; st('✦ AI detekuje kartičky…',true);
+  const MAX=1200,iw=srcImg.naturalWidth,ih=srcImg.naturalHeight;
+  const sc=Math.min(1,MAX/Math.max(iw,ih));
+  const tmp=document.createElement('canvas'); tmp.width=Math.round(iw*sc); tmp.height=Math.round(ih*sc);
+  tmp.getContext('2d').drawImage(srcImg,0,0,tmp.width,tmp.height);
+  const b64=tmp.toDataURL('image/jpeg',.88).split(',')[1];
+  const prompt=`Detect ALL Pokemon trading cards in this image (${tmp.width}×${tmp.height}px). Return ONLY JSON, no markdown:\n{"cards":[{"tl":{"x":N,"y":N},"tr":{"x":N,"y":N},"bl":{"x":N,"y":N},"br":{"x":N,"y":N}}]}\nAll N are integer pixel coordinates. Order left-to-right, top-to-bottom.`;
+
+  let detected=null;
+
+  // 1. Gemini (free tier)
+  if(gemKey){
+    try{
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gemKey}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType:'image/jpeg',data:b64}},{text:prompt}]}],generationConfig:{maxOutputTokens:1024,temperature:.1}})
+      });
+      if(r.ok){const d=await r.json();const txt=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const m=txt.match(/\{[\s\S]*\}/);if(m){const p=JSON.parse(m[0]);if(p.cards?.length>0)detected={cards:p.cards,src:'Gemini'};}}
+    }catch(e){console.warn('[Gemini]',e);}
   }
-  const median = arr => { const s = [...arr].sort((a,b) => a-b); return s[Math.floor(s.length/2)]; };
-  const bg = [median(samples.r), median(samples.g), median(samples.b)];
 
-  // ── 2. Binary mask (foreground = pixel významně odlišný od bg)
-  const THRESHOLD = 35;  // squared euclidean distance per channel
-  const mask = new Uint8Array(w * h);
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4;
-      const dr = data[i] - bg[0], dg = data[i+1] - bg[1], db = data[i+2] - bg[2];
-      const dist = Math.sqrt(dr*dr + dg*dg + db*db);
-      mask[y * w + x] = dist > THRESHOLD ? 1 : 0;
-    }
-  }
-
-  // ── 3. Morphological closing (dilate then erode) — odstraní díry uvnitř karet
-  const dilated = morphDilate(mask, w, h, 2);
-  const closed = morphErode(dilated, w, h, 2);
-
-  // ── 4. Connected component labeling (iterative flood fill)
-  const labels = new Int32Array(w * h);
-  const components = [];
-  let nextLabel = 1;
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = y * w + x;
-      if (closed[idx] && !labels[idx]) {
-        // Iterativní DFS s explicit stack (push/pop = O(1))
-        const stack = [idx];
-        labels[idx] = nextLabel;
-        let minX = x, maxX = x, minY = y, maxY = y, area = 0;
-        while (stack.length) {
-          const cur = stack.pop();
-          area++;
-          const cx = cur % w, cy = (cur - cx) / w;
-          if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-          if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-          // 4-neighborhood
-          if (cx > 0)     { const n = cur - 1; if (closed[n] && !labels[n]) { labels[n] = nextLabel; stack.push(n); } }
-          if (cx < w - 1) { const n = cur + 1; if (closed[n] && !labels[n]) { labels[n] = nextLabel; stack.push(n); } }
-          if (cy > 0)     { const n = cur - w; if (closed[n] && !labels[n]) { labels[n] = nextLabel; stack.push(n); } }
-          if (cy < h - 1) { const n = cur + w; if (closed[n] && !labels[n]) { labels[n] = nextLabel; stack.push(n); } }
+  // 2. Existing /api/groq endpoint (uses user's stored key, no direct key needed)
+  if(!detected){
+    try{
+      const PROMPT=`You are detecting Pokemon trading cards.\nReturn ONLY valid JSON:\n{"cards":[{"x":5.0,"y":3.0,"w":18.0,"h":25.0}]}\nWhere x,y=top-left as PERCENTAGE (0-100), w,h=width/height as PERCENTAGE. Detect EVERY card.`;
+      const r=await fetch('/api/groq',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
+        body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:.1,response_format:{type:'json_object'},usage_type:'search',
+          messages:[{role:'user',content:[{type:'text',text:PROMPT},{type:'image_url',image_url:{url:tmp.toDataURL('image/jpeg',.85)}}]}]})});
+      if(r.ok){
+        const d=await r.json();
+        if(r.status===429&&d?.code==='RATE_LIMITED'&&typeof window.showRateLimitModal==='function')window.showRateLimitModal({used:d.used,limit:d.limit,reset:d.reset,usageType:d.usageType||d.usage_type});
+        const raw=d?.choices?.[0]?.message?.content||'{}';
+        let p;try{p=JSON.parse(raw);}catch{p=JSON.parse(raw.replace(/```json|```/g,'').trim());}
+        if(p.cards?.length>0){
+          // Convert percent format to 4-corner format
+          const scaled=p.cards.filter(c=>c.w>1&&c.h>1).map(c=>({
+            tl:{x:Math.max(0,c.x)/100*tmp.width,y:Math.max(0,c.y)/100*tmp.height},
+            tr:{x:Math.min(100,(c.x+c.w))/100*tmp.width,y:Math.max(0,c.y)/100*tmp.height},
+            bl:{x:Math.max(0,c.x)/100*tmp.width,y:Math.min(100,(c.y+c.h))/100*tmp.height},
+            br:{x:Math.min(100,(c.x+c.w))/100*tmp.width,y:Math.min(100,(c.y+c.h))/100*tmp.height}
+          }));
+          if(scaled.length)detected={cards:scaled,src:'Groq'};
         }
-        components.push({ minX, maxX, minY, maxY, area });
-        nextLabel++;
       }
-    }
+    }catch(e){console.warn('[/api/groq]',e);}
   }
 
-  // ── 5. Filtrace podle plochy a aspect ratia
-  const totalArea = w * h;
-  const POKEMON_RATIO = 0.715;      // 63 × 88 mm
-  const MIN_AREA_PCT  = 0.005;       // 0.5 %
-  const MAX_AREA_PCT  = 0.5;         // 50 %
-  const RATIO_TOL_PORTRAIT  = 0.18;
-  const RATIO_TOL_LANDSCAPE = 0.20;
-  const FILL_RATIO_MIN      = 0.55;  // bbox musí být alespoň z 55 % vyplněný
+  // 3. Grok xAI fallback
+  if(!detected&&grokKey){
+    try{
+      const r=await fetch('https://api.x.ai/v1/chat/completions',{method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+grokKey},
+        body:JSON.stringify({model:'grok-2-vision-latest',max_tokens:1024,messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},{type:'text',text:prompt}]}]})});
+      if(r.ok){const d=await r.json();const txt=d.choices?.[0]?.message?.content||'';const m=txt.match(/\{[\s\S]*\}/);if(m){const p=JSON.parse(m[0]);if(p.cards?.length>0)detected={cards:p.cards,src:'Grok'};}}
+    }catch(e){console.warn('[Grok]',e);}
+  }
 
-  const filtered = components.filter(c => {
-    const cw = c.maxX - c.minX + 1, ch = c.maxY - c.minY + 1;
-    const bboxArea = cw * ch;
-    const fillRatio = c.area / bboxArea;
-    const totalRatio = bboxArea / totalArea;
-    if (totalRatio < MIN_AREA_PCT || totalRatio > MAX_AREA_PCT) return false;
-    if (fillRatio < FILL_RATIO_MIN) return false;
-    const ratio = cw / ch;
-    const isPortrait  = Math.abs(ratio - POKEMON_RATIO) < RATIO_TOL_PORTRAIT;
-    const isLandscape = Math.abs(ratio - 1 / POKEMON_RATIO) < RATIO_TOL_LANDSCAPE;
-    return isPortrait || isLandscape;
+  aiDetectBtn.disabled=false;
+
+  if(!detected||!detected.cards.length){st('AI nenašla karty · přidej zóny ručně nebo zkus canvas detekci','error');return;}
+
+  const imgSc=iw/tmp.width;
+  const newZones=detected.cards.map(card=>makeZone(
+    {x:card.tl.x*imgSc,y:card.tl.y*imgSc},{x:card.tr.x*imgSc,y:card.tr.y*imgSc},
+    {x:card.bl.x*imgSc,y:card.bl.y*imgSc},{x:card.br.x*imgSc,y:card.br.y*imgSc},true));
+  zones=[...zones,...newZones]; activeZoneIdx=0; enableProcessBtns();
+  st(`✦ ${detected.src}: ${detected.cards.length} karet · upřesni rohy`,false);
+  renderZoneList(); drawOverlay();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  HOMOGRAPHY (for perspective zones)
+// ══════════════════════════════════════════════════════════════════
+function solveH(A,b){const n=8,M=A.map((r,i)=>[...r,b[i]]);for(let c=0;c<n;c++){let mr=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[mr][c]))mr=r;[M[c],M[mr]]=[M[mr],M[c]];for(let r=c+1;r<n;r++){const f=M[r][c]/M[c][c];for(let j=c;j<=n;j++)M[r][j]-=f*M[c][j];}}const x=new Array(n);for(let i=n-1;i>=0;i--){x[i]=M[i][n];for(let j=i+1;j<n;j++)x[i]-=M[i][j]*x[j];x[i]/=M[i][i];}return x;}
+function computeH(src,dst){const rows=[],rhs=[];for(let i=0;i<4;i++){const[x,y,X,Y]=[src[i].x,src[i].y,dst[i].x,dst[i].y];rows.push([x,y,1,0,0,0,-X*x,-X*y]);rhs.push(X);rows.push([0,0,0,x,y,1,-Y*x,-Y*y]);rhs.push(Y);}const h=solveH(rows,rhs);return[...h,1];}
+function applyH(H,x,y){const w=H[6]*x+H[7]*y+H[8];return[(H[0]*x+H[1]*y+H[2])/w,(H[3]*x+H[4]*y+H[5])/w];}
+
+function perspectiveCrop(zone,outW,outH){
+  const c=zone.corners, iw=srcImg.naturalWidth, ih=srcImg.naturalHeight;
+  const srcN=c.map(p=>({x:p.x/iw,y:p.y/ih}));
+  const dstN=[{x:0,y:0},{x:1,y:0},{x:0,y:1},{x:1,y:1}];
+  const H=computeH(dstN,srcN);
+  const srcCv=document.createElement('canvas'); srcCv.width=iw; srcCv.height=ih;
+  srcCv.getContext('2d').drawImage(srcImg,0,0);
+  const srcData=srcCv.getContext('2d').getImageData(0,0,iw,ih).data;
+  const dstCv=document.createElement('canvas'); dstCv.width=outW; dstCv.height=outH;
+  const dstCtx=dstCv.getContext('2d'); const dstId=dstCtx.createImageData(outW,outH); const dst=dstId.data;
+  for(let py=0;py<outH;py++){for(let px=0;px<outW;px++){const[su,sv]=applyH(H,px/outW,py/outH);const sx=su*iw,sy=sv*ih;if(sx<0||sx>=iw-1||sy<0||sy>=ih-1)continue;const x0=sx|0,y0=sy|0,x1=x0+1,y1=y0+1;const fx=sx-x0,fy=sy-y0;const w00=(1-fx)*(1-fy),w10=fx*(1-fy),w01=(1-fx)*fy,w11=fx*fy;const i00=(y0*iw+x0)*4,i10=(y0*iw+x1)*4,i01=(y1*iw+x0)*4,i11=(y1*iw+x1)*4;const di=(py*outW+px)*4;dst[di]=srcData[i00]*w00+srcData[i10]*w10+srcData[i01]*w01+srcData[i11]*w11;dst[di+1]=srcData[i00+1]*w00+srcData[i10+1]*w10+srcData[i01+1]*w01+srcData[i11+1]*w11;dst[di+2]=srcData[i00+2]*w00+srcData[i10+2]*w10+srcData[i01+2]*w01+srcData[i11+2]*w11;dst[di+3]=255;}}
+  dstCtx.putImageData(dstId,0,0); return dstCv;
+}
+
+function simpleCrop(zone,outW,outH){
+  const c=zone.corners;
+  const x0=Math.min(c[0].x,c[2].x),y0=Math.min(c[0].y,c[1].y);
+  const x1=Math.max(c[1].x,c[3].x),y1=Math.max(c[2].y,c[3].y);
+  const cv=document.createElement('canvas'); cv.width=outW; cv.height=outH;
+  cv.getContext('2d').drawImage(srcImg,x0,y0,x1-x0,y1-y0,0,0,outW,outH);
+  return cv;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  ENHANCEMENT
+// ══════════════════════════════════════════════════════════════════
+function bBlur(data,w,h,r){r=Math.max(1,Math.round(r));const out=new Uint8ClampedArray(data.length);for(let y=0;y<h;y++){for(let c=0;c<3;c++){let s=0,n=0;for(let x=-r;x<=r;x++){const xi=Math.max(0,Math.min(w-1,x));s+=data[(y*w+xi)*4+c];n++;}for(let x=0;x<w;x++){out[(y*w+x)*4+c]=s/n;if(x-r>=0){s-=data[(y*w+(x-r))*4+c];n--;}if(x+r+1<w){s+=data[(y*w+(x+r+1))*4+c];n++;}}}for(let x=0;x<w;x++)out[(y*w+x)*4+3]=data[(y*w+x)*4+3];}const out2=new Uint8ClampedArray(out.length);for(let x=0;x<w;x++){for(let c=0;c<3;c++){let s=0,n=0;for(let y=-r;y<=r;y++){const yi=Math.max(0,Math.min(h-1,y));s+=out[(yi*w+x)*4+c];n++;}for(let y=0;y<h;y++){out2[(y*w+x)*4+c]=s/n;if(y-r>=0){s-=out[((y-r)*w+x)*4+c];n--;}if(y+r+1<h){s+=out[((y+r+1)*w+x)*4+c];n++;}}}};for(let i=3;i<out2.length;i+=4)out2[i]=out[i];return out2;}
+function gBlur(d,w,h,s){let r=d;for(let i=0;i<3;i++)r=bBlur(r,w,h,s*.85);return r;}
+
+function enhance(canvas){
+  const w=canvas.width,h=canvas.height,ctx2=canvas.getContext('2d');
+  const id=ctx2.getImageData(0,0,w,h),src2=new Uint8ClampedArray(id.data),data=id.data;
+  const br=+document.getElementById('sBr').value, co=+document.getElementById('sCo').value;
+  const sa=+document.getElementById('sSa').value, sh=+document.getElementById('sSh').value/100;
+  const shadowLift=+document.getElementById('sShadow').value/100, hlR=+document.getElementById('sHL').value/100;
+  const cf=(259*(co+255))/(255*(259-co));
+  const bSm=sh>0?gBlur(src2,w,h,1.5):null, bTiny=sh>0?gBlur(src2,w,h,0.7):null;
+  for(let i=0;i<data.length;i+=4){
+    let r=src2[i]+br,g=src2[i+1]+br,b=src2[i+2]+br;
+    r=cf*(r-128)+128; g=cf*(g-128)+128; b=cf*(b-128)+128;
+    if(sa){const gr=.299*r+.587*g+.114*b,f=1+sa/100;r=gr+f*(r-gr);g=gr+f*(g-gr);b=gr+f*(b-gr);}
+    if(bSm){r=Math.max(0,Math.min(255,r+sh*(r-bSm[i])));g=Math.max(0,Math.min(255,g+sh*(g-bSm[i+1])));b=Math.max(0,Math.min(255,b+sh*(b-bSm[i+2])));}
+    if(bTiny){r=Math.max(0,Math.min(255,r+sh*.8*(r-bTiny[i])));g=Math.max(0,Math.min(255,g+sh*.8*(g-bTiny[i+1])));b=Math.max(0,Math.min(255,b+sh*.8*(b-bTiny[i+2])));}
+    if(shadowLift>0){const l=(r*.299+g*.587+b*.114)/255;if(l<.5){const t=1-l*2,lift=shadowLift*t*t*.5;r=Math.max(0,Math.min(255,r+lift*(180-r)));g=Math.max(0,Math.min(255,g+lift*(180-g)));b=Math.max(0,Math.min(255,b+lift*(180-b)));}}
+    if(hlR>0){const l=(r*.299+g*.587+b*.114)/255;if(l>.7){const t=(l-.7)/.3,c2=hlR*t*t*.4;r=Math.max(0,Math.min(255,r-c2*r));g=Math.max(0,Math.min(255,g-c2*g));b=Math.max(0,Math.min(255,b-c2*b));}}
+    data[i]=Math.max(0,Math.min(255,r));data[i+1]=Math.max(0,Math.min(255,g));data[i+2]=Math.max(0,Math.min(255,b));
+  }
+  ctx2.putImageData(id,0,0); return canvas;
+}
+
+function roundCorners(canvas){
+  const rad=+document.getElementById('sRadius').value; if(rad<=0)return canvas;
+  const w=canvas.width,h=canvas.height;
+  const out=document.createElement('canvas'); out.width=w; out.height=h;
+  const c=out.getContext('2d'); c.clearRect(0,0,w,h); c.save();
+  c.beginPath(); c.moveTo(rad,0); c.lineTo(w-rad,0); c.quadraticCurveTo(w,0,w,rad);
+  c.lineTo(w,h-rad); c.quadraticCurveTo(w,h,w-rad,h); c.lineTo(rad,h); c.quadraticCurveTo(0,h,0,h-rad);
+  c.lineTo(0,rad); c.quadraticCurveTo(0,0,rad,0); c.closePath(); c.clip();
+  c.drawImage(canvas,0,0); c.restore(); return out;
+}
+
+
+// ══════════════════════════════════════════════════════════════════
+//  AI ENHANCE — analyzes card image, sets sliders automatically
+// ══════════════════════════════════════════════════════════════════
+
+// Slider definitions: id, min, max, default
+const SLIDER_DEFS = [
+  {id:'sBr',   vId:'vBr',    label:'Jas',      min:-50, max:50,  def:0},
+  {id:'sCo',   vId:'vCo',    label:'Kontrast', min:-50, max:80,  def:15},
+  {id:'sSa',   vId:'vSa',    label:'Sytost',   min:-50, max:80,  def:10},
+  {id:'sSh',   vId:'vSh',    label:'Ostrost',  min:0,   max:200, def:60},
+  {id:'sShadow',vId:'vShadow',label:'Stíny',   min:0,   max:100, def:25},
+  {id:'sHL',   vId:'vHL',    label:'Odlesky',  min:0,   max:100, def:30},
+];
+
+let _aiEnhLast = null; // last AI-set values for reset
+
+// ── Animate a slider to target value ──────────────────────────
+function animateSlider(id, vId, target, duration=450){
+  const el = document.getElementById(id);
+  const valEl = document.getElementById(vId);
+  if(!el||!valEl) return;
+  const start = parseFloat(el.value);
+  const diff = target - start;
+  if(Math.abs(diff) < 0.5){ el.value=target; valEl.textContent=target; return; }
+  const t0 = performance.now();
+  const row = el.closest('.sl-row');
+  row?.classList.add('ai-set');
+  function step(now){
+    const p = Math.min(1, (now-t0)/duration);
+    // Ease out cubic
+    const e = 1 - Math.pow(1-p,3);
+    const cur = Math.round(start + diff*e);
+    el.value = cur; valEl.textContent = cur;
+    if(p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── Reset sliders to defaults ──────────────────────────────────
+function resetSlidersToDefault(animate=true){
+  SLIDER_DEFS.forEach(s=>{
+    if(animate) animateSlider(s.id, s.vId, s.def, 350);
+    else { document.getElementById(s.id).value=s.def; document.getElementById(s.vId).textContent=s.def; }
+    document.getElementById(s.id)?.closest('.sl-row')?.classList.remove('ai-set');
   });
-
-  // ── 6. Mapuj zpět na 0–1 souřadnice originálního obrázku, seřaď L→R, T→B
-  const result = filtered
-    .map(c => ({
-      x: c.minX / w,
-      y: c.minY / h,
-      w: (c.maxX - c.minX + 1) / w,
-      h: (c.maxY - c.minY + 1) / h,
-    }))
-    .sort((a, b) => {
-      // primárně podle Y (řádky), sekundárně podle X
-      const rowA = Math.round(a.y * 10), rowB = Math.round(b.y * 10);
-      if (rowA !== rowB) return rowA - rowB;
-      return a.x - b.x;
-    });
-
-  return result;
+  _aiEnhLast=null;
 }
 
-function morphDilate(mask, w, h, iterations) {
-  let cur = mask;
-  for (let it = 0; it < iterations; it++) {
-    const out = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        if (cur[i]) { out[i] = 1; continue; }
-        if ((x > 0     && cur[i - 1]) ||
-            (x < w - 1 && cur[i + 1]) ||
-            (y > 0     && cur[i - w]) ||
-            (y < h - 1 && cur[i + w])) out[i] = 1;
-      }
-    }
-    cur = out;
-  }
-  return cur;
-}
-function morphErode(mask, w, h, iterations) {
-  let cur = mask;
-  for (let it = 0; it < iterations; it++) {
-    const out = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        if (!cur[i]) continue;
-        if ((x > 0     && !cur[i - 1]) ||
-            (x < w - 1 && !cur[i + 1]) ||
-            (y > 0     && !cur[i - w]) ||
-            (y < h - 1 && !cur[i + w])) continue;
-        out[i] = 1;
-      }
-    }
-    cur = out;
-  }
-  return cur;
-}
-
-/* ── DETECT BUTTON HANDLER ─────────────────────────── */
-async function detectCanvasMethod() {
-  if (!srcImg) return;
-  detectBtn.disabled = true;
-  st('Detekuji karty (canvas)…', true);
-  try {
-    const t0 = performance.now();
-    const detected = detectCardsPureCanvas(srcImg);
-    const ms = Math.round(performance.now() - t0);
-    if (!detected.length) {
-      st(`Canvas detekce nenašla žádné karty (${ms} ms) · zkus AI fallback`);
-      return;
-    }
-    cards = detected.map((d, i) => ({
-      id: Date.now() + i,
-      x: d.x, y: d.y, w: d.w, h: d.h,
-      name: 'Karta ' + (i + 1),
-    }));
-    processBtn.disabled = false;
-    st(`Nalezeno ${cards.length} karet (${ms} ms · canvas) · můžeš upravit nebo zpracovat`);
-    updateList(); renderAll();
-  } catch (err) {
-    console.error('[canvas-detect]', err);
-    st('Chyba canvas detekce: ' + err.message);
-  } finally {
-    detectBtn.disabled = false;
-  }
-}
-
-async function detectAIMethod() {
-  if (!srcImg) return;
-  aiDetectBtn.disabled = true;
-  st('AI fallback (Groq vision)…', true);
-  try {
-    // Downsample na max 1500px pro Groq (image-size limit + rychlost)
-    const MAX = 1500, iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-    const sc = Math.min(1, MAX / Math.max(iw, ih));
-    const tmp = document.createElement('canvas');
-    tmp.width = Math.round(iw * sc); tmp.height = Math.round(ih * sc);
-    tmp.getContext('2d').drawImage(srcImg, 0, 0, tmp.width, tmp.height);
-    const dataUrl = tmp.toDataURL('image/jpeg', 0.85);
-
-    const DETECT_PROMPT = `You are detecting Pokemon trading cards on a flat scanner background.
-
-Return ONLY valid JSON in this exact format with no markdown, no explanation:
-{"cards":[{"x":5.0,"y":3.0,"w":18.0,"h":25.0},{"x":25.0,"y":3.0,"w":18.0,"h":25.0}]}
-
-Where:
-- x, y = top-left corner of card as PERCENTAGE of image (0-100)
-- w, h = width and height as PERCENTAGE of image (0-100)
-- Pokemon cards have aspect ratio approximately 0.715 (portrait) or 1.4 (landscape)
-
-Detect EVERY card visible. If cards overlap, return SEPARATE boxes for each.
-Be precise with coordinates. If you see no cards, return {"cards":[]}.`;
-
-    // Volání existujícího /api/groq endpointu (žádný nový serverless func)
-    const r = await fetch('/api/groq', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + TOKEN,
-      },
-      body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        max_tokens: 4000,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-        usage_type: 'search',  // počítá se do search limitu (VIP bypass)
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'text', text: DETECT_PROMPT },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        }],
-      }),
-    });
-    const data = await r.json();
-    if (!r.ok) {
-      // 429 RATE_LIMITED → modal "Přidej klíč" (jen pokud je rate-limit-modal.js načtený)
-      if (r.status === 429 && data?.code === 'RATE_LIMITED' &&
-          typeof window.showRateLimitModal === 'function') {
-        window.showRateLimitModal({
-          used:      data.used,
-          limit:     data.limit,
-          reset:     data.reset,
-          usageType: data.usageType || data.usage_type,
-        });
-      }
-      throw new Error(data?.error || `HTTP ${r.status}`);
-    }
-
-    // Parsuj JSON odpověď z Groq (vrací OpenAI-compatible formát)
-    const raw = data?.choices?.[0]?.message?.content || '{}';
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      const cleaned = raw.replace(/```json|```/g, '').trim();
-      try { parsed = JSON.parse(cleaned); }
-      catch { throw new Error('Groq vrátil nevalidní JSON'); }
-    }
-
-    const detRaw = Array.isArray(parsed?.cards) ? parsed.cards : [];
-    const det = detRaw
-      .filter(c => Number.isFinite(c.x) && Number.isFinite(c.y) &&
-                   Number.isFinite(c.w) && Number.isFinite(c.h) &&
-                   c.w > 1 && c.h > 1)
-      .map(c => ({
-        x: Math.max(0, Math.min(100, c.x)) / 100,
-        y: Math.max(0, Math.min(100, c.y)) / 100,
-        w: Math.max(0, Math.min(100, c.w)) / 100,
-        h: Math.max(0, Math.min(100, c.h)) / 100,
-      }))
-      .filter(c => c.x + c.w <= 1.05 && c.y + c.h <= 1.05);
-
-    if (!det.length) {
-      st('AI nenašla žádné karty · zkus přidat ručně');
-      return;
-    }
-    cards = det.map((d, i) => ({
-      id: Date.now() + i,
-      x: d.x, y: d.y, w: d.w, h: d.h,
-      name: 'Karta ' + (i + 1),
-    }));
-    processBtn.disabled = false;
-    st(`AI nalezla ${cards.length} karet · můžeš upravit nebo zpracovat`);
-    updateList(); renderAll();
-  } catch (err) {
-    console.error('[ai-detect]', err);
-    st('AI fallback selhal: ' + err.message);
-    toast('AI fallback selhal: ' + err.message, 'error');
-  } finally {
-    aiDetectBtn.disabled = false;
-  }
-}
-
-/* ── CARD LIST UI ────────────────────────────────────── */
-function updateList() {
-  cardCountEl.textContent = '(' + cards.length + ')';
-  cardListEl.innerHTML = '';
-  cards.forEach((c, i) => {
-    const iw = srcImg?.naturalWidth || 1, ih = srcImg?.naturalHeight || 1;
-    const el = document.createElement('div');
-    el.className = 'card-item' + (c === selCard ? ' sel' : '');
-    el.innerHTML = `
-      <div class="c-badge">${i + 1}</div>
-      <div class="c-info">
-        <div class="c-name">${c.name}</div>
-        <div class="c-dims">${Math.round(c.w * iw)} × ${Math.round(c.h * ih)} px</div>
-      </div>
-      <button class="c-del" data-id="${c.id}" title="Smazat">×</button>`;
-    el.addEventListener('click', ev => {
-      if (ev.target.classList.contains('c-del')) return;
-      selCard = c; updateList(); renderAll();
-    });
-    el.querySelector('.c-del').addEventListener('click', () => {
-      cards = cards.filter(x => x.id !== c.id);
-      if (selCard?.id === c.id) selCard = null;
-      if (!cards.length) processBtn.disabled = true;
-      updateList(); renderAll();
-    });
-    cardListEl.appendChild(el);
+// ── Apply AI values to sliders ─────────────────────────────────
+function applyAiEnhValues(vals, providerName){
+  _aiEnhLast = {...vals};
+  SLIDER_DEFS.forEach((s,i)=>{
+    const v = vals[s.id] ?? s.def;
+    const clamped = Math.max(s.min, Math.min(s.max, Math.round(v)));
+    // Stagger animations
+    setTimeout(()=>animateSlider(s.id, s.vId, clamped, 500), i * 60);
   });
-}
-/* ═══════════════════════════════════════════════════════════════════
-   IMAGE PROCESSING + EXPORT
-═══════════════════════════════════════════════════════════════════ */
-
-function getSettings() {
-  return {
-    br: parseInt(document.getElementById('sBr').value, 10),
-    co: parseInt(document.getElementById('sCo').value, 10),
-    sa: parseInt(document.getElementById('sSa').value, 10),
-    sh: parseInt(document.getElementById('sSh').value, 10) / 100,
-  };
-}
-
-function applyEnhance(imd, s) {
-  const d = imd.data, n = d.length;
-  const cf = (259 * (s.co + 255)) / (255 * (259 - s.co));
-  for (let i = 0; i < n; i += 4) {
-    let r = d[i] + s.br, g = d[i+1] + s.br, b = d[i+2] + s.br;
-    r = cf*(r-128)+128; g = cf*(g-128)+128; b = cf*(b-128)+128;
-    if (s.sa) {
-      const gr = 0.299*r + 0.587*g + 0.114*b, f = 1 + s.sa/100;
-      r = gr+f*(r-gr); g = gr+f*(g-gr); b = gr+f*(b-gr);
-    }
-    d[i] = Math.max(0, Math.min(255, r));
-    d[i+1] = Math.max(0, Math.min(255, g));
-    d[i+2] = Math.max(0, Math.min(255, b));
+  // Show provider badge
+  const badge = document.getElementById('aiEnhProv');
+  badge.textContent = '✦ ' + providerName;
+  badge.style.display = 'inline-flex';
+  // Show result description if available
+  if(vals._desc){
+    const res = document.getElementById('aiEnhResult');
+    res.textContent = vals._desc;
+    res.classList.add('vis');
   }
-  return imd;
 }
 
-function applySharpen(imd, amt) {
-  if (amt <= 0) return imd;
-  const { width: w, height: h, data } = imd;
-  const out = new Uint8ClampedArray(data);
-  const k = amt * 1.5;
-  const kern = [0, -k, 0, -k, 1+4*k, -k, 0, -k, 0];
-  for (let y = 1; y < h - 1; y++) {
-    for (let x = 1; x < w - 1; x++) {
-      for (let c = 0; c < 3; c++) {
-        let s = 0;
-        for (let ky = -1; ky <= 1; ky++) {
-          for (let kx = -1; kx <= 1; kx++) {
-            s += data[((y+ky)*w + (x+kx)) * 4 + c] * kern[(ky+1)*3 + (kx+1)];
-          }
-        }
-        out[(y*w + x) * 4 + c] = Math.max(0, Math.min(255, s));
-      }
+// ── Build thumbnail of active zone for AI analysis ─────────────
+function buildZoneThumb(maxSize=512){
+  if(!srcImg) return null;
+  let canvas;
+  const zone = zones[activeZoneIdx >= 0 ? activeZoneIdx : 0];
+  if(zone){
+    // Quick rect crop (fast, just for analysis)
+    const c = zone.corners;
+    const x0=Math.min(c[0].x,c[2].x), y0=Math.min(c[0].y,c[1].y);
+    const x1=Math.max(c[1].x,c[3].x), y1=Math.max(c[2].y,c[3].y);
+    const sw=x1-x0, sh=y1-y0;
+    if(sw>10 && sh>10){
+      const sc = Math.min(1, maxSize/Math.max(sw,sh));
+      canvas = document.createElement('canvas');
+      canvas.width  = Math.round(sw*sc);
+      canvas.height = Math.round(sh*sc);
+      canvas.getContext('2d').drawImage(srcImg, x0, y0, sw, sh, 0, 0, canvas.width, canvas.height);
     }
   }
-  return new ImageData(out, w, h);
-}
-
-function processCard(card) {
-  const iw = srcImg.naturalWidth, ih = srcImg.naturalHeight;
-  const sx = Math.round(card.x * iw), sy = Math.round(card.y * ih);
-  const sw = Math.round(card.w * iw), sh = Math.round(card.h * ih);
-  const oh = Math.min(sh, 1200), ow = Math.round(oh * (sw / sh));
-  const out = document.createElement('canvas');
-  out.width = ow; out.height = oh;
-  const c = out.getContext('2d');
-  c.drawImage(srcImg, sx, sy, sw, sh, 0, 0, ow, oh);
-  const s = getSettings();
-  let id = c.getImageData(0, 0, ow, oh);
-  id = applyEnhance(id, s);
-  if (s.sh > 0) id = applySharpen(id, s.sh);
-  c.putImageData(id, 0, 0);
-  return out;
-}
-
-async function processAllCards() {
-  processBtn.disabled = true;
-  processed = [];
-  thumbRow.innerHTML = '';
-  st('Zpracovávám karty…', true);
-  try {
-    for (let i = 0; i < cards.length; i++) {
-      const canvas = processCard(cards[i]);
-      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.92));
-      processed.push({ blob, dataUrl: canvas.toDataURL('image/jpeg', 0.85), name: cards[i].name });
-      // Thumbnail
-      const img = document.createElement('img');
-      img.src = canvas.toDataURL('image/jpeg', 0.6);
-      img.title = cards[i].name + ' · klikni pro stažení';
-      img.addEventListener('click', () => downloadOne(i));
-      thumbRow.appendChild(img);
-      st(`Zpracováno ${i + 1}/${cards.length}…`, true);
-    }
-    thumbSection.style.display = '';
-    exportBtn.disabled = sendQueueBtn.disabled = false;
-    st(`Hotovo · ${processed.length} karet zpracováno`);
-  } catch (err) {
-    console.error('[process]', err);
-    st('Chyba při zpracování: ' + err.message);
-  } finally {
-    processBtn.disabled = false;
+  if(!canvas){
+    // Fallback: full image thumbnail
+    const sc = Math.min(1, maxSize/Math.max(srcImg.naturalWidth,srcImg.naturalHeight));
+    canvas = document.createElement('canvas');
+    canvas.width  = Math.round(srcImg.naturalWidth*sc);
+    canvas.height = Math.round(srcImg.naturalHeight*sc);
+    canvas.getContext('2d').drawImage(srcImg, 0, 0, canvas.width, canvas.height);
   }
+  return canvas;
 }
 
-function downloadOne(idx) {
-  const p = processed[idx];
-  if (!p) return;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(p.blob);
-  a.download = `karta_${String(idx+1).padStart(2,'0')}.jpg`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-}
+// ── Main AI enhance function ────────────────────────────────────
+async function aiEnhance(){
+  checkManualKeys();
+  const gemKey = pickKey('gemini');
+  const grokKey = pickKey('xai');
 
-async function exportZip() {
-  if (!processed.length) return;
-  st('Vytvářím ZIP…', true);
-  try {
-    const zip = new JSZip();
-    processed.forEach((p, i) => {
-      zip.file(`karta_${String(i+1).padStart(2,'0')}.jpg`, p.blob);
-    });
-    const blob = await zip.generateAsync({ type: 'blob' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `bulk-scan_${new Date().toISOString().slice(0,10)}.zip`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    st(`ZIP stažen · ${processed.length} karet`);
-  } catch (err) {
-    st('Chyba ZIP: ' + err.message);
-  }
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   SEND TO QUEUE – upload do Supabase storage + photo_queue
-═══════════════════════════════════════════════════════════════════ */
-
-async function sendToQueue() {
-  if (!processed.length || !TOKEN || !USER_ID) return;
-  if (!confirm(`Poslat ${processed.length} karet do fronty zpracování (queue.html)?`)) return;
-
-  sendQueueBtn.disabled = true;
-  exportBtn.disabled = true;
-
-  const batchId = `bulk_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
-  let okCount = 0, failCount = 0;
-
-  st(`Posílám 0/${processed.length} do fronty…`, true);
-
-  for (let i = 0; i < processed.length; i++) {
-    const p = processed[i];
-    const cardIndex = i + 1;
-    try {
-      // 1. Upload do storage
-      const filename = `${USER_ID}/${batchId}_card${cardIndex}_front.jpg`;
-      const up = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/card-photo/${filename}`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON,
-            'Authorization': 'Bearer ' + TOKEN,
-            'Content-Type': 'image/jpeg',
-            'x-upsert': 'true',
-          },
-          body: p.blob,
-        }
-      );
-      if (!up.ok) {
-        const errBody = await up.text();
-        throw new Error(`Storage upload ${up.status}: ${errBody.slice(0, 100)}`);
-      }
-
-      // 2. Vlož řádek do photo_queue (sloupec se jmenuje "metadata", ne "meta")
-      const metadata = { batchId, cardIndex, side: 'front', source: 'bulk-scan' };
-      const qRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/photo_queue`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON,
-            'Authorization': 'Bearer ' + TOKEN,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal',
-          },
-          body: JSON.stringify({
-            user_id: USER_ID,
-            storage_path: filename,
-            filename: `bulk_card${cardIndex}_front.jpg`,
-            processed: false,
-            metadata,
-          }),
-        }
-      );
-      if (!qRes.ok) {
-        const errBody = await qRes.text();
-        throw new Error(`Queue insert ${qRes.status}: ${errBody.slice(0, 100)}`);
-      }
-      okCount++;
-    } catch (err) {
-      console.error(`[send-queue] karta ${cardIndex}:`, err);
-      failCount++;
-    }
-    st(`Posílám ${i + 1}/${processed.length} do fronty…`, true);
-  }
-
-  if (failCount === 0) {
-    toast(`✓ ${okCount} karet posláno do fronty`, 'success');
-    st(`Hotovo · ${okCount} karet ve frontě (batch ${batchId.slice(-6)})`);
-    setTimeout(() => {
-      window.location.href = `queue.html?highlight=${encodeURIComponent(batchId)}`;
-    }, 1200);
-  } else {
-    toast(`${okCount} OK, ${failCount} selhalo`, 'error');
-    st(`Částečný úspěch: ${okCount} OK, ${failCount} selhalo`);
-    sendQueueBtn.disabled = false;
-    exportBtn.disabled = false;
-  }
-}
-
-function doLogout() {
-  ['sb_token','sb_user','sb_refresh_token','sb_user_id','sb_email','sb_username','pkc_avatar_local','pkc_online_session'].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
-  window.location.href = 'login.html';
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   IMPORT Z ALBA — načti kartu z user_card_photos
-═══════════════════════════════════════════════════════════════════ */
-let _albumPhotos   = null;   // cache: pole {url, name, local_id, created_at}
-let _albumFiltered = [];
-
-document.getElementById('albumImportBtn').addEventListener('click', openAlbumModal);
-
-function openAlbumModal() {
-  document.getElementById('albumModal').classList.add('open');
-  document.getElementById('albumSearch').value = '';
-  if (!_albumPhotos) {
-    fetchAlbumPhotos();
-  } else {
-    renderAlbumGrid(_albumPhotos);
-  }
-}
-
-function closeAlbumModal() {
-  document.getElementById('albumModal').classList.remove('open');
-}
-
-async function fetchAlbumPhotos() {
-  const grid = document.getElementById('albumGrid');
-  grid.innerHTML = '<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
-  try {
-    const tok = TOKEN || readStoredToken() || '';
-    const uid = localStorage.getItem('sb_user_id') || USER_ID || '';
-    if (!uid) { grid.innerHTML = '<div class="album-modal-empty">⚠️ Nejsi přihlášen</div>'; return; }
-
-    // Načti fotky + info o kartě v jednom joinu
-    const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/user_card_photos?user_id=eq.${uid}&select=id,url,side,created_at,user_card_local_id,user_cards!inner(card_data)&order=created_at.desc&limit=200`,
-      { headers: { apikey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs', Authorization: 'Bearer ' + tok } }
-    );
-    let rows = await resp.json();
-    if (!Array.isArray(rows)) rows = [];
-
-    _albumPhotos = rows.map(r => {
-      const cd = r.user_cards?.card_data;
-      let name = '';
-      try { name = (typeof cd === 'string' ? JSON.parse(cd) : cd)?.name || ''; } catch {}
-      return { id: r.id, url: r.url, side: r.side, name, local_id: r.user_card_local_id, created_at: r.created_at };
-    }).filter(r => r.url);
-
-    if (_albumPhotos.length === 0) {
-      grid.innerHTML = '<div class="album-modal-empty">📭 Nemáš žádné naskenované fotky v albu</div>';
-      return;
-    }
-    renderAlbumGrid(_albumPhotos);
-  } catch (e) {
-    grid.innerHTML = `<div class="album-modal-empty">❌ Chyba: ${e.message}</div>`;
-  }
-}
-
-function renderAlbumGrid(photos) {
-  const q = document.getElementById('albumSearch').value.toLowerCase().trim();
-  const filtered = q ? photos.filter(p => p.name.toLowerCase().includes(q)) : photos;
-  const grid = document.getElementById('albumGrid');
-  if (!filtered.length) {
-    grid.innerHTML = '<div class="album-modal-empty">🔍 Žádná karta neodpovídá hledání</div>';
+  if(!gemKey && !grokKey){
+    // Show error in result area
+    const res = document.getElementById('aiEnhResult');
+    res.innerHTML = '⚠ Žádný vision AI klíč · přidej <b>Gemini</b> nebo <b>Grok/xAI</b> klíč v sekci AI Klíče výše.';
+    res.classList.add('vis');
     return;
   }
-  grid.innerHTML = filtered.map(p => `
-    <div class="album-card-thumb" onclick="importAlbumPhoto(${JSON.stringify(p.url).replace(/</g,'\\u003c')}, ${JSON.stringify(p.name).replace(/</g,'\\u003c')})">
-      <img src="${p.url}" alt="${p.name || 'karta'}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 63 88%22><rect fill=%22%23333%22 width=%2263%22 height=%2288%22/></svg>'">
-      <div class="alb-name">${p.name || ('karta '+(p.side||''))} <span style="opacity:.5;font-size:10px">${p.side||''}</span></div>
-    </div>
-  `).join('');
+
+  const btn = document.getElementById('btnAiEnhance');
+  btn.disabled = true; btn.classList.add('loading');
+  btn.innerHTML = '<span style="animation:spin .7s linear infinite;display:inline-block">⊙</span> AI analyzuje kartičku…';
+
+  // Clear previous AI marks
+  SLIDER_DEFS.forEach(s => document.getElementById(s.id)?.closest('.sl-row')?.classList.remove('ai-set'));
+  document.getElementById('aiEnhResult').classList.remove('vis');
+  document.getElementById('aiEnhProv').style.display = 'none';
+
+  // Build thumb
+  const thumb = buildZoneThumb(512);
+  if(!thumb){ btn.disabled=false; btn.classList.remove('loading'); btn.innerHTML='<span>✦</span> AI nastavení vylepšení'; return; }
+  const b64 = thumb.toDataURL('image/jpeg', 0.88).split(',')[1];
+  const tw = thumb.width, th = thumb.height;
+
+  const PROMPT = `You are a professional photo editor analyzing a Pokemon trading card scan/photo.
+
+Analyze this ${tw}×${th}px card image and determine OPTIMAL enhancement values to make it look like a professionally scanned card — crisp, vibrant, clean.
+
+Consider:
+- Is it underexposed or overexposed? (set brightness)
+- Does it lack contrast or look flat? (set contrast)  
+- Are colors dull or oversaturated? (set saturation)
+- Is text/details blurry or already sharp? (set sharpness — careful: oversharpening creates artifacts)
+- Are shadows too dark, losing card art detail? (set shadow_lift)
+- Are there reflections or hotspots from camera flash? (set highlight_recovery)
+
+Return ONLY this JSON (no markdown, no explanation):
+{
+  "brightness": N,
+  "contrast": N,
+  "saturation": N,
+  "sharpness": N,
+  "shadow_lift": N,
+  "highlight_recovery": N,
+  "description": "one sentence summary of what you found and corrected"
 }
 
-async function importAlbumPhoto(url, name) {
-  closeAlbumModal();
-  toast('⏳ Načítám fotku z alba…', 'info');
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    const ext  = blob.type.split('/')[1] || 'jpg';
-    const file = new File([blob], (name || 'karta') + '.' + ext, { type: blob.type });
-    loadImage(file);
-    toast(`✅ Načteno: ${name || 'karta'}`, 'ok');
-  } catch (e) {
-    toast('❌ Nepodařilo se načíst fotku: ' + e.message, 'error');
+Value ranges:
+- brightness: -50 to 50 (0=no change)
+- contrast: -50 to 80 (15=slight boost is good baseline)
+- saturation: -50 to 80 (0-20 typical for cards)
+- sharpness: 0 to 200 (60-120 typical; higher for blurry photos; 0 if already sharp)
+- shadow_lift: 0 to 100 (0=no change; 20-40 if dark areas hide art detail)
+- highlight_recovery: 0 to 100 (0=no change; 20-50 if there are flash reflections/hotspots)`;
+
+  let vals = null, providerName = '';
+
+  // 1. Gemini Flash 1.5 (free tier, excellent vision)
+  if(gemKey && !vals){
+    try{
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gemKey}`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts:[
+            {inlineData:{mimeType:'image/jpeg',data:b64}},
+            {text:PROMPT}
+          ]}],
+          generationConfig:{maxOutputTokens:512,temperature:0.1}
+        })
+      });
+      if(r.ok){
+        const d = await r.json();
+        const txt = d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+        const m = txt.match(/\{[\s\S]*\}/);
+        if(m){ const p = JSON.parse(m[0]); if(typeof p.brightness==='number') { vals=p; providerName='Gemini Flash'; } }
+      } else {
+        const err = await r.json().catch(()=>({}));
+        console.warn('[Gemini enhance]', r.status, err);
+      }
+    }catch(e){console.warn('[Gemini enhance]',e);}
   }
-}
 
-document.getElementById('albumSearch').addEventListener('input', () => {
-  if (_albumPhotos) renderAlbumGrid(_albumPhotos);
-});
-// Kliknutí mimo modal = zavřít
-document.getElementById('albumModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('albumModal')) closeAlbumModal();
-});
+  // 2. Grok Vision xAI fallback
+  if(grokKey && !vals){
+    try{
+      const r = await fetch('https://api.x.ai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+grokKey},
+        body:JSON.stringify({
+          model:'grok-2-vision-latest', max_tokens:512, temperature:0.1,
+          messages:[{role:'user',content:[
+            {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},
+            {type:'text',text:PROMPT}
+          ]}]
+        })
+      });
+      if(r.ok){
+        const d = await r.json();
+        const txt = d.choices?.[0]?.message?.content||'';
+        const m = txt.match(/\{[\s\S]*\}/);
+        if(m){ const p=JSON.parse(m[0]); if(typeof p.brightness==='number'){ vals=p; providerName='Grok Vision'; } }
+      }
+    }catch(e){console.warn('[Grok enhance]',e);}
+  }
 
-</script>
-<script src="notif-bell.js"></script>
-<script src="settings-panel.js"></script>
-<script src="site-tracking.js">
-// ══ ALBUM → BULK SCAN → ALBUM RETURN ══════════════════════════════
-let _arbEntry = null;
+  btn.disabled=false; btn.classList.remove('loading');
+  btn.innerHTML='<span>✦</span> AI znovu vyladit';
 
-(function initAlbumReturn() {
-  const raw = localStorage.getItem('pkc_album_to_bulkscan');
-  if (!raw) return;
-  try {
-    _arbEntry = JSON.parse(raw);
-    if (!_arbEntry.photoUrl) return;
+  if(!vals){
+    const res = document.getElementById('aiEnhResult');
+    res.textContent = '✕ AI analýza selhala · zkontroluj klíče nebo zkus znovu';
+    res.classList.add('vis');
+    return;
+  }
 
-    // Zobraz banner
-    const banner = document.getElementById('albumReturnBanner');
-    document.getElementById('arbCardName').textContent = _arbEntry.name || 'bez názvu';
-    banner.style.display = 'flex';
-
-    // Načti fotku
-    setTimeout(async () => {
-      try {
-        toast('⏳ Načítám fotku z alba…', 'info');
-        const resp = await fetch(_arbEntry.photoUrl);
-        const blob = await resp.blob();
-        const ext  = blob.type.split('/')[1] || 'jpg';
-        const file = new File([blob], (_arbEntry.name || 'karta') + '.' + ext, { type: blob.type });
-        loadImage(file);
-        toast('✅ Fotka načtena — uprav nebo najdi kartu', 'ok');
-      } catch(e) { toast('⚠️ Foto nelze načíst: ' + e.message, 'error'); }
-
-      // Prefill name
-      const ni = document.getElementById('cardNameInp') || document.querySelector('input[placeholder*="název"]');
-      if (ni && _arbEntry.name) { ni.value = _arbEntry.name; ni.dispatchEvent(new Event('input')); }
-    }, 700);
-
-    // Automaticky prohledej review panel pokud existuje
-    setTimeout(() => {
-      if (typeof renderReviewPanel === 'function' && processed.length > 0) renderReviewPanel();
-    }, 2000);
-  } catch(e) { console.warn('[AlbumReturn init]', e); }
-})();
-
-function arbDiscard() {
-  localStorage.removeItem('pkc_album_to_bulkscan');
-  document.getElementById('albumReturnBanner').style.display = 'none';
-  _arbEntry = null;
-}
-
-async function arbSaveBack() {
-  if (!_arbEntry) return;
-  const result = {
-    cardLocalId: _arbEntry.cardLocalId,
-    name:        _arbEntry.name,
-    setAsMain:   document.getElementById('setAsMainChk').checked,
-    apiCard:     null,
-    newPhotoUrl: null,
-    storagePath: null,
+  // Map AI keys → slider IDs
+  const mapped = {
+    sBr:     clampVal(vals.brightness,      -50, 50),
+    sCo:     clampVal(vals.contrast,        -50, 80),
+    sSa:     clampVal(vals.saturation,      -50, 80),
+    sSh:     clampVal(vals.sharpness,         0, 200),
+    sShadow: clampVal(vals.shadow_lift,       0, 100),
+    sHL:     clampVal(vals.highlight_recovery,0, 100),
+    _desc:   vals.description||''
   };
 
-  // Vezmi data z reviewData[0] pokud existuje
-  if (typeof reviewData !== 'undefined' && reviewData[0]) {
-    const rd = reviewData[0];
-    if (rd.name)    result.name    = rd.name;
-    if (rd.apiCard) result.apiCard = rd.apiCard;
-  }
-
-  // Upload oříznuté/zpracované fotky do storage
-  if (typeof processed !== 'undefined' && processed[0] && TOKEN && USER_ID) {
-    try {
-      const p = processed[0];
-      const sp = `${USER_ID}/album_bulkscan_${_arbEntry.cardLocalId}_${Date.now()}.jpg`;
-      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`, {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'image/jpeg', 'x-upsert': 'true' },
-        body: p.blob
-      });
-      if (up.ok) {
-        result.newPhotoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;
-        result.storagePath = sp;
-        // Ulož do user_card_photos
-        await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos`, {
-          method: 'POST',
-          headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-          body: JSON.stringify({ user_id: USER_ID, user_card_local_id: _arbEntry.cardLocalId, url: result.newPhotoUrl, storage_path: sp, side: 'front' })
-        });
-      }
-    } catch(e) { console.warn('[arbSaveBack photo]', e); }
-  }
-
-  localStorage.setItem('pkc_bulkscan_album_result', JSON.stringify(result));
-  localStorage.removeItem('pkc_album_to_bulkscan');
-  document.getElementById('albumReturnBanner').innerHTML = '<span style="color:#4fc870">✅ Uloženo! Zavři záložku a obnov album.</span>';
-  _arbEntry = null;
+  applyAiEnhValues(mapped, providerName);
+  st(`✦ ${providerName}: vylepšení nastaveno · dolaď dle potřeby`, false);
 }
 
-async function arbShareCommunity() {
-  // Sdílení do komunity — uloží obrázek do community_card_images tabulky
-  if (!TOKEN || !USER_ID) { toast('❌ Nejsi přihlášen', 'error'); return; }
-  if (!_arbEntry) return;
+function clampVal(v, mn, mx){ return Math.max(mn, Math.min(mx, Math.round(Number(v)||0))); }
 
-  const apiCard = (typeof reviewData !== 'undefined' && reviewData[0]?.apiCard) || null;
-  const apiId   = apiCard?.id || _arbEntry.apiId || '';
-  const name    = (typeof reviewData !== 'undefined' && reviewData[0]?.name) || _arbEntry.name || '';
+document.getElementById('btnAiEnhance').addEventListener('click', aiEnhance);
 
-  if (!apiId) { toast('⚠️ Nejprve najdi kartu přes 🔍 aby bylo možné sdílet', 'warn'); return; }
+// ══════════════════════════════════════════════════════════════════
+//  PROCESS ALL ZONES
+// ══════════════════════════════════════════════════════════════════
+async function processAllZones(){
+  if(!srcImg||!zones.length)return;
+  const szVal=document.querySelector('input[name=sz]:checked')?.value||'600x840';
+  let outW,outH;
+  if(szVal==='auto'){ const iw=srcImg.naturalWidth,ih=srcImg.naturalHeight; outW=Math.round(600*iw/ih*0.715); outH=600; }
+  else { [outW,outH]=szVal.split('x').map(Number); }
 
-  // Upload do shared storage
-  let communityUrl = '';
-  if (typeof processed !== 'undefined' && processed[0]) {
-    try {
-      const p  = processed[0];
-      const sp = `community/${apiId}_${USER_ID}_${Date.now()}.jpg`;
-      const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`, {
-        method: 'POST',
-        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'image/jpeg', 'x-upsert': 'false' },
-        body: p.blob
-      });
-      if (up.ok) communityUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;
-    } catch(e) { toast('❌ Upload selhal: ' + e.message, 'error'); return; }
+  results=[]; zones.forEach(z=>z.done=false);
+  processBtn.disabled=document.getElementById('processBtnSide').disabled=true;
+  document.getElementById('thumbSection').style.display='';
+  document.getElementById('thumbGrid').innerHTML='';
+  document.getElementById('progWrap').classList.add('vis');
+
+  for(let i=0;i<zones.length;i++){
+    st(`Zpracovávám zónu ${i+1}/${zones.length}…`,true);
+    document.getElementById('progBar').style.width=((i/zones.length)*100)+'%';
+    await new Promise(r=>setTimeout(r,12));
+    try{
+      let cv=zones[i].persp?perspectiveCrop(zones[i],outW,outH):simpleCrop(zones[i],outW,outH);
+      await new Promise(r=>setTimeout(r,8));
+      cv=enhance(cv);
+      const useRounded=+document.getElementById('sRadius').value>0;
+      if(useRounded)cv=roundCorners(cv);
+      const mime=useRounded?'image/png':'image/jpeg';
+      const quality=useRounded?undefined:.92;
+      const dataURL=cv.toDataURL(mime,quality);
+      const blob=await new Promise(res=>cv.toBlob(res,mime,quality));
+      results.push({zoneId:zones[i].id,idx:i+1,name:zones[i].name,dataURL,blob,mime});
+      zones[i].done=true;
+      // Thumb
+      const div=document.createElement('div'); div.className='thumb-item'; div.onclick=()=>openPreview(i);
+      div.innerHTML=`<img src="${dataURL}"><div class="thumb-num" style="color:${ZONE_COLORS[i%ZONE_COLORS.length]}">#${i+1}</div>`;
+      document.getElementById('thumbGrid').appendChild(div);
+      document.getElementById('thumbCount').textContent=results.length;
+    }catch(e){console.error('[process zone]',e);}
+    renderZoneList();
   }
 
-  if (!communityUrl) { toast('⚠️ Nejprve zpracuj kartu (Zpracovat vše)', 'warn'); return; }
+  document.getElementById('progBar').style.width='100%';
+  setTimeout(()=>document.getElementById('progWrap').classList.remove('vis'),800);
 
-  // Ulož do community_card_images
-  const ins = await fetch(`${SUPABASE_URL}/rest/v1/community_card_images`, {
-    method: 'POST',
-    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + TOKEN, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-    body: JSON.stringify({ api_card_id: apiId, card_name: name, image_url: communityUrl, contributor_id: USER_ID, verified: false, created_at: new Date().toISOString() })
-  });
+  exportBtn.disabled=sendQueueBtn.disabled=false;
+  document.getElementById('exportBtnSide').disabled=document.getElementById('sendQueueBtnSide').disabled=false;
+  processBtn.disabled=document.getElementById('processBtnSide').disabled=false;
+  st(`✓ Zpracováno ${results.length} karet`,false);
+  toast(`✅ Zpracováno ${results.length} karet`,'success');
+}
 
-  if (ins.ok) {
-    toast('🌍 Sdíleno do komunitní databáze! Ostatní sběratelé to uvidí.', 'ok');
-    document.getElementById('albumReturnBanner').querySelector('.btn-share-community').textContent = '✅ Sdíleno!';
+// ══════════════════════════════════════════════════════════════════
+//  PREVIEW MODAL
+// ══════════════════════════════════════════════════════════════════
+let previewIdx=-1;
+function openPreview(i){ previewIdx=i; const r=results[i]; document.getElementById('prevTitle').textContent='Karta #'+(i+1)+' — '+r.name; document.getElementById('prevImg').src=r.dataURL; document.getElementById('prevModal').classList.add('open'); }
+document.getElementById('btnPrevClose').addEventListener('click',()=>document.getElementById('prevModal').classList.remove('open'));
+document.getElementById('prevModal').addEventListener('click',e=>{if(e.target===document.getElementById('prevModal'))document.getElementById('prevModal').classList.remove('open');});
+document.getElementById('btnPrevDl').addEventListener('click',()=>{if(previewIdx<0)return;const r=results[previewIdx];const a=document.createElement('a');a.href=r.dataURL;a.download=`karta_${String(r.idx).padStart(2,'0')}.${r.mime.includes('png')?'png':'jpg'}`;a.click();});
+document.getElementById('btnPrevDel').addEventListener('click',()=>{if(previewIdx<0)return;results.splice(previewIdx,1);document.getElementById('prevModal').classList.remove('open');const grid=document.getElementById('thumbGrid');const items=[...grid.children];items[previewIdx]?.remove();document.getElementById('thumbCount').textContent=results.length;});
+
+// ══════════════════════════════════════════════════════════════════
+//  ZIP EXPORT
+// ══════════════════════════════════════════════════════════════════
+async function exportZip(){
+  if(!results.length)return; st('Vytvářím ZIP…',true);
+  const zip=new JSZip();
+  results.forEach(r=>zip.file(`karta_${String(r.idx).padStart(2,'0')}.${r.mime.includes('png')?'png':'jpg'}`,r.blob));
+  const blob=await zip.generateAsync({type:'blob',compression:'STORE'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`bulk-scan_${new Date().toISOString().slice(0,10)}.zip`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  st(`ZIP stažen · ${results.length} karet`,false);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  SEND TO QUEUE
+// ══════════════════════════════════════════════════════════════════
+async function sendToQueue(){
+  if(!results.length||!TOKEN||!USER_ID)return;
+  if(!confirm(`Poslat ${results.length} karet do fronty zpracování (queue.html)?`))return;
+  sendQueueBtn.disabled=exportBtn.disabled=true;
+  document.getElementById('sendQueueBtnSide').disabled=document.getElementById('exportBtnSide').disabled=true;
+  const batchId=`bulk_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  let okCount=0,failCount=0;
+  st(`Posílám 0/${results.length} do fronty…`,true);
+  for(let i=0;i<results.length;i++){
+    const p=results[i];
+    try{
+      const filename=`${USER_ID}/${batchId}_card${p.idx}_front.${p.mime.includes('png')?'png':'jpg'}`;
+      const up=await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${filename}`,{
+        method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':p.mime,'x-upsert':'true'},body:p.blob});
+      if(!up.ok)throw new Error(`Storage ${up.status}`);
+      const qRes=await fetch(`${SUPABASE_URL}/rest/v1/photo_queue`,{
+        method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({user_id:USER_ID,storage_path:filename,filename:`bulk_card${p.idx}_front.jpg`,processed:false,metadata:{batchId,cardIndex:p.idx,side:'front',source:'bulk-scan-pro'}})});
+      if(!qRes.ok)throw new Error(`Queue ${qRes.status}`);
+      okCount++;
+    }catch(err){console.error(`[queue] karta ${p.idx}:`,err);failCount++;}
+    st(`Posílám ${i+1}/${results.length} do fronty…`,true);
+  }
+  if(failCount===0){
+    toast(`✓ ${okCount} karet ve frontě`,'success');
+    st(`Hotovo · ${okCount} karet (batch ${batchId.slice(-6)})`,false);
+    setTimeout(()=>window.location.href=`queue.html?highlight=${encodeURIComponent(batchId)}`,1200);
   } else {
-    toast('❌ Sdílení selhalo: ' + await ins.text(), 'error');
+    toast(`${okCount} OK, ${failCount} selhalo`,'error');
+    st(`Částečný: ${okCount} OK, ${failCount} selhalo`,false);
+    sendQueueBtn.disabled=exportBtn.disabled=false;
+    document.getElementById('sendQueueBtnSide').disabled=document.getElementById('exportBtnSide').disabled=false;
   }
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  ALBUM IMPORT
+// ══════════════════════════════════════════════════════════════════
+let _albumPhotos=null;
+function openAlbumModal(){ document.getElementById('albumModal').classList.add('open'); document.getElementById('albumSearch').value=''; if(!_albumPhotos)fetchAlbumPhotos(); else renderAlbumGrid(_albumPhotos); }
+function closeAlbumModal(){ document.getElementById('albumModal').classList.remove('open'); }
+async function fetchAlbumPhotos(){
+  const grid=document.getElementById('albumGrid');
+  grid.innerHTML='<div class="album-modal-empty">⏳ Načítám fotky z alba…</div>';
+  try{
+    const tok=TOKEN||readStoredToken()||'', uid=localStorage.getItem('sb_user_id')||USER_ID||'';
+    if(!uid){grid.innerHTML='<div class="album-modal-empty">⚠ Nejsi přihlášen</div>';return;}
+    const resp=await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos?user_id=eq.${uid}&select=id,url,side,created_at,user_card_local_id,user_cards!inner(card_data)&order=created_at.desc&limit=200`,{headers:{apikey:SUPABASE_ANON,Authorization:'Bearer '+tok}});
+    let rows=await resp.json(); if(!Array.isArray(rows))rows=[];
+    _albumPhotos=rows.map(r=>{const cd=r.user_cards?.card_data;let name='';try{name=(typeof cd==='string'?JSON.parse(cd):cd)?.name||'';}catch{}return{id:r.id,url:r.url,side:r.side,name,local_id:r.user_card_local_id,created_at:r.created_at};}).filter(r=>r.url);
+    if(!_albumPhotos.length){grid.innerHTML='<div class="album-modal-empty">📭 Nemáš žádné naskenované fotky</div>';return;}
+    renderAlbumGrid(_albumPhotos);
+  }catch(e){grid.innerHTML=`<div class="album-modal-empty">❌ Chyba: ${e.message}</div>`;}
+}
+function renderAlbumGrid(photos){
+  const q=document.getElementById('albumSearch').value.toLowerCase().trim();
+  const flt=q?photos.filter(p=>p.name.toLowerCase().includes(q)):photos;
+  const grid=document.getElementById('albumGrid');
+  if(!flt.length){grid.innerHTML='<div class="album-modal-empty">🔍 Žádná karta neodpovídá</div>';return;}
+  grid.innerHTML=flt.map(p=>`<div class="album-card-thumb" onclick="importAlbumPhoto(${JSON.stringify(p.url).replace(/</g,'\\u003c')},${JSON.stringify(p.name).replace(/</g,'\\u003c')})"><img src="${p.url}" alt="${p.name||'karta'}" loading="lazy"><div class="alb-name">${p.name||('karta '+(p.side||''))} <span style="opacity:.5;font-size:9px">${p.side||''}</span></div></div>`).join('');
+}
+async function importAlbumPhoto(url,name){
+  closeAlbumModal(); toast('⏳ Načítám fotku z alba…','');
+  try{const resp=await fetch(url);const blob=await resp.blob();const ext=blob.type.split('/')[1]||'jpg';const file=new File([blob],(name||'karta')+'.'+ext,{type:blob.type});loadImage(file);toast(`✅ Načteno: ${name||'karta'}`,'success');}
+  catch(e){toast('❌ Nelze načíst fotku: '+e.message,'error');}
+}
+document.getElementById('albumSearch').addEventListener('input',()=>{if(_albumPhotos)renderAlbumGrid(_albumPhotos);});
+document.getElementById('albumModal').addEventListener('click',e=>{if(e.target===document.getElementById('albumModal'))closeAlbumModal();});
+
+// ══════════════════════════════════════════════════════════════════
+//  ALBUM RETURN (round-trip editing: moje-album → bulk-scan → album)
+// ══════════════════════════════════════════════════════════════════
+let _arbEntry=null;
+function initAlbumReturn(){
+  const raw=localStorage.getItem('pkc_album_to_bulkscan'); if(!raw)return;
+  try{
+    _arbEntry=JSON.parse(raw); if(!_arbEntry.photoUrl)return;
+    const banner=document.getElementById('albumReturnBanner');
+    document.getElementById('arbCardName').textContent=_arbEntry.name||'bez názvu';
+    banner.style.display='flex';
+    setTimeout(async()=>{
+      try{toast('⏳ Načítám fotku z alba…','');const resp=await fetch(_arbEntry.photoUrl);const blob=await resp.blob();const ext=blob.type.split('/')[1]||'jpg';const file=new File([blob],(_arbEntry.name||'karta')+'.'+ext,{type:blob.type});loadImage(file);toast('✅ Fotka načtena — uprav nebo najdi kartu','success');}
+      catch(e){toast('⚠ Foto nelze načíst: '+e.message,'error');}
+    },700);
+  }catch(e){console.warn('[AlbumReturn]',e);}
+}
+function arbDiscard(){ localStorage.removeItem('pkc_album_to_bulkscan'); document.getElementById('albumReturnBanner').style.display='none'; _arbEntry=null; }
+async function arbSaveBack(){
+  if(!_arbEntry)return;
+  const result={cardLocalId:_arbEntry.cardLocalId,name:_arbEntry.name,setAsMain:document.getElementById('setAsMainChk').checked,apiCard:null,newPhotoUrl:null,storagePath:null};
+  if(results[0]&&TOKEN&&USER_ID){
+    try{
+      const p=results[0];
+      const sp=`${USER_ID}/album_bulkscan_${_arbEntry.cardLocalId}_${Date.now()}.jpg`;
+      const up=await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'image/jpeg','x-upsert':'true'},body:p.blob});
+      if(up.ok){result.newPhotoUrl=`${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;result.storagePath=sp;await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({user_id:USER_ID,user_card_local_id:_arbEntry.cardLocalId,url:result.newPhotoUrl,storage_path:sp,side:'front'})});}
+    }catch(e){console.warn('[arbSaveBack photo]',e);}
+  }
+  localStorage.setItem('pkc_bulkscan_album_result',JSON.stringify(result));
+  localStorage.removeItem('pkc_album_to_bulkscan');
+  document.getElementById('albumReturnBanner').innerHTML='<span style="color:#4fc870">✅ Uloženo! Zavři záložku a obnov album.</span>';
+  _arbEntry=null;
+}
+async function arbShareCommunity(){
+  if(!TOKEN||!USER_ID){toast('❌ Nejsi přihlášen','error');return;} if(!_arbEntry)return;
+  const apiCard=results[0]?.apiCard||null, apiId=apiCard?.id||_arbEntry.apiId||'', name=results[0]?.name||_arbEntry.name||'';
+  if(!apiId){toast('⚠ Nejprve najdi kartu přes 🔍','');return;}
+  let communityUrl='';
+  if(results[0]){try{const p=results[0],sp=`community/${apiId}_${USER_ID}_${Date.now()}.jpg`;const up=await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'image/jpeg','x-upsert':'false'},body:p.blob});if(up.ok)communityUrl=`${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;}catch(e){toast('❌ Upload selhal: '+e.message,'error');return;}}
+  if(!communityUrl){toast('⚠ Nejprve zpracuj kartu','');return;}
+  const ins=await fetch(`${SUPABASE_URL}/rest/v1/community_card_images`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({api_card_id:apiId,card_name:name,image_url:communityUrl,contributor_id:USER_ID,verified:false,created_at:new Date().toISOString()})});
+  if(ins.ok)toast('🌍 Sdíleno do komunitní databáze!','success'); else toast('❌ Sdílení selhalo','error');
+}
 </script>
 
-<!-- Album return banner -->
-<div id="albumReturnBanner">
-  <strong>📷 Album karta:</strong>
-  <span id="arbCardName">—</span>
-  <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:#ccc;cursor:pointer">
-    <input type="checkbox" id="setAsMainChk"> Nastavit jako hlavní foto
-  </label>
-  <button class="btn-save-album" onclick="arbSaveBack()">✅ Uložit zpět do alba</button>
-  <button class="btn-share-community" onclick="arbShareCommunity()">🌍 Sdílet do komunity</button>
-  <button onclick="arbDiscard()" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:16px;padding:2px 6px">✕</button>
-</div>
-
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
+<script src="site-tracking.js"></script>
 </body>
 </html>
