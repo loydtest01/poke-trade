@@ -532,6 +532,49 @@ body {
   .modal-grid { grid-template-columns: 1fr; }
   .param-row { grid-template-columns: 1fr; }
 }
+
+/* ── Custom set dropdown with logos ── */
+.set-dropdown { position: relative; }
+.set-dropdown-btn {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); padding: .5rem .8rem;
+  font-size: .82rem; cursor: pointer; display: flex; align-items: center; gap: .6rem;
+  min-width: 210px; white-space: nowrap; user-select: none; transition: border-color .15s;
+}
+.set-dropdown-btn:hover, .set-dropdown.open .set-dropdown-btn {
+  border-color: rgba(245,200,66,.4);
+}
+.set-dropdown-chevron { margin-left: auto; opacity: .45; font-size: .68rem; transition: transform .2s; }
+.set-dropdown.open .set-dropdown-chevron { transform: rotate(180deg); }
+.set-dropdown-list {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 150;
+  background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+  width: 340px; max-height: 400px; display: flex; flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.65); display: none;
+}
+.set-dropdown.open .set-dropdown-list { display: flex; }
+.set-dropdown-search { padding: .55rem .7rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.set-dropdown-search input {
+  width: 100%; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text); padding: .38rem .65rem; font-size: .82rem; outline: none;
+}
+.set-dropdown-search input:focus { border-color: rgba(245,200,66,.35); }
+.set-dropdown-options { overflow-y: auto; flex: 1; padding: .3rem 0; }
+.set-option {
+  display: flex; align-items: center; gap: .65rem; padding: .42rem .9rem;
+  cursor: pointer; transition: background .1s; font-size: .82rem;
+}
+.set-option:hover { background: rgba(255,255,255,.05); }
+.set-option.active { background: rgba(245,200,66,.09); color: var(--yellow); }
+.set-option-sym { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; filter: brightness(1.1); }
+.set-option-sym-ph { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; opacity: .35; flex-shrink: 0; }
+.set-option-body { flex: 1; min-width: 0; }
+.set-option-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.set-option-count { font-size: .68rem; color: var(--muted); margin-top: .05rem; }
+
+/* Language filter flag */
+.lang-flag { font-size: .9rem; }
 </style>
 </head>
 <body>
@@ -621,9 +664,20 @@ body {
 
     <!-- Filters -->
     <div class="filters">
-      <select class="filter-select" id="f-set" onchange="doSearch()">
-        <option value="">📦 Všechny série</option>
-      </select>
+      <!-- Custom set dropdown with logos -->
+      <div class="set-dropdown" id="set-dropdown">
+        <button class="set-dropdown-btn" id="set-dropdown-btn" onclick="toggleSetDropdown(event)">
+          <span id="set-dropdown-sym" style="width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.9rem;opacity:.5">📦</span>
+          <span id="set-dropdown-label">Všechny série</span>
+          <span class="set-dropdown-chevron">▼</span>
+        </button>
+        <div class="set-dropdown-list" id="set-dropdown-list" onclick="event.stopPropagation()">
+          <div class="set-dropdown-search">
+            <input type="text" id="set-dropdown-q" placeholder="🔍 Hledat sérii…" oninput="filterSetDropdown(this.value)">
+          </div>
+          <div class="set-dropdown-options" id="set-dropdown-options"></div>
+        </div>
+      </div>
       <select class="filter-select" id="f-type" onchange="doSearch()">
         <option value="">⚡ Typ energie</option>
         <option value="Fire">🔥 Fire</option>
@@ -655,6 +709,17 @@ body {
         <option value="Special Illustration Rare">Special Illustration Rare</option>
         <option value="Illustration Rare">Illustration Rare</option>
         <option value="Hyper Rare">Hyper Rare</option>
+      </select>
+      <select class="filter-select" id="f-lang" onchange="doSearch()">
+        <option value="">🌍 Jazyk</option>
+        <option value="en">🇬🇧 English</option>
+        <option value="ja">🇯🇵 Japanese</option>
+        <option value="de">🇩🇪 Deutsch</option>
+        <option value="fr">🇫🇷 Français</option>
+        <option value="it">🇮🇹 Italiano</option>
+        <option value="es">🇪🇸 Español</option>
+        <option value="pt">🇵🇹 Português</option>
+        <option value="ko">🇰🇷 Korean</option>
       </select>
       <select class="filter-select" id="f-sort" onchange="doSearch()">
         <option value="name">Seřadit: Jméno A–Z</option>
@@ -997,7 +1062,7 @@ fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
 const API_BASE = 'https://pokedb-api.poketrade.workers.dev/v1';
 let state = {
   page: 1, limit: 36, view: 'grid',
-  q: '', set_id: '', type: '', supertype: '', rarity: '', sort: 'name',
+  q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name',
   totalCards: 0, totalPages: 0,
   setsData: [], loading: false
 };
@@ -1047,20 +1112,84 @@ async function loadSetFilter() {
     if (!r.ok) return;
     const data = await r.json();
     state.setsData = data.data || [];
-    const sel = document.getElementById('f-set');
+    state.setsLoaded = true;
+
+    // Populate the Sets page series filter
     const serSel = document.getElementById('set-series-filter');
     const series = [...new Set(state.setsData.map(s => s.series).filter(Boolean))].sort();
     series.forEach(s => {
       const o = document.createElement('option'); o.value = s; o.textContent = s;
       serSel && serSel.appendChild(o);
     });
-    state.setsData.forEach(s => {
-      const o = document.createElement('option');
-      o.value = s.id; o.textContent = `${s.name} (${s.id})`;
-      sel.appendChild(o);
-    });
-    state.setsLoaded = true;
+
+    // Build custom set dropdown
+    buildSetDropdown(state.setsData);
   } catch {}
+}
+
+function buildSetDropdown(sets) {
+  const wrap = document.getElementById('set-dropdown-options');
+  wrap.innerHTML = '';
+  // "All" option
+  const allEl = document.createElement('div');
+  allEl.className = 'set-option' + (state.set_id === '' ? ' active' : '');
+  allEl.innerHTML = '<span class="set-option-sym-ph">📦</span><div class="set-option-body"><div class="set-option-name">Všechny série</div></div>';
+  allEl.onclick = () => selectSet('', 'Všechny série', '');
+  wrap.appendChild(allEl);
+
+  sets.forEach(s => {
+    const el = document.createElement('div');
+    el.className = 'set-option' + (state.set_id === s.id ? ' active' : '');
+    el.dataset.id = s.id;
+    el.dataset.name = s.name.toLowerCase();
+    const symHtml = s.symbol_url
+      ? `<img class="set-option-sym" src="${s.symbol_url}" onerror="this.outerHTML='<span class=set-option-sym-ph>📦</span>'">`
+      : `<span class="set-option-sym-ph">📦</span>`;
+    el.innerHTML = `${symHtml}<div class="set-option-body"><div class="set-option-name">${escH(s.name)}</div><div class="set-option-count">${s.card_count || 0} karet${s.release_date ? ' · ' + s.release_date.slice(0,4) : ''}</div></div>`;
+    el.onclick = () => selectSet(s.id, s.name, s.symbol_url || '');
+    wrap.appendChild(el);
+  });
+}
+
+function selectSet(id, name, symUrl) {
+  state.set_id = id;
+  document.getElementById('set-dropdown-label').textContent = name || 'Všechny série';
+  const symEl = document.getElementById('set-dropdown-sym');
+  if (symUrl) {
+    symEl.innerHTML = `<img src="${symUrl}" style="width:22px;height:22px;object-fit:contain" onerror="this.outerHTML='📦'">`;
+  } else {
+    symEl.innerHTML = '📦';
+    symEl.style.cssText = 'width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:.9rem;opacity:.5';
+  }
+  // Mark active option
+  document.querySelectorAll('#set-dropdown-options .set-option').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id || (id === '' && !el.dataset.id));
+  });
+  closeSetDropdown();
+  doSearch(1);
+}
+
+function toggleSetDropdown(e) {
+  e && e.stopPropagation();
+  const dd = document.getElementById('set-dropdown');
+  const isOpen = dd.classList.contains('open');
+  closeSetDropdown();
+  if (!isOpen) {
+    dd.classList.add('open');
+    document.getElementById('set-dropdown-q').focus();
+  }
+}
+
+function closeSetDropdown() {
+  document.getElementById('set-dropdown').classList.remove('open');
+}
+
+function filterSetDropdown(q) {
+  const qLow = q.toLowerCase();
+  document.querySelectorAll('#set-dropdown-options .set-option').forEach(el => {
+    if (!el.dataset.id) { el.style.display = ''; return; } // "All" always shown
+    el.style.display = (!qLow || el.dataset.name.includes(qLow)) ? '' : 'none';
+  });
 }
 
 /* ════════════════════════════════════════════════════
@@ -1071,10 +1200,11 @@ function debouncedSearch() { clearTimeout(debTimer); debTimer = setTimeout(() =>
 
 function doSearch(pg) {
   state.q = document.getElementById('q').value.trim();
-  state.set_id = document.getElementById('f-set').value;
+  // set_id is managed by selectSet() / state directly — no native select anymore
   state.type = document.getElementById('f-type').value;
   state.supertype = document.getElementById('f-supertype').value;
   state.rarity = document.getElementById('f-rarity').value;
+  state.lang = document.getElementById('f-lang').value;
   state.sort = document.getElementById('f-sort').value;
   state.page = pg || 1;
   fetchCards();
@@ -1083,10 +1213,11 @@ function doSearch(pg) {
 
 function clearSearch() {
   document.getElementById('q').value = '';
-  document.getElementById('f-set').value = '';
+  selectSet('', 'Všechny série', '');  // resets dropdown + triggers doSearch
   document.getElementById('f-type').value = '';
   document.getElementById('f-supertype').value = '';
   document.getElementById('f-rarity').value = '';
+  document.getElementById('f-lang').value = '';
   document.getElementById('f-sort').value = 'name';
   doSearch(1);
 }
@@ -1096,7 +1227,7 @@ function updateActiveTags() {
   tags.innerHTML = '';
   const active = [
     state.q && {label: `"${state.q}"`, key: 'q'},
-    state.set_id && {label: state.set_id, key: 'set_id'},
+    state.set_id && {label: (state.setsData.find(s=>s.id===state.set_id)||{name:state.set_id}).name, key: 'set_id'},
     state.type && {label: state.type, key: 'type'},
     state.supertype && {label: state.supertype, key: 'supertype'},
     state.rarity && {label: state.rarity, key: 'rarity'},
@@ -1106,7 +1237,8 @@ function updateActiveTags() {
     t.className = 'filter-tag'; t.textContent = f.label + ' ✕';
     t.onclick = () => {
       if (f.key === 'q') document.getElementById('q').value = '';
-      else document.getElementById('f-' + f.key.replace('_id','') + (f.key==='set_id'?'-set':'')).value = '';
+      else if (f.key === 'set_id') { selectSet('', 'Všechny série', ''); return; }
+      else document.getElementById('f-' + f.key).value = '';
       doSearch(1);
     };
     tags.appendChild(t);
@@ -1122,6 +1254,7 @@ async function fetchCards() {
   const params = new URLSearchParams({ page: state.page, limit: state.limit });
   if (state.q)         params.set('q',         state.q);
   if (state.set_id)    params.set('set_id',     state.set_id);
+  if (state.lang)      params.set('lang',       state.lang);
   if (state.type)      params.set('type',       state.type);
   if (state.supertype) params.set('supertype',  state.supertype);
   if (state.rarity)    params.set('rarity',     state.rarity);
@@ -1396,7 +1529,10 @@ function closeZoom() {
   document.getElementById('img-zoom-bg').classList.remove('open');
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { closeModal(); closeZoom(); closeImgSearch(); }
+  if (e.key === 'Escape') { closeModal(); closeZoom(); closeImgSearch(); closeSetDropdown(); }
+});
+document.addEventListener('click', e => {
+  if (!document.getElementById('set-dropdown').contains(e.target)) closeSetDropdown();
 });
 
 /* ════════════════════════════════════════════════════
@@ -1602,8 +1738,9 @@ function browseSet(setId) {
   document.getElementById('page-browse').classList.add('active');
   document.querySelectorAll('.nav-tab')[0].classList.add('active');
   // Nastav filtr série a prohledej
-  document.getElementById('f-set').value = setId;
-  doSearch(1);
+  const found = state.setsData.find(s => s.id === setId);
+  if (found) selectSet(setId, found.name, found.symbol_url || '');
+  else doSearch(1);
 }
 
 /* ════════════════════════════════════════════════════
