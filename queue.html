@@ -1877,10 +1877,11 @@ async function doAssign(groups, albumId) {
       const rc = g.resolvedCard || (g.cardUrl ? await resolveCardUrl(g.cardUrl).catch(()=>null) : null);
 
       // ── Kontrola duplikátů ──────────────────────────────────────
-      const cardName   = rc?.name   || ai.name   || '';
-      const cardSet    = rc?.set    || ai.set    || '';
-      const cardNumber = ai.number  || rc?.number || '';
-      const cardLang   = ai.lang    || 'EN';  // jazyk varianty (EN/JP/CN/...)
+      const cardName    = rc?.name   || ai.name   || '';
+      const cardSet     = rc?.set    || ai.set    || '';
+      const cardNumber  = ai.number  || rc?.number || '';
+      const cardLang    = ai.lang    || 'EN';  // jazyk varianty (EN/JP/CN/...)
+      const cardVariant = ai.variant || 'Normal'; // Reverse Holo ≠ Normal!
       let existingId = null;
       let dupCardData = null;  // card_data existující karty při duplikátu
       if (cardName) {
@@ -1894,11 +1895,12 @@ async function doAssign(groups, albumId) {
         const dup = Array.isArray(dedupCandidates) && dedupCandidates.find(r => {
           const d = r.card_data || {};
           // Porovnání case-insensitive a s ořezem mezer — řeší "Pikachu " vs "pikachu"
-          // ZAHRNUJE I JAZYK — EN a JP varianta se NEslučují, jen 2× stejná EN karta ano.
+          // ZAHRNUJE I JAZYK i VARIANTU — Reverse Holo a Normal jsou různé karty s různou cenou!
           return norm(d.name) === norm(cardName)
             && norm(d.set)  === norm(cardSet)
             && normNum(d.number) === normNum(cardNumber)
-            && norm(d.lang || 'EN') === norm(cardLang);
+            && norm(d.lang || 'EN') === norm(cardLang)
+            && norm(d.variant || 'Normal') === norm(cardVariant);
         });
         if (dup) {
           existingId = dup.local_id;

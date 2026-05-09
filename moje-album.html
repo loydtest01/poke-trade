@@ -3345,6 +3345,7 @@ function render() {
         (c.set||'').toLowerCase().trim(),
         (c.number||c.num||'').toString().toLowerCase().trim(),
         (c.lang||'').toLowerCase().trim() || 'en',  // default EN když chybí
+        (c.variant||'normal').toLowerCase().trim(),  // Reverse Holo ≠ Normal — jiná cena!
       ].join('|');
       if (!_dupCheck.has(k)) _dupCheck.set(k, []);
       _dupCheck.get(k).push(c);
@@ -3648,8 +3649,15 @@ let _detailCard = null;
 let _detailList = []; // current filtered/sorted list for prev/next navigation
 
 function buildCardmarketUrl(c) {
-  // 1. Přímý URL uložený z pokemontcg API
-  if (c.cardmarketUrl) return c.cardmarketUrl;
+  // Reverse Holo má na Cardmarketu jinou cenu — přidáme query param
+  const isReverseHolo = (c.variant||'').toLowerCase().includes('reverse');
+  const reverseParam  = isReverseHolo ? '?isReverseHolo=Y' : '';
+
+  // 1. Přímý URL uložený z pokemontcg API — přidáme param pokud chybí
+  if (c.cardmarketUrl) {
+    const url = c.cardmarketUrl.split('?')[0]; // očisti starý param
+    return url + reverseParam;
+  }
   // 2. Sestavení Singles URL: /Singles/{set-slug}/{name-slug}-{SETCODE}{number}
   const slugify = s => (s||'').trim()
     .replace(/['']/g, '')
@@ -3667,7 +3675,7 @@ function buildCardmarketUrl(c) {
   const numPad   = num ? num.padStart(3, '0') : '';
   const suffix   = setCode && numPad ? `-${setCode}${numPad}` : '';
   if (nameSlug && setSlug) {
-    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}${suffix}`;
+    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}${suffix}${reverseParam}`;
   }
   // 3. Fallback — hledej jen podle jména karty (ne série!)
   return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name||'')}`;
@@ -5660,9 +5668,15 @@ async function fetchLivePrices(c, el) {
     // Hodnoty USD → konvertujeme na EUR (kurz 1 USD ≈ 0.93 EUR k jaru 2026).
     if (c.p30d <= 0 && c.pTrend <= 0 && card.tcgplayer?.prices) {
       const tp = card.tcgplayer.prices;
-      // Vyber první variantu s nenulovou market cenou (preferuj holofoil > reverse > normal)
-      const variants = ['holofoil', 'reverseHolofoil', '1stEditionHolofoil', 'normal',
-                        'unlimitedHolofoil', '1stEditionNormal'];
+      // Vyber variantu podle c.variant (Reverse Holo → reverseHolofoil, Normal → normal, atd.)
+      // Pokud preferovaná chybí, padáme na fallback pořadí.
+      const _isRev = (c.variant||'').toLowerCase().includes('reverse');
+      const _isHolo = !_isRev && (c.variant||'').toLowerCase().includes('holo');
+      const variants = _isRev
+        ? ['reverseHolofoil', 'holofoil', 'unlimitedHolofoil', 'normal', '1stEditionNormal']
+        : _isHolo
+          ? ['holofoil', '1stEditionHolofoil', 'unlimitedHolofoil', 'reverseHolofoil', 'normal']
+          : ['normal', '1stEditionNormal', 'holofoil', 'reverseHolofoil', 'unlimitedHolofoil', '1stEditionHolofoil'];
       let tpMarket = 0, tpLow = 0;
       for (const v of variants) {
         if (tp[v]?.market > 0) { tpMarket = tp[v].market; tpLow = tp[v].low || 0; break; }
