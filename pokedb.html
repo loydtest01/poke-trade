@@ -756,6 +756,7 @@ body::after {
         <span class="si">🔍</span>
         <input type="text" id="q" placeholder="Hledat kartu (jméno, číslo, typ…)" oninput="debouncedSearch()">
       </div>
+      <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)" style="white-space:nowrap">🌍 Všechny jazyky</button>
       <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
       <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
     </div>
@@ -1162,8 +1163,26 @@ let state = {
   page: 1, limit: 36, view: 'grid',
   q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name',
   totalCards: 0, totalPages: 0,
-  setsData: [], loading: false
+  setsData: [], loading: false,
+  allLang: false // ignorovat jazykový filtr — hledá ve všech jazycích
 };
+
+function toggleAllLang() {
+  state.allLang = !state.allLang;
+  const btn = document.getElementById('btn-alllang');
+  if (state.allLang) {
+    btn.style.background = 'rgba(96,165,250,.18)';
+    btn.style.borderColor = 'rgba(96,165,250,.5)';
+    btn.style.color = 'var(--blue, #60a5fa)';
+    btn.title = 'Aktivní: hledá ve všech jazycích (klikni pro vypnutí)';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    btn.title = 'Hledat ve všech jazycích (ignoruje filtr jazyka)';
+  }
+  doSearch(1);
+}
 
 /* ════════════════════════════════════════════════════
    PAGE SWITCHING
@@ -1304,9 +1323,28 @@ function doSearch(pg) {
   state.type = document.getElementById('f-type').value;
   state.supertype = document.getElementById('f-supertype').value;
   state.rarity = document.getElementById('f-rarity').value;
+  const prevLang = state.lang;
   state.lang = document.getElementById('f-lang').value;
   state.sort = document.getElementById('f-sort').value;
   state.page = pg || 1;
+
+  // Cascade: změna jazyka překreslí set dropdown a resetuje sérii pokud nepatří danému jazyku
+  if (state.lang !== prevLang && state.setsLoaded) {
+    const filteredSets = state.lang
+      ? state.setsData.filter(s => (s.lang || s.language || 'en') === state.lang)
+      : state.setsData;
+    buildSetDropdown(filteredSets);
+    // Pokud aktuálně vybraná série nepatří novému jazyku, resetuj ji
+    if (state.set_id && state.lang) {
+      const currentSet = state.setsData.find(s => s.id === state.set_id);
+      const setLang = currentSet ? (currentSet.lang || currentSet.language || 'en') : '';
+      if (setLang !== state.lang) {
+        selectSet('', 'Všechny série', '');
+        return; // selectSet already calls doSearch
+      }
+    }
+  }
+
   fetchCards();
   updateActiveTags();
 }
@@ -1319,6 +1357,8 @@ function clearSearch() {
   document.getElementById('f-rarity').value = '';
   document.getElementById('f-lang').value = '';
   document.getElementById('f-sort').value = 'name';
+  // Vypni allLang toggle
+  if (state.allLang) { state.allLang = false; toggleAllLang(); return; }
   doSearch(1);
 }
 
@@ -1354,7 +1394,7 @@ async function fetchCards() {
   const params = new URLSearchParams({ page: state.page, limit: state.limit });
   if (state.q)         params.set('q',         state.q);
   if (state.set_id)    params.set('set_id',     state.set_id);
-  if (state.lang)      params.set('lang',       state.lang);
+  if (state.lang && !state.allLang) params.set('lang', state.lang); // allLang přeskočí jazykový filtr
   if (state.type)      params.set('type',       state.type);
   if (state.supertype) params.set('supertype',  state.supertype);
   if (state.rarity)    params.set('rarity',     state.rarity);
@@ -1517,6 +1557,32 @@ async function openCard(id) {
     const r = await fetch(`${API_BASE}/cards/${encodeURIComponent(id)}`);
     if (!r.ok) throw new Error('Karta nenalezena');
     const c = await r.json();
+
+    // Pokud non-EN karta nemá bojová data, dotáhneme EN verzi a doplníme
+    const cardLang = c.lang || c.language || '';
+    const missingBattleData = !c.attacks?.length && !c.abilities?.length && !c.weaknesses?.length;
+    if (cardLang && cardLang !== 'en' && missingBattleData) {
+      // ID formát: "it-sm5-38" → EN je "sm5-38" (strip lang prefix)
+      const enId = id.replace(/^[a-z]{2}-/, '');
+      if (enId !== id) {
+        try {
+          const enR = await fetch(`${API_BASE}/cards/${encodeURIComponent(enId)}`);
+          if (enR.ok) {
+            const enC = await enR.json();
+            c.attacks    = c.attacks?.length    ? c.attacks    : (enC.attacks    || []);
+            c.abilities  = c.abilities?.length  ? c.abilities  : (enC.abilities  || []);
+            c.weaknesses = c.weaknesses?.length ? c.weaknesses : (enC.weaknesses || []);
+            c.resistances= c.resistances?.length? c.resistances: (enC.resistances|| []);
+            c.retreat_cost = c.retreat_cost ?? enC.retreat_cost;
+            c.subtypes   = c.subtypes?.length   ? c.subtypes   : (enC.subtypes   || []);
+            c._enName    = enC.name || ''; // anglický název pro marketplace links
+            c._enSetName = enC.set_name || ''; // anglický název série
+            c._enDataSource = true;
+          }
+        } catch (_) { /* EN data nedostupná, nevadí */ }
+      }
+    }
+
     renderModal(c);
   } catch (e) {
     body.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${escH(e.message)}</div>`;
@@ -1525,9 +1591,11 @@ async function openCard(id) {
 
 function renderModal(c) {
   document.getElementById('modal-title').textContent = c.name || c.id;
-  const fallbackImg = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png`;
-  const fallbackThumb = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`;
-  const img = c.image_url || c.image_thumb_url || fallbackThumb;
+  const cardLang = c.lang || c.language || '';
+  const isEnCard = !cardLang || cardLang === 'en';
+  const fallbackImg   = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png` : '';
+  const fallbackThumb = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`   : '';
+  const img   = c.image_url || c.image_thumb_url || fallbackThumb;
   const hiRes = c.image_hires_url || c.image_url || fallbackImg;
   const types = (c.types || []).map(t =>
     `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join(' ');
@@ -1571,7 +1639,7 @@ function renderModal(c) {
       <div class="modal-img-col">
         ${img
           ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}" onclick="openZoom('${escH(hiRes || img)}')" title="Klikni pro zvětšení"
-              onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}">`
+              onerror="${fallbackImg ? `if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}else{this.style.display='none'}` : 'this.style.display=\'none\''}">`
           : `<div class="modal-card-img-placeholder">🃏</div>`}
         ${hiRes && hiRes !== img ? `<a href="${escH(hiRes)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res</a>` : ''}
         <div style="margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem">
@@ -1598,6 +1666,7 @@ function renderModal(c) {
           ${(c.subtypes||[]).length ? infoItem('Subtyp', c.subtypes.join(', ')) : ''}
           ${c.evolves_from ? infoItem('Vyvíjí se z', c.evolves_from) : ''}
           ${c.regulation_mark ? infoItem('Reg. mark', c.regulation_mark) : ''}
+          ${c._enDataSource ? infoItem('', '<span style="font-size:.7rem;color:var(--muted)">⚠️ bojová data z EN verze</span>') : ''}
         </div>
         ${(c.weaknesses||[]).length || (c.resistances||[]).length ? `
         <div style="display:flex;gap:1rem;margin-top:.5rem;flex-wrap:wrap">
@@ -1615,7 +1684,10 @@ function renderModal(c) {
       </div>
     </div>
     ${abilities ? `<div class="attacks-section" style="margin-top:1.5rem"><div class="attacks-title">⚡ Schopnosti</div>${abilities}</div>` : ''}
-    ${attacks ? `<div class="attacks-section" style="margin-top:1rem"><div class="attacks-title">⚔️ Útoky</div>${attacks}</div>` : ''}
+    ${attacks ? `<div class="attacks-section" style="margin-top:1rem">
+      <div class="attacks-title">⚔️ Útoky${c._enDataSource ? ' <span style="font-size:.65rem;color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0">(data z EN verze)</span>' : ''}</div>
+      ${attacks}
+    </div>` : ''}
     ${renderPrices(c)}
     <div class="modal-api-block" style="margin-top:1.5rem">
       <div class="modal-api-label">API endpoint pro tuto kartu</div>
@@ -1628,13 +1700,20 @@ function renderModal(c) {
 
 function renderPrices(c) {
   const prices = c.prices || [];
-  const name  = encodeURIComponent(c.name || c.id);
-  const nameRaw = (c.name || c.id).replace(/\s+/g,'+');
-  const setRaw  = (c.set_name || '').replace(/\s+/g,'+');
+  // Pro marketplace links preferujeme anglický název (non-EN karty mají lokální název)
+  const marketName = c._enName || c.name_original || c.name || c.id;
+  const marketSet  = c._enSetName || c.set_name || '';
+  // Cardmarket preferuje EN název; speciální znaky musí být správně enkódovány
+  const cmName  = encodeURIComponent(marketName);
+  const nameRaw = encodeURIComponent(marketName); // pro ostatní tržiště
+  const setRaw  = encodeURIComponent(marketSet);
+
+  // Cardmarket: expansion filter pokud víme sérii
+  const cmExpansion = marketSet ? `&expansionName=${encodeURIComponent(marketSet)}` : '';
 
   // Marketplace links — vždy
   const markets = [
-    { name: 'Cardmarket', icon: '🇪🇺', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${nameRaw}` },
+    { name: 'Cardmarket', icon: '🇪🇺', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${cmName}${cmExpansion}` },
     { name: 'eBay',       icon: '🔨', url: `https://www.ebay.com/sch/i.html?_nkw=pokemon+${nameRaw}+${setRaw}+card` },
     { name: 'TCGPlayer',  icon: '🇺🇸', url: `https://www.tcgplayer.com/search/pokemon/product?q=${nameRaw}` },
     { name: 'Pokéllector',icon: '📒', url: `https://pokecollector.com/search?q=${nameRaw}` },
