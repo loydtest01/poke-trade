@@ -363,6 +363,94 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <div id="adminGrantResult" style="margin-top:.8rem;display:none"></div>
         </div>
       </div>
+
+      <!-- TAB: PokéDB Admin ─────────────────────────────────── -->
+      <div id="tab-pokedb">
+
+        <!-- Stats -->
+        <div class="adm-section">
+          <h3>📊 Statistiky PokéDB</h3>
+          <div style="display:flex;gap:.5rem;align-items:center;margin-bottom:.8rem">
+            <input type="password" id="pdb-secret" placeholder="POKEDB_ADMIN_SECRET"
+              style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.82rem;flex:1;max-width:320px">
+            <button class="btn btn-sm" onclick="pdbSaveSecret()">💾 Uložit</button>
+            <button class="btn btn-sm" onclick="pdbLoadStats()">📊 Načíst stats</button>
+          </div>
+          <div id="pdb-stats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:.5rem"></div>
+        </div>
+
+        <!-- Import EN série -->
+        <div class="adm-section">
+          <h3>📥 Import EN série (pokemontcg.io)</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 .8rem">Zadej set_id z pokemontcg.io (např. <code>sv8</code>, <code>swsh1</code>). Importuje karty + metadata setu.</p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <input type="text" id="pdb-set-id" placeholder="sv8" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.85rem;width:140px">
+            <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;color:var(--muted)">
+              <input type="checkbox" id="pdb-overwrite"> Přepsat existující
+            </label>
+            <button class="btn" onclick="pdbImportEN()">📥 Importovat EN</button>
+          </div>
+          <div id="pdb-import-result" style="margin-top:.8rem;display:none"></div>
+        </div>
+
+        <!-- Import cizí serie -->
+        <div class="adm-section">
+          <h3>🌍 Import cizojazyčné série (TCGdex)</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 .8rem">
+            Stáhne <strong>všechny sety</strong> pro vybraný jazyk, nebo jen konkrétní set.<br>
+            Jazyky: <code>ja</code> (japonština), <code>ko</code> (korejština), <code>de fr it es pt zh-Tw</code>
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <select id="pdb-lang" style="background:#1a1424;border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.85rem">
+              <option value="ja">🇯🇵 ja – Japonština</option>
+              <option value="ko">🇰🇷 ko – Korejština</option>
+              <option value="de">🇩🇪 de – Němčina</option>
+              <option value="fr">🇫🇷 fr – Francouzština</option>
+              <option value="it">🇮🇹 it – Italština</option>
+              <option value="es">🇪🇸 es – Španělština</option>
+              <option value="pt">🇵🇹 pt – Portugalština</option>
+              <option value="zh-Tw">🇹🇼 zh-Tw – Tradiční čínština</option>
+            </select>
+            <input type="text" id="pdb-foreign-set-id" placeholder="Konkrétní set ID (prázdné = vše)"
+              style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.85rem;width:220px">
+            <label style="display:flex;align-items:center;gap:.3rem;font-size:.82rem;color:var(--muted)">
+              <input type="checkbox" id="pdb-foreign-overwrite"> Přepsat existující
+            </label>
+            <button class="btn" onclick="pdbImportForeign()">🌍 Importovat</button>
+          </div>
+          <div id="pdb-foreign-result" style="margin-top:.8rem;display:none"></div>
+        </div>
+
+        <!-- Obnovení cen -->
+        <div class="adm-section">
+          <h3>💰 Obnovení cen</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 .8rem">Stáhne aktuální ceny z TCGdex (Cardmarket EUR) a pokemontcg.io (TCGPlayer USD). Cron to dělá automaticky každý den v 6:00 UTC, tady to spustíš ručně pro konkrétní set.</p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+            <input type="text" id="pdb-prices-set" placeholder="set_id (prázdné = vše zastaralé)"
+              style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.5rem .8rem;border-radius:7px;font-size:.85rem;width:240px">
+            <button class="btn" onclick="pdbRefreshPrices()">💰 Obnovit ceny</button>
+          </div>
+          <div id="pdb-prices-result" style="margin-top:.8rem;display:none"></div>
+        </div>
+
+        <!-- Fronta ověření -->
+        <div class="adm-section">
+          <h3>✅ Fronta ověření karet</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 .8rem">Karty importované přes TCGdex/komunitu čekají na ověření. Zkontroluj metadata a schvaluješ/zamítáš.</p>
+          <button class="btn btn-sm" onclick="pdbLoadVerifyQueue()">🔄 Načíst frontu</button>
+          <div id="pdb-verify-queue" style="margin-top:.8rem"></div>
+        </div>
+
+        <!-- Správa sérií -->
+        <div class="adm-section">
+          <h3>📚 Přehled sérií v DB</h3>
+          <button class="btn btn-sm" onclick="pdbLoadSets()">🔄 Načíst série</button>
+          <div id="pdb-sets-table" style="margin-top:.8rem"></div>
+        </div>
+
+      </div>
+      <!-- /tab-pokedb -->
+
     </div>
   </div>
 </div>
@@ -1132,6 +1220,177 @@ function doLogout() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ══════════════════════════════════════════════════
+// POKEDB ADMIN – JS funkce
+// ══════════════════════════════════════════════════
+const POKEDB_WORKER = 'https://pokedb-api.poketrade.workers.dev';
+
+function pdbGetSecret() {
+  return document.getElementById('pdb-secret').value.trim() ||
+         localStorage.getItem('pdb_admin_secret') || '';
+}
+function pdbSaveSecret() {
+  const s = document.getElementById('pdb-secret').value.trim();
+  if (s) { localStorage.setItem('pdb_admin_secret', s); alert('Uloženo do localStorage.'); }
+}
+
+// Init: načti secret z localStorage
+window.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('pdb-secret');
+  if (el) el.value = localStorage.getItem('pdb_admin_secret') || '';
+});
+
+async function pdbFetch(path, method = 'GET', body = null) {
+  const secret = pdbGetSecret();
+  if (!secret) { alert('Zadej POKEDB_ADMIN_SECRET!'); return null; }
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(POKEDB_WORKER + path, opts);
+  return r.json();
+}
+
+function pdbShowResult(elId, data, isError = false) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = `<pre style="background:rgba(0,0,0,.3);padding:.7rem 1rem;border-radius:8px;font-size:.78rem;
+    color:${isError ? 'var(--red)' : 'var(--green)'};overflow-x:auto;white-space:pre-wrap">${
+    JSON.stringify(data, null, 2)}</pre>`;
+}
+
+async function pdbLoadStats() {
+  const data = await pdbFetch('/admin/stats');
+  if (!data) return;
+  const el = document.getElementById('pdb-stats');
+  if (!el) return;
+  const items = [
+    { label: 'Karty', value: data.cards || 0, icon: '🃏' },
+    { label: 'Série', value: data.sets || 0, icon: '📦' },
+    { label: 'Neověřeno', value: data.unverified || 0, icon: '⏳' },
+    { label: 'Přeloženo', value: data.translated || 0, icon: '🌍' },
+    { label: 'API volání dnes', value: data.api_calls_today || 0, icon: '📡' },
+  ];
+  el.innerHTML = items.map(i => `
+    <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.8rem;text-align:center">
+      <div style="font-size:1.4rem">${i.icon}</div>
+      <div style="font-size:1.3rem;font-weight:700;color:var(--yellow)">${i.value.toLocaleString()}</div>
+      <div style="font-size:.75rem;color:var(--muted)">${i.label}</div>
+    </div>`).join('');
+}
+
+async function pdbImportEN() {
+  const setId = document.getElementById('pdb-set-id').value.trim();
+  if (!setId) { alert('Zadej set_id'); return; }
+  const overwrite = document.getElementById('pdb-overwrite').checked;
+  document.getElementById('pdb-import-result').innerHTML =
+    '<div style="color:var(--muted);font-size:.82rem">⏳ Importuji… (může trvat 10–30 s)</div>';
+  document.getElementById('pdb-import-result').style.display = 'block';
+  const data = await pdbFetch('/admin/import', 'POST', { set_id: setId, overwrite });
+  pdbShowResult('pdb-import-result', data, !!data?.error);
+}
+
+async function pdbImportForeign() {
+  const lang = document.getElementById('pdb-lang').value;
+  const setId = document.getElementById('pdb-foreign-set-id').value.trim() || undefined;
+  const overwrite = document.getElementById('pdb-foreign-overwrite').checked;
+  document.getElementById('pdb-foreign-result').innerHTML =
+    '<div style="color:var(--muted);font-size:.82rem">⏳ Importuji ' + lang + '… (může trvat déle pro celý jazyk)</div>';
+  document.getElementById('pdb-foreign-result').style.display = 'block';
+  const body = { lang, overwrite };
+  if (setId) body.set_id = setId;
+  const data = await pdbFetch('/admin/import-foreign', 'POST', body);
+  pdbShowResult('pdb-foreign-result', data, !!data?.error);
+}
+
+async function pdbRefreshPrices() {
+  const setId = document.getElementById('pdb-prices-set').value.trim() || undefined;
+  document.getElementById('pdb-prices-result').innerHTML =
+    '<div style="color:var(--muted);font-size:.82rem">⏳ Stahuji ceny… (může trvat 30–120 s)</div>';
+  document.getElementById('pdb-prices-result').style.display = 'block';
+  const body = {};
+  if (setId) body.set_id = setId;
+  const data = await pdbFetch('/admin/refresh-prices', 'POST', body);
+  pdbShowResult('pdb-prices-result', data, !!data?.error);
+}
+
+let _pdbVerifyPage = 1;
+async function pdbLoadVerifyQueue(page = 1) {
+  _pdbVerifyPage = page;
+  const el = document.getElementById('pdb-verify-queue');
+  el.innerHTML = '<div style="color:var(--muted);font-size:.82rem">⏳ Načítám…</div>';
+  const data = await pdbFetch(`/admin/verify?page=${page}`);
+  if (!data || data.error) { el.innerHTML = `<div style="color:var(--red)">${data?.error||'Chyba'}</div>`; return; }
+  if (!data.data?.length) { el.innerHTML = '<div style="color:var(--green)">✅ Fronta je prázdná!</div>'; return; }
+  el.innerHTML = `
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:.8rem">Celkem: <strong>${data.total}</strong> karet čeká – strana ${page}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.7rem">
+    ${data.data.map(c => `
+      <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:.7rem;display:flex;flex-direction:column;gap:.4rem">
+        ${c.image_thumb_url ? `<img src="${c.image_thumb_url}" style="width:100%;border-radius:6px;object-fit:contain;max-height:140px">` : ''}
+        <div style="font-size:.82rem;font-weight:600">${c.name}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${c.set_name} #${c.number}</div>
+        <input type="text" placeholder="CS název (volitelné)" id="vcs-${c.id}"
+          style="background:rgba(0,0,0,.3);border:1px solid var(--border);color:var(--text);padding:.3rem .5rem;border-radius:5px;font-size:.78rem">
+        <div style="display:flex;gap:.4rem">
+          <button class="btn btn-sm" style="background:rgba(74,222,128,.1);border-color:rgba(74,222,128,.3);color:var(--green);flex:1"
+            onclick="pdbVerifyCard('${c.id}','approve')">✅</button>
+          <button class="btn btn-sm" style="background:rgba(239,68,68,.1);border-color:rgba(239,68,68,.3);color:var(--red);flex:1"
+            onclick="pdbVerifyCard('${c.id}','reject')">❌</button>
+        </div>
+      </div>`).join('')}
+    </div>
+    <div style="display:flex;gap:.5rem;margin-top:1rem;justify-content:center">
+      ${page > 1 ? `<button class="btn btn-sm" onclick="pdbLoadVerifyQueue(${page-1})">← Předchozí</button>` : ''}
+      ${data.total > page * data.limit ? `<button class="btn btn-sm" onclick="pdbLoadVerifyQueue(${page+1})">Další →</button>` : ''}
+    </div>`;
+}
+
+async function pdbVerifyCard(cardId, action) {
+  const nameCs = (document.getElementById('vcs-' + cardId)?.value || '').trim() || null;
+  const data = await pdbFetch('/admin/verify', 'POST', { card_id: cardId, action, name_cs: nameCs });
+  if (data?.ok) {
+    const el = document.querySelector(`[onclick*="${cardId}"]`)?.closest('div[style*="flex-direction:column"]');
+    if (el) el.style.opacity = '0.3';
+    pdbLoadVerifyQueue(_pdbVerifyPage);
+  } else {
+    alert(data?.error || 'Chyba');
+  }
+}
+
+async function pdbLoadSets() {
+  const el = document.getElementById('pdb-sets-table');
+  el.innerHTML = '<div style="color:var(--muted);font-size:.82rem">⏳ Načítám…</div>';
+  const data = await pdbFetch('/admin/sets');
+  if (!data || data.error) { el.innerHTML = `<div style="color:var(--red)">${data?.error||'Chyba'}</div>`; return; }
+  const sets = data.data || [];
+  el.innerHTML = `
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:.6rem">Celkem: ${sets.length} sérií</p>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.8rem">
+      <thead><tr style="color:var(--muted);border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:.4rem .6rem">ID</th>
+        <th style="text-align:left;padding:.4rem .6rem">Název</th>
+        <th style="text-align:left;padding:.4rem .6rem">Serie</th>
+        <th style="text-align:left;padding:.4rem .6rem">Jazyk</th>
+        <th style="text-align:right;padding:.4rem .6rem">Karet</th>
+        <th style="text-align:left;padding:.4rem .6rem">Vydáno</th>
+      </tr></thead>
+      <tbody>
+      ${sets.map(s => `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+        <td style="padding:.4rem .6rem;color:var(--yellow);font-family:monospace">${s.id}</td>
+        <td style="padding:.4rem .6rem">${s.name}</td>
+        <td style="padding:.4rem .6rem;color:var(--muted)">${s.series||'–'}</td>
+        <td style="padding:.4rem .6rem">${s.lang||'en'}</td>
+        <td style="padding:.4rem .6rem;text-align:right">${s.card_count||0}</td>
+        <td style="padding:.4rem .6rem;color:var(--muted)">${s.release_date||'–'}</td>
+      </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
 </script>
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>

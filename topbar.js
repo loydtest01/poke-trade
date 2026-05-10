@@ -46,6 +46,7 @@ var PAGES = [
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
   { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
+  { href: 'pokedb.html',       icon: 'energi/scanner.png',          labelKey: 'nav.pokedb',      label: 'PokéDB',            id: 'pokedb'      },
 ];
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */

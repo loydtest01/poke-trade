@@ -2797,6 +2797,29 @@ async function tcgSearch(gi, autoMode = false) {
       }
     }
 
+    // ── PRE-KROK: Pro NON-EN karty zkus PokeDB PRVNÍ (má importované cizí sady)
+    if (!cards.length && isNonEn) {
+      try {
+        statusEl.textContent = '🗃 Hledám v PokéDB (cizojazyčná databáze)…';
+        const _pdbName = (ai.nameEN || ai.name || '').trim();
+        const _pdbLang = (ai.lang || '').toLowerCase();
+        const _pdbCards = await searchInPokeDB(_pdbName, {
+          set:    ai.set || '',
+          number: cardNumber,
+          type:   ai.type || '',
+          lang:   _pdbLang !== 'en' ? _pdbLang : undefined,
+        });
+        if (_pdbCards.length) {
+          const _best = _matchPokeDBCard(ai.name || ai.nameEN, ai.set, cardNumber, _pdbCards);
+          cards = _best ? [_best, ..._pdbCards.filter(x => x !== _best)] : _pdbCards;
+          statusEl.textContent = `🗃 Nalezeno ${cards.length} karet v PokéDB – vyber správnou:`;
+          console.log(`[PokeDB] non-EN PRIMARY hit: ${cards.length} karet pro „${_pdbName}" (${_pdbLang})`);
+        }
+      } catch (_preErr) {
+        console.warn('[PokeDB] non-EN primary selhal:', _preErr.message);
+      }
+    }
+
     // Pokud scraper nenašel (nebo je EN karta), pokračuj normálním PkSearch
     if (!cards.length) {
       cards = await PkSearch.search(searchName, {
