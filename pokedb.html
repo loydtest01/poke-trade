@@ -675,7 +675,8 @@ body::after {
 /* Záloha — topbar.js injektuje toto, ale pro jistotu i zde */
 .nav-lnks img.nav-icon { width:18px!important;height:18px!important;flex-shrink:0!important;object-fit:contain!important; }
 </style>
-<script src="topbar.js?v=4"></script>
+<script src="card-images.js"></script>
+<script src="topbar.js?v=5"></script>
 
 <!-- ── Navigation ─────────────────────────────────────────── -->
 <nav class="page-nav">
@@ -1452,11 +1453,14 @@ function renderCards(cards) {
     // Fallback z pokemontcg.io CDN — POUZE pro EN karty; jiné jazyky mají jiný formát ID a vrátí špatnou kartu
     const lang = c.lang || c.language || '';
     const isEn = !lang || lang === 'en';
-    const fallbackImg = isEn ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png` : '';
+    const fallbackImg = isEn
+      ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`
+      : (c.set_id && c.number ? `https://assets.tcgdex.net/${lang||'en'}/${c.set_id.replace(/-/g,'/')}/${c.number.split('/')[0]}/high.webp` : '');
     const imgSrc = img || fallbackImg;
     const imgHtml = imgSrc
       ? `<img class="poke-card-img" src="${escH(imgSrc)}" alt="${escH(c.name)}" loading="lazy"
-      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      data-set-id="${escH(c.set_id||'')}" data-number="${escH(c.number||'')}" data-lang="${escH(lang||'en')}"
+      onerror="if(window.CardImages){CardImages.fallback(this,'${escH(c.set_id||'')}','${escH(c.number||'')}','${escH(lang||'en')}');this.onerror=null}else{this.style.display='none';this.nextElementSibling.style.display='flex'}">`
       : '';
     const types = (c.types || []).map(t =>
       `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
@@ -1617,8 +1621,9 @@ function renderModal(c) {
   document.getElementById('modal-title').textContent = c.name || c.id;
   const cardLang = c.lang || c.language || '';
   const isEnCard = !cardLang || cardLang === 'en';
-  const fallbackImg   = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png` : '';
-  const fallbackThumb = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`   : '';
+  const _tcgFb = (isEnCard ? '' : (c.set_id && c.number ? `https://assets.tcgdex.net/${cardLang||'en'}/${c.set_id.replace(/-/g,'/')}/${c.number.split('/')[0]}/high.webp` : ''));
+  const fallbackImg   = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png` : _tcgFb;
+  const fallbackThumb = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`   : _tcgFb;
   const img   = c.image_url || c.image_thumb_url || fallbackThumb;
   const hiRes = c.image_hires_url || c.image_url || fallbackImg;
   const types = (c.types || []).map(t =>
@@ -1663,7 +1668,7 @@ function renderModal(c) {
       <div class="modal-img-col">
         ${img
           ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}" onclick="openZoom('${escH(hiRes || img)}')" title="Klikni pro zvětšení"
-              onerror="${fallbackImg ? `if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}else{this.style.display='none'}` : 'this.style.display=\'none\''}">`
+              onerror="if(window.CardImages&&!this.dataset.ci){this.dataset.ci='1';CardImages.fallback(this,'${escH(c.set_id||'')}','${escH(c.number||'')}','${escH(cardLang||'en')}');this.onerror=null}else if('${escH(fallbackImg)}'&&!this.dataset.fb){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}else{this.style.display='none'}">`
           : `<div class="modal-card-img-placeholder">🃏</div>`}
         ${hiRes && hiRes !== img ? `<a href="${escH(hiRes)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res</a>` : ''}
         <div style="margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem">

@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Hledač cen karet – PokéTrade</title>
+<meta name="description" content="Porovnej ceny Pokémon TCG karet na Cardmarket, TCGPlayer, eBay a dalších. Najdi nejlevnější nabídky.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="canonical" href="https://www.poke-trade.eu/price-finder.html">
+<link rel="icon" type="image/png" href="favicon.ico">
+<link rel="manifest" href="app-manifest.json">
+<script>window.TOPBAR_ACTIVE = 'price-finder';</script>
+<script src="pwa-init.js"></script>
+<script src="i18n.js"></script>
+<script src="topbar.js"></script>
+<script src="app.js"></script>
+<style>
+:root {
+  --bg:#0a0608; --card:#14101a; --card2:#1a1424;
+  --border:rgba(255,255,255,0.08); --text:#f0ece4;
+  --muted:#9ca3af; --yellow:#f5c842; --red:#ef4444;
+  --green:#4ade80; --blue:#60a5fa; --purple:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+/* ── Layout ── */
+.pf-wrap{max-width:1200px;margin:0 auto;padding:1.2rem 1rem}
+.pf-hero{text-align:center;padding:2rem 0 1.5rem}
+.pf-title{font-size:1.6rem;font-weight:800;color:var(--yellow);margin-bottom:.4rem}
+.pf-sub{color:var(--muted);font-size:.88rem}
+
+/* ── Search ── */
+.search-bar{display:flex;gap:.5rem;max-width:700px;margin:0 auto 1.5rem}
+.search-input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  color:var(--text);border-radius:12px;padding:.8rem 1.2rem;font-size:1rem;
+  font-family:inherit;transition:.15s}
+.search-input:focus{outline:none;border-color:rgba(245,200,66,.4);background:rgba(255,255,255,.07)}
+.search-btn{background:rgba(245,200,66,.18);border:1px solid rgba(245,200,66,.35);
+  color:var(--yellow);border-radius:10px;padding:.8rem 1.5rem;cursor:pointer;
+  font-size:.9rem;font-weight:700;white-space:nowrap;transition:.15s}
+.search-btn:hover{background:rgba(245,200,66,.28)}
+.search-btn:disabled{opacity:.4;cursor:default}
+
+/* ── Suggestions ── */
+.suggestions{background:var(--card);border:1px solid var(--border);border-radius:10px;
+  max-width:700px;margin:-1rem auto .5rem;overflow:hidden;display:none}
+.sug-item{display:flex;align-items:center;gap:.6rem;padding:.5rem .8rem;cursor:pointer;transition:.1s}
+.sug-item:hover{background:rgba(255,255,255,.05)}
+.sug-img{width:32px;height:44px;object-fit:contain;border-radius:3px;background:rgba(255,255,255,.04)}
+.sug-name{font-size:.84rem;font-weight:600}
+.sug-set{font-size:.72rem;color:var(--muted)}
+
+/* ── Filters ── */
+.filters-bar{display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem;align-items:center}
+.filter-chip{background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:8px;
+  padding:.3rem .7rem;font-size:.78rem;cursor:pointer;transition:.1s;color:var(--muted)}
+.filter-chip.active{background:rgba(245,200,66,.12);border-color:rgba(245,200,66,.3);color:var(--yellow)}
+.filter-chip:hover{background:rgba(255,255,255,.1)}
+
+/* ── Results ── */
+.results-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:.8rem;font-size:.82rem;color:var(--muted)}
+.sort-select{background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:.3rem .6rem;font-size:.78rem;font-family:inherit}
+
+/* ── Price row ── */
+.price-table{width:100%;border-collapse:collapse}
+.price-table th{text-align:left;padding:.5rem .7rem;font-size:.72rem;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--border)}
+.price-row{border-bottom:1px solid rgba(255,255,255,.04);transition:.1s}
+.price-row:hover{background:rgba(255,255,255,.03)}
+.price-row td{padding:.55rem .7rem;font-size:.83rem;vertical-align:middle}
+.price-row.hidden{display:none}
+.price-row.preferred td:first-child{border-left:2px solid var(--green)}
+.price-row.preferred{background:rgba(74,222,128,.03)}
+
+.site-badge{display:inline-flex;align-items:center;gap:.35rem;font-weight:600}
+.site-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.price-val{font-weight:700;font-size:.9rem}
+.price-eur{color:var(--green)}
+.price-usd{color:var(--blue)}
+.price-sold{color:var(--muted)}
+.cond-badge{font-size:.72rem;padding:.15rem .4rem;border-radius:4px;font-weight:600}
+.NM{background:rgba(74,222,128,.15);color:var(--green)}
+.LP{background:rgba(245,200,66,.12);color:var(--yellow)}
+.MP{background:rgba(251,146,60,.12);color:#fb923c}
+.HP{background:rgba(239,68,68,.12);color:var(--red)}
+.country-flag{font-size:.95rem}
+
+.link-btn{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:.25rem .6rem;font-size:.75rem;text-decoration:none;
+  display:inline-flex;align-items:center;gap:.2rem;transition:.1s}
+.link-btn:hover{background:rgba(255,255,255,.12);color:var(--yellow)}
+
+.pref-btn{background:none;border:1px solid var(--border);border-radius:6px;
+  padding:.2rem .5rem;cursor:pointer;font-size:.72rem;color:var(--muted);transition:.1s}
+.pref-btn:hover{border-color:var(--green);color:var(--green)}
+.pref-btn.is-preferred{border-color:var(--green);color:var(--green);background:rgba(74,222,128,.08)}
+.pref-btn.is-avoided{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.08)}
+
+/* ── Card result card ── */
+.card-result{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  margin-bottom:1.2rem;overflow:hidden}
+.card-result-header{display:flex;align-items:center;gap:1rem;padding:1rem;
+  border-bottom:1px solid var(--border);cursor:pointer;transition:.1s}
+.card-result-header:hover{background:rgba(255,255,255,.02)}
+.card-thumb{width:48px;height:66px;object-fit:contain;border-radius:6px;background:rgba(255,255,255,.04);flex-shrink:0}
+.card-name-block{flex:1}
+.card-result-name{font-size:1rem;font-weight:700}
+.card-result-set{font-size:.75rem;color:var(--muted);margin-top:.1rem}
+.card-result-summary{display:flex;gap:1rem;align-items:center;margin-top:.3rem;flex-wrap:wrap}
+.best-price{font-size:.88rem;color:var(--green);font-weight:600}
+.sources-count{font-size:.75rem;color:var(--muted)}
+.expand-icon{font-size:.85rem;color:var(--muted);transition:.2s}
+.expanded .expand-icon{transform:rotate(180deg)}
+
+.prices-body{display:none;padding:.5rem 0}
+.expanded .prices-body{display:block}
+
+/* ── No results ── */
+.no-results{text-align:center;padding:3rem 1rem;color:var(--muted)}
+.no-results span{font-size:2.5rem;display:block;margin-bottom:.8rem}
+
+/* ── Settings panel ── */
+.settings-btn{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);
+  border-radius:8px;padding:.4rem .8rem;cursor:pointer;font-size:.78rem;
+  display:inline-flex;align-items:center;gap:.3rem;transition:.1s;margin-left:auto}
+.settings-btn:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.settings-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);
+  z-index:9999;align-items:flex-start;justify-content:center;padding:1rem;overflow-y:auto}
+.settings-modal.open{display:flex}
+.settings-box{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  padding:1.5rem;max-width:500px;width:100%;margin-top:60px}
+.settings-title{font-size:1rem;font-weight:700;margin-bottom:1rem}
+.site-row{display:flex;align-items:center;gap:.6rem;padding:.45rem 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.site-name{flex:1;font-size:.85rem}
+.site-controls{display:flex;gap:.3rem}
+.sc-btn{background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:6px;
+  padding:.2rem .5rem;cursor:pointer;font-size:.75rem;color:var(--muted);transition:.1s}
+.sc-btn:hover{background:rgba(255,255,255,.1)}
+.sc-btn.pref{border-color:var(--green);color:var(--green);background:rgba(74,222,128,.1)}
+.sc-btn.avoid{border-color:var(--red);color:var(--red);background:rgba(239,68,68,.1)}
+
+/* ── Loading ── */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(245,200,66,.2);
+  border-top-color:var(--yellow);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-row{text-align:center;padding:1.5rem;color:var(--muted)}
+
+input{background:none;border:none;color:var(--text);font-family:inherit}
+select option{background:#1a1424}
+</style>
+</head>
+<body>
+<header class="app-topbar">
+  <div id="topbar-nav-slot"></div>
+  <div class="topbar-right" id="topbar-right-slot"></div>
+</header>
+
+<div class="pf-wrap">
+  <div class="pf-hero">
+    <div class="pf-title">🔍 Hledač cen karet</div>
+    <div class="pf-sub">Najdi kartu a porovnej ceny na Cardmarket, TCGPlayer, eBay a dalších tržištích</div>
+  </div>
+
+  <!-- Search -->
+  <div class="search-bar">
+    <input type="text" class="search-input" id="search-input"
+      placeholder="Zadej název karty... (Charizard, Pikachu, sv3-125...)"
+      oninput="onSearchInput()" onkeydown="if(event.key==='Enter')searchCards()">
+    <button class="search-btn" id="search-btn" onclick="searchCards()">Hledat</button>
+    <button class="settings-btn" onclick="openSettings()">⚙️ Předvolby</button>
+  </div>
+  <div class="suggestions" id="suggestions"></div>
+
+  <!-- Filters -->
+  <div class="filters-bar" id="filters-bar" style="display:none">
+    <span style="font-size:.75rem;color:var(--muted)">Stav:</span>
+    <button class="filter-chip active" data-cond="all" onclick="filterCond('all',this)">Vše</button>
+    <button class="filter-chip" data-cond="NM" onclick="filterCond('NM',this)">NM</button>
+    <button class="filter-chip" data-cond="LP" onclick="filterCond('LP',this)">LP</button>
+    <button class="filter-chip" data-cond="MP" onclick="filterCond('MP',this)">MP</button>
+    <span style="font-size:.75rem;color:var(--muted);margin-left:.5rem">Zdroj:</span>
+    <button class="filter-chip active" data-src="all" onclick="filterSrc('all',this)">Vše</button>
+    <button class="filter-chip" data-src="cardmarket" onclick="filterSrc('cardmarket',this)">Cardmarket</button>
+    <button class="filter-chip" data-src="tcgplayer" onclick="filterSrc('tcgplayer',this)">TCGPlayer</button>
+    <button class="filter-chip" data-src="ebay" onclick="filterSrc('ebay',this)">eBay</button>
+  </div>
+
+  <!-- Results header -->
+  <div class="results-header" id="results-header" style="display:none">
+    <span id="results-count"></span>
+    <select class="sort-select" id="sort-select" onchange="sortResults()">
+      <option value="price-asc">Cena ↑ (nejlevnější)</option>
+      <option value="price-desc">Cena ↓ (nejdražší)</option>
+      <option value="site">Dle webu</option>
+    </select>
+  </div>
+
+  <!-- Results -->
+  <div id="results"></div>
+</div>
+
+<!-- Settings modal -->
+<div class="settings-modal" id="settings-modal" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
+      <span class="settings-title">⚙️ Předvolby webů</span>
+      <button onclick="closeSettings()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem">✕</button>
+    </div>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
+      Označ weby jako <span style="color:var(--green)">✓ Preferovaný</span> (zobrazí se výrazněji)
+      nebo <span style="color:var(--red)">✕ Vyhnout se</span> (skryje se z výsledků).
+    </p>
+    <div id="site-list"></div>
+    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">
+      <button onclick="resetPrefs()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:.4rem .8rem;cursor:pointer;font-size:.8rem">Reset</button>
+      <button onclick="closeSettings()" style="background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:var(--yellow);border-radius:8px;padding:.4rem .9rem;cursor:pointer;font-size:.8rem;font-weight:600">Uložit</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// KONFIGURACE WEBŮ
+// ════════════════════════════════════════════════════════
+const SITES = [
+  { id:'cardmarket', name:'Cardmarket', flag:'🇪🇺', currency:'EUR',
+    color:'#4ade80', country:'EU',
+    url: q => `https://www.cardmarket.com/en/Pokemon/Products/Singles?searchString=${encodeURIComponent(q)}` },
+  { id:'tcgplayer',  name:'TCGPlayer',  flag:'🇺🇸', currency:'USD',
+    color:'#60a5fa', country:'USA',
+    url: q => `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(q)}&view=grid` },
+  { id:'ebay_sold',  name:'eBay (prodáno)', flag:'🌍', currency:'USD',
+    color:'#a78bfa', country:'INT',
+    url: q => `https://www.ebay.com/sch/i.html?_nkw=pokemon+${encodeURIComponent(q)}&LH_Complete=1&LH_Sold=1` },
+  { id:'ebay',       name:'eBay',       flag:'🌍', currency:'USD',
+    color:'#818cf8', country:'INT',
+    url: q => `https://www.ebay.com/sch/i.html?_nkw=pokemon+${encodeURIComponent(q)}` },
+  { id:'topcards',   name:'TopCards.cz', flag:'🇨🇿', currency:'CZK',
+    color:'#fb923c', country:'CZ',
+    url: q => `https://www.topcards.cz/hledej?q=${encodeURIComponent(q)}` },
+  { id:'aukro',      name:'Aukro.cz',   flag:'🇨🇿', currency:'CZK',
+    color:'#f87171', country:'CZ',
+    url: q => `https://aukro.cz/hledani?query=pokemon+${encodeURIComponent(q)}` },
+  { id:'magiccardmarket', name:'MagicShop', flag:'🇨🇿', currency:'CZK',
+    color:'#c084fc', country:'CZ',
+    url: q => `https://www.blacklotus.cz/vyhledavani/?q=${encodeURIComponent(q)}` },
+];
+
+const POKEDB = 'https://pokedb-api.poketrade.workers.dev/v1';
+const PREFS_KEY = 'pf_site_prefs_v1';
+
+let _prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+let _cards = [];         // current search results
+let _prices = {};        // { cardId: priceData }
+let _condFilter = 'all';
+let _srcFilter  = 'all';
+let _suggest = [];
+let _suggestTimeout = null;
+
+// ════════════════════════════════════════════════════════
+// SEARCH & SUGGEST
+// ════════════════════════════════════════════════════════
+function onSearchInput() {
+  clearTimeout(_suggestTimeout);
+  const q = document.getElementById('search-input').value.trim();
+  if (!q || q.length < 2) { hideSuggestions(); return; }
+  _suggestTimeout = setTimeout(() => fetchSuggestions(q), 300);
+}
+
+async function fetchSuggestions(q) {
+  try {
+    const r = await fetch(`${POKEDB}/cards?q=${encodeURIComponent(q)}&limit=6`);
+    if (!r.ok) return;
+    const data = await r.json();
+    _suggest = data.data || [];
+    renderSuggestions(_suggest);
+  } catch {}
+}
+
+function renderSuggestions(cards) {
+  const el = document.getElementById('suggestions');
+  if (!cards.length) { hideSuggestions(); return; }
+  el.innerHTML = cards.map((c,i) => `
+    <div class="sug-item" onclick="selectSuggestion(${i})">
+      ${c.image_thumb_url ? `<img class="sug-img" src="${c.image_thumb_url}" alt="">` : '<div class="sug-img"></div>'}
+      <div>
+        <div class="sug-name">${c.name}</div>
+        <div class="sug-set">${c.set_id?.toUpperCase() || ''} · ${c.number || ''} · ${c.supertype || ''}</div>
+      </div>
+    </div>`).join('');
+  el.style.display = 'block';
+}
+
+function hideSuggestions() {
+  document.getElementById('suggestions').style.display = 'none';
+}
+
+function selectSuggestion(i) {
+  const c = _suggest[i];
+  if (!c) return;
+  document.getElementById('search-input').value = c.name;
+  hideSuggestions();
+  doSearch(c.name);
+}
+
+async function searchCards() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  hideSuggestions();
+  doSearch(q);
+}
+
+async function doSearch(q) {
+  const btn = document.getElementById('search-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+  document.getElementById('results').innerHTML = '<div class="loading-row"><span class="spinner"></span> Hledám karty...</div>';
+  document.getElementById('results-header').style.display = 'none';
+  document.getElementById('filters-bar').style.display = 'none';
+
+  try {
+    const r = await fetch(`${POKEDB}/cards?q=${encodeURIComponent(q)}&limit=12`);
+    if (!r.ok) throw new Error('API error');
+    const data = await r.json();
+    _cards = data.data || [];
+    if (!_cards.length) {
+      document.getElementById('results').innerHTML = `<div class="no-results"><span>🔍</span>Žádné karty nenalezeny pro „${q}"</div>`;
+      return;
+    }
+    _prices = {};
+    document.getElementById('filters-bar').style.display = 'flex';
+    renderResults();
+    // Fetch prices for each card in background
+    _cards.forEach(c => fetchCardPrices(c));
+  } catch(e) {
+    document.getElementById('results').innerHTML = `<div class="no-results"><span>❌</span>Chyba při hledání. Zkus znovu.</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Hledat';
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// PRICE FETCHING
+// ════════════════════════════════════════════════════════
+async function fetchCardPrices(card) {
+  try {
+    const r = await fetch(`${POKEDB}/cards/${card.id}/prices`);
+    if (!r.ok) return;
+    const data = await r.json();
+    _prices[card.id] = data;
+    updateCardPrices(card.id);
+  } catch {}
+}
+
+function getPriceRows(card, priceData) {
+  const rows = [];
+  const q = card.name;
+
+  if (priceData) {
+    const cm = priceData.cardmarket || priceData.prices?.cardmarket;
+    if (cm && cm.price) {
+      rows.push({ siteId:'cardmarket', price: parseFloat(cm.price), currency:'EUR',
+        condition: cm.condition || 'NM', country:'EU', source:'Cardmarket', live:true,
+        url: SITES.find(s=>s.id==='cardmarket').url(q) });
+    }
+    const tcp = priceData.tcgplayer || priceData.prices?.tcgplayer;
+    if (tcp && tcp.price) {
+      rows.push({ siteId:'tcgplayer', price: parseFloat(tcp.price), currency:'USD',
+        condition: tcp.condition || 'NM', country:'USA', source:'TCGPlayer', live:true,
+        url: SITES.find(s=>s.id==='tcgplayer').url(q) });
+    }
+    const ep = priceData.pokeprice || priceData.prices?.pokeprice || priceData.ebay;
+    if (ep && ep.price) {
+      rows.push({ siteId:'ebay_sold', price: parseFloat(ep.price), currency:'USD',
+        condition:'—', country:'INT', source:'eBay (prodáno)', live:true,
+        url: SITES.find(s=>s.id==='ebay_sold').url(q) });
+    }
+  }
+
+  // Always add search links for remaining sites
+  ['ebay','topcards','aukro','magiccardmarket'].forEach(sid => {
+    const site = SITES.find(s=>s.id===sid);
+    if (site) rows.push({ siteId:sid, price:null, currency:site.currency,
+      condition:'?', country:site.country, source:site.name, live:false,
+      url:site.url(q) });
+  });
+
+  return rows;
+}
+
+// ════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════
+function renderResults() {
+  const el = document.getElementById('results');
+  el.innerHTML = _cards.map(c => renderCardBlock(c)).join('');
+  document.getElementById('results-header').style.display = 'flex';
+  document.getElementById('results-count').textContent = `${_cards.length} karet nalezeno`;
+  applyFilters();
+}
+
+function renderCardBlock(card) {
+  const rows = getPriceRows(card, _prices[card.id]);
+  const liveRows = rows.filter(r=>r.live && r.price);
+  const best = liveRows.sort((a,b)=>a.price-b.price)[0];
+  const summary = best ? `<span class="best-price">od ${best.price.toFixed(2)} ${best.currency}</span>` : '<span style="color:var(--muted);font-size:.8rem">Načítám ceny...</span>';
+
+  return `
+  <div class="card-result" id="cr-${card.id}" data-id="${card.id}">
+    <div class="card-result-header" onclick="toggleCard('${card.id}')">
+      ${card.image_thumb_url ? `<img class="card-thumb" src="${card.image_thumb_url}" alt="">` : '<div class="card-thumb"></div>'}
+      <div class="card-name-block">
+        <div class="card-result-name">${card.name}</div>
+        <div class="card-result-set">${(card.set_id||'').toUpperCase()} · ${card.number||''} · ${card.supertype||''}</div>
+        <div class="card-result-summary">
+          <span id="best-${card.id}">${summary}</span>
+          <span class="sources-count" id="srccnt-${card.id}">${liveRows.length} živých cen · ${rows.length} zdrojů</span>
+        </div>
+      </div>
+      <span class="expand-icon">▼</span>
+    </div>
+    <div class="prices-body" id="pb-${card.id}">
+      <div id="ptable-${card.id}">${renderPriceTable(card, rows)}</div>
+    </div>
+  </div>`;
+}
+
+function renderPriceTable(card, rows) {
+  if (!rows.length) return '<div style="padding:1rem;color:var(--muted);text-align:center">Žádné ceny k dispozici</div>';
+
+  // Sort by price (live first, then search links)
+  const sorted = [...rows].sort((a,b)=>{
+    if (a.live && !b.live) return -1;
+    if (!a.live && b.live) return 1;
+    if (a.price && b.price) return a.price - b.price;
+    return 0;
+  });
+
+  return `
+  <table class="price-table">
+    <thead><tr>
+      <th>Web</th><th>Cena</th><th>Stav</th><th>Země</th><th>Odkaz</th><th>Předv.</th>
+    </tr></thead>
+    <tbody>
+    ${sorted.map(row => {
+      const site = SITES.find(s=>s.id===row.siteId)||{color:'#666'};
+      const pref = _prefs[row.siteId] || 'none';
+      const isAvoided = pref === 'avoid';
+      const isPreferred = pref === 'prefer';
+      const condCls = ['NM','LP','MP','HP'].includes(row.condition) ? row.condition : '';
+      const priceHtml = row.price
+        ? `<span class="price-val ${row.currency==='EUR'?'price-eur':'price-usd'}">${row.price.toFixed(2)} ${row.currency}</span>`
+        : `<span style="color:var(--muted);font-size:.78rem">hledat →</span>`;
+
+      return `<tr class="price-row ${isPreferred?'preferred':''} ${isAvoided?'hidden':''}"
+          data-site="${row.siteId}" data-cond="${row.condition}" data-src="${row.siteId}">
+        <td><span class="site-badge">
+          <span class="site-dot" style="background:${site.color}"></span>
+          ${row.source}
+        </span></td>
+        <td>${priceHtml}</td>
+        <td>${condCls ? `<span class="cond-badge ${condCls}">${row.condition}</span>` : `<span style="color:var(--muted)">${row.condition}</span>`}</td>
+        <td><span class="country-flag">${(site.flag||'🌍')}</span> <span style="font-size:.75rem;color:var(--muted)">${row.country}</span></td>
+        <td><a href="${row.url}" target="_blank" rel="noopener" class="link-btn">🔗 Otevřít</a></td>
+        <td>
+          <button class="pref-btn ${isPreferred?'is-preferred':''} ${isAvoided?'is-avoided':''}"
+            onclick="togglePrefRow('${card.id}','${row.siteId}',this)"
+            title="${isPreferred?'Preferovaný':isAvoided?'Vyhnout se':'Nastavit předvolbu'}">
+            ${isPreferred?'★':isAvoided?'✕':'☆'}
+          </button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function updateCardPrices(cardId) {
+  const card = _cards.find(c=>c.id===cardId);
+  if (!card) return;
+  const rows = getPriceRows(card, _prices[cardId]);
+  const liveRows = rows.filter(r=>r.live && r.price);
+  const best = liveRows.sort((a,b)=>a.price-b.price)[0];
+
+  const bestEl = document.getElementById(`best-${cardId}`);
+  if (bestEl) bestEl.innerHTML = best ? `<span class="best-price">od ${best.price.toFixed(2)} ${best.currency}</span>` : '<span style="color:var(--muted);font-size:.8rem">Cena nedostupná</span>';
+
+  const cntEl = document.getElementById(`srccnt-${cardId}`);
+  if (cntEl) cntEl.textContent = `${liveRows.length} živých cen · ${rows.length} zdrojů`;
+
+  const tableEl = document.getElementById(`ptable-${cardId}`);
+  if (tableEl) tableEl.innerHTML = renderPriceTable(card, rows);
+
+  applyFilters();
+}
+
+function toggleCard(id) {
+  const cr = document.getElementById(`cr-${id}`);
+  cr.classList.toggle('expanded');
+}
+
+// ════════════════════════════════════════════════════════
+// FILTERS & SORT
+// ════════════════════════════════════════════════════════
+function filterCond(val, btn) {
+  _condFilter = val;
+  document.querySelectorAll('[data-cond]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function filterSrc(val, btn) {
+  _srcFilter = val;
+  document.querySelectorAll('[data-src]').forEach(b=>{
+    if (b.tagName==='BUTTON') b.classList.remove('active');
+  });
+  btn.classList.add('active');
+  applyFilters();
+}
+
+function applyFilters() {
+  document.querySelectorAll('.price-row').forEach(row => {
+    const cond = row.dataset.cond;
+    const site = row.dataset.site;
+    const pref = _prefs[site] || 'none';
+    const condOK = _condFilter==='all' || cond===_condFilter;
+    const srcOK  = _srcFilter==='all' || site.startsWith(_srcFilter);
+    const notAvoided = pref !== 'avoid';
+    row.classList.toggle('hidden', !(condOK && srcOK && notAvoided));
+  });
+}
+
+function sortResults() {
+  const val = document.getElementById('sort-select').value;
+  _cards.sort((a,b)=>{
+    const pa = _prices[a.id], pb = _prices[b.id];
+    const ba = getBestPrice(pa), bb = getBestPrice(pb);
+    if (val === 'price-asc') return (ba||9999) - (bb||9999);
+    if (val === 'price-desc') return (bb||0) - (ba||0);
+    return 0;
+  });
+  renderResults();
+  _cards.forEach(c => { if (_prices[c.id]) updateCardPrices(c.id); });
+}
+
+function getBestPrice(pd) {
+  if (!pd) return null;
+  const vals = [pd.cardmarket?.price, pd.tcgplayer?.price, pd.pokeprice?.price]
+    .filter(Boolean).map(Number);
+  return vals.length ? Math.min(...vals) : null;
+}
+
+// ════════════════════════════════════════════════════════
+// PREFERENCES
+// ════════════════════════════════════════════════════════
+function togglePrefRow(cardId, siteId, btn) {
+  const current = _prefs[siteId] || 'none';
+  const next = current==='prefer' ? 'none' : current==='none' ? 'prefer' : current==='avoid' ? 'none' : 'prefer';
+  _prefs[siteId] = next;
+  savPrefs();
+  btn.textContent = next==='prefer'?'★':next==='avoid'?'✕':'☆';
+  btn.className = `pref-btn ${next==='prefer'?'is-preferred':''} ${next==='avoid'?'is-avoided':''}`;
+  const row = btn.closest('.price-row');
+  if (row) {
+    row.classList.toggle('preferred', next==='prefer');
+    row.classList.toggle('hidden', next==='avoid');
+  }
+  renderSiteList();
+}
+
+function savPrefs() { localStorage.setItem(PREFS_KEY, JSON.stringify(_prefs)); }
+
+function openSettings() {
+  renderSiteList();
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() { document.getElementById('settings-modal').classList.remove('open'); }
+
+function renderSiteList() {
+  const el = document.getElementById('site-list');
+  el.innerHTML = SITES.map(s => {
+    const p = _prefs[s.id] || 'none';
+    return `<div class="site-row">
+      <span class="site-dot" style="background:${s.color};width:10px;height:10px;border-radius:50%;flex-shrink:0"></span>
+      <span class="site-name">${s.flag} ${s.name} <span style="color:var(--muted);font-size:.72rem">(${s.currency} · ${s.country})</span></span>
+      <div class="site-controls">
+        <button class="sc-btn ${p==='prefer'?'pref':''}" onclick="setPref('${s.id}','prefer',this)" title="Preferovaný">★</button>
+        <button class="sc-btn ${p==='avoid'?'avoid':''}" onclick="setPref('${s.id}','avoid',this)" title="Vyhnout se">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setPref(siteId, action, btn) {
+  const current = _prefs[siteId] || 'none';
+  _prefs[siteId] = current===action ? 'none' : action;
+  savPrefs();
+  renderSiteList();
+  applyFilters();
+}
+
+function resetPrefs() {
+  _prefs = {};
+  savPrefs();
+  renderSiteList();
+  applyFilters();
+}
+
+// Close suggestions on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.search-bar') && !e.target.closest('.suggestions'))
+    hideSuggestions();
+});
+
+// Init
+renderSiteList();
+</script>
+</body>
+</html>
