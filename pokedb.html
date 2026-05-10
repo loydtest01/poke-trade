@@ -1562,24 +1562,48 @@ async function openCard(id) {
     const cardLang = c.lang || c.language || '';
     const missingBattleData = !c.attacks?.length && !c.abilities?.length && !c.weaknesses?.length;
     if (cardLang && cardLang !== 'en' && missingBattleData) {
-      // ID formát: "it-sm5-38" → EN je "sm5-38" (strip lang prefix)
-      const enId = id.replace(/^[a-z]{2}-/, '');
-      if (enId !== id) {
+      // Zkusíme více způsobů jak najít EN verzi karty
+      const enIdDirect = id.replace(/^[a-z]{2}-/, ''); // "it-sm5-38" → "sm5-38"
+      let enC = null;
+
+      // Pokus 1: přímé ID bez lang prefixu
+      if (enIdDirect !== id) {
         try {
-          const enR = await fetch(`${API_BASE}/cards/${encodeURIComponent(enId)}`);
-          if (enR.ok) {
-            const enC = await enR.json();
-            c.attacks    = c.attacks?.length    ? c.attacks    : (enC.attacks    || []);
-            c.abilities  = c.abilities?.length  ? c.abilities  : (enC.abilities  || []);
-            c.weaknesses = c.weaknesses?.length ? c.weaknesses : (enC.weaknesses || []);
-            c.resistances= c.resistances?.length? c.resistances: (enC.resistances|| []);
-            c.retreat_cost = c.retreat_cost ?? enC.retreat_cost;
-            c.subtypes   = c.subtypes?.length   ? c.subtypes   : (enC.subtypes   || []);
-            c._enName    = enC.name || ''; // anglický název pro marketplace links
-            c._enSetName = enC.set_name || ''; // anglický název série
-            c._enDataSource = true;
-          }
-        } catch (_) { /* EN data nedostupná, nevadí */ }
+          const r1 = await fetch(`${API_BASE}/cards/${encodeURIComponent(enIdDirect)}`);
+          if (r1.ok) { const d = await r1.json(); if (d.name) enC = d; }
+        } catch(_) {}
+      }
+
+      // Pokus 2: hledání přes API podle série + čísla (pokud direct ID selže)
+      if (!enC && c.set_id && c.number) {
+        // Zkusit EN set_id — strip lang prefix ze set_id
+        const enSetId = (c.set_id || '').replace(/^[a-z]{2}-/, '');
+        try {
+          const r2 = await fetch(`${API_BASE}/cards?set_id=${encodeURIComponent(enSetId)}&number=${encodeURIComponent(c.number)}&lang=en&limit=1`);
+          if (r2.ok) { const d2 = await r2.json(); const first = (d2.data||[])[0]; if (first?.name) enC = first; }
+        } catch(_) {}
+      }
+
+      // Pokus 3: hledání podle EN jména pokud ho máme (name_original)
+      if (!enC && c.name_original) {
+        try {
+          const r3 = await fetch(`${API_BASE}/cards?q=${encodeURIComponent(c.name_original)}&lang=en&limit=1`);
+          if (r3.ok) { const d3 = await r3.json(); const first = (d3.data||[])[0]; if (first?.name) enC = first; }
+        } catch(_) {}
+      }
+
+      if (enC) {
+        c.attacks    = c.attacks?.length    ? c.attacks    : (enC.attacks    || []);
+        c.abilities  = c.abilities?.length  ? c.abilities  : (enC.abilities  || []);
+        c.weaknesses = c.weaknesses?.length ? c.weaknesses : (enC.weaknesses || []);
+        c.resistances= c.resistances?.length? c.resistances: (enC.resistances|| []);
+        c.retreat_cost = c.retreat_cost ?? enC.retreat_cost;
+        c.subtypes   = c.subtypes?.length   ? c.subtypes   : (enC.subtypes   || []);
+        c._enName    = enC.name || '';
+        c._enSetName = enC.set_name || '';
+        if (c.attacks?.length || c.abilities?.length || c.weaknesses?.length) {
+          c._enDataSource = true;
+        }
       }
     }
 
@@ -1666,7 +1690,7 @@ function renderModal(c) {
           ${(c.subtypes||[]).length ? infoItem('Subtyp', c.subtypes.join(', ')) : ''}
           ${c.evolves_from ? infoItem('Vyvíjí se z', c.evolves_from) : ''}
           ${c.regulation_mark ? infoItem('Reg. mark', c.regulation_mark) : ''}
-          ${c._enDataSource ? infoItem('', '<span style="font-size:.7rem;color:var(--muted)">⚠️ bojová data z EN verze</span>') : ''}
+          ${c._enDataSource ? infoItem('', '<span style="font-size:.7rem;color:var(--muted)">⚠️ bojová data z EN verze</span>', true) : ''}
         </div>
         ${(c.weaknesses||[]).length || (c.resistances||[]).length ? `
         <div style="display:flex;gap:1rem;margin-top:.5rem;flex-wrap:wrap">
