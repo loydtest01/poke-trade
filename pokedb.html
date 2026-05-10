@@ -609,14 +609,18 @@ body::after {
   backdrop-filter: blur(12px); padding: 0 16px; gap: 8px;
 ">
   <div class="topbar-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-    <a href="marketplace.html" style="display:flex;align-items:center;flex-shrink:0;text-decoration:none;">
-      <img src="logo.png" alt="PokéTrade" style="height:32px;width:auto;" onerror="this.style.display='none'">
+    <a href="marketplace.html" style="display:flex;align-items:center;flex-shrink:0;text-decoration:none;gap:6px;color:#f5c842;font-weight:800;font-size:15px;letter-spacing:-.3px;">
+      🎴 PokéTrade
     </a>
     <nav class="nav-lnks" id="mainNav" style="display:flex;gap:4px;align-items:center;flex-wrap:nowrap;overflow:hidden;"></nav>
   </div>
   <div class="topbar-right" style="display:flex;align-items:center;gap:6px;flex-shrink:0;"></div>
 </div>
-<script src="topbar.js?v=2"></script>
+<style>
+/* Záloha — topbar.js injektuje toto, ale pro jistotu i zde */
+.nav-lnks img.nav-icon { width:18px!important;height:18px!important;flex-shrink:0!important;object-fit:contain!important; }
+</style>
+<script src="topbar.js?v=3"></script>
 
 <!-- ── Navigation ─────────────────────────────────────────── -->
 <nav class="page-nav">

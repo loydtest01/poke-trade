@@ -115,6 +115,13 @@ function injectStyles() {
       color: var(--yellow, #f5c842) !important;
       border-color: rgba(245,200,66,0.25) !important;
     }
+    /* ── Ikonky v desktop nav — KRITICKÉ: bez tohoto se energi/*.png zobrazí v plné velikosti ── */
+    .nav-lnks img.nav-icon {
+      width: 18px !important; height: 18px !important;
+      flex-shrink: 0 !important; object-fit: contain !important;
+      opacity: 0.8; margin-right: 3px;
+    }
+    .nav-lnks a.active img.nav-icon { opacity: 1; }
 
     /* ── Nastavení panel ── */
     .settings-drop-wrap { position: relative; }
