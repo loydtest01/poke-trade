@@ -47,6 +47,7 @@ var PAGES = [
   { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'pokedb.html',       icon: 'energi/scanner.png',          labelKey: 'nav.pokedb',      label: 'PokéDB',            id: 'pokedb'      },
+  { href: 'deck-builder.html', icon: 'energi/moje alba.png',        labelKey: 'nav.deckBuilder', label: 'Deck Builder',      id: 'deck-builder'},
 ];
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */

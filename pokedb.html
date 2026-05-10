@@ -109,6 +109,7 @@ body::after {
   text-align: center; padding: 3rem 1rem 2rem;
   background: linear-gradient(180deg, rgba(245,200,66,.04) 0%, transparent 100%);
   border-bottom: 1px solid var(--border); margin-bottom: 2rem;
+  position: relative; z-index: 1;
 }
 .hero-icon { font-size: 3.5rem; margin-bottom: .8rem; line-height: 1; }
 .hero h1 { font-size: 2rem; font-weight: 800; color: var(--yellow); margin-bottom: .5rem; }
@@ -1408,14 +1409,17 @@ function renderCards(cards) {
   const langLabels = {en:'EN',ja:'JP',de:'DE',fr:'FR',it:'IT',es:'ES',pt:'PT',ko:'KO'};
   g.innerHTML = cards.map(c => {
     const img = c.image_thumb_url || c.image_url || '';
-    // Fallback obrázek z pokemontcg.io CDN — funguje pro EN karty podle ID
-    const fallbackImg = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`;
+    // Fallback z pokemontcg.io CDN — POUZE pro EN karty; jiné jazyky mají jiný formát ID a vrátí špatnou kartu
+    const lang = c.lang || c.language || '';
+    const isEn = !lang || lang === 'en';
+    const fallbackImg = isEn ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png` : '';
     const imgSrc = img || fallbackImg;
-    const imgHtml = `<img class="poke-card-img" src="${escH(imgSrc)}" alt="${escH(c.name)}" loading="lazy"
-      onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}else{this.style.display='none';this.nextElementSibling.style.display='flex'}">`; 
+    const imgHtml = imgSrc
+      ? `<img class="poke-card-img" src="${escH(imgSrc)}" alt="${escH(c.name)}" loading="lazy"
+      onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : '';
     const types = (c.types || []).map(t =>
       `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
-    const lang = c.lang || c.language || '';
     const flagCode = langFlagCodes[lang] || '';
     const flagImg = flagCode
       ? `<img src="https://flagcdn.com/16x12/${flagCode}.png" width="16" height="12" style="border-radius:1px;vertical-align:middle" onerror="this.style.display='none'">`
@@ -1429,7 +1433,7 @@ function renderCards(cards) {
       ${c.verified ? '<span class="poke-card-verified" title="Ověřeno">✅</span>' : ''}
       <div class="poke-card-img-wrap">
         ${imgHtml}
-        <div class="poke-card-img-placeholder" ${img ? 'style="display:none"' : ''}>🃏</div>
+        <div class="poke-card-img-placeholder" ${imgSrc ? 'style="display:none"' : ''}>🃏</div>
       </div>
       <div class="poke-card-body">
         <div class="poke-card-name">${escH(c.name)}</div>
