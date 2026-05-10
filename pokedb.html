@@ -52,6 +52,7 @@ body::after {
 .page-nav {
   background: var(--card); border-bottom: 1px solid var(--border);
   position: sticky; top: 56px; z-index: 100;
+  isolation: isolate;
 }
 .page-nav-inner {
   max-width: 1400px; margin: 0 auto;
@@ -79,7 +80,7 @@ body::after {
 }
 
 /* ── Layout ── */
-.wrap { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+.wrap { max-width: 1400px; margin: 0 auto; padding: 1.5rem 1rem 4rem; position: relative; z-index: 1; }
 
 /* ── Page panels ── */
 .page-panel { display: none; }
@@ -596,10 +597,10 @@ body::after {
 .lang-flag { font-size: .9rem; }
 </style>
 </head>
+<body>
 <script>window.TOPBAR_ACTIVE = 'pokedb';</script>
 <script src="i18n.js"></script>
 <script src="topbar.js?v=2"></script>
-<body>
 
 <!-- ── Navigation ─────────────────────────────────────────── -->
 <nav class="page-nav">
