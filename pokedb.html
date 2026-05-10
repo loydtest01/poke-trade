@@ -791,14 +791,14 @@ body::after {
       </select>
       <select class="filter-select" id="f-lang" onchange="doSearch()">
         <option value="">🌍 Jazyk</option>
-        <option value="en">🇬🇧 English</option>
-        <option value="ja">🇯🇵 Japanese</option>
-        <option value="de">🇩🇪 Deutsch</option>
-        <option value="fr">🇫🇷 Français</option>
-        <option value="it">🇮🇹 Italiano</option>
-        <option value="es">🇪🇸 Español</option>
-        <option value="pt">🇵🇹 Português</option>
-        <option value="ko">🇰🇷 Korean</option>
+        <option value="en">EN English</option>
+        <option value="ja">JP Japanese</option>
+        <option value="de">DE Deutsch</option>
+        <option value="fr">FR Français</option>
+        <option value="it">IT Italiano</option>
+        <option value="es">ES Español</option>
+        <option value="pt">PT Português</option>
+        <option value="ko">KO Korean</option>
       </select>
       <select class="filter-select" id="f-sort" onchange="doSearch()">
         <option value="name">Seřadit: Jméno A–Z</option>
@@ -1414,7 +1414,7 @@ function renderCards(cards) {
     g.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>Žádné karty neodpovídají filtru</div>`;
     return;
   }
-  const langFlags = {en:'🇬🇧',ja:'🇯🇵',de:'🇩🇪',fr:'🇫🇷',it:'🇮🇹',es:'🇪🇸',pt:'🇵🇹',ko:'🇰🇷'};
+  const langFlagCodes = {en:'gb',ja:'jp',de:'de',fr:'fr',it:'it',es:'es',pt:'pt',ko:'kr'};
   const langLabels = {en:'EN',ja:'JP',de:'DE',fr:'FR',it:'IT',es:'ES',pt:'PT',ko:'KO'};
   g.innerHTML = cards.map(c => {
     const img = c.image_thumb_url || c.image_url || '';
@@ -1424,8 +1424,12 @@ function renderCards(cards) {
     const types = (c.types || []).map(t =>
       `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
     const lang = c.lang || c.language || '';
+    const flagCode = langFlagCodes[lang] || '';
+    const flagImg = flagCode
+      ? `<img src="https://flagcdn.com/16x12/${flagCode}.png" width="16" height="12" style="border-radius:1px;vertical-align:middle" onerror="this.style.display='none'">`
+      : '';
     const langBadge = lang
-      ? `<span class="poke-card-lang" title="${escH(lang)}">${langFlags[lang] || ''} ${langLabels[lang] || lang.toUpperCase()}</span>`
+      ? `<span class="poke-card-lang" title="${escH(lang)}">${flagImg} ${langLabels[lang] || lang.toUpperCase()}</span>`
       : '';
     return `
     <div class="poke-card" onclick="openCard('${escH(c.id)}')">

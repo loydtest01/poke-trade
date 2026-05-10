@@ -1375,25 +1375,31 @@ function injectLangSwitch() {
     + 'background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;'
     + 'box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:600;overflow:hidden;min-width:130px;';
 
+  function _flagImg(flagCode, size) {
+    return '<img src="https://flagcdn.com/' + (size||16) + 'x12/' + flagCode + '.png" '
+      + 'width="' + (size||16) + '" height="12" '
+      + 'style="border-radius:2px;vertical-align:middle;flex-shrink:0" '
+      + 'onerror="this.style.display=\'none\'">';
+  }
   var langs = [
-    { code: 'cs', label: '🇨🇿 Čeština' },
-    { code: 'en', label: '🇬🇧 English'  },
-    { code: 'de', label: '🇩🇪 Deutsch'  },
-    { code: 'jp', label: '🇯🇵 日本語'   },
-    { code: 'fr', label: '🇫🇷 Français' },
-    { code: 'it', label: '🇮🇹 Italiano' },
-    { code: 'es', label: '🇪🇸 Español'  }
+    { code: 'cs', flag: 'cz', label: 'Čeština' },
+    { code: 'en', flag: 'gb', label: 'English'  },
+    { code: 'de', flag: 'de', label: 'Deutsch'  },
+    { code: 'jp', flag: 'jp', label: '日本語'   },
+    { code: 'fr', flag: 'fr', label: 'Français' },
+    { code: 'it', flag: 'it', label: 'Italiano' },
+    { code: 'es', flag: 'es', label: 'Español'  }
   ];
 
   drop.innerHTML = langs.map(function(l) {
     return '<button onclick="window.setLang&&window.setLang(\'' + l.code + '\');_closeLangDrop()" '
       + 'id="langOpt_' + l.code + '" '
-      + 'style="display:block;width:100%;padding:10px 14px;background:none;border:none;'
-      + 'color:rgba(240,236,228,.75);font-size:13px;font-family:inherit;cursor:pointer;'
+      + 'style="display:flex;align-items:center;width:100%;padding:10px 14px;background:none;border:none;'
+      + 'color:rgba(240,236,228,.75);font-size:13px;font-family:inherit;cursor:pointer;gap:8px;'
       + 'text-align:left;transition:background .12s;" '
       + 'onmouseover="this.style.background=\'rgba(255,255,255,.07)\'" '
       + 'onmouseout="this.style.background=\'none\'">'
-      + l.label + '</button>';
+      + _flagImg(l.flag, 20) + l.label + '</button>';
   }).join('');
 
   wrap.appendChild(btn);
@@ -1409,13 +1415,14 @@ function injectLangSwitch() {
 
 function _getLangFlag() {
   var lang = (window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || 'cs';
-  var flags = { cs:'🇨🇿', en:'🇬🇧', de:'🇩🇪', jp:'🇯🇵', fr:'🇫🇷', it:'🇮🇹', es:'🇪🇸' };
-  return flags[lang] || '🌐';
+  var flagMap = { cs:'cz', en:'gb', de:'de', jp:'jp', fr:'fr', it:'it', es:'es' };
+  var flagCode = flagMap[lang] || 'cz';
+  return '<img src="https://flagcdn.com/20x15/' + flagCode + '.png" width="20" height="15" style="border-radius:2px;vertical-align:middle" onerror="this.outerHTML='\u{1F310}'">';
 }
 
 function _updateLangBtn() {
   var btn = document.getElementById('langSwitchBtn');
-  if (btn) btn.textContent = _getLangFlag();
+  if (btn) btn.innerHTML = _getLangFlag();
   var lang = (window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || 'cs';
   ['cs','en','de','jp','fr','it','es'].forEach(function(c) {
     var el = document.getElementById('langOpt_' + c);
