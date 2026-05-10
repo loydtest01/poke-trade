@@ -26,7 +26,7 @@
 body {
   background: var(--bg); color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: 14px; min-height: 100vh;
+  font-size: 14px; min-height: 100vh; padding-top: 56px;
 }
 
 
@@ -349,6 +349,43 @@ body::after {
   font-family: 'SF Mono','Fira Code',monospace; font-size: .75rem; color: var(--blue);
   word-break: break-all; display: flex; justify-content: space-between; align-items: center; gap: .5rem;
 }
+
+/* ── Ceny a tržiště ── */
+.prices-section {
+  margin-top: 1.5rem; background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.prices-title {
+  font-size: .72rem; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; padding: .65rem 1rem; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: .5rem;
+}
+.prices-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0; border-bottom: 1px solid var(--border);
+}
+.price-source-block {
+  padding: .75rem 1rem; border-right: 1px solid var(--border);
+}
+.price-source-block:last-child { border-right: none; }
+.price-source-name {
+  font-size: .68rem; font-weight: 600; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .04em; margin-bottom: .4rem;
+}
+.price-row { display: flex; justify-content: space-between; font-size: .78rem; margin-bottom: .15rem; }
+.price-label { color: var(--muted); }
+.price-val { font-weight: 600; color: var(--text); }
+.price-val.highlight { color: var(--yellow); }
+.markets-row {
+  padding: .75rem 1rem; display: flex; gap: .5rem; flex-wrap: wrap;
+}
+.market-link {
+  display: inline-flex; align-items: center; gap: .35rem;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  color: var(--text); text-decoration: none; padding: .3rem .7rem;
+  border-radius: 6px; font-size: .75rem; font-weight: 500; transition: all .15s;
+}
+.market-link:hover { background: rgba(255,255,255,.1); border-color: rgba(245,200,66,.3); color: var(--yellow); }
 .copy-btn {
   background: none; border: 1px solid var(--border); color: var(--muted);
   padding: .15rem .4rem; border-radius: 4px; cursor: pointer; font-size: .7rem;
@@ -1514,7 +1551,7 @@ function renderModal(c) {
           ${c.verified ? `<span class="type-badge badge-ok">✅ Ověřeno</span>` : ''}
         </div>
         <div class="info-grid" style="margin-top:.8rem">
-          ${c.hp ? infoItem('HP', `<span style="color:var(--red);font-weight:700;font-size:1rem">${c.hp}</span>`) : ''}
+          ${c.hp ? infoItem('HP', `<span style="color:var(--red);font-weight:700;font-size:1rem">${c.hp}</span>`, true) : ''}
           ${c.set_name ? infoItem('Série', c.set_name) : ''}
           ${c.number ? infoItem('Číslo v sérii', '#' + c.number) : ''}
           ${c.artist ? infoItem('Ilustrátor', c.artist) : ''}
@@ -1540,6 +1577,7 @@ function renderModal(c) {
     </div>
     ${abilities ? `<div class="attacks-section" style="margin-top:1.5rem"><div class="attacks-title">⚡ Schopnosti</div>${abilities}</div>` : ''}
     ${attacks ? `<div class="attacks-section" style="margin-top:1rem"><div class="attacks-title">⚔️ Útoky</div>${attacks}</div>` : ''}
+    ${renderPrices(c)}
     <div class="modal-api-block" style="margin-top:1.5rem">
       <div class="modal-api-label">API endpoint pro tuto kartu</div>
       <div class="modal-api-url">
@@ -1547,6 +1585,54 @@ function renderModal(c) {
         <button class="copy-btn" onclick="navigator.clipboard.writeText('${escH(apiUrl)}');toast('Zkopírováno!','ok')">Kopírovat</button>
       </div>
     </div>`;
+}
+
+function renderPrices(c) {
+  const prices = c.prices || [];
+  const name  = encodeURIComponent(c.name || c.id);
+  const nameRaw = (c.name || c.id).replace(/\s+/g,'+');
+  const setRaw  = (c.set_name || '').replace(/\s+/g,'+');
+
+  // Marketplace links — vždy
+  const markets = [
+    { name: 'Cardmarket', icon: '🇪🇺', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${nameRaw}` },
+    { name: 'eBay',       icon: '🔨', url: `https://www.ebay.com/sch/i.html?_nkw=pokemon+${nameRaw}+${setRaw}+card` },
+    { name: 'TCGPlayer',  icon: '🇺🇸', url: `https://www.tcgplayer.com/search/pokemon/product?q=${nameRaw}` },
+    { name: 'Pokéllector',icon: '📒', url: `https://pokecollector.com/search?q=${nameRaw}` },
+  ];
+
+  const marketHtml = markets.map(m =>
+    `<a href="${escH(m.url)}" target="_blank" rel="noopener" class="market-link">${m.icon} ${escH(m.name)}</a>`
+  ).join('');
+
+  // Ceny z databáze
+  const fmt = (v, sym) => v != null ? `<span class="price-val highlight">${sym}${Number(v).toFixed(2)}</span>` : '';
+  const priceBlocksHtml = prices.map(p => {
+    const rows = [];
+    if (p.eur) {
+      if (p.eur.avg   != null) rows.push(`<div class="price-row"><span class="price-label">Avg</span>${fmt(p.eur.avg,'€')}</div>`);
+      if (p.eur.low   != null) rows.push(`<div class="price-row"><span class="price-label">Low</span>${fmt(p.eur.low,'€')}</div>`);
+      if (p.eur.trend != null) rows.push(`<div class="price-row"><span class="price-label">Trend</span>${fmt(p.eur.trend,'€')}</div>`);
+      if (p.eur.avg30 != null) rows.push(`<div class="price-row"><span class="price-label">30d avg</span>${fmt(p.eur.avg30,'€')}</div>`);
+    }
+    if (p.usd) {
+      if (p.usd.market!= null) rows.push(`<div class="price-row"><span class="price-label">Market</span>${fmt(p.usd.market,'$')}</div>`);
+      if (p.usd.low   != null) rows.push(`<div class="price-row"><span class="price-label">Low</span>${fmt(p.usd.low,'$')}</div>`);
+      if (p.usd.mid   != null) rows.push(`<div class="price-row"><span class="price-label">Mid</span>${fmt(p.usd.mid,'$')}</div>`);
+    }
+    if (!rows.length) return '';
+    const srcLabel = { cardmarket:'Cardmarket', tcgplayer:'TCGPlayer', tcgdex:'TCGdex' }[p.source] || escH(p.source);
+    const srcLink  = p.source_url ? `<a href="${escH(p.source_url)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;">${srcLabel} ↗</a>` : srcLabel;
+    return `<div class="price-source-block">
+      <div class="price-source-name">${srcLink}</div>${rows.join('')}
+    </div>`;
+  }).filter(Boolean).join('');
+
+  return `<div class="prices-section">
+    <div class="prices-title">💰 Ceny &amp; tržiště</div>
+    ${priceBlocksHtml ? `<div class="prices-grid">${priceBlocksHtml}</div>` : ''}
+    <div class="markets-row">${marketHtml}</div>
+  </div>`;
 }
 
 function infoItem(label, val, raw) {
