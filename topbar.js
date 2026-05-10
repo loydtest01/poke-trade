@@ -47,7 +47,6 @@ var PAGES = [
   { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'pokedb.html',       icon: 'energi/scanner.png',          labelKey: 'nav.pokedb',      label: 'PokéDB',            id: 'pokedb'      },
-  { href: 'deck-builder.html',  icon: 'energi/scanner.png',          labelKey: 'nav.deckbuilder', label: '🃏 Deck Builder',    id: 'deck-builder'},
 ];
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
@@ -92,6 +91,23 @@ function injectStyles() {
   var s = document.createElement('style');
   s.id = 'topbar-unified-style';
   s.textContent = `
+    /* ── Base topbar structure — automaticky na všech stránkách ── */
+    .app-topbar {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(8,8,12,0.92);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px);
+      display: flex; align-items: center;
+      height: 56px; padding: 0 20px; gap: 0;
+    }
+    .app-logo {
+      font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+      color: #fff; display: flex; align-items: center; gap: 6px;
+      text-decoration: none; margin-right: 28px; white-space: nowrap; flex-shrink: 0;
+    }
+    .app-logo strong { color: var(--yellow, #f5c842); }
+    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+
     /* ── Navigační pills ── */
     .nav-lnks a {
       background: rgba(255,255,255,0.06) !important;
