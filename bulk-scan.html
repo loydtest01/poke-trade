@@ -30,6 +30,7 @@
 :root{--z0:#f5c842;--z1:#6ea0ff;--z2:#2dd4bf;--z3:#f472b6;--z4:#a78bfa;--z5:#fb923c;--z6:#4ade80;--z7:#f87171;--z8:#38bdf8;--z9:#fbbf24;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:13px;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url('wallpaper.png');background-size:cover;background-position:center 30%;background-repeat:no-repeat;filter:brightness(0.22) saturate(0.6);}
 
 /* ── TOPBAR (shared with other pages) ─────────────────────── */
 .app-topbar{position:sticky;top:0;z-index:200;background:rgba(8,8,12,0.92);border-bottom:1px solid rgba(255,255,255,0.06);backdrop-filter:blur(16px);display:flex;align-items:center;height:56px;padding:0 20px;gap:0;}
@@ -54,7 +55,7 @@ button.btn-nav-outline{background:transparent!important;-webkit-appearance:none;
 .app{display:flex;flex-direction:column;height:calc(100vh - 56px);}
 
 /* ── HEADER (tool controls) ──────────────────────────────── */
-.header{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--surf);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.header{display:flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(21,16,26,0.88);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;z-index:1;position:relative;}
 .logo{font-family:'Unbounded';font-size:15px;font-weight:800;letter-spacing:.5px;color:var(--gold);white-space:nowrap;}
 .logo em{font-style:normal;color:var(--text);font-weight:400;font-size:11px;opacity:.55;}
 .hdr-sep{width:1px;height:20px;background:var(--border);flex-shrink:0;}
@@ -72,10 +73,10 @@ button.btn-nav-outline{background:transparent!important;-webkit-appearance:none;
 .btn-ghost{background:transparent;}
 
 /* ── WORKSPACE ───────────────────────────────────────────── */
-.workspace{display:flex;flex:1;overflow:hidden;}
+.workspace{display:flex;flex:1;overflow:hidden;position:relative;z-index:1;}
 
 /* ── CANVAS AREA ─────────────────────────────────────────── */
-.canvas-area{flex:1;position:relative;overflow:hidden;background:#06060c;
+.canvas-area{flex:1;position:relative;overflow:hidden;background:rgba(6,6,12,0.82);z-index:1;
   background-image:linear-gradient(rgba(255,255,255,.012) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.012) 1px,transparent 1px);
   background-size:28px 28px;}
 #dz{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);pointer-events:none;padding:40px;}
@@ -96,7 +97,7 @@ canvas#oc{z-index:2;cursor:default;}
 .loupe-xy{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-family:'DM Mono';font-size:9px;color:var(--gold);background:rgba(10,6,8,.9);padding:2px 5px;border-radius:3px;border:1px solid rgba(245,200,66,.25);white-space:nowrap;}
 
 /* ── SIDE PANEL ──────────────────────────────────────────── */
-.side{width:320px;flex-shrink:0;background:var(--surf);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.side{width:320px;flex-shrink:0;background:rgba(21,16,26,0.92);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;z-index:1;}
 .sec{padding:11px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
 .sec h3{font-family:'Unbounded';font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--gold);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
 .sec h3 .pill{font-family:'DM Sans';letter-spacing:0;text-transform:none;font-size:10px;font-weight:500;padding:1px 7px;background:var(--surf3);border-radius:20px;color:var(--muted);}
@@ -136,7 +137,7 @@ canvas#oc{z-index:2;cursor:default;}
 .thumb-num{position:absolute;top:3px;left:3px;background:rgba(0,0,0,.8);font-family:'Unbounded';font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;}
 
 /* ── STATUS BAR ──────────────────────────────────────────── */
-.status{display:flex;align-items:center;gap:10px;padding:7px 14px;background:var(--surf);border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0;}
+.status{display:flex;align-items:center;gap:10px;padding:7px 14px;background:rgba(21,16,26,0.88);border-top:1px solid var(--border);font-size:11px;color:var(--muted);flex-shrink:0;z-index:1;position:relative;}
 .spin{display:none;width:12px;height:12px;border:2px solid rgba(245,200,66,.2);border-top-color:var(--gold);border-radius:50%;animation:spin .6s linear infinite;flex-shrink:0;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
@@ -885,43 +886,31 @@ function correctOrientation(img, orientation) {
  * Works for both File uploads and fetched blobs.
  */
 async function loadBlobAutoRotate(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const buf = ev.target.result;
-      let orientation = 1;
-      try { orientation = readExifOrientation(buf); } catch(e) {}
+  // Step 1: read ArrayBuffer for EXIF
+  const buf = await blob.arrayBuffer();
+  let orientation = 1;
+  try { orientation = readExifOrientation(buf); } catch(e) {}
 
-      const img = new Image();
-      img.onload = () => {
-        if (orientation <= 1) {
-          resolve(img);
-          return;
-        }
-        // Correct orientation via canvas, then produce new Image
-        const corrected = correctOrientation(img, orientation);
-        const corrImg = new Image();
-        corrImg.onload = () => resolve(corrImg);
-        corrImg.onerror = reject;
-        corrImg.src = corrected.toDataURL('image/jpeg', 0.97);
-      };
-      img.onerror = reject;
-      img.src = ev.target.result.replace ? URL.createObjectURL(blob) : ev.target.result;
-      // Use DataURL for EXIF read but ObjectURL for actual load
-      const objUrl = URL.createObjectURL(blob);
-      img.src = objUrl;
-      img.onload = () => {
-        URL.revokeObjectURL(objUrl);
-        if (orientation <= 1) { resolve(img); return; }
-        const corrected = correctOrientation(img, orientation);
-        const corrImg = new Image();
-        corrImg.onload = () => resolve(corrImg);
-        corrImg.onerror = reject;
-        corrImg.src = corrected.toDataURL('image/jpeg', 0.97);
-      };
-    };
-    reader.onerror = reject;
-    reader.readAsArrayBuffer(blob);
+  // Step 2: load image from ObjectURL
+  const objUrl = URL.createObjectURL(blob);
+  const img = await new Promise((res, rej) => {
+    const el = new Image();
+    el.onload = () => { URL.revokeObjectURL(objUrl); res(el); };
+    el.onerror = () => { URL.revokeObjectURL(objUrl); rej(new Error('Image load failed')); };
+    el.src = objUrl;
+  });
+
+  // Step 3: if orientation is normal, return as-is
+  if (orientation <= 1 || orientation > 8) return img;
+
+  // Step 4: draw onto corrected canvas, return new Image
+  const corrected = correctOrientation(img, orientation);
+  return await new Promise((res, rej) => {
+    const out = new Image();
+    out.onload = () => res(out);
+    out.onerror = rej;
+    // Use canvas.toBlob for better memory handling on large images
+    corrected.toBlob(b => { out.src = URL.createObjectURL(b); }, 'image/jpeg', 0.97);
   });
 }
 
@@ -1598,27 +1587,76 @@ async function fetchAlbumPhotos(){
   }
   renderAlbumGrid(_albumPhotos);
 }
+// _albumFiltered holds the currently displayed subset
+let _albumFiltered = [];
+
 function renderAlbumGrid(photos){
-  const q=document.getElementById('albumSearch').value.toLowerCase().trim();
-  const flt=q?photos.filter(p=>p.name.toLowerCase().includes(q)):photos;
-  const grid=document.getElementById('albumGrid');
-  if(!flt.length){grid.innerHTML='<div class="album-modal-empty">🔍 Žádná karta neodpovídá</div>';return;}
-  grid.innerHTML=flt.map(p=>`<div class="album-card-thumb" onclick="importAlbumPhoto(${JSON.stringify(p.url).replace(/</g,'\\u003c')},${JSON.stringify(p.name).replace(/</g,'\\u003c')})"><img src="${p.url}" alt="${p.name||'karta'}" loading="lazy"><div class="alb-name">${p.name||('karta '+(p.side||''))} <span style="opacity:.5;font-size:9px">${p.side||''}</span></div></div>`).join('');
+  const q = document.getElementById('albumSearch').value.toLowerCase().trim();
+  _albumFiltered = q ? photos.filter(p => (p.name||'').toLowerCase().includes(q)) : [...photos];
+  const grid = document.getElementById('albumGrid');
+  if(!_albumFiltered.length){
+    grid.innerHTML = '<div class="album-modal-empty">🔍 Žádná karta neodpovídá</div>';
+    return;
+  }
+  grid.innerHTML = _albumFiltered.map((p, i) => {
+    const label = p.name || ('karta ' + (p.side||''));
+    const badge = p.src === 'queue' ? '<span style="color:var(--teal);font-size:8px">fronta</span>' : '';
+    return `<div class="album-card-thumb" data-idx="${i}">` +
+      `<img src="${p.url}" alt="${label}" loading="lazy" onerror="this.src='pokemon.png'">` +
+      `<div class="alb-name">${label} ${badge}</div>` +
+      `</div>`;
+  }).join('');
 }
-async function importAlbumPhoto(url,name){
-  closeAlbumModal(); toast('⏳ Načítám fotku z alba…','');
-  try{
-    const resp=await fetch(url);
-    const blob=await resp.blob();
-    // Načteme a automaticky opravíme EXIF rotaci
-    st('Načítám a opravuji rotaci…',true);
-    const img=await loadBlobAutoRotate(blob);
+
+// Event delegation — one listener handles all card clicks safely
+document.getElementById('albumGrid').addEventListener('click', function(e) {
+  const thumb = e.target.closest('.album-card-thumb');
+  if (!thumb) return;
+  const idx = parseInt(thumb.dataset.idx, 10);
+  if (isNaN(idx) || !_albumFiltered[idx]) return;
+  const p = _albumFiltered[idx];
+  importAlbumPhoto(p.url, p.name || '');
+});
+
+async function importAlbumPhoto(url, name){
+  closeAlbumModal();
+  toast('⏳ Načítám fotku z alba…', '');
+  try {
+    st('Stahuji fotku…', true);
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const blob = await resp.blob();
+    st('Opravuji rotaci…', true);
+    const img = await loadBlobAutoRotate(blob);
     onImgReady(img);
-    toast('✅ Načteno: '+(name||'karta'),'success');
-  }catch(e){toast('❌ Nelze načíst fotku: '+e.message,'error');}
+    toast('✅ Načteno: ' + (name || 'karta'), 'success');
+  } catch(e) {
+    console.error('[importAlbumPhoto]', e);
+    // Fallback: load directly as Image without EXIF fix
+    try {
+      st('Načítám přímo…', true);
+      const img2 = await new Promise((res, rej) => {
+        const el = new Image();
+        el.crossOrigin = 'anonymous';
+        el.onload = () => res(el);
+        el.onerror = rej;
+        el.src = url;
+      });
+      onImgReady(img2);
+      toast('✅ Načteno (bez rotace): ' + (name || 'karta'), 'success');
+    } catch(e2) {
+      toast('❌ Nelze načíst fotku: ' + e2.message, 'error');
+      st('Chyba načítání', false);
+    }
+  }
 }
-document.getElementById('albumSearch').addEventListener('input',()=>{if(_albumPhotos)renderAlbumGrid(_albumPhotos);});
-document.getElementById('albumModal').addEventListener('click',e=>{if(e.target===document.getElementById('albumModal'))closeAlbumModal();});
+
+document.getElementById('albumSearch').addEventListener('input', () => {
+  if (_albumPhotos) renderAlbumGrid(_albumPhotos);
+});
+document.getElementById('albumModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('albumModal')) closeAlbumModal();
+});
 
 // ══════════════════════════════════════════════════════════════════
 //  ALBUM RETURN (round-trip editing: moje-album → bulk-scan → album)
