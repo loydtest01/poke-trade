@@ -191,6 +191,12 @@ body::after {
 .poke-card-type { font-size: .75rem; }
 .poke-card-set { font-size: .68rem; color: var(--muted); margin-top: .3rem; }
 .poke-card-verified { position: absolute; top: .5rem; right: .5rem; font-size: .7rem; }
+.poke-card-lang {
+  position: absolute; top: .5rem; left: .5rem;
+  font-size: .6rem; font-weight: 700; letter-spacing: .03em;
+  background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.15);
+  color: #e5e7eb; padding: .1rem .35rem; border-radius: 4px; line-height: 1.4;
+}
 
 /* List view card */
 .card-grid.list-view .poke-card {
@@ -720,7 +726,7 @@ body::after {
     <div class="hero-stats">
       <div class="hero-stat"><div class="hero-stat-num" id="h-cards">–</div><div class="hero-stat-label">Karet</div></div>
       <div class="hero-stat"><div class="hero-stat-num b" id="h-sets">–</div><div class="hero-stat-label">Sérií</div></div>
-      <div class="hero-stat"><div class="hero-stat-num g" id="h-translated">–</div><div class="hero-stat-label">CS přeloženo</div></div>
+      <div class="hero-stat"><div class="hero-stat-num g" id="h-translated">–</div><div class="hero-stat-label">Jazyků</div></div>
     </div>
   </div>
 
@@ -1165,16 +1171,46 @@ async function init() {
 
 async function loadStats() {
   try {
+    // Načti série
     const r = await fetch(`${API_BASE}/sets`);
-    if (!r.ok) return;
+    if (!r.ok) throw new Error('sets fail');
     const data = await r.json();
     const sets = data.data || [];
-    const totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
-    document.getElementById('h-cards').textContent = totalCards.toLocaleString('cs');
-    document.getElementById('h-sets').textContent = sets.length;
-    // rough translated count — if API returns it
-    if (data.translated_count !== undefined) {
-      document.getElementById('h-translated').textContent = data.translated_count.toLocaleString('cs');
+    const setsCount = sets.length;
+    document.getElementById('h-sets').textContent = setsCount;
+
+    // Spočítej karty ze sets (card_count)
+    let totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
+
+    // Pokud sets nedává smyslný počet, zkus /cards?limit=1 pro total
+    if (totalCards < 100) {
+      try {
+        const r2 = await fetch(`${API_BASE}/cards?limit=1`);
+        const d2 = await r2.json();
+        if (d2.total && d2.total > totalCards) totalCards = d2.total;
+      } catch {}
+    }
+    document.getElementById('h-cards').textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : setsCount > 0 ? '?' : '–';
+
+    // Počet jazyků ze sérií
+    const langs = new Set();
+    sets.forEach(s => { if (s.lang) langs.add(s.lang); if (s.language) langs.add(s.language); });
+    // Pokud API nevrátí lang na sériích, zkus z karet
+    if (langs.size === 0) {
+      try {
+        const r3 = await fetch(`${API_BASE}/cards?limit=36`);
+        const d3 = await r3.json();
+        (d3.data || []).forEach(c => { if (c.lang) langs.add(c.lang); if (c.language) langs.add(c.language); });
+      } catch {}
+    }
+    const langEl = document.getElementById('h-translated');
+    if (langs.size > 0) {
+      langEl.textContent = langs.size;
+      // Aktualizuj popisek
+      const label = langEl.closest('.hero-stat')?.querySelector('.hero-stat-label');
+      if (label) label.textContent = 'Jazyků';
+    } else if (data.translated_count !== undefined) {
+      langEl.textContent = data.translated_count.toLocaleString('cs');
     }
   } catch {}
 }
@@ -1378,6 +1414,8 @@ function renderCards(cards) {
     g.innerHTML = `<div class="empty"><div class="empty-icon">🔍</div>Žádné karty neodpovídají filtru</div>`;
     return;
   }
+  const langFlags = {en:'🇬🇧',ja:'🇯🇵',de:'🇩🇪',fr:'🇫🇷',it:'🇮🇹',es:'🇪🇸',pt:'🇵🇹',ko:'🇰🇷'};
+  const langLabels = {en:'EN',ja:'JP',de:'DE',fr:'FR',it:'IT',es:'ES',pt:'PT',ko:'KO'};
   g.innerHTML = cards.map(c => {
     const img = c.image_thumb_url || c.image_url || '';
     const imgHtml = img
@@ -1385,8 +1423,13 @@ function renderCards(cards) {
       : '';
     const types = (c.types || []).map(t =>
       `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
+    const lang = c.lang || c.language || '';
+    const langBadge = lang
+      ? `<span class="poke-card-lang" title="${escH(lang)}">${langFlags[lang] || ''} ${langLabels[lang] || lang.toUpperCase()}</span>`
+      : '';
     return `
     <div class="poke-card" onclick="openCard('${escH(c.id)}')">
+      ${langBadge}
       ${c.verified ? '<span class="poke-card-verified" title="Ověřeno">✅</span>' : ''}
       <div class="poke-card-img-wrap">
         ${imgHtml}
