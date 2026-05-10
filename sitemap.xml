@@ -1,39 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- Hlavní stránka -->
   <url>
     <loc>https://www.poke-trade.eu/</loc>
-    <lastmod>2026-05-07</lastmod>
+    <lastmod>2026-05-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
+  <!-- Tržiště – veřejné, indexovatelné -->
   <url>
     <loc>https://www.poke-trade.eu/marketplace.html</loc>
-    <lastmod>2026-05-07</lastmod>
+    <lastmod>2026-05-10</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
+  <!-- PokéDB – veřejná databáze karet, SEO potenciál -->
   <url>
-    <loc>https://www.poke-trade.eu/register.html</loc>
-    <lastmod>2026-05-07</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://www.poke-trade.eu/pokedb.html</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
+  <!-- Deck Builder – veřejný nástroj -->
   <url>
-    <loc>https://www.poke-trade.eu/login.html</loc>
-    <lastmod>2026-05-07</lastmod>
+    <loc>https://www.poke-trade.eu/deck-builder.html</loc>
+    <lastmod>2026-05-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-  <url>
-    <loc>https://www.poke-trade.eu/compare.html</loc>
-    <lastmod>2026-05-07</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
+  <!-- Ochrana soukromí -->
   <url>
     <loc>https://www.poke-trade.eu/privacy.html</loc>
-    <lastmod>2026-05-07</lastmod>
+    <lastmod>2026-05-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  <!--
+    ZÁMĚRNĚ VYNECHÁNO (mají noindex nebo vyžadují přihlášení):
+    register.html, login.html, moje-album.html, scanner.html,
+    queue.html, compare.html, share-album.html, profile.html,
+    bulk-scan.html, admin-loyd.html, chat.html, transactions.html
+  -->
 </urlset>

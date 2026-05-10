@@ -11,21 +11,27 @@
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then(function (reg) {
-          // Tichá registrace — žádný console.log v produkci
+          // Tichá registrace
+
+          // ── updatefound → nová verze SW dostupná ─────────────
           reg.addEventListener('updatefound', function () {
             var newWorker = reg.installing;
             if (!newWorker) return;
             newWorker.addEventListener('statechange', function () {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // Nová verze dostupná — volitelně informuj uživatele
-                if (typeof window.showUpdateToast === 'function') {
-                  window.showUpdateToast();
-                }
+                _showSwUpdateBanner();
               }
             });
           });
         })
-        .catch(function () { /* SW nedostupný — app funguje bez něj */ });
+        .catch(function () { /* SW nedostupný */ });
+
+      // ── Zpráva od SW (SW_UPDATED při aktivaci nové verze) ──────
+      navigator.serviceWorker.addEventListener('message', function (e) {
+        if (e.data && e.data.type === 'SW_UPDATED') {
+          _showSwUpdateBanner();
+        }
+      });
     });
   }
 
@@ -144,4 +150,47 @@
   } else {
     _init();
   }
+
+  /* ── SW Update Banner ─────────────────────────────────────── */
+  var _swBannerShown = false;
+  function _showSwUpdateBanner() {
+    if (_swBannerShown) return;
+    _swBannerShown = true;
+    var banner = document.createElement('div');
+    banner.id  = '_sw-update-banner';
+    banner.style.cssText = [
+      'position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);',
+      'background:#1a1424;border:1px solid rgba(245,200,66,.35);',
+      'border-radius:12px;padding:.7rem 1.2rem;z-index:99999;',
+      'display:flex;align-items:center;gap:.8rem;',
+      'box-shadow:0 8px 32px rgba(0,0,0,.5);',
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
+      'font-size:.84rem;color:#f0ece4;max-width:calc(100vw - 2rem);'
+    ].join('');
+    banner.innerHTML = [
+      '<span>🚀 Nová verze PokéTrade je připravena</span>',
+      '<button id="_sw-update-btn" style="',
+        'background:rgba(245,200,66,.18);border:1px solid rgba(245,200,66,.4);',
+        'color:#f5c842;border-radius:8px;padding:.35rem .9rem;cursor:pointer;',
+        'font-size:.82rem;font-weight:600;white-space:nowrap;',
+      '">Aktualizovat</button>',
+      '<button id="_sw-dismiss-btn" style="',
+        'background:none;border:none;color:rgba(240,236,228,.4);',
+        'cursor:pointer;font-size:1rem;padding:0 .2rem;',
+      '">✕</button>',
+    ].join('');
+    document.body.appendChild(banner);
+    document.getElementById('_sw-update-btn').onclick = function () {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+      }
+      window.location.reload();
+    };
+    document.getElementById('_sw-dismiss-btn').onclick = function () {
+      banner.remove();
+    };
+    setTimeout(function () { if (banner.parentNode) banner.remove(); }, 30000);
+  }
+  window.showUpdateToast = _showSwUpdateBanner;
+
 })();

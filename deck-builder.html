@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<title>Deck Builder – PokéTrade</title>
+<meta name="description" content="Sestav si Pokémon TCG deck ze své sbírky. AI poradí nejsilnější kombinace pro začátečníky i pokročilé hráče. Zdarma.">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="canonical" href="https://www.poke-trade.eu/deck-builder.html">
+<link rel="icon" type="image/png" href="favicon.ico">
+<link rel="manifest" href="app-manifest.json">
+<script>window.TOPBAR_ACTIVE = 'deck-builder';</script>
+<script src="pwa-init.js"></script>
+<script src="i18n.js"></script>
+<script src="topbar.js"></script>
+<script src="app.js"></script>
+<style>
+:root {
+  --bg:#0a0608; --card:#14101a; --card2:#1a1424;
+  --border:rgba(255,255,255,0.08); --text:#f0ece4;
+  --muted:#9ca3af; --yellow:#f5c842; --red:#ef4444;
+  --green:#4ade80; --blue:#60a5fa; --purple:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh}
+
+/* ── Layout ── */
+.db-wrap{max-width:1400px;margin:0 auto;padding:1.2rem 1rem}
+.db-header{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.db-title{font-size:1.4rem;font-weight:700;color:var(--yellow)}
+.db-subtitle{color:var(--muted);font-size:.85rem}
+
+/* ── Tabs ── */
+.db-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+.db-tab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);
+  padding:.75rem 1.2rem;cursor:pointer;font-size:.85rem;white-space:nowrap;transition:.15s}
+.db-tab.active{color:var(--yellow);border-bottom-color:var(--yellow)}
+.db-tab:hover{color:var(--text)}
+
+/* ── Cards ── */
+.db-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.2rem;margin-bottom:1rem}
+.db-section h3{font-size:1rem;font-weight:600;margin-bottom:.8rem}
+
+/* ── Preset decks grid ── */
+.preset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:.8rem}
+.preset-card{background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:1rem;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.preset-card:hover{border-color:rgba(245,200,66,.35);transform:translateY(-2px)}
+.preset-card.selected{border-color:var(--yellow);background:rgba(245,200,66,.06)}
+.preset-tier{font-size:.7rem;font-weight:700;padding:.2rem .5rem;border-radius:4px;display:inline-block;margin-bottom:.4rem}
+.tier-top{background:rgba(239,68,68,.15);color:var(--red)}
+.tier-mid{background:rgba(96,165,250,.15);color:var(--blue)}
+.tier-budget{background:rgba(74,222,128,.15);color:var(--green)}
+.tier-fun{background:rgba(167,139,250,.15);color:var(--purple)}
+.preset-name{font-size:1rem;font-weight:700;margin-bottom:.3rem}
+.preset-desc{font-size:.78rem;color:var(--muted);margin-bottom:.6rem;line-height:1.4}
+.preset-tags{display:flex;gap:.3rem;flex-wrap:wrap}
+.preset-tag{font-size:.7rem;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:4px;padding:.15rem .45rem;color:var(--muted)}
+
+/* ── Deck list ── */
+.deck-container{display:grid;grid-template-columns:1fr 320px;gap:1rem}
+@media(max-width:768px){.deck-container{grid-template-columns:1fr}}
+.deck-list{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem}
+.deck-group-title{font-size:.75rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.05em;margin:.8rem 0 .4rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)}
+.deck-row{display:flex;align-items:center;gap:.5rem;padding:.3rem .2rem;border-radius:6px;transition:.1s}
+.deck-row:hover{background:rgba(255,255,255,.04)}
+.deck-row-count{font-size:.75rem;color:var(--muted);min-width:1.5rem;text-align:right}
+.deck-row-name{flex:1;font-size:.84rem}
+.deck-row-set{font-size:.72rem;color:var(--muted)}
+.deck-row-own{font-size:.72rem;padding:.1rem .35rem;border-radius:4px;white-space:nowrap}
+.own-yes{background:rgba(74,222,128,.12);color:var(--green)}
+.own-partial{background:rgba(245,200,66,.12);color:var(--yellow)}
+.own-no{background:rgba(239,68,68,.1);color:var(--red)}
+
+/* ── Stats panel ── */
+.deck-stats{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1rem;position:sticky;top:70px}
+.stat-row{display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;
+  border-bottom:1px solid rgba(255,255,255,.04);font-size:.82rem}
+.stat-label{color:var(--muted)}
+.stat-value{font-weight:600}
+.deck-progress{margin:1rem 0}
+.progress-bar{background:rgba(255,255,255,.08);border-radius:999px;height:8px;overflow:hidden;margin-top:.3rem}
+.progress-fill{height:100%;border-radius:999px;background:var(--yellow);transition:width .3s}
+
+/* ── AI Builder ── */
+.ai-input-wrap{display:flex;gap:.5rem;flex-wrap:wrap;align-items:flex-start;margin-bottom:1rem}
+.ai-textarea{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);
+  border-radius:10px;padding:.7rem 1rem;font-size:.85rem;resize:vertical;min-height:80px;
+  width:100%;font-family:inherit;line-height:1.5}
+.ai-textarea:focus{outline:none;border-color:rgba(245,200,66,.4)}
+.ai-chips{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.8rem}
+.ai-chip{font-size:.75rem;background:rgba(255,255,255,.06);border:1px solid var(--border);
+  border-radius:6px;padding:.25rem .7rem;cursor:pointer;transition:.1s;color:var(--muted)}
+.ai-chip:hover{background:rgba(245,200,66,.1);border-color:rgba(245,200,66,.3);color:var(--yellow)}
+
+/* ── Buttons ── */
+.btn{background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:var(--yellow);
+  border-radius:8px;padding:.5rem 1.1rem;cursor:pointer;font-size:.85rem;font-weight:600;
+  transition:all .15s;display:inline-flex;align-items:center;gap:.4rem}
+.btn:hover{background:rgba(245,200,66,.22);border-color:rgba(245,200,66,.45)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn-secondary{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.1);color:var(--text)}
+.btn-secondary:hover{background:rgba(255,255,255,.1)}
+.btn-sm{padding:.3rem .7rem;font-size:.78rem}
+.btn-red{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.25);color:var(--red)}
+
+/* ── Export ── */
+.export-box{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;
+  padding:.8rem;font-family:monospace;font-size:.78rem;line-height:1.7;white-space:pre-wrap;
+  max-height:300px;overflow-y:auto;color:var(--text);margin-top:.8rem}
+
+/* ── Type badges ── */
+.type-badge{display:inline-flex;align-items:center;gap:.2rem;font-size:.7rem;padding:.1rem .4rem;
+  border-radius:4px;font-weight:600}
+.type-Fire{background:rgba(239,68,68,.15);color:#f87171}
+.type-Water{background:rgba(96,165,250,.15);color:var(--blue)}
+.type-Grass{background:rgba(74,222,128,.15);color:var(--green)}
+.type-Lightning{background:rgba(245,200,66,.15);color:var(--yellow)}
+.type-Psychic{background:rgba(167,139,250,.15);color:var(--purple)}
+.type-Fighting{background:rgba(251,146,60,.15);color:#fb923c}
+.type-Darkness{background:rgba(255,255,255,.08);color:var(--muted)}
+.type-Metal{background:rgba(148,163,184,.15);color:#94a3b8}
+.type-Dragon{background:rgba(129,140,248,.15);color:#818cf8}
+.type-Colorless{background:rgba(255,255,255,.08);color:var(--text)}
+
+/* ── Loading ── */
+.loading-dots::after{content:'';animation:dots 1.5s infinite}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
+
+input,select{background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);
+  border-radius:8px;padding:.5rem .8rem;font-size:.85rem;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:rgba(245,200,66,.4)}
+select option{background:#1a1424}
+</style>
+</head>
+<body>
+<header class="app-topbar">
+  <div id="topbar-nav-slot"></div>
+  <div class="topbar-right" id="topbar-right-slot"></div>
+</header>
+
+<div class="db-wrap">
+  <div class="db-header">
+    <div>
+      <div class="db-title">🃏 Deck Builder</div>
+      <div class="db-subtitle">Sestav si TCG deck ze své sbírky · AI poradí nejlepší kombinace</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-secondary btn-sm" onclick="loadMyCards()">📦 Načíst moje karty</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportDeck()">📋 Exportovat deck</button>
+      <button class="btn btn-red btn-sm" onclick="clearDeck()">🗑 Vyprázdnit</button>
+    </div>
+  </div>
+
+  <div class="db-tabs">
+    <button class="db-tab active" data-tab="presets" onclick="switchTab('presets',this)">🏆 Hotové decky</button>
+    <button class="db-tab" data-tab="ai" onclick="switchTab('ai',this)">🤖 AI Builder</button>
+    <button class="db-tab" data-tab="manual" onclick="switchTab('manual',this)">✏️ Manuální</button>
+    <button class="db-tab" data-tab="export" onclick="switchTab('export',this)">📤 Export / Tisk</button>
+  </div>
+
+  <!-- TAB: Hotové decky -->
+  <div id="tab-presets">
+    <div class="db-section">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem">
+        <h3 style="margin:0">Vyber archetype nebo hotový deck</h3>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" onclick="filterPresets('all')">Vše</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterPresets('beginner')">👶 Začátečník</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterPresets('advanced')">⚔️ Pokročilý</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterPresets('top')">🔥 Top tier</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterPresets('fun')">🎉 Zábava</button>
+        </div>
+      </div>
+      <div class="preset-grid" id="preset-grid"></div>
+    </div>
+    <div class="deck-container" id="deck-preview-wrap" style="display:none">
+      <div class="deck-list">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+          <h3 id="deck-preview-name" style="margin:0">Název decku</h3>
+          <button class="btn btn-sm" onclick="loadThisDeck()">✅ Použít tento deck</button>
+        </div>
+        <div id="deck-preview-list"></div>
+      </div>
+      <div class="deck-stats">
+        <h3 style="margin-bottom:.8rem">Statistiky</h3>
+        <div id="deck-preview-stats"></div>
+        <div class="deck-progress">
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem">Mám ve sbírce</div>
+          <div class="progress-bar"><div class="progress-fill" id="own-progress" style="width:0%"></div></div>
+          <div id="own-pct" style="font-size:.75rem;color:var(--muted);margin-top:.3rem">0 / 60 karet</div>
+        </div>
+        <button class="btn btn-sm btn-secondary" style="width:100%;justify-content:center;margin-top:.5rem"
+          onclick="showMissingCards()">🛒 Co mi chybí?</button>
+        <div id="missing-cards" style="margin-top:.8rem;display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: AI Builder -->
+  <div id="tab-ai" style="display:none">
+    <div class="db-section">
+      <h3>🤖 Popov AI co chceš a ona navrhne celý deck</h3>
+      <div class="ai-chips" id="ai-chips">
+        <span style="font-size:.75rem;color:var(--muted);align-self:center">Příklady:</span>
+      </div>
+      <textarea class="ai-textarea" id="ai-prompt" rows="3"
+        placeholder="Napiš co chceš... např. &#10;• 'Chci deck s Charizardem pro začátečníka'&#10;• 'Rychlý agresivní deck s blesky a elektřinou'&#10;• 'Nejsilnější meta deck pro turnaje s Gardevoir'&#10;• 'Mám jen karty z SV1 a SV2, sestav mi deck'"
+      ></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap;align-items:center">
+        <button class="btn" onclick="aiGenerateDeck()" id="ai-btn">✨ Generovat deck</button>
+        <select id="ai-level" style="font-size:.82rem">
+          <option value="beginner">👶 Začátečník</option>
+          <option value="intermediate" selected>⚔️ Pokročilý</option>
+          <option value="competitive">🔥 Kompetitivní</option>
+        </select>
+        <label style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:.3rem">
+          <input type="checkbox" id="ai-my-cards"> Jen karty z mé sbírky
+        </label>
+      </div>
+      <div id="ai-status" style="margin-top:.8rem;font-size:.82rem;color:var(--muted);display:none"></div>
+    </div>
+    <div class="deck-container" id="ai-result-wrap" style="display:none">
+      <div class="deck-list">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+          <h3 id="ai-deck-name" style="margin:0">AI Deck</h3>
+          <button class="btn btn-sm" onclick="loadAiDeck()">✅ Použít</button>
+        </div>
+        <div id="ai-explanation" style="font-size:.82rem;color:var(--muted);margin-bottom:.8rem;line-height:1.5"></div>
+        <div id="ai-deck-list"></div>
+      </div>
+      <div class="deck-stats">
+        <h3 style="margin-bottom:.8rem">Statistiky</h3>
+        <div id="ai-deck-stats"></div>
+        <div class="deck-progress">
+          <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem">Mám ve sbírce</div>
+          <div class="progress-bar"><div class="progress-fill" id="ai-own-progress" style="width:0%"></div></div>
+          <div id="ai-own-pct" style="font-size:.75rem;color:var(--muted);margin-top:.3rem">0 / 60 karet</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Manuální editor -->
+  <div id="tab-manual" style="display:none">
+    <div class="deck-container">
+      <div>
+        <div class="db-section">
+          <h3>🔍 Hledat kartu</h3>
+          <div style="display:flex;gap:.5rem;margin-bottom:.8rem;flex-wrap:wrap">
+            <input type="text" id="manual-search" placeholder="Jméno karty, číslo, série..."
+              style="flex:1;min-width:200px" oninput="manualSearch()" onkeydown="if(event.key==='Enter')manualSearch()">
+            <select id="manual-supertype" onchange="manualSearch()" style="font-size:.82rem">
+              <option value="">Vše</option>
+              <option value="Pokémon">Pokémon</option>
+              <option value="Trainer">Trainer</option>
+              <option value="Energy">Energy</option>
+            </select>
+          </div>
+          <div id="manual-results" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:.5rem;max-height:400px;overflow-y:auto"></div>
+        </div>
+      </div>
+      <div>
+        <div class="deck-list">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem">
+            <h3 style="margin:0">Můj Deck (<span id="manual-count">0</span>/60)</h3>
+            <button class="btn btn-sm btn-red" onclick="clearDeck()">🗑 Vymazat</button>
+          </div>
+          <div id="manual-deck-list"></div>
+        </div>
+        <div class="deck-stats" style="margin-top:.8rem;position:static">
+          <div id="manual-stats"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Export -->
+  <div id="tab-export" style="display:none">
+    <div class="db-section">
+      <h3>📤 Exportovat deck</h3>
+      <p style="color:var(--muted);font-size:.82rem;margin-bottom:1rem">Deck ve formátu kompatibilním s PTCGL (Pokémon Trading Card Game Live) a ptcgotools.com</p>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+        <button class="btn" onclick="exportPTCGL()">📱 PTCGL formát</button>
+        <button class="btn btn-secondary" onclick="exportSimple()">📝 Prostý text</button>
+        <button class="btn btn-secondary" onclick="window.print()">🖨️ Tisk</button>
+        <button class="btn btn-secondary" onclick="copyDeck()">📋 Kopírovat</button>
+      </div>
+      <input type="text" id="export-deck-name" placeholder="Název decku (volitelné)"
+        style="width:100%;margin-bottom:.5rem;max-width:400px">
+      <div class="export-box" id="export-box">-- Deck je prázdný --</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+// DATA – Databáze meta decků a karet
+// ════════════════════════════════════════════════════════════════
+
+const POKEDB_API = 'https://pokedb-api.poketrade.workers.dev/v1';
+const GROQ_PROXY = '/api/groq';
+
+// Aktuální meta decky (2025–2026 format: Scarlet & Violet era)
+const PRESET_DECKS = [
+  {
+    id: 'charizard-ex',
+    name: 'Charizard ex',
+    tier: 'top',
+    level: 'advanced',
+    tags: ['Oheň','VSTAR','ex','Turnaj','Populární'],
+    types: ['Fire'],
+    summary: 'Nejpopulárnější deck posledních sérií. Charizard ex dělá masivní škody díky Rare Candy evolution. Robinova čl doplňuje Arcanine ex jako secondary attacker.',
+    strategy: 'Rychlá evoluce Charmander → Charizard ex díky Rare Candy. Základní kola využij Arcanine ex. Cíl: dát 330 damage Burning Darkness útokem.',
+    cards: [
+      { name:'Charizard ex', set:'sv3', number:'125', count:4, supertype:'Pokémon' },
+      { name:'Charmeleon', set:'sv3', number:'006', count:2, supertype:'Pokémon' },
+      { name:'Charmander', set:'sv3', number:'004', count:4, supertype:'Pokémon' },
+      { name:'Arcanine ex', set:'sv2', number:'030', count:2, supertype:'Pokémon' },
+      { name:'Growlithe', set:'sv2', number:'028', count:2, supertype:'Pokémon' },
+      { name:'Pidgeot ex', set:'sv3', number:'164', count:2, supertype:'Pokémon' },
+      { name:'Pidgey', set:'sv3', number:'162', count:2, supertype:'Pokémon' },
+      { name:'Rare Candy', set:'sv2', number:'191', count:4, supertype:'Trainer' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:4, supertype:'Trainer' },
+      { name:"Boss's Orders", set:'sv5', number:'172', count:3, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:'Arven', set:'sv1', number:'166', count:3, supertype:'Trainer' },
+      { name:'Ultra Ball', set:'sv1', number:'196', count:4, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:2, supertype:'Trainer' },
+      { name:'Lost Vacuum', set:'sv5', number:'135', count:1, supertype:'Trainer' },
+      { name:'Collapsed Stadium', set:'sv2', number:'198', count:2, supertype:'Trainer' },
+      { name:"Counter Catcher", set:'sv3', number:'160', count:2, supertype:'Trainer' },
+      { name:'Basic Fire Energy', set:'sv1', number:'231', count:11, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'gardevoir-ex',
+    name: 'Gardevoir ex',
+    tier: 'top',
+    level: 'advanced',
+    tags: ['Psychic','ex','Turnaj','Kontrola'],
+    types: ['Psychic'],
+    summary: 'Deck s Gardevoir ex využívá Psychic Embrace schopnost pro rychlé dobíjení energie. Kombinuje energetické akcelerátory s Kirlia jako draw engine.',
+    strategy: 'Evolvi Ralts → Kirlia (Refinement ability for draw) → Gardevoir ex. Aktivuj Psychic Embrace každé kolo pro připojení energie z discardu.',
+    cards: [
+      { name:'Gardevoir ex', set:'sv2', number:'86', count:3, supertype:'Pokémon' },
+      { name:'Kirlia', set:'sv2', number:'68', count:4, supertype:'Pokémon' },
+      { name:'Ralts', set:'sv2', number:'67', count:4, supertype:'Pokémon' },
+      { name:'Zacian V', set:'sv4', number:'84', count:2, supertype:'Pokémon' },
+      { name:'Drifloon', set:'sv2', number:'88', count:2, supertype:'Pokémon' },
+      { name:'Drifblim', set:'sv2', number:'89', count:2, supertype:'Pokémon' },
+      { name:'Radiant Greninja', set:'sv1', number:'46', count:1, supertype:'Pokémon' },
+      { name:'Level Ball', set:'sv1', number:'180', count:4, supertype:'Trainer' },
+      { name:'Ultra Ball', set:'sv1', number:'196', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:3, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:4, supertype:'Trainer' },
+      { name:"Boss's Orders", set:'sv5', number:'172', count:2, supertype:'Trainer' },
+      { name:'Arven', set:'sv1', number:'166', count:3, supertype:'Trainer' },
+      { name:'Fog Crystal', set:'sv1', number:'140', count:2, supertype:'Trainer' },
+      { name:'Scoop Up Net', set:'sv3', number:'168', count:2, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:2, supertype:'Trainer' },
+      { name:'Basic Psychic Energy', set:'sv1', number:'232', count:11, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'miraidon-ex',
+    name: 'Miraidon ex',
+    tier: 'top',
+    level: 'intermediate',
+    tags: ['Blesk','ex','Rychlý','Turnaj'],
+    types: ['Lightning'],
+    summary: 'Miraidon ex je nejrychlejší aggro deck. Tandem Unit ability dá 2 Lightning Pokémony z balíčku na bench ihned v prvním kole.',
+    strategy: 'Kolo 1: Tandem Unit → 2x základní Lightning na bench. Kolo 2: Utok za 220+ damage. Raichu V jako záloha. Cíl: zabíjet exes za 2 prize.',
+    cards: [
+      { name:'Miraidon ex', set:'sv1', number:'81', count:4, supertype:'Pokémon' },
+      { name:'Raichu V', set:'sv4', number:'45', count:2, supertype:'Pokémon' },
+      { name:'Flaaffy', set:'sv4', number:'55', count:2, supertype:'Pokémon' },
+      { name:'Mareep', set:'sv4', number:'54', count:2, supertype:'Pokémon' },
+      { name:'Regieleki V', set:'sv3', number:'60', count:2, supertype:'Pokémon' },
+      { name:'Zeraora', set:'sv2', number:'87', count:2, supertype:'Pokémon' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:'Ultra Ball', set:'sv1', number:'196', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:4, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:"Boss's Orders", set:'sv5', number:'172', count:3, supertype:'Trainer' },
+      { name:'Arven', set:'sv1', number:'166', count:2, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:3, supertype:'Trainer' },
+      { name:"Electric Generator", set:'sv1', number:'170', count:4, supertype:'Trainer' },
+      { name:'Basic Lightning Energy', set:'sv1', number:'233', count:15, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'raging-bolt-ex',
+    name: 'Raging Bolt ex',
+    tier: 'top',
+    level: 'advanced',
+    tags: ['Blesk','Drak','ex','Turnaj','One-shot'],
+    types: ['Lightning','Dragon'],
+    summary: 'Raging Bolt ex s Munkidori dělá devastující damage. Může one-shot jakékoliv V/ex Pokémony. Neovladatelný energie engine.',
+    strategy: 'Připoj hodně Lightning energií na Raging Bolt ex. Munkidori přesune poškození na soupeřovy Pokémony. Prime Catcher nachytá cíl.',
+    cards: [
+      { name:'Raging Bolt ex', set:'sv7', number:'123', count:3, supertype:'Pokémon' },
+      { name:'Munkidori', set:'sv6', number:'93', count:3, supertype:'Pokémon' },
+      { name:'Fezandipiti ex', set:'sv6', number:'92', count:2, supertype:'Pokémon' },
+      { name:'Teal Mask Ogerpon ex', set:'sv6', number:'25', count:2, supertype:'Pokémon' },
+      { name:'Shaymin ex', set:'sv7', number:'9', count:2, supertype:'Pokémon' },
+      { name:'Prime Catcher', set:'sv6', number:'157', count:3, supertype:'Trainer' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:'Ultra Ball', set:'sv1', number:'196', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:3, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:"Boss's Orders", set:'sv5', number:'172', count:2, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:2, supertype:'Trainer' },
+      { name:'Energy Switch', set:'sv1', number:'173', count:2, supertype:'Trainer' },
+      { name:'Basic Lightning Energy', set:'sv1', number:'233', count:15, supertype:'Energy' },
+      { name:'Basic Grass Energy', set:'sv1', number:'230', count:4, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'lugia-vstar',
+    name: 'Lugia VSTAR',
+    tier: 'mid',
+    level: 'intermediate',
+    tags: ['Bezbarvý','VSTAR','Archeops','Engine'],
+    types: ['Colorless'],
+    summary: 'Lugia VSTAR s Archeops jako energetický engine. Assembler VSTAR Ability dostane 2 Speciální energie z discardu každé kolo. Velký damage potential.',
+    strategy: 'Archeops do discard (přes Colress nebo Ultra Ball + Lumineon V). Lugia VSTAR Assembler VSTAR Power → 2 Special Energy. Attack za 200+ each kolo.',
+    cards: [
+      { name:'Lugia VSTAR', set:'sv4', number:'140', count:3, supertype:'Pokémon' },
+      { name:'Lugia V', set:'sv4', number:'139', count:3, supertype:'Pokémon' },
+      { name:'Archeops', set:'sv4', number:'113', count:4, supertype:'Pokémon' },
+      { name:'Lumineon V', set:'sv2', number:'40', count:2, supertype:'Pokémon' },
+      { name:'Snorlax', set:'sv5', number:'143', count:1, supertype:'Pokémon' },
+      { name:'Colress Experiment', set:'sv5', number:'155', count:4, supertype:'Trainer' },
+      { name:'Ultra Ball', set:'sv1', number:'196', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:3, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:"Boss's Orders", set:'sv5', number:'172', count:2, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:3, supertype:'Trainer' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:'Double Turbo Energy', set:'sv3', number:'151', count:4, supertype:'Energy' },
+      { name:'Jet Energy', set:'sv5', number:'188', count:4, supertype:'Energy' },
+      { name:'Basic Colorless Energy', set:'sv1', number:'226', count:4, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'pikachu-beginners',
+    name: 'Pikachu Starter',
+    tier: 'budget',
+    level: 'beginner',
+    tags: ['Blesk','Začátečník','Levný','Zábava'],
+    types: ['Lightning'],
+    summary: 'Ideální deck pro první hry! Pikachu a Raichu jsou ikonické, pravidla jsou jednoduchá a deck funguje bez drahých karet.',
+    strategy: 'Evolvuj Pikachu → Raichu. Útočí opakovaně Thunder Fang nebo Volt Tackle. Energie připojuj každé kolo. Jednoduchá strategie pro učení pravidel.',
+    cards: [
+      { name:'Raichu', set:'sv4', number:'56', count:3, supertype:'Pokémon' },
+      { name:'Pikachu', set:'sv1', number:'88', count:4, supertype:'Pokémon' },
+      { name:'Jolteon ex', set:'sv2', number:'88', count:2, supertype:'Pokémon' },
+      { name:'Eevee', set:'sv2', number:'133', count:2, supertype:'Pokémon' },
+      { name:'Emolga', set:'sv3', number:'75', count:2, supertype:'Pokémon' },
+      { name:'Morty\'s Conviction', set:'sv5', number:'175', count:2, supertype:'Trainer' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:4, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:3, supertype:'Trainer' },
+      { name:'Potion', set:'sv1', number:'189', count:3, supertype:'Trainer' },
+      { name:'Energy Retrieval', set:'sv1', number:'171', count:2, supertype:'Trainer' },
+      { name:"Gust of Wind", set:'sv3', number:'203', count:2, supertype:'Trainer' },
+      { name:'Basic Lightning Energy', set:'sv1', number:'233', count:20, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'fire-starter',
+    name: 'Charmander Starter',
+    tier: 'budget',
+    level: 'beginner',
+    tags: ['Oheň','Začátečník','Charizard','Levný'],
+    types: ['Fire'],
+    summary: 'Starter deck s cestou Charmander → Charmeleon → Charizard. Výborný pro naučení evolucí a základů hry. Silný late-game.',
+    strategy: 'Trochu pomalejší. Kola 1-2: zabuduj energii na Charmander. Kola 3-4: Evolvuj na Charizard a začni dělat velký damage. Ponech záložní attackery.',
+    cards: [
+      { name:'Charizard', set:'sv3', number:'006', count:2, supertype:'Pokémon' },
+      { name:'Charmeleon', set:'sv3', number:'005', count:2, supertype:'Pokémon' },
+      { name:'Charmander', set:'sv3', number:'004', count:4, supertype:'Pokémon' },
+      { name:'Magmar', set:'sv4', number:'34', count:2, supertype:'Pokémon' },
+      { name:'Magmortar', set:'sv4', number:'35', count:2, supertype:'Pokémon' },
+      { name:'Volcanion', set:'sv1', number:'25', count:2, supertype:'Pokémon' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:4, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:3, supertype:'Trainer' },
+      { name:'Potion', set:'sv1', number:'189', count:3, supertype:'Trainer' },
+      { name:'Poké Ball', set:'sv1', number:'187', count:3, supertype:'Trainer' },
+      { name:'Energy Retrieval', set:'sv1', number:'171', count:2, supertype:'Trainer' },
+      { name:'Basic Fire Energy', set:'sv1', number:'231', count:20, supertype:'Energy' },
+    ]
+  },
+  {
+    id: 'eevee-friends',
+    name: 'Eevee & Friends',
+    tier: 'fun',
+    level: 'beginner',
+    tags: ['Mix typů','Začátečník','Eevee','Evoluze','Zábava'],
+    types: ['Colorless'],
+    summary: 'Zábavný deck s Eeveemi a jejich evolucemi. Každá má jiné schopnosti — vyber si svůj oblíbený typ! Skvělé pro hraní s kamarády.',
+    strategy: 'Začni s více Eevee, evolve podle situace. Vaporeon pro healing, Jolteon pro rychlé útoky, Flareon pro damage. Mix přináší překvapení.',
+    cards: [
+      { name:'Eevee', set:'sv2', number:'133', count:4, supertype:'Pokémon' },
+      { name:'Vaporeon', set:'sv2', number:'134', count:2, supertype:'Pokémon' },
+      { name:'Jolteon', set:'sv2', number:'135', count:2, supertype:'Pokémon' },
+      { name:'Flareon', set:'sv2', number:'136', count:2, supertype:'Pokémon' },
+      { name:'Espeon', set:'sv2', number:'64', count:1, supertype:'Pokémon' },
+      { name:'Umbreon', set:'sv2', number:'95', count:1, supertype:'Pokémon' },
+      { name:'Sylveon', set:'sv2', number:'81', count:1, supertype:'Pokémon' },
+      { name:'Nest Ball', set:'sv1', number:'181', count:4, supertype:'Trainer' },
+      { name:"Professor's Research", set:'sv2', number:'189', count:4, supertype:'Trainer' },
+      { name:'Iono', set:'sv4', number:'185', count:3, supertype:'Trainer' },
+      { name:'Switch', set:'sv1', number:'194', count:3, supertype:'Trainer' },
+      { name:'Potion', set:'sv1', number:'189', count:3, supertype:'Trainer' },
+      { name:'Energy Retrieval', set:'sv1', number:'171', count:2, supertype:'Trainer' },
+      { name:'Energy Switch', set:'sv1', number:'173', count:2, supertype:'Trainer' },
+      { name:'Basic Water Energy', set:'sv1', number:'235', count:5, supertype:'Energy' },
+      { name:'Basic Lightning Energy', set:'sv1', number:'233', count:5, supertype:'Energy' },
+      { name:'Basic Fire Energy', set:'sv1', number:'231', count:5, supertype:'Energy' },
+      { name:'Basic Psychic Energy', set:'sv1', number:'232', count:5, supertype:'Energy' },
+    ]
+  },
+];
+
+// AI prompts – předpřipravené příklady
+const AI_EXAMPLES = [
+  "Deck s Charizardem pro začátečníka",
+  "Nejrychlejší aggro deck s blesky",
+  "Deck s Pikachu a Raichuem, hodně zábavný",
+  "Kompetitivní meta deck pro turnaje",
+  "Chci hrát s Gardevoir, jsem pokročilý",
+  "Deck jen s kartami ze série Scarlet & Violet",
+  "Deck vhodný pro dítě 8 let",
+];
+
+// ════════════════════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════════════════════
+let myCards   = [];    // karty ze sbírky uživatele
+let currentDeck = []; // { name, set, number, count, supertype }
+let selectedPreset = null;
+let _currentAiDeck = null;
+
+// ════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  renderPresets('all');
+  renderAiChips();
+  tryAutoLoadCards();
+});
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.db-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['presets','ai','manual','export'].forEach(id => {
+    const el = document.getElementById('tab-' + id);
+    if (el) el.style.display = id === tab ? '' : 'none';
+  });
+  if (tab === 'export') updateExportBox();
+  if (tab === 'manual') renderManualDeck();
+}
+
+// ════════════════════════════════════════════════════════════════
+// MÉ KARTY – načtení ze Supabase
+// ════════════════════════════════════════════════════════════════
+async function loadMyCards() {
+  try {
+    const token = window.getValidToken ? await window.getValidToken() : null;
+    if (!token) { alert('Pro načtení sbírky se přihlas.'); return; }
+    const SBU = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+    const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+    const r = await fetch(`${SBU}/rest/v1/user_cards?select=card_data,quantity`, {
+      headers: { apikey: SBA, Authorization: 'Bearer ' + token }
+    });
+    if (!r.ok) throw new Error('Fetch failed');
+    const rows = await r.json();
+    myCards = [];
+    for (const row of rows) {
+      const d = typeof row.card_data === 'string' ? JSON.parse(row.card_data) : row.card_data;
+      if (d) myCards.push({ ...d, qty: row.quantity || 1 });
+    }
+    const count = myCards.length;
+    showToast(`📦 Načteno ${count} karet ze sbírky`);
+    // Obnov statistiky pokud je preset otevřen
+    if (selectedPreset) showPresetDetail(selectedPreset);
+  } catch(e) {
+    console.warn('[DeckBuilder] loadMyCards:', e);
+    showToast('❌ Nepodařilo se načíst sbírku. Zkontroluj přihlášení.', true);
+  }
+}
+
+function tryAutoLoadCards() {
+  // Zkus načíst z window.userCards pokud app.js je načten
+  if (window._cardsCache && window._cardsCache.length) {
+    myCards = window._cardsCache;
+  }
+}
+
+function getOwnedCount(cardName, cardNumber) {
+  const name = (cardName || '').toLowerCase();
+  const num  = (cardNumber || '').split('/')[0];
+  const found = myCards.find(c => {
+    const cn = (c.name || c.name_cs || c.apiId || '').toLowerCase();
+    const cnum = (c.number || '').split('/')[0];
+    return cn.includes(name.split(' ')[0]) || (num && cnum === num);
+  });
+  return found ? (found.qty || 1) : 0;
+}
+
+// ════════════════════════════════════════════════════════════════
+// PRESET DECKS
+// ════════════════════════════════════════════════════════════════
+function filterPresets(filter) {
+  renderPresets(filter);
+}
+
+function renderPresets(filter = 'all') {
+  const grid = document.getElementById('preset-grid');
+  const tiers = { top:'tier-top', mid:'tier-mid', budget:'tier-budget', fun:'tier-fun' };
+  const tierLabels = { top:'🔥 Top Tier', mid:'⚔️ Mid Tier', budget:'💚 Budget', fun:'🎉 Fun' };
+
+  let decks = PRESET_DECKS;
+  if (filter === 'beginner') decks = decks.filter(d => d.level === 'beginner');
+  if (filter === 'advanced') decks = decks.filter(d => d.level !== 'beginner');
+  if (filter === 'top')      decks = decks.filter(d => d.tier === 'top');
+  if (filter === 'fun')      decks = decks.filter(d => d.tier === 'fun' || d.tier === 'budget');
+
+  grid.innerHTML = decks.map(d => `
+    <div class="preset-card${selectedPreset?.id === d.id ? ' selected' : ''}" onclick="showPresetDetail(PRESET_DECKS.find(x=>x.id==='${d.id}'))">
+      <span class="preset-tier ${tiers[d.tier]}">${tierLabels[d.tier]}</span>
+      <div class="preset-name">${d.types.map(t=>`<span class="type-badge type-${t}">⚡</span>`).join('')} ${d.name}</div>
+      <div class="preset-desc">${d.summary}</div>
+      <div class="preset-tags">${d.tags.map(t=>`<span class="preset-tag">${t}</span>`).join('')}</div>
+    </div>
+  `).join('');
+}
+
+function showPresetDetail(preset) {
+  if (!preset) return;
+  selectedPreset = preset;
+  renderPresets();
+
+  const wrap = document.getElementById('deck-preview-wrap');
+  wrap.style.display = 'grid';
+  document.getElementById('deck-preview-name').textContent = preset.name;
+
+  // Render deck list
+  renderDeckList(preset.cards, 'deck-preview-list');
+
+  // Stats
+  const stats = getDeckStats(preset.cards);
+  document.getElementById('deck-preview-stats').innerHTML = statsHTML(stats);
+
+  // Own progress
+  const owned = preset.cards.reduce((sum, c) => {
+    const have = Math.min(getOwnedCount(c.name, c.number), c.count);
+    return sum + have;
+  }, 0);
+  const total = preset.cards.reduce((sum,c) => sum + c.count, 0);
+  const pct = Math.round(owned / total * 100);
+  document.getElementById('own-progress').style.width = pct + '%';
+  document.getElementById('own-pct').textContent = `${owned} / ${total} karet (${pct}%)`;
+
+  document.getElementById('missing-cards').style.display = 'none';
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showMissingCards() {
+  if (!selectedPreset) return;
+  const el = document.getElementById('missing-cards');
+  const missing = selectedPreset.cards.filter(c => {
+    const have = getOwnedCount(c.name, c.number);
+    return have < c.count;
+  });
+  if (!missing.length) {
+    el.innerHTML = '<div style="color:var(--green)">✅ Máš všechny karty!</div>';
+  } else {
+    el.innerHTML = '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Chybí ti:</div>' +
+      missing.map(c => {
+        const have = getOwnedCount(c.name, c.number);
+        const need = c.count - have;
+        return `<div style="display:flex;justify-content:space-between;padding:.2rem 0;font-size:.78rem">
+          <span>${c.name}</span>
+          <span style="color:var(--red)">chybí ${need}×</span>
+        </div>`;
+      }).join('');
+  }
+  el.style.display = 'block';
+}
+
+function loadThisDeck() {
+  if (!selectedPreset) return;
+  currentDeck = selectedPreset.cards.map(c => ({ ...c }));
+  renderManualDeck();
+  showToast(`✅ Deck "${selectedPreset.name}" načten do editoru`);
+  // Switch to export tab
+  updateExportBox();
+}
+
+// ════════════════════════════════════════════════════════════════
+// AI BUILDER
+// ════════════════════════════════════════════════════════════════
+function renderAiChips() {
+  const el = document.getElementById('ai-chips');
+  if (!el) return;
+  const chips = AI_EXAMPLES.map(ex => `<span class="ai-chip" onclick="document.getElementById('ai-prompt').value='${ex}'">${ex}</span>`).join('');
+  el.innerHTML = `<span style="font-size:.75rem;color:var(--muted);align-self:center">Příklady:</span>${chips}`;
+}
+
+async function aiGenerateDeck() {
+  const prompt = document.getElementById('ai-prompt').value.trim();
+  if (!prompt) { showToast('Napiš co chceš za deck!', true); return; }
+
+  const level = document.getElementById('ai-level').value;
+  const useMyCards = document.getElementById('ai-my-cards').checked;
+  const statusEl = document.getElementById('ai-status');
+  const btn = document.getElementById('ai-btn');
+
+  btn.disabled = true;
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span class="loading-dots">🤖 AI sestavuje deck</span>';
+
+  const myCardsList = useMyCards && myCards.length
+    ? 'Uživatel má tyto karty ve sbírce:\n' + myCards.slice(0, 50).map(c => `- ${c.name || c.apiId} (${c.qty || 1}×)`).join('\n') + '\n\n'
+    : '';
+
+  const levelMap = { beginner: 'začátečník (jednoduché mechaniky, levné karty, žádné ex/VSTAR)', intermediate: 'pokročilý (standardní karty, mid-tier)', competitive: 'kompetitivní (nejsilnější meta karty, turnajová úroveň)' };
+
+  const systemPrompt = `Jsi expert na Pokémon TCG (Trading Card Game). Sestavíš přesně 60-kartový deck.
+
+PRAVIDLA DECKU:
+- Přesně 60 karet celkem
+- Max 4× stejná karta (výjimka: základní energie)
+- Musí být alespoň 1 základní Pokémon
+- Doporučená struktura: ~15-20 Pokémonů, ~25-30 Trenérů, ~10-15 Energií
+
+ODPOVĚZ POUZE v tomto JSON formátu (bez markdown, bez uvozovek kolem JSON):
+{
+  "name": "Název decku",
+  "explanation": "2-3 věty o strategii a proč tento deck funguje",
+  "cards": [
+    {"name": "Charizard ex", "set": "sv3", "number": "125", "count": 4, "supertype": "Pokémon"},
+    ...
+  ]
+}`;
+
+  const userMsg = `${myCardsList}Úroveň hráče: ${levelMap[level]}
+
+Požadavek uživatele: ${prompt}
+
+Sestav 60-kartový deck. Použij karty z era Scarlet & Violet (sv1-sv9) pokud možno. Odpověz POUZE v JSON formátu.`;
+
+  try {
+    const res = await fetch(GROQ_PROXY, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMsg }
+        ],
+        max_tokens: 2000,
+        temperature: 0.7,
+      })
+    });
+
+    if (!res.ok) throw new Error('Groq API error ' + res.status);
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON
+    let deck;
+    try {
+      const jsonStr = text.replace(/```json\s*/gi,'').replace(/```\s*/gi,'').trim();
+      deck = JSON.parse(jsonStr);
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) deck = JSON.parse(match[0]);
+      else throw new Error('JSON parse failed');
+    }
+
+    if (!deck.cards || !deck.cards.length) throw new Error('No cards in response');
+
+    _currentAiDeck = deck;
+    showAiResult(deck);
+    statusEl.style.display = 'none';
+
+  } catch(e) {
+    console.error('[AI Deck]', e);
+    statusEl.innerHTML = '❌ Chyba: ' + (e.message || 'Neznámá chyba. Zkus znovu.');
+    statusEl.style.color = 'var(--red)';
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function showAiResult(deck) {
+  document.getElementById('ai-result-wrap').style.display = 'grid';
+  document.getElementById('ai-deck-name').textContent = deck.name || 'AI Deck';
+  document.getElementById('ai-explanation').textContent = deck.explanation || '';
+
+  renderDeckList(deck.cards, 'ai-deck-list');
+  const stats = getDeckStats(deck.cards);
+  document.getElementById('ai-deck-stats').innerHTML = statsHTML(stats);
+
+  const owned = deck.cards.reduce((sum, c) => sum + Math.min(getOwnedCount(c.name, c.number), c.count), 0);
+  const total = deck.cards.reduce((sum,c) => sum + c.count, 0);
+  const pct = Math.round(owned / total * 100);
+  document.getElementById('ai-own-progress').style.width = pct + '%';
+  document.getElementById('ai-own-pct').textContent = `${owned} / ${total} karet (${pct}%)`;
+
+  document.getElementById('ai-result-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function loadAiDeck() {
+  if (!_currentAiDeck) return;
+  currentDeck = _currentAiDeck.cards.map(c => ({ ...c }));
+  renderManualDeck();
+  showToast(`✅ AI deck "${_currentAiDeck.name}" načten`);
+}
+
+// ════════════════════════════════════════════════════════════════
+// HELPERS – renderDeckList, getDeckStats, statsHTML
+// ════════════════════════════════════════════════════════════════
+function renderDeckList(cards, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  const pokemon  = cards.filter(c => c.supertype === 'Pokémon');
+  const trainers = cards.filter(c => c.supertype === 'Trainer');
+  const energies = cards.filter(c => c.supertype === 'Energy');
+  const total = cards.reduce((s,c) => s + c.count, 0);
+
+  function groupRows(list) {
+    return list.map(c => {
+      const owned = getOwnedCount(c.name, c.number);
+      const ownCls = owned >= c.count ? 'own-yes' : (owned > 0 ? 'own-partial' : 'own-no');
+      const ownTxt = owned >= c.count ? '✓ mám' : (owned > 0 ? `mám ${owned}` : 'chybí');
+      return `<div class="deck-row">
+        <span class="deck-row-count">${c.count}×</span>
+        <span class="deck-row-name">${c.name}</span>
+        <span class="deck-row-set">${c.set}-${c.number}</span>
+        ${myCards.length ? `<span class="deck-row-own ${ownCls}">${ownTxt}</span>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  el.innerHTML = `
+    <div class="deck-group-title">Pokémoni (${pokemon.reduce((s,c)=>s+c.count,0)})</div>
+    ${groupRows(pokemon)}
+    <div class="deck-group-title">Tréneri (${trainers.reduce((s,c)=>s+c.count,0)})</div>
+    ${groupRows(trainers)}
+    <div class="deck-group-title">Energie (${energies.reduce((s,c)=>s+c.count,0)})</div>
+    ${groupRows(energies)}
+    <div style="margin-top:.5rem;padding:.4rem .2rem;border-top:1px solid var(--border);font-size:.8rem;color:var(--muted)">
+      Celkem: <strong style="color:var(--text)">${total}</strong> karet
+      ${total !== 60 ? `<span style="color:var(--red);margin-left:.5rem">⚠️ Deck musí mít přesně 60 karet!</span>` : '<span style="color:var(--green);margin-left:.5rem">✅</span>'}
+    </div>`;
+}
+
+function getDeckStats(cards) {
+  const total   = cards.reduce((s,c) => s+c.count, 0);
+  const pokemon = cards.filter(c=>c.supertype==='Pokémon').reduce((s,c)=>s+c.count,0);
+  const trainer = cards.filter(c=>c.supertype==='Trainer').reduce((s,c)=>s+c.count,0);
+  const energy  = cards.filter(c=>c.supertype==='Energy').reduce((s,c)=>s+c.count,0);
+  return { total, pokemon, trainer, energy };
+}
+
+function statsHTML(s) {
+  const rows = [
+    { label: 'Celkem karet', value: `${s.total}/60`, color: s.total === 60 ? 'var(--green)' : 'var(--red)' },
+    { label: 'Pokémoni', value: s.pokemon },
+    { label: 'Tréneri', value: s.trainer },
+    { label: 'Energie', value: s.energy },
+  ];
+  return rows.map(r => `<div class="stat-row">
+    <span class="stat-label">${r.label}</span>
+    <span class="stat-value" ${r.color ? `style="color:${r.color}"` : ''}>${r.value}</span>
+  </div>`).join('');
+}
+
+// ════════════════════════════════════════════════════════════════
+// MANUÁLNÍ EDITOR
+// ════════════════════════════════════════════════════════════════
+let _searchResults = [];
+
+async function manualSearch() {
+  const q = document.getElementById('manual-search').value.trim();
+  const supertype = document.getElementById('manual-supertype').value;
+  if (!q || q.length < 2) { document.getElementById('manual-results').innerHTML = ''; return; }
+
+  try {
+    const params = new URLSearchParams({ q, limit: 20 });
+    if (supertype) params.set('supertype', supertype);
+    const r = await fetch(`${POKEDB_API}/cards?${params}`);
+    if (!r.ok) return;
+    const data = await r.json();
+    _searchResults = data.data || [];
+    renderSearchResults(_searchResults);
+  } catch {}
+}
+
+function renderSearchResults(cards) {
+  const el = document.getElementById('manual-results');
+  if (!cards.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.8rem;padding:.5rem">Nic nenalezeno</div>'; return; }
+  el.innerHTML = cards.map((c, i) => `
+    <div style="cursor:pointer;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--card2);transition:.1s"
+      onclick="addCardToDeck(${i})" title="Přidat do decku: ${c.name}">
+      ${c.image_thumb_url ? `<img src="${c.image_thumb_url}" style="width:100%;display:block">` : `<div style="height:80px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">${c.name}</div>`}
+      <div style="padding:.3rem .4rem;font-size:.72rem">${c.name}</div>
+    </div>`).join('');
+}
+
+function addCardToDeck(idx) {
+  const card = _searchResults[idx];
+  if (!card) return;
+  const existing = currentDeck.find(c => c.name === card.name && c.number === card.number);
+  const totalCount = currentDeck.reduce((s,c)=>s+c.count,0);
+  if (totalCount >= 60) { showToast('Deck má 60 karet!', true); return; }
+  if (existing) {
+    if (existing.count >= 4 && !card.name.toLowerCase().includes('energy')) { showToast('Max 4× stejná karta', true); return; }
+    existing.count++;
+  } else {
+    currentDeck.push({ name: card.name, set: card.set_id, number: card.number, count: 1, supertype: card.supertype || 'Pokémon' });
+  }
+  renderManualDeck();
+  showToast(`➕ ${card.name} přidán`);
+}
+
+function removeCardFromDeck(name, number) {
+  const idx = currentDeck.findIndex(c => c.name === name && c.number === number);
+  if (idx === -1) return;
+  if (currentDeck[idx].count > 1) currentDeck[idx].count--;
+  else currentDeck.splice(idx, 1);
+  renderManualDeck();
+}
+
+function renderManualDeck() {
+  const el = document.getElementById('manual-deck-list');
+  const countEl = document.getElementById('manual-count');
+  if (!el) return;
+  const total = currentDeck.reduce((s,c)=>s+c.count,0);
+  if (countEl) countEl.textContent = total;
+
+  if (!currentDeck.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.82rem;text-align:center;padding:2rem">Přidej karty ze seznamu vlevo ↖</div>'; return; }
+
+  renderDeckList(currentDeck, 'manual-deck-list');
+  // Add remove buttons
+  const rows = el.querySelectorAll('.deck-row');
+  let i = 0;
+  currentDeck.forEach((c, ci) => {
+    const row = rows[i++];
+    if (row) {
+      const btn = document.createElement('button');
+      btn.textContent = '−';
+      btn.style.cssText = 'background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);color:var(--red);border-radius:4px;padding:0 .4rem;cursor:pointer;font-size:.9rem;margin-left:.3rem';
+      btn.onclick = () => removeCardFromDeck(c.name, c.number);
+      row.appendChild(btn);
+    }
+  });
+
+  const stats = getDeckStats(currentDeck);
+  const statsEl = document.getElementById('manual-stats');
+  if (statsEl) statsEl.innerHTML = statsHTML(stats);
+}
+
+// ════════════════════════════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════════════════════════════
+function updateExportBox() {
+  const box = document.getElementById('export-box');
+  if (!box) return;
+  if (!currentDeck.length) { box.textContent = '-- Deck je prázdný --'; return; }
+  box.textContent = generatePTCGLExport();
+}
+
+function generatePTCGLExport() {
+  const name = document.getElementById('export-deck-name')?.value || 'Můj Deck';
+  const pokemon  = currentDeck.filter(c=>c.supertype==='Pokémon');
+  const trainers = currentDeck.filter(c=>c.supertype==='Trainer');
+  const energies = currentDeck.filter(c=>c.supertype==='Energy');
+  const total    = currentDeck.reduce((s,c)=>s+c.count,0);
+
+  let lines = [`##${name}`, ''];
+  if (pokemon.length)  { lines.push('Pokémon: ' + pokemon.reduce((s,c)=>s+c.count,0));  pokemon.forEach(c=>lines.push(`${c.count} ${c.name} ${c.set.toUpperCase()} ${c.number}`)); lines.push(''); }
+  if (trainers.length) { lines.push('Trainer: ' + trainers.reduce((s,c)=>s+c.count,0)); trainers.forEach(c=>lines.push(`${c.count} ${c.name} ${c.set.toUpperCase()} ${c.number}`)); lines.push(''); }
+  if (energies.length) { lines.push('Energie: ' + energies.reduce((s,c)=>s+c.count,0)); energies.forEach(c=>lines.push(`${c.count} ${c.name} {${c.set.toUpperCase()}} ${c.number}`)); lines.push(''); }
+  lines.push(`Celkem: ${total}`);
+  return lines.join('\n');
+}
+
+function exportPTCGL() { updateExportBox(); }
+function exportSimple() {
+  const box = document.getElementById('export-box');
+  if (box) box.textContent = currentDeck.map(c => `${c.count}× ${c.name}`).join('\n');
+}
+
+function copyDeck() {
+  const text = document.getElementById('export-box')?.textContent || '';
+  if (!text || text.includes('prázdný')) { showToast('Deck je prázdný', true); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Zkopírováno!'));
+}
+
+function clearDeck() {
+  if (currentDeck.length && !confirm('Opravdu vyprázdnit deck?')) return;
+  currentDeck = [];
+  renderManualDeck();
+  updateExportBox();
+  showToast('🗑 Deck vymazán');
+}
+
+// ════════════════════════════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════════════════════════════
+function showToast(msg, isError = false) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:1.5rem;right:1rem;background:${isError?'rgba(239,68,68,.9)':'rgba(26,20,36,.95)'};
+    color:${isError?'#fff':'var(--text)'};border:1px solid ${isError?'var(--red)':'var(--border)'};
+    border-radius:10px;padding:.6rem 1rem;font-size:.82rem;z-index:99999;max-width:300px;
+    animation:fadeIn .2s ease;box-shadow:0 4px 12px rgba(0,0,0,.4)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2500);
+}
+</script>
+</body>
+</html>

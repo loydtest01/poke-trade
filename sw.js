@@ -1,98 +1,146 @@
-// PokéTrade – Service Worker v2.0
-// Offline-ready + Push notifikace + Background sync
+// PokéTrade – Service Worker v3.1
+// ⚡ Opraveno: JS/CSS nyní stale-while-revalidate (nepotřebuješ Ctrl+Shift+R)
+// 🔔 Nová verze: zobrazí uživateli tlačítko "Aktualizovat"
+// ♾️  Automatický skip waiting – nový SW se aktivuje hned bez čekání na zavření
 
-const CACHE_NAME = 'poketrade-v2';
-const STATIC_ASSETS = [
-  '/',
-  '/',
-  '/marketplace.html',
-  '/moje-album.html',
-  '/style.css',
-  '/marketplace.css',
-  '/mobile-responsive.css',
-  '/topbar.js',
-  '/pwa-init.js',
+// ── VERZE: změň při každém deployi (nebo automatizuj přes build skript) ──────
+const SW_VERSION = '3.1';
+const CACHE_STATIC = `poketrade-static-v${SW_VERSION}`;
+const CACHE_PAGES  = `poketrade-pages-v${SW_VERSION}`;
+const CACHE_IMGS   = `poketrade-imgs-v${SW_VERSION}`;
+
+// Statické assety které předkešujeme při instalaci
+const PRECACHE_ASSETS = [
+  '/offline.html',
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
+  '/badge-96.png',
   '/app-manifest.json',
-  '/offline.html'
 ];
 
-/* ── Install: předkešuj statické assety ─────────────────────── */
+// ── Install ───────────────────────────────────────────────────────────────────
 self.addEventListener('install', e => {
+  // skipWaiting = nový SW se okamžitě aktivuje (nepotřebuješ Ctrl+Shift+R)
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      // Ignoruj chyby pro jednotlivé soubory
-      return Promise.allSettled(
-        STATIC_ASSETS.map(url => cache.add(url).catch(() => {}))
-      );
-    })
+    caches.open(CACHE_STATIC).then(cache =>
+      Promise.allSettled(PRECACHE_ASSETS.map(url => cache.add(url).catch(() => {})))
+    )
   );
 });
 
-/* ── Activate: vyčisti staré cache ─────────────────────────── */
+// ── Activate: vymaž staré verze cache ────────────────────────────────────────
 self.addEventListener('activate', e => {
+  const validCaches = new Set([CACHE_STATIC, CACHE_PAGES, CACHE_IMGS]);
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
-      )
-    ).then(() => clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => !validCaches.has(k)).map(k => caches.delete(k))
+      ))
+      .then(() => clients.claim())
+      // Oznám všem otevřeným tabům že je nová verze
+      .then(() => notifyClientsNewVersion())
   );
 });
 
-/* ── Fetch: Network-first pro API, Cache-first pro statiku ─── */
+function notifyClientsNewVersion() {
+  return clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    list.forEach(client => client.postMessage({ type: 'SW_UPDATED', version: SW_VERSION }));
+  });
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
+  const req = e.request;
+  const url = new URL(req.url);
 
-  // Ignoruj: non-GET, chrome-extension, supabase API, external
-  if (e.request.method !== 'GET') return;
+  // Přeskoč: non-GET, devtools, externe domény, API endpointy
+  if (req.method !== 'GET') return;
   if (url.protocol === 'chrome-extension:') return;
-  if (url.hostname.includes('supabase.co')) return;
-  if (url.hostname.includes('googleapis.com')) return;
-  if (url.hostname.includes('groq.com')) return;
   if (url.hostname !== self.location.hostname) return;
-
-  // API endpointy — network only
   if (url.pathname.startsWith('/api/')) return;
 
-  // HTML stránky — Network-first (vždy čerstvý obsah)
-  if (e.request.headers.get('Accept')?.includes('text/html')) {
-    e.respondWith(
-      fetch(e.request)
-        .then(res => {
-          if (res.ok) {
-            const clone = res.clone();
-            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-          }
-          return res;
-        })
-        .catch(() =>
-          caches.match(e.request)
-            .then(cached => cached || caches.match('/offline.html'))
-        )
-    );
+  const ext = url.pathname.split('.').pop().toLowerCase();
+
+  // ── HTML stránky → Network-first (vždy čerstvý obsah) ─────────────────────
+  if (req.headers.get('Accept')?.includes('text/html') || ext === 'html' || ext === '') {
+    e.respondWith(networkFirst(req, CACHE_PAGES));
     return;
   }
 
-  // CSS/JS/obrázky — Cache-first
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok && res.type !== 'opaque') {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
-        }
-        return res;
-      });
-    })
-  );
+  // ── JS a CSS → Stale-While-Revalidate ─────────────────────────────────────
+  // Okamžitě vrátí z cache (rychlé načtení) + paralelně aktualizuje cache na pozadí.
+  // Příští načtení stránky bude mít novou verzi → bez potřeby Ctrl+Shift+R
+  if (ext === 'js' || ext === 'css') {
+    e.respondWith(staleWhileRevalidate(req, CACHE_STATIC));
+    return;
+  }
+
+  // ── Obrázky a fonty → Cache-first (mění se zřídka) ────────────────────────
+  if (['png','jpg','jpeg','webp','svg','ico','woff','woff2'].includes(ext)) {
+    e.respondWith(cacheFirst(req, CACHE_IMGS));
+    return;
+  }
+
+  // ── Ostatní → Network-first ────────────────────────────────────────────────
+  e.respondWith(networkFirst(req, CACHE_STATIC));
 });
 
-/* ── Push notifikace ────────────────────────────────────────── */
+// ── Strategie ─────────────────────────────────────────────────────────────────
+
+// Network-first: pokusí se stáhnout ze sítě, fallback na cache, fallback offline.html
+async function networkFirst(req, cacheName) {
+  try {
+    const res = await fetch(req);
+    if (res.ok || res.type === 'opaqueredirect') {
+      const cache = await caches.open(cacheName);
+      cache.put(req, res.clone());
+    }
+    return res;
+  } catch {
+    const cached = await caches.match(req);
+    return cached || await caches.match('/offline.html');
+  }
+}
+
+// Stale-While-Revalidate: okamžitě z cache, aktualizuje na pozadí
+async function staleWhileRevalidate(req, cacheName) {
+  const cache   = await caches.open(cacheName);
+  const cached  = await cache.match(req);
+
+  // Vždy spusť fetch na pozadí
+  const fetchPromise = fetch(req).then(res => {
+    if (res.ok) cache.put(req, res.clone());
+    return res;
+  }).catch(() => null);
+
+  // Pokud máme cache → vrátíme ji okamžitě, síť jede na pozadí
+  return cached || fetchPromise;
+}
+
+// Cache-first: pokud v cache → vrátí okamžitě, jinak síť
+async function cacheFirst(req, cacheName) {
+  const cached = await caches.match(req);
+  if (cached) return cached;
+  try {
+    const res = await fetch(req);
+    if (res.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(req, res.clone());
+    }
+    return res;
+  } catch {
+    return new Response('Not available offline', { status: 503 });
+  }
+}
+
+// ── Zprávy od klienta (např. "skipWaiting" po kliknutí na aktualizovat) ───────
+self.addEventListener('message', e => {
+  if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
+// ── Push notifikace ────────────────────────────────────────────────────────────
 function _extractConvId(data) {
   if (data.conv_id) return data.conv_id;
   const url = data.url || '';
