@@ -91,52 +91,6 @@ function injectStyles() {
   var s = document.createElement('style');
   s.id = 'topbar-unified-style';
   s.textContent = `
-    /* ── Base topbar structure (injected globally by topbar.js) ── */
-    .app-topbar {
-      position: sticky; top: 0; z-index: 200;
-      background: rgba(8,8,12,0.92);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      backdrop-filter: blur(16px);
-      display: flex; align-items: center;
-      height: 56px; padding: 0 20px; gap: 0;
-    }
-    .app-logo {
-      font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
-      color: #fff; display: flex; align-items: center; gap: 6px;
-      text-decoration: none; margin-right: 28px; white-space: nowrap; flex-shrink: 0;
-    }
-    .app-logo strong { color: var(--yellow, #f5c842); }
-    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-    .chat-icon-btn {
-      position: relative; display: flex; align-items: center; justify-content: center;
-      width: 36px; height: 36px; border-radius: 8px;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
-      color: rgba(240,236,228,0.65); text-decoration: none; transition: all .15s;
-      cursor: pointer; font-family: inherit;
-    }
-    .chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; border-color: rgba(255,255,255,0.14); }
-    .user-chip {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
-      text-decoration: none; color: #f0ece4; transition: all .15s;
-    }
-    .user-chip:hover { background: rgba(255,255,255,0.1); }
-    .user-avatar {
-      width: 30px; height: 30px; border-radius: 8px;
-      background: var(--gold, #f5c842); color: #000;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 800; background-size: cover; background-position: center;
-      overflow: hidden; flex-shrink: 0;
-    }
-    .btn-nav-outline {
-      padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 500;
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
-      color: rgba(240,236,228,0.65); text-decoration: none; cursor: pointer;
-      transition: all .15s; font-family: inherit;
-    }
-    .btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
-
     /* ── Navigační pills ── */
     .nav-lnks a {
       background: rgba(255,255,255,0.06) !important;
@@ -1375,12 +1329,6 @@ function injectLangSwitch() {
     + 'background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:12px;'
     + 'box-shadow:0 8px 32px rgba(0,0,0,.55);z-index:600;overflow:hidden;min-width:130px;';
 
-  function _flagImg(flagCode, size) {
-    return '<img src="https://flagcdn.com/' + (size||16) + 'x12/' + flagCode + '.png" '
-      + 'width="' + (size||16) + '" height="12" '
-      + 'style="border-radius:2px;vertical-align:middle;flex-shrink:0" '
-      + 'onerror="this.style.display=\'none\'">';
-  }
   var langs = [
     { code: 'cs', flag: 'cz', label: 'Čeština' },
     { code: 'en', flag: 'gb', label: 'English'  },
@@ -1392,14 +1340,17 @@ function injectLangSwitch() {
   ];
 
   drop.innerHTML = langs.map(function(l) {
+    var flagImg = '<img src="https://flagcdn.com/20x15/' + l.flag + '.png" '
+      + 'width="20" height="15" style="border-radius:2px;vertical-align:middle;margin-right:6px" '
+      + 'onerror="this.style.display=\'none\'">';
     return '<button onclick="window.setLang&&window.setLang(\'' + l.code + '\');_closeLangDrop()" '
       + 'id="langOpt_' + l.code + '" '
       + 'style="display:flex;align-items:center;width:100%;padding:10px 14px;background:none;border:none;'
-      + 'color:rgba(240,236,228,.75);font-size:13px;font-family:inherit;cursor:pointer;gap:8px;'
+      + 'color:rgba(240,236,228,.75);font-size:13px;font-family:inherit;cursor:pointer;'
       + 'text-align:left;transition:background .12s;" '
       + 'onmouseover="this.style.background=\'rgba(255,255,255,.07)\'" '
       + 'onmouseout="this.style.background=\'none\'">'
-      + _flagImg(l.flag, 20) + l.label + '</button>';
+      + flagImg + l.label + '</button>';
   }).join('');
 
   wrap.appendChild(btn);
@@ -1416,8 +1367,10 @@ function injectLangSwitch() {
 function _getLangFlag() {
   var lang = (window.getLang && window.getLang()) || localStorage.getItem('pt_lang') || 'cs';
   var flagMap = { cs:'cz', en:'gb', de:'de', jp:'jp', fr:'fr', it:'it', es:'es' };
-  var flagCode = flagMap[lang] || 'cz';
-  return '<img src="https://flagcdn.com/20x15/' + flagCode + '.png" width="20" height="15" style="border-radius:2px;vertical-align:middle" onerror="this.outerHTML='\u{1F310}'">';
+  var code = flagMap[lang] || 'cz';
+  return '<img src="https://flagcdn.com/20x15/' + code + '.png" '
+    + 'width="20" height="15" style="border-radius:2px;vertical-align:middle" '
+    + 'onerror="this.outerHTML='\u{1F310}'">';
 }
 
 function _updateLangBtn() {
