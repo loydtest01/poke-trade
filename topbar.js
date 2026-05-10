@@ -91,6 +91,52 @@ function injectStyles() {
   var s = document.createElement('style');
   s.id = 'topbar-unified-style';
   s.textContent = `
+    /* ── Base topbar structure (injected globally by topbar.js) ── */
+    .app-topbar {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(8,8,12,0.92);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      backdrop-filter: blur(16px);
+      display: flex; align-items: center;
+      height: 56px; padding: 0 20px; gap: 0;
+    }
+    .app-logo {
+      font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+      color: #fff; display: flex; align-items: center; gap: 6px;
+      text-decoration: none; margin-right: 28px; white-space: nowrap; flex-shrink: 0;
+    }
+    .app-logo strong { color: var(--yellow, #f5c842); }
+    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .chat-icon-btn {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      color: rgba(240,236,228,0.65); text-decoration: none; transition: all .15s;
+      cursor: pointer; font-family: inherit;
+    }
+    .chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: #f0ece4; border-color: rgba(255,255,255,0.14); }
+    .user-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
+      text-decoration: none; color: #f0ece4; transition: all .15s;
+    }
+    .user-chip:hover { background: rgba(255,255,255,0.1); }
+    .user-avatar {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--gold, #f5c842); color: #000;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; background-size: cover; background-position: center;
+      overflow: hidden; flex-shrink: 0;
+    }
+    .btn-nav-outline {
+      padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 500;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+      color: rgba(240,236,228,0.65); text-decoration: none; cursor: pointer;
+      transition: all .15s; font-family: inherit;
+    }
+    .btn-nav-outline:hover { background: rgba(255,255,255,0.1); color: #f0ece4; }
+
     /* ── Navigační pills ── */
     .nav-lnks a {
       background: rgba(255,255,255,0.06) !important;

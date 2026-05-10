@@ -134,17 +134,14 @@ select option{background:#1a1424}
 <body>
 <script>window.TOPBAR_ACTIVE = 'deck-builder';</script>
 <script src="i18n.js"></script>
+<script src="topbar.js?v=4"></script>
 <header class="app-topbar">
-  <div class="topbar-left" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
-    <a href="marketplace.html" style="display:flex;align-items:center;flex-shrink:0;text-decoration:none;gap:6px;color:#f5c842;font-weight:800;font-size:15px;letter-spacing:-.3px;">
-      🎴 PokéTrade
-    </a>
-    <nav class="nav-lnks" id="mainNav" style="display:flex;gap:4px;align-items:center;"></nav>
-  </div>
-  <div class="topbar-right" id="topbar-right-slot"></div>
+  <a href="/" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks" id="mainNav"></nav>
+  <div class="topbar-right"></div>
 </header>
-<style>.nav-lnks img.nav-icon{width:18px!important;height:18px!important;flex-shrink:0!important;object-fit:contain!important}</style>
-<script src="topbar.js?v=3"></script>
 
 <div class="db-wrap">
   <div class="db-header">
