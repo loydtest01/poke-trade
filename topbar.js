@@ -106,7 +106,9 @@ function injectStyles() {
       text-decoration: none; margin-right: 28px; white-space: nowrap; flex-shrink: 0;
     }
     .app-logo strong { color: var(--yellow, #f5c842); }
-    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; min-width: 0; flex-shrink: 0; }
+    .user-chip { max-width: 160px; overflow: hidden; }
+    .user-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     /* ── Navigační pills ── */
     .nav-lnks a {

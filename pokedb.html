@@ -1180,79 +1180,51 @@ function switchPage(id, btn) {
    INIT
 ════════════════════════════════════════════════════ */
 async function init() {
-  loadStats();
-  loadSetFilter();
+  loadSetsOnce(); // jediný fetch /sets — použit pro stats i filter
   doSearch();
-  // Set API base URL display
   document.getElementById('api-base-url').textContent = location.origin + '/api/v1';
 }
 
-async function loadStats() {
+// Jeden fetch /sets sdílený pro stats i dropdown — šetří rate limit
+async function loadSetsOnce() {
   try {
-    // Načti série
     const r = await fetch(`${API_BASE}/sets`);
-    if (!r.ok) throw new Error('sets fail');
+    if (!r.ok) return;
     const data = await r.json();
     const sets = data.data || [];
-    const setsCount = sets.length;
-    document.getElementById('h-sets').textContent = setsCount;
 
-    // Spočítej karty ze sets (card_count)
-    let totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
-
-    // Pokud sets nedává smyslný počet, zkus /cards?limit=1 pro total
-    if (totalCards < 100) {
-      try {
-        const r2 = await fetch(`${API_BASE}/cards?limit=1`);
-        const d2 = await r2.json();
-        if (d2.total && d2.total > totalCards) totalCards = d2.total;
-      } catch {}
-    }
-    document.getElementById('h-cards').textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : setsCount > 0 ? '?' : '–';
-
-    // Počet jazyků ze sérií
+    // --- Stats ---
+    document.getElementById('h-sets').textContent = sets.length;
+    const totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
+    document.getElementById('h-cards').textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : '–';
+    // Jazyků — z dat sérií, bez extra API volání
     const langs = new Set();
     sets.forEach(s => { if (s.lang) langs.add(s.lang); if (s.language) langs.add(s.language); });
-    // Pokud API nevrátí lang na sériích, zkus z karet
-    if (langs.size === 0) {
-      try {
-        const r3 = await fetch(`${API_BASE}/cards?limit=36`);
-        const d3 = await r3.json();
-        (d3.data || []).forEach(c => { if (c.lang) langs.add(c.lang); if (c.language) langs.add(c.language); });
-      } catch {}
-    }
     const langEl = document.getElementById('h-translated');
     if (langs.size > 0) {
       langEl.textContent = langs.size;
-      // Aktualizuj popisek
       const label = langEl.closest('.hero-stat')?.querySelector('.hero-stat-label');
       if (label) label.textContent = 'Jazyků';
     } else if (data.translated_count !== undefined) {
       langEl.textContent = data.translated_count.toLocaleString('cs');
     }
-  } catch {}
-}
 
-async function loadSetFilter() {
-  try {
-    const r = await fetch(`${API_BASE}/sets`);
-    if (!r.ok) return;
-    const data = await r.json();
-    state.setsData = data.data || [];
+    // --- Set filter & dropdown ---
+    state.setsData = sets;
     state.setsLoaded = true;
-
-    // Populate the Sets page series filter
     const serSel = document.getElementById('set-series-filter');
-    const series = [...new Set(state.setsData.map(s => s.series).filter(Boolean))].sort();
+    const series = [...new Set(sets.map(s => s.series).filter(Boolean))].sort();
     series.forEach(s => {
       const o = document.createElement('option'); o.value = s; o.textContent = s;
       serSel && serSel.appendChild(o);
     });
-
-    // Build custom set dropdown
-    buildSetDropdown(state.setsData);
+    buildSetDropdown(sets);
   } catch {}
 }
+
+// Alias pro zpětnou kompatibilitu (Sets stránka volá loadSets())
+async function loadStats() { /* sloučeno do loadSetsOnce */ }
+async function loadSetFilter() { /* sloučeno do loadSetsOnce */ }
 
 function buildSetDropdown(sets) {
   const wrap = document.getElementById('set-dropdown-options');
@@ -1436,9 +1408,11 @@ function renderCards(cards) {
   const langLabels = {en:'EN',ja:'JP',de:'DE',fr:'FR',it:'IT',es:'ES',pt:'PT',ko:'KO'};
   g.innerHTML = cards.map(c => {
     const img = c.image_thumb_url || c.image_url || '';
-    const imgHtml = img
-      ? `<img class="poke-card-img" src="${escH(img)}" alt="${escH(c.name)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-      : '';
+    // Fallback obrázek z pokemontcg.io CDN — funguje pro EN karty podle ID
+    const fallbackImg = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`;
+    const imgSrc = img || fallbackImg;
+    const imgHtml = `<img class="poke-card-img" src="${escH(imgSrc)}" alt="${escH(c.name)}" loading="lazy"
+      onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}else{this.style.display='none';this.nextElementSibling.style.display='flex'}">`; 
     const types = (c.types || []).map(t =>
       `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join('');
     const lang = c.lang || c.language || '';
@@ -1547,8 +1521,10 @@ async function openCard(id) {
 
 function renderModal(c) {
   document.getElementById('modal-title').textContent = c.name || c.id;
-  const img = c.image_url || c.image_thumb_url || '';
-  const hiRes = c.image_hires_url || img;
+  const fallbackImg = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png`;
+  const fallbackThumb = `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`;
+  const img = c.image_url || c.image_thumb_url || fallbackThumb;
+  const hiRes = c.image_hires_url || c.image_url || fallbackImg;
   const types = (c.types || []).map(t =>
     `<span class="type-badge type-${getTypeClass(t)}">${t}</span>`).join(' ');
 
@@ -1590,7 +1566,8 @@ function renderModal(c) {
     <div class="modal-grid">
       <div class="modal-img-col">
         ${img
-          ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}" onclick="openZoom('${escH(hiRes || img)}')" title="Klikni pro zvětšení">`
+          ? `<img class="modal-card-img" src="${escH(img)}" alt="${escH(c.name)}" onclick="openZoom('${escH(hiRes || img)}')" title="Klikni pro zvětšení"
+              onerror="if(this.dataset.fb!='1'){this.dataset.fb='1';this.src='${escH(fallbackImg)}'}">`
           : `<div class="modal-card-img-placeholder">🃏</div>`}
         ${hiRes && hiRes !== img ? `<a href="${escH(hiRes)}" target="_blank" class="btn btn-sm" style="margin-top:.7rem;width:100%;justify-content:center">🔎 Hi-res</a>` : ''}
         <div style="margin-top:1rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:.7rem">
