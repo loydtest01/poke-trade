@@ -2126,7 +2126,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   var fetchUrl = cfg2.url;
   var headers = {};
   if (providerName === 'gemini') {
-    fetchUrl = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash-latest:generateContent?key=' + apiKey;
+    fetchUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=' + apiKey;
     headers['Content-Type'] = 'application/json';
   } else if (providerName === 'cloudflare') {
     // Cloudflare CORS: přímý fetch z prohlížeče blokuje CORS → validujeme jen formát klíče
