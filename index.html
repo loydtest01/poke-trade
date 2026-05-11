@@ -1,3046 +1,1455 @@
-<!doctype html>
-<html lang="cs" data-theme="dark">
+<!DOCTYPE html>
+<html lang="cs">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>PhotoBridge</title>
-  <link rel="manifest" href="mobile-manifest.json">
-  <meta name="theme-color" content="#0b0d14">
+  <link rel="canonical" href="https://www.poke-trade.eu/">
+  <link rel="icon" type="image/png" href="favicon.ico">
+<meta property="og:title" content="PokéTrade – Výměna TCG karet">
+<meta property="og:description" content="Vyměňuj, sbírej a skenuj kartičky s přáteli.">
+<meta property="og:image" content="/og-image.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="/og-image.png">
+<meta charset="UTF-8">
+<meta name="description" content="Vyměňuj, sbírej a skenuj Pokémon TCG kartičky s přáteli. Digitální tržnice, správa sbírky a skener karet – vše zdarma.">
+  <!-- ═══ PWA meta ═══ -->
+  <link rel="manifest" href="app-manifest.json">
+  <meta name="theme-color" content="#0a0608">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="PhotoBridge">
-  <link rel="apple-touch-icon" href="icon_180.png">
-  <link rel="icon" type="image/png" href="icon_192.png">
-  <link rel="icon" type="image/x-icon" href="favicon.ico">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
-  <style>
-    /* ═══ PB DESIGN SYSTEM TOKENS ═══ */
-    :root, [data-theme="dark"] {
-      --pb-bg-fallback:        #050d20;
-      --pb-card-bg:            rgba(7,14,36,0.64);
-      --pb-card-bg-deep:       rgba(4,8,22,0.52);
-      --pb-card-border-inner:  rgba(38,68,148,0.20);
-      --pb-card-border:        rgba(55,95,195,0.26);
-      --pb-text:               #dce8ff;
-      --pb-text-muted:         #546080;
-      --pb-text-label:         #6070a0;
-      --pb-accent:             #5668e8;
-      --pb-accent-text:        #7890f8;
-      --pb-accent-2:           #9050e0;
-      --pb-ok:                 #26d882;
-      --pb-err:                #f06060;
-      --pb-warn:               #f0a830;
-      --pb-input-bg:           rgba(255,255,255,0.055);
-      --pb-input-border:       rgba(65,95,185,0.28);
-      --pb-input-border-focus: rgba(110,145,255,0.68);
-      --pb-input-ring:         rgba(100,135,255,0.18);
-    }
-    [data-theme="light"] {
-      --pb-bg-fallback:        #cfddf0;
-      --pb-card-bg:            rgba(255,255,255,0.54);
-      --pb-card-bg-deep:       rgba(255,255,255,0.35);
-      --pb-card-border-inner:  rgba(185,210,240,0.40);
-      --pb-card-border:        rgba(255,255,255,0.82);
-      --pb-text:               #0a0a0a;
-      --pb-text-muted:         #333333;
-      --pb-text-label:         #222222;
-      --pb-accent:             #4054e0;
-      --pb-accent-text:        #3044d0;
-      --pb-accent-2:           #7c3ad0;
-      --pb-ok:                 #16b870;
-      --pb-err:                #e04444;
-      --pb-warn:               #e09020;
-      --pb-input-bg:           rgba(255,255,255,0.90);
-      --pb-input-border:       rgba(140,170,220,0.48);
-      --pb-input-border-focus: rgba(70,110,225,0.75);
-      --pb-input-ring:         rgba(70,110,225,0.18);
-    }
-    /* ═══ BRIDGE — staré aliasy → nové pb-* proměnné ═══ */
-    :root, [data-theme="dark"], [data-theme="light"] {
-      --bg:      var(--pb-bg-fallback);
-      --surface: var(--pb-card-bg);
-      --card:    var(--pb-card-bg-deep);
-      --border:  var(--pb-card-border-inner);
-      --border2: var(--pb-card-border);
-      --accent:  var(--pb-accent);
-      --accent2: var(--pb-accent-text);
-      --green:   var(--pb-ok);
-      --red:     var(--pb-err);
-      --yellow:  var(--pb-warn);
-      --purple:  var(--pb-accent-2);
-      --text:    var(--pb-text);
-      --fg:      var(--pb-text);
-      --muted:   var(--pb-text-muted);
-      --muted2:  var(--pb-text-label);
-      --radius:  14px;
-      --font:    'Space Grotesk', system-ui, sans-serif;
-      --mono:    'JetBrains Mono', monospace;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html, body { height: 100%; background: transparent; color: var(--text); font-family: var(--font); overflow: hidden; }
-    button { font-family: var(--font); cursor: pointer; border: none; }
-    input  { font-family: var(--font); }
+  <meta name="apple-mobile-web-app-title" content="PokéTrade">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- ═══ /PWA meta ═══ -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PokéTrade – Výměna Pokémon karet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ═══ WALLPAPER – HERO SEKCE ═══ */
+body {
+  background: #0a0608;
+}
 
-    /* ═══ OFFLINE BANNER ═══ */
-    #offlineBanner {
-      animation: slideDown 0.25s ease;
-    }
-    @keyframes slideDown {
-      from { transform: translateY(-100%); opacity:0; }
-      to   { transform: translateY(0); opacity:1; }
-    }
+/* Tapeta pouze za hero – přes pseudo-element na .hero */
+.hero {
+  position: relative;
+  min-height: 620px;
+}
+
+/* Tapeta jako vrstva v hero-bg */
+.hero-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url('wallpaper.png');
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  filter: brightness(0.22) saturate(0.65);
+  z-index: 0;
+}
+
+/* Gradient přechod dole – plynulé napojení na zbytek stránky */
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 60% at 15% 65%, rgba(255,90,0,0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 55% 60% at 85% 65%, rgba(20,60,255,0.12) 0%, transparent 65%),
+    linear-gradient(to bottom,
+      rgba(0,0,0,0.45) 0%,
+      rgba(0,0,0,0.15) 40%,
+      rgba(10,6,8,0.85) 85%,
+      rgba(10,6,8,1.00) 100%
+    );
+  z-index: 0;
+}
+
+/* Orby schovat – tapeta je víc než dost */
+.orb { display: none; }
+
+/* Grid lines zůstanou ale jemnější */
+.grid-lines {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px) !important;
+  z-index: 1;
+}
+
+/* Hero content nad vším */
+.hero-content { z-index: 2; }
+.hero-cards-visual { z-index: 2; }
+
+/* Hero badge fire styl */
+.hero-badge {
+  background: rgba(245,200,66,0.12) !important;
+  border-color: rgba(245,200,66,0.35) !important;
+  text-shadow: 0 0 10px rgba(245,200,66,0.3);
+}
+
+/* Nadpis – výraznější glow */
+.hero-title {
+  text-shadow: 0 2px 30px rgba(0,0,0,0.8), 0 0 60px rgba(245,200,66,0.08);
+}
+.hero-title em {
+  filter: drop-shadow(0 0 12px rgba(245,200,66,0.5));
+}
+
+/* Statistiky oddělené od tapety */
+.hero-stats .stat span {
+  text-shadow: 0 0 15px rgba(245,200,66,0.3);
+}
+
+/* ═══ VIP LÁKADLO BANNER (pro nepřihlášené) ═══ */
+.vip-promo {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  margin: 24px 0;
+  background: linear-gradient(135deg, rgba(245,200,66,0.12), rgba(255,140,0,0.08));
+  border: 1px solid rgba(245,200,66,0.35);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(245,200,66,0.1);
+  max-width: 600px;
+}
+.vip-promo-icon {
+  font-size: 36px;
+  filter: drop-shadow(0 0 8px rgba(245,200,66,0.6));
+  flex-shrink: 0;
+}
+.vip-promo-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vip-promo-text strong {
+  color: #f5c842;
+  font-size: 16px;
+  line-height: 1.3;
+}
+.vip-promo-text small {
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  line-height: 1.45;
+}
+#vipPromoRemaining {
+  color: #4ade80;
+  font-weight: 700;
+  font-size: 15px;
+}
+.vip-promo-cta {
+  background: #f5c842;
+  color: #1a0e08;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .15s, box-shadow .15s;
+  flex-shrink: 0;
+}
+.vip-promo-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(245,200,66,0.4);
+}
+
+/* ═══ VIP STATUS BANNER (pro přihlášené VIP členy) ═══ */
+.vip-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  margin: 24px 0;
+  background: linear-gradient(135deg, rgba(74,222,128,0.08), rgba(52,211,153,0.05));
+  border: 1px solid rgba(74,222,128,0.3);
+  border-radius: 14px;
+  max-width: 600px;
+}
+.vip-status-icon {
+  font-size: 32px;
+  filter: drop-shadow(0 0 8px rgba(74,222,128,0.5));
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.vip-status-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.vip-status-text strong {
+  color: #4ade80;
+  font-size: 15px;
+}
+.vip-status-text small {
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.vip-referral-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.vip-referral-row input {
+  flex: 1;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(74,222,128,0.3);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: monospace;
+  font-size: 12px;
+}
+.vip-copy-btn {
+  background: rgba(74,222,128,0.15);
+  border: 1px solid rgba(74,222,128,0.4);
+  color: #4ade80;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background .15s;
+}
+.vip-copy-btn:hover { background: rgba(74,222,128,0.25); }
+
+@media (max-width: 600px) {
+  .vip-promo, .vip-status {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .vip-promo-cta { text-align: center; }
+}
+
+/* ═══ ZBYTEK STRÁNKY – tmavý bez tapety ═══ */
+.section { background: transparent; }
+
+.how, .features, .cta-section {
+  background: #0a0608;
+  position: relative;
+}
+
+/* Jemný separátor mezi hero a sekcí */
+.how::before {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,200,66,0.15), transparent);
+  margin-bottom: 0;
+}
+
+/* Feature karty – tmavší pro kontrast */
+.feature-card {
+  background: rgba(255,255,255,0.03) !important;
+  border-color: rgba(255,255,255,0.07) !important;
+}
+
+/* CTA box */
+.cta-box {
+  background: rgba(245,200,66,0.05) !important;
+  border-color: rgba(245,200,66,0.15) !important;
+}
+
+/* Navbar */
+.navbar {
+  background: rgba(8,4,6,0.80) !important;
+  border-bottom-color: rgba(245,200,66,0.12) !important;
+  backdrop-filter: blur(18px) !important;
+}
+
+/* ── Unified Top bar ──────────────────────────────────────────────── */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: 'Unbounded', sans-serif; font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap;
+}
+.app-logo strong { color: var(--yellow, #f5c842); }
+.nav-lnks { display: flex; gap: 2px; flex: 1; }
+.nav-lnks a {
+  padding: 6px 14px; border-radius: 8px; font-size: 13px; font-weight: 500;
+  color: var(--text2, rgba(240,236,228,0.65)); text-decoration: none; transition: all .15s;
+}
+.nav-lnks a:hover  { background: rgba(255,255,255,0.07); color: var(--text, #f0ece4); }
+.nav-lnks a.active { background: rgba(245,200,66,0.12); color: var(--yellow, #f5c842); }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.user-chip {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px; padding: 4px 12px 4px 6px; font-size: 13px;
+  text-decoration: none; color: var(--text, #f0ece4); transition: all .15s;
+}
+.user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.14); }
+.user-avatar {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--yellow, #f5c842); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800;
+  background-size: cover; background-position: center; overflow: hidden; flex-shrink: 0;
+}
 
 
-    /* ═══ WALLPAPERS (přepínání podle času: 18:00–8:00 = dark, jinak light) ═══ */
-    /* DAY: 8:00–18:00 */
-    [data-theme="light"] #loginScreen {
-      background-image: url('https://raw.githubusercontent.com/loydtest01/PhotoBridge/main/light.png');
-      background-size: cover; background-position: center;
-    }
-    [data-theme="light"] body::before {
-      content: ''; position: fixed; inset: 0; z-index: -1;
-      background-color: var(--bg);
-      background-image: url('https://raw.githubusercontent.com/loydtest01/PhotoBridge/main/light.png');
-      background-size: cover; background-position: center;
-      opacity: 0.18;
-    }
-    /* NIGHT: 18:00–8:00 */
-    [data-theme="dark"] #loginScreen {
-      background-image: url('https://raw.githubusercontent.com/loydtest01/PhotoBridge/main/dark.png');
-      background-size: cover; background-position: center;
-    }
-    [data-theme="dark"] body::before {
-      content: ''; position: fixed; inset: 0; z-index: -1;
-      background-color: var(--bg);
-      background-image: url('https://raw.githubusercontent.com/loydtest01/PhotoBridge/main/dark.png');
-      background-size: cover; background-position: center;
-      opacity: 0.30;
-    }
-    /* Login overlay – ztmaví pozadí aby byl formulář čitelný */
-    #loginScreen::after {
-      content: ''; position: fixed; inset: 0; z-index: -1;
-      background: rgba(11,13,20,0.60);
-    }
+/* ═══════════════════════════════════════════
+   ANIMATED POKEMON CARDS – FLY-IN + AURA
+═══════════════════════════════════════════ */
+.pkshow-stage {
+  position: absolute;
+  right: 48px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 480px;
+  height: 340px;
+  pointer-events: none;
+  z-index: 2;
+}
+@media (max-width: 900px) { .pkshow-stage { display: none; } }
 
-    /* ═══ LOGIN SCREEN ═══ */
-    #loginScreen {
-      position: fixed; inset: 0; z-index: 9000;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 24px;
-      background: var(--bg);
-    }
-    #loginScreen::before {
-      content: '';
-      position: fixed; inset: 0; z-index: -1;
-      background:
-        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(61,127,255,0.12) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 0% 100%, rgba(155,114,255,0.07) 0%, transparent 60%);
-    }
-    .login-logo {
-      display: flex; flex-direction: column; align-items: center; gap: 10px;
-      margin-bottom: 36px;
-    }
-    .login-logo-icon {
-      width: 72px; height: 72px;
-      background: linear-gradient(135deg, #1a2540 0%, #0d1220 100%);
-      border-radius: 22px;
-      border: 1.5px solid rgba(61,127,255,0.35);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 36px;
-      box-shadow: 0 0 40px rgba(61,127,255,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
-    }
-    .login-logo-name {
-      font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
-      color: var(--text);
-    }
-    .login-logo-name span { color: var(--accent2); }
-    .login-logo-sub { font-size: 12px; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; font-weight: 500; }
-    .login-card {
-      width: 100%; max-width: 360px;
-      background: var(--surface);
-      border: 1px solid var(--border2);
-      border-radius: 20px;
-      padding: 28px 24px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
-    }
-    .login-label {
-      font-size: 11px; font-weight: 600; color: var(--muted2);
-      letter-spacing: 0.07em; text-transform: uppercase;
-      margin-bottom: 8px; display: block;
-    }
-    .login-input {
-      width: 100%; background: var(--bg);
-      border: 1.5px solid var(--border2);
-      border-radius: 10px; color: var(--text);
-      font-size: 15px; padding: 12px 14px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-      outline: none;
-    }
-    .login-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(61,127,255,0.12); }
-    .login-input::placeholder { color: var(--muted); }
-    .pw-wrap { position: relative; }
-    .pw-wrap .login-input { padding-right: 44px; }
-    .eye-btn {
-      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-      background: none; color: var(--muted); font-size: 16px; padding: 4px;
-      line-height: 1; transition: color 0.15s;
-    }
-    .eye-btn:hover { color: var(--accent2); }
-    .login-fg { margin-top: 6px; text-align: right; }
-    .login-fg-link { font-size: 12px; color: var(--muted); text-decoration: none; transition: color 0.15s; }
-    .login-fg-link:hover { color: var(--accent2); }
-    .login-btn {
-      width: 100%; margin-top: 20px;
-      padding: 14px; border-radius: 11px;
-      background: var(--accent);
-      color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 0.01em;
-      transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-      box-shadow: 0 6px 20px rgba(61,127,255,0.35);
-    }
-    .login-btn:hover { background: var(--accent2); }
-    .login-btn:active { transform: scale(0.98); }
-    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-    .login-error {
-      margin-top: 14px; padding: 10px 14px;
-      background: rgba(240,90,90,0.1); border: 1px solid rgba(240,90,90,0.3);
-      border-radius: 9px; color: #f08080; font-size: 13px; display: none;
-    }
-    .login-field { margin-bottom: 16px; }
-    .login-field:last-of-type { margin-bottom: 0; }
+/* Individual card wrappers */
+.pkshow-card {
+  position: absolute;
+  width: 168px;
+  border-radius: 14px;
+  /* Start position: off-screen top-right, tiny */
+  opacity: 0;
+  transform: translate(380px, -260px) scale(0.06);
+  will-change: transform, opacity;
+}
+.pkshow-card img {
+  width: 100%;
+  border-radius: 14px;
+  display: block;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6);
+  position: relative;
+  z-index: 1;
+}
 
-    /* ═══ MAIN APP ═══ */
-    #app { height: 100%; display: flex; flex-direction: column; }
+/* Card positions (overlapping like screenshot) */
+.pkcard-pikachu  { left: 0px;   top: 80px;  z-index: 1; }
+.pkcard-mewtwo   { left: 140px; top: 30px;  z-index: 2; }
+.pkcard-charizard{ left: 285px; top: 0px;   z-index: 3; }
 
-    /* Header */
-    .hdr {
-      background: var(--surface); border-bottom: 1px solid var(--border);
-      padding: 10px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;
-    }
-    .hdr-logo {
-      font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
-      color: var(--text); display: flex; align-items: center; gap: 8px; flex: 1;
-    }
-    .hdr-logo .logo-icon { font-size: 20px; }
-    .hdr-logo .logo-bridge { color: var(--accent2); }
-    .hdr-user {
-      font-size: 11px; color: var(--muted2); font-weight: 500;
-      background: var(--card); border-radius: 20px; padding: 4px 10px;
-      border: 1px solid var(--border); font-family: var(--mono);
-    }
-    .hdr-job {
-      font-size: 11px; color: var(--yellow); font-weight: 600;
-      background: rgba(245,200,66,0.08); border-radius: 20px; padding: 4px 10px;
-      border: 1px solid rgba(245,200,66,0.25); font-family: var(--mono);
-      display: none;
-    }
+/* ── Aura layers ── */
+.pkshow-aura {
+  position: absolute;
+  inset: -55px;
+  border-radius: 24px;
+  opacity: 0;
+  z-index: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 1s ease;
+}
 
-    /* Tab bar */
-    .tabbar {
-      background: var(--surface); border-top: 1px solid var(--border);
-      display: flex; flex-shrink: 0;
-    }
-    .tab-btn {
-      flex: 1; padding: 10px 6px 8px; background: none; color: var(--muted);
-      font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
-      text-transform: uppercase; display: flex; flex-direction: column; align-items: center; gap: 3px;
-      transition: color 0.15s, background 0.15s; border-radius: 0;
-    }
-    .tab-btn .tab-icon { font-size: 20px; }
-    .tab-btn.active { color: var(--accent2); background: rgba(61,127,255,0.06); }
-    .tab-btn.active .tab-icon { filter: drop-shadow(0 0 6px rgba(90,155,255,0.5)); }
+/* Gold – Pikachu */
+.aura-gold {
+  background: radial-gradient(ellipse 80% 90% at 50% 50%,
+    rgba(255,210,0,0.75) 0%,
+    rgba(255,160,0,0.45) 40%,
+    transparent 70%);
+  filter: blur(18px);
+}
+/* Purple – Mewtwo */
+.aura-purple {
+  background: radial-gradient(ellipse 80% 90% at 50% 50%,
+    rgba(180,100,255,0.75) 0%,
+    rgba(130,60,220,0.45) 40%,
+    transparent 70%);
+  filter: blur(18px);
+}
+/* Red/Orange – Charizard */
+.aura-red {
+  background: radial-gradient(ellipse 80% 90% at 50% 50%,
+    rgba(255,70,0,0.80) 0%,
+    rgba(220,40,0,0.50) 40%,
+    transparent 70%);
+  filter: blur(18px);
+}
 
-    /* Screen */
-    .content { flex: 1; overflow-y: auto; overflow-x: hidden; }
-    .screen { display: none; padding: 16px; flex-direction: column; gap: 14px; }
-    .screen.active { display: flex; }
+/* ── Blend zones between cards (where auras meet) ── */
+/* Gold→Purple blend: sits between Pikachu and Mewtwo */
+.pkshow-stage::before {
+  content: '';
+  position: absolute;
+  left: 95px; top: 10px;
+  width: 110px; height: 280px;
+  background: linear-gradient(90deg,
+    rgba(255,210,0,0.22) 0%,
+    rgba(180,100,255,0.22) 100%);
+  filter: blur(22px);
+  border-radius: 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 1s ease;
+}
+/* Purple→Red blend: sits between Mewtwo and Charizard */
+.pkshow-stage::after {
+  content: '';
+  position: absolute;
+  left: 240px; top: -20px;
+  width: 110px; height: 280px;
+  background: linear-gradient(90deg,
+    rgba(180,100,255,0.22) 0%,
+    rgba(255,70,0,0.22) 100%);
+  filter: blur(22px);
+  border-radius: 50%;
+  opacity: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  z-index: 4;
+  transition: opacity 1s ease;
+}
 
-    /* ═══ QR SCREEN ═══ */
-    .qr-status {
-      text-align: center; padding: 20px 16px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius);
-    }
-    .qr-status-icon { font-size: 42px; margin-bottom: 10px; }
-    .qr-status-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
-    .qr-status-sub { font-size: 13px; color: var(--muted2); line-height: 1.5; }
-    .qr-job-card {
-      background: linear-gradient(135deg, rgba(61,127,255,0.12) 0%, rgba(155,114,255,0.08) 100%);
-      border: 1.5px solid rgba(61,127,255,0.3); border-radius: var(--radius);
-      padding: 16px; display: none;
-    }
-    .qr-job-label { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
-    .qr-job-value { font-size: 22px; font-weight: 700; font-family: var(--mono); color: var(--accent2); }
-    .qr-job-sub { font-size: 12px; color: var(--muted2); margin-top: 4px; }
-    .qr-scan-area {
-      position: relative; background: #000; border-radius: var(--radius);
-      overflow: hidden; aspect-ratio: 1 / 1; display: none;
-    }
-    #qrVideo { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .qr-scan-overlay {
-      position: absolute; inset: 0;
-      display: flex; align-items: center; justify-content: center;
-      pointer-events: none;
-    }
-    .qr-frame {
-      width: 60%; height: 60%;
-      border: 2px solid var(--accent2);
-      border-radius: 12px;
-      box-shadow:
-        0 0 0 9999px rgba(0,0,0,0.45),
-        0 0 20px rgba(61,127,255,0.3);
-      animation: scanPulse 2s ease-in-out infinite;
-    }
-    @keyframes scanPulse {
-      0%,100% { border-color: var(--accent2); box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 20px rgba(61,127,255,0.3); }
-      50%      { border-color: #fff; box-shadow: 0 0 0 9999px rgba(0,0,0,0.45), 0 0 30px rgba(255,255,255,0.4); }
-    }
-    .qr-scan-line {
-      position: absolute; left: 20%; right: 20%; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
-      animation: scanLine 2s linear infinite;
-      top: 20%;
-    }
-    @keyframes scanLine {
-      0%   { top: 20%; opacity: 1; }
-      100% { top: 80%; opacity: 0.3; }
-    }
-    .manual-input-row {
-      display: flex; gap: 10px; align-items: flex-end;
-    }
-    .manual-input-wrap { flex: 1; }
+/* State: auras active */
+.pkshow-stage.auras-on::before,
+.pkshow-stage.auras-on::after { opacity: 1; }
+.pkshow-stage.auras-on .pkshow-aura { opacity: 1; }
 
-    /* ═══ UPLOAD SCREEN ═══ */
-    .section-label {
-      font-size: 13px; font-weight: 700; color: var(--fg);
-      letter-spacing: 0; text-transform: none;
-      margin-bottom: 2px;
-    }
-    .upload-subtitle {
-      font-size: 12px; color: var(--muted); line-height: 1.5;
-      margin-top: 4px;
-    }
-    .types { display: flex; flex-direction: column; gap: 8px; }
-    .type-label {
-      display: flex; align-items: center;
-      padding: 10px 14px; border-radius: 11px;
-      border: 1.5px solid var(--border2); background: var(--surface);
-      cursor: pointer; transition: all 0.15s;
-    }
-    .type-label input[type=radio] { display: none; }
-    .type-label .code {
-      font-family: var(--mono); font-size: 14px; font-weight: 700;
-      color: var(--muted2); white-space: nowrap; width: 70px; flex-shrink: 0;
-    }
-    .type-label .type-text { display: flex; align-items: center; gap: 10px; }
-    .type-label .desc { font-size: 13px; color: var(--muted); line-height: 1.3; }
-    .type-label:has(input:checked) .code { color: var(--accent2); }
-    .type-label:has(input:checked) {
-      border-color: var(--accent); background: rgba(61,127,255,0.14);
-      box-shadow: 0 0 0 1px rgba(61,127,255,0.18);
-    }
-    .type-label.sp-type:has(input:checked) {
-      border-color: var(--yellow); background: rgba(245,200,66,0.10);
-      box-shadow: 0 0 0 1px rgba(245,200,66,0.18);
-    }
-    .type-label.sp-type:has(input:checked) .code { color: var(--yellow); }
+/* ── Pulse keyframe ── */
+@keyframes pkAuraPulse {
+  0%,100% { opacity: 1;    filter: blur(18px); }
+  50%      { opacity: 0.55; filter: blur(28px); }
+}
+.pkshow-stage.auras-on .aura-gold   { animation: pkAuraPulse 2.4s ease-in-out infinite; }
+.pkshow-stage.auras-on .aura-purple { animation: pkAuraPulse 2.4s ease-in-out infinite 0.8s; }
+.pkshow-stage.auras-on .aura-red    { animation: pkAuraPulse 2.4s ease-in-out infinite 1.6s; }
+.pkshow-stage.auras-on::before { animation: pkAuraPulse 2.4s ease-in-out infinite 0.4s; }
+.pkshow-stage.auras-on::after  { animation: pkAuraPulse 2.4s ease-in-out infinite 1.2s; }
 
-    .paint-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; border-radius: 11px;
-      border: 1.5px solid var(--border2); background: var(--surface);
-      cursor: pointer; transition: all 0.15s;
-    }
-    .paint-row input[type=checkbox] {
-      width: 18px; height: 18px; flex-shrink: 0;
-      accent-color: var(--accent2); cursor: pointer; margin: 0;
-    }
-    .paint-row span { font-size: 14px; color: var(--muted2); }
+/* Card subtle float while active – každá karta jiná rychlost a delay */
+@keyframes pkFloat {
+  0%,100% { transform: translateY(0px); }
+  50%     { transform: translateY(-8px); }
+}
+.pkshow-card.active.pkcard-pikachu  { animation: pkFloat 3.2s ease-in-out infinite 0.0s; }
+.pkshow-card.active.pkcard-mewtwo   { animation: pkFloat 4.7s ease-in-out infinite 0.6s; }
+.pkshow-card.active.pkcard-charizard{ animation: pkFloat 3.9s ease-in-out infinite 1.8s; }
 
-    .btn-row { display: flex; gap: 10px; }
-    .btn-pb {
-      flex: 1; padding: 13px 10px; border-radius: 11px;
-      font-size: 14px; font-weight: 700;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      transition: all 0.15s;
-    }
-    .btn-pb .btn-icon { font-size: 22px; }
-    .btn-pb.btn-photo { background: rgba(54,217,102,0.12); border: 1.5px solid rgba(54,217,102,0.3); color: var(--green); }
-    .btn-pb.btn-video { background: rgba(61,127,255,0.1); border: 1.5px solid rgba(61,127,255,0.3); color: var(--accent2); }
-    .btn-pb.btn-pick  { background: rgba(155,114,255,0.1); border: 1.5px solid rgba(155,114,255,0.3); color: var(--purple); }
-    .btn-pb:active { transform: scale(0.96); opacity: 0.85; }
-    .btn-pb:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.nav-icon { width:26px; height:26px; object-fit:contain; vertical-align:middle; margin-right:5px; mix-blend-mode:screen; filter:brightness(1.3); }
 
-    .progress-wrap { display: none; }
-    .progress-bar {
-      height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
-    }
-    .progress-fill {
-      height: 100%; width: 0%;
-      background: linear-gradient(90deg, var(--accent), var(--purple));
-      border-radius: 3px; transition: width 0.3s;
-    }
-    .progress-text {
-      font-size: 12px; color: var(--muted2); font-weight: 600;
-      margin-top: 6px; text-align: center;
-    }
+/* ═══ ADMIN VISITOR PANEL ═══ */
+#adminVisitorPanel {
+  display: none;
+  margin-top: 22px;
+  padding: 14px 20px;
+  background: rgba(245,200,66,0.06);
+  border: 1px solid rgba(245,200,66,0.18);
+  border-radius: 14px;
+  width: fit-content;
+  max-width: 360px;
+  backdrop-filter: blur(8px);
+}
+.visitor-panel-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(245,200,66,0.55);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.visitor-stats {
+  display: flex;
+  gap: 24px;
+}
+.visitor-stat span {
+  font-size: 24px;
+  font-weight: 800;
+  color: #f5c842;
+  font-family: 'Unbounded', sans-serif;
+  display: block;
+  line-height: 1;
+}
+.visitor-stat small {
+  font-size: 11px;
+  color: rgba(240,236,228,0.45);
+  margin-top: 4px;
+  display: block;
+}
 
-    /* ═══ SETTINGS SCREEN ═══ */
-    .settings-section { background: var(--surface); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; }
-    .settings-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; border-bottom: 1px solid var(--border);
-    }
-    .settings-row:last-child { border-bottom: none; }
-    .settings-icon { font-size: 20px; width: 32px; text-align: center; flex-shrink: 0; }
-    .settings-info { flex: 1; }
-    .settings-title { font-size: 14px; font-weight: 600; }
-    .settings-sub { font-size: 12px; color: var(--muted2); margin-top: 2px; }
-    .settings-value { font-family: var(--mono); font-size: 12px; color: var(--muted2); }
-    .settings-btn {
-      padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700;
-      background: rgba(61,127,255,0.12); color: var(--accent2);
-      border: 1px solid rgba(61,127,255,0.25); transition: all 0.15s;
-    }
-    .settings-btn:hover { background: rgba(61,127,255,0.2); }
-    .settings-btn.danger { background: rgba(240,90,90,0.1); color: var(--red); border-color: rgba(240,90,90,0.25); }
-    .settings-btn.danger:hover { background: rgba(240,90,90,0.2); }
+/* ═══ REGISTRACE — výrazné CTA tlačítko v topbaru ═══ */
+.btn-nav-register {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 18px;
+  border-radius: 50px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  background: linear-gradient(135deg, #f5c842, #ff8c42);
+  color: #0b080a;
+  border: 1px solid rgba(255, 200, 100, 0.5);
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.25);
+  transition: 0.2s;
+  white-space: nowrap;
+}
 
-    /* ── Theme mode selector ── */
-    .theme-mode-group { display:flex; gap:6px; flex-shrink:0; }
-    .theme-mode-btn {
-      font-size:12px; font-weight:700; font-family:var(--mono);
-      padding:6px 11px; border-radius:20px; cursor:pointer;
-      border:1.5px solid var(--border);
-      background:transparent; color:var(--muted2);
-      transition:all 0.18s; letter-spacing:0.04em;
-    }
-    .theme-mode-btn.active {
-      background:rgba(61,127,255,0.18); color:var(--accent2);
-      border-color:rgba(61,127,255,0.55);
-    }
-    .theme-time-row {
-      display:flex; align-items:center; gap:10px;
-      padding:10px 16px 14px 56px;
-      border-top:1px solid var(--border);
-    }
-    .theme-time-row label { font-size:12px; color:var(--muted2); font-family:var(--mono); }
-    .theme-time-input {
-      font-family:var(--mono); font-size:13px; font-weight:600;
-      color:var(--fg); background:var(--bg); border:1.5px solid var(--border);
-      border-radius:8px; padding:5px 9px; cursor:pointer;
-      color-scheme: dark;
-    }
-    .theme-time-input:focus { outline:none; border-color:var(--accent2); }
+.btn-nav-register:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(245, 200, 66, 0.4);
+  background: linear-gradient(135deg, #ffcf5c, #ff9c4a);
+}
 
-    /* Generic card */
-    .pb-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px 16px;
-    }
-    .pb-card-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+@media (max-width: 600px) {
+  .btn-nav-register { padding: 7px 12px; font-size: 12px; }
+}
 
-    /* Input styled */
-    .pb-input {
-      width: 100%; background: var(--bg); border: 1.5px solid var(--border2);
-      border-radius: 9px; color: var(--text); font-size: 14px; padding: 11px 13px;
-      outline: none; transition: border-color 0.2s, box-shadow 0.2s; font-family: var(--font);
-    }
-    .pb-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(61,127,255,0.1); }
-    .pb-input::placeholder { color: var(--muted); }
+/* ═══ AI PROFESOR OAK BOX ═══ */
+.oak-container {
+  max-width: 580px;
+  margin: 36px auto 0;
+  width: 100%;
+}
 
-    /* Action buttons */
-    .btn-full {
-      width: 100%; padding: 13px; border-radius: 10px;
-      font-size: 14px; font-weight: 700; transition: all 0.15s;
-    }
-    .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 4px 16px rgba(61,127,255,0.3); }
-    .btn-primary:hover { background: var(--accent2); }
-    .btn-primary:active { transform: scale(0.98); }
-    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
-    .btn-green-full { background: var(--green); color: #0b1a0f; box-shadow: 0 4px 16px rgba(54,217,102,0.25); }
-    .btn-danger-full { background: transparent; border: 1.5px solid rgba(240,90,90,0.4); color: var(--red); }
+.oak-card {
+  background: rgba(20, 16, 22, 0.78);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(245, 200, 66, 0.25);
+  border-radius: 24px;
+  padding: 26px 24px 22px;
+  text-align: left;
+  position: relative;
+  transition: opacity 0.45s ease, transform 0.45s ease, border-color 0.3s ease;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
 
-    /* ═══ PROFILE SWITCHER ═══ */
-    .profile-chip {
-      display: flex; align-items: center; gap: 6px;
-      background: var(--card); border-radius: 20px; padding: 4px 10px;
-      border: 1px solid var(--border); cursor: pointer; transition: all 0.15s;
-    }
-    .profile-chip:hover { border-color: var(--accent); background: rgba(61,127,255,0.1); }
-    .profile-chip-name { font-size: 11px; color: var(--muted2); font-weight: 600; font-family: var(--mono); }
-    .profile-chip-arrow { font-size: 9px; color: var(--muted); }
+.oak-card::before {
+  content: "";
+  position: absolute;
+  top: -40%;
+  left: -10%;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(245, 200, 66, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
 
-    .profile-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-    .profile-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; border-radius: 11px;
-      border: 1.5px solid var(--border2); background: var(--surface);
-      cursor: pointer; transition: all 0.15s;
-    }
-    .profile-item:hover { border-color: var(--accent); background: rgba(61,127,255,0.08); }
-    .profile-item.active-profile { border-color: var(--green); background: rgba(54,217,102,0.07); }
-    .profile-item-avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--purple));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px; font-weight: 700; color: #fff; flex-shrink: 0; font-family: var(--mono);
-    }
-    .profile-item-info { flex: 1; }
-    .profile-item-name { font-size: 14px; font-weight: 700; }
-    .profile-item-sub { font-size: 11px; color: var(--muted2); margin-top: 2px; font-family: var(--mono); }
-    .profile-item-badge {
-      font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 10px;
-      background: rgba(54,217,102,0.15); color: var(--green);
-      border: 1px solid rgba(54,217,102,0.3); letter-spacing: 0.04em;
-    }
-    .profile-item-del {
-      width: 28px; height: 28px; border-radius: 50%; background: none; color: var(--muted); font-size: 14px;
-      display: flex; align-items: center; justify-content: center; transition: all 0.15s; flex-shrink: 0;
-    }
-    .profile-item-del:hover { background: rgba(240,90,90,0.15); color: var(--red); }
+.oak-badge {
+  display: inline-block;
+  background: linear-gradient(135deg, #f5c842, #ff8c42);
+  color: #0b080a;
+  padding: 6px 16px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  box-shadow: 0 4px 12px rgba(245, 200, 66, 0.3);
+  transition: background 0.3s ease;
+  position: relative;
+  z-index: 1;
+}
 
-    /* Toast */
-    #toast {
-      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(20px);
-      background: var(--card); border: 1px solid var(--border2); border-radius: 12px;
-      padding: 10px 18px; font-size: 13px; font-weight: 600; z-index: 9999;
-      transition: transform 0.25s ease, opacity 0.25s ease; opacity: 0;
-      white-space: nowrap; max-width: 90vw; text-align: center;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-    }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-    #toast.ok { border-color: rgba(54,217,102,0.4); color: var(--green); }
-    #toast.err { border-color: rgba(240,90,90,0.4); color: var(--red); }
+.oak-badge.kind-tip {
+  background: linear-gradient(135deg, #4ade80, #22c55e);
+}
 
-    /* Modal */
-    .pb-modal {
-      display: none; position: fixed; inset: 0; z-index: 8000;
-      background: rgba(0,0,0,0.7); align-items: center; justify-content: center; padding: 20px;
-    }
-    .pb-modal.open { display: flex; }
-    .pb-modal-box {
-      background: var(--card); border: 1px solid var(--border2);
-      border-radius: 18px; padding: 24px; width: 100%; max-width: 360px;
-      box-shadow: 0 24px 60px rgba(0,0,0,0.6);
-    }
-    .pb-modal-title { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
-    .pb-modal-sub { font-size: 13px; color: var(--muted2); margin-bottom: 18px; line-height: 1.5; }
-    .field-gap { display: flex; flex-direction: column; gap: 10px; }
-    .modal-btns { display: flex; gap: 10px; margin-top: 18px; }
-    .btn-cancel {
-      flex: 1; padding: 12px; border-radius: 10px; font-size: 13px; font-weight: 600;
-      background: transparent; border: 1.5px solid var(--border2); color: var(--muted2);
-      transition: all 0.15s;
-    }
-    .btn-cancel:hover { border-color: var(--border); color: var(--text); }
+.oak-badge.kind-fact {
+  background: linear-gradient(135deg, #4f8ef7, #6366f1);
+  color: #fff;
+}
 
-    /* Hourglass */
-    .spin { display: inline-block; animation: spin360 1s linear infinite; }
-    @keyframes spin360 { to { transform: rotate(360deg); } }
+.oak-fact-text {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: #e9e2d4;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+  padding-right: 36px; /* prostor pro next btn */
+}
 
-    /* Upload section panels */
-    .upload-panel {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 14px;
-      display: flex; flex-direction: column; gap: 10px;
-    }
+.oak-fact-text strong {
+  color: #f5c842;
+  font-weight: 700;
+}
 
-    /* ═══ JOB HEADER BANNER ═══ */
-    .job-banner {
-      display: flex;
-      flex-direction: column;
-      background: linear-gradient(135deg, rgba(61,127,255,0.15) 0%, rgba(155,114,255,0.10) 100%);
-      border: 1.5px solid rgba(61,127,255,0.35);
-      border-radius: var(--radius);
-      padding: 14px 16px 12px;
-      position: relative;
-      overflow: hidden;
-    }
-    .job-banner::before {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 2px;
-      background: linear-gradient(90deg, var(--accent), var(--purple), var(--accent2));
-      opacity: 0.8;
-    }
-    .job-banner-label {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted2);
-      margin-bottom: 5px;
-    }
-    .job-banner-main {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .job-banner-icon {
-      font-size: 22px;
-      flex-shrink: 0;
-      line-height: 1;
-    }
-    .job-banner-number {
-      font-family: var(--mono);
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: #555;
-      line-height: 1;
-      flex: 1;
-    }
-    [data-theme="dark"] .job-banner-number {
-      color: var(--text);
-    }
-    .job-banner-number.no-job {
-      font-size: 14px;
-      color: var(--muted);
-      font-family: var(--font);
-      font-weight: 500;
-      letter-spacing: 0;
-    }
-    .job-banner-badge {
-      font-size: 10px;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 20px;
-      background: rgba(54,217,102,0.15);
-      color: var(--green);
-      border: 1px solid rgba(54,217,102,0.3);
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-      display: none;
-    }
-    .job-banner-badge.visible { display: block; }
-    .job-banner-hint {
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 6px;
-      display: none;
-    }
-    .job-banner-hint.visible { display: block; }
-    .job-banner-scan-btn {
-      margin-top: 10px;
-      width: 100%;
-      padding: 10px;
-      border-radius: 9px;
-      font-size: 13px;
-      font-weight: 700;
-      background: rgba(61,127,255,0.15);
-      border: 1.5px solid rgba(61,127,255,0.3);
-      color: var(--accent2);
-      transition: all 0.15s;
-      display: none;
-    }
-    .job-banner-scan-btn.visible { display: block; }
-    .job-banner-scan-btn:active { transform: scale(0.98); }
-  </style>
+.oak-next-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(245, 200, 66, 0.12);
+  border: 1px solid rgba(245, 200, 66, 0.3);
+  color: #f5c842;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+  font-family: inherit;
+  z-index: 2;
+}
+
+.oak-next-btn:hover {
+  background: rgba(245, 200, 66, 0.22);
+  transform: scale(1.08);
+}
+
+.oak-card.fading {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+@media (max-width: 480px) {
+  .oak-container { margin-top: 28px; }
+  .oak-card { padding: 22px 18px 18px; border-radius: 20px; }
+  .oak-fact-text { font-size: 0.95rem; padding-right: 30px; }
+}
+
+</style>
+<script>
+// ── TCG Proxy Helper ─────────────────────────────────────────────
+// Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
+const _TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
+function tcgFetch(url) {
+  const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
+  if (!m) return fetch(url);
+  const segment = m[1]; const qs = m[2] || '';
+  const idM = segment.match(/^cards\/(.+)$/);
+  if (idM) return fetch(_TCG_PROXY+'?id='+encodeURIComponent(idM[1]));
+  const p = new URLSearchParams(qs.replace(/^\?/,'')); p.set('path', segment);
+  return fetch(_TCG_PROXY+'?'+p.toString());
+}
+// ─────────────────────────────────────────────────────────────────
+window.TOPBAR_ACTIVE = 'index';</script>
+<script src="i18n.js"></script>
+  <script src="topbar.js"></script>
+  <!-- ═══ PWA init + mobile CSS ═══ -->
+  <link rel="stylesheet" href="mobile-responsive.css">
+  <script src="pwa-init.js"></script>
+  <!-- ═══ /PWA init ═══ -->
+  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
 <body>
 
-<!-- ═══ LOGIN SCREEN ═══ -->
-<div id="loginScreen">
-  <div class="login-logo">
-    <div class="login-logo-icon"><img src="icon_192.png" alt="PhotoBridge" style="width:44px;height:44px;object-fit:contain;border-radius:10px"></div>
-    <div class="login-logo-name">Photo<span>Bridge</span></div>
-    <div class="login-logo-sub">Firemní foto přenos</div>
-  </div>
-  <div class="login-card">
-    <div class="login-field">
-      <label class="login-label">E-mail</label>
-      <input class="login-input" type="email" id="loginUser" placeholder="jmeno@firma.cz" autocomplete="email" autocapitalize="none" spellcheck="false">
-    </div>
-    <div class="login-field">
-      <label class="login-label">Heslo</label>
-      <div class="pw-wrap">
-        <input class="login-input" type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
-        <button class="eye-btn" type="button" onclick="toggleEye('loginPass',this)">👁️</button>
-      </div>
-    </div>
-    <!-- Pole pro registraci – skrytá dokud uživatel nepřepne -->
-    <div id="regFields" style="display:none">
-      <div class="login-field">
-        <label class="login-label">Heslo znovu</label>
-        <div class="pw-wrap">
-          <input class="login-input" type="password" id="loginPass2" placeholder="••••••••" autocomplete="new-password">
-          <button class="eye-btn" type="button" onclick="toggleEye('loginPass2',this)">👁️</button>
-        </div>
-      </div>
-      <!-- Typ účtu -->
-      <div class="login-field">
-        <label class="login-label">Typ účtu</label>
-        <div style="display:flex;gap:8px;margin-top:4px">
-          <button type="button" id="accTypeBusiness" onclick="selectAccountType('business')" style="
-            flex:1;padding:9px 6px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;
-            border:2px solid var(--accent);background:rgba(61,127,255,0.18);color:var(--accent2);cursor:pointer;transition:all 0.15s">
-            🏢 Firemní
-          </button>
-          <button type="button" id="accTypePersonal" onclick="selectAccountType('personal')" style="
-            flex:1;padding:9px 6px;border-radius:10px;font-family:var(--font);font-size:13px;font-weight:700;
-            border:2px solid var(--border2);background:transparent;color:var(--muted2);cursor:pointer;transition:all 0.15s">
-            🏠 Osobní
-          </button>
-        </div>
-      </div>
-    </div>
-    <div class="login-error" id="loginErr"></div>
-    <!-- Přepínač přihlášení / registrace – textové záložky -->
-    <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid rgba(255,255,255,0.1)">
-      <button id="loginTabBtn" onclick="setLoginMode('login')" style="
-        flex:1;padding:7px 4px;border:none;cursor:pointer;font-family:var(--font);
-        font-size:13px;font-weight:700;background:transparent;
-        color:#fff;border-bottom:2px solid var(--accent);margin-bottom:-1px;transition:all 0.2s">
-        Přihlásit se
+<!-- ═══════════ NAVBAR ═══════════ -->
+<header class="app-topbar">
+  <a href="/" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks" id="mainNav"></nav>
+  <div class="topbar-right">
+    <div class="chat-dropdown-wrap" id="chatDropWrap">
+      <button class="chat-icon-btn" id="chatIconBtn" onclick="toggleChatDrop()" title="Zprávy">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span class="chat-badge" id="chatBadge" style="display:none">0</span>
       </button>
-      <button id="regTabBtn" onclick="setLoginMode('register')" style="
-        flex:1;padding:7px 4px;border:none;cursor:pointer;font-family:var(--font);
-        font-size:13px;font-weight:700;background:transparent;
-        color:var(--muted2);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all 0.2s">
-        Registrovat se
-      </button>
+      <div class="chat-drop" id="chatDrop">
+        <div class="chat-drop-head">
+          <span class="chat-drop-title">Zprávy</span>
+          <a href="chat.html" class="chat-drop-all">Zobrazit vše →</a>
+        </div>
+        <div class="chat-drop-list" id="chatDropList">
+          <div class="chat-drop-empty">
+            <div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div>
+            <div>Žádné zprávy</div>
+          </div>
+        </div>
+      </div>
     </div>
-    <button class="login-btn" id="loginBtn" onclick="doLoginOrRegister()">
-      <span id="loginBtnTxt">Přihlásit se</span>
-      <span id="loginBtnLoad" style="display:none"><span class="spin">⏳</span> Přihlašuji…</span>
-    </button>
+    <a href="profile.html" class="user-chip" id="userChip" style="display:none" title="Můj profil">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span id="userName"></span>
+    </a>
+    <a href="login.html" id="loginLink" class="btn-nav-outline" style="display:none;font-size:13px">Přihlásit se</a>
+    <a href="register.html" id="registerLink" class="btn-nav-register" style="display:none;font-size:13px">✨ Registrace</a>
+    <button id="logoutBtn" onclick="doLogout()" class="btn-nav-outline" style="display:none;font-size:13px;background:transparent;color:rgba(240,236,228,0.65);border:1px solid rgba(255,255,255,0.18);font-family:inherit;-webkit-appearance:none;appearance:none;"><img src="energi/odhlasit_se.png" class="nav-icon"> Odhlásit</button>
   </div>
+</header>
 
-  <!-- PWA install – dostupné BEZ přihlášení -->
-  <div id="loginPwaSection" style="margin-top:16px;text-align:center;display:none">
-    <button onclick="triggerPwaInstall()" style="
-      background:rgba(61,127,255,0.12);border:1px solid rgba(61,127,255,0.3);
-      color:var(--accent2);border-radius:10px;padding:10px 22px;
-      font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer">
-      📲 Přidat na plochu
-    </button>
+<!-- ═══════════ HERO ═══════════ -->
+<section class="hero">
+  <div class="hero-bg">
+    <div class="orb orb1"></div>
+    <div class="orb orb2"></div>
+    <div class="orb orb3"></div>
+    <div class="grid-lines"></div>
   </div>
-  <div id="loginIosCard" style="margin-top:12px;max-width:360px;display:none;
-    background:rgba(61,127,255,0.07);border:1px solid rgba(61,127,255,0.2);
-    border-radius:12px;padding:12px 16px;font-size:12px;color:var(--muted2);line-height:1.7">
-    📲 <strong style="color:var(--text)">Přidat na plochu (iOS):</strong><br>
-    Klepni na <strong>⎋ Sdílet</strong> v Safari → <strong>Přidat na plochu</strong>
-  </div>
-</div>
+  <div class="hero-content">
+    <div class="hero-badge">🃏 Fanouškovský projekt · Zdarma</div>
+    <h1 class="hero-title">
+      Stanu se největším <em>mistrem</em><br>ve správě karet
+    </h1>
+    <p class="hero-sub">
+      PokéTrade není jen tržnice — je to tvůj digitální Pokédex, trezor na poklady a rodinný klan v jednom.
+      Skenuj, sdílej a hlídej hodnotu sbírky. <strong>Vždy zdarma, fanouškovsky, bez manipulace s penězi.</strong>
+    </p>
 
-<!-- ═══ MAIN APP ═══ -->
-<div id="app" style="display:none">
-
-  <!-- Header -->
-  <div class="hdr">
-    <div class="hdr-logo"><span class="logo-icon"><img src="icon_192.png" alt="" style="width:24px;height:24px;object-fit:contain;border-radius:5px;vertical-align:middle"></span>Photo<span class="logo-bridge">Bridge</span></div>
-    <div class="hdr-job" id="hdrJob">—</div>
-    <div id="hdrModeBadge" style="
-      font-size:10px;font-weight:700;font-family:var(--mono);
-      padding:3px 8px;border-radius:10px;flex-shrink:0;
-      background:rgba(61,127,255,0.15);border:1px solid rgba(61,127,255,0.35);color:var(--accent2);
-      display:none;
-    ">CLOUD</div>
-    <div id="hdrProfileArea" style="display:none;align-items:center;gap:6px">
-      <!-- Jediný chip – kliknutí přepne profil (jen pokud existuje druhý) -->
-      <button id="hdrActiveProfile" onclick="quickSwitchProfile()" title="Přepnout profil" style="
-        background:rgba(54,217,102,0.15); border:1px solid rgba(54,217,102,0.4);
-        color:#36d966; border-radius:20px; padding:3px 10px; font-size:12px;
-        font-weight:700; font-family:var(--mono); line-height:1.4;
-        display:flex; align-items:center; gap:5px;
-        cursor:default; transition:background 0.15s, border-color 0.15s;
-      ">
-        <span style="width:7px;height:7px;border-radius:50%;background:#36d966;display:inline-block;flex-shrink:0"></span>
-        <span id="hdrUser">—</span>
-        <span id="hdrSwitchArrow" style="display:none;opacity:0.7;font-size:10px">⇄</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- Content -->
-  <div class="content">
-
-    <!-- QR Screen -->
-    <div class="screen active" id="screenQR">
-      <div class="qr-status" id="qrStatus">
-        <div class="qr-status-icon">📱</div>
-        <div class="qr-status-title">Naskenuj QR nebo čárový kód</div>
-        <div class="qr-status-sub">Namiř kameru na QR kód z PC nebo čárový kód zakázky</div>
+    <!-- ═══ VIP LÁKADLO PRO NOVÉ — banner zobrazen jen pro nepřihlášené ═══ -->
+    <!-- Se serveru se nahraje first_100_status, JS rozhodne co se zobrazí.
+         Až dojde 100 míst, banner se přepne na "14 dní VIP zdarma + referral". -->
+    <div id="vipPromoBanner" class="vip-promo" style="display:none">
+      <div class="vip-promo-icon">⭐</div>
+      <div class="vip-promo-text">
+        <strong id="vipPromoTitle">Prvních 100 nových uživatelů má VIP měsíc zdarma!</strong>
+        <small id="vipPromoSub">
+          <span id="vipPromoRemaining">…</span> míst zbývá. VIP = AI sken karet, hromadný import,
+          hlídání cen, neomezené listingy v Tržnici.
+        </small>
       </div>
-
-      <div class="qr-job-card" id="qrJobCard">
-        <div class="qr-job-label">Aktivní zakázka</div>
-        <div class="qr-job-value" id="qrJobVal">—</div>
-        <div class="qr-job-sub" id="qrJobSub">Přejdi na kartu Upload</div>
-      </div>
-
-      <div class="qr-scan-area" id="qrScanArea">
-        <video id="qrVideo" playsinline autoplay muted></video>
-        <div class="qr-scan-overlay">
-          <div class="qr-frame"></div>
-          <div class="qr-scan-line"></div>
-        </div>
-      </div>
-
-      <div class="upload-panel">
-        <div class="section-label">Naskenovat QR / čárový kód</div>
-        <button class="btn-full btn-primary" id="btnStartScan" onclick="startQRScan()">📷 Spustit kameru</button>
-        <button class="btn-full" id="btnStopScan" onclick="stopQRScan()" style="display:none; background:rgba(240,90,90,0.1);border:1.5px solid rgba(240,90,90,0.3);color:var(--red);border-radius:10px;padding:13px;font-size:14px;font-weight:700;">✖ Zastavit kameru</button>
-      </div>
-
-      <div class="upload-panel" id="manualJobSection">
-        <div class="section-label" style="margin-bottom:8px">— nebo zadej číslo zakázky ručně —</div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <input class="pb-input" type="text" id="manualJobInput"
-            placeholder="0012345"
-            inputmode="numeric" pattern="[0-9]*" maxlength="7"
-            style="flex:1;letter-spacing:0.1em;font-family:var(--mono);font-size:18px;font-weight:700;text-align:center"
-            oninput="this.value=this.value.replace(/[^0-9]/g,'')"
-            onkeydown="if(event.key==='Enter') confirmManualJob()">
-          <button class="btn-full btn-primary" onclick="confirmManualJob()"
-            style="width:auto;padding:13px 20px;white-space:nowrap;flex-shrink:0">✓ Potvrdit</button>
-        </div>
-        <div id="manualJobErr" style="display:none;margin-top:8px;font-size:12px;color:var(--red);font-weight:600;text-align:center"></div>
-        <!-- Historie zakázek -->
-        <div id="jobHistoryWrap" style="display:none;margin-top:10px">
-          <div style="font-size:11px;color:var(--muted2);margin-bottom:6px;font-weight:600;letter-spacing:0.05em;text-transform:uppercase">Naposledy použité:</div>
-          <div id="jobHistoryChips" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-        </div>
-      </div>
-
+      <a href="register.html" class="vip-promo-cta">Získat VIP →</a>
     </div>
 
-    <!-- Upload Screen -->
-    <div class="screen" id="screenUpload">
-
-      <!-- Job Header Banner -->
-      <div class="job-banner" id="uploadJobBanner">
-        <div class="job-banner-label">📁 Nahrání do zakázky</div>
-        <div class="job-banner-main">
-          <div class="job-banner-icon" id="uploadBannerIcon">📋</div>
-          <div class="job-banner-number no-job" id="uploadBannerNumber">Žádná zakázka – naskenuj QR</div>
-          <div class="job-banner-badge" id="uploadBannerBadge">● AKTIVNÍ</div>
+    <!-- ═══ VIP STATUS PRO PŘIHLÁŠENÉ — referral CTA ═══ -->
+    <div id="vipStatusBanner" class="vip-status" style="display:none">
+      <div class="vip-status-icon">⭐</div>
+      <div class="vip-status-text">
+        <strong id="vipStatusTitle">Tvůj VIP končí za <span id="vipDaysLeft">–</span> dní.</strong>
+        <small id="vipStatusSub">Pozvi kámoše a získej <strong>+30 dní VIP zdarma</strong> za každého. Jen sdílej svůj odkaz:</small>
+        <div class="vip-referral-row">
+          <input id="vipReferralInput" type="text" readonly value="…" onclick="this.select()">
+          <button class="vip-copy-btn" type="button" onclick="copyReferralLink()">📋 Kopírovat</button>
         </div>
-        <div class="job-banner-hint" id="uploadBannerHint"></div>
-        <button class="job-banner-scan-btn" id="uploadBannerScanBtn" onclick="showTab('qr')">🔲 Naskenovat QR kód</button>
+        <small style="opacity:0.7">Tvůj kámoš musí potvrdit email a nahrát aspoň 5 karet. Aktuálně doporučili: <strong id="vipReferralsCount">0</strong></small>
       </div>
-
-      <div class="upload-panel" id="typesPanel">
-        <div class="section-label">Vyber typ dokumentu:</div>
-        <div class="types" id="types">
-          <label class="type-label sp-type">
-            <input type="radio" name="typ" value="SP">
-            <div class="type-text"><div class="code">SP_</div><div class="desc">Scan poškození</div></div>
-          </label>
-          <label class="type-label">
-            <input type="radio" name="typ" value="SD">
-            <div class="type-text"><div class="code">SD_</div><div class="desc">Scan dokumentace</div></div>
-          </label>
-          <label class="type-label">
-            <input type="radio" name="typ" value="SDX">
-            <div class="type-text"><div class="code">SD_X</div><div class="desc">Scan baterie</div></div>
-          </label>
-          <label class="type-label">
-            <input type="radio" name="typ" value="VT">
-            <div class="type-text"><div class="code">VT_</div><div class="desc">Výsledek testu</div></div>
-          </label>
-          <label class="type-label">
-            <input type="radio" name="typ" value="SN">
-            <div class="type-text"><div class="code">SN_</div><div class="desc">Scan S/N</div></div>
-          </label>
-          <!-- Otevřít v malování – zobrazí se jen pro SP_ -->
-          <label class="paint-row" id="paintOpt" style="display:none">
-            <input type="checkbox" id="openInPaint">
-            <span>🎨</span>
-            <span>Otevřít v malování</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="upload-panel">
-        <div class="btn-row">
-          <button class="btn-pb btn-photo" id="btnPhoto" onclick="triggerPhoto()">
-            <span class="btn-icon">📷</span><span>Foto</span>
-          </button>
-          <button class="btn-pb btn-video" id="btnVideo" onclick="triggerVideo()">
-            <span class="btn-icon">🎥</span><span>Video</span>
-          </button>
-          <button class="btn-pb btn-pick" id="btnPick" onclick="triggerPick()">
-            <span class="btn-icon">📤</span><span>Nahrát<br><small style="font-size:10px;font-weight:400">(Foto/Video/PDF)</small></span>
-          </button>
-        </div>
-        <input type="file" id="inPhoto" accept="image/*" capture="environment" style="display:none" multiple>
-        <input type="file" id="inVideo" accept="video/*" capture="environment" style="display:none">
-        <input type="file" id="inPick"  accept="image/*,video/*,application/pdf" style="display:none" multiple>
-        <div class="progress-wrap" id="progressWrap">
-          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-          <div class="progress-text" id="progressText"></div>
-        </div>
-      </div>
-
     </div>
 
-    <!-- Settings Screen -->
-    <div class="screen" id="screenSettings">
+    <div class="hero-btns">
+      <a href="register.html" class="btn-primary">✨ Volím si PokéTrade!</a>
+      <a href="marketplace.html" class="btn-ghost">Prozkoumat trh →</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat"><span id="statCards">–</span><small>aktivních nabídek</small></div>
+      <div class="stat"><span id="statUsers">–</span><small>sběratelů</small></div>
+      <div class="stat"><span id="statTrades">–</span><small>proběhlých výměn</small></div>
+    </div>
 
-      <div class="pb-card">
-        <div class="pb-card-title">👤 Přihlášen jako</div>
-        <div style="font-family:var(--mono);font-size:16px;font-weight:700;color:var(--accent2)" id="settingsUser">—</div>
-        <div style="font-size:12px;color:var(--muted2);margin-top:4px" id="settingsEmail">—</div>
+    <!-- ═══ AI PROFESOR OAK – rotuje fakta o Pokémonech a tipy o webu ═══ -->
+    <div class="oak-container">
+      <div class="oak-card" id="oakBox">
+        <div class="oak-badge" id="oakBadge">🎓 Profesor Oak</div>
+        <div class="oak-fact-text" id="oakFactText">
+          🌟 <strong>Věděli jste?</strong> Připravuji první radu...
+        </div>
+        <button class="oak-next-btn" id="oakNextBtn" type="button" aria-label="Další zajímavost">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
       </div>
+    </div>
 
-      <div class="settings-section">
-        <div class="settings-row" style="flex-wrap:nowrap">
-          <div class="settings-icon">🎨</div>
-          <div class="settings-info">
-            <div class="settings-title">Barevný režim</div>
-            <div class="settings-sub" id="themeModeSub">Automaticky podle času</div>
-          </div>
-          <div class="theme-mode-group">
-            <button class="theme-mode-btn" id="themeBtnLight"  onclick="setThemeMode('light')">🌞</button>
-            <button class="theme-mode-btn" id="themeBtnAuto"   onclick="setThemeMode('auto')">⏰</button>
-            <button class="theme-mode-btn" id="themeBtnDark"   onclick="setThemeMode('dark')">🌙</button>
-          </div>
-        </div>
-        <div class="theme-time-row" id="themeTimeRow" style="display:none">
-          <label>Světlý od</label>
-          <input type="time" class="theme-time-input" id="themeLightFrom" value="07:00" onchange="saveThemeTime()">
-          <label>do</label>
-          <input type="time" class="theme-time-input" id="themeLightTo"   value="20:00" onchange="saveThemeTime()">
-        </div>
-      </div>
 
-      <div class="settings-section">
-        <div class="settings-row">
-          <div class="settings-icon">🔔</div>
-          <div class="settings-info">
-            <div class="settings-title">Haptická odezva</div>
-            <div class="settings-sub" id="hapticToggleSub">Vibrace jsou zapnuté</div>
-          </div>
-          <button id="hapticToggleBtn" onclick="toggleHaptic()" class="settings-btn" style="
-            transition: background 0.2s, border-color 0.2s, color 0.2s;
-          ">Vypnout</button>
+    <!-- ═══ ADMIN: Návštěvnost – viditelné jen pro papez.ondrej@gmail.com ═══ -->
+    <div id="adminVisitorPanel">
+      <div class="visitor-panel-label">📊 Návštěvnost webu</div>
+      <div class="visitor-stats">
+        <div class="visitor-stat">
+          <span id="visitorToday">–</span>
+          <small>dnes</small>
         </div>
-      </div>
-
-      <div class="settings-section">
-        <div class="settings-row">
-          <div class="settings-icon">🔑</div>
-          <div class="settings-info">
-            <div class="settings-title">Změnit heslo</div>
-            <div class="settings-sub">Nastavit nové přihlašovací heslo</div>
-          </div>
-          <button class="settings-btn" onclick="openModal('modalPass')">Změnit</button>
+        <div class="visitor-stat">
+          <span id="visitorWeek">–</span>
+          <small>tento týden</small>
         </div>
-        <div class="settings-row">
-          <div class="settings-icon">📋</div>
-          <div class="settings-info">
-            <div class="settings-title">Aktivní zakázka</div>
-            <div class="settings-sub" id="settingsJob">Žádná – naskenuj QR</div>
-          </div>
-          <button class="settings-btn" onclick="showTab('qr')">Scan</button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-icon">🗑️</div>
-          <div class="settings-info">
-            <div class="settings-title">Vymazat zakázku</div>
-            <div class="settings-sub">Reset aktivní zakázky</div>
-          </div>
-          <button class="settings-btn" onclick="clearJob()">Reset</button>
+        <div class="visitor-stat">
+          <span id="visitorTotal">–</span>
+          <small>celkem</small>
         </div>
       </div>
-
-      <div class="settings-section">
-        <div class="settings-row" id="settingsAddProfileRow">
-          <div class="settings-icon">➕</div>
-          <div class="settings-info">
-            <div class="settings-title">Přidat další profil</div>
-            <div class="settings-sub">Druhý účet pro rychlé přepínání</div>
-          </div>
-          <button class="settings-btn" onclick="openModal('modalAddProfile')">Přidat</button>
-        </div>
-        <div class="settings-row" id="settingsSwitchRow" style="display:none">
-          <div class="settings-icon">⇄</div>
-          <div class="settings-info">
-            <div class="settings-title">Přepnout profil</div>
-            <div class="settings-sub" id="settingsOtherName">—</div>
-          </div>
-          <button class="settings-btn" onclick="quickSwitchProfile()">Přepnout</button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-icon">🚪</div>
-          <div class="settings-info">
-            <div class="settings-title">Odhlásit se</div>
-            <div class="settings-sub" id="settingsLogoutSub">Odebrat aktuální profil ze zařízení</div>
-          </div>
-          <button class="settings-btn danger" onclick="doLogout()">Odhlásit</button>
-        </div>
-      </div>
-
-      <!-- Upload mód LOCAL / CLOUD -->
-      <div class="settings-section" id="uploadModeSection">
-        <div class="settings-row" style="gap:10px">
-          <div class="settings-icon">📡</div>
-          <div class="settings-info">
-            <div class="settings-title">Režim uploadu</div>
-            <div class="settings-sub" id="uploadModeDesc">Cloud (Supabase)</div>
-          </div>
-          <!-- Mode pill button -->
-          <button id="uploadModeBtn" onclick="toggleUploadMode()" style="
-            font-size:12px;font-weight:700;font-family:var(--mono);
-            padding:6px 14px;border-radius:20px;flex-shrink:0;cursor:pointer;
-            border:1.5px solid rgba(61,127,255,0.5);
-            background:rgba(61,127,255,0.15);color:var(--accent2);
-            transition:background 0.2s,border-color 0.2s,color 0.2s;
-            letter-spacing:0.06em;
-          ">📡 CLOUD</button>
-        </div>
-        <!-- Pole pro IP adresu – zobrazí se jen v LOCAL módu -->
-        <div id="localUrlRow" style="display:none;padding:10px 14px 14px">
-          <div style="font-size:12px;color:var(--muted2);margin-bottom:6px">IP adresa PC serveru (automaticky z QR nebo ručně):</div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input class="pb-input" type="url" id="localUrlInput" placeholder="http://192.168.1.10:3000"
-              style="flex:1;font-size:13px;font-family:var(--mono)"
-              oninput="pbLocalUrl=this.value.replace(/\/$/,'');localStorage.setItem('pb_local_url',pbLocalUrl)">
-            <button class="settings-btn" onclick="testLocalConnection()">Test</button>
-          </div>
-          <div style="font-size:11px;color:var(--yellow);margin-top:6px;line-height:1.5">
-            ⚠️ V LOCAL módu QR z PC <strong>automaticky přepne</strong> mobil do LOCAL – nebo přepni ručně zde
-          </div>
-        </div>
-      </div>
-
-      <!-- PWA Install -->
-      <div class="settings-section" id="pwaInstallSection" style="display:none">
-        <div class="settings-row">
-          <div class="settings-icon">📲</div>
-          <div class="settings-info">
-            <div class="settings-title">Přidat na plochu</div>
-            <div class="settings-sub">Nainstalovat jako app (bez prohlížeče)</div>
-          </div>
-          <button class="settings-btn" id="pwaInstallBtn" onclick="triggerPwaInstall()">Přidat</button>
-        </div>
-      </div>
-      <!-- iOS PWA tip (shown only on iOS) -->
-      <div class="pb-card" id="iosInstallCard" style="display:none;margin-top:0">
-        <div style="font-size:12px;color:var(--muted2);line-height:1.7">
-          📲 <strong style="color:var(--text)">Přidat na plochu (iOS):</strong><br>
-          Klepni na <strong>⎋ Sdílet</strong> v Safari → <strong>Přidat na plochu</strong>
-        </div>
-      </div>
-
-      <div class="pb-card" style="margin-top:4px">
-        <div style="font-size:11px;color:var(--muted);line-height:1.7">
-          <div id="connectionStatusLine">📡 Supabase: <span style="color:var(--green);font-family:var(--mono);font-size:10px" id="sbStatus">—</span></div>
-          <div style="margin-top:4px" id="bucketLine">🗂️ Bucket: <span style="font-family:var(--mono);color:var(--muted2)">pb-uploads</span></div>
-          <div style="margin-top:4px">⏱️ Auto-smazání: <span style="font-family:var(--mono);color:var(--muted2)" id="retentionDisplay">7 dní</span></div>
-        </div>
-      </div>
-
-      <!-- Log nahraných souborů -->
-      <div class="settings-section">
-        <div class="settings-row" style="cursor:pointer" onclick="toggleUploadLog()">
-          <div class="settings-icon">🗂️</div>
-          <div class="settings-info">
-            <div class="settings-title">Log nahraných souborů</div>
-            <div class="settings-sub">Posledních 20 záznamů</div>
-          </div>
-          <span id="uploadLogToggleIcon" style="font-size:18px;color:var(--muted2)">›</span>
-        </div>
-        <div id="uploadLogPanel" style="display:none;padding:4px 0 4px">
-          <div id="uploadLogList"></div>
-          <button onclick="clearUploadLog()" style="
-            margin-top:10px;width:100%;padding:8px;border-radius:8px;
-            background:rgba(240,90,90,0.08);border:1px solid rgba(240,90,90,0.25);
-            color:var(--red);font-size:12px;font-weight:700;cursor:pointer;
-            font-family:var(--font);
-          ">🗑️ Vymazat log</button>
-        </div>
-      </div>
-
     </div>
   </div>
-
-  <!-- Tab bar -->
-  <div class="tabbar">
-    <button class="tab-btn active" id="tabQR"     onclick="showTab('qr')">
-      <span class="tab-icon">🔲</span><span>QR</span>
-    </button>
-    <button class="tab-btn" id="tabUpload" onclick="showTab('upload')">
-      <span class="tab-icon">📤</span><span>Upload</span>
-    </button>
-    <button class="tab-btn" id="tabSettings" onclick="showTab('settings')">
-      <span class="tab-icon">⚙️</span><span>Nastavení</span>
-    </button>
-  </div>
-</div>
-
-<!-- ═══ TOAST ═══ -->
-<div id="toast"></div>
-
-<!-- ═══ OFFLINE BANNER ═══ -->
-<div id="offlineBanner" style="
-  display:none; position:fixed; top:0; left:0; right:0; z-index:8999;
-  background:rgba(240,100,60,0.97); color:#fff;
-  padding:10px 16px; font-size:13px; font-weight:700;
-  display:none; align-items:center; justify-content:space-between; gap:10px;
-  border-bottom:2px solid rgba(255,255,255,0.18);
-  backdrop-filter:blur(8px);
-">
-  <span>📵 Offline – soubory se ukládají lokálně</span>
-  <span id="offlineQueueCount" style="
-    background:rgba(255,255,255,0.2); border-radius:20px;
-    padding:2px 10px; font-size:12px; font-family:var(--mono);
-  "></span>
-</div>
-
-<!-- ═══ MODAL: Změna hesla ═══ -->
-<div class="pb-modal" id="modalPass">
-  <div class="pb-modal-box">
-    <div class="pb-modal-title">🔑 Změnit heslo</div>
-    <div class="pb-modal-sub">Zadej nové heslo pro svůj účet PhotoBridge.</div>
-    <div class="field-gap">
-      <div class="pw-wrap">
-        <input class="pb-input" type="password" id="newPass1" placeholder="Nové heslo (min. 6 znaků)">
-        <button class="eye-btn" type="button" onclick="toggleEye('newPass1',this)">👁️</button>
-      </div>
-      <div class="pw-wrap">
-        <input class="pb-input" type="password" id="newPass2" placeholder="Zopakovat heslo">
-        <button class="eye-btn" type="button" onclick="toggleEye('newPass2',this)">👁️</button>
-      </div>
+  <!-- ═══ ANIMATED POKEMON CARDS ═══ -->
+  <div class="pkshow-stage" id="pkShowStage">
+    <!-- Pikachu VMAX – zlatá aura -->
+    <div class="pkshow-card pkcard-pikachu" id="pkPikachu">
+      <div class="pkshow-aura aura-gold"></div>
+      <img src="https://images.pokemontcg.io/swsh4/44_hires.png" alt="Pikachu VMAX">
     </div>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeModal('modalPass')">Zrušit</button>
-      <button class="btn-full btn-primary" style="flex:1" id="savePassBtn" onclick="doChangePassword()">Uložit</button>
+    <!-- Mewtwo V – fialová aura -->
+    <div class="pkshow-card pkcard-mewtwo" id="pkMewtwo">
+      <div class="pkshow-aura aura-purple"></div>
+      <img src="https://images.pokemontcg.io/swsh6/79_hires.png" alt="Mewtwo V">
+    </div>
+    <!-- Charizard VMAX – červená aura -->
+    <div class="pkshow-card pkcard-charizard" id="pkCharizard">
+      <div class="pkshow-aura aura-red"></div>
+      <img src="https://images.pokemontcg.io/swsh3/20_hires.png" alt="Charizard VMAX">
     </div>
   </div>
-</div>
+</section>
 
-
-<!-- ═══ MODAL: Nový profil (login) ═══ -->
-<div class="pb-modal" id="modalAddProfile">
-  <div class="pb-modal-box">
-    <div class="pb-modal-title">➕ Nový profil</div>
-    <!-- Přepínač přihlášení / registrace -->
-    <div style="display:flex;gap:6px;margin:8px 0 12px">
-      <button id="addProfLoginTab" onclick="setAddProfMode('login')" style="
-        flex:1;padding:7px;border-radius:8px;border:none;cursor:pointer;
-        font-family:var(--font);font-size:12px;font-weight:700;
-        background:var(--accent);color:#fff;transition:all 0.2s">Přihlásit</button>
-      <button id="addProfRegTab" onclick="setAddProfMode('register')" style="
-        flex:1;padding:7px;border-radius:8px;border:1px solid var(--border2);cursor:pointer;
-        font-family:var(--font);font-size:12px;font-weight:700;
-        background:transparent;color:var(--muted2);transition:all 0.2s">Registrovat</button>
-    </div>
-    <div id="addProfSub" class="pb-modal-sub">Přihlas se pod jiným účtem — přidá se jako druhý profil.</div>
-    <div class="field-gap">
-      <input class="pb-input" type="email" id="addProfUser" placeholder="jmeno@firma.cz" autocomplete="off" autocapitalize="none" spellcheck="false">
-      <div class="pw-wrap">
-        <input class="pb-input" type="password" id="addProfPass" placeholder="Heslo" autocomplete="off">
-        <button class="eye-btn" type="button" onclick="toggleEye('addProfPass',this)">👁️</button>
+<!-- ═══════════ HOW IT WORKS ═══════════ -->
+<section class="section how">
+  <div class="container">
+    <h2 class="section-title">Jak to funguje?</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-icon">👤</div>
+        <h3>Vytvoř účet</h3>
+        <p>Zaregistruj se zde na webu nebo přímo v aplikaci. Jeden účet – všude stejný.</p>
       </div>
-      <div id="addProfPass2Wrap" style="display:none">
-        <div class="pw-wrap" style="margin-top:8px">
-          <input class="pb-input" type="password" id="addProfPass2" placeholder="Heslo znovu" autocomplete="off">
-          <button class="eye-btn" type="button" onclick="toggleEye('addProfPass2',this)">👁️</button>
-        </div>
-        <!-- Typ účtu - zobrazí se jen při registraci -->
-        <div id="addProfAccTypeWrap" style="display:flex;gap:8px;margin-top:10px">
-          <button type="button" id="addProfAccBusiness" onclick="selectAddProfAccType('business')" style="
-            flex:1;padding:8px 4px;border-radius:9px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-            border:2px solid var(--accent);background:rgba(61,127,255,0.15);color:var(--accent2)">
-            🏢 Firemní
-          </button>
-          <button type="button" id="addProfAccPersonal" onclick="selectAddProfAccType('personal')" style="
-            flex:1;padding:8px 4px;border-radius:9px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;
-            border:2px solid var(--border2);background:transparent;color:var(--muted2)">
-            🏠 Osobní
-          </button>
-        </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-icon">📤</div>
+        <h3>Nahraj kartičky</h3>
+        <p>V aplikaci vyber kartičky k výměně a exportuj je jako <code>.pkte</code> soubor. Pak ho sem nahraj.</p>
       </div>
-      <div class="login-error" id="addProfErr" style="margin-top:0"></div>
-    </div>
-    <div class="modal-btns">
-      <button class="btn-cancel" onclick="closeModal('modalAddProfile')">Zrušit</button>
-      <button class="btn-full btn-primary" style="flex:1" id="addProfBtn" onclick="doAddProfile()">Přidat</button>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-icon">🤝</div>
+        <h3>Domluv výměnu</h3>
+        <p>Ostatní sběratelé uvidí tvoji nabídku, pošlou protinabídku a domluvíte se na ceně nebo výměně.</p>
+      </div>
+      <div class="step-arrow">→</div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-icon">📥</div>
+        <h3>Import zpět</h3>
+        <p>Po dohodě si stáhneš karty jako <code>.pktr</code> a importuješ je do aplikace jedním kliknutím.</p>
+      </div>
     </div>
   </div>
-</div>
+</section>
 
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<!-- ═══════════ FEATURES ═══════════ -->
+<section class="section features">
+  <div class="container">
+    <div class="features-grid">
+      <div class="feature-card accent-yellow">
+        <div class="fc-icon">🖼️</div>
+        <h3>Reálné fotky</h3>
+        <p>Každá karta má oficální foto z API i tvoje vlastní fotky – ostatní vidí přesně co nabízíš.</p>
+      </div>
+      <div class="feature-card accent-blue">
+        <div class="fc-icon">💰</div>
+        <h3>Cenové nabídky</h3>
+        <p>Nastav cenu v Kč nebo EUR. Kupující může poslat protinabídku a smlouvat přímo v chatu.</p>
+      </div>
+      <div class="feature-card accent-purple">
+        <div class="fc-icon">🔄</div>
+        <h3>Výměna za výměnu</h3>
+        <p>Nechceš peníze? Navrhni výměnu kartičky za kartičku z jiného alba.</p>
+      </div>
+      <div class="feature-card accent-green">
+        <div class="fc-icon">📊</div>
+        <h3>Porovnání alb</h3>
+        <p>Nahrej dvě alba a okamžitě uvidíš průniky – co máte oba, co ti chybí, co máš navíc.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ CTA ═══════════ -->
+<section class="section cta-section">
+  <div class="container">
+    <div class="cta-box">
+      <h2>Připraven sdílet svoji kolekci?</h2>
+      <p>Registrace je zdarma a zabere 30 sekund.</p>
+      <a href="register.html" class="btn-primary btn-large">Vytvořit účet zdarma</a>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <p>© 2026 PokéTrade · Neoficiální komunitní projekt · Pokémon © Nintendo/Game Freak</p>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+<script src="vip-referral.js"></script>
 <script>
-// ═══════════════════════════════════════════════════════
-// KONFIGURACE — vyplňte vaše Supabase údaje
-// ═══════════════════════════════════════════════════════
-const SB_URL    = 'https://fplegasiabuqfxwdggct.supabase.co';
-const SB_ANON   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZwbGVnYXNpYWJ1cWZ4d2RnZ2N0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcxOTY3MzIsImV4cCI6MjA5Mjc3MjczMn0.BHTkCK3vzJKJYU_F8bnYS5scDRCnfGWbfSaSKUH65yw';
-const SB_BUCKET = 'pb-uploads';
-const SB_DOMAIN = '';  // email zadán přímo uživatelem
-const TYPE_KEY  = 'pb_doc_type';
-// ═══════════════════════════════════════════════════════
 
-
-
-// ══════════════════════════════════════════════════════════
-// TÉMA (světlý / tmavý / auto podle času)
-// ══════════════════════════════════════════════════════════
-const THEME_KEY = 'pb_theme_pref';
-
-function loadThemePref() {
-  try { return JSON.parse(localStorage.getItem(THEME_KEY)) || {}; } catch(_) { return {}; }
-}
-function saveThemePref(obj) {
-  localStorage.setItem(THEME_KEY, JSON.stringify(obj));
-}
-
-function applyTheme() {
-  const pref = loadThemePref();
-  const mode = pref.mode || 'auto';
-  let theme;
-  if (mode === 'light') {
-    theme = 'light';
-  } else if (mode === 'dark') {
-    theme = 'dark';
-  } else {
-    // auto: světlý mezi lightFrom a lightTo, zbytek tmavý
-    const from  = pref.lightFrom || '07:00';
-    const to    = pref.lightTo   || '20:00';
-    const now   = new Date();
-    const cur   = now.getHours() * 60 + now.getMinutes();
-    const [fh, fm] = from.split(':').map(Number);
-    const [th, tm] = to.split(':').map(Number);
-    const start = fh * 60 + fm;
-    const end   = th * 60 + tm;
-    theme = (cur >= start && cur < end) ? 'light' : 'dark';
-  }
-  document.documentElement.dataset.theme = theme;
-}
-applyTheme();
-// Přehodnocuj automaticky každou minutu (pro auto režim)
-setInterval(applyTheme, 60_000);
-
-function applyTimeWallpaper() { applyTheme(); } // zpětná kompatibilita
-
-// Inicializuje UI v nastavení podle uložené preference
-function initThemeUI() {
-  const pref = loadThemePref();
-  const mode = pref.mode || 'auto';
-  document.getElementById('themeLightFrom').value = pref.lightFrom || '07:00';
-  document.getElementById('themeLightTo').value   = pref.lightTo   || '20:00';
-  setThemeModeUI(mode);
-}
-
-function setThemeModeUI(mode) {
-  ['light','auto','dark'].forEach(m => {
-    document.getElementById('themeBtn' + m.charAt(0).toUpperCase() + m.slice(1))
-      ?.classList.toggle('active', m === mode);
-  });
-  document.getElementById('themeTimeRow').style.display = mode === 'auto' ? '' : 'none';
-  const labels = { light:'Vždy světlý režim', auto:'Automaticky podle času', dark:'Vždy tmavý režim' };
-  document.getElementById('themeModeSub').textContent = labels[mode];
-}
-
-function setThemeMode(mode) {
-  const pref = loadThemePref();
-  pref.mode  = mode;
-  saveThemePref(pref);
-  setThemeModeUI(mode);
-  applyTheme();
-}
-
-function saveThemeTime() {
-  const pref = loadThemePref();
-  pref.lightFrom = document.getElementById('themeLightFrom').value;
-  pref.lightTo   = document.getElementById('themeLightTo').value;
-  saveThemePref(pref);
-  applyTheme();
-}
-
-// ══════════════════════════════════════════════════════════
-// PROFILY — max 2 účty, okamžité přepínání
-// pb_profiles = [{id, username, email, token, refresh, user, job, jobToken}]
-// ══════════════════════════════════════════════════════════
-const MAX_PROFILES = 2;
-let pbProfiles  = [];
-let pbActiveId  = null;
-
-function loadProfiles() {
-  try {
-    pbProfiles = JSON.parse(localStorage.getItem('pb_profiles') || '[]');
-    pbActiveId = localStorage.getItem('pb_active_id') || null;
-  } catch(_) { pbProfiles = []; pbActiveId = null; }
-}
-
-function saveProfiles() {
-  localStorage.setItem('pb_profiles', JSON.stringify(pbProfiles));
-  localStorage.setItem('pb_active_id', pbActiveId || '');
-}
-
-function genId() { return Math.random().toString(36).slice(2,10); }
-
-// Uloží aktuální runtime stav do aktivního profilu
-function syncCurrentToProfile() {
-  const prof = pbProfiles.find(p => p.id === pbActiveId);
-  if (!prof) return;
-  Object.assign(prof, { token: pbToken, refresh: pbRefresh, user: pbUser, job: pbJob, jobToken: pbJobToken });
-  saveProfiles();
-}
-
-// Přidá nebo aktualizuje profil po přihlášení; vrátí false pokud je limit
-function upsertProfile(token, refresh, user) {
-  const username = user?.user_metadata?.username || user?.email?.split('@')[0] || '?';
-  const email    = user?.email || '';
-  let existing = pbProfiles.find(p => p.email === email);
-  if (existing) {
-    Object.assign(existing, { token, refresh, user });
-    pbActiveId = existing.id;
-  } else {
-    if (pbProfiles.length >= MAX_PROFILES) return false;   // limit 2
-    const id = genId();
-    pbProfiles.push({ id, username, email, token, refresh, user, job: null, jobToken: null });
-    pbActiveId = id;
-  }
-  saveProfiles();
-  return true;
-}
-
-// Okamžité přepnutí na druhý profil (volá se z headeru i nastavení)
-function quickSwitchProfile() {
-  const other = pbProfiles.find(p => p.id !== pbActiveId);
-  if (!other) return;
-  syncCurrentToProfile();
-  pbActiveId = other.id;
-  pbToken    = other.token;
-  pbRefresh  = other.refresh;
-  pbUser     = other.user;
-  pbJob      = other.job || null;
-  pbJobToken = other.jobToken || null;
-  localStorage.setItem('pb_active_id', pbActiveId);
-  showApp();
-  toast('⇄ Přepnuto: ' + other.username, 'ok');
-}
-
-// Aktualizuje header + settings po změně profilu
-function getAccountLabel(user) {
-  const type = user?.user_metadata?.account_type;
-  return type === 'personal' ? '🏠' : '🏢';
-}
-function getDisplayName(prof, user) {
-  // Zobraz jen část před @ (username bez domény)
-  const raw = prof?.username || user?.user_metadata?.username || user?.email?.split('@')[0] || '—';
-  return raw.split('@')[0];
-}
-
-function updateProfileUI() {
-  const prof  = pbProfiles.find(p => p.id === pbActiveId);
-  const other = pbProfiles.find(p => p.id !== pbActiveId);
-
-  const displayName = getDisplayName(prof, pbUser);
-  const label = getAccountLabel(pbUser);
-
-  // Header
-  const area = document.getElementById('hdrProfileArea');
-  if (area) area.style.display = (pbToken && pbUser) ? 'flex' : 'none';
-  document.getElementById('hdrUser').textContent = label + ' ' + displayName;
-  // Chip – klikací jen když existuje druhý profil
-  const chip  = document.getElementById('hdrActiveProfile');
-  const arrow = document.getElementById('hdrSwitchArrow');
-  if (chip) {
-    if (other) {
-      chip.style.cursor = 'pointer';
-      chip.title = 'Přepnout na ' + getAccountLabel(other?.user) + ' ' + getDisplayName(other, other?.user);
-    } else {
-      chip.style.cursor = 'default';
-      chip.title = '';
-    }
-  }
-  if (arrow) arrow.style.display = other ? '' : 'none';
-
-  // Settings
-  const hasSlot   = pbProfiles.length < MAX_PROFILES;
-  const addRow    = document.getElementById('settingsAddProfileRow');
-  const swRow     = document.getElementById('settingsSwitchRow');
-  const otherName = document.getElementById('settingsOtherName');
-  const logoutSub = document.getElementById('settingsLogoutSub');
-  if (addRow)    addRow.style.display    = hasSlot ? '' : 'none';
-  if (swRow)     swRow.style.display     = other   ? '' : 'none';
-  if (otherName) otherName.textContent   = other ? '→ ' + getAccountLabel(other?.user) + ' ' + getDisplayName(other, other?.user) : '';
-  if (logoutSub) logoutSub.textContent   = pbProfiles.length > 1
-    ? 'Odhlásí ' + displayName + ', přepne na ' + (other ? getDisplayName(other, other?.user) : '')
-    : 'Odebrat přihlášení ze zařízení';
-}
-
-// Přihlásí jako druhý profil z modalu modalAddProfile
-async function doAddProfile() {
-  const user  = document.getElementById('addProfUser').value.trim();
-  const pass  = document.getElementById('addProfPass').value;
-  const errEl = document.getElementById('addProfErr');
-  errEl.style.display = 'none';
-  if (!user || !pass) { errEl.textContent = '⚠️ Zadej e-mail a heslo'; errEl.style.display = 'block'; return; }
-  if (pbProfiles.length >= MAX_PROFILES) {
-    errEl.textContent = '⚠️ Maximálně ' + MAX_PROFILES + ' profily jsou podporovány';
-    errEl.style.display = 'block';
-    return;
-  }
-
-  const btn = document.getElementById('addProfBtn');
-
-  // ── Registrace nového účtu ──
-  if (_addProfMode === 'register') {
-    const pass2 = document.getElementById('addProfPass2').value;
-    if (pass.length < 6) { errEl.textContent = '⚠️ Heslo musí mít alespoň 6 znaků'; errEl.style.display = 'block'; return; }
-    if (pass !== pass2)  { errEl.textContent = '⚠️ Hesla se neshodují'; errEl.style.display = 'block'; return; }
-    btn.disabled = true; btn.textContent = '⏳ Registruji…';
-    try {
-      const email = user + SB_DOMAIN;
-      const res = await fetch(`${SB_URL}/auth/v1/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-        body: JSON.stringify({ email, password: pass, data: { username: user.split('@')[0], account_type: _addProfAccType || 'business' } })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.msg || data.message || data.error_description || 'Registrace selhala');
-      if (!data.access_token) throw new Error('Registrace proběhla ale přihlášení selhalo – zkontroluj Email Confirmations v Supabase.');
-      syncCurrentToProfile();
-      const ok = upsertProfile(data.access_token, data.refresh_token, data.user);
-      if (!ok) throw new Error('Limit profilů byl dosažen');
-      pbToken = data.access_token; pbRefresh = data.refresh_token; pbUser = data.user;
-      pbJob = null; pbJobToken = null;
-      document.getElementById('addProfUser').value = '';
-      document.getElementById('addProfPass').value = '';
-      document.getElementById('addProfPass2').value = '';
-      closeModal('modalAddProfile');
-      setAddProfMode('login');
-      showApp();
-      const newProf = pbProfiles.find(p => p.id === pbActiveId);
-      toast('✅ Nový účet: ' + (newProf?.username || user), 'ok');
-    } catch(err) {
-      errEl.textContent = '⚠️ ' + err.message; errEl.style.display = 'block';
-    }
-    btn.disabled = false; btn.textContent = 'Zaregistrovat';
-    return;
-  }
-
-  // ── Přihlášení existujícího účtu ──
-  btn.disabled = true; btn.textContent = '⏳ Přihlašuji…';
-  try {
-    syncCurrentToProfile();
-    const res  = await fetch(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-      body: JSON.stringify({ email: user + SB_DOMAIN, password: pass })
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error_description || data.error?.message || 'Špatné přihlašovací údaje');
-    if (!data.access_token) throw new Error('Nepodařilo se přihlásit');
-
-    const ok = upsertProfile(data.access_token, data.refresh_token, data.user);
-    if (!ok) throw new Error('Limit 2 profilů byl dosažen');
-
-    pbToken   = data.access_token;
-    pbRefresh = data.refresh_token;
-    pbUser    = data.user;
-    pbJob     = null; pbJobToken = null;
-
-    document.getElementById('addProfUser').value = '';
-    document.getElementById('addProfPass').value = '';
-    closeModal('modalAddProfile');
-    showApp();
-    const newProf = pbProfiles.find(p => p.id === pbActiveId);
-    toast('✅ Přidán profil: ' + (newProf?.username || user), 'ok');
-  } catch(err) {
-    errEl.textContent = '⚠️ ' + translateLoginError(err.message);
-    errEl.style.display = 'block';
-  }
-  btn.disabled = false; btn.textContent = 'Přidat';
-}
-
-
-// openModal
-function openModal(id) {
-  document.getElementById(id).classList.add('open');
-}
-
-// ── Session state ──
-let pbToken    = null;
-let pbRefresh  = null;
-let pbUser     = null;
-let pbJob      = null;
-let pbJobToken = null;
-let qrStream   = null;
-let qrInterval = null;
-
-// ── Upload mód – natvrdo CLOUD (Supabase) ──
-// LOCAL mód byl vyřazen. Aplikace komunikuje výhradně přes Supabase.
-let pbUploadMode = 'cloud';
-// Vymaž případnou starou volbu z localStorage, aby se nikdy nevrátila
-try { localStorage.removeItem('pb_upload_mode'); } catch(_) {}
-// URL/token lokálního serveru – ponechány jen pro zpětnou kompatibilitu se starým kódem
-let pbLocalUrl   = '';
-let pbLocalToken = null;
-
-// LOCAL QR auto-init odstraněn – ignorujeme window.PB_QR.mode === 'local'.
-// Pokud nějaký starý QR kód odkazuje na lokální server, mobil prostě otevře cloud mód.
-if (window.PB_QR && window.PB_QR.job) {
-  pbJob      = window.PB_QR.job;
-  pbJobToken = window.PB_QR.token || null;
-}
-
-// ── On load ──
-window.addEventListener('DOMContentLoaded', () => {
-  // ── Zpracování potvrzovacího linku z emailu (Supabase hash) ──
-  const hash = window.location.hash;
-  if (hash && hash.includes('type=signup') || hash.includes('type=recovery')) {
-    const params = new URLSearchParams(hash.replace('#', ''));
-    const type = params.get('type');
-    if (type === 'signup' || type === 'recovery') {
-      // Vymazat hash z URL
-      window.history.replaceState({}, '', window.location.pathname);
-      // Zobrazit uvítací overlay
-      const overlay = document.createElement('div');
-      overlay.id = 'confirmOverlay';
-      overlay.style.cssText = `
-        position:fixed;inset:0;z-index:9999;
-        background:var(--bg,#0b0d14);
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        gap:16px;padding:32px;text-align:center;
-      `;
-      overlay.innerHTML = `
-        <div style="font-size:56px">✅</div>
-        <div style="font-size:22px;font-weight:700;color:#e8eaf0">E-mail potvrzen!</div>
-        <div style="font-size:15px;color:#7a87a8;max-width:280px;line-height:1.6">
-          Váš účet byl úspěšně aktivován.<br>Nyní se můžete přihlásit v aplikaci PhotoBridge.
-        </div>
-        <button onclick="document.getElementById('confirmOverlay').remove()" style="
-          margin-top:8px;padding:12px 32px;border-radius:12px;border:none;cursor:pointer;
-          background:var(--accent,#3d7fff);color:#fff;font-size:15px;font-weight:700;
-          font-family:var(--font,'Space Grotesk',sans-serif)
-        ">Přejít na přihlášení</button>
-      `;
-      document.body.appendChild(overlay);
-    }
-  }
-  // Krátká prodleva – beforeinstallprompt přijde po load eventu
-  setTimeout(showPwaInstall, 800);
-  loadSession();
-  restoreTypeSelection();
-  updatePaintOption();
-  setTimeout(updateUploadModeUI, 100); // inicializuj LOCAL/CLOUD UI po renderování DOM
-  document.getElementById('types').addEventListener('change', () => {
-    const t = getType();
-    if (t) localStorage.setItem(TYPE_KEY, t);
-    updatePaintOption();
-  });
-  document.getElementById('inPhoto').addEventListener('change', e => handleFiles(e.target.files, () => e.target.value = ''));
-  document.getElementById('inVideo').addEventListener('change', e => handleFiles(e.target.files, () => e.target.value = ''));
-  document.getElementById('inPick' ).addEventListener('change', e => handleFiles(e.target.files, () => e.target.value = ''));
-  document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginPass').focus(); });
-  document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') { if (_loginMode === 'register') document.getElementById('loginPass2').focus(); else doLoginOrRegister(); } });
-  document.getElementById('loginPass2')?.addEventListener('keydown', e => { if (e.key === 'Enter') doLoginOrRegister(); });
-  // Aktualizuj tapetu každou minutu (pro přechod v 8:00 a 18:00)
-  setInterval(applyTimeWallpaper, 60_000);
-  document.getElementById('addProfUser').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('addProfPass').focus(); });
-  document.getElementById('addProfPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAddProfile(); });
-});
-
-// ── Read job from URL params (when opened via QR scan) ──
-function readURLParams() {
-  const params = new URLSearchParams(window.location.search);
-  const j = params.get('j') || params.get('job');
-  const t = params.get('t') || params.get('token');
-  if (j) {
-    setJob(j.toUpperCase(), t || null);
-    // Clean URL without reload
-    const clean = window.location.pathname;
-    window.history.replaceState({}, '', clean);
-  }
-}
-
-// ── Load session from localStorage ──
-function loadSession() {
-  loadProfiles();
-  try {
-    // Nový systém profilů
-    if (pbProfiles.length > 0 && pbActiveId) {
-      const prof = pbProfiles.find(p => p.id === pbActiveId) || pbProfiles[0];
-      pbActiveId = prof.id;
-      pbToken    = prof.token;
-      pbRefresh  = prof.refresh;
-      pbUser     = prof.user;
-      pbJob      = prof.job || null;
-      pbJobToken = prof.jobToken || null;
-    } else {
-      // Migrace ze starého systému (single session)
-      pbToken   = localStorage.getItem('pb_token') || null;
-      pbRefresh = localStorage.getItem('pb_refresh') || null;
-      pbUser    = JSON.parse(localStorage.getItem('pb_user') || 'null');
-      pbJob     = localStorage.getItem('pb_job') || null;
-      pbJobToken = localStorage.getItem('pb_job_token') || null;
-      // Pokud máme stará data, migruj je do nového systému
-      if (pbToken && pbUser) {
-        upsertProfile(pbToken, pbRefresh, pbUser);
-        const prof = pbProfiles.find(p => p.id === pbActiveId);
-        if (prof) { prof.job = pbJob; prof.jobToken = pbJobToken; }
-        saveProfiles();
-        // Vymaž stará klíče
-        ['pb_token','pb_refresh','pb_user','pb_job','pb_job_token'].forEach(k => localStorage.removeItem(k));
-      }
-    }
-  } catch(e) { pbUser = null; }
-
-  if (pbToken && pbUser) {
-    showApp();
-  } else if (pbUploadMode === 'local' && pbLocalToken) {
-    // LOCAL mód – přeskočíme přihlášení, stačí token ze serveru
-    showApp();
-  } else {
-    showLogin();
-  }
-}
-
-function showLogin() {
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('app').style.display = 'none';
-  const area = document.getElementById('hdrProfileArea');
-  if (area) area.style.display = 'none';
-  setTimeout(() => document.getElementById('loginUser').focus(), 300);
-}
-
-// ── Typ účtu – osobní vs. firemní ──
-function isPersonalAccount() {
-  return pbUser?.user_metadata?.account_type === 'personal';
-}
-
-// Přizpůsobí UI podle typu účtu
-function updateAccountUI() {
-  const isPersonal = isPersonalAccount();
-
-  // QR sekce – osobní ji nepotřebuje
-  const screenQr = document.getElementById('screenQR');
-  if (screenQr) screenQr.style.display = isPersonal ? 'none' : '';
-
-  // Tab QR – skrýt u osobního
-  const tabQr = document.getElementById('tabQR');
-  if (tabQr) tabQr.style.display = isPersonal ? 'none' : '';
-
-  // Job banner a sekce zadání zakázky
-  const jobBanner = document.getElementById('uploadJobBanner');
-  const manualJob = document.getElementById('manualJobSection');
-  if (jobBanner) jobBanner.style.display = isPersonal ? 'none' : '';
-  if (manualJob) manualJob.style.display = isPersonal ? 'none' : '';
-
-  // Výběr typu dokumentu – osobní ho nepotřebuje
-  const typesPanel = document.getElementById('typesPanel');
-  if (typesPanel) typesPanel.style.display = isPersonal ? 'none' : '';
-
-  // Sekce Scan v nastavení
-  const settingsScanRow = document.getElementById('settingsScanRow');
-  if (settingsScanRow) settingsScanRow.style.display = isPersonal ? 'none' : '';
-}
-
-function showApp() {
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
-  const username = pbUser?.user_metadata?.username || pbUser?.email?.split('@')[0] || '—';
-  document.getElementById('settingsUser').textContent = username;
-  document.getElementById('settingsEmail').textContent = pbUser?.email || '—';
-  updateProfileUI();
-  updateJobUI();
-  updateAccountUI();
-  updateUploadModeUI();
-  // Osobní účet: QR záložka je skrytá, přepni rovnou na Upload
-  if (isPersonalAccount()) showTab('upload');
-  checkSBStatus();
-  updateRetentionDisplay();
-  startTokenRefreshTimer();
-  readURLParams();
-  showPwaInstall();
-  initOfflineDetection();
-  renderJobHistory();
-
-  // ── KLÍČOVÉ: Hned po startu webapp obnov token, pokud máme uloženou session ──
-  // Bez tohoto by uživatel musel ručně refresh / re-login po dlouhé pauze:
-  // - Webapp ležela v cache prohlížeče několik hodin
-  // - Access token už dávno vypršel (TTL 1h)
-  // - První upload by skončil 401/403 a vyžadoval re-login
-  //
-  // Voláme to fire-and-forget – nezdržuje načtení UI. Pokud refresh selže
-  // (refresh_token expiroval), funkce sama zobrazí přihlášení.
-  if (pbRefresh) {
-    setTimeout(() => {
-      tryRefreshTokenOrLogout().catch(err => console.warn('startup refresh err', err));
-    }, 200);
-  }
-
-  const isPersonal = isPersonalAccount();
-  const hasURLJob = new URLSearchParams(window.location.search).get('j');
-  if (!hasURLJob && !isPersonal) {
-    setTimeout(() => startQRScan(), 400);
-  }
-}
-
-// ── Login ──
-// ── Login / Register mode toggle ──
-let _loginMode = 'login';  // 'login' nebo 'register'
-let _accountType = 'business'; // 'business' nebo 'personal'
-
-function selectAccountType(type) {
-  _accountType = type;
-  const biz = document.getElementById('accTypeBusiness');
-  const per = document.getElementById('accTypePersonal');
-  if (!biz || !per) return;
-  if (type === 'business') {
-    biz.style.border = '2px solid var(--accent)';
-    biz.style.background = 'rgba(61,127,255,0.18)';
-    biz.style.color = 'var(--accent2)';
-    per.style.border = '2px solid var(--border2)';
-    per.style.background = 'transparent';
-    per.style.color = 'var(--muted2)';
-  } else {
-    per.style.border = '2px solid var(--purple)';
-    per.style.background = 'rgba(155,114,255,0.18)';
-    per.style.color = 'var(--purple)';
-    biz.style.border = '2px solid var(--border2)';
-    biz.style.background = 'transparent';
-    biz.style.color = 'var(--muted2)';
-  }
-}
-
-function setLoginMode(mode) {
-  _loginMode = mode;
-  document.getElementById('loginErr').style.display = 'none';
-  const regFields = document.getElementById('regFields');
-  const loginTab  = document.getElementById('loginTabBtn');
-  const regTab    = document.getElementById('regTabBtn');
-  const btnTxt    = document.getElementById('loginBtnTxt');
-  if (mode === 'register') {
-    regFields.style.display = '';
-    loginTab.style.color = 'var(--muted2)';
-    loginTab.style.borderBottom = '2px solid transparent';
-    regTab.style.color = '#fff';
-    regTab.style.borderBottom = '2px solid var(--accent)';
-    btnTxt.textContent = 'Zaregistrovat se';
-  } else {
-    regFields.style.display = 'none';
-    loginTab.style.color = '#fff';
-    loginTab.style.borderBottom = '2px solid var(--accent)';
-    regTab.style.color = 'var(--muted2)';
-    regTab.style.borderBottom = '2px solid transparent';
-    btnTxt.textContent = 'Přihlásit se';
-  }
-}
-
-async function doLoginOrRegister() {
-  if (_loginMode === 'register') {
-    await doRegister();
-  } else {
-    await doLogin();
-  }
-}
-
-async function doRegister() {
-  const user  = document.getElementById('loginUser').value.trim();
-  const pass  = document.getElementById('loginPass').value;
-  const pass2 = document.getElementById('loginPass2').value;
-  document.getElementById('loginErr').style.display = 'none';
-
-  if (!user)  { showLoginErr('Zadej e-mailovou adresu'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user)) { showLoginErr('Zadej platný e-mail'); return; }
-  if (!pass)  { showLoginErr('Zadej heslo'); return; }
-  if (pass.length < 6) { showLoginErr('Heslo musí mít alespoň 6 znaků'); return; }
-  if (pass !== pass2) { showLoginErr('Hesla se neshodují'); return; }
-
-  setLoginLoading(true);
-  try {
-    const email = user + SB_DOMAIN;
-    const res = await fetch(`${SB_URL}/auth/v1/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-      body: JSON.stringify({ email, password: pass, data: { username: user.split('@')[0], account_type: _accountType || 'business' } })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      const msg = data.msg || data.message || data.error_description || 'Registrace selhala';
-      throw new Error(typeof msg === 'string' ? msg : 'Registrace selhala');
-    }
-    if (!data.access_token) throw new Error('Registrace proběhla, ale přihlášení selhalo. Zkontroluj Supabase nastavení (Email Confirmations musí být vypnuté).');
-
-    pbToken   = data.access_token;
-    pbRefresh = data.refresh_token || null;
-    pbUser    = data.user;
-    upsertProfile(pbToken, pbRefresh, pbUser);
-    const _prof = pbProfiles.find(p => p.id === pbActiveId);
-    if (_prof) { pbJob = _prof.job || null; pbJobToken = _prof.jobToken || null; }
-    showApp();
-    toast('✅ Účet vytvořen: ' + user, 'ok');
-  } catch(err) {
-    showLoginErr(err.message);
-  }
-  setLoginLoading(false);
-}
-
-async function doLogin() {
-  const user = document.getElementById('loginUser').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginErr');
-  errEl.style.display = 'none';
-
-  if (!user) { showLoginErr('Zadej e-mailovou adresu'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user)) { showLoginErr('Zadej platný e-mail'); return; }
-  if (!pass) { showLoginErr('Zadej heslo'); return; }
-
-  setLoginLoading(true);
-
-  try {
-    const email = user + SB_DOMAIN;
-    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-      body: JSON.stringify({ email, password: pass })
-    });
-    const data = await res.json();
-
-    if (!res.ok || data.error || data.error_description) {
-      const msg = data.error_description || data.error?.message || data.error || 'Špatné jméno nebo heslo';
-      throw new Error(typeof msg === 'string' ? msg : 'Přihlášení selhalo');
-    }
-    if (!data.access_token) throw new Error('Nepodařilo se přihlásit');
-
-    pbToken   = data.access_token;
-    pbRefresh = data.refresh_token || null;
-    pbUser    = data.user;
-
-    upsertProfile(pbToken, pbRefresh, pbUser);
-    const _prof = pbProfiles.find(p => p.id === pbActiveId);
-    if (_prof) { pbJob = _prof.job || null; pbJobToken = _prof.jobToken || null; }
-
-    showApp();
-  } catch(err) {
-    showLoginErr(translateLoginError(err.message));
-  }
-  setLoginLoading(false);
-}
-
-function showLoginErr(msg) {
-  const el = document.getElementById('loginErr');
-  el.textContent = '⚠️ ' + msg;
-  el.style.display = 'block';
-}
-function setLoginLoading(on) {
-  document.getElementById('loginBtnTxt').style.display  = on ? 'none' : '';
-  document.getElementById('loginBtnLoad').style.display = on ? '' : 'none';
-  document.getElementById('loginBtn').disabled = on;
-}
-function translateLoginError(msg) {
-  if (!msg) return 'Přihlášení selhalo';
-  if (msg.includes('Invalid login')) return 'Špatné jméno nebo heslo';
-  if (msg.includes('Email not confirmed')) return 'Účet není aktivní';
-  if (msg.includes('Too many')) return 'Příliš mnoho pokusů – zkus za chvíli';
-  return msg;
-}
-
-// ── Add profile mode toggle ──
-let _addProfMode = 'login';
-let _addProfAccType = 'business';
-
-function selectAddProfAccType(type) {
-  _addProfAccType = type;
-  const biz = document.getElementById('addProfAccBusiness');
-  const per = document.getElementById('addProfAccPersonal');
-  if (!biz || !per) return;
-  if (type === 'business') {
-    biz.style.border = '2px solid var(--accent)'; biz.style.background = 'rgba(61,127,255,0.15)'; biz.style.color = 'var(--accent2)';
-    per.style.border = '2px solid var(--border2)'; per.style.background = 'transparent'; per.style.color = 'var(--muted2)';
-  } else {
-    per.style.border = '2px solid var(--purple)'; per.style.background = 'rgba(155,114,255,0.15)'; per.style.color = 'var(--purple)';
-    biz.style.border = '2px solid var(--border2)'; biz.style.background = 'transparent'; biz.style.color = 'var(--muted2)';
-  }
-}
-
-function setAddProfMode(mode) {
-  _addProfMode = mode;
-  document.getElementById('addProfErr').style.display = 'none';
-  const wrap     = document.getElementById('addProfPass2Wrap');
-  const loginTab = document.getElementById('addProfLoginTab');
-  const regTab   = document.getElementById('addProfRegTab');
-  const sub      = document.getElementById('addProfSub');
-  const btn      = document.getElementById('addProfBtn');
-  if (mode === 'register') {
-    wrap.style.display = '';
-    loginTab.style.background = 'transparent';
-    loginTab.style.color = 'var(--muted2)';
-    loginTab.style.border = '1px solid var(--border2)';
-    regTab.style.background = 'var(--accent)';
-    regTab.style.color = '#fff';
-    regTab.style.border = 'none';
-    sub.textContent = 'Vytvoř nový účet – přidá se jako druhý profil.';
-    btn.textContent = 'Zaregistrovat';
-  } else {
-    wrap.style.display = 'none';
-    loginTab.style.background = 'var(--accent)';
-    loginTab.style.color = '#fff';
-    loginTab.style.border = 'none';
-    regTab.style.background = 'transparent';
-    regTab.style.color = 'var(--muted2)';
-    regTab.style.border = '1px solid var(--border2)';
-    sub.textContent = 'Přihlas se pod jiným účtem — přidá se jako druhý profil.';
-    btn.textContent = 'Přidat';
-  }
-}
-
-
-
-// ── Logout ──
 function doLogout() {
-  const prof = pbProfiles.find(p => p.id === pbActiveId);
-  const name = prof?.username || 'aktuální profil';
-  if (!confirm('Odhlásit ' + name + ' z tohoto zařízení?')) return;
-  pbProfiles = pbProfiles.filter(p => p.id !== pbActiveId);
-  saveProfiles();
-  // Pokud zbývá jiný profil, přepni na něj
-  if (pbProfiles.length > 0) {
-    const next = pbProfiles[0];
-    pbActiveId = next.id;
-    pbToken    = next.token;
-    pbRefresh  = next.refresh;
-    pbUser     = next.user;
-    pbJob      = next.job || null;
-    pbJobToken = next.jobToken || null;
-    localStorage.setItem('pb_active_id', pbActiveId);
-    stopQRScan();
-    showApp();
-    toast('✅ Přepnuto na: ' + next.username, 'ok');
-  } else {
-    pbActiveId = null;
-    pbToken = pbRefresh = pbUser = pbJob = pbJobToken = null;
-    ['pb_token','pb_refresh','pb_user','pb_job','pb_job_token','pb_active_id'].forEach(k => localStorage.removeItem(k));
-    stopTokenRefreshTimer();
-    stopQRScan();
-    showLogin();
-  }
+  ['sb_token','sb_user_id','sb_username','sb_refresh','sb_user','sb_refresh_token'].forEach(function(k){localStorage.removeItem(k)});
+  location.href = 'login.html';
 }
 
-// ── Tab navigation ──
-function showTab(tab) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-  if (tab === 'qr')       { document.getElementById('screenQR').classList.add('active');       document.getElementById('tabQR').classList.add('active'); }
-  if (tab === 'upload')   { document.getElementById('screenUpload').classList.add('active');   document.getElementById('tabUpload').classList.add('active'); }
-  if (tab === 'settings') { document.getElementById('screenSettings').classList.add('active'); document.getElementById('tabSettings').classList.add('active'); initThemeUI(); updateHapticUI(); }
-  if (tab !== 'qr') stopQRScan();
-}
+// ═══ VIP BANNER LOGIC ═══════════════════════════════════════════════
+// Rozhodne který banner (lákadlo pro nepřihlášené / status pro VIP) zobrazit
+// a naplní data. Spouští se po DOMContentLoaded + na auth změnu.
+async function refreshVipBanner() {
+  var promo  = document.getElementById('vipPromoBanner');
+  var status = document.getElementById('vipStatusBanner');
+  if (!promo && !status) return;
 
+  var user = (typeof getUser === 'function') ? getUser() : null;
 
-// ── Ruční zadání čísla zakázky ──
-function confirmManualJob() {
-  const inp = document.getElementById('manualJobInput');
-  const errEl = document.getElementById('manualJobErr');
-  const job = (inp.value || '').trim().replace(/[^0-9]/g, '');
-  errEl.style.display = 'none';
-
-  if (job.length !== 7) {
-    errEl.textContent = '⚠️ Zakázka musí mít přesně 7 číslic (např. 0012345)';
-    errEl.style.display = 'block';
-    inp.focus();
-    return;
-  }
-  if (!pbToken && !pbUser) {
-    errEl.textContent = '⚠️ Nejdřív se přihlas';
-    errEl.style.display = 'block';
-    return;
-  }
-  inp.value = '';
-  setJob(job, null);
-  haptic([80]);
-  toast('📁 Zakázka nastavena: ' + job, 'ok');
-}
-
-// ── QR + Barcode Scanner ──
-async function startQRScan() {
-  document.getElementById('qrScanArea').style.display = 'block';
-  document.getElementById('btnStartScan').style.display = 'none';
-  document.getElementById('btnStopScan').style.display = '';
-  document.getElementById('qrStatus').innerHTML = `
-    <div class="qr-status-icon">🔍</div>
-    <div class="qr-status-title">Hledám kód…</div>
-    <div class="qr-status-sub">Namiř kameru na QR kód nebo čárový kód zakázky</div>`;
-
-  try {
-    qrStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    const video = document.getElementById('qrVideo');
-    video.srcObject = qrStream;
-    await video.play();
-
-    // Pomocná funkce: ořízne video na oblast rámečku (60 % × 60 %, střed)
-    // Vrátí canvas s oříznutou oblastí – detekce probíhá jen tam
-    const canvas = document.createElement('canvas');
-    const ctx    = canvas.getContext('2d');
-    function cropToFrame() {
-      const vw = video.videoWidth;
-      const vh = video.videoHeight;
-      const cw = Math.round(vw * 0.6);
-      const ch = Math.round(vh * 0.6);
-      const cx = Math.round((vw - cw) / 2);
-      const cy = Math.round((vh - ch) / 2);
-      canvas.width  = cw;
-      canvas.height = ch;
-      ctx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
-      return { canvas, cx, cy, cw, ch };
-    }
-
-    // ── Priorita 1: BarcodeDetector API (nativní Android/Chrome – QR + čárové kódy) ──
-    if ('BarcodeDetector' in window) {
-      let formats;
-      try {
-        formats = await BarcodeDetector.getSupportedFormats();
-      } catch(_) {
-        formats = ['qr_code','ean_13','ean_8','code_128','code_39','upc_a','upc_e','itf','pdf417','data_matrix','codabar','aztec'];
-      }
-      const detector = new BarcodeDetector({ formats });
-      qrInterval = setInterval(async () => {
-        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-        try {
-          cropToFrame();
-          const bitmap = await createImageBitmap(canvas);
-          const codes  = await detector.detect(bitmap);
-          bitmap.close();
-          if (codes.length > 0) parseQRCode(codes[0].rawValue);
-        } catch(_) {}
-      }, 300);
-
-    // ── Priorita 2: jsQR fallback (QR kódy – pro iOS / starší prohlížeče) ──
-    } else {
-      qrInterval = setInterval(() => {
-        if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
-        cropToFrame();
-        const img  = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
-        if (code) parseQRCode(code.data);
-      }, 200);
-    }
-  } catch(err) {
-    toast('⚠️ Kamera nedostupná: ' + err.message, 'err');
-    stopQRScan();
-  }
-}
-
-function stopQRScan() {
-  if (qrInterval) { clearInterval(qrInterval); qrInterval = null; }
-  if (qrStream)   { qrStream.getTracks().forEach(t => t.stop()); qrStream = null; }
-  document.getElementById('qrScanArea').style.display = 'none';
-  document.getElementById('btnStartScan').style.display = '';
-  document.getElementById('btnStopScan').style.display  = 'none';
-}
-
-function parseQRCode(raw) {
-  stopQRScan();
-  let job = null, token = null, localUrl = null;
-
-  // Try JSON format: {"job":"12345","token":"abc"} nebo {"job":"12345","token":"abc","local_url":"http://192.168.1.10:3000"}
-  try {
-    const data = JSON.parse(raw);
-    job      = data.job   || data.j || null;
-    token    = data.token || data.t || null;
-    localUrl = data.local_url || data.lu || null;
-  } catch(_) {}
-
-  // Try URL format: http://host/upload?t=TOKEN&j=JOB
-  if (!job) {
+  if (!user) {
+    // ─ Nepřihlášený → zobraz lákadlo s počtem volných míst
+    if (status) status.style.display = 'none';
+    if (!window.VIP) return;  // vip-referral.js ještě nenačten
     try {
-      const url = new URL(raw);
-      job      = url.searchParams.get('j') || url.searchParams.get('job') || null;
-      token    = url.searchParams.get('t') || url.searchParams.get('token') || null;
-      localUrl = url.searchParams.get('lu') || url.searchParams.get('local_url') || null;
-    } catch(_) {}
-  }
-
-  // Fallback: use raw as job
-  if (!job) { job = raw.trim().toUpperCase(); }
-
-  // QR může obsahovat local_url, ale aplikace LOCAL mód nepodporuje – ignorujeme.
-  // Z QR si vezmeme jen číslo zakázky (a token, pokud tam je).
-
-  setJob(job, token);
-  haptic([80, 50, 80]);
-  toast('✅ Zakázka: ' + job, 'ok');
-  // Rovnou na Upload — žádné další klikání
-  showTab('upload');
-}
-
-function setManualJob() {
-  const val = document.getElementById('manualJobInput').value.trim().toUpperCase();
-  if (!val) { toast('⚠️ Zadej číslo zakázky', 'err'); return; }
-  setJob(val, null);
-  document.getElementById('manualJobInput').value = '';
-  toast('✅ Zakázka: ' + val, 'ok');
-}
-
-function setJob(job, token) {
-  pbJob      = job;
-  pbJobToken = token;
-  syncCurrentToProfile();
-  addJobHistory(job);
-  renderJobHistory();
-  updateJobUI();
-  showTab('upload');
-}
-
-function clearJob() {
-  pbJob = pbJobToken = null;
-  syncCurrentToProfile();
-  updateJobUI();
-  toast('🗑️ Zakázka vymazána');
-}
-
-function updateJobUI() {
-  const jobEl = document.getElementById('hdrJob');
-  const cardEl = document.getElementById('qrJobCard');
-  const settJobEl = document.getElementById('settingsJob');
-
-  // Upload banner elements
-  const bannerNum   = document.getElementById('uploadBannerNumber');
-  const bannerIcon  = document.getElementById('uploadBannerIcon');
-  const bannerBadge = document.getElementById('uploadBannerBadge');
-  const bannerHint  = document.getElementById('uploadBannerHint');
-  const bannerScan  = document.getElementById('uploadBannerScanBtn');
-  const banner      = document.getElementById('uploadJobBanner');
-
-  if (pbJob) {
-    // Top header badge
-    jobEl.style.display = '';
-    jobEl.textContent = pbJob;
-
-    // QR screen card
-    cardEl.style.display = '';
-    document.getElementById('qrJobVal').textContent = pbJob;
-    document.getElementById('qrJobSub').textContent = 'Zakázka aktivní – přejdi na Upload';
-    settJobEl.textContent = pbJob;
-    document.getElementById('qrStatus').innerHTML = `
-      <div class="qr-status-icon">✅</div>
-      <div class="qr-status-title">Zakázka aktivní</div>
-      <div class="qr-status-sub">Naskenuj nový QR nebo čárový kód pro změnu zakázky</div>`;
-
-    // Upload banner – active state
-    bannerNum.textContent = pbJob;
-    bannerNum.classList.remove('no-job');
-    bannerIcon.textContent = '📂';
-    bannerBadge.classList.add('visible');
-    bannerHint.textContent = '';
-    bannerHint.classList.add('visible');
-    bannerScan.classList.remove('visible');
-    banner.style.borderColor = 'rgba(54,217,102,0.4)';
-    banner.style.background = 'linear-gradient(135deg, rgba(54,217,102,0.08) 0%, rgba(61,127,255,0.10) 100%)';
-  } else {
-    // Top header badge
-    jobEl.style.display = 'none';
-
-    // QR screen card
-    cardEl.style.display = 'none';
-    settJobEl.textContent = 'Žádná – naskenuj QR';
-
-    // Upload banner – no job state
-    bannerNum.textContent = 'Žádná zakázka – naskenuj QR';
-    bannerNum.classList.add('no-job');
-    bannerIcon.textContent = '📋';
-    bannerBadge.classList.remove('visible');
-    bannerHint.classList.remove('visible');
-    bannerScan.classList.add('visible');
-    banner.style.borderColor = 'rgba(61,127,255,0.35)';
-    banner.style.background = 'linear-gradient(135deg, rgba(61,127,255,0.15) 0%, rgba(155,114,255,0.10) 100%)';
-  }
-}
-
-// ── Type selection ──
-function getType() {
-  const sel = document.querySelector('input[name=typ]:checked');
-  return sel ? sel.value : null;
-}
-function restoreTypeSelection() {
-  const saved = localStorage.getItem(TYPE_KEY);
-  if (saved) {
-    const inp = document.querySelector(`input[name=typ][value="${saved}"]`);
-    if (inp) inp.checked = true;
-  }
-  updatePaintOption();
-}
-function updatePaintOption() {
-  const t = getType();
-  const opt = document.getElementById('paintOpt');
-  opt.style.display = (t && t !== 'SP') ? 'flex' : 'none';
-  if (t === 'SP' || !t) document.getElementById('openInPaint').checked = false;
-}
-
-// ── Upload triggers ──
-function triggerPhoto() { if (!checkReady()) return; document.getElementById('inPhoto').click(); }
-function triggerVideo() { if (!checkReady()) return; document.getElementById('inVideo').click(); }
-function triggerPick()  { if (!checkReady()) return; document.getElementById('inPick').click(); }
-
-function checkReady() {
-  if (isPersonalAccount()) return true; // osobní – žádná zakázka ani typ nejsou potřeba
-  if (!pbJob) { toast('⚠️ Nejdřív naskenuj QR kód', 'err'); showTab('qr'); return false; }
-  if (!getType()) { toast('⚠️ Vyber typ dokumentu', 'err'); return false; }
-  return true;
-}
-
-// ── File handling ──
-async function handleFiles(fileList, reset) {
-  if (!fileList || !fileList.length) return;
-  const files = Array.from(fileList);
-  reset();
-  await uploadFiles(files);
-}
-
-// ── Image optimization ──
-async function optimizeImage(file) {
-  if (file.type === 'application/pdf' || file.type.startsWith('video/')) return file;
-  if (!file.type.startsWith('image/')) return file;
-  if (file.size < 1_500_000) return file;
-  return new Promise(resolve => {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        const maxSize = 2400;
-        if (w > h && w > maxSize) { h = (h * maxSize) / w; w = maxSize; }
-        else if (h > maxSize)     { w = (w * maxSize) / h; h = maxSize; }
-        canvas.width = w; canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, w, h);
-        canvas.toBlob(blob => resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() })), 'image/jpeg', 0.92);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// ── Zajistí platný token před uploadem ──
-// Refresh JEN když je poslední refresh starší než 50 minut, jinak token ještě
-// platí (TTL je 1 h). Šetří síť a zabraňuje race conditions.
-// Pokud refresh selže kvůli síti, pokračujeme se stávajícím tokenem (možná ještě platí).
-// Pokud refresh token vypršel, vrátí false a přesměruje na login.
-async function ensureValidToken() {
-  if (!pbRefresh) return true; // žádný refresh token – anon nebo local mód
-
-  // Pokud jsme refreshovali nedávno, token ještě platí – neztrácej čas
-  if (_lastRefreshAt && Date.now() - _lastRefreshAt < 50 * 60 * 1000) {
-    return true;
-  }
-
-  const result = await tryRefreshToken();
-  if (result === 'expired') {
-    toast('⚠️ Relace vypršela – přihlas se znovu', 'err');
-    setTimeout(() => {
-      pbToken = pbRefresh = null;
-      syncCurrentToProfile();
-      saveProfiles();
-      stopTokenRefreshTimer();
-      stopQRScan();
-      showLogin();
-    }, 1500);
-    return false;
-  }
-  // result === true (obnoveno) nebo false (chyba sítě – pokračujeme se stávajícím tokenem)
-  return true;
-}// ── Supabase upload ──
-async function uploadFiles(fileList) {
-  const isPersonal = isPersonalAccount();
-  const t = isPersonal ? null : getType();
-  if (!isPersonal && (!t || !pbJob)) return;
-
-  // OFFLINE: ulož soubory lokálně a zobraz upozornění
-  if (!navigator.onLine) {
-    for (const file of fileList) {
-      await saveToOfflineQueue(file, pbJob, t, isPersonal);
-    }
-    await updateOfflineBanner();
-    toast(`📵 Offline – ${fileList.length} soubor${fileList.length === 1 ? '' : 'ů'} uloženo lokálně`, 'err');
-    return;
-  }
-
-  const wrap  = document.getElementById('progressWrap');
-  const fill  = document.getElementById('progressFill');
-  const text  = document.getElementById('progressText');
-  const btns  = ['btnPhoto','btnVideo','btnPick'];
-
-  btns.forEach(id => document.getElementById(id).disabled = true);
-  wrap.style.display = '';
-  fill.style.width = '0%';
-  text.textContent = '⏳ Připravuji…';
-
-  // Obnov token před odesláním – pokud vypršel, počkáme na nový
-  const tokenOk = await ensureValidToken();
-  if (!tokenOk) {
-    btns.forEach(id => document.getElementById(id).disabled = false);
-    wrap.style.display = 'none';
-    return;
-  }
-
-  const total = fileList.length;
-  let done = 0;
-
-  // Batch timestamp – stejný pro všechny soubory v jednom uploadu, aby PC
-  // poznala že jdou patřit k sobě a seřadila je podle sekvenčního indexu.
-  // Index 001, 002, … zachovává pořadí cvaknutí spouště i při paralelních uploadech.
-  const batchTs = Date.now();
-
-  /**
-   * Zpracuje jeden soubor: optimalizace + upload + pb_queue insert paralelně.
-   * Vrací Promise<{ok, path}>.
-   */
-  async function processOne(rawFile, seqIdx) {
-    try {
-      const file = await optimizeImage(rawFile);
-      const ext  = file.name.split('.').pop().toLowerCase();
-
-      // Pad index na 3 místa: 001, 002, …, 999 (max 999 fotek na batch, stačí)
-      const seqStr = String(seqIdx + 1).padStart(3, '0');
-
-      let filename, path;
-      // NOVÝ FORMÁT path (Cesta 1): {user_id}/personal/{name} nebo {user_id}/{job}/{name}
-      // Bez přihlášení (anon) NEJDE uploadovat – Supabase RLS to zablokuje.
-      // user_id musí být na začátku path, jinak Storage policy odmítne (storage.foldername(name)[1] = auth.uid()).
-      const userId = pbUser?.id || '';
-      if (!userId) {
-        throw new Error('Nelze nahrát – nejsi přihlášen. Přihlaš se a zkus znovu.');
-      }
-
-      if (isPersonal) {
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        const ts  = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}_${seqStr}`;
-        filename = `${ts}.${ext}`;
-        path     = `${userId}/personal/${filename}`;
-      } else {
-        // {batchTs}_{seq} – batchTs zachovává pořadí mezi batchi,
-        // seq zachovává pořadí v jednom batchi (paralelní uploady).
-        const openPaint = (t !== 'SP' && document.getElementById('openInPaint').checked) ? '_PAINT' : '';
-        filename = `${t}_${pbJob}_${batchTs}_${seqStr}${openPaint}.${ext}`;
-        path     = `${userId}/${pbJob}/${filename}`;
-      }
-
-      const encodedPath = path.split('/').map(encodeURIComponent).join('/');
-      const activeToken = pbToken || SB_ANON;
-
-      // Storage upload + pb_queue insert PARALELNĚ (Promise.all).
-      // Jakmile Storage potvrdí 200, pb_queue je už dávno hotová (mnohem rychlejší).
-      // PC dostane Realtime event z pb_queue inserve → začne stahovat,
-      // a Storage download se spustí v okamžiku kdy upload je hotový.
-      const doStorageUpload = async (token) => fetch(
-        `${SB_URL}/storage/v1/object/${SB_BUCKET}/${encodedPath}`,
-        {
-          method:  'POST',
-          headers: {
-            'apikey':        SB_ANON,
-            'Authorization': `Bearer ${token}`,
-            'Content-Type':  file.type || 'application/octet-stream',
-            'x-upsert':      'true'
-          },
-          body: file
-        }
-      );
-
-      const doQueueInsert = async (token) => fetch(`${SB_URL}/rest/v1/pb_queue`, {
-        method:  'POST',
-        headers: {
-          'apikey':        SB_ANON,
-          'Authorization': `Bearer ${token}`,
-          'Content-Type':  'application/json',
-          'Prefer':        'return=minimal'
-        },
-        body: JSON.stringify({
-          user_id:   pbUser?.id || null,
-          job:       isPersonal ? null : pbJob,
-          file_path: path,
-        })
-      }).catch(e => ({ ok: false, _err: e.message }));
-
-      // Spustit OBĚ operace souběžně
-      let [uploadRes, queueRes] = await Promise.all([
-        doStorageUpload(activeToken),
-        doQueueInsert(activeToken),
+      // Paralelně načteme oba countery (lifetime má prioritu — atraktivnější)
+      var [lifetime, first100] = await Promise.all([
+        window.VIP.getLifetimeStatus().catch(()=>null),
+        window.VIP.getFirst100Status().catch(()=>null),
       ]);
+      var titleEl = document.getElementById('vipPromoTitle');
+      var subEl   = document.getElementById('vipPromoRemaining');
+      var subParent = document.getElementById('vipPromoSub');
 
-      // 401/403 na uploadu → refresh tokenu a retry uploadu (queue už proběhla nebo selhala)
-      if (!uploadRes.ok && (uploadRes.status === 401 || uploadRes.status === 403)) {
-        if (pbRefresh) {
-          const refreshed = await tryRefreshToken();
-          if (refreshed === true) {
-            uploadRes = await doStorageUpload(pbToken);
-            // Queue insert taky znova s novým tokenem (kdyby selhala kvůli stejnému důvodu)
-            if (!queueRes || !queueRes.ok) {
-              queueRes = await doQueueInsert(pbToken);
-            }
-          } else if (refreshed === 'expired') {
-            toast('⚠️ Relace vypršela – přihlas se znovu', 'err');
-            setTimeout(() => {
-              pbToken = pbRefresh = null;
-              syncCurrentToProfile(); saveProfiles();
-              stopTokenRefreshTimer(); stopQRScan(); showLogin();
-            }, 1500);
-            throw new Error('Relace vypršela – přihlas se znovu');
-          }
-        }
-        if (!uploadRes.ok && activeToken !== SB_ANON) {
-          uploadRes = await doStorageUpload(SB_ANON);
-        }
+      if (lifetime && lifetime.available && lifetime.remaining > 0) {
+        // ⭐ LIFETIME — prvních 10 dostává navždy
+        if (titleEl) titleEl.textContent = '⭐ Prvních 10 uživatelů dostane VIP NAVŽDY zdarma!';
+        if (subEl)   subEl.textContent   = lifetime.remaining;
+        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + lifetime.remaining + '</span> míst zbývá z 10. <strong>VIP NAVŽDY</strong> = AI sken karet bez limitu, featured listings, neomezené listingy v Tržnici, hlídání cen.';
+      } else if (first100 && first100.available && first100.remaining > 0) {
+        // 🎉 First 100 — měsíc VIP
+        if (titleEl) titleEl.textContent = '🎉 Prvních 100 nových uživatelů má VIP měsíc zdarma!';
+        if (subEl)   subEl.textContent   = first100.remaining;
+        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + first100.remaining + '</span> míst zbývá. VIP = AI sken karet, hromadný import, hlídání cen, neomezené listingy v Tržnici.';
+      } else {
+        // Vyčerpáno → 14 dní + referral
+        if (titleEl) titleEl.textContent = 'Při registraci dostaneš 14 dní VIP zdarma!';
+        if (subParent) subParent.innerHTML = '<strong>14 dní VIP</strong> + bonus +30 dní za každého kámoše kterého přivedeš. Doporuč 5 lidí = 5 měsíců VIP.';
       }
-
-      // pb_queue retry (1×) pokud selhala – aby PC nemusela čekat na fallback Storage scan
-      if (!queueRes || !queueRes.ok) {
-        try {
-          queueRes = await doQueueInsert(pbToken || SB_ANON);
-        } catch (_) {}
-        if (!queueRes || !queueRes.ok) {
-          const qBody = await (queueRes?.text?.() || Promise.resolve('')).catch(() => '');
-          console.warn('pb_queue insert selhal:', queueRes?.status, qBody || queueRes?._err);
-          // PC si soubor najde přes fallback Storage scan (do 30 s)
-        }
-      }
-
-      if (!uploadRes.ok) {
-        const errBody = await uploadRes.text().catch(() => '');
-        throw new Error(`Upload selhalo (${uploadRes.status}): ${errBody}`);
-      }
-
-      done++;
-      fill.style.width = `${Math.round((done / total) * 100)}%`;
-      text.textContent = `⏳ Nahráno ${done}/${total}`;
-
-      // Log záznamu
-      addUploadLog({
-        filename: file.name,
-        job: isPersonal ? null : pbJob,
-        type: t || null,
-        size: file.size,
-        isPersonal
-      });
-
-      return { ok: true, path };
-
-    } catch (err) {
-      console.warn('processOne err', err);
-      return { ok: false, error: err.message };
-    }
-  }
-
-  try {
-    // Paralelně, ale s rozumným limitem (3 najednou) aby pomalá síť na mobilu
-    // nepadla. Promise.all by pustila všech N najednou; raději v dávkách po 3.
-    const PARALLEL_LIMIT = 3;
-    const results = [];
-    for (let i = 0; i < fileList.length; i += PARALLEL_LIMIT) {
-      const slice = fileList.slice(i, i + PARALLEL_LIMIT);
-      const promises = slice.map((f, j) => processOne(f, i + j));
-      const sliceResults = await Promise.all(promises);
-      results.push(...sliceResults);
-    }
-
-    // Reset paint checkbox after success
-    if (t !== 'SP') document.getElementById('openInPaint').checked = false;
-
-    const okCount = results.filter(r => r && r.ok).length;
-    text.textContent = isPersonal
-      ? `✅ Nahráno ${okCount} soubor${okCount === 1 ? '' : okCount < 5 ? 'y' : 'ů'}`
-      : `✅ Nahráno ${done} soubor${done === 1 ? '' : done < 5 ? 'y' : 'ů'} → ${pbJob}`;
-    toast(`✅ ${done} soubor${done === 1 ? '' : 's'} nahrán`, 'ok');
-    haptic([40, 30, 40, 30, 80]);
-
-    setTimeout(() => { wrap.style.display = 'none'; text.textContent = ''; fill.style.width = '0%'; }, 3000);
-
-  } catch(err) {
-    text.textContent = '❌ ' + err.message;
-    toast('❌ ' + err.message, 'err');
-    setTimeout(() => { wrap.style.display = 'none'; text.textContent = ''; fill.style.width = '0%'; }, 5000);
-  }
-
-  btns.forEach(id => document.getElementById(id).disabled = false);
-}
-
-// ── Token refresh ──
-//
-// Supabase access token má JWT TTL 1 hodinu. Refresh token vydrží 30 dní (default).
-// Aby uživatel nemusel ručně se odhlašovat a přihlašovat:
-//   1) startTokenRefreshTimer – proaktivně refresh každých 45 minut
-//   2) onVisibilityChange – refresh kdykoliv se tab vrátí z pozadí (telefon spal)
-//   3) ensureValidToken – PŘED každým uploadem kontrola s automatickým refreshem
-//   4) onAppStart – HNED PO startu webapp s ulozenou session zkus refresh
-//      (token mohl už dávno vyprset zatím co webapp ležela v cache prohlížeče)
-//
-// Proti race condition (paralelní refreshe): _refreshInFlight Promise sdílíme,
-// pokud někdo už refreshuje, ostatní si počkají na jeho výsledek.
-
-let _refreshInFlight = null;     // Promise<true|false|'expired'> – sdíleno mezi callery
-let _lastRefreshAt   = 0;        // ms timestamp posledního úspěšného refreshe
-
-async function tryRefreshToken() {
-  if (!pbRefresh) return false;
-
-  // Pokud už nějaký refresh běží, čekej na jeho výsledek (žádné parallel volání)
-  if (_refreshInFlight) {
-    return _refreshInFlight;
-  }
-
-  _refreshInFlight = (async () => {
-    try {
-      const currentRefresh = pbRefresh; // uložíme před voláním – rotace nám ho přepíše
-      const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-        body: JSON.stringify({ refresh_token: currentRefresh })
-      });
-      const data = await res.json();
-      if (!data.access_token) {
-        // Supabase vrací 400 s chybou "invalid_grant" když refresh token expiroval
-        // nebo byl invalidován (např. uživatel se přihlásil jinde).
-        const errMsg = data.error_description || data.error?.message || data.error || '';
-        console.warn('Refresh tokenu selhal:', res.status, errMsg);
-        return 'expired';
-      }
-      // ── DŮLEŽITÉ: nejdřív uložíme NOVÉ tokeny atomicky do localStorage ──
-      // Supabase Token Rotation: starý refresh_token je zneplatněn ihned po vydání nového.
-      // Pokud by přišla chyba PŘED uložením, přišli bychom o oba tokeny → nucený re-login.
-      const newAccess  = data.access_token;
-      const newRefresh = data.refresh_token || currentRefresh;
-      const newUser    = data.user || pbUser;
-      try {
-        const savedProfiles = JSON.parse(localStorage.getItem('pb_profiles') || '[]');
-        const idx = savedProfiles.findIndex(p => p.id === pbActiveId);
-        if (idx >= 0) {
-          savedProfiles[idx].token   = newAccess;
-          savedProfiles[idx].refresh = newRefresh;
-          savedProfiles[idx].user    = newUser;
-          localStorage.setItem('pb_profiles', JSON.stringify(savedProfiles));
-        }
-      } catch(_) {}
-      pbToken   = newAccess;
-      pbRefresh = newRefresh;
-      pbUser    = newUser;
-      _lastRefreshAt = Date.now();
-      try { syncCurrentToProfile(); saveProfiles(); } catch(_) {}
-      console.log('Token refreshed at', new Date().toISOString());
-      return true;
-    } catch (err) {
-      // Síťová chyba – token NENÍ expirovaný, jen se zatím nepodařilo obnovit
-      console.warn('Refresh network error:', err);
-      return false;
-    } finally {
-      _refreshInFlight = null;
-    }
-  })();
-
-  return _refreshInFlight;
-}
-
-// Obnov token a při vypršení session automaticky odhlásí
-async function tryRefreshTokenOrLogout() {
-  const result = await tryRefreshToken();
-  if (result === 'expired') {
-    toast('⚠️ Relace vypršela – přihlas se znovu', 'err');
-    setTimeout(() => {
-      pbToken = pbRefresh = null;
-      try { syncCurrentToProfile(); saveProfiles(); } catch(_) {}
-      stopTokenRefreshTimer();
-      stopQRScan();
-      showLogin();
-    }, 1500);
-    return false;
-  }
-  return result;
-}
-
-// ── Proaktivní obnova tokenu – každých 45 minut + při návratu z pozadí ──
-let _tokenRefreshInterval = null;
-
-function startTokenRefreshTimer() {
-  if (_tokenRefreshInterval) clearInterval(_tokenRefreshInterval);
-  _tokenRefreshInterval = setInterval(async () => {
-    if (pbRefresh) {
-      await tryRefreshTokenOrLogout();
-    }
-  }, 45 * 60 * 1000); // každých 45 minut
-
-  // Při návratu z pozadí: refresh jen když poslední refresh byl víc než 5 min zpět
-  // (jinak při rychlém přepínání tabů by se to dělalo zbytečně mockrát).
-  document.removeEventListener('visibilitychange', _onVisibilityChange);
-  document.addEventListener('visibilitychange', _onVisibilityChange);
-
-  // iOS bfcache: pageshow s persisted=true = stránka obnovena z paměti prohlížeče
-  // visibilitychange tam nefunguje spolehlivě – pageshow je jistější
-  window.removeEventListener('pageshow', _onPageShow);
-  window.addEventListener('pageshow', _onPageShow);
-}
-
-async function _onVisibilityChange() {
-  if (document.visibilityState !== 'visible') return;
-  if (!pbRefresh) return;
-  // Pokud jsme refreshovali nedávno (< 5 min), nedělej to znova
-  if (Date.now() - _lastRefreshAt < 5 * 60 * 1000) return;
-  await tryRefreshTokenOrLogout();
-}
-
-async function _onPageShow(e) {
-  // persisted = true → stránka přišla z bfcache (iOS "zpět", nebo obnovení apky)
-  if (!e.persisted) return;
-  if (!pbRefresh) return;
-  if (Date.now() - _lastRefreshAt < 5 * 60 * 1000) return;
-  await tryRefreshTokenOrLogout();
-}
-
-function stopTokenRefreshTimer() {
-  if (_tokenRefreshInterval) { clearInterval(_tokenRefreshInterval); _tokenRefreshInterval = null; }
-  document.removeEventListener('visibilitychange', _onVisibilityChange);
-  window.removeEventListener('pageshow', _onPageShow);
-}
-
-// ── Change password ──
-async function doChangePassword() {
-  const p1 = document.getElementById('newPass1').value;
-  const p2 = document.getElementById('newPass2').value;
-  if (!p1)        { toast('⚠️ Zadej heslo', 'err'); return; }
-  if (p1.length < 6) { toast('⚠️ Min. 6 znaků', 'err'); return; }
-  if (p1 !== p2)  { toast('⚠️ Hesla se neshodují', 'err'); return; }
-
-  const btn = document.getElementById('savePassBtn');
-  btn.disabled = true; btn.textContent = '⏳ Ukládám…';
-  try {
-    const res  = await fetch(`${SB_URL}/auth/v1/user`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON, 'Authorization': `Bearer ${pbToken}` },
-      body: JSON.stringify({ password: p1 })
-    });
-    const data = await res.json();
-    if (!res.ok || data.error) throw new Error(data.error?.message || data.error_description || 'Chyba');
-    closeModal('modalPass');
-    toast('✅ Heslo změněno', 'ok');
-  } catch(err) {
-    toast('❌ ' + err.message, 'err');
-  }
-  btn.disabled = false; btn.textContent = 'Uložit';
-}
-
-// ── Supabase / LOCAL status ──
-async function checkSBStatus() {
-  if (pbUploadMode === 'local') {
-    // LOCAL mód – testuj lokální server, ne Supabase
-    if (!pbLocalUrl) {
-      const el = document.getElementById('sbStatus');
-      if (el) { el.textContent = 'není nastaveno'; el.style.color = 'var(--yellow)'; }
-    } else {
-      try {
-        const res = await fetch(`${pbLocalUrl}/status`, { signal: AbortSignal.timeout(3000) });
-        const el = document.getElementById('sbStatus');
-        if (el) {
-          el.textContent = res.ok ? 'Dostupný ✓' : 'Chyba ' + res.status;
-          el.style.color = res.ok ? 'var(--green)' : 'var(--red)';
-        }
-      } catch(_) {
-        const el = document.getElementById('sbStatus');
-        if (el) { el.textContent = 'Nedostupný'; el.style.color = 'var(--red)'; }
-      }
+      if (promo) promo.style.display = 'flex';
+    } catch (e) {
+      console.warn('[VIP banner] Načtení selhalo:', e);
     }
     return;
   }
-  try {
-    // Ping přes auth/v1/settings – veřejný endpoint, nevyžaduje přihlášení,
-    // spolehlivě vrátí 200 pokud je Supabase dostupné.
-    const res = await fetch(`${SB_URL}/auth/v1/settings`, {
-      headers: { 'apikey': SB_ANON }
-    });
-    document.getElementById('sbStatus').textContent = res.ok ? 'Připojeno ✓' : 'Chyba ' + res.status;
-    document.getElementById('sbStatus').style.color = res.ok ? 'var(--green)' : 'var(--red)';
-  } catch(_) {
-    document.getElementById('sbStatus').textContent = 'Nedostupné';
-    document.getElementById('sbStatus').style.color = 'var(--red)';
+
+  // ─ Přihlášený → zobraz status + referral
+  if (promo) promo.style.display = 'none';
+  if (!window.VIP) return;
+  // Počkej na load
+  if (!window.VIP.state().loaded) {
+    await window.VIP.refresh();
   }
-}
-
-// ── Upload mód (LOCAL / CLOUD) ────────────────────────────────────────────────
-// LOCAL mód odstraněn – tato funkce je no-op, ale zůstává v kódu, aby existující
-// click handlery (které mohou být v DOMu) nepadaly s "function not defined".
-function toggleUploadMode() {
-  pbUploadMode = 'cloud';
-  toast('☁️ Cloud (Supabase) – jediný dostupný režim', 'info');
-  updateUploadModeUI();
-}
-
-function updateUploadModeUI() {
-  // LOCAL mód odstraněn – schováme všechny UI prvky pro přepínač a LOCAL hint.
-  const desc       = document.getElementById('uploadModeDesc');
-  const row        = document.getElementById('localUrlRow');
-  const connLine   = document.getElementById('connectionStatusLine');
-  const bucketLine = document.getElementById('bucketLine');
-
-  // Pill button v hlavičce – skryjeme úplně
-  const modeBtn = document.getElementById('uploadModeBtn');
-  if (modeBtn) modeBtn.style.display = 'none';
-
-  // Header mode badge – také skryjeme
-  const badge = document.getElementById('hdrModeBadge');
-  if (badge) badge.style.display = 'none';
-
-  // Popisky – ukáží jen Cloud, schováme local URL row
-  if (desc) desc.textContent = 'Cloud (Supabase)';
-  if (row)  row.style.display = 'none';
-
-  // Stavová linka – pouze Supabase
-  if (connLine) {
-    connLine.innerHTML = '📡 Supabase: <span style="color:var(--green);font-family:var(--mono);font-size:10px" id="sbStatus">—</span>';
-  }
-  if (bucketLine) bucketLine.style.display = '';
-}
-
-async function testLocalConnection() {
-  if (!pbLocalUrl) { toast('⚠️ Zadej IP adresu serveru', 'err'); return; }
-  const btn = document.querySelector('#localUrlRow .settings-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    const res = await fetch(`${pbLocalUrl}/status`, { signal: AbortSignal.timeout(4000) });
-    if (res.ok) {
-      toast('✅ Server dostupný', 'ok');
-      const sbEl = document.getElementById('sbStatus');
-      if (sbEl) { sbEl.textContent = 'Dostupný ✓'; sbEl.style.color = 'var(--green)'; }
+  var s = window.VIP.state();
+  if (s.isVip && status) {
+    var titleEl = document.getElementById('vipStatusTitle');
+    var subEl   = document.getElementById('vipStatusSub');
+    var daysEl  = document.getElementById('vipDaysLeft');
+    var refIn   = document.getElementById('vipReferralInput');
+    var refCnt  = document.getElementById('vipReferralsCount');
+    if (s.isLifetime) {
+      // Lifetime VIP — žádný odpočet, jiné CTA
+      if (titleEl) titleEl.innerHTML = '⭐ Máš <strong>VIP NAVŽDY</strong> — všechny prémiové funkce zdarma.';
+      if (subEl)   subEl.innerHTML   = 'Pozvi kámoše a získej <strong>+30 dní</strong> dobré karmy 😊 Sdílej odkaz:';
     } else {
-      toast(`⚠️ Server odpověděl: ${res.status}`, 'err');
+      if (titleEl) titleEl.innerHTML = 'Tvůj VIP končí za <span id="vipDaysLeft">' + s.daysLeft + '</span> dní.';
+      if (subEl)   subEl.innerHTML   = 'Pozvi kámoše a získej <strong>+30 dní VIP zdarma</strong> za každého. Jen sdílej svůj odkaz:';
     }
-  } catch(e) {
-    toast('❌ Server nedostupný – zkontroluj IP a WiFi', 'err');
-    const sbEl = document.getElementById('sbStatus');
-    if (sbEl) { sbEl.textContent = 'Nedostupný'; sbEl.style.color = 'var(--red)'; }
-  }
-  if (btn) { btn.disabled = false; btn.textContent = 'Test'; }
-}
-
-// ── PWA Install ──
-let pwaInstallEvent = null;
-
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  pwaInstallEvent = e;
-  showPwaInstall(); // zobraz vždy – i na login obrazovce
-});
-
-window.addEventListener('appinstalled', () => {
-  pwaInstallEvent = null;
-  document.getElementById('pwaInstallSection').style.display = 'none';
-  toast('✅ App přidána na plochu!', 'ok');
-});
-
-function showPwaInstall() {
-  const isIOS = /iP(hone|od|ad)/.test(navigator.userAgent);
-  const isInStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (isInStandalone) return; // Already installed
-  const isLoggedIn = !!(pbToken);
-  if (isIOS) {
-    // Show on login screen always; in-app only if logged in
-    document.getElementById('loginIosCard').style.display = '';
-    if (isLoggedIn) document.getElementById('iosInstallCard').style.display = '';
-  } else if (pwaInstallEvent) {
-    document.getElementById('loginPwaSection').style.display = '';
-    if (isLoggedIn) document.getElementById('pwaInstallSection').style.display = '';
+    if (refIn)  refIn.value = window.VIP.referralUrl() || '(generuje se…)';
+    if (refCnt) refCnt.textContent = window.VIP.referralsCount();
+    status.style.display = 'flex';
+  } else if (status) {
+    status.style.display = 'none';
   }
 }
 
-async function triggerPwaInstall() {
-  if (!pwaInstallEvent) return;
-  pwaInstallEvent.prompt();
-  const { outcome } = await pwaInstallEvent.userChoice;
-  if (outcome === 'accepted') {
-    pwaInstallEvent = null;
-    document.getElementById('pwaInstallSection').style.display = 'none';
-  }
-}
-
-// ── UI Helpers ──
-function toggleEye(id, btn) {
-  const inp  = document.getElementById(id);
-  const show = inp.type === 'password';
-  inp.type     = show ? 'text' : 'password';
-  btn.textContent = show ? '🙈' : '👁️';
-}
-
-let toastTimer = null;
-function updateRetentionDisplay() {
-  const el = document.getElementById('retentionDisplay');
-  if (!el) return;
-  const days = window.PB_RETENTION_DAYS || window.PB_QR?.retentionDays || 7;
-  el.textContent = days + ' ' + (days === 1 ? 'den' : days < 5 ? 'dny' : 'dní');
-}
-
-function toast(msg, type = '') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className   = 'show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.className = '', 2800);
-}
-
-// openModal defined above in profile section
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-  // Clear password fields on close
-  ['newPass1','newPass2'].forEach(f => { const el = document.getElementById(f); if (el) el.value = ''; });
-}
-document.querySelectorAll('.pb-modal').forEach(m => {
-  m.addEventListener('click', e => { if (e.target === m) closeModal(m.id); });
-});
-
-// ══════════════════════════════════════════════════════════
-// 🔔 HAPTIC FEEDBACK
-// ══════════════════════════════════════════════════════════
-function haptic(pattern) {
-  if (!navigator.vibrate) return;
-  if (localStorage.getItem('pb_haptic') !== 'on') return;
-  try { navigator.vibrate(pattern || [60]); } catch(_) {}
-}
-
-function toggleHaptic() {
-  const on = localStorage.getItem('pb_haptic') === 'on';
-  localStorage.setItem('pb_haptic', on ? 'off' : 'on');
-  updateHapticUI();
-  if (!on) haptic([60]); // ukázková vibrace při zapnutí
-}
-
-function updateHapticUI() {
-  const on  = localStorage.getItem('pb_haptic') === 'on';
-  const btn = document.getElementById('hapticToggleBtn');
-  const sub = document.getElementById('hapticToggleSub');
-  if (btn) {
-    btn.textContent = on ? 'Vypnout' : 'Zapnout';
-    btn.style.background   = on ? 'rgba(240,90,90,0.08)'   : 'rgba(54,217,102,0.1)';
-    btn.style.borderColor  = on ? 'rgba(240,90,90,0.25)'   : 'rgba(54,217,102,0.3)';
-    btn.style.color        = on ? 'var(--red)'             : 'var(--green)';
-  }
-  if (sub) sub.textContent = on ? 'Vibrace jsou zapnuté' : 'Vibrace jsou vypnuté';
-}
-
-// ══════════════════════════════════════════════════════════
-// 📋 HISTORIE ZAKÁZEK (posledních 3)
-// ══════════════════════════════════════════════════════════
-const JOB_HISTORY_KEY = 'pb_job_history';
-
-function addJobHistory(job) {
-  if (!job) return;
+function copyReferralLink() {
+  var input = document.getElementById('vipReferralInput');
+  if (!input) return;
+  input.select();
   try {
-    let hist = JSON.parse(localStorage.getItem(JOB_HISTORY_KEY) || '[]');
-    hist = [job, ...hist.filter(j => j !== job)].slice(0, 3);
-    localStorage.setItem(JOB_HISTORY_KEY, JSON.stringify(hist));
-    renderJobHistory();
-  } catch(_) {}
-}
-
-function renderJobHistory() {
-  const wrap  = document.getElementById('jobHistoryWrap');
-  const chips = document.getElementById('jobHistoryChips');
-  if (!wrap || !chips) return;
-  if (isPersonalAccount()) { wrap.style.display = 'none'; return; }
-  let hist = [];
-  try { hist = JSON.parse(localStorage.getItem(JOB_HISTORY_KEY) || '[]'); } catch(_) {}
-  if (!hist.length) { wrap.style.display = 'none'; return; }
-  wrap.style.display = '';
-  chips.innerHTML = hist.map(job => `
-    <button onclick="loadJobFromHistory('${job}')" style="
-      padding:7px 14px; border-radius:20px; cursor:pointer; font-family:var(--mono);
-      font-size:14px; font-weight:700; letter-spacing:0.05em;
-      background:rgba(61,127,255,0.12); border:1.5px solid rgba(61,127,255,0.3);
-      color:var(--accent2); transition:all 0.15s;
-    " onmouseover="this.style.background='rgba(61,127,255,0.22)'"
-       onmouseout="this.style.background='rgba(61,127,255,0.12)'">${job}</button>
-  `).join('');
-}
-
-function loadJobFromHistory(job) {
-  setJob(job, null);
-  toast('📁 Zakázka: ' + job, 'ok');
-  haptic([50, 30, 80]);
-}
-
-// ══════════════════════════════════════════════════════════
-// 📶 OFFLINE DETEKCE + LOKÁLNÍ FRONTA
-// ══════════════════════════════════════════════════════════
-let _idbDb = null;
-
-function openIDB() {
-  return new Promise((resolve, reject) => {
-    if (_idbDb) { resolve(_idbDb); return; }
-    const req = indexedDB.open('photobridge_offline', 1);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('queue')) {
-        const store = db.createObjectStore('queue', { keyPath: 'id', autoIncrement: true });
-        store.createIndex('ts', 'ts');
+    navigator.clipboard.writeText(input.value).then(function(){
+      var btn = document.querySelector('.vip-copy-btn');
+      if (btn) {
+        var orig = btn.textContent;
+        btn.textContent = '✓ Zkopírováno';
+        setTimeout(function(){ btn.textContent = orig; }, 2000);
       }
-    };
-    req.onsuccess = e => { _idbDb = e.target.result; resolve(_idbDb); };
-    req.onerror  = () => reject(req.error);
-  });
-}
-
-async function saveToOfflineQueue(file, job, type, isPersonal) {
-  try {
-    const db = await openIDB();
-    const tx = db.transaction('queue', 'readwrite');
-    tx.objectStore('queue').add({
-      file, job: job || null, type: type || null,
-      isPersonal: !!isPersonal,
-      profileId: pbActiveId || null,
-      ts: Date.now()
     });
-    return new Promise((res, rej) => { tx.oncomplete = () => res(true); tx.onerror = () => rej(tx.error); });
-  } catch(e) {
-    console.warn('IDB save error:', e);
-    return false;
+  } catch (e) {
+    document.execCommand('copy');
   }
 }
 
-async function getOfflineQueueCount() {
-  try {
-    const db = await openIDB();
-    return new Promise(res => {
-      const tx = db.transaction('queue', 'readonly');
-      const req = tx.objectStore('queue').count();
-      req.onsuccess = () => res(req.result);
-      req.onerror   = () => res(0);
-    });
-  } catch(_) { return 0; }
-}
-
-async function getAllOfflineItems() {
-  try {
-    const db = await openIDB();
-    return new Promise(res => {
-      const tx = db.transaction('queue', 'readonly');
-      const req = tx.objectStore('queue').getAll();
-      req.onsuccess = () => res(req.result || []);
-      req.onerror   = () => res([]);
-    });
-  } catch(_) { return []; }
-}
-
-async function deleteOfflineItem(id) {
-  try {
-    const db = await openIDB();
-    return new Promise(res => {
-      const tx = db.transaction('queue', 'readwrite');
-      tx.objectStore('queue').delete(id);
-      tx.oncomplete = () => res(true);
-      tx.onerror    = () => res(false);
-    });
-  } catch(_) { return false; }
-}
-
-async function updateOfflineBanner() {
-  const banner    = document.getElementById('offlineBanner');
-  const countEl   = document.getElementById('offlineQueueCount');
-  if (!banner) return;
-  const isOffline = !navigator.onLine;
-  banner.style.display = isOffline ? 'flex' : 'none';
-  if (isOffline) {
-    const cnt = await getOfflineQueueCount();
-    countEl.textContent = cnt > 0 ? cnt + ' čeká' : '';
-  }
-}
-
-async function processOfflineQueue() {
-  if (!navigator.onLine) return;
-  const items = await getAllOfflineItems();
-  if (!items.length) return;
-  toast(`📶 Obnoveno připojení – nahrávám ${items.length} soubor${items.length === 1 ? '' : 'ů'}…`, 'ok');
-  for (const item of items) {
-    try {
-      // Restore context temporarily
-      const savedJob  = pbJob;
-      const savedType = getType();
-      if (item.job) pbJob = item.job;
-      // Upload single file
-      await uploadFiles([item.file]);
-      await deleteOfflineItem(item.id);
-      if (item.job) pbJob = savedJob;
-    } catch(e) {
-      console.warn('Offline queue upload err:', e);
-    }
-  }
-  await updateOfflineBanner();
-}
-
-function initOfflineDetection() {
-  if (window._pbOfflineInit) return;
-  window._pbOfflineInit = true;
-  updateOfflineBanner();
-  window.addEventListener('online', () => {
-    updateOfflineBanner();
-    processOfflineQueue();
-  });
-  window.addEventListener('offline', () => {
-    updateOfflineBanner();
-    toast('📵 Bez připojení – soubory se uloží lokálně', 'err');
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-// 🗂️ LOG NAHRANÝCH SOUBORŮ
-// ══════════════════════════════════════════════════════════
-const UPLOAD_LOG_KEY = 'pb_upload_log';
-
-function addUploadLog(entry) {
-  try {
-    let log = JSON.parse(localStorage.getItem(UPLOAD_LOG_KEY) || '[]');
-    log.unshift({ ...entry, ts: Date.now() });
-    log = log.slice(0, 20);
-    localStorage.setItem(UPLOAD_LOG_KEY, JSON.stringify(log));
-  } catch(_) {}
-}
-
-function toggleUploadLog() {
-  const panel = document.getElementById('uploadLogPanel');
-  const icon  = document.getElementById('uploadLogToggleIcon');
-  if (!panel) return;
-  const open = panel.style.display !== 'none';
-  panel.style.display = open ? 'none' : '';
-  if (icon) icon.textContent = open ? '›' : '⌄';
-  if (!open) renderUploadLog();
-}
-
-function renderUploadLog() {
-  const list = document.getElementById('uploadLogList');
-  if (!list) return;
-  let log = [];
-  try { log = JSON.parse(localStorage.getItem(UPLOAD_LOG_KEY) || '[]'); } catch(_) {}
-  if (!log.length) {
-    list.innerHTML = `<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px 0">Žádné záznamy</div>`;
-    return;
-  }
-  list.innerHTML = log.map(e => {
-    const d = new Date(e.ts);
-    const pad = n => String(n).padStart(2, '0');
-    const dateStr = `${pad(d.getDate())}.${pad(d.getMonth()+1)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    const sizeStr = e.size ? (e.size > 1048576 ? (e.size/1048576).toFixed(1)+'MB' : Math.round(e.size/1024)+'kB') : '';
-    const jobStr  = e.job ? `<span style="color:var(--accent2);font-family:var(--mono)">${e.job}</span>` : '<span style="color:var(--muted)">osobní</span>';
-    return `<div style="
-      padding:8px 10px; border-radius:9px; margin-bottom:4px;
-      background:var(--card); border:1px solid var(--border);
-      display:flex; gap:8px; align-items:flex-start;
-    ">
-      <span style="font-size:16px;flex-shrink:0">${e.isPersonal ? '🏠' : '📁'}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${e.filename || '?'}</div>
-        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${jobStr} · ${dateStr}${sizeStr ? ' · ' + sizeStr : ''}</div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function clearUploadLog() {
-  if (!confirm('Vymazat celý log?')) return;
-  localStorage.removeItem(UPLOAD_LOG_KEY);
-  renderUploadLog();
-  toast('🗑️ Log vymazán');
-}
-
+// Po DOM ready + s pauzou aby vip-referral.js stihl init
+window.addEventListener('DOMContentLoaded', function() {
+  setTimeout(refreshVipBanner, 600);
+});
 </script>
+<script>
+/* ── Unified Header Auth Init ── */
+(function initHeaderAuth(){
+  var u = (typeof getUser === 'function') ? getUser() : null;
+  if (!u) {
+    try {
+      var raw = localStorage.getItem('sb_user');
+      var tk = localStorage.getItem('sb_token');
+      if (raw && tk) u = JSON.parse(raw);
+    } catch(e){}
+  }
+  var chip = document.getElementById('userChip');
+  var name = document.getElementById('userName');
+  var avatar = document.getElementById('userAvatar');
+  var loginLink = document.getElementById('loginLink');
+  var registerLink = document.getElementById('registerLink');
+  var logoutBtn = document.getElementById('logoutBtn');
+  var profileBtn = document.getElementById('profileBtn');
+  if (u && u.id) {
+    var uname = (u.user_metadata && u.user_metadata.username) || u.email || '?';
+    if (chip) chip.style.display = '';
+    if (name) name.textContent = uname;
+    if (avatar) avatar.textContent = (uname[0]||'?').toUpperCase();
+    if (loginLink) loginLink.style.display = 'none';
+    if (registerLink) registerLink.style.display = 'none';
+    if (logoutBtn) logoutBtn.style.display = '';
+    if (profileBtn) profileBtn.style.display = '';
+    // Load profile avatar
+    (async function(){
+      try {
+        var SBU = typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+        var SBA = typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'';
+        var tk2 = localStorage.getItem('sb_token');
+        if (!tk2||!SBA) return;
+        var r = await fetch(SBU+'/rest/v1/profiles?id=eq.'+u.id+'&select=avatar_url',{headers:{'apikey':SBA,'Authorization':'Bearer '+tk2}});
+        var d = await r.json();
+        if (d&&d[0]&&d[0].avatar_url&&avatar) {
+          avatar.textContent='';
+          avatar.style.backgroundImage='url('+d[0].avatar_url+')';
+          avatar.style.backgroundSize='cover';
+          avatar.style.backgroundPosition='center';
+        }
+      } catch(e){}
+    })();
+  } else {
+    if (chip) chip.style.display = 'none';
+    if (loginLink) loginLink.style.display = '';
+    if (registerLink) registerLink.style.display = '';
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (profileBtn) profileBtn.style.display = 'none';
+  }
+})();
+</script>
+<script>
+/* ── Chat Dropdown + Notifikace ── */
+(function(){
+  'use strict';
+  var POLL=8000;
+  var SBU=typeof SUPABASE_URL!=='undefined'?SUPABASE_URL:'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA=typeof SUPABASE_ANON!=='undefined'?SUPABASE_ANON:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  var tk=localStorage.getItem('sb_token');
+  var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
+  if(!tk||!su||!su.id)return;
+  var uid=su.id,convs=[],prevUn=0,dropO=false;
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
+  document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
+  function renderDrop(){
+    var list=document.getElementById('chatDropList');if(!list)return;
+    if(!convs.length){list.innerHTML='<div class="chat-drop-empty"><div style="font-size:24px;margin-bottom:6px;opacity:0.4">💬</div><div>Žádné zprávy</div></div>';return}
+    list.innerHTML=convs.slice(0,8).map(function(c){
+      var isU1=c.user1_id===uid,partner=isU1?c.user2_username:c.user1_username;
+      var un=isU1?(c.unread_user1||0):(c.unread_user2||0);
+      var ini=(partner||'?')[0].toUpperCase(),msg=c.last_message_text||'Nová konverzace',tm=fmtT(c.last_message_at);
+      var hasL=msg.indexOf('📎')>=0||msg.indexOf('Nabídka')>=0;
+      return '<a class="cdrop-item'+(un>0?' unread':'')+'" href="chat.html?conv='+c.id+'">'
+        +'<div class="cdrop-avatar">'+esc(ini)+'</div>'
+        +'<div class="cdrop-info"><div class="cdrop-top"><div class="cdrop-name">'+esc(partner)+'</div><div class="cdrop-time">'+esc(tm)+'</div></div>'
+        +'<div class="cdrop-msg">'+esc(msg)+'</div>'
+        +(hasL?'<div class="cdrop-listing"><div class="cdrop-listing-dot"></div> Nabídka z marketplace</div>':'')
+        +'</div>'+(un>0?'<div class="cdrop-unread-dot"></div>':'')+'</a>'
+    }).join('');
+    if(window.Notification&&Notification.permission==='default'&&!localStorage.getItem('pkt_notif_dismissed')&&!document.getElementById('notifPrompt')){
+      var pr=document.createElement('div');pr.className='notif-prompt show';pr.id='notifPrompt';
+      pr.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(74,158,255,0.7)" stroke-width="2" style="flex-shrink:0"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span style="flex:1">Oznámení o nových zprávách?</span><button class="notif-prompt-btn notif-allow" onclick="requestNotifPerm()">Povolit</button><button class="notif-prompt-btn notif-dismiss" onclick="dismissNotifPrompt()">Ne</button>';
+      document.getElementById('chatDrop').appendChild(pr)
+    }
+  }
+  window.requestNotifPerm=async function(){if(!window.Notification)return;await Notification.requestPermission();var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  window.dismissNotifPrompt=function(){localStorage.setItem('pkt_notif_dismissed','1');var p=document.getElementById('notifPrompt');if(p)p.remove()};
+  function showNotif(title,body){if(!window.Notification||Notification.permission!=='granted')return;try{var n=new Notification(title,{body:body,icon:'pokemon.png',tag:'poketrade-msg',renotify:true});n.onclick=function(){window.focus();window.location.href='chat.html';n.close()};setTimeout(function(){n.close()},6000)}catch(e){}}
+  async function poll(){
+    convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
+    var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
+    var bg=document.getElementById('chatBadge');
+    if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
+    if(tot>prevUn&&prevUn>=0&&document.hidden){
+      var nc=convs.find(function(c){var u=c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0);return u>0&&c.last_sender_id!==uid});
+      if(nc){var pn=nc.user1_id===uid?nc.user2_username:nc.user1_username;showNotif(pn+' – PokéTrade',(nc.last_message_text||'Nová zpráva').slice(0,80))}
+    }
+    prevUn=tot;
+    if(dropO)renderDrop();
+    if(tot>0){var bt=document.title.replace(/^\(\d+\)\s*/,'');document.title='('+tot+') '+bt}else{document.title=document.title.replace(/^\(\d+\)\s*/,'')}
+  }
+  poll();setInterval(poll,POLL);
+  document.addEventListener('visibilitychange',function(){if(!document.hidden)poll()});
+})();
+</script>
+<script>
+/* ══════════════════════════════════════════════════
+   POKEMON CARDS FLY-IN ANIMATION
+   Timeline per cyklus:
+     0s       – Pikachu přilétá
+     0.8s     – Mewtwo přilétá
+     1.6s     – Charizard přilétá
+     2.6s     – aury se rozsvítí + karty pulzují
+     62.6s    – karty odlétají (fade-out + scale + blur)
+     64.0s    – reset → opakování
+══════════════════════════════════════════════════ */
+(function pkShowInit() {
+  var stage    = document.getElementById('pkShowStage');
+  var pikachu  = document.getElementById('pkPikachu');
+  var mewtwo   = document.getElementById('pkMewtwo');
+  var charizard= document.getElementById('pkCharizard');
+  if (!stage || !pikachu) return;
+
+  var FLY_IN_DUR   = 1300;   // ms – délka příletu (cubic-bezier)
+  var PULSE_MS     = 60000;  // ms – jak dlouho karty svítí
+  var FADE_MS      = 1800;   // ms – délka odletu
+  var PAUSE_MS     = 800;    // ms – pauza před restartm
+  var timers       = [];
+
+  function after(ms, fn) { var t = setTimeout(fn, ms); timers.push(t); return t; }
+  function clearAll()    { timers.forEach(clearTimeout); timers = []; }
+
+  /* Uvede kartu do výchozí pozice */
+  function resetCard(el) {
+    el.style.transition = 'none';
+    el.style.opacity    = '0';
+    el.style.transform  = 'translate(380px, -260px) scale(0.06)';
+    el.style.filter     = '';
+    el.classList.remove('active');
+  }
+
+  /* Animuje přilet jedné karty */
+  function flyIn(el) {
+    // Krátký tick aby prohlížeč zaregistroval reset
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        el.style.transition =
+          'transform ' + FLY_IN_DUR + 'ms cubic-bezier(0.16, 1, 0.3, 1), ' +
+          'opacity '   + (FLY_IN_DUR * 0.65) + 'ms ease';
+        el.style.opacity   = '1';
+        el.style.transform = 'translate(0, 0) scale(1)';
+        after(FLY_IN_DUR, function() { el.classList.add('active'); });
+      });
+    });
+  }
+
+  /* Animuje odlet všech karet */
+  function flyOut() {
+    [pikachu, mewtwo, charizard].forEach(function(el, i) {
+      after(i * 120, function() {
+        el.style.transition =
+          'transform ' + FADE_MS + 'ms cubic-bezier(0.4, 0, 1, 1), ' +
+          'opacity '   + (FADE_MS * 0.7) + 'ms ease, ' +
+          'filter '    + FADE_MS + 'ms ease';
+        el.style.opacity   = '0';
+        el.style.transform = 'translate(320px, -220px) scale(0.08)';
+        el.style.filter    = 'blur(10px)';
+        el.classList.remove('active');
+      });
+    });
+  }
+
+  /* Jeden kompletní cyklus */
+  function startCycle() {
+    clearAll();
+
+    /* 1. Reset do výchozí pozice */
+    resetCard(pikachu);
+    resetCard(mewtwo);
+    resetCard(charizard);
+    stage.classList.remove('auras-on');
+
+    /* 2. Přilet karet */
+    after(60,  function() { flyIn(pikachu);   });
+    after(860, function() { flyIn(mewtwo);    });
+    after(1660,function() { flyIn(charizard); });
+
+    /* 3. Zapni aury */
+    after(2700, function() { stage.classList.add('auras-on'); });
+
+    /* 4. Po 60 sekundách odlet */
+    after(2700 + PULSE_MS, function() {
+      stage.classList.remove('auras-on');
+      after(400, flyOut);
+    });
+
+    /* 5. Restart */
+    after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, startCycle);
+  }
+
+  // ── Načti 3 náhodné vzácné karty z pokemontcg.io API ─────────────
+  // Strategie: hledáme nejvzácnější karty (Rare Holo VMAX, EX, ex, GX, Special Illustration Rare, atd.)
+  // Z velkého poolu (~250 karet napříč nedávnými sety) náhodně vybereme 3.
+  // Fallback: pokud API selže, zůstanou původní lokální obrázky (pikachu-gx.png atd.)
+  (async function loadRandomCards() {
+    var cardEls = [pikachu, mewtwo, charizard];
+
+    // Rarity klíčová slova pro nejhodnotnější/nejvzácnější karty:
+    //   - VMAX, V, ex (jp/sword&shield), GX, EX (sun&moon)
+    //   - Special Illustration Rare, Hyper Rare, Secret Rare
+    //   - Rainbow Rare, Gold/Full Art Trainer, Amazing Rare, Radiant
+    // Pokud bude pool prázdný (filter chybí), zkusíme menší rarity jako Holo Rare.
+    var rarityPools = [
+      // Tier 1 — nejvzácnější ze všech: Special Illustration Rare, Hyper Rare, Rainbow
+      'rarity:"Special Illustration Rare" OR rarity:"Hyper Rare" OR rarity:"Rare Rainbow" OR rarity:"Rare Secret"',
+      // Tier 2 — VMAX, V, EX, ex, GX
+      '(subtypes:VMAX OR subtypes:VSTAR OR subtypes:GX OR subtypes:EX OR subtypes:ex)',
+      // Tier 3 — fallback Holo Rare karty (ty jsou vždy dostupné)
+      'rarity:"Rare Holo" OR rarity:"Rare Holo V" OR rarity:"Rare Holo VMAX"',
+    ];
+
+    var fetched = [];
+    var lastErr = null;
+
+    // Zkus pooly postupně — když T1 nemá výsledky, padni na T2 atd.
+    for (var poolIdx = 0; poolIdx < rarityPools.length && fetched.length < 3; poolIdx++) {
+      try {
+        var q = rarityPools[poolIdx];
+        // Náhodná stránka (1–10) ze všech vyhovujících karet — různé výsledky každý reload
+        var page = Math.floor(Math.random() * 10) + 1;
+        var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
+                + '&pageSize=80&page=' + page + '&orderBy=-set.releaseDate';
+        var r = await tcgFetch(url);
+        if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
+        var d = await r.json();
+        var pool = (d.data || []).filter(function(c) {
+          return c.images && c.images.large;
+        });
+        if (!pool.length) continue;
+
+        // Fisher-Yates shuffle pro skutečnou náhodnost
+        for (var i = pool.length - 1; i > 0; i--) {
+          var j = Math.floor(Math.random() * (i + 1));
+          var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+        }
+        fetched = pool.slice(0, 3);
+        console.log('[hero] Načteno ' + fetched.length + ' karet z pokemontcg.io (tier ' + (poolIdx+1) + ')');
+      } catch (e) {
+        lastErr = e;
+        console.warn('[hero] Tier ' + (poolIdx+1) + ' selhal:', e.message);
+      }
+    }
+
+    if (!fetched.length) {
+      console.warn('[hero] API nedostupné, používám lokální fallback obrázky', lastErr);
+      // Lokální obrázky (pikachu-gx.png atd.) jsou už nastavené v <img src="..."> v HTML.
+      // Stačí spustit cycle.
+      startCycle();
+      return;
+    }
+
+    // Aplikuj fetched karty do <img> elementů
+    fetched.forEach(function(card, i) {
+      var el = cardEls[i];
+      if (!el) return;
+      var img = el.querySelector('img');
+      if (img && card.images && card.images.large) {
+        img.src = card.images.large;
+        img.alt = card.name + ' (' + (card.set?.name || '') + ' #' + (card.number || '?') + ')';
+        // Drobný hover tooltip s názvem karty
+        el.title = card.name + ' — ' + (card.set?.name || 'Neznámý set');
+      }
+    });
+
+    startCycle();
+  })();
+})();
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  try{
+    var av=localStorage.getItem('pkc_avatar_local');
+    var el=document.getElementById('userAvatar');
+    if(av&&el){el.textContent='';el.style.backgroundImage='url('+av+')';el.style.backgroundSize='cover';el.style.backgroundPosition='center';}
+  }catch(e){}
+});
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   HERO STATS – karet, sběratelů, výměn
+   Načítá živá čísla ze Supabase
+═══════════════════════════════════════════════════════ */
+(async function loadHeroStats() {
+  var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+
+  async function getCount(table, filter) {
+    try {
+      var url = SBU + '/rest/v1/' + table + '?' + (filter || '') + '&select=id';
+      var r = await fetch(url, {
+        headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + SBA,
+                   'Prefer': 'count=exact', 'Range': '0-0' }
+      });
+      var cr = r.headers.get('Content-Range');
+      if (cr) { var m = cr.match(/\/(\d+)/); return m ? parseInt(m[1]) : 0; }
+      return 0;
+    } catch(e) { return 0; }
+  }
+
+  var [cards, users, trades] = await Promise.all([
+    // Všechny aktivní inzeráty od všech uživatelů
+    getCount('listings', 'status=eq.active'),
+    // Všichni uživatelé s profilem
+    getCount('profiles', ''),
+    // Dokončené transakce (prodané)
+    getCount('listings', 'status=eq.sold'),
+  ]);
+
+  function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n); }
+  var c = document.getElementById('statCards');
+  var u = document.getElementById('statUsers');
+  var t = document.getElementById('statTrades');
+  if (c) c.textContent = fmt(cards);
+  if (u) u.textContent = fmt(users);
+  if (t) t.textContent = fmt(trades);
+})();
+</script>
+
+<!-- ═══ PROFESOR OAK – AI rotující tipy a fakta ═══ -->
+<script>
+(function() {
+  'use strict';
+
+  // Knihovna obsahu — primárně načítáme z /api/card-cache?action=facts (Supabase ai_facts tabulka),
+  // hardcoded seznam slouží jako FALLBACK pokud API selže (offline, výpadek atd.).
+  // Cron generuje 5 nových každý den, max 500 záznamů (auto-purge nejstarších).
+  const fallbackLibrary = [
+    { kind: 'tip',  emoji: '🔒', title: 'Soukromé sdílení',
+      body: 'Žádné veřejné odkazy! Album nasdílíš jen konkrétnímu registrovanému trenérovi přes jeho jméno nebo e-mail.' },
+    { kind: 'tip',  emoji: '⏳', title: 'Časový zámek',
+      body: 'Sdílení není navždy. Nastav si dobu (od pár hodin po 7 dní), po které se přístup automaticky zruší.' },
+    { kind: 'tip',  emoji: '👨‍👩‍👧', title: 'Rodinný klan',
+      body: 'Propoj profily s rodinou — každý má vlastní album, ale vidíte své karty navzájem jako jeden tým.' },
+    { kind: 'tip',  emoji: '💰', title: 'Reálné ceny z Cardmarketu',
+      body: 'U každé karty vidíš aktuální tržní hodnotu. Žádné odhady, jen čistá data — a žádný Rakeťák tě nenapálí!' },
+    { kind: 'tip',  emoji: '📸', title: 'Skener karet',
+      body: 'Vyfoť kartičku přes mobil a AI ji během chvíle rozpozná. Rychlejší než Quick Attack od Pikachu!' },
+    { kind: 'tip',  emoji: '🔄', title: 'Výměny i protinabídky',
+      body: 'Kartu za kartu, nebo férová cena. Pod každou nabídkou je chat, kde se můžete domluvit na detailech.' },
+    { kind: 'tip',  emoji: '✨', title: 'Vždycky zdarma',
+      body: 'Žádné poplatky, žádné předplatné. Děláme to z lásky ke kartičkám — peníze od uživatelů nikdy nevybíráme.' },
+    { kind: 'fact', emoji: '🌊', title: 'Telepatický Lapras',
+      body: 'Ashův Lapras dokázal mluvit s lidmi pomocí telepatie. Ukázal to při cestě s Jynx na severní pól, když pomáhal zachránit Vánoce!' },
+    { kind: 'fact', emoji: '⚡', title: 'Pikachu = jiskra + myš',
+      body: 'Jméno Pikachu vzniklo spojením japonských slov „pika" (zvuk jiskry) a „chu" (pípnutí myši).' },
+    { kind: 'fact', emoji: '🦏', title: 'První kreslený byl Rhydon',
+      body: 'I když má Bulbasaur číslo 001, prvním nakresleným Pokémonem byl Rhydon. Proto najdeš jeho sochy v každém Gymu.' },
+  ];
+
+  // Aktivní seznam — naplní se z DB v _init()
+  let adviceLibrary = fallbackLibrary.slice();
+
+  let _adviceIdx = -1;
+  let _autoTimer = null;
+
+  function _showAdvice(idx) {
+    const box = document.getElementById('oakBox');
+    const badge = document.getElementById('oakBadge');
+    const text = document.getElementById('oakFactText');
+    if (!box || !badge || !text) return;
+    if (!adviceLibrary.length) return;
+
+    box.classList.add('fading');
+
+    setTimeout(() => {
+      const item = adviceLibrary[idx];
+      if (!item) return;
+      badge.textContent = item.kind === 'fact'
+        ? '📖 Profesor Oak — Zajímavost'
+        : '🎓 PokéRádce — Tip';
+      badge.classList.toggle('kind-fact', item.kind === 'fact');
+      badge.classList.toggle('kind-tip',  item.kind === 'tip');
+      // Podporujeme jak `text` (legacy), tak `body` (nový API tvar)
+      const bodyText = item.body || item.text || '';
+      text.innerHTML = `${item.emoji || '🌟'} <strong>${item.title || ''}:</strong> ${bodyText}`;
+      box.classList.remove('fading');
+    }, 350);
+  }
+
+  function _nextAdvice() {
+    _adviceIdx = (_adviceIdx + 1) % adviceLibrary.length;
+    _showAdvice(_adviceIdx);
+  }
+
+  function _restartAuto() {
+    if (_autoTimer) clearInterval(_autoTimer);
+    _autoTimer = setInterval(_nextAdvice, 22000); // 22 s — dvojnásobek; kdo chce rychleji, klikne na šipku ›
+  }
+
+  // Načti z API; pokud selže, zůstane hardcoded fallback
+  async function _loadFromApi() {
+    try {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000); // 5s timeout
+      const r = await fetch('/api/card-cache?action=facts', { signal: ctrl.signal });
+      clearTimeout(timer);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      if (Array.isArray(data?.facts) && data.facts.length >= 3) {
+        adviceLibrary = data.facts;
+        // Zamíchej Fisher-Yates (každý reload jiné pořadí)
+        for (let i = adviceLibrary.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = adviceLibrary[i]; adviceLibrary[i] = adviceLibrary[j]; adviceLibrary[j] = tmp;
+        }
+        console.log('[oak] Načteno ' + adviceLibrary.length + ' faktů z /api/card-cache?action=facts');
+      } else {
+        console.warn('[oak] API vrátilo málo faktů, používám fallback');
+      }
+    } catch (e) {
+      console.warn('[oak] /api/card-cache?action=facts nedostupné, používám fallback:', e.message);
+    }
+  }
+
+  // Init: po DOMContentLoaded zobraz první + spusť rotaci
+  async function _init() {
+    // Tlačítko "další" — manuální skok + reset auto-timeru (vlepit hned ať reaguje)
+    const btn = document.getElementById('oakNextBtn');
+    if (btn) {
+      btn.addEventListener('click', function() {
+        _nextAdvice();
+        _restartAuto();
+      });
+    }
+
+    // Začni s fallbackem aby box neukázal "Připravuji..." moc dlouho
+    _adviceIdx = Math.floor(Math.random() * adviceLibrary.length) - 1;
+    _nextAdvice();
+    _restartAuto();
+
+    // Načti z API na pozadí; když dorazí víc faktů, použijeme je při dalším skoku
+    await _loadFromApi();
+
+    // Když uživatel skryje tab, pauzni rotaci (šetří CPU + není efekt vidět)
+    document.addEventListener('visibilitychange', function() {
+      if (document.hidden) {
+        if (_autoTimer) { clearInterval(_autoTimer); _autoTimer = null; }
+      } else {
+        _restartAuto();
+      }
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _init);
+  } else {
+    _init();
+  }
+})();
+</script>
+
+
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
+<script src="site-tracking.js"></script>
 </body>
 </html>
