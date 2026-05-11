@@ -58,7 +58,7 @@ const PROVIDERS = {
   gemini: {
     endpoint:        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     envKey:          'GEMINI_API_KEY',
-    defaultModel:    'gemini-2.5-flash-preview-04-17',
+    defaultModel:    'gemini-2.0-flash',
     signupHost:      'aistudio.google.com',
     daily_text:      1500,     // 1500 req/den free tier
     daily_vision:    500,      // vision výrazně dražší na tokenech
