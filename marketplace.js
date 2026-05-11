@@ -220,6 +220,93 @@ function clearAllFilters() {
   clearAdvancedFilter();
 }
 
+// ══════════════════════════════════════════════════════════════════
+//  ŠABLONY FILTRŮ — uložení a načtení do localStorage
+// ══════════════════════════════════════════════════════════════════
+const MKT_TPL_KEY = 'mkt_filter_templates';
+
+function _getFilterState() {
+  const boolIds = ['itCards','itSealed','itBulk','fSell','fTrade',
+    'fNM','fLP','fMP','fHP',
+    'fLangEN','fLangJP','fLangCN','fLangKO','fLangDE','fLangFR','fLangIT','fLangES','fLangCZ','fLangOther',
+    'fNormal','fFire','fWater','fElec','fGrass','fIce','fFighting','fPoison','fGround','fFlying','fPsychic','fBug','fRock','fGhost','fDragon','fDark','fMetal','fFairy',
+    'fCommon','fRare','fUltra'];
+  const state = { bools: {}, priceMin: '', priceMax: '', search: '' };
+  boolIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) state.bools[id] = el.checked;
+  });
+  const mn = document.getElementById('fPriceMin'); if (mn) state.priceMin = mn.value;
+  const mx = document.getElementById('fPriceMax'); if (mx) state.priceMax = mx.value;
+  const si = document.getElementById('searchInput'); if (si) state.search = si.value;
+  return state;
+}
+
+function _applyFilterState(state) {
+  if (!state) return;
+  Object.entries(state.bools || {}).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el) el.checked = val;
+  });
+  const mn = document.getElementById('fPriceMin'); if (mn) mn.value = state.priceMin || '';
+  const mx = document.getElementById('fPriceMax'); if (mx) mx.value = state.priceMax || '';
+  const si = document.getElementById('searchInput'); if (si) si.value = state.search || '';
+  applyFilters();
+}
+
+function _loadTemplates() {
+  try { return JSON.parse(localStorage.getItem(MKT_TPL_KEY) || '[]'); } catch { return []; }
+}
+
+function _saveTemplates(tpls) {
+  localStorage.setItem(MKT_TPL_KEY, JSON.stringify(tpls));
+}
+
+function saveFilterTemplate() {
+  const nameEl = document.getElementById('filterTemplateName');
+  const name = (nameEl?.value || '').trim();
+  if (!name) { nameEl?.focus(); return; }
+  const tpls = _loadTemplates();
+  const existing = tpls.findIndex(t => t.name === name);
+  const tpl = { name, state: _getFilterState(), saved: Date.now() };
+  if (existing >= 0) tpls[existing] = tpl; else tpls.push(tpl);
+  _saveTemplates(tpls);
+  if (nameEl) nameEl.value = '';
+  renderFilterTemplates();
+}
+
+function loadFilterTemplate(name) {
+  const tpls = _loadTemplates();
+  const tpl = tpls.find(t => t.name === name);
+  if (tpl) _applyFilterState(tpl.state);
+}
+
+function deleteFilterTemplate(name) {
+  const tpls = _loadTemplates().filter(t => t.name !== name);
+  _saveTemplates(tpls);
+  renderFilterTemplates();
+}
+
+function renderFilterTemplates() {
+  const container = document.getElementById('filterTemplatesList');
+  if (!container) return;
+  const tpls = _loadTemplates();
+  if (!tpls.length) { container.innerHTML = '<div style="font-size:11px;color:rgba(240,236,228,0.3);padding:2px 0;">Žádné šablony</div>'; return; }
+  container.innerHTML = tpls.map(t =>
+    `<div style="display:flex;align-items:center;gap:4px;">
+      <button onclick="loadFilterTemplate(${JSON.stringify(t.name)})"
+        style="flex:1;text-align:left;padding:4px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.04);color:#f0ece4;font-size:11px;cursor:pointer;font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+        title="Načíst šablonu: ${t.name}">⭐ ${t.name}</button>
+      <button onclick="deleteFilterTemplate(${JSON.stringify(t.name)})"
+        style="padding:4px 7px;border-radius:6px;border:1px solid rgba(255,80,80,0.2);background:rgba(255,80,80,0.07);color:#ff8080;font-size:11px;cursor:pointer;font-family:inherit;"
+        title="Smazat šablonu">✕</button>
+    </div>`
+  ).join('');
+}
+
+// Init templates on load
+document.addEventListener('DOMContentLoaded', renderFilterTemplates);
+
 async function importFromUrl() {
   const url = (document.getElementById('afUrl')?.value||'').trim();
   if (!url) return;

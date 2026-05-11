@@ -1383,6 +1383,33 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
       </div>
     </div><!-- /family-section -->
 
+    <!-- ═══ TRADE MATCHING SEKCE ═══ -->
+    <div class="family-section" id="tradeMatchSection" style="display:none">
+      <div class="section-title" style="margin-top:32px">🔄 Trade Matching</div>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:20px;margin-top:12px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px;">🤝 Automatické párování výměn</div>
+            <div style="font-size:12px;color:var(--text3);line-height:1.6;margin-bottom:10px;">
+              Systém tě automaticky upozorní, když někdo jiný hledá kartu, kterou nabízíš — a naopak. Zobrazíš se ve výsledcích mutual matchingu.<br>
+              <span style="color:rgba(240,236,228,0.4);font-size:11px;">Výchozí stav: vypnuto. Aktivací souhlasíš s porovnáváním tvých nabídek s ostatními uživateli.</span>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text3);">
+              <div>✅ Dostaneš notifikaci: <em style="color:var(--text2);">„Jana hledá tvůj Charizard EX"</em></div>
+              <div>✅ Vidíš: <em style="color:var(--text2);">kdo chce co ty máš + má co ty chceš</em></div>
+              <div>✅ Trade kruhy: A→B→C→A (3-cestné výměny)</div>
+            </div>
+          </div>
+          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;">
+            <label class="family-toggle" id="tradeMatchToggle" onclick="toggleTradeMatching()" title="Zapnout/vypnout trade matching"></label>
+            <span style="font-size:11px;color:var(--text3);" id="tradeMatchStatus">Vypnuto</span>
+          </div>
+        </div>
+        <div id="tradeMatchFeedback" style="font-size:12px;min-height:16px;margin-top:10px;"></div>
+      </div>
+    </div>
+    <!-- ═══ / TRADE MATCHING SEKCE ═══ -->
+
   </div>
 
 </div><!-- /page-wrap -->
@@ -1647,7 +1674,7 @@ function renderProfile(p) {
     if (editBtn) editBtn.style.display = 'flex';
     // Zobraz dashboard
     const ds = document.getElementById('dashboardSection');
-    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); if (typeof securityInit === 'function') securityInit(); if (typeof familyInit === 'function') familyInit(); }
+    if (ds) { ds.style.display = ''; loadMyListings(); loadIncomingOffers(); if (typeof securityInit === 'function') securityInit(); if (typeof familyInit === 'function') familyInit(); if (typeof tradeMatchInit === 'function') tradeMatchInit(p); }
   } else if (currentUser) {
     document.getElementById('btnLeaveReview').style.display = 'inline-flex';
   }
@@ -3531,6 +3558,61 @@ function setProgress(pct, label) {
 </script>
 
 <script src="site-tracking.js"></script>
+
+<!-- ═══ TRADE MATCHING JS ═══ -->
+<script>
+var _tradeMatchEnabled = false;
+
+window.tradeMatchInit = function(profileData) {
+  var sec = document.getElementById('tradeMatchSection');
+  if (sec) sec.style.display = '';
+  // Load from profile data (column trade_matching_enabled)
+  _tradeMatchEnabled = !!(profileData && profileData.trade_matching_enabled);
+  _tmUpdateUI();
+};
+
+function _tmUpdateUI() {
+  var toggle = document.getElementById('tradeMatchToggle');
+  var status = document.getElementById('tradeMatchStatus');
+  if (toggle) toggle.classList.toggle('on', _tradeMatchEnabled);
+  if (status) status.textContent = _tradeMatchEnabled ? 'Zapnuto ✅' : 'Vypnuto';
+  // color
+  if (status) status.style.color = _tradeMatchEnabled ? '#4ade80' : 'var(--text3)';
+}
+
+window.toggleTradeMatching = async function() {
+  _tradeMatchEnabled = !_tradeMatchEnabled;
+  _tmUpdateUI();
+  var fb = document.getElementById('tradeMatchFeedback');
+  if (fb) { fb.textContent = '⏳ Ukládám...'; fb.style.color = 'var(--text3)'; }
+
+  try {
+    var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
+    var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+    var tk  = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || '';
+    var uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
+    if (!uid || !SBU || !tk) throw new Error('not auth');
+
+    await fetch(SBU + '/rest/v1/profiles?id=eq.' + uid, {
+      method: 'PATCH',
+      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tk,
+        'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ trade_matching_enabled: _tradeMatchEnabled })
+    });
+    if (fb) {
+      fb.textContent = _tradeMatchEnabled
+        ? '✅ Trade matching aktivován — začneš dostávat notifikace o vzájemných výměnách.'
+        : '✅ Trade matching deaktivován.';
+      fb.style.color = '#4ade80';
+      setTimeout(function(){ if (fb) fb.textContent = ''; }, 4000);
+    }
+  } catch(e) {
+    _tradeMatchEnabled = !_tradeMatchEnabled; // rollback
+    _tmUpdateUI();
+    if (fb) { fb.textContent = '❌ Nepodařilo se uložit. Zkus to znovu.'; fb.style.color = '#f87171'; }
+  }
+};
+</script>
 
 <!-- ═══ RODINA JS ═══ -->
 <script>
