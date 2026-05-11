@@ -98,10 +98,10 @@
       name:           'Google Gemini',
       // Gemini používá jiný URL formát — endpointBase slouží jako základ,
       // skutečný URL se sestaví v _geminiChat(): base/model:generateContent?key=KEY
-      endpointBase:   'https://generativelanguage.googleapis.com/v1/models',
+      endpointBase:   'https://generativelanguage.googleapis.com/v1beta/models',
       validateUrl:    null,   // Gemini nemá /models endpoint bez klíče — validate přes chat
-      textModel:      'gemini-1.5-flash-latest',
-      visionModel:    'gemini-1.5-flash-latest',  // stejný model dělá text i vision
+      textModel:      'gemini-2.5-flash-preview-04-17',
+      visionModel:    'gemini-2.5-flash-preview-04-17',  // stejný model dělá text i vision
       isGemini:       true,   // příznak pro speciální API handling
       // Free tier: 15 req/min, 100 req/den, 2 img/min — žádná platební karta
     },

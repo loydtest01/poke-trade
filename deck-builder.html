@@ -910,7 +910,7 @@ INSTRUKCE:
       headers: _authHeaders,
       body: JSON.stringify({
         provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash-preview-04-17',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMsg }
@@ -1314,7 +1314,7 @@ ${_chatDeckContext()}`;
       headers: _authHeaders,
       body: JSON.stringify({
         provider: 'gemini',
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash-preview-04-17',
         messages: [
           { role: 'system', content: systemPrompt },
           ..._chatHistory
