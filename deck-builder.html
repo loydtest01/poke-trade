@@ -373,6 +373,36 @@ select option{background:#1a1424}
 
 const POKEDB_API = 'https://pokedb-api.poketrade.workers.dev/v1';
 const GROQ_PROXY = '/api/groq';
+async function _deckFetch(headers, bodyObj) {
+  // Try Gemini first, fallback to Groq on quota/rate limit
+  const providers = [
+    { provider: 'gemini', model: 'gemini-2.0-flash' },
+    { provider: 'groq',   model: 'meta-llama/llama-4-scout-17b-16e-instruct' },
+  ];
+  let lastErr = null;
+  for (const p of providers) {
+    try {
+      const body = Object.assign({}, bodyObj, { provider: p.provider, model: p.model });
+      const res = await fetch(GROQ_PROXY, { method: 'POST', headers, body: JSON.stringify(body) });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData?.error?.message || ('HTTP ' + res.status);
+        // On quota/rate limit → try next provider
+        if (res.status === 429 || res.status === 503 || msg.includes('quota') || msg.includes('limit')) {
+          lastErr = new Error(msg); continue;
+        }
+        throw new Error(msg);
+      }
+      return await res.json();
+    } catch(e) {
+      lastErr = e;
+      if (e.message?.includes('quota') || e.message?.includes('limit') || e.message?.includes('429')) continue;
+      throw e;
+    }
+  }
+  throw lastErr || new Error('Všichni AI provideři selhali');
+}
+
 
 // Aktuální meta decky (2025–2026 format: Scarlet & Violet era)
 const PRESET_DECKS = [
@@ -893,35 +923,27 @@ ODPOVĚZ POUZE čistým JSON (bez markdown, bez code fences):
 
 Požadavek uživatele: ${prompt}
 
-INSTRUKCE:
-1. Sestav PŘESNĚ 60-kartový deck — součet všech "count" musí být 60.
-2. Pokud uživatel zmínil evolvujícího Pokémona, AUTOMATICKY přidej celou evoluční linii.
-3. Vždy přidej: Ultra Ball (3-4x), Nest Ball (3-4x), Professor's Research (4x), Iono (2-3x), Boss's Orders (2x).
-4. Pro Stage 2 Pokémony VŽDY přidej 4x Rare Candy.
-5. Energie musí odpovídat typu útočníka.
-6. Preferuj karty Scarlet & Violet (sv1-sv9).
-7. Odpověz POUZE čistým JSON bez jakéhokoli textu kolem.`;
+POVINNÉ INSTRUKCE:
+1. Deck MUSÍ mít PŘESNĚ 60 karet. Sečti všechny "count" — výsledek musí být 60. Pokud máš méně, doplň energiemi nebo Switch/Pal Pad/Super Rod.
+2. Evolvující Pokémon → AUTOMATICKY přidej celou linii (základní→střední→finální).
+3. VŽDY: Ultra Ball (3-4x), Nest Ball (3-4x), Professor's Research (4x), Iono (2-3x), Boss's Orders (2x).
+4. Stage 2 → VŽDY 4x Rare Candy.
+5. Min. 8 základních energií odpovídajícího typu.
+6. Preferuj Scarlet & Violet (sv1-sv9).
+7. PŘED odesláním zkontroluj: součet countů = 60.
+8. Odpověz POUZE čistým JSON.`;
   try {
     const _authToken = window.getValidToken ? await window.getValidToken() : null;
     const _authHeaders = { 'Content-Type': 'application/json' };
     if (_authToken) _authHeaders['Authorization'] = 'Bearer ' + _authToken;
-    const res = await fetch(GROQ_PROXY, {
-      method: 'POST',
-      headers: _authHeaders,
-      body: JSON.stringify({
-        provider: 'gemini',
-        model: 'gemini-2.5-flash-preview-04-17',
+    const data = await _deckFetch(_authHeaders, {
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMsg }
         ],
         max_tokens: 2000,
         temperature: 0.7,
-      })
-    });
-
-    if (!res.ok) throw new Error('Groq API error ' + res.status);
-    const data = await res.json();
+      });
     const text = data.choices?.[0]?.message?.content || '';
 
     // Parse JSON
@@ -1309,23 +1331,16 @@ ${_chatDeckContext()}`;
     const _authHeaders = { 'Content-Type': 'application/json' };
     if (_authToken) _authHeaders['Authorization'] = 'Bearer ' + _authToken;
 
-    const res = await fetch(GROQ_PROXY, {
-      method: 'POST',
-      headers: _authHeaders,
-      body: JSON.stringify({
-        provider: 'gemini',
-        model: 'gemini-2.5-flash-preview-04-17',
+    const data = await _deckFetch(_authHeaders, {
         messages: [
           { role: 'system', content: systemPrompt },
           ..._chatHistory
         ],
         max_tokens: 600,
         temperature: 0.65,
-      })
-    });
+      });
 
-    if (!res.ok) throw new Error('API error ' + res.status);
-    const data = await res.json();
+
     const reply = data.choices?.[0]?.message?.content?.trim() || '(Prázdná odpověď)';
 
     _chatHistory.push({ role: 'assistant', content: reply });
