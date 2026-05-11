@@ -63,6 +63,12 @@
         <label>Heslo znovu</label>
         <div class="input-password-wrap"><input type="password" autocomplete="new-password" id="regPasswordConfirm" placeholder="Zopakuj heslo" required minlength="6"><button type="button" class="eye-btn" onclick="toggleEye('regPasswordConfirm',this)">👁️</button></div>
       </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer;font-size:13px;color:rgba(255,255,255,0.6)">
+          <input type="checkbox" id="agreeTerms" style="margin-top:3px;flex-shrink:0;accent-color:#f5c842">
+          Souhlasím s&nbsp;<a href="privacy.html" target="_blank" style="color:#f5c842">zásadami ochrany osobních údajů</a>&nbsp;a podmínkami služby.
+        </label>
+      </div>
       <button type="submit" class="btn-primary btn-full" id="regBtn">
         <span id="regBtnText">Vytvořit účet</span>
         <span id="regBtnLoad" style="display:none">⏳ Registruji...</span>
@@ -102,6 +108,10 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   errEl.style.display = 'none';
   if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
     showError('Uživatelské jméno smí obsahovat jen písmena, čísla, _ . - (3–30 znaků)');
+    return;
+  }
+  if (!document.getElementById('agreeTerms').checked) {
+    showError('Musíš souhlasit s podmínkami služby pro pokračování');
     return;
   }
   if (password !== confirm) { showError('Hesla se neshodují'); return; }
