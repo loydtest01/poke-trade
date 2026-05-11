@@ -4988,7 +4988,8 @@ function fileToBase64(file) {
 
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
-<script src="site-tracking.js">
+<script src="site-tracking.js"></script>
+<script>
 // ── Poslat kartu z fronty do Bulk Scan ───────────────────────────
 function sendQueueToBulkScan(gi, pi) {
   const g = cardGroups[gi];
@@ -5056,7 +5057,7 @@ async function searchCommunityImage(gi) {
 /* ─────────────── QUEUE TABS ─────────────── */
 var _qrGenerated = false;
 
-function switchTab(name) {
+window.switchTab = function switchTab(name) {
   // Panels
   var panels = { queue: 'contentArea', qr: 'panelQr', bulk: 'panelBulk' };
   Object.keys(panels).forEach(function(k) {
@@ -5072,11 +5073,11 @@ function switchTab(name) {
   // Generate QR on first open
   if (name === 'qr' && !_qrGenerated) { _showQrPanel(); _qrGenerated = true; }
   // Update URL hash
-  history.replaceState(null, '', location.pathname + (name !== 'queue' ? '?tab=' + name : ''));
-}
+  try { history.replaceState(null, '', location.pathname + (name !== 'queue' ? '?tab=' + name : '')); } catch(e) {}
+};
 
 // Read ?tab= on load
-(function() {
+;(function() {
   var p = new URLSearchParams(location.search);
   var t = p.get('tab');
   if (t === 'qr' || t === 'bulk') { setTimeout(function(){ switchTab(t); }, 400); }
@@ -5094,7 +5095,7 @@ function _getMobileUrl() {
   return MOBILE_BASE_Q + '?uid=' + encodeURIComponent(uid);
 }
 
-function _showQrPanel() {
+window._showQrPanel = function _showQrPanel() {
   var url = _getMobileUrl();
   var box = document.getElementById('qrCodeBox');
   if (box && typeof QRCode !== 'undefined') {
@@ -5104,9 +5105,9 @@ function _showQrPanel() {
         colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     } catch(e) { box.textContent = '⚠️ QR nelze vygenerovat'; }
   }
-}
+};
 
-function openQrModal() {
+window.openQrModal = function openQrModal() {
   var modal = document.getElementById('qrModal');
   if (modal) { modal.style.display = 'flex'; }
   var box = document.getElementById('qrModalCode');
@@ -5117,18 +5118,18 @@ function openQrModal() {
         colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
     } catch(e) { box.textContent = '⚠️ QR nelze vygenerovat'; }
   }
-}
+};
 
-function closeQrModal() {
+window.closeQrModal = function closeQrModal() {
   var modal = document.getElementById('qrModal');
   if (modal) { modal.style.display = 'none'; }
-}
+};
 
-function closeQrOutside(e) {
+window.closeQrOutside = function closeQrOutside(e) {
   if (e.target === e.currentTarget) closeQrModal();
-}
+};
 
-async function copyMobileUrl() {
+window.copyMobileUrl = async function copyMobileUrl() {
   var url = _getMobileUrl();
   try {
     await navigator.clipboard.writeText(url);
@@ -5140,7 +5141,7 @@ async function copyMobileUrl() {
     document.body.removeChild(ta);
     showToast?.('✅ Odkaz zkopírován', 'ok');
   }
-}
+};
 
 </script>
 
