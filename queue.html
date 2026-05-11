@@ -112,6 +112,42 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   font-family: 'DM Sans', sans-serif; font-weight: 700;
 }
 .head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* ── Queue tabs ── */
+.queue-tabs {
+  display: flex; gap: 4px; margin: 12px 0 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding-bottom: 0;
+}
+.qtab {
+  background: transparent; border: none; border-bottom: 2px solid transparent;
+  color: rgba(240,236,228,0.55); font-family: inherit; font-size: 13px;
+  padding: 8px 18px 10px; cursor: pointer; transition: all .2s; border-radius: 0;
+}
+.qtab:hover { color: #f0ece4; background: rgba(255,255,255,0.04); }
+.qtab.qtab-active { color: #f5c842; border-bottom-color: #f5c842; font-weight: 700; }
+
+/* ── QR panel (copied from scanner) ── */
+.qr-upload-row { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; }
+.qr-panel-half { flex:1; min-width:260px; }
+.qr-panel { display:flex; gap:20px; padding:20px; border-radius:14px; align-items:flex-start; }
+.qr-code-box {
+  width:114px; height:114px; background:#fff; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0;
+  box-shadow:0 0 0 2px rgba(255,255,255,.08),0 4px 16px rgba(0,0,0,.3);
+  transition: transform .2s, box-shadow .2s;
+}
+.qr-code-box:hover { transform:scale(1.06); box-shadow:0 0 0 3px var(--gold),0 6px 24px rgba(0,0,0,.4); }
+.qr-code-box canvas, .qr-code-box img { width:100% !important; height:100% !important; }
+.qr-enlarge-hint { font-size:11px; color:var(--text-muted); margin-top:6px; cursor:pointer; text-align:center; }
+.qr-info { flex:1; min-width:180px; }
+.qr-title { font-family:'Unbounded',sans-serif; font-size:14px; font-weight:700; color:var(--text); margin-bottom:8px; display:flex; align-items:center; gap:8px; }
+.qr-desc { font-size:13px; color:var(--text-muted); line-height:1.6; margin-bottom:12px; }
+.qr-steps { display:flex; flex-direction:column; gap:8px; }
+.qr-step { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-muted); }
+.qr-step-num { width:22px; height:22px; background:rgba(245,200,66,.15); border:1px solid rgba(245,200,66,.3); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#f5c842; flex-shrink:0; }
+
 .album-sel {
   padding: 7px 12px; background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.12); border-radius: 8px;
@@ -697,6 +733,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 <script src="card-search.js"></script>
 <script src="card-matcher.js"></script>
   <script src="i18n.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="topbar.js"></script>
 <header class="app-topbar">
   <a href="/" class="app-logo">
@@ -748,12 +785,50 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <div class="new-album-wrap" id="globalNewAlbumWrap">
         <input class="new-album-inp" id="globalNewAlbumInp" placeholder="Název nového alba…">
       </div>
-
-      <button class="btn-gold" id="assignAllBtn" onclick="assignAll()" disabled style="display:none">
-        💾 Zařadit vše
-      </button>
       <button class="btn-outline" onclick="loadQueue()">🔄 Obnovit</button>
     </div>
+  </div>
+
+  <!-- Tab navigation -->
+  <div class="queue-tabs" id="queueTabs">
+    <button class="qtab qtab-active" id="tabQueue" onclick="switchTab('queue')">📥 Fronta</button>
+    <button class="qtab" id="tabQr" onclick="switchTab('qr')">📱 QR kód</button>
+    <button class="qtab" id="tabBulk" onclick="switchTab('bulk')">🔍 Bulk Scan</button>
+  </div>
+
+  <!-- QR tab panel -->
+  <div id="panelQr" style="display:none; padding:20px 0;">
+    <div class="qr-upload-row">
+      <div class="qr-panel glass qr-panel-half" style="max-width:520px; margin:0 auto;">
+        <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+          <div class="qr-code-box" id="qrCodeBox" onclick="openQrModal()" title="Klikni pro zvětšení"></div>
+          <div class="qr-enlarge-hint" onclick="openQrModal()">🔍 Klikni pro zvětšení</div>
+        </div>
+        <div class="qr-info">
+          <div class="qr-title">📱 Propoj telefon</div>
+          <p class="qr-desc">Naskenuj QR kód telefonem. Odkaz je trvalý — ulož si ho do záložek a příště QR nepotřebuješ.</p>
+          <div class="qr-steps">
+            <div class="qr-step"><span class="qr-step-num">1</span> Otevři kameru telefonu a namiř na QR kód</div>
+            <div class="qr-step"><span class="qr-step-num">2</span> Vyfot kartičky v mobilní aplikaci</div>
+            <div class="qr-step"><span class="qr-step-num">3</span> Fotky se zobrazí ve frontě automaticky</div>
+          </div>
+          <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="copyMobileUrl()" style="font-size:12px; padding:8px 14px;">📋 Kopírovat odkaz</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bulk Scan tab panel -->
+  <div id="panelBulk" style="display:none; padding:20px 0;">
+    <div style="text-align:center; margin-bottom:20px;">
+      <p style="color:var(--text-muted); font-size:14px; margin-bottom:16px;">Bulk Scan Pro — nahrávání skenů a fotografií ve větším množství</p>
+      <a href="bulk-scan.html" class="btn-gold" style="display:inline-flex; align-items:center; gap:8px; text-decoration:none; padding:12px 24px; border-radius:12px; font-weight:700; font-family:inherit;">
+        🔍 Otevřít Bulk Scan Pro
+      </a>
+    </div>
+    <iframe id="bulkFrame" src="" style="width:100%; border:none; border-radius:12px; min-height:600px; display:none;"></iframe>
   </div>
 
   <!-- Content -->
@@ -4978,6 +5053,108 @@ async function searchCommunityImage(gi) {
   } catch(e) { console.warn('[BulkScanReturn]', e); }
 })();
 
+/* ─────────────── QUEUE TABS ─────────────── */
+var _qrGenerated = false;
+
+function switchTab(name) {
+  // Panels
+  var panels = { queue: 'contentArea', qr: 'panelQr', bulk: 'panelBulk' };
+  Object.keys(panels).forEach(function(k) {
+    var el = document.getElementById(panels[k]);
+    if (el) el.style.display = (k === name) ? '' : 'none';
+  });
+  // Tabs
+  var tabs = { queue: 'tabQueue', qr: 'tabQr', bulk: 'tabBulk' };
+  Object.keys(tabs).forEach(function(k) {
+    var el = document.getElementById(tabs[k]);
+    if (el) el.classList.toggle('qtab-active', k === name);
+  });
+  // Generate QR on first open
+  if (name === 'qr' && !_qrGenerated) { _showQrPanel(); _qrGenerated = true; }
+  // Update URL hash
+  history.replaceState(null, '', location.pathname + (name !== 'queue' ? '?tab=' + name : ''));
+}
+
+// Read ?tab= on load
+(function() {
+  var p = new URLSearchParams(location.search);
+  var t = p.get('tab');
+  if (t === 'qr' || t === 'bulk') { setTimeout(function(){ switchTab(t); }, 400); }
+})();
+
+/* ─────────────── QR PANEL ─────────────── */
+var MOBILE_BASE_Q = (function() {
+  var p = window.location.pathname;
+  var dir = p.substring(0, p.lastIndexOf('/') + 1);
+  return window.location.origin + dir + 'mobile.html';
+})();
+
+function _getMobileUrl() {
+  var uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) ? currentUser.id : 'guest';
+  return MOBILE_BASE_Q + '?uid=' + encodeURIComponent(uid);
+}
+
+function _showQrPanel() {
+  var url = _getMobileUrl();
+  var box = document.getElementById('qrCodeBox');
+  if (box && typeof QRCode !== 'undefined') {
+    box.innerHTML = '';
+    try {
+      new QRCode(box, { text: url, width: 114, height: 114,
+        colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { box.textContent = '⚠️ QR nelze vygenerovat'; }
+  }
+}
+
+function openQrModal() {
+  var modal = document.getElementById('qrModal');
+  if (modal) { modal.style.display = 'flex'; }
+  var box = document.getElementById('qrModalCode');
+  if (box && typeof QRCode !== 'undefined') {
+    box.innerHTML = '';
+    try {
+      new QRCode(box, { text: _getMobileUrl(), width: 200, height: 200,
+        colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+    } catch(e) { box.textContent = '⚠️ QR nelze vygenerovat'; }
+  }
+}
+
+function closeQrModal() {
+  var modal = document.getElementById('qrModal');
+  if (modal) { modal.style.display = 'none'; }
+}
+
+function closeQrOutside(e) {
+  if (e.target === e.currentTarget) closeQrModal();
+}
+
+async function copyMobileUrl() {
+  var url = _getMobileUrl();
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast?.('✅ Odkaz zkopírován', 'ok');
+  } catch(e) {
+    var ta = document.createElement('textarea');
+    ta.value = url; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast?.('✅ Odkaz zkopírován', 'ok');
+  }
+}
+
 </script>
+
+<!-- QR Modal -->
+<div id="qrModal" onclick="closeQrOutside(event)" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:9999; align-items:center; justify-content:center;">
+  <div class="glass" style="padding:28px; border-radius:16px; max-width:320px; width:90%; text-align:center;">
+    <div style="font-family:'Unbounded',sans-serif; font-size:15px; margin-bottom:16px;">📱 QR most – propoj telefon</div>
+    <div id="qrModalCode" style="width:200px; height:200px; background:#fff; border-radius:10px; margin:0 auto 16px; display:flex; align-items:center; justify-content:center;"></div>
+    <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">
+      Tento QR kód je <strong style="color:var(--text);">trvalý</strong> — patří jen tvému účtu.
+    </p>
+    <button onclick="closeQrModal()" style="background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.15); border-radius:8px; color:#f0ece4; padding:8px 20px; cursor:pointer; font-family:inherit;">Zavřít</button>
+  </div>
+</div>
+
 </body>
 </html>

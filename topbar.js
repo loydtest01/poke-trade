@@ -44,7 +44,6 @@ var PAGES = [
   { href: 'moje-album.html',   icon: 'energi/moje alba.png',        labelKey: 'nav.myAlbum',     label: 'Moje alba',         id: 'moje-album'  },
   { href: 'compare.html',      icon: 'energi/porovnat.png',         labelKey: 'nav.compare',     label: 'Porovnat alba',     id: 'compare'     },
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
-  { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Skener',            id: 'scanner'     },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'pokedb.html',       icon: 'energi/scanner.png',          labelKey: 'nav.pokedb',      label: 'PokéDB',            id: 'pokedb'      },
   { href: 'deck-builder.html', icon: 'energi/moje alba.png',        labelKey: 'nav.deckBuilder', label: 'Deck Builder',      id: 'deck-builder'},
@@ -77,7 +76,7 @@ function _buildPages() {
   var pages = PAGES.slice();
   var email = _getLocalEmail();
   if (email && _VIP_EMAILS.indexOf(email) !== -1) {
-    pages.push({ href: 'bulk-scan.html', icon: 'energi/scanner.png', label: 'Bulk Scan', id: 'bulk-scan' });
+    pages.push({ href: 'queue.html?tab=bulk', icon: 'energi/scanner.png', label: 'Bulk Scan', id: 'bulk-scan' });
   }
   if (email && _ADMIN_EMAILS.indexOf(email) !== -1) {
     pages.push({ href: 'admin-loyd.html', icon: 'energi/obchod.png', label: 'Admin', id: 'admin-loyd' });
