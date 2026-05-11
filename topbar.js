@@ -74,9 +74,6 @@ function _getLocalEmail() {
 function _buildPages() {
   var pages = PAGES.slice();
   var email = _getLocalEmail();
-  if (email && _VIP_EMAILS.indexOf(email) !== -1) {
-    pages.push({ href: 'queue.html', icon: 'energi/ceka_na_zarazeni.png', label: 'Bulk Scan → Queue', id: 'bulk-scan' });
-  }
   if (email && _ADMIN_EMAILS.indexOf(email) !== -1) {
     pages.push({ href: 'admin-loyd.html', icon: 'energi/obchod.png', label: 'Admin', id: 'admin-loyd' });
   }
@@ -107,6 +104,21 @@ function injectStyles() {
     }
     .app-logo strong { color: var(--yellow, #f5c842); }
     .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; min-width: 0; flex-shrink: 0; }
+    .chat-icon-btn {
+      position: relative; display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px; border-radius: 8px;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+      color: var(--text2, rgba(240,236,228,0.65));
+      text-decoration: none; transition: all .15s; cursor: pointer; font-family: inherit;
+    }
+    .chat-icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text, #f0ece4); border-color: rgba(255,255,255,0.14); }
+    .chat-badge {
+      position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px;
+      border-radius: 9px; background: #f87171; color: #fff;
+      font-size: 10px; font-weight: 800; display: flex; align-items: center;
+      justify-content: center; padding: 0 5px; line-height: 1;
+      box-shadow: 0 0 0 2px rgba(8,8,12,0.92);
+    }
     .user-chip {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 5px 10px 5px 5px; border-radius: 10px;
