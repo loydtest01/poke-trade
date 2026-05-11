@@ -47,7 +47,6 @@ var PAGES = [
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'pokedb.html',       icon: 'energi/scanner.png',          labelKey: 'nav.pokedb',      label: 'PokéDB',            id: 'pokedb'      },
   { href: 'deck-builder.html', icon: 'energi/moje alba.png',        labelKey: 'nav.deckBuilder', label: 'Deck Builder',      id: 'deck-builder'},
-  { href: 'price-finder.html',  icon: 'energi/porovnat.png',         labelKey: 'nav.priceFinder', label: 'Ceny karet',        id: 'price-finder'},
 ];
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
@@ -76,7 +75,7 @@ function _buildPages() {
   var pages = PAGES.slice();
   var email = _getLocalEmail();
   if (email && _VIP_EMAILS.indexOf(email) !== -1) {
-    pages.push({ href: 'queue.html?tab=bulk', icon: 'energi/scanner.png', label: 'Bulk Scan', id: 'bulk-scan' });
+    pages.push({ href: 'queue.html', icon: 'energi/ceka_na_zarazeni.png', label: 'Bulk Scan → Queue', id: 'bulk-scan' });
   }
   if (email && _ADMIN_EMAILS.indexOf(email) !== -1) {
     pages.push({ href: 'admin-loyd.html', icon: 'energi/obchod.png', label: 'Admin', id: 'admin-loyd' });
@@ -108,8 +107,32 @@ function injectStyles() {
     }
     .app-logo strong { color: var(--yellow, #f5c842); }
     .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; min-width: 0; flex-shrink: 0; }
-    .user-chip { max-width: 160px; overflow: hidden; }
+    .user-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 5px 10px 5px 5px; border-radius: 10px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      text-decoration: none; color: rgba(240,236,228,0.8);
+      font-size: 13px; font-weight: 500; transition: all .15s;
+      max-width: 160px; overflow: hidden;
+    }
+    .user-chip:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.18); }
     .user-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .user-avatar {
+      width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+      background: var(--yellow, #f5c842); color: #000;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800;
+      background-size: cover; background-position: center;
+    }
+    .btn-nav-outline {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 9px; font-size: 13px;
+      background: transparent; border: 1px solid rgba(255,255,255,0.18);
+      color: rgba(240,236,228,0.65); cursor: pointer;
+      font-family: inherit; font-weight: 500; text-decoration: none;
+      transition: all .15s; white-space: nowrap;
+    }
+    .btn-nav-outline:hover { background: rgba(255,255,255,0.07); color: rgba(240,236,228,0.9); }
 
     /* ── Navigační pills ── */
     .nav-lnks a {
