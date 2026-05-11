@@ -55,6 +55,16 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 //                Cerebras vision nemá → daily_vision = 0
 //                OpenRouter free models mají striktní limit 50/den oba typy
 const PROVIDERS = {
+  gemini: {
+    endpoint:        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    envKey:          'GEMINI_API_KEY',
+    defaultModel:    'gemini-2.0-flash',
+    signupHost:      'aistudio.google.com',
+    daily_text:      1500,     // 1500 req/den free tier
+    daily_vision:    500,      // vision výrazně dražší na tokenech
+    vision:          true,
+    extraHeaders:    null,
+  },
   groq: {
     endpoint:        'https://api.groq.com/openai/v1/chat/completions',
     envKey:          'GROQ_API_KEY',
@@ -238,6 +248,7 @@ function parseKeys(raw) {
 function getKeyCounts() {
   if (_cachedKeyCounts && Date.now() - _cachedAt < KEY_CACHE_TTL) return _cachedKeyCounts;
   _cachedKeyCounts = {
+    gemini:     parseKeys(process.env.GEMINI_API_KEY).length,
     groq:       parseKeys(process.env.GROQ_API_KEY).length,
     cerebras:   parseKeys(process.env.CEREBRAS_API_KEY).length,
     openrouter: parseKeys(process.env.OPENROUTER_API_KEY).length,
@@ -401,7 +412,7 @@ export default async function handler(req, res) {
   const body = req.body;
   if (!body?.messages) return res.status(400).json({ error: 'Chybí messages' });
 
-  const providerName = String(body.provider || 'groq').toLowerCase();
+  const providerName = String(body.provider || 'gemini').toLowerCase();
   const provider = PROVIDERS[providerName];
   if (!provider) {
     return res.status(400).json({
@@ -433,6 +444,15 @@ export default async function handler(req, res) {
 
   const sharedKeys = parseKeys(process.env[provider.envKey]);
   if (!sharedKeys.length) {
+    // Pokud Gemini klíč chybí → automaticky fallback na Groq
+    if (providerName === 'gemini') {
+      const groqProvider = PROVIDERS['groq'];
+      const groqKeys = parseKeys(process.env[groqProvider.envKey]);
+      if (groqKeys.length) {
+        const fallbackBody = { ...safeBody, model: groqProvider.defaultModel };
+        return proxyToProviderWithRotation(res, req, groqProvider, 'groq', groqKeys, fallbackBody);
+      }
+    }
     return res.status(503).json({
       error:    `${provider.envKey} env var není na serveru nastaven.`,
       code:     'NO_SHARED_KEY',
