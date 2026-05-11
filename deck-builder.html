@@ -377,7 +377,7 @@ async function _deckFetch(headers, bodyObj) {
   // Try Gemini first, fallback to Groq on quota/rate limit
   const providers = [
     { provider: 'gemini', model: 'gemini-2.0-flash' },
-    { provider: 'groq',   model: 'meta-llama/llama-4-scout-17b-16e-instruct' },
+    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
   ];
   let lastErr = null;
   for (const p of providers) {
