@@ -759,9 +759,12 @@ Požadavek uživatele: ${prompt}
 Sestav 60-kartový deck. Použij karty z era Scarlet & Violet (sv1-sv9) pokud možno. Odpověz POUZE v JSON formátu.`;
 
   try {
+    const _authToken = window.getValidToken ? await window.getValidToken() : null;
+    const _authHeaders = { 'Content-Type': 'application/json' };
+    if (_authToken) _authHeaders['Authorization'] = 'Bearer ' + _authToken;
     const res = await fetch(GROQ_PROXY, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders,
       body: JSON.stringify({
         model: 'meta-llama/llama-4-scout-17b-16e-instruct',
         messages: [

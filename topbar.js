@@ -165,6 +165,11 @@ function injectStyles() {
       opacity: 0.8; margin-right: 3px;
     }
     .nav-lnks a.active img.nav-icon { opacity: 1; }
+    .btn-nav-outline img.nav-icon {
+      width: 18px !important; height: 18px !important;
+      flex-shrink: 0 !important; object-fit: contain !important;
+      opacity: 0.8;
+    }
 
     /* ── Nastavení panel ── */
     .settings-drop-wrap { position: relative; }
