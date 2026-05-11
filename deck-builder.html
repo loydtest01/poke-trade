@@ -352,7 +352,7 @@ select option{background:#1a1424}
         <div class="chat-messages" id="chat-messages">
           <div class="chat-msg ai">
             <div class="avatar">🤖</div>
-            <div class="chat-bubble">Ahoj! Jsem tvůj AI asistent pro Pokémon TCG. Můžu ti poradit se strategiemi, kartami, deckbuildingem, pravidly nebo hodnotami karet. Na co se ptáš?</div>
+            <div class="chat-bubble">Ahoj! Řekni mi jakého Pokémona chceš hrát a poradím ti co k němu potřebuješ — evoluci, energie, klíčové karty. Nebo se zeptej na cokoli o TCG.</div>
           </div>
         </div>
         <div class="chat-input-row">
@@ -811,20 +811,80 @@ async function aiGenerateDeck() {
 
   const levelMap = { beginner: 'začátečník (jednoduché mechaniky, levné karty, žádné ex/VSTAR)', intermediate: 'pokročilý (standardní karty, mid-tier)', competitive: 'kompetitivní (nejsilnější meta karty, turnajová úroveň)' };
 
-  const systemPrompt = `Jsi expert na Pokémon TCG (Trading Card Game). Sestavíš přesně 60-kartový deck.
+  const systemPrompt = `Jsi expert na Pokémon TCG (Trading Card Game) s hlubokou znalostí deck buildingu. Sestavíš přesně 60-kartový deck který SKUTEČNĚ FUNGUJE.
 
-PRAVIDLA DECKU:
-- Přesně 60 karet celkem
-- Max 4× stejná karta (výjimka: základní energie)
-- Musí být alespoň 1 základní Pokémon
-- Doporučená struktura: ~15-20 Pokémonů, ~25-30 Trenérů, ~10-15 Energií
+════ ZLATÁ PRAVIDLA DECK BUILDINGU (NIKDY NEPORUŠUJ) ════
 
-ODPOVĚZ POUZE v tomto JSON formátu (bez markdown, bez uvozovek kolem JSON):
+1. EVOLUCE — každý evolvující Pokémon MUSÍ mít celou linii:
+   - Charizard ex → MUSÍ mít 4x Charmander + 2-3x Charmeleon + 3-4x Charizard ex
+   - Gardevoir ex → MUSÍ mít 4x Ralts + 3x Kirlia + 3-4x Gardevoir ex
+   - NIKDY nedávej jen finální evoluci bez základního Pokémona
+   - Rare Candy umožňuje přeskočit střed → pak 4-0-3 + 4x Rare Candy
+   - Doporučený poměr bez Rare Candy: 4-3-3 nebo 4-2-3
+
+2. ENERGIE — musí odpovídat typu útočníka:
+   - Charizard (Oheň) → Fire Energy + Reversal Energy nebo Magma Basin
+   - Gardevoir (Psycho) → Psychic Energy + Double Turbo Energy
+   - Miraidon (Blesk) → Lightning Energy + Flaaffy jako engine
+   - NIKDY nedávej energii jiného typu než útočník potřebuje
+   - Počet: 8-14 základních + 2-4 speciálních energií
+
+3. SUPPORTEŘI (min. 8-12 kusů):
+   - Professor's Research — draw 7 po odhozu ruky (vždy 4x)
+   - Boss's Orders — vytáhni soupeřova Pokémona (2-3x)
+   - Iono — oba hráči dají ruku pryč a líznou dle prize cards (2-4x)
+   - Arven — najdi Item + Tool (3-4x v evolution deckách)
+   - Crispin — pro Fire decky: přilož energii z discardu na bench (2-3x)
+   - Colress's Experiment — draw 5 discard 3 pro special energy decky
+
+4. ITEMS — akcelerace a hledání (min. 10-15 kusů):
+   - Ultra Ball — najdi jakéhokoli Pokémona, odlož 2 z ruky (3-4x)
+   - Nest Ball — najdi základního Pokémona na bench zadarmo (3-4x)
+   - Rare Candy — přeskočí evoluci Stage 1 rovnou na Stage 2 (4x pro Stage 2 decky)
+   - Pal Pad — vrátí 2 supportéry z discardu (2x)
+   - Switch / Escape Rope — výměna aktivního Pokémona (2-3x)
+   - Super Rod — vrátí 3 Pokémony/energie z discardu (1-2x)
+
+5. STADIA (2-4 kusy):
+   - Magma Basin — Fire decky: přilož Fire Energy z discardu, 20 poškození (2x)
+   - Collapsed Stadium — discardne benche obou hráčů na 4 (2x jako tech)
+
+6. POKÉMON STRUKTURA (15-20 karet):
+   - Hlavní útočník: 3-4 kopie (finální evoluce nebo V)
+   - Pomocný/záložní útočník: 2-3 kopie
+   - Celá evoluční linie hlavního útočníka
+   - Podpůrní Pokémoni s Abilities: Pidgeot ex (search), Lumineon V (draw), Mew ex
+
+════ PŘÍKLADY FUNKČNÍCH KOSTER ════
+
+CHARIZARD EX (Oheň, Stage 2):
+Pokémoni: 4x Charmander, 3x Charmeleon, 4x Charizard ex, 2x Pidgey, 2x Pidgeot ex, 2x Mew ex
+Trenéři: 4x Rare Candy, 4x Ultra Ball, 3x Nest Ball, 4x Arven, 4x Professor's Research, 3x Iono, 2x Boss's Orders, 2x Switch, 2x Pal Pad, 1x Super Rod, 2x Magma Basin
+Energie: 8x Fire Energy + 2x Reversal Energy = 60 karet celkem
+
+GARDEVOIR EX (Psycho, Stage 2):
+Pokémoni: 4x Ralts, 3x Kirlia, 4x Gardevoir ex, 2x Gallade, 1x Zacian V, 2x Comfey
+Trenéři: 4x Rare Candy, 4x Ultra Ball, 3x Fog Crystal, 3x Arven, 4x Professor's Research, 3x Iono, 2x Boss's Orders, 2x Switch, 1x Pal Pad, 1x Super Rod
+Energie: 11x Psychic + 2x Double Turbo = 60 karet celkem
+
+════ CHYBY KTERÉ AUTOMATICKY OPRAVÍŠ ════
+❌ Charizard ex bez Charmanderu → přidej celou evoluci
+❌ Stage 2 bez Rare Candy a bez Stage 1 → přidej Rare Candy a Stage 1
+❌ Energie špatného typu → oprav na správný typ
+❌ Méně než 8 supportérů → přidej Professor's Research a Iono
+❌ Žádné hledání Pokémonů → přidej Ultra Ball + Nest Ball
+❌ Méně nebo více než 60 karet → přidej/odeber do přesně 60
+
+Pokud uživatel říká "chci Charizarda" → AUTOMATICKY přidej Charmander + Charmeleon + Rare Candy + Fire engine.
+Pokud uživatel říká jen jméno útočníka → navrhni CELÝ fungující deck s celou evoluční linií, energiemi a supportery.
+
+ODPOVĚZ POUZE čistým JSON (bez markdown, bez code fences):
 {
   "name": "Název decku",
-  "explanation": "2-3 věty o strategii a proč tento deck funguje",
+  "explanation": "3-4 věty: jak deck hrát v prvních kolech, klíčové synergie, hlavní strategie a záložní plán",
   "cards": [
     {"name": "Charizard ex", "set": "sv3", "number": "125", "count": 4, "supertype": "Pokémon"},
+    {"name": "Charmander", "set": "sv3", "number": "004", "count": 4, "supertype": "Pokémon"},
     ...
   ]
 }`;
@@ -833,8 +893,14 @@ ODPOVĚZ POUZE v tomto JSON formátu (bez markdown, bez uvozovek kolem JSON):
 
 Požadavek uživatele: ${prompt}
 
-Sestav 60-kartový deck. Použij karty z era Scarlet & Violet (sv1-sv9) pokud možno. Odpověz POUZE v JSON formátu.`;
-
+INSTRUKCE:
+1. Sestav PŘESNĚ 60-kartový deck — součet všech "count" musí být 60.
+2. Pokud uživatel zmínil evolvujícího Pokémona, AUTOMATICKY přidej celou evoluční linii.
+3. Vždy přidej: Ultra Ball (3-4x), Nest Ball (3-4x), Professor's Research (4x), Iono (2-3x), Boss's Orders (2x).
+4. Pro Stage 2 Pokémony VŽDY přidej 4x Rare Candy.
+5. Energie musí odpovídat typu útočníka.
+6. Preferuj karty Scarlet & Violet (sv1-sv9).
+7. Odpověz POUZE čistým JSON bez jakéhokoli textu kolem.`;
   try {
     const _authToken = window.getValidToken ? await window.getValidToken() : null;
     const _authHeaders = { 'Content-Type': 'application/json' };
@@ -843,7 +909,8 @@ Sestav 60-kartový deck. Použij karty z era Scarlet & Violet (sv1-sv9) pokud mo
       method: 'POST',
       headers: _authHeaders,
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        provider: 'gemini',
+        model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMsg }
@@ -870,6 +937,44 @@ Sestav 60-kartový deck. Použij karty z era Scarlet & Violet (sv1-sv9) pokud mo
 
     if (!deck.cards || !deck.cards.length) throw new Error('No cards in response');
 
+    // ── Validace decku — upozornění na časté chyby ──
+    const warnings = [];
+    const totalCount = deck.cards.reduce((s, c) => s + (c.count || 0), 0);
+    if (totalCount !== 60) warnings.push(`⚠️ Deck má ${totalCount} karet místo 60`);
+
+    // Zkontroluj chybějící základní Pokémony pro evoluční linie
+    const EVOL_CHAINS = {
+      'Charizard ex': ['Charmander'], 'Charizard': ['Charmander'],
+      'Charmeleon': ['Charmander'],
+      'Gardevoir ex': ['Ralts'], 'Gardevoir': ['Ralts'],
+      'Kirlia': ['Ralts'], 'Gallade': ['Ralts'],
+      'Mewtwo V': [], 'Mewtwo VSTAR': ['Mewtwo V'],
+      'Mewtwo VMAX': ['Mewtwo V'],
+      'Blastoise': ['Squirtle'], 'Venusaur': ['Bulbasaur'],
+      'Pidgeot ex': ['Pidgey'],
+      'Lugia VSTAR': ['Lugia V'],
+      'Miraidon ex': [],
+      'Giratina VSTAR': ['Giratina V'],
+      'Lost Box': [],
+    };
+    const cardNames = new Set(deck.cards.map(c => c.name));
+    for (const [final, bases] of Object.entries(EVOL_CHAINS)) {
+      if (cardNames.has(final)) {
+        for (const base of bases) {
+          if (!cardNames.has(base)) warnings.push(`⚠️ Deck má ${final} ale chybí základní ${base}!`);
+        }
+      }
+    }
+    // Stage 2 bez Rare Candy
+    const stage2Names = ['Charizard ex','Gardevoir ex','Blastoise ex','Venusaur ex','Pidgeot ex','Metagross ex'];
+    const hasStage2 = stage2Names.some(n => cardNames.has(n));
+    if (hasStage2 && !cardNames.has('Rare Candy')) {
+      warnings.push('⚠️ Stage 2 deck bez Rare Candy — zvažte přidání 4x Rare Candy');
+    }
+    if (warnings.length) {
+      deck._warnings = warnings;
+    }
+
     _currentAiDeck = deck;
     showAiResult(deck);
     statusEl.style.display = 'none';
@@ -887,6 +992,22 @@ function showAiResult(deck) {
   document.getElementById('ai-result-wrap').style.display = 'grid';
   document.getElementById('ai-deck-name').textContent = deck.name || 'AI Deck';
   document.getElementById('ai-explanation').textContent = deck.explanation || '';
+
+  // Zobraz varování pokud existují
+  let warnEl = document.getElementById('ai-deck-warnings');
+  if (!warnEl) {
+    warnEl = document.createElement('div');
+    warnEl.id = 'ai-deck-warnings';
+    warnEl.style.cssText = 'margin:0 0 12px;display:flex;flex-direction:column;gap:5px;';
+    document.getElementById('ai-explanation')?.insertAdjacentElement('afterend', warnEl);
+  }
+  if (deck._warnings && deck._warnings.length) {
+    warnEl.innerHTML = deck._warnings.map(w =>
+      `<div style="background:rgba(251,146,60,0.1);border:1px solid rgba(251,146,60,0.3);border-radius:8px;padding:7px 12px;font-size:12px;color:#fb923c;">${w}</div>`
+    ).join('');
+  } else {
+    warnEl.innerHTML = '<div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.2);border-radius:8px;padding:7px 12px;font-size:12px;color:#4ade80;">✅ Deck prošel validací — evoluční linie a základní struktura vypadají v pořádku.</div>';
+  }
 
   renderDeckList(deck.cards, 'ai-deck-list');
   const stats = getDeckStats(deck.cards);
@@ -1158,14 +1279,30 @@ async function chatSend() {
 
   const typing = _chatShowTyping();
 
-  const systemPrompt = `Jsi přátelský expert na Pokémon TCG (Trading Card Game). Odpovídáš česky, stručně a přesně. Pomáháš s:
-- Stavbou a vylepšením decků
-- Strategiemi a mechanikami hry  
-- Hodnotami a investicemi do karet
-- Pravidly a turnajevými formáty
-- Doporučeními karet a setů
+  const systemPrompt = `Jsi stručný expert na Pokémon TCG. Odpovídáš ČESKY. Jsi jako zkušený kamarád-trenér — konkrétní, praktický, ne ukecaný.
 
-Pokud uživatel sdílí svůj deck, analyzuj ho a navrhni konkrétní vylepšení. Buď přátelský a konkrétní.${_chatDeckContext()}`;
+PRAVIDLA ODPOVĚDÍ:
+- Max 4-6 vět nebo odrážek. Nikdy nepíšeš romány.
+- Vždy konkrétní (jména karet, počty) — ne obecné rady.
+
+EVOLUČNÍ PRAVIDLO (vždy aplikuj):
+Pokud user chce Stage 2 Pokémona (Charizard, Gardevoir, Blastoise...) a nezmínil základní formu, upozorni ho a uveď co potřebuje:
+"Charizard ex je Stage 2 — budeš potřebovat: 4× Charmander, 3× Charmeleon (nebo 4× Rare Candy místo Stage 1), 3-4× Charizard ex."
+
+ENERGETICKÉ DOPORUČENÍ (vždy k útočníkovi):
+- Oheň: 8-10× Fire Energy + Reversal Energy nebo Magma Basin stadium
+- Psycho: 10-12× Psychic Energy, Gardevoir ex Ability Psychic Embrace nabíjí z ruky
+- Blesk: 8× Lightning Energy + Flaaffy jako Dynamotor engine
+- Voda: 8-10× Water Energy + Melony nebo Irida jako supportér
+- Bezbarvý: speciální energie (Double Turbo, Reversal) + Archeops
+
+FORMÁT když user řekne "chci X":
+1. Evoluční linie pokud potřeba (1 řádek)
+2. Energie: typ + počet + 1 tip na akceleraci (1 řádek)
+3. 2-3 klíčové Trenéry (Arven, Rare Candy, Boss's Orders...)
+4. Volitelně: "Chceš celý deck? Přejdi na záložku AI Builder."
+
+${_chatDeckContext()}`;
 
   try {
     const _authToken = window.getValidToken ? await window.getValidToken() : null;
@@ -1176,13 +1313,14 @@ Pokud uživatel sdílí svůj deck, analyzuj ho a navrhni konkrétní vylepšen�
       method: 'POST',
       headers: _authHeaders,
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        provider: 'gemini',
+        model: 'gemini-2.0-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           ..._chatHistory
         ],
-        max_tokens: 800,
-        temperature: 0.75,
+        max_tokens: 600,
+        temperature: 0.65,
       })
     });
 
