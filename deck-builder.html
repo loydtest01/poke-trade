@@ -959,6 +959,46 @@ POVINNÉ INSTRUKCE:
 
     if (!deck.cards || !deck.cards.length) throw new Error('No cards in response');
 
+    // ── Auto-doplnění do přesně 60 karet ──────────────────────────
+    (function autoFill60(cards) {
+      const total = () => cards.reduce((s, c) => s + (c.count || 0), 0);
+      if (total() >= 60) return;
+      // Zjisti hlavní typ energie
+      const energyTypes = { fire: 'Fire Energy', water: 'Water Energy', grass: 'Grass Energy',
+        lightning: 'Lightning Energy', psychic: 'Psychic Energy', fighting: 'Fighting Energy',
+        darkness: 'Darkness Energy', metal: 'Metal Energy', fairy: 'Fairy Energy' };
+      let mainEnergy = 'Fire Energy';
+      for (const c of cards) {
+        if (c.supertype === 'Energy' && !c.name?.includes('Special') && !c.name?.includes('Double') && !c.name?.includes('Reversal')) {
+          mainEnergy = c.name; break;
+        }
+      }
+      // Karty k doplnění v prioritním pořadí
+      const fillers = [
+        { name: 'Switch', set: 'sv1', number: '194', supertype: 'Trainer' },
+        { name: 'Pal Pad', set: 'sv1', number: '182', supertype: 'Trainer' },
+        { name: 'Super Rod', set: 'sv1', number: '188', supertype: 'Trainer' },
+        { name: mainEnergy, set: 'sv1', number: '228', supertype: 'Energy' },
+      ];
+      for (const filler of fillers) {
+        if (total() >= 60) break;
+        const existing = cards.find(c => c.name === filler.name);
+        if (existing && existing.count < 4) {
+          const add = Math.min(4 - existing.count, 60 - total());
+          existing.count += add;
+        } else if (!existing) {
+          const add = Math.min(4, 60 - total());
+          cards.push({ ...filler, count: add });
+        }
+      }
+      // Poslední záchrana — přidej energie
+      while (total() < 60) {
+        const e = cards.find(c => c.name === mainEnergy);
+        if (e) e.count++;
+        else cards.push({ name: mainEnergy, set: 'sv1', number: '228', supertype: 'Energy', count: 1 });
+      }
+    })(deck.cards);
+
     // ── Validace decku — upozornění na časté chyby ──
     const warnings = [];
     const totalCount = deck.cards.reduce((s, c) => s + (c.count || 0), 0);
