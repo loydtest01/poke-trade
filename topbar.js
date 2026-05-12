@@ -51,7 +51,7 @@ var PAGES = [
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
 var _VIP_EMAILS   = ['adelka.papezova@gmail.com','james.t.kirk1933@gmail.com','lasovlas@seznam.cz','loydtest@gmail.com','pan.spock30@gmail.com','pokecards.app.info@gmail.com','papez.ondrej@gmail.com'];
-var _ADMIN_EMAILS = ['papez.ondrej@gmail.com','loydtest@gmail.com'];
+var _ADMIN_EMAILS = ['papez.ondrej@gmail.com','loydtest@gmail.com','lasovlas@seznam.cz'];
 
 /* Vrátí email přihlášeného uživatele z localStorage (lowercase), nebo '' */
 function _getLocalEmail() {

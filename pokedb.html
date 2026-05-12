@@ -1127,38 +1127,37 @@ body::after {
       </code>
     </div>
 
-    <!-- Rate limit tiers -->
-    <h3 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Rate limity dle tier</h3>
-    <p style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">
-      ⚠️ API běží na Cloudflare Workers Free — celková kapacita 100 000 požadavků/den.
-      Při vysokém využití může být dostupnost omezena.
-    </p>
-    <div class="tier-grid">
-      <div class="tier-card">
-        <div class="tier-name">🌐 Anonymní</div>
-        <div class="tier-limit">500</div>
-        <div class="tier-desc">požadavků / hodinu<br>bez API klíče</div>
+    <!-- Rate limit tiers — viditelné jen adminům -->
+    <div id="api-rate-limits" style="display:none">
+      <h3 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Rate limity dle tier</h3>
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">
+        ⚠️ API běží na Cloudflare Workers Free — celková kapacita 100 000 požadavků/den.
+        Při vysokém využití může být dostupnost omezena.
+      </p>
+      <div class="tier-grid">
+        <div class="tier-card">
+          <div class="tier-name">🌐 Anonymní</div>
+          <div class="tier-limit">500</div>
+          <div class="tier-desc">požadavků / hodinu<br>bez API klíče</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">🔑 Free tier</div>
+          <div class="tier-limit b">2 000</div>
+          <div class="tier-desc">požadavků / hodinu<br>zdarma po registraci</div>
+        </div>
+        <div class="tier-card" style="opacity:.6">
+          <div class="tier-name">💼 Pro tier</div>
+          <div class="tier-limit g" style="font-size:1rem">Brzy</div>
+          <div class="tier-desc">vyšší limity<br>kontaktuj správce</div>
+        </div>
       </div>
-      <div class="tier-card">
-        <div class="tier-name">🔑 Free tier</div>
-        <div class="tier-limit b">2 000</div>
-        <div class="tier-desc">požadavků / hodinu<br>zdarma po registraci</div>
-      </div>
-      <div class="tier-card" style="opacity:.6" title="Zatím nedostupné">
-        <div class="tier-name">💼 Pro tier</div>
-        <div class="tier-limit g" style="font-size:1rem">Brzy</div>
-        <div class="tier-desc">vyšší limity<br>kontaktuj správce</div>
-      </div>
-    </div>
-
-    <!-- Monitoring info -->
-    <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:1rem;margin-bottom:1.5rem">
-      <div style="font-size:.8rem;font-weight:700;color:var(--blue);margin-bottom:.5rem">📊 Sledování využití</div>
-      <div style="font-size:.75rem;color:var(--muted);line-height:1.7">
-        Využití API lze sledovat na
-        <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--blue)">dash.cloudflare.com</a>
-        → Workers → pokedb-api → Analytics.<br>
-        Tvůj API klíč zobrazuje počet požadavků v záložce <strong>API klíč</strong> po přihlášení.
+      <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:1rem;margin-bottom:1.5rem">
+        <div style="font-size:.8rem;font-weight:700;color:var(--blue);margin-bottom:.5rem">📊 Sledování využití (admin)</div>
+        <div style="font-size:.75rem;color:var(--muted);line-height:1.7">
+          <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--blue)">dash.cloudflare.com</a>
+          → Workers → pokedb-api → Analytics<br>
+          Neon: <code>SELECT name, email, request_count, last_used_at FROM api_keys ORDER BY request_count DESC</code>
+        </div>
       </div>
     </div>
 
@@ -1478,7 +1477,7 @@ const API_BASE = _WORKER_ENDPOINTS[0]; // zachováno pro zpětnou kompatibilitu
 /* ── Admin detekce — deleguje na topbar.js window._isAdmin ─────────── */
 const _DB_ADMIN_EMAILS = typeof _ADMIN_EMAILS !== 'undefined'
   ? _ADMIN_EMAILS
-  : ['papez.ondrej@gmail.com','loydtest@gmail.com'];
+  : ['papez.ondrej@gmail.com','loydtest@gmail.com','lasovlas@seznam.cz'];
 
 function _isAdmin() {
   // 1. Topbar.js exportuje window._isAdmin po načtení profilu
@@ -1547,6 +1546,11 @@ async function init() {
   doSearch();
   document.getElementById('api-base-url').textContent = location.origin + '/api/v1';
   _initAdminSetsTab();
+  // Rate limit info jen pro adminy
+  if (_isAdmin()) {
+    const rl = document.getElementById('api-rate-limits');
+    if (rl) rl.style.display = '';
+  }
 }
 
 // Jeden fetch /sets sdílený pro stats i dropdown — šetří rate limit
