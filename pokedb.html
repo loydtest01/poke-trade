@@ -658,6 +658,38 @@ body::after {
 /* Language filter flag */
 .lang-flag { font-size: .9rem; }
 
+/* ── Jazykové varianty v modalu ─────────────────────── */
+.lang-variants-section { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.2rem; }
+.lang-variants-title { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .7rem; display: flex; align-items: center; gap: .5rem; }
+.lang-variants-grid { display: flex; gap: .6rem; flex-wrap: wrap; }
+.lang-variant-thumb {
+  position: relative; cursor: pointer; border-radius: 7px; overflow: hidden;
+  border: 2px solid transparent; transition: border-color .15s, transform .15s, box-shadow .15s;
+  background: rgba(255,255,255,.04);
+}
+.lang-variant-thumb:hover { border-color: var(--yellow); transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+.lang-variant-thumb.lv-active { border-color: rgba(96,165,250,.7); }
+.lang-variant-thumb img { width: 62px; height: 87px; object-fit: cover; display: block; }
+.lang-variant-thumb .lv-placeholder { width: 62px; height: 87px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; }
+.lang-variant-label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,.75); font-size: .58rem; font-weight: 700;
+  text-align: center; padding: 2px 0; color: #fff; letter-spacing: .03em;
+}
+
+/* ── Upload obrázku ──────────────────────────────────── */
+.img-upload-section {
+  margin-top: 1rem; padding: .9rem 1rem; background: rgba(255,255,255,.03);
+  border: 1px dashed rgba(255,255,255,.15); border-radius: 8px; text-align: center;
+}
+.img-upload-title { font-size: .78rem; color: var(--muted); margin-bottom: .6rem; }
+.img-upload-preview { width: 72px; height: 100px; object-fit: cover; border-radius: 6px; margin: .5rem auto .7rem; display: block; border: 1px solid var(--border); }
+.upload-progress { margin-top: .5rem; font-size: .78rem; color: var(--muted); }
+
+/* ── Filtr "Bez obrázku" ─────────────────────────────── */
+#btn-noimag { transition: background .15s, border-color .15s, color .15s; }
+#btn-noimag.active { background: rgba(245,200,66,.15) !important; border-color: rgba(245,200,66,.5) !important; color: var(--yellow) !important; }
+
 /* ══ Price Finder — Heureka styl ══════════════════════════════ */
 #page-prices { padding: 0; }
 .pf-wrap { max-width: 900px; margin: 0 auto; padding: 1.2rem 1rem 3rem; }
@@ -889,6 +921,7 @@ body::after {
         <input type="text" id="q" placeholder="Hledat kartu (jméno, číslo, typ…)" oninput="debouncedSearch()">
       </div>
       <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)" style="white-space:nowrap">🌍 Všechny jazyky</button>
+      <button class="btn btn-sm" id="btn-noimag" onclick="toggleNoImage()" title="Zobrazit jen karty bez obrázku" style="white-space:nowrap">📷 Bez obrázku</button>
       <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
       <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
     </div>
@@ -1031,16 +1064,51 @@ body::after {
       <h2 style="font-size:1.2rem;color:var(--yellow);margin-bottom:.3rem">📦 Pokémon TCG Série</h2>
       <p style="color:var(--muted);font-size:.85rem">Klikni na sérii pro zobrazení karet.</p>
     </div>
-    <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;flex-wrap:wrap">
-      <input type="text" id="set-search" placeholder="🔍 Hledat sérii…"
-        oninput="filterSets()"
-        style="background:var(--card);border:1px solid var(--border);border-radius:8px;
-               color:var(--text);padding:.55rem 1rem;font-size:.88rem;outline:none;flex:1;min-width:180px">
-      <select class="filter-select" id="set-series-filter" onchange="filterSets()">
-        <option value="">Všechny generace</option>
-      </select>
+    <!-- Tabs — druhý tab jen pro adminy -->
+    <div style="display:flex;gap:.4rem;margin-bottom:1.2rem;border-bottom:1px solid var(--border);padding-bottom:.6rem" id="sets-tabs">
+      <button class="nav-tab active" id="sets-tab-browse" onclick="switchSetsTab('browse')" style="font-size:.82rem;padding:.35rem .9rem">📦 Série</button>
+      <button class="nav-tab" id="sets-tab-status" onclick="switchSetsTab('status')" style="font-size:.82rem;padding:.35rem .9rem;display:none">🔍 Stav DB</button>
     </div>
-    <div class="sets-grid" id="sets-grid"></div>
+
+    <!-- Tab: Procházet série -->
+    <div id="sets-panel-browse">
+      <div style="display:flex;gap:.6rem;margin-bottom:1.2rem;flex-wrap:wrap">
+        <input type="text" id="set-search" placeholder="🔍 Hledat sérii…"
+          oninput="filterSets()"
+          style="background:var(--card);border:1px solid var(--border);border-radius:8px;
+                 color:var(--text);padding:.55rem 1rem;font-size:.88rem;outline:none;flex:1;min-width:180px">
+        <select class="filter-select" id="set-series-filter" onchange="filterSets()">
+          <option value="">Všechny generace</option>
+        </select>
+      </div>
+      <div class="sets-grid" id="sets-grid"></div>
+    </div>
+
+    <!-- Tab: Stav databáze (admin) -->
+    <div id="sets-panel-status" style="display:none">
+      <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-sm" onclick="loadDbStatus()" id="btn-load-status">🔄 Načíst stav databáze</button>
+        <select id="status-filter-lang" class="filter-select" onchange="renderStatusTable()" style="min-width:130px">
+          <option value="">Všechny jazyky</option>
+          <option value="en">EN English</option>
+          <option value="ja">JP Japanese</option>
+          <option value="de">DE Deutsch</option>
+          <option value="fr">FR Français</option>
+          <option value="it">IT Italiano</option>
+          <option value="es">ES Español</option>
+          <option value="pt">PT Português</option>
+          <option value="ko">KO Korean</option>
+        </select>
+        <select id="status-filter-state" class="filter-select" onchange="renderStatusTable()" style="min-width:150px">
+          <option value="">Všechny stavy</option>
+          <option value="ok">✅ Staženo kompletně</option>
+          <option value="partial">⚠️ Částečně staženo</option>
+          <option value="missing">❌ Chybí úplně</option>
+        </select>
+        <span id="status-summary" style="font-size:.78rem;color:var(--muted);margin-left:auto"></span>
+      </div>
+      <div id="status-output"></div>
+    </div>
   </div>
 </div>
 
@@ -1332,12 +1400,29 @@ fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
    CONFIG
 ════════════════════════════════════════════════════ */
 const API_BASE = 'https://pokedb-api.poketrade.workers.dev/v1';
+
+/* ── Admin detekce (stejný systém jako topbar.js) ───────────── */
+const _DB_ADMIN_EMAILS = typeof _ADMIN_EMAILS !== 'undefined'
+  ? _ADMIN_EMAILS  // načteno z topbar.js
+  : ['papez.ondrej@gmail.com','loydtest@gmail.com'];
+
+function _isAdmin() {
+  try {
+    const email = typeof _getLocalEmail === 'function' ? _getLocalEmail() : '';
+    if (email && _DB_ADMIN_EMAILS.indexOf(email) !== -1) return true;
+    // Fallback: zkus sb_user is_admin
+    const u = JSON.parse(localStorage.getItem('sb_user') || 'null');
+    return !!(u?.user_metadata?.is_admin || u?.app_metadata?.is_admin);
+  } catch { return false; }
+}
+
 let state = {
   page: 1, limit: 36, view: 'grid',
   q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name',
   totalCards: 0, totalPages: 0,
   setsData: [], loading: false,
-  allLang: false // ignorovat jazykový filtr — hledá ve všech jazycích
+  allLang: false, // ignorovat jazykový filtr — hledá ve všech jazycích
+  noImage: false  // zobrazit jen karty bez obrázku
 };
 
 function toggleAllLang() {
@@ -1357,6 +1442,12 @@ function toggleAllLang() {
   doSearch(1);
 }
 
+function toggleNoImage() {
+  state.noImage = !state.noImage;
+  document.getElementById('btn-noimag').classList.toggle('active', state.noImage);
+  doSearch(1);
+}
+
 /* ════════════════════════════════════════════════════
    PAGE SWITCHING
 ════════════════════════════════════════════════════ */
@@ -1373,9 +1464,10 @@ function switchPage(id, btn) {
    INIT
 ════════════════════════════════════════════════════ */
 async function init() {
-  loadSetsOnce(); // jediný fetch /sets — použit pro stats i filter
+  loadSetsOnce();
   doSearch();
   document.getElementById('api-base-url').textContent = location.origin + '/api/v1';
+  _initAdminSetsTab();
 }
 
 // Jeden fetch /sets sdílený pro stats i dropdown — šetří rate limit
@@ -1418,6 +1510,176 @@ async function loadSetsOnce() {
 // Alias pro zpětnou kompatibilitu (Sets stránka volá loadSets())
 async function loadStats() { /* sloučeno do loadSetsOnce */ }
 async function loadSetFilter() { /* sloučeno do loadSetsOnce */ }
+
+/* ════════════════════════════════════════════════════
+   SETS PAGE — tab switching + admin DB status
+════════════════════════════════════════════════════ */
+function switchSetsTab(tab) {
+  document.getElementById('sets-panel-browse').style.display  = tab === 'browse' ? '' : 'none';
+  document.getElementById('sets-panel-status').style.display  = tab === 'status' ? '' : 'none';
+  document.getElementById('sets-tab-browse').classList.toggle('active', tab === 'browse');
+  document.getElementById('sets-tab-status').classList.toggle('active', tab === 'status');
+}
+
+// Zobrazit "Stav DB" tab jen adminům — voláno po initu
+function _initAdminSetsTab() {
+  if (_isAdmin()) {
+    const btn = document.getElementById('sets-tab-status');
+    if (btn) btn.style.display = '';
+  }
+}
+
+// Cached data pro status tabulku
+let _dbStatusData = null;
+
+async function loadDbStatus() {
+  const out = document.getElementById('status-output');
+  const btn = document.getElementById('btn-load-status');
+  out.innerHTML = `<div style="color:var(--muted);padding:1.5rem 0;text-align:center">⏳ Načítám data z Worker API a TCGdex…</div>`;
+  btn.disabled = true;
+
+  try {
+    // 1. Naše série z Worker D1
+    const [ourRes, tcgRes] = await Promise.all([
+      fetch(`${API_BASE}/sets`),
+      fetch('https://api.tcgdex.net/v2/en/sets'),
+    ]);
+
+    const ourSets  = ourRes.ok  ? (await ourRes.json())  : [];
+    const tcgSets  = tcgRes.ok  ? (await tcgRes.json())  : [];
+
+    // Index naší DB podle ID
+    const ourIndex = {};
+    (Array.isArray(ourSets) ? ourSets : []).forEach(s => {
+      ourIndex[s.id] = s;
+    });
+
+    // Porovnej — pro EN série (TCGdex vrací EN)
+    const rows = tcgSets.map(ts => {
+      const our = ourIndex[ts.id];
+      const tcgCount = ts.cardCount?.total || ts.total || 0;
+      const ourCount = our ? (our.card_count || 0) : 0;
+      let status = 'missing';
+      if (our && ourCount > 0) {
+        status = (ourCount >= tcgCount * 0.95) ? 'ok' : 'partial';
+      }
+      return {
+        id:        ts.id,
+        name:      ts.name || ts.id,
+        lang:      'en',
+        tcgCount,
+        ourCount,
+        status,
+        year:      ts.releaseDate ? ts.releaseDate.slice(0, 4) : '?',
+        logo:      ts.logo ? ts.logo + '/logo.png' : '',
+        tcgdexUrl: `https://www.tcgdex.net/en/sets/${ts.id}`,
+        importCmd: `import-foreign.bat en ${ts.id}`,
+      };
+    });
+
+    // Přidej naše non-EN série které TCGdex nemá (JP, DE, FR…)
+    const tcgIds = new Set(tcgSets.map(s => s.id));
+    (Array.isArray(ourSets) ? ourSets : []).forEach(s => {
+      const lang = s.lang || s.language || 'en';
+      if (lang !== 'en' || !tcgIds.has(s.id)) {
+        rows.push({
+          id: s.id, name: s.name || s.id, lang,
+          tcgCount: s.card_count || 0, ourCount: s.card_count || 0,
+          status: 'ok', year: s.release_date ? s.release_date.slice(0,4) : '?',
+          logo: s.logo_url || '', tcgdexUrl: '', importCmd: '',
+        });
+      }
+    });
+
+    // Uložit a vykreslit
+    _dbStatusData = rows;
+    renderStatusTable();
+
+  } catch(e) {
+    out.innerHTML = `<div style="color:var(--red)">⚠️ Chyba: ${escH(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderStatusTable() {
+  const out = document.getElementById('status-output');
+  if (!_dbStatusData) return;
+
+  const langFilter  = document.getElementById('status-filter-lang').value;
+  const stateFilter = document.getElementById('status-filter-state').value;
+
+  let rows = _dbStatusData;
+  if (langFilter)  rows = rows.filter(r => r.lang === langFilter);
+  if (stateFilter) rows = rows.filter(r => r.status === stateFilter);
+
+  const counts = { ok: 0, partial: 0, missing: 0 };
+  _dbStatusData.forEach(r => counts[r.status]++);
+  document.getElementById('status-summary').textContent =
+    `Celkem: ${_dbStatusData.length} sérií — ✅ ${counts.ok} · ⚠️ ${counts.partial} · ❌ ${counts.missing}`;
+
+  if (!rows.length) {
+    out.innerHTML = `<div style="text-align:center;color:var(--muted);padding:2rem">Žádné výsledky</div>`;
+    return;
+  }
+
+  // Seřadit: chybějící první, pak částečné, pak ok
+  const order = { missing: 0, partial: 1, ok: 2 };
+  rows.sort((a, b) => order[a.status] - order[b.status] || a.name.localeCompare(b.name));
+
+  const langFlags = { en:'gb', ja:'jp', de:'de', fr:'fr', it:'it', es:'es', pt:'pt', ko:'kr' };
+
+  out.innerHTML = `
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:.82rem">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);color:var(--muted);text-align:left">
+          <th style="padding:.5rem .4rem;width:28px"></th>
+          <th style="padding:.5rem .4rem">Série</th>
+          <th style="padding:.5rem .4rem;text-align:center">Rok</th>
+          <th style="padding:.5rem .4rem;text-align:center">Jazyk</th>
+          <th style="padding:.5rem .4rem;text-align:center">Naše&nbsp;/&nbsp;TCGdex</th>
+          <th style="padding:.5rem .4rem;text-align:center">Stav</th>
+          <th style="padding:.5rem .4rem">Akce</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => {
+          const statusIcon = { ok:'✅', partial:'⚠️', missing:'❌' }[r.status];
+          const statusCol  = { ok:'#4ade80', partial:'#fbbf24', missing:'#f87171' }[r.status];
+          const pct = r.tcgCount > 0 ? Math.round(r.ourCount / r.tcgCount * 100) : (r.ourCount > 0 ? 100 : 0);
+          const flagCode = langFlags[r.lang] || '';
+          const flag = flagCode ? `<img src="https://flagcdn.com/16x12/${flagCode}.png" width="14" height="10" style="vertical-align:middle">` : '';
+          const logoHtml = r.logo ? `<img src="${escH(r.logo)}" style="height:18px;max-width:50px;object-fit:contain;vertical-align:middle;opacity:.8" onerror="this.style.display='none'">` : '📦';
+          const tcgLink = r.tcgdexUrl ? `<a href="${escH(r.tcgdexUrl)}" target="_blank" rel="noopener" style="color:var(--blue);text-decoration:none;font-size:.75rem" title="Zobrazit na TCGdex">↗</a>` : '';
+          const importHint = r.status !== 'ok' && r.importCmd
+            ? `<button class="btn btn-sm" style="font-size:.68rem;padding:2px 7px" onclick="navigator.clipboard.writeText('${escH(r.importCmd)}');toast('Příkaz zkopírován!','ok')" title="Zkopírovat příkaz pro import">📋 ${escH(r.importCmd)}</button>`
+            : (r.status !== 'ok' ? `<span style="font-size:.7rem;color:var(--muted)">ruční import</span>` : '');
+          return `
+            <tr style="border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s" onmouseover="this.style.background='rgba(255,255,255,.03)'" onmouseout="this.style.background=''">
+              <td style="padding:.4rem .4rem">${logoHtml}</td>
+              <td style="padding:.4rem .4rem">
+                <span style="font-weight:500">${escH(r.name)}</span>
+                <span style="font-size:.68rem;color:var(--muted);margin-left:.4rem">${escH(r.id)}</span>
+                ${tcgLink}
+              </td>
+              <td style="padding:.4rem .4rem;text-align:center;color:var(--muted)">${escH(r.year)}</td>
+              <td style="padding:.4rem .4rem;text-align:center">${flag} ${r.lang.toUpperCase()}</td>
+              <td style="padding:.4rem .4rem;text-align:center">
+                <span style="color:${statusCol}">${r.ourCount}</span>
+                ${r.tcgCount ? `<span style="color:var(--muted)"> / ${r.tcgCount}</span>` : ''}
+                ${r.tcgCount ? `<div style="margin-top:2px;height:3px;background:rgba(255,255,255,.1);border-radius:2px;width:60px;display:inline-block;vertical-align:middle">
+                  <div style="height:100%;width:${Math.min(pct,100)}%;background:${statusCol};border-radius:2px"></div>
+                </div>` : ''}
+              </td>
+              <td style="padding:.4rem .4rem;text-align:center;color:${statusCol}">${statusIcon}</td>
+              <td style="padding:.4rem .4rem">${importHint}</td>
+            </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+    </div>`;
+}
 
 function buildSetDropdown(sets) {
   const wrap = document.getElementById('set-dropdown-options');
@@ -1572,6 +1834,7 @@ async function fetchCards() {
   if (state.supertype) params.set('supertype',  state.supertype);
   if (state.rarity)    params.set('rarity',     state.rarity);
   if (state.sort)      params.set('sort',       state.sort);
+  if (state.noImage)   params.set('no_image',   '1');
 
   try {
     const r = await fetch(`${API_BASE}/cards?${params}`);
@@ -1890,6 +2153,8 @@ function renderModal(c) {
       ${attacks}
     </div>` : ''}
     ${renderPrices(c)}
+    <div id="lang-variants-wrap"></div>
+    <div id="img-upload-wrap"></div>
     <div class="modal-api-block" style="margin-top:1.5rem">
       <div class="modal-api-label">API endpoint pro tuto kartu</div>
       <div class="modal-api-url">
@@ -1897,6 +2162,13 @@ function renderModal(c) {
         <button class="copy-btn" onclick="navigator.clipboard.writeText('${escH(apiUrl)}');toast('Zkopírováno!','ok')">Kopírovat</button>
       </div>
     </div>`;
+
+  // Asynchronní sekce — injektovat po vykreslení
+  if (c.set_id && c.number) {
+    setTimeout(() => loadLangVariants(c), 60);
+  }
+  // Upload sekce — vždy zobrazit (i když má obrázek, lze přepsat)
+  setTimeout(() => injectUploadSection(c), 60);
 }
 
 function renderPrices(c) {
@@ -1957,6 +2229,154 @@ function renderPrices(c) {
 function infoItem(label, val, raw) {
   const displayVal = raw ? val : escH(String(val));
   return `<div class="info-item"><div class="info-label">${label}</div><div class="info-value">${displayVal}</div></div>`;
+}
+
+/* ════════════════════════════════════════════════════
+   JAZYKOVÉ VARIANTY
+════════════════════════════════════════════════════ */
+async function loadLangVariants(currentCard) {
+  const wrap = document.getElementById('lang-variants-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = `<div class="lang-variants-section"><div class="lang-variants-title">🌍 Načítám jazykové varianty…</div></div>`;
+
+  const { set_id, number, id: currentId } = currentCard;
+  // Odstranit lang prefix ze set_id (např. "de-sv6" → "sv6")
+  const baseSetId = (set_id || '').replace(/^[a-z]{2}-/, '');
+  const baseNum   = (number || '').split('/')[0]; // "25/91" → "25"
+
+  // Hledáme všechny karty se stejným číslem v sérii — bez lang filtru, s allLang=true
+  const params = new URLSearchParams({ set_id: baseSetId, number: baseNum, limit: 20 });
+  try {
+    const r = await fetch(`${API_BASE}/cards?${params}`);
+    if (!r.ok) { wrap.innerHTML = ''; return; }
+    const data = await r.json();
+    const cards = (data.data || []).filter(c => c.id !== currentId);
+
+    if (!cards.length) { wrap.innerHTML = ''; return; }
+
+    const langLabels = { en:'EN', ja:'JP', de:'DE', fr:'FR', it:'IT', es:'ES', pt:'PT', ko:'KO', zh:'ZH' };
+    const flagCodes  = { en:'gb', ja:'jp', de:'de', fr:'fr', it:'it', es:'es', pt:'pt', ko:'kr' };
+
+    const thumbsHtml = cards.map(c => {
+      const lang = c.lang || c.language || 'en';
+      const img  = c.image_thumb_url || c.image_url || '';
+      const flag = flagCodes[lang] ? `<img src="https://flagcdn.com/16x12/${flagCodes[lang]}.png" width="14" height="10" style="vertical-align:middle;margin-right:2px">` : '';
+      return `<div class="lang-variant-thumb" onclick="openCard('${escH(c.id)}')" title="${escH(c.name)} (${lang.toUpperCase()})">
+        ${img
+          ? `<img src="${escH(img)}" alt="${escH(c.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="lv-placeholder" ${img ? 'style="display:none"' : ''}>🃏</div>
+        <div class="lang-variant-label">${flag}${langLabels[lang] || lang.toUpperCase()}</div>
+      </div>`;
+    }).join('');
+
+    wrap.innerHTML = `
+      <div class="lang-variants-section">
+        <div class="lang-variants-title">🌍 Varianty v jiných jazycích <span style="font-weight:400;opacity:.6">(${cards.length})</span></div>
+        <div class="lang-variants-grid">${thumbsHtml}</div>
+      </div>`;
+  } catch(e) {
+    wrap.innerHTML = '';
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   UPLOAD OBRÁZKU KARTY
+════════════════════════════════════════════════════ */
+function injectUploadSection(c) {
+  const wrap = document.getElementById('img-upload-wrap');
+  if (!wrap) return;
+  if (!_isAdmin()) { wrap.innerHTML = ''; return; }
+
+  const hasImg = !!(c.image_url || c.image_thumb_url);
+  const safeId = escH(c.id);
+  // Cloudflare D1 přímý odkaz — dashboard pro databázi
+  const cfD1Url = 'https://dash.cloudflare.com/?to=/:account/workers/d1';
+  wrap.innerHTML = `
+    <div class="img-upload-section" style="margin-top:1.2rem">
+      <div class="lang-variants-title" style="justify-content:space-between">
+        <span>📷 ${hasImg ? 'Nahradit obrázek' : 'Nahrát obrázek'} <span style="font-size:.62rem;background:rgba(245,200,66,.15);color:var(--yellow);padding:1px 6px;border-radius:4px;font-weight:600">ADMIN</span></span>
+        <a href="${cfD1Url}" target="_blank" rel="noopener" style="font-size:.7rem;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:.3rem">☁️ Cloudflare D1 ↗</a>
+      </div>
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:.7rem">
+        ${hasImg ? 'Karta má obrázek — nahraj lepší kvalitu.' : 'Karta nemá obrázek — nahraj foto nebo scan.'}
+        Po uploadu se automaticky pokusí uložit do D1.
+      </div>
+      <input type="file" id="upload-file-input-${safeId}" accept="image/*" style="display:none" onchange="handleUploadFile(this,'${safeId}')">
+      <button class="btn btn-sm" onclick="document.getElementById('upload-file-input-${safeId}').click()">📁 Vybrat obrázek</button>
+      <div id="upload-status-${safeId}" class="upload-progress"></div>
+    </div>`;
+}
+
+async function handleUploadFile(input, cardId) {
+  const file = input.files[0];
+  if (!file) return;
+  const statusEl = document.getElementById(`upload-status-${cardId}`);
+  if (!statusEl) return;
+
+  const previewUrl = URL.createObjectURL(file);
+  statusEl.innerHTML = `<img class="img-upload-preview" src="${previewUrl}" alt="Náhled"><div>⏳ Nahrávám do Supabase Storage…</div>`;
+
+  const SB_URL  = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  const SB_ANON = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
+  const token   = localStorage.getItem('sb_token') || SB_ANON;
+  const ext     = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const path    = `cards/${cardId}.${ext}`;
+  const cfD1Url = 'https://dash.cloudflare.com/?to=/:account/workers/d1';
+
+  const sqlCmd = `UPDATE cards SET image_url = '{{URL}}', image_thumb_url = '{{URL}}' WHERE id = '${cardId}';`;
+
+  try {
+    // 1. Upload Supabase Storage
+    const uploadRes = await fetch(`${SB_URL}/storage/v1/object/pokedb-images/${path}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': SB_ANON,
+        'Content-Type': file.type || 'image/jpeg',
+        'x-upsert': 'true',
+      },
+      body: file,
+    });
+
+    if (!uploadRes.ok) {
+      const err = await uploadRes.text();
+      throw new Error(`Storage upload selhal (${uploadRes.status}): ${err}`);
+    }
+
+    const publicUrl = `${SB_URL}/storage/v1/object/public/pokedb-images/${path}`;
+    const finalSql  = sqlCmd.replaceAll('{{URL}}', publicUrl);
+    statusEl.innerHTML = `<img class="img-upload-preview" src="${previewUrl}" alt="Náhled"><div>✅ Storage OK. Aktualizuji D1…</div>`;
+
+    // 2. PATCH Worker D1
+    const patchRes = await fetch(`${API_BASE}/admin/cards/${encodeURIComponent(cardId)}/image`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
+      body: JSON.stringify({ image_url: publicUrl, image_thumb_url: publicUrl }),
+    });
+
+    if (patchRes.ok) {
+      // Plně automatické — D1 aktualizováno
+      statusEl.innerHTML = `<img class="img-upload-preview" src="${previewUrl}" alt="Náhled">
+        <div style="color:#4ade80;font-weight:600;margin-top:.4rem">✅ Hotovo! D1 databáze aktualizována automaticky.</div>
+        <div style="font-size:.7rem;color:var(--muted);margin-top:.3rem;word-break:break-all">${escH(publicUrl)}</div>`;
+      setTimeout(() => openCard(cardId), 1800);
+    } else {
+      // Worker PATCH endpoint chybí → ukáž SQL + odkaz na CF
+      statusEl.innerHTML = `
+        <img class="img-upload-preview" src="${previewUrl}" alt="Náhled">
+        <div style="color:#4ade80">✅ Storage OK</div>
+        <div style="color:#fbbf24;margin-top:.3rem">⚠️ Worker PATCH endpoint chybí — spusť SQL ručně:</div>
+        <code style="font-size:.67rem;word-break:break-all;display:block;margin-top:.4rem;background:rgba(0,0,0,.35);padding:.5rem;border-radius:5px;text-align:left;color:#e2e8f0">${escH(finalSql)}</code>
+        <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(finalSql)});toast('SQL zkopírováno!','ok')">📋 Kopírovat SQL</button>
+          <a href="${escH(cfD1Url)}" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none">☁️ Otevřít Cloudflare D1</a>
+        </div>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;word-break:break-all">URL: ${escH(publicUrl)}</div>`;
+    }
+  } catch(e) {
+    statusEl.innerHTML = `<span style="color:var(--red)">⚠️ ${escH(e.message)}</span>`;
+  }
 }
 
 function closeModal() {
