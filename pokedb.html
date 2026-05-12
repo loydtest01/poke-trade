@@ -2296,12 +2296,12 @@ function injectUploadSection(c) {
   const hasImg = !!(c.image_url || c.image_thumb_url);
   const safeId = escH(c.id);
   // Cloudflare D1 přímý odkaz — dashboard pro databázi
-  const cfD1Url = 'https://dash.cloudflare.com/?to=/:account/workers/d1';
+  const cfD1Url = 'https://console.neon.tech';
   wrap.innerHTML = `
     <div class="img-upload-section" style="margin-top:1.2rem">
       <div class="lang-variants-title" style="justify-content:space-between">
         <span>📷 ${hasImg ? 'Nahradit obrázek' : 'Nahrát obrázek'} <span style="font-size:.62rem;background:rgba(245,200,66,.15);color:var(--yellow);padding:1px 6px;border-radius:4px;font-weight:600">ADMIN</span></span>
-        <a href="${cfD1Url}" target="_blank" rel="noopener" style="font-size:.7rem;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:.3rem">☁️ Cloudflare D1 ↗</a>
+        <a href="${cfD1Url}" target="_blank" rel="noopener" style="font-size:.7rem;color:var(--blue);text-decoration:none;display:flex;align-items:center;gap:.3rem">🐘 Neon DB ↗</a>
       </div>
       <div style="font-size:.75rem;color:var(--muted);margin-bottom:.7rem">
         ${hasImg ? 'Karta má obrázek — nahraj lepší kvalitu.' : 'Karta nemá obrázek — nahraj foto nebo scan.'}
@@ -2327,7 +2327,7 @@ async function handleUploadFile(input, cardId) {
   const token   = localStorage.getItem('sb_token') || SB_ANON;
   const ext     = (file.name.split('.').pop() || 'jpg').toLowerCase();
   const path    = `cards/${cardId}.${ext}`;
-  const cfD1Url = 'https://dash.cloudflare.com/?to=/:account/workers/d1';
+  const cfD1Url = 'https://console.neon.tech';
 
   const sqlCmd = `UPDATE cards SET image_url = '{{URL}}', image_thumb_url = '{{URL}}' WHERE id = '${cardId}';`;
 
@@ -2375,7 +2375,7 @@ async function handleUploadFile(input, cardId) {
         <code style="font-size:.67rem;word-break:break-all;display:block;margin-top:.4rem;background:rgba(0,0,0,.35);padding:.5rem;border-radius:5px;text-align:left;color:#e2e8f0">${escH(finalSql)}</code>
         <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="navigator.clipboard.writeText(${JSON.stringify(finalSql)});toast('SQL zkopírováno!','ok')">📋 Kopírovat SQL</button>
-          <a href="${escH(cfD1Url)}" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none">☁️ Otevřít Cloudflare D1</a>
+          <a href="${escH(cfD1Url)}" target="_blank" rel="noopener" class="btn btn-sm" style="text-decoration:none">🐘 Otevřít Neon</a>
         </div>
         <div style="font-size:.68rem;color:var(--muted);margin-top:.5rem;word-break:break-all">URL: ${escH(publicUrl)}</div>`;
     }
