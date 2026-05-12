@@ -2151,7 +2151,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   var fetchUrl = cfg2.url;
   var headers = {};
   if (providerName === 'gemini') {
-    fetchUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=' + apiKey;
+    fetchUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=' + apiKey;
     headers['Content-Type'] = 'application/json';
   } else if (providerName === 'cloudflare') {
     // Cloudflare CORS: přímý fetch z prohlížeče blokuje CORS → validujeme jen formát klíče
@@ -2203,7 +2203,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   if (cfg2.testType === 'gemini') {
     // Gemini: { candidates: [{ content: { parts: [{ text: '...' }] } }] }
     var geminiText = data?.candidates?.[0]?.content?.parts?.[0]?.text || '?';
-    return { model: 'gemini-2.0-flash-001', time: t1 - t0, reply: geminiText.slice(0, 30) };
+    return { model: 'gemini-2.5-flash-preview-05-20', time: t1 - t0, reply: geminiText.slice(0, 30) };
   }
   if (cfg2.testType === 'auth') {
     // OpenRouter auth/key endpoint → { data: { label, usage, limit, ... } }

@@ -100,8 +100,8 @@
       // skutečný URL se sestaví v _geminiChat(): base/model:generateContent?key=KEY
       endpointBase:   'https://generativelanguage.googleapis.com/v1beta/models',
       validateUrl:    null,   // Gemini nemá /models endpoint bez klíče — validate přes chat
-      textModel:      'gemini-2.0-flash-001',
-      visionModel:    'gemini-2.0-flash-001',  // stejný model dělá text i vision
+      textModel:      'gemini-2.5-flash-preview-05-20',
+      visionModel:    'gemini-2.5-flash-preview-05-20',  // stejný model dělá text i vision
       isGemini:       true,   // příznak pro speciální API handling
       // Free tier: 15 req/min, 100 req/den, 2 img/min — žádná platební karta
     },
@@ -756,7 +756,7 @@
     // Fallback modely — zkusí postupně dokud jeden nefunguje
     const GEMINI_MODEL_FALLBACK = [
       model,                        // požadovaný model (primární)
-      'gemini-2.0-flash-001',   // verze stabilní, paid tier
+      'gemini-2.5-flash-preview-05-20',   // verze stabilní, paid tier
       'gemini-1.5-flash',           // starší, stabilní
       'gemini-1.5-flash-8b',        // nejlehčí fallback
     ].filter((m, i, a) => m && a.indexOf(m) === i); // deduplicate
