@@ -928,6 +928,18 @@ body::after {
 
     <!-- Filters -->
     <div class="filters">
+      <!-- Jazyk — první místo -->
+      <select class="filter-select" id="f-lang" onchange="onLangChange()" style="min-width:130px">
+        <option value="">🌍 Jazyk</option>
+        <option value="en">🇬🇧 EN English</option>
+        <option value="ja">🇯🇵 JP Japanese</option>
+        <option value="de">🇩🇪 DE Deutsch</option>
+        <option value="fr">🇫🇷 FR Français</option>
+        <option value="it">🇮🇹 IT Italiano</option>
+        <option value="es">🇪🇸 ES Español</option>
+        <option value="pt">🇵🇹 PT Português</option>
+        <option value="ko">🇰🇷 KO Korean</option>
+      </select>
       <!-- Custom set dropdown with logos -->
       <div class="set-dropdown" id="set-dropdown">
         <button class="set-dropdown-btn" id="set-dropdown-btn" onclick="toggleSetDropdown(event)">
@@ -973,17 +985,6 @@ body::after {
         <option value="Special Illustration Rare">Special Illustration Rare</option>
         <option value="Illustration Rare">Illustration Rare</option>
         <option value="Hyper Rare">Hyper Rare</option>
-      </select>
-      <select class="filter-select" id="f-lang" onchange="doSearch()">
-        <option value="">🌍 Jazyk</option>
-        <option value="en">EN English</option>
-        <option value="ja">JP Japanese</option>
-        <option value="de">DE Deutsch</option>
-        <option value="fr">FR Français</option>
-        <option value="it">IT Italiano</option>
-        <option value="es">ES Español</option>
-        <option value="pt">PT Português</option>
-        <option value="ko">KO Korean</option>
       </select>
       <select class="filter-select" id="f-sort" onchange="doSearch()">
         <option value="name">Seřadit: Jméno A–Z</option>
@@ -1487,12 +1488,16 @@ async function loadSetsOnce() {
     document.getElementById('h-sets').textContent = sets.length;
     const totalCards = sets.reduce((s, x) => s + (x.card_count || 0), 0);
     document.getElementById('h-cards').textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : '–';
-    // Jazyků — z dat sérií, bez extra API volání
+    // Jazyků — z dat sérií nebo z API
     const langs = new Set();
-    sets.forEach(s => { if (s.lang) langs.add(s.lang); if (s.language) langs.add(s.language); });
+    sets.forEach(s => {
+      if (s.lang) langs.add(s.lang);
+      else if (s.id && /^[a-z]{2}-/.test(s.id)) langs.add(s.id.split('-')[0]);
+    });
     const langEl = document.getElementById('h-translated');
-    if (langs.size > 0) {
-      langEl.textContent = langs.size;
+    const langCount = data.language_count || langs.size;
+    if (langCount > 0) {
+      langEl.textContent = langCount;
       const label = langEl.closest('.hero-stat')?.querySelector('.hero-stat-label');
       if (label) label.textContent = 'Jazyků';
     } else if (data.translated_count !== undefined) {
@@ -1686,6 +1691,25 @@ function renderStatusTable() {
     </div>`;
 }
 
+function onLangChange() {
+  const lang = document.getElementById('f-lang').value;
+  state.lang = lang;
+  // Filtruj série v dropdownu podle vybraného jazyka
+  const filtered = lang
+    ? state.setsData.filter(s => {
+        const sLang = s.lang || (s.id.match(/^([a-z]{2})-/) ? s.id.match(/^([a-z]{2})-/)[1] : 'en');
+        return sLang === lang;
+      })
+    : state.setsData;
+  // Reset vybrané série pokud nepatří do nového jazyka
+  if (lang && state.set_id) {
+    const stillValid = filtered.some(s => s.id === state.set_id);
+    if (!stillValid) selectSet('', 'Všechny série', '');
+  }
+  buildSetDropdown(filtered);
+  doSearch(1);
+}
+
 function buildSetDropdown(sets) {
   const wrap = document.getElementById('set-dropdown-options');
   wrap.innerHTML = '';
@@ -1762,29 +1786,13 @@ function doSearch(pg) {
   // set_id is managed by selectSet() / state directly — no native select anymore
   state.type = document.getElementById('f-type').value;
   state.supertype = document.getElementById('f-supertype').value;
-  state.rarity = document.getElementById('f-rarity').value;
-  const prevLang = state.lang;
-  state.lang = document.getElementById('f-lang').value;
-  state.sort = document.getElementById('f-sort').value;
-  state.page = pg || 1;
+  state.rarity    = document.getElementById('f-rarity').value;
+  state.lang      = document.getElementById('f-lang').value;
+  state.sort      = document.getElementById('f-sort').value;
+  state.page      = pg || 1;
 
-  // Cascade: změna jazyka překreslí set dropdown a resetuje sérii pokud nepatří danému jazyku
-  if (state.lang !== prevLang && state.setsLoaded) {
-    const filteredSets = state.lang
-      ? state.setsData.filter(s => (s.lang || s.language || 'en') === state.lang)
-      : state.setsData;
-    buildSetDropdown(filteredSets);
-    // Pokud aktuálně vybraná série nepatří novému jazyku, resetuj ji
-    if (state.set_id && state.lang) {
-      const currentSet = state.setsData.find(s => s.id === state.set_id);
-      const setLang = currentSet ? (currentSet.lang || currentSet.language || 'en') : '';
-      if (setLang !== state.lang) {
-        selectSet('', 'Všechny série', '');
-        return; // selectSet already calls doSearch
-      }
-    }
-  }
-
+  // Cascade: při změně jazyka přefiltruj set dropdown (volá buildSetDropdown)
+  // onLangChange() to dělá explicitně, doSearch jen sync state
   fetchCards();
   updateActiveTags();
 }
@@ -1921,12 +1929,19 @@ function renderCards(cards) {
       </div>
       <div class="poke-card-body">
         <div class="poke-card-name">${escH(c.name)}</div>
-        ${c.name_cs && c.name_cs !== c.name ? `<div class="poke-card-name-cs">${escH(c.name_cs)}</div>` : ''}
+        ${
+          // Pro cizí karty ukáž EN název pod lokálním — pokud se liší
+          !isEn && c.name_en && c.name_en !== c.name
+            ? `<div class="poke-card-name-cs" title="EN název">${escH(c.name_en)}</div>`
+            : (c.name_cs && c.name_cs !== c.name ? `<div class="poke-card-name-cs">${escH(c.name_cs)}</div>` : '')
+        }
         <div class="poke-card-meta">
           ${c.hp ? `<span class="poke-card-hp">${c.hp} HP</span>` : ''}
           <span class="poke-card-type">${types}</span>
         </div>
-        ${c.set_name ? `<div class="poke-card-set">${escH(c.set_name)} · #${c.number || '?'}</div>` : ''}
+        ${c.set_name ? `<div class="poke-card-set" title="${escH(c.set_id || '')}">
+          ${escH(c.set_name)} · #${(c.number || '?').replace(/^0+/, '') || c.number || '?'}
+        </div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -2058,9 +2073,23 @@ async function openCard(id) {
 }
 
 function renderModal(c) {
-  document.getElementById('modal-title').textContent = c.name || c.id;
   const cardLang = c.lang || c.language || '';
   const isEnCard = !cardLang || cardLang === 'en';
+
+  // Hlavní název — lokální, pod ním EN pokud se liší
+  const modalTitle = document.getElementById('modal-title');
+  modalTitle.textContent = c.name || c.id;
+
+  // EN název pod nadpisem pro cizí karty
+  const existingEnSub = document.getElementById('modal-name-en-sub');
+  if (existingEnSub) existingEnSub.remove();
+  if (!isEnCard && c.name_en && c.name_en !== c.name) {
+    const enSub = document.createElement('div');
+    enSub.id = 'modal-name-en-sub';
+    enSub.style.cssText = 'font-size:.82rem;color:var(--muted);margin-top:.15rem;font-style:italic';
+    enSub.textContent = c.name_en;
+    modalTitle.insertAdjacentElement('afterend', enSub);
+  }
   const _tcgFb = (isEnCard ? '' : (c.set_id && c.number ? `https://assets.tcgdex.net/${cardLang||'en'}/${c.set_id.replace(/-/g,'/')}/${c.number.split('/')[0]}/high.webp` : ''));
   const fallbackImg   = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png` : _tcgFb;
   const fallbackThumb = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`   : _tcgFb;
@@ -2128,8 +2157,8 @@ function renderModal(c) {
         </div>
         <div class="info-grid" style="margin-top:.8rem">
           ${c.hp ? infoItem('HP', `<span style="color:var(--red);font-weight:700;font-size:1rem">${c.hp}</span>`, true) : ''}
-          ${c.set_name ? infoItem('Série', c.set_name) : ''}
-          ${c.number ? infoItem('Číslo v sérii', '#' + c.number) : ''}
+          ${c.set_name ? infoItem('Série', `${escH(c.set_name)}${!isEnCard && c.set_id ? `<span style="font-size:.68rem;color:var(--muted);margin-left:.4rem">(${escH(c.set_id)})</span>` : ''}`, true) : ''}
+          ${c.number ? infoItem('Číslo', `#${(c.number || '').replace(/^0+/, '') || c.number}${c.number !== (c.number || '').replace(/^0+/, '') ? `<span style="font-size:.68rem;color:var(--muted);margin-left:.3rem">(${c.number})</span>` : ''}`, true) : ''}
           ${c.artist ? infoItem('Ilustrátor', c.artist) : ''}
           ${c.retreat_cost !== undefined && c.retreat_cost !== null ? infoItem('Ústup', c.retreat_cost + ' ⚡') : ''}
           ${(c.subtypes||[]).length ? infoItem('Subtyp', c.subtypes.join(', ')) : ''}
