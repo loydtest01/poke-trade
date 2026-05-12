@@ -100,8 +100,8 @@
       // skutečný URL se sestaví v _geminiChat(): base/model:generateContent?key=KEY
       endpointBase:   'https://generativelanguage.googleapis.com/v1beta/models',
       validateUrl:    null,   // Gemini nemá /models endpoint bez klíče — validate přes chat
-      textModel:      'gemini-2.0-flash',
-      visionModel:    'gemini-2.0-flash',  // stejný model dělá text i vision
+      textModel:      'gemini-2.0-flash-lite',
+      visionModel:    'gemini-2.0-flash-lite',  // stejný model dělá text i vision
       isGemini:       true,   // příznak pro speciální API handling
       // Free tier: 15 req/min, 100 req/den, 2 img/min — žádná platební karta
     },
@@ -753,6 +753,32 @@
   // Gemini nepoužívá Bearer token ani OpenAI formát. Konvertuje OpenAI messages
   // (role: user/assistant/system, content: string|array) na Gemini contents[].
   async function _geminiChat(apiKey, model, messages, opts = {}) {
+    // Fallback modely — zkusí postupně dokud jeden nefunguje
+    const GEMINI_MODEL_FALLBACK = [
+      model,                        // požadovaný model (primární)
+      'gemini-2.0-flash-lite',      // nové účty, paid tier
+      'gemini-1.5-flash',           // starší, stabilní
+      'gemini-1.5-flash-8b',        // nejlehčí fallback
+    ].filter((m, i, a) => m && a.indexOf(m) === i); // deduplicate
+
+    let lastError = null;
+    for (const tryModel of GEMINI_MODEL_FALLBACK) {
+      try {
+        return await _geminiChatWithModel(apiKey, tryModel, messages, opts);
+      } catch (e) {
+        const msg = e.message || '';
+        // Zkus další model pokud: model není dostupný nebo rate limit
+        const shouldRetry = msg.includes('not found') || msg.includes('no longer available')
+          || msg.includes('not supported') || msg.includes('deprecated');
+        if (!shouldRetry) throw e; // jiná chyba (auth, síť) → přestat zkoušet
+        lastError = e;
+        console.warn(`[Gemini] Model ${tryModel} selhal, zkouším další: ${e.message}`);
+      }
+    }
+    throw lastError;
+  }
+
+  async function _geminiChatWithModel(apiKey, model, messages, opts = {}) {
     const { max_tokens = 1024, temperature = 0.7 } = opts;
 
     // Konverze OpenAI messages → Gemini contents
