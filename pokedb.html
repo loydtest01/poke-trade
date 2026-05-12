@@ -658,23 +658,21 @@ body::after {
 /* Language filter flag */
 .lang-flag { font-size: .9rem; }
 
-/* ══ Price Finder (integrovaný z price-finder.html) ══════════════════ */
+/* ══ Price Finder — Heureka styl ══════════════════════════════ */
 #page-prices { padding: 0; }
-.pf-wrap { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
-.pf-hero { text-align: center; margin-bottom: 1.5rem; }
-.pf-title { font-size: 1.4rem; font-weight: 800; color: var(--yellow); margin-bottom: .3rem; }
-.pf-sub { font-size: .83rem; color: var(--muted); }
-.pf-search-bar { display: flex; gap: .5rem; max-width: 700px; margin: 0 auto 1.5rem; }
+.pf-wrap { max-width: 900px; margin: 0 auto; padding: 1.2rem 1rem 3rem; }
+.pf-hero { text-align: center; margin-bottom: 1.2rem; }
+.pf-title { font-size: 1.3rem; font-weight: 800; color: var(--yellow); margin-bottom: .3rem; }
+.pf-sub { font-size: .8rem; color: var(--muted); }
+
+/* Search bar */
+.pf-search-bar { display: flex; gap: .5rem; max-width: 700px; margin: 0 auto 1rem; }
 .pf-search-input { flex: 1; background: rgba(255,255,255,.05); border: 1px solid var(--border);
-  border-radius: 10px; padding: .6rem 1rem; color: var(--text); font-size: .93rem; font-family: inherit; }
-.pf-search-input:focus { outline: none; border-color: rgba(245,200,66,.4); background: rgba(255,255,255,.07); }
+  border-radius: 10px; padding: .6rem 1rem; color: var(--text); font-size: .9rem; font-family: inherit; }
+.pf-search-input:focus { outline: none; border-color: rgba(245,200,66,.4); }
 .pf-search-btn { background: rgba(245,200,66,.18); border: 1px solid rgba(245,200,66,.35);
   color: var(--yellow); border-radius: 10px; padding: .6rem 1.2rem; font-weight: 700;
   cursor: pointer; font-family: inherit; white-space: nowrap; }
-.pf-search-btn:hover { background: rgba(245,200,66,.28); }
-.pf-search-btn:disabled { opacity: .4; cursor: default; }
-.pf-settings-btn { background: rgba(255,255,255,.06); border: 1px solid var(--border);
-  color: var(--text); border-radius: 10px; padding: .6rem .9rem; cursor: pointer; font-family: inherit; }
 .pf-suggestions { background: var(--card2,#1a1424); border: 1px solid var(--border);
   border-radius: 10px; max-height: 280px; overflow-y: auto; display: none;
   position: absolute; width: 100%; max-width: 700px; left: 50%; transform: translateX(-50%);
@@ -682,177 +680,110 @@ body::after {
 .pf-sug-item { display: flex; align-items: center; gap: .7rem; padding: .6rem .9rem;
   cursor: pointer; transition: background .12s; }
 .pf-sug-item:hover { background: rgba(255,255,255,.06); }
-.pf-sug-img { width: 32px; height: 44px; object-fit: contain; border-radius: 4px;
-  background: rgba(255,255,255,.04); flex-shrink: 0; }
+.pf-sug-img { width: 32px; height: 44px; object-fit: contain; border-radius: 4px; flex-shrink: 0; }
 .pf-sug-name { font-size: .88rem; font-weight: 600; }
-.pf-sug-set { font-size: .72rem; color: var(--muted); margin-top: .1rem; }
-.pf-filters-bar { display: none; gap: .5rem; flex-wrap: wrap; align-items: center;
-  margin-bottom: 1rem; }
-.pf-filter-chip { background: rgba(255,255,255,.05); border: 1px solid var(--border);
-  color: var(--muted); border-radius: 6px; padding: .28rem .65rem; font-size: .75rem;
-  cursor: pointer; font-family: inherit; transition: all .14s; }
-.pf-filter-chip.active { background: rgba(245,200,66,.14); border-color: rgba(245,200,66,.35);
-  color: var(--yellow); font-weight: 600; }
-.pf-results-header { display: none; justify-content: space-between; align-items: center;
-  margin-bottom: .75rem; font-size: .82rem; color: var(--muted); }
-.pf-sort-select { background: rgba(255,255,255,.06); border: 1px solid var(--border);
+.pf-sug-set { font-size: .72rem; color: var(--muted); }
+
+/* Filter bar */
+.pf-filterbar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center;
+  margin-bottom: 1rem; padding: 8px 12px; background: rgba(255,255,255,.03);
+  border: 1px solid var(--border); border-radius: 10px; }
+.pf-filterbar label { font-size: .75rem; color: var(--muted); }
+.pf-filter-sel { background: rgba(255,255,255,.07); border: 1px solid var(--border);
   color: var(--text); border-radius: 7px; padding: .3rem .6rem; font-size: .78rem;
-  font-family: inherit; cursor: pointer; }
-.pf-card-result { background: var(--card2,#1a1424); border: 1px solid var(--border);
-  border-radius: 14px; margin-bottom: .75rem; overflow: hidden; }
-.pf-card-result-header { display: flex; align-items: center; gap: 1rem; padding: .9rem 1rem;
-  cursor: pointer; user-select: none; }
-.pf-card-result-header:hover { background: rgba(255,255,255,.02); }
-.pf-card-thumb { width: 44px; height: 60px; object-fit: contain; border-radius: 5px;
-  background: rgba(255,255,255,.04); flex-shrink: 0; }
-.pf-card-name-block { flex: 1; min-width: 0; }
-.pf-card-result-name { font-size: .95rem; font-weight: 700; }
-.pf-card-result-set { font-size: .73rem; color: var(--muted); margin-top: .1rem; }
-.pf-card-result-summary { display: flex; gap: .8rem; align-items: center; margin-top: .25rem; flex-wrap: wrap; }
-.pf-best-price { font-size: .85rem; color: var(--green,#4ade80); font-weight: 600; }
-.pf-sources-count { font-size: .72rem; color: var(--muted); }
-.pf-expand-icon { font-size: .75rem; color: var(--muted); transition: transform .2s; flex-shrink: 0; }
-.pf-card-result.expanded .pf-expand-icon { transform: rotate(180deg); }
-.pf-prices-body { display: none; padding: .5rem 0; }
-.pf-card-result.expanded .pf-prices-body { display: block; }
-.pf-price-table { width: 100%; border-collapse: collapse; }
-.pf-price-table th { text-align: left; padding: .45rem .65rem; font-size: .7rem;
-  color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.pf-price-row { border-bottom: 1px solid rgba(255,255,255,.04); transition: .1s; }
-.pf-price-row:hover { background: rgba(255,255,255,.03); }
-.pf-price-row td { padding: .5rem .65rem; font-size: .82rem; vertical-align: middle; }
-.pf-price-row.hidden { display: none; }
-.pf-price-row.preferred td:first-child { border-left: 2px solid var(--green,#4ade80); }
-.pf-price-row.preferred { background: rgba(74,222,128,.03); }
-.pf-site-badge { display: inline-flex; align-items: center; gap: .35rem; }
-.pf-site-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
-.pf-price-val { font-weight: 700; font-size: .88rem; }
-.pf-price-eur { color: var(--green,#4ade80); }
-.pf-price-usd { color: var(--blue,#60a5fa); }
-.pf-cond-badge { font-size: .7rem; padding: .1rem .4rem; border-radius: 4px; font-weight: 600; }
-.pf-cond-badge.NM { background: rgba(74,222,128,.15); color: #4ade80; }
-.pf-cond-badge.LP { background: rgba(96,165,250,.15); color: #60a5fa; }
-.pf-cond-badge.MP { background: rgba(251,146,60,.15); color: #fb923c; }
-.pf-cond-badge.HP { background: rgba(248,113,113,.15); color: #f87171; }
-.pf-link-btn { color: var(--blue,#60a5fa); text-decoration: none; font-size: .78rem;
-  padding: .2rem .5rem; border: 1px solid rgba(96,165,250,.2); border-radius: 5px; white-space: nowrap; }
-.pf-link-btn:hover { background: rgba(96,165,250,.1); }
-.pf-pref-btn { background: none; border: 1px solid var(--border); border-radius: 5px;
-  color: var(--muted); cursor: pointer; padding: .15rem .45rem; font-size: .85rem; }
-.pf-pref-btn.is-preferred { color: var(--yellow); border-color: rgba(245,200,66,.4); }
-.pf-pref-btn.is-avoided { color: var(--red,#f87171); border-color: rgba(248,113,113,.3); }
-.pf-loading-row { text-align: center; padding: 2rem; color: var(--muted); }
-.pf-no-results { text-align: center; padding: 3rem; color: var(--muted); }
-.pf-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.15);
-  border-top-color: var(--yellow); border-radius: 50%; animation: pf-spin .7s linear infinite; vertical-align: middle; }
+  font-family: inherit; cursor: pointer; color-scheme: dark; }
+.pf-filter-chip { background: rgba(255,255,255,.05); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 20px; padding: .25rem .7rem; font-size: .73rem;
+  cursor: pointer; transition: all .14s; }
+.pf-filter-chip.active { background: rgba(245,200,66,.12); border-color: rgba(245,200,66,.3);
+  color: var(--yellow); font-weight: 600; }
+.pf-results-count { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+/* ── Heureka card block ── */
+.hk-card-block {
+  background: var(--card, #12101a); border: 1px solid var(--border);
+  border-radius: 14px; margin-bottom: 1rem; overflow: hidden;
+}
+.hk-card-header {
+  display: flex; gap: 14px; padding: 14px 16px; align-items: flex-start;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.hk-card-img {
+  width: 70px; flex-shrink: 0; border-radius: 8px; overflow: hidden;
+  background: rgba(255,255,255,.04);
+  box-shadow: 0 2px 12px rgba(0,0,0,.4);
+}
+.hk-card-img img { width: 100%; display: block; }
+.hk-card-info { flex: 1; min-width: 0; }
+.hk-card-name { font-size: 1.05rem; font-weight: 800; color: var(--text);
+  margin-bottom: 4px; line-height: 1.3; }
+.hk-card-meta { font-size: .75rem; color: var(--muted); display: flex;
+  flex-wrap: wrap; gap: 0 12px; margin-bottom: 6px; }
+.hk-card-meta span { white-space: nowrap; }
+.hk-best-price { font-size: .9rem; color: #4ade80; font-weight: 700; }
+.hk-shop-count { font-size: .73rem; color: var(--muted); }
+.hk-collapse-btn {
+  margin-left: auto; flex-shrink: 0; background: none; border: none;
+  color: var(--muted); cursor: pointer; font-size: .75rem; padding: 4px 8px;
+  border-radius: 6px; transition: background .15s; align-self: center;
+  white-space: nowrap;
+}
+.hk-collapse-btn:hover { background: rgba(255,255,255,.07); color: var(--text); }
+
+/* ── Shop list ── */
+.hk-shop-list { padding: 0; }
+.hk-shop-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.03); transition: background .12s;
+  text-decoration: none; color: inherit;
+}
+.hk-shop-row:last-child { border-bottom: none; }
+.hk-shop-row:hover { background: rgba(255,255,255,.03); }
+.hk-shop-rank { width: 20px; font-size: .75rem; color: var(--muted);
+  text-align: center; flex-shrink: 0; }
+.hk-shop-rank.gold { color: #f5c842; font-weight: 800; }
+.hk-shop-rank.silver { color: #94a3b8; font-weight: 700; }
+.hk-shop-rank.bronze { color: #fb923c; font-weight: 700; }
+.hk-shop-flag { font-size: 1rem; flex-shrink: 0; }
+.hk-shop-name { flex: 1; font-size: .85rem; font-weight: 600; color: var(--text); min-width: 0; }
+.hk-shop-country { font-size: .7rem; color: var(--muted); }
+.hk-shop-rating { display: flex; align-items: center; gap: 3px; font-size: .72rem; color: var(--muted); }
+.hk-shop-stars { color: #f5c842; letter-spacing: -1px; }
+.hk-shop-price {
+  font-size: .95rem; font-weight: 800; min-width: 80px; text-align: right;
+  flex-shrink: 0;
+}
+.hk-price-eur { color: #4ade80; }
+.hk-price-usd { color: #60a5fa; }
+.hk-price-czk { color: #fb923c; }
+.hk-price-search { color: var(--yellow); font-size: .78rem; font-weight: 600; }
+.hk-shop-link-icon { font-size: .8rem; color: var(--muted); flex-shrink: 0; }
+.hk-collapsed .hk-shop-list { display: none; }
+.hk-collapsed .hk-collapse-btn::before { content: '▶ '; }
+
+/* Spinner */
+.pf-spinner { display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.15); border-top-color: var(--yellow);
+  border-radius: 50%; animation: pf-spin .7s linear infinite; vertical-align: middle; }
 @keyframes pf-spin { to { transform: rotate(360deg); } }
-/* settings modal */
-.pf-settings-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
-  z-index: 9000; align-items: center; justify-content: center; }
+
+/* Settings modal */
+.pf-settings-modal { display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.7); z-index: 9000; align-items: center; justify-content: center; }
 .pf-settings-modal.open { display: flex; }
 .pf-settings-box { background: var(--card2,#1a1424); border: 1px solid var(--border);
   border-radius: 16px; padding: 1.5rem; max-width: 420px; width: 90%; max-height: 80vh; overflow-y: auto; }
-.pf-settings-title { font-size: .95rem; font-weight: 700; }
-.pf-site-row { display: flex; align-items: center; gap: .6rem; padding: .5rem 0;
-  border-bottom: 1px solid rgba(255,255,255,.05); }
-.pf-site-name { flex: 1; font-size: .85rem; }
-.pf-site-controls { display: flex; gap: .4rem; }
-.pf-sc-btn { background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--muted); cursor: pointer; padding: .2rem .55rem; font-size: .85rem; }
-.pf-sc-btn.pref { color: var(--yellow); border-color: rgba(245,200,66,.4); background: rgba(245,200,66,.1); }
-.pf-sc-btn.avoid { color: var(--red,#f87171); border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.08); }
 
-/* ══ CARD SELECTION SYSTEM ══════════════════════════════════ */
-.poke-card.sel-selected {
-  border-color: #f5c842 !important;
-  box-shadow: 0 0 0 2px rgba(245,200,66,.45), 0 8px 24px rgba(0,0,0,.4) !important;
-  transform: translateY(-2px);
-}
-.poke-card .sel-check {
-  position: absolute; top: 6px; left: 6px; z-index: 5;
-  width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.25);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; transition: all .15s; cursor: pointer;
-}
-.poke-card.sel-selected .sel-check {
-  background: #f5c842; border-color: #f5c842; color: #000; font-weight: 900;
-}
-
-/* Floating selection panel */
-#sel-panel {
-  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
-  width: 230px; max-height: 70vh; background: rgba(14,12,20,.97);
-  border: 1px solid rgba(245,200,66,.25); border-right: none;
-  border-radius: 16px 0 0 16px; z-index: 800;
-  display: none; flex-direction: column; overflow: hidden;
-  box-shadow: -4px 0 24px rgba(0,0,0,.5);
-}
-#sel-panel.has-cards { display: flex; }
-.sel-panel-head {
-  padding: 10px 12px 8px; border-bottom: 1px solid rgba(255,255,255,.07);
-  font-size: 11px; font-weight: 700; color: var(--yellow);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.sel-panel-list {
-  flex: 1; overflow-y: auto; padding: 8px;
-  display: flex; flex-direction: column; gap: 6px;
-}
-.sel-card-item {
-  display: flex; align-items: center; gap: 7px;
-  background: rgba(255,255,255,.04); border-radius: 8px; padding: 5px 7px;
-  border: 1px solid rgba(255,255,255,.07);
-}
-.sel-card-thumb {
-  width: 28px; height: 39px; object-fit: contain; border-radius: 3px;
-  background: rgba(255,255,255,.04); flex-shrink: 0;
-}
-.sel-card-info { flex: 1; min-width: 0; }
-.sel-card-name { font-size: 11px; font-weight: 600; color: #f0ece4;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sel-card-set { font-size: 10px; color: rgba(240,236,228,.4);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sel-card-remove {
-  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(255,80,80,.15); border: 1px solid rgba(255,80,80,.25);
-  color: #ff8080; font-size: 11px; cursor: pointer; display: flex;
-  align-items: center; justify-content: center; transition: background .15s;
-}
-.sel-card-remove:hover { background: rgba(255,80,80,.3); }
-.sel-panel-foot {
-  padding: 8px; border-top: 1px solid rgba(255,255,255,.07);
-  display: flex; flex-direction: column; gap: 5px;
-}
-.sel-find-btn {
-  width: 100%; padding: 8px; border-radius: 9px; border: none;
-  background: rgba(245,200,66,.2); color: #f5c842; font-weight: 700;
-  font-size: 12px; cursor: pointer; font-family: inherit;
-  border: 1px solid rgba(245,200,66,.35); transition: background .15s;
-}
-.sel-find-btn:hover { background: rgba(245,200,66,.32); }
-.sel-clear-btn {
-  width: 100%; padding: 5px; border-radius: 7px;
-  background: transparent; border: 1px solid rgba(255,255,255,.1);
-  color: rgba(240,236,228,.4); font-size: 11px; cursor: pointer; font-family: inherit;
-}
-.sel-clear-btn:hover { color: #f87171; border-color: rgba(248,113,113,.3); }
-
-/* Multi-card price results header */
-.pf-sel-header {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 0 16px; flex-wrap: wrap;
-}
-.pf-sel-badge {
-  background: rgba(245,200,66,.12); border: 1px solid rgba(245,200,66,.3);
-  color: #f5c842; border-radius: 20px; padding: 4px 12px;
-  font-size: 12px; font-weight: 700; cursor: pointer;
-  display: flex; align-items: center; gap: 6px;
-}
-.pf-sel-badge .pf-sel-x {
-  color: rgba(245,200,66,.6); font-size: 11px;
-}
+/* Selection badges */
+.pf-sel-header { display: flex; align-items: center; gap: 8px; padding: 10px 0 14px; flex-wrap: wrap; }
+.pf-sel-badge { background: rgba(245,200,66,.1); border: 1px solid rgba(245,200,66,.25);
+  color: var(--yellow); border-radius: 20px; padding: 4px 12px; font-size: .75rem;
+  font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.pf-sel-badge .pf-sel-x { color: rgba(245,200,66,.5); font-size: 11px; }
 .pf-sel-badge:hover .pf-sel-x { color: #f87171; }
-</style>
+
+/* No results */
+.pf-no-results { text-align: center; padding: 3rem; color: var(--muted); }</style>
 </head>
 <body>
 <script>window.TOPBAR_ACTIVE = 'pokedb';</script>
@@ -1053,70 +984,47 @@ body::after {
 <!-- ══════════════════════════════════════════════════════
      PAGE: SETS
 ══════════════════════════════════════════════════════ -->
-<!-- ══ PRICE FINDER PANEL ══════════════════════════════════════ -->
+<!-- ══ PRICE FINDER PANEL — Heureka styl ════════════════════════ -->
 <div class="page-panel" id="page-prices">
   <div class="pf-wrap">
     <div class="pf-hero">
       <div class="pf-title">🔍 Hledač cen karet</div>
-      <div class="pf-sub">Najdi kartu a porovnej ceny na Cardmarket, TCGPlayer, eBay a dalších tržištích</div>
+      <div class="pf-sub">Porovnej ceny na Cardmarket, eBay, TopCards, Aukro, Bazoš a dalších</div>
     </div>
 
     <div style="position:relative;">
       <div class="pf-search-bar">
         <input type="text" class="pf-search-input" id="pf-search-input"
-          placeholder="Zadej název karty... (Charizard, Pikachu, sv3-125...)"
+          placeholder="Zadej název karty... (Charizard, sv3-125...)"
           oninput="pfOnSearchInput()" onkeydown="if(event.key==='Enter')pfSearchCards()">
         <button class="pf-search-btn" id="pf-search-btn" onclick="pfSearchCards()">Hledat</button>
-        <button class="pf-settings-btn" onclick="pfOpenSettings()">⚙️ Předvolby</button>
       </div>
       <div class="pf-suggestions" id="pf-suggestions"></div>
     </div>
 
-    <div class="pf-filters-bar" id="pf-filters-bar">
-      <span style="font-size:.75rem;color:var(--muted)">Stav:</span>
+    <!-- Filter bar -->
+    <div class="pf-filterbar" id="pf-filterbar" style="display:none">
+      <label>Řadit:</label>
+      <select class="pf-filter-sel" id="pf-sort-select" onchange="pfSortResults()">
+        <option value="price-asc">Cena ↑</option>
+        <option value="price-desc">Cena ↓</option>
+        <option value="alpha">A–Z</option>
+      </select>
+      <label style="margin-left:.5rem">Stav:</label>
       <button class="pf-filter-chip active" data-pfcond="all" onclick="pfFilterCond('all',this)">Vše</button>
       <button class="pf-filter-chip" data-pfcond="NM" onclick="pfFilterCond('NM',this)">NM</button>
       <button class="pf-filter-chip" data-pfcond="LP" onclick="pfFilterCond('LP',this)">LP</button>
-      <button class="pf-filter-chip" data-pfcond="MP" onclick="pfFilterCond('MP',this)">MP</button>
-      <span style="font-size:.75rem;color:var(--muted);margin-left:.5rem">Zdroj:</span>
+      <label style="margin-left:.5rem">Zdroj:</label>
       <button class="pf-filter-chip active" data-pfsrc="all" onclick="pfFilterSrc('all',this)">Vše</button>
-      <button class="pf-filter-chip" data-pfsrc="cardmarket" onclick="pfFilterSrc('cardmarket',this)">Cardmarket</button>
-      <button class="pf-filter-chip" data-pfsrc="tcgplayer" onclick="pfFilterSrc('tcgplayer',this)">TCGPlayer</button>
-      <button class="pf-filter-chip" data-pfsrc="ebay" onclick="pfFilterSrc('ebay',this)">eBay</button>
-    </div>
-
-    <div class="pf-results-header" id="pf-results-header">
-      <span id="pf-results-count"></span>
-      <select class="pf-sort-select" id="pf-sort-select" onchange="pfSortResults()">
-        <option value="price-asc">Cena ↑ (nejlevnější)</option>
-        <option value="price-desc">Cena ↓ (nejdražší)</option>
-        <option value="site">Dle webu</option>
-      </select>
+      <button class="pf-filter-chip" data-pfsrc="CZ" onclick="pfFilterSrc('CZ',this)">🇨🇿 CZ</button>
+      <button class="pf-filter-chip" data-pfsrc="EU" onclick="pfFilterSrc('EU',this)">🇪🇺 EU</button>
+      <button class="pf-filter-chip" data-pfsrc="INT" onclick="pfFilterSrc('INT',this)">🌍 INT</button>
+      <span class="pf-results-count" id="pf-results-count"></span>
     </div>
 
     <div id="pf-results"></div>
   </div>
 </div>
-
-<!-- PF Settings modal -->
-<div class="pf-settings-modal" id="pf-settings-modal" onclick="if(event.target===this)pfCloseSettings()">
-  <div class="pf-settings-box">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem">
-      <span class="pf-settings-title">⚙️ Předvolby webů</span>
-      <button onclick="pfCloseSettings()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.2rem">✕</button>
-    </div>
-    <p style="font-size:.8rem;color:var(--muted);margin-bottom:1rem">
-      Označ weby jako <span style="color:var(--green,#4ade80)">✓ Preferovaný</span>
-      nebo <span style="color:var(--red,#f87171)">✕ Vyhnout se</span> (skryje se z výsledků).
-    </p>
-    <div id="pf-site-list"></div>
-    <div style="display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem">
-      <button onclick="pfResetPrefs()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:.4rem .8rem;cursor:pointer;font-size:.8rem">Reset</button>
-      <button onclick="pfCloseSettings()" style="background:rgba(245,200,66,.15);border:1px solid rgba(245,200,66,.3);color:var(--yellow);border-radius:8px;padding:.4rem .9rem;cursor:pointer;font-size:.8rem;font-weight:600">Zavřít</button>
-    </div>
-  </div>
-</div>
-
 <div class="page-panel" id="page-sets">
   <div class="wrap">
     <div style="margin-bottom:1.2rem">
@@ -2493,7 +2401,7 @@ window.pfSearchMultiple = async function(cards) {
         <span class="pf-expand-icon">▼</span>
       </div>
       <div class="pf-prices-body" id="pfpb-${c.id}">
-        <div id="pfptable-${c.id}"><div style="padding:1rem;color:var(--muted);text-align:center"><span class="pf-spinner"></span> Načítám…</div></div>
+        <div id="pfptable-${c.id}">${pfRenderPriceTable(c, pfGetPriceRows(c, null))}</div>
       </div>
     </div>`).join('');
 
@@ -2602,25 +2510,34 @@ _pokeCardObserver.observe(document.getElementById('card-grid') || document.body,
 'use strict';
 
 const PF_SITES = [
-  { id:'cardmarket', name:'Cardmarket', flag:'🇪🇺', currency:'EUR', color:'#4ade80', country:'EU',
-    url: q => `https://www.cardmarket.com/en/Pokemon/Products/Singles?searchString=${encodeURIComponent(q)}` },
-  { id:'tcgplayer',  name:'TCGPlayer',  flag:'🇺🇸', currency:'USD', color:'#60a5fa', country:'USA',
-    url: q => `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(q)}&view=grid` },
-  { id:'ebay_sold',  name:'eBay (prodáno)', flag:'🌍', currency:'USD', color:'#a78bfa', country:'INT',
-    url: q => `https://www.ebay.com/sch/i.html?_nkw=pokemon+${encodeURIComponent(q)}&LH_Complete=1&LH_Sold=1` },
-  { id:'ebay',       name:'eBay',       flag:'🌍', currency:'USD', color:'#818cf8', country:'INT',
-    url: q => `https://www.ebay.com/sch/i.html?_nkw=pokemon+${encodeURIComponent(q)}` },
-  { id:'topcards',   name:'TopCards.cz', flag:'🇨🇿', currency:'CZK', color:'#fb923c', country:'CZ',
-    url: q => `https://www.topcards.cz/hledej?q=${encodeURIComponent(q)}` },
-  { id:'aukro',      name:'Aukro.cz',   flag:'🇨🇿', currency:'CZK', color:'#f87171', country:'CZ',
-    url: q => `https://aukro.cz/hledani?query=pokemon+${encodeURIComponent(q)}` },
-  { id:'magiccardmarket', name:'MagicShop', flag:'🇨🇿', currency:'CZK', color:'#c084fc', country:'CZ',
-    url: q => `https://www.blacklotus.cz/vyhledavani/?q=${encodeURIComponent(q)}` },
+  { id:'cardmarket', name:'Cardmarket',     flag:'🇪🇺', currency:'EUR', color:'#4ade80', country:'EU',  live:true,  rating:4.7, reviews:50000,
+    url: (q) => `https://www.cardmarket.com/en/Pokemon/Products/Singles?searchString=${encodeURIComponent(q)}` },
+  { id:'tcgplayer',  name:'TCGPlayer',      flag:'🇺🇸', currency:'USD', color:'#60a5fa', country:'USA', live:true,  rating:4.5, reviews:20000,
+    url: (q) => `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(q)}&view=grid` },
+  { id:'ebay_sold',  name:'eBay prodáno',   flag:'🌍', currency:'USD', color:'#a78bfa', country:'INT', live:false, rating:4.3, reviews:100000,
+    url: (q) => `https://www.ebay.com/sch/i.html?_nkw=pokemon+card+${encodeURIComponent(q)}&LH_Complete=1&LH_Sold=1&_sop=13` },
+  { id:'ebay',       name:'eBay aktivní',   flag:'🌍', currency:'USD', color:'#818cf8', country:'INT', live:false, rating:4.3, reviews:100000,
+    url: (q) => `https://www.ebay.com/sch/i.html?_nkw=pokemon+card+${encodeURIComponent(q)}&_sop=15` },
+  { id:'topcards',   name:'TopCards.cz',    flag:'🇨🇿', currency:'CZK', color:'#fb923c', country:'CZ',  live:false, rating:4.8, reviews:850,
+    url: (q) => `https://www.topcards.cz/hledej?q=${encodeURIComponent(q)}` },
+  { id:'aukro',      name:'Aukro.cz',       flag:'🇨🇿', currency:'CZK', color:'#f87171', country:'CZ',  live:false, rating:4.2, reviews:12000,
+    url: (q) => `https://aukro.cz/hledani?query=pokemon+${encodeURIComponent(q)}` },
+  { id:'bazos',      name:'Bazoš.cz',       flag:'🇨🇿', currency:'CZK', color:'#f472b6', country:'CZ',  live:false, rating:4.0, reviews:5000,
+    url: (q) => `https://www.bazos.cz/search.php?hledat=pokemon+${encodeURIComponent(q)}&rubriky=0&hlokalita=&humkreis=25&preismax=&order=` },
+  { id:'heureka',    name:'Heureka.cz',     flag:'🇨🇿', currency:'CZK', color:'#fbbf24', country:'CZ',  live:false, rating:4.6, reviews:30000,
+    url: (q) => `https://www.heureka.cz/?h%5Bfraze%5D=pokemon+karta+${encodeURIComponent(q)}` },
+  { id:'zbozi',      name:'Zboží.cz',       flag:'🇨🇿', currency:'CZK', color:'#34d399', country:'CZ',  live:false, rating:4.5, reviews:25000,
+    url: (q) => `https://www.zbozi.cz/hledani/?q=pokemon+karta+${encodeURIComponent(q)}` },
+  { id:'blacklotus', name:'BlackLotus.cz',  flag:'🇨🇿', currency:'CZK', color:'#c084fc', country:'CZ',  live:false, rating:4.6, reviews:500,
+    url: (q) => `https://www.blacklotus.cz/vyhledavani/?q=${encodeURIComponent(q)}` },
+  { id:'fb',         name:'FB Marketplace', flag:'🇨🇿', currency:'CZK', color:'#3b82f6', country:'CZ',  live:false, rating:3.8, reviews:null,
+    url: (q) => `https://www.facebook.com/marketplace/search/?query=pokemon+${encodeURIComponent(q)}` },
+  { id:'pokeprice',  name:'PokéPrice.io',   flag:'🌍', currency:'USD', color:'#818cf8', country:'INT', live:false, rating:4.4, reviews:2000,
+    url: (q) => `https://pokeprice.io/search?q=${encodeURIComponent(q)}` },
 ];
 
 const PF_POKEDB = 'https://pokedb-api.poketrade.workers.dev/v1';
 const PF_PREFS_KEY = 'pf_site_prefs_v1';
-
 let _pfPrefs = JSON.parse(localStorage.getItem(PF_PREFS_KEY) || '{}');
 let _pfCards = [];
 let _pfPrices = {};
@@ -2628,7 +2545,9 @@ let _pfCondFilter = 'all';
 let _pfSrcFilter  = 'all';
 let _pfSuggest = [];
 let _pfSuggestTimeout = null;
+let _pfCollapsed = new Set(); // collapsed card IDs
 
+// ── Suggestions ──────────────────────────────────────────────
 window.pfOnSearchInput = function() {
   clearTimeout(_pfSuggestTimeout);
   const q = document.getElementById('pf-search-input').value.trim();
@@ -2640,8 +2559,8 @@ async function pfFetchSuggestions(q) {
   try {
     const r = await fetch(`${PF_POKEDB}/cards?q=${encodeURIComponent(q)}&limit=6`);
     if (!r.ok) return;
-    const data = await r.json();
-    _pfSuggest = data.data || [];
+    const d = await r.json();
+    _pfSuggest = d.data || [];
     pfRenderSuggestions(_pfSuggest);
   } catch {}
 }
@@ -2652,10 +2571,8 @@ function pfRenderSuggestions(cards) {
   el.innerHTML = cards.map((c,i) => `
     <div class="pf-sug-item" onclick="pfSelectSuggestion(${i})">
       ${c.image_thumb_url ? `<img class="pf-sug-img" src="${c.image_thumb_url}" alt="">` : '<div class="pf-sug-img"></div>'}
-      <div>
-        <div class="pf-sug-name">${c.name}</div>
-        <div class="pf-sug-set">${(c.set_id||'').toUpperCase()} · ${c.number||''} · ${c.supertype||''}</div>
-      </div>
+      <div><div class="pf-sug-name">${c.name}</div>
+      <div class="pf-sug-set">${(c.set_id||'').toUpperCase()} · ${c.number||''}</div></div>
     </div>`).join('');
   el.style.display = 'block';
 }
@@ -2683,25 +2600,23 @@ window.pfSearchCards = function() {
 async function pfDoSearch(q) {
   const btn = document.getElementById('pf-search-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="pf-spinner"></span>'; }
-  document.getElementById('pf-results').innerHTML = '<div class="pf-loading-row"><span class="pf-spinner"></span> Hledám karty...</div>';
-  document.getElementById('pf-results-header').style.display = 'none';
-  document.getElementById('pf-filters-bar').style.display = 'none';
+  document.getElementById('pf-results').innerHTML = '<div class="pf-no-results"><span class="pf-spinner"></span> Hledám...</div>';
 
   try {
-    const r = await fetch(`${PF_POKEDB}/cards?q=${encodeURIComponent(q)}&limit=12`);
+    const r = await fetch(`${PF_POKEDB}/cards?q=${encodeURIComponent(q)}&limit=10`);
     if (!r.ok) throw new Error();
-    const data = await r.json();
-    _pfCards = data.data || [];
+    const d = await r.json();
+    _pfCards = d.data || [];
     if (!_pfCards.length) {
-      document.getElementById('pf-results').innerHTML = `<div class="pf-no-results">🔍 Žádné karty nenalezeny pro „${q}"</div>`;
+      document.getElementById('pf-results').innerHTML = `<div class="pf-no-results">🔍 Žádné karty pro „${q}"</div>`;
       return;
     }
     _pfPrices = {};
-    document.getElementById('pf-filters-bar').style.display = 'flex';
-    pfRenderResults();
+    _pfCollapsed.clear();
+    pfRenderAllCards();
     _pfCards.forEach(c => pfFetchCardPrices(c));
   } catch {
-    document.getElementById('pf-results').innerHTML = '<div class="pf-no-results">❌ Chyba při hledání. Zkus znovu.</div>';
+    document.getElementById('pf-results').innerHTML = '<div class="pf-no-results">❌ Chyba při hledání.</div>';
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = 'Hledat'; }
   }
@@ -2712,187 +2627,184 @@ async function pfFetchCardPrices(card) {
     const r = await fetch(`${PF_POKEDB}/cards/${card.id}/prices`);
     if (!r.ok) return;
     _pfPrices[card.id] = await r.json();
-    pfUpdateCardPrices(card.id);
+    pfUpdateCardBlock(card.id);
   } catch {}
 }
-// Expose for multi-card search from selection system
 window.pfFetchCardPricesPublic = pfFetchCardPrices;
-window._pfCardsRef = _pfCards;
-window._pfPricesRef = _pfPrices;
 
-function pfGetPriceRows(card, priceData) {
+// ── Heureka-style rendering ──────────────────────────────────
+function pfGetShopRows(card, priceData) {
+  const q = card.name || '';
   const rows = [];
-  const q = card.name;
+  // Live prices
   if (priceData) {
     const cm = priceData.cardmarket || priceData.prices?.cardmarket;
-    if (cm?.price) rows.push({ siteId:'cardmarket', price:parseFloat(cm.price), currency:'EUR', condition:cm.condition||'NM', country:'EU', source:'Cardmarket', live:true, url:PF_SITES[0].url(q) });
+    if (cm?.price) rows.push({ siteId:'cardmarket', price:parseFloat(cm.price), currency:'EUR', condition:cm.condition||'NM' });
     const tcp = priceData.tcgplayer || priceData.prices?.tcgplayer;
-    if (tcp?.price) rows.push({ siteId:'tcgplayer', price:parseFloat(tcp.price), currency:'USD', condition:tcp.condition||'NM', country:'USA', source:'TCGPlayer', live:true, url:PF_SITES[1].url(q) });
+    if (tcp?.price) rows.push({ siteId:'tcgplayer', price:parseFloat(tcp.price), currency:'USD', condition:tcp.condition||'NM' });
     const ep = priceData.pokeprice || priceData.prices?.pokeprice || priceData.ebay;
-    if (ep?.price) rows.push({ siteId:'ebay_sold', price:parseFloat(ep.price), currency:'USD', condition:'—', country:'INT', source:'eBay (prodáno)', live:true, url:PF_SITES[2].url(q) });
+    if (ep?.price) rows.push({ siteId:'ebay_sold', price:parseFloat(ep.price), currency:'USD', condition:'—' });
   }
-  ['ebay','topcards','aukro','magiccardmarket'].forEach(sid => {
-    const site = PF_SITES.find(s=>s.id===sid);
-    if (site) rows.push({ siteId:sid, price:null, currency:site.currency, condition:'?', country:site.country, source:site.name, live:false, url:site.url(q) });
+  const liveIds = new Set(rows.map(r=>r.siteId));
+  // All other sites as search links
+  for (const s of PF_SITES) {
+    if (liveIds.has(s.id)) continue;
+    const pref = _pfPrefs[s.id] || 'none';
+    if (pref === 'avoid') continue;
+    rows.push({ siteId: s.id, price: null, currency: s.currency, condition: null });
+  }
+  // Sort: live prices first (cheapest), then search links
+  rows.sort((a, b) => {
+    if (a.price && b.price) return a.price - b.price;
+    if (a.price) return -1;
+    if (b.price) return 1;
+    return 0;
   });
   return rows;
 }
 
-function pfRenderResults() {
-  document.getElementById('pf-results').innerHTML = _pfCards.map(c => pfRenderCardBlock(c)).join('');
-  document.getElementById('pf-results-header').style.display = 'flex';
-  document.getElementById('pf-results-count').textContent = `${_pfCards.length} karet nalezeno`;
-  pfApplyFilters();
+function pfStars(rating) {
+  if (!rating) return '';
+  const full = Math.floor(rating);
+  const half = rating - full >= 0.5;
+  let s = '★'.repeat(full);
+  if (half) s += '½';
+  return s;
 }
 
-function pfRenderCardBlock(card) {
-  const rows = pfGetPriceRows(card, _pfPrices[card.id]);
-  const liveRows = rows.filter(r=>r.live&&r.price);
-  const best = [...liveRows].sort((a,b)=>a.price-b.price)[0];
-  const summary = best
-    ? `<span class="pf-best-price">od ${best.price.toFixed(2)} ${best.currency}</span>`
-    : `<span style="color:var(--muted);font-size:.8rem">Načítám ceny...</span>`;
-  return `
-  <div class="pf-card-result" id="pfcr-${card.id}">
-    <div class="pf-card-result-header" onclick="pfToggleCard('${card.id}')">
-      ${card.image_thumb_url ? `<img class="pf-card-thumb" src="${card.image_thumb_url}" alt="">` : '<div class="pf-card-thumb"></div>'}
-      <div class="pf-card-name-block">
-        <div class="pf-card-result-name">${card.name}</div>
-        <div class="pf-card-result-set">${(card.set_id||'').toUpperCase()} · ${card.number||''} · ${card.supertype||''}</div>
-        <div class="pf-card-result-summary">
-          <span id="pfbest-${card.id}">${summary}</span>
-          <span class="pf-sources-count" id="pfsrccnt-${card.id}">${liveRows.length} živých cen · ${rows.length} zdrojů</span>
+function pfRenderCardBlock(card, priceData) {
+  const rows = pfGetShopRows(card, priceData);
+  const liveRows = rows.filter(r => r.price);
+  const best = liveRows[0];
+  const img = card.image_thumb_url || card.image_url || '';
+  const hp = card.hp ? `HP ${card.hp}` : '';
+  const types = (card.types || []).join(', ');
+  const rarity = card.rarity || '';
+  const setInfo = `${(card.set_id||'').toUpperCase()} #${card.number||'?'}`;
+  const metaParts = [hp, types, rarity, setInfo].filter(Boolean);
+  const isCollapsed = _pfCollapsed.has(card.id);
+
+  return `<div class="hk-card-block ${isCollapsed ? 'hk-collapsed' : ''}" id="hkcard-${card.id}">
+    <div class="hk-card-header">
+      <div class="hk-card-img">
+        ${img ? `<img src="${img}" alt="${card.name}" loading="lazy">` : '<div style="height:98px;background:rgba(255,255,255,.05);border-radius:8px"></div>'}
+      </div>
+      <div class="hk-card-info">
+        <div class="hk-card-name">${card.name}</div>
+        <div class="hk-card-meta">${metaParts.map(p => `<span>${p}</span>`).join('')}</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          ${best ? `<span class="hk-best-price">od ${best.price.toFixed(2)} ${best.currency}</span>` : '<span style="color:var(--muted);font-size:.8rem" id="hkbest-${card.id}">⏳ Načítám ceny…</span>'}
+          <span class="hk-shop-count">${liveRows.length > 0 ? liveRows.length + ' živých cen · ' : ''}${rows.length} zdrojů</span>
         </div>
       </div>
-      <span class="pf-expand-icon">▼</span>
+      <button class="hk-collapse-btn" onclick="pfToggleCollapse('${card.id}')">
+        ${isCollapsed ? '▶ Zobrazit' : '▼ Skrýt'} obchody
+      </button>
     </div>
-    <div class="pf-prices-body" id="pfpb-${card.id}">
-      <div id="pfptable-${card.id}">${pfRenderPriceTable(card, rows)}</div>
+    <div class="hk-shop-list">
+      ${rows.map((row, idx) => {
+        const site = PF_SITES.find(s => s.id === row.siteId);
+        if (!site) return '';
+        const rankClass = idx === 0 ? 'gold' : idx === 1 ? 'silver' : idx === 2 ? 'bronze' : '';
+        const priceHtml = row.price
+          ? `<span class="hk-shop-price hk-price-${row.currency.toLowerCase()}">${row.price.toFixed(2)} ${row.currency}</span>`
+          : `<span class="hk-shop-price hk-price-search">🔍 Hledat</span>`;
+        const starsHtml = site.rating
+          ? `<span class="hk-shop-rating"><span class="hk-shop-stars">${pfStars(site.rating)}</span> ${site.rating}${site.reviews ? ` (${site.reviews.toLocaleString()})` : ''}</span>`
+          : '';
+        return `<a class="hk-shop-row" href="${site.url(card.name)}" target="_blank" rel="noopener">
+          <span class="hk-shop-rank ${rankClass}">${idx + 1}</span>
+          <span class="hk-shop-flag">${site.flag}</span>
+          <div style="flex:1;min-width:0">
+            <div class="hk-shop-name">${site.name}</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">${starsHtml}${row.condition ? `<span style="font-size:.7rem;color:var(--muted)">${row.condition}</span>` : ''}</div>
+          </div>
+          ${priceHtml}
+          <span class="hk-shop-link-icon">↗</span>
+        </a>`;
+      }).join('')}
     </div>
   </div>`;
 }
 
-function pfRenderPriceTable(card, rows) {
-  if (!rows.length) return '<div style="padding:1rem;color:var(--muted);text-align:center">Žádné ceny</div>';
-  const sorted = [...rows].sort((a,b)=>{
-    if (a.live&&!b.live) return -1; if (!a.live&&b.live) return 1;
-    if (a.price&&b.price) return a.price-b.price; return 0;
-  });
-  return `<table class="pf-price-table">
-    <thead><tr><th>Web</th><th>Cena</th><th>Stav</th><th>Země</th><th>Odkaz</th><th>Předv.</th></tr></thead>
-    <tbody>${sorted.map(row => {
-      const site = PF_SITES.find(s=>s.id===row.siteId)||{color:'#666'};
-      const pref = _pfPrefs[row.siteId]||'none';
-      const condCls = ['NM','LP','MP','HP'].includes(row.condition) ? row.condition : '';
-      const priceHtml = row.price
-        ? `<span class="pf-price-val ${row.currency==='EUR'?'pf-price-eur':'pf-price-usd'}">${row.price.toFixed(2)} ${row.currency}</span>`
-        : `<span style="color:var(--muted);font-size:.78rem">hledat →</span>`;
-      return `<tr class="pf-price-row ${pref==='prefer'?'preferred':''} ${pref==='avoid'?'hidden':''}"
-          data-pfsite="${row.siteId}" data-pfcond="${row.condition}">
-        <td><span class="pf-site-badge"><span class="pf-site-dot" style="background:${site.color}"></span>${row.source}</span></td>
-        <td>${priceHtml}</td>
-        <td>${condCls?`<span class="pf-cond-badge ${condCls}">${row.condition}</span>`:`<span style="color:var(--muted)">${row.condition}</span>`}</td>
-        <td>${site.flag||'🌍'} <span style="font-size:.75rem;color:var(--muted)">${row.country}</span></td>
-        <td><a href="${row.url}" target="_blank" rel="noopener" class="pf-link-btn">🔗 Otevřít</a></td>
-        <td><button class="pf-pref-btn ${pref==='prefer'?'is-preferred':''} ${pref==='avoid'?'is-avoided':''}"
-          onclick="pfTogglePref('${card.id}','${row.siteId}',this)">${pref==='prefer'?'★':pref==='avoid'?'✕':'☆'}</button></td>
-      </tr>`;
-    }).join('')}</tbody></table>`;
+function pfRenderAllCards() {
+  const el = document.getElementById('pf-results');
+  const sel = document.getElementById('pf-sel-header-wrap');
+  const fb = document.getElementById('pf-filterbar');
+  const cnt = document.getElementById('pf-results-count');
+  if (fb) fb.style.display = 'flex';
+  if (cnt) cnt.textContent = `${_pfCards.length} karet`;
+  el.innerHTML = _pfCards.map(c => pfRenderCardBlock(c, _pfPrices[c.id])).join('');
 }
 
-function pfUpdateCardPrices(cardId) {
-  const card = _pfCards.find(c=>c.id===cardId);
+function pfUpdateCardBlock(cardId) {
+  const card = _pfCards.find(c => c.id === cardId);
   if (!card) return;
-  const rows = pfGetPriceRows(card, _pfPrices[cardId]);
-  const liveRows = rows.filter(r=>r.live&&r.price);
-  const best = [...liveRows].sort((a,b)=>a.price-b.price)[0];
-  const bestEl = document.getElementById(`pfbest-${cardId}`);
-  if (bestEl) bestEl.innerHTML = best ? `<span class="pf-best-price">od ${best.price.toFixed(2)} ${best.currency}</span>` : '<span style="color:var(--muted);font-size:.8rem">Cena nedostupná</span>';
-  const cntEl = document.getElementById(`pfsrccnt-${cardId}`);
-  if (cntEl) cntEl.textContent = `${liveRows.length} živých cen · ${rows.length} zdrojů`;
-  const tblEl = document.getElementById(`pfptable-${cardId}`);
-  if (tblEl) tblEl.innerHTML = pfRenderPriceTable(card, rows);
-  pfApplyFilters();
+  const el = document.getElementById(`hkcard-${cardId}`);
+  if (el) el.outerHTML = pfRenderCardBlock(card, _pfPrices[cardId]);
 }
 
-window.pfToggleCard = function(id) {
-  document.getElementById(`pfcr-${id}`)?.classList.toggle('expanded');
+window.pfToggleCollapse = function(id) {
+  if (_pfCollapsed.has(id)) _pfCollapsed.delete(id);
+  else _pfCollapsed.add(id);
+  const card = _pfCards.find(c => c.id === id);
+  if (card) {
+    const el = document.getElementById(`hkcard-${id}`);
+    if (el) el.outerHTML = pfRenderCardBlock(card, _pfPrices[id]);
+  }
 };
 
 window.pfFilterCond = function(val, btn) {
   _pfCondFilter = val;
-  document.querySelectorAll('[data-pfcond]').forEach(b=>{ if(b.tagName==='BUTTON') b.classList.remove('active'); });
-  btn.classList.add('active'); pfApplyFilters();
+  document.querySelectorAll('[data-pfcond]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 };
-
 window.pfFilterSrc = function(val, btn) {
   _pfSrcFilter = val;
-  document.querySelectorAll('[data-pfsrc]').forEach(b=>{ if(b.tagName==='BUTTON') b.classList.remove('active'); });
-  btn.classList.add('active'); pfApplyFilters();
+  document.querySelectorAll('[data-pfsrc]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 };
-
-function pfApplyFilters() {
-  document.querySelectorAll('.pf-price-row').forEach(row => {
-    const pref = _pfPrefs[row.dataset.pfsite]||'none';
-    const condOK = _pfCondFilter==='all' || row.dataset.pfcond===_pfCondFilter;
-    const srcOK  = _pfSrcFilter==='all' || (row.dataset.pfsite||'').startsWith(_pfSrcFilter);
-    row.classList.toggle('hidden', !(condOK && srcOK && pref!=='avoid'));
-  });
-}
-
 window.pfSortResults = function() {
-  const val = document.getElementById('pf-sort-select').value;
-  _pfCards.sort((a,b)=>{
-    const ba = pfGetBestPrice(_pfPrices[a.id]), bb = pfGetBestPrice(_pfPrices[b.id]);
-    if (val==='price-asc') return (ba||9999)-(bb||9999);
-    if (val==='price-desc') return (bb||0)-(ba||0);
-    return 0;
-  });
-  pfRenderResults();
-  _pfCards.forEach(c=>{ if (_pfPrices[c.id]) pfUpdateCardPrices(c.id); });
+  const val = document.getElementById('pf-sort-select')?.value;
+  if (val === 'alpha') _pfCards.sort((a,b) => a.name.localeCompare(b.name));
+  else if (val === 'price-asc') _pfCards.sort((a,b) => pfBestPrice(a) - pfBestPrice(b));
+  else if (val === 'price-desc') _pfCards.sort((a,b) => pfBestPrice(b) - pfBestPrice(a));
+  pfRenderAllCards();
+  _pfCards.forEach(c => { if (_pfPrices[c.id]) pfUpdateCardBlock(c.id); });
 };
-
-function pfGetBestPrice(pd) {
-  if (!pd) return null;
-  const vals = [pd.cardmarket?.price, pd.tcgplayer?.price, pd.pokeprice?.price].filter(Boolean).map(Number);
-  return vals.length ? Math.min(...vals) : null;
+function pfBestPrice(card) {
+  const pd = _pfPrices[card.id];
+  if (!pd) return 9999;
+  const vals = [pd.cardmarket?.price, pd.tcgplayer?.price].filter(Boolean).map(Number);
+  return vals.length ? Math.min(...vals) : 9999;
 }
 
-window.pfTogglePref = function(cardId, siteId, btn) {
-  const cur = _pfPrefs[siteId]||'none';
-  _pfPrefs[siteId] = cur==='prefer'?'none':cur==='none'?'prefer':'none';
-  localStorage.setItem(PF_PREFS_KEY, JSON.stringify(_pfPrefs));
-  btn.textContent = _pfPrefs[siteId]==='prefer'?'★':'☆';
-  btn.className = `pf-pref-btn ${_pfPrefs[siteId]==='prefer'?'is-preferred':''}`;
-  const row = btn.closest('.pf-price-row');
-  if (row) row.classList.toggle('preferred', _pfPrefs[siteId]==='prefer');
-  pfRenderSiteList();
-};
+// For multi-card selection
+window.pfSearchMultiple = async function(cards) {
+  const pricesTab = document.querySelector('.nav-tab[onclick*="prices"]');
+  if (pricesTab) switchPage('prices', pricesTab);
 
-window.pfOpenSettings = function() { pfRenderSiteList(); document.getElementById('pf-settings-modal').classList.add('open'); };
-window.pfCloseSettings = function() { document.getElementById('pf-settings-modal').classList.remove('open'); };
-window.pfResetPrefs = function() { _pfPrefs={}; localStorage.setItem(PF_PREFS_KEY,'{}'); pfRenderSiteList(); pfApplyFilters(); };
-
-function pfRenderSiteList() {
-  const el = document.getElementById('pf-site-list');
+  const el = document.getElementById('pf-results');
+  const fb = document.getElementById('pf-filterbar');
   if (!el) return;
-  el.innerHTML = PF_SITES.map(s => {
-    const p = _pfPrefs[s.id]||'none';
-    return `<div class="pf-site-row">
-      <span class="pf-site-dot" style="background:${s.color};width:10px;height:10px;border-radius:50%;flex-shrink:0"></span>
-      <span class="pf-site-name">${s.flag} ${s.name} <span style="color:var(--muted);font-size:.72rem">(${s.currency} · ${s.country})</span></span>
-      <div class="pf-site-controls">
-        <button class="pf-sc-btn ${p==='prefer'?'pref':''}" onclick="pfSetPref('${s.id}','prefer',this)" title="Preferovaný">★</button>
-        <button class="pf-sc-btn ${p==='avoid'?'avoid':''}" onclick="pfSetPref('${s.id}','avoid',this)" title="Vyhnout se">✕</button>
-      </div>
-    </div>`;
-  }).join('');
-}
+  if (fb) fb.style.display = 'flex';
 
-window.pfSetPref = function(siteId, action, btn) {
-  _pfPrefs[siteId] = (_pfPrefs[siteId]||'none')===action ? 'none' : action;
-  localStorage.setItem(PF_PREFS_KEY, JSON.stringify(_pfPrefs));
-  pfRenderSiteList(); pfApplyFilters();
+  // Badge strip
+  window._selCardsRef = typeof _selCards !== 'undefined' ? _selCards : new Map();
+  const badgesHtml = `<div class="pf-sel-header" style="margin-bottom:8px">
+    ${cards.map(c => `<div class="pf-sel-badge" onclick="selRemove('${c.id}');pfSearchMultiple([...window._selCardsRef.values()])">
+      ${c.name} <span class="pf-sel-x">✕</span></div>`).join('')}
+  </div>`;
+
+  _pfCards = cards;
+  _pfPrices = {};
+  _pfCollapsed.clear();
+  el.innerHTML = badgesHtml + cards.map(c => pfRenderCardBlock(c, null)).join('');
+
+  const cnt = document.getElementById('pf-results-count');
+  if (cnt) cnt.textContent = `${cards.length} karet`;
+
+  cards.forEach(c => pfFetchCardPrices(c));
 };
 
 // Close suggestions on outside click
@@ -2900,7 +2812,6 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.pf-search-bar') && !e.target.closest('.pf-suggestions')) pfHideSuggestions();
 });
 
-pfRenderSiteList();
 })();
 </script>
 </body>
