@@ -74,11 +74,26 @@ function _getLocalEmail() {
 function _buildPages() {
   var pages = PAGES.slice();
   var email = _getLocalEmail();
-  if (email && _ADMIN_EMAILS.indexOf(email) !== -1) {
+  // Admin: hardcoded seznam NEBO is_admin=true uložené z Supabase profiles
+  var isAdminEmail = email && _ADMIN_EMAILS.indexOf(email) !== -1;
+  var isAdminDb    = localStorage.getItem('pkc_is_admin') === '1';
+  if (isAdminEmail || isAdminDb) {
     pages.push({ href: 'admin-loyd.html', icon: 'energi/obchod.png', label: 'Admin', id: 'admin-loyd' });
   }
   return pages;
 }
+
+/* Globálně dostupný helper pro ostatní stránky (pokedb.html, moje-album.html…) */
+window._isAdmin = function() {
+  try {
+    var email = _getLocalEmail();
+    if (email && _ADMIN_EMAILS.indexOf(email) !== -1) return true;
+    if (localStorage.getItem('pkc_is_admin') === '1') return true;
+    // Fallback: sb_user app_metadata
+    var u = JSON.parse(localStorage.getItem('sb_user') || 'null');
+    return !!(u && (u.app_metadata && u.app_metadata.is_admin));
+  } catch(e) { return false; }
+};
 
 /* ══════════════════════════════════════════════════════════════
    2. STYLY — navigace + nastavení + notifikace
@@ -1510,7 +1525,7 @@ function _initUserChip() {
     var SBU = (typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '') || 'https://xrduqwrinzvmpixgmqta.supabase.co';
     var SBA = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
     if (!SBU || !SBA) return;
-    fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=username,avatar_url', {
+    fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=username,avatar_url,is_admin', {
       headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + token }
     })
     .then(function(r) { return r.ok ? r.json() : null; })
@@ -1528,6 +1543,16 @@ function _initUserChip() {
         avatarEl.style.backgroundSize     = 'cover';
         avatarEl.style.backgroundPosition = 'center';
         try { localStorage.setItem('pkc_avatar_local', p.avatar_url); } catch(e) {}
+      }
+      // ── is_admin sync ──────────────────────────────────────────
+      // Uložíme do localStorage aby _buildPages() a _isAdmin() fungovaly
+      // okamžitě bez dalšího API volání.
+      var wasAdmin = localStorage.getItem('pkc_is_admin') === '1';
+      var isAdminNow = p.is_admin === true;
+      try { localStorage.setItem('pkc_is_admin', isAdminNow ? '1' : '0'); } catch(e) {}
+      // Pokud se stav změnil → re-renderuj nav (zobrazí/skryje Admin link)
+      if (wasAdmin !== isAdminNow) {
+        try { renderNav(); } catch(e) {}
       }
     })
     .catch(function() {});

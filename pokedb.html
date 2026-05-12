@@ -1401,16 +1401,21 @@ fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
 ════════════════════════════════════════════════════ */
 const API_BASE = 'https://pokedb-api.poketrade.workers.dev/v1';
 
-/* ── Admin detekce (stejný systém jako topbar.js) ───────────── */
+/* ── Admin detekce — deleguje na topbar.js window._isAdmin ─────────── */
 const _DB_ADMIN_EMAILS = typeof _ADMIN_EMAILS !== 'undefined'
-  ? _ADMIN_EMAILS  // načteno z topbar.js
+  ? _ADMIN_EMAILS
   : ['papez.ondrej@gmail.com','loydtest@gmail.com'];
 
 function _isAdmin() {
+  // 1. Topbar.js exportuje window._isAdmin po načtení profilu
+  if (typeof window._isAdmin === 'function' && window._isAdmin !== _isAdmin) {
+    return window._isAdmin();
+  }
+  // 2. Fallback lokální check (email + pkc_is_admin z Supabase profiles)
   try {
     const email = typeof _getLocalEmail === 'function' ? _getLocalEmail() : '';
     if (email && _DB_ADMIN_EMAILS.indexOf(email) !== -1) return true;
-    // Fallback: zkus sb_user is_admin
+    if (localStorage.getItem('pkc_is_admin') === '1') return true;
     const u = JSON.parse(localStorage.getItem('sb_user') || 'null');
     return !!(u?.user_metadata?.is_admin || u?.app_metadata?.is_admin);
   } catch { return false; }

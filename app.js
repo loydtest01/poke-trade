@@ -70,6 +70,9 @@ function logout() {
   localStorage.removeItem('sb_token');
   localStorage.removeItem('sb_refresh_token');
   localStorage.removeItem('sb_user');
+  localStorage.removeItem('sb_email');
+  localStorage.removeItem('pkc_is_admin');   // smaž admin příznak při odhlášení
+  localStorage.removeItem('pkc_avatar_local');
   window.location.href = 'login.html';
 }
 

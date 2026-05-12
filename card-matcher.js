@@ -56,19 +56,62 @@
     /** Minimální počet potvrzení pro to, aby byl cache výsledek vrácen bez ověření */
     CACHE_MIN_CONFIRMATIONS: 1,
 
-    /** Supabase tabulky */
+    /** Worker API base URL — kolektivní paměť je nyní v Neon přes Worker */
+    get WORKER_API() {
+      return (typeof window !== 'undefined' && window.POKEDB_WORKER_API)
+        || 'https://pokedb-api.poketrade.workers.dev/v1';
+    },
+
+    // Zachováno pro fuzzy text matching (čte card_hashes přes Worker /v1/hashes)
     TABLE_HASHES:    'card_hashes',
     TABLE_CACHE:     'card_match_cache',
-
-    /** URL Supabase projektu (přečte se z window.SUPABASE_URL nebo app.js) */
-    get SUPABASE_URL() {
-      return (typeof window !== 'undefined' && window.SUPABASE_URL)
-        || 'https://xrduqwrinzvmpixgmqta.supabase.co';
-    },
   };
 
+  // ── Worker API fetch helper ────────────────────────────────────────────────
+  async function _workerFetch(path, method = 'GET', body = null) {
+    const url  = `${CFG.WORKER_API}${path}`;
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    // Přidej auth token pro zápis
+    const tok = typeof localStorage !== 'undefined' ? localStorage.getItem('sb_token') : null;
+    if (tok) opts.headers['X-Admin-Token'] = tok;
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      throw new Error(`[CardMatcher] Worker ${method} ${path} → ${res.status}: ${txt}`);
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  // Zachováno jako fallback pro import CSV (zapisuje přes Supabase service_role)
+  async function _sbFetch(path, method = 'GET', body = null) {
+    if (typeof supabaseRequest === 'function') {
+      return supabaseRequest(path, method, body, _sbToken());
+    }
+    const url = `${_sbUrl()}/${path}`;
+    const opts = {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${_sbToken()}`,
+        'apikey': (typeof window !== 'undefined' && window.SUPABASE_ANON) || '',
+        'Prefer': 'return=minimal',
+      },
+    };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const e = await res.text().catch(() => '');
+      throw new Error(`[CardMatcher] Supabase ${method} ${path} → ${res.status}: ${e}`);
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
   // ═══════════════════════════════════════════════════════════════════════════
-  //  SQL MIGRACE – zkopíruj do Supabase SQL editoru
+  //  SQL MIGRACE – zkopíruj do Neon konzole (Cloudflare Worker → Neon DB)
+  // ═══════════════════════════════════════════════════════════════════════════
   // ═══════════════════════════════════════════════════════════════════════════
 
   const SQL_MIGRATION = `
@@ -398,11 +441,9 @@ $$;
   async function _lookupCache(phash) {
     if (!phash) return null;
     try {
-      const rows = await _sbFetch(
-        `rest/v1/${CFG.TABLE_CACHE}?phash=eq.${encodeURIComponent(phash)}&confirmed_count=gte.${CFG.CACHE_MIN_CONFIRMATIONS}&select=card_id,confirmed_count`
-      );
-      if (Array.isArray(rows) && rows.length > 0) {
-        return { cardId: rows[0].card_id, confirmedCount: rows[0].confirmed_count };
+      const data = await _workerFetch(`/hash-cache/${encodeURIComponent(phash)}`);
+      if (data?.found) {
+        return { cardId: data.card_id, confirmedCount: data.confirmed_count || 1 };
       }
     } catch (e) {
       console.warn('[CardMatcher] Cache lookup selhalo:', e.message);
@@ -518,35 +559,51 @@ $$;
    * @param {string} phash  – hex hash naskenované karty
    * @returns {Promise<{cardId, name, setId, number, distance}|null>}\
    */
-  async function _matchByPHash(phash) {
+  async function _matchByPHash(phash, query = {}) {
     if (!phash) return null;
-    const hashes = await _loadHashes();
-    if (!hashes.length) return null;
 
-    let best = null;
-    let bestDist = Infinity;
+    try {
+      // Server-side Hamming distance search — žádné stahování tisíců řádků!
+      const data = await _workerFetch('/hashes/match', 'POST', {
+        phash,
+        max_distance: CFG.PHASH_THRESHOLD,
+        limit: 3,
+        ...(query.name   ? { name:   query.name   } : {}),
+        ...(query.set    ? { set_id: query.set    } : {}),
+        ...(query.number ? { number: query.number } : {}),
+      });
 
-    for (const row of hashes) {
-      const dist = hammingDistance(phash, row.phash);
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = row;
+      const matches = data?.matches || [];
+      if (!matches.length) {
+        console.log(`[CardMatcher] pHash: žádná shoda na serveru`);
+        return null;
       }
-    }
 
-    if (!best || bestDist > CFG.PHASH_THRESHOLD) {
-      console.log(`[CardMatcher] pHash: žádná shoda (nejlepší distance: ${bestDist})`);
-      return null;
-    }
+      const best = matches[0];
+      console.log(`[CardMatcher] pHash server-side: shoda "${best.name}" (distance: ${best.distance})`);
+      return {
+        cardId:   best.card_id,
+        name:     best.name,
+        setId:    best.set_id,
+        number:   best.number,
+        imageUrl: best.image_url || '',
+        distance: best.distance,
+      };
+    } catch (e) {
+      // Fallback na lokální cache pokud Worker selže
+      console.warn('[CardMatcher] Server-side pHash selhal, zkouším lokální cache:', e.message);
+      const hashes = await _loadHashes();
+      if (!hashes.length) return null;
 
-    console.log(`[CardMatcher] pHash: shoda "${best.name}" (distance: ${bestDist})`);
-    return {
-      cardId:   best.card_id,
-      name:     best.name,
-      setId:    best.set_id,
-      number:   best.number,
-      distance: bestDist,
-    };
+      let best = null, bestDist = Infinity;
+      for (const row of hashes) {
+        const dist = hammingDistance(phash, row.phash);
+        if (dist < bestDist) { bestDist = dist; best = row; }
+      }
+      if (!best || bestDist > CFG.PHASH_THRESHOLD) return null;
+      console.log(`[CardMatcher] pHash lokální fallback: "${best.name}" (distance: ${bestDist})`);
+      return { cardId: best.card_id, name: best.name, setId: best.set_id, number: best.number, distance: bestDist };
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -777,7 +834,7 @@ DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see
 
     // ── 2. pHash matching ────────────────────────────────────────────────────
     if (result.phash && !options.skipPHash) {
-      const phashMatch = await _matchByPHash(result.phash);
+      const phashMatch = await _matchByPHash(result.phash, query);
       if (phashMatch) {
         // Doplň imageUrl z pokemontcg.io
         let details = null;
@@ -878,22 +935,10 @@ DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see
       console.warn('[CardMatcher] confirm(): chybí phash nebo cardId');
       return false;
     }
-
-    const user = typeof getUser === 'function' ? getUser() : null;
-    const userId = user?.id || null;
-
     try {
-      // Zkus RPC funkci (inkrementuje počítadlo)
-      await _sbFetch('rest/v1/rpc/increment_card_confirmation', 'POST', {
-        p_phash:   phash,
-        p_card_id: cardId,
-        p_user_id: userId,
-      });
+      await _workerFetch('/hash-cache', 'POST', { phash, card_id: cardId });
       console.log(`[CardMatcher] ✓ Potvrzení uloženo: ${cardId} (phash: ${phash})`);
-
-      // Invaliduj in-memory cache hashů (mohlo se přidat nové potvrzení)
-      _hashCacheTs = 0;
-
+      _hashCacheTs = 0; // Invaliduj lokální cache
       return true;
     } catch (e) {
       console.error('[CardMatcher] confirm() selhalo:', e.message);
