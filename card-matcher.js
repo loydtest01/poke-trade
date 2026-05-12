@@ -417,7 +417,20 @@ $$;
   /** In-memory cache načtených hashů (aby se nestahovaly znovu při každém matchi) */
   let _hashCache = null;
   let _hashCacheTs = 0;
-  const HASH_CACHE_TTL = 5 * 60 * 1000; // 5 minut
+  const HASH_CACHE_TTL    = 24 * 60 * 60 * 1000; // 24 hodin (in-memory)
+  const HASH_LS_KEY       = 'pkc_hash_cache_v2';
+  const HASH_LS_TTL       = 24 * 60 * 60 * 1000; // 24 hodin (localStorage)
+  const HASH_LOAD_TIMEOUT = 4000; // 4s timeout — pokud Supabase neodpovídá, přeskoč
+
+  // Načti in-memory cache z localStorage při startu (okamžité — bez sítě)
+  try {
+    const ls = JSON.parse(localStorage.getItem(HASH_LS_KEY) || 'null');
+    if (ls && ls.ts && Date.now() - ls.ts < HASH_LS_TTL && Array.isArray(ls.data)) {
+      _hashCache   = ls.data;
+      _hashCacheTs = ls.ts;
+      console.log(`[CardMatcher] pHash cache načtena z localStorage: ${_hashCache.length} karet`);
+    }
+  } catch(_) {}
 
   /**
    * Načte všechny pHash záznamy ze Supabase (nebo vrátí in-memory cache).
@@ -425,36 +438,85 @@ $$;
    */
   async function _loadHashes() {
     const now = Date.now();
+    // 1. In-memory cache (24h)
     if (_hashCache && now - _hashCacheTs < HASH_CACHE_TTL) return _hashCache;
 
+    // 2. localStorage cache (24h) — zkontroluj znovu (mohl být nastaven jiným voláním)
     try {
-      // Supabase REST vrací max 1000 řádků, proto použijeme range pagination
-      const allRows = [];
-      const PAGE = 1000;
-      let offset = 0;
-      while (true) {
-        const rows = await _sbFetch(
-          `rest/v1/${CFG.TABLE_HASHES}?select=card_id,phash,name,set_id,number&limit=${PAGE}&offset=${offset}`
-        );
-        if (!Array.isArray(rows) || rows.length === 0) break;
-        allRows.push(...rows);
-        if (rows.length < PAGE) break;
-        offset += PAGE;
+      const ls = JSON.parse(localStorage.getItem(HASH_LS_KEY) || 'null');
+      if (ls && ls.ts && now - ls.ts < HASH_LS_TTL && Array.isArray(ls.data) && ls.data.length > 0) {
+        _hashCache   = ls.data;
+        _hashCacheTs = ls.ts;
+        // Refresh na pozadí pokud je cache starší než 12h
+        if (now - ls.ts > 12 * 60 * 60 * 1000) {
+          setTimeout(() => _refreshHashesBackground(), 500);
+        }
+        return _hashCache;
       }
-      _hashCache = allRows;
+    } catch(_) {}
+
+    // 3. Stáhnout ze Supabase — s timeoutem aby neblokoval UI
+    try {
+      const allRows = await Promise.race([
+        _fetchAllHashes(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), HASH_LOAD_TIMEOUT)
+        ),
+      ]);
+      _hashCache   = allRows;
       _hashCacheTs = now;
-      console.log(`[CardMatcher] pHash databáze načtena: ${allRows.length} karet`);
+      // Ulož do localStorage
+      try {
+        localStorage.setItem(HASH_LS_KEY, JSON.stringify({ ts: now, data: allRows }));
+      } catch(_) {}
+      console.log(`[CardMatcher] pHash databáze stažena a uložena: ${allRows.length} karet`);
       return allRows;
     } catch (e) {
-      console.warn('[CardMatcher] Načítání hashů selhalo:', e.message);
-      return [];
+      if (e.message === 'timeout') {
+        console.warn('[CardMatcher] pHash načítání překročilo timeout — pHash matching přeskočen');
+      } else {
+        console.warn('[CardMatcher] Načítání hashů selhalo:', e.message);
+      }
+      return _hashCache || []; // Vrať co máme (i prázdné)
+    }
+  }
+
+  async function _fetchAllHashes() {
+    const allRows = [];
+    const PAGE = 1000;
+    let offset = 0;
+    while (true) {
+      const rows = await _sbFetch(
+        `rest/v1/${CFG.TABLE_HASHES}?select=card_id,phash,name,set_id,number&limit=${PAGE}&offset=${offset}`
+      );
+      if (!Array.isArray(rows) || rows.length === 0) break;
+      allRows.push(...rows);
+      if (rows.length < PAGE) break;
+      offset += PAGE;
+    }
+    return allRows;
+  }
+
+  // Obnoví cache na pozadí bez blokování UI
+  async function _refreshHashesBackground() {
+    try {
+      const allRows = await _fetchAllHashes();
+      if (allRows.length > 0) {
+        const now = Date.now();
+        _hashCache   = allRows;
+        _hashCacheTs = now;
+        localStorage.setItem(HASH_LS_KEY, JSON.stringify({ ts: now, data: allRows }));
+        console.log(`[CardMatcher] pHash cache obnovena na pozadí: ${allRows.length} karet`);
+      }
+    } catch(e) {
+      console.warn('[CardMatcher] Background hash refresh selhal:', e.message);
     }
   }
 
   /**
    * Hledá nejbližší kartu v pHash databázi.
    * @param {string} phash  – hex hash naskenované karty
-   * @returns {Promise<{cardId, name, setId, number, distance}|null>}
+   * @returns {Promise<{cardId, name, setId, number, distance}|null>}\
    */
   async function _matchByPHash(phash) {
     if (!phash) return null;
@@ -921,6 +983,7 @@ DO NOT guess. DO NOT invent pokemontcg.io IDs. Only return what you actually see
   function invalidateHashCache() {
     _hashCache = null;
     _hashCacheTs = 0;
+    try { localStorage.removeItem(HASH_LS_KEY); } catch(_) {}
   }
 
   /** Vrátí počet načtených hashů (0 pokud cache ještě není načtena) */
