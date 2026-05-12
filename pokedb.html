@@ -1128,22 +1128,37 @@ body::after {
     </div>
 
     <!-- Rate limit tiers -->
-    <h3 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem">Rate limity dle tier</h3>
+    <h3 style="font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem">Rate limity dle tier</h3>
+    <p style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">
+      ⚠️ API běží na Cloudflare Workers Free — celková kapacita 100 000 požadavků/den.
+      Při vysokém využití může být dostupnost omezena.
+    </p>
     <div class="tier-grid">
       <div class="tier-card">
         <div class="tier-name">🌐 Anonymní</div>
-        <div class="tier-limit">50</div>
+        <div class="tier-limit">500</div>
         <div class="tier-desc">požadavků / hodinu<br>bez API klíče</div>
       </div>
       <div class="tier-card">
         <div class="tier-name">🔑 Free tier</div>
-        <div class="tier-limit b">1 000</div>
+        <div class="tier-limit b">2 000</div>
         <div class="tier-desc">požadavků / hodinu<br>zdarma po registraci</div>
       </div>
-      <div class="tier-card">
+      <div class="tier-card" style="opacity:.6" title="Zatím nedostupné">
         <div class="tier-name">💼 Pro tier</div>
-        <div class="tier-limit g">10 000</div>
-        <div class="tier-desc">požadavků / hodinu<br>kontaktuj správce</div>
+        <div class="tier-limit g" style="font-size:1rem">Brzy</div>
+        <div class="tier-desc">vyšší limity<br>kontaktuj správce</div>
+      </div>
+    </div>
+
+    <!-- Monitoring info -->
+    <div style="background:rgba(96,165,250,.07);border:1px solid rgba(96,165,250,.2);border-radius:10px;padding:1rem;margin-bottom:1.5rem">
+      <div style="font-size:.8rem;font-weight:700;color:var(--blue);margin-bottom:.5rem">📊 Sledování využití</div>
+      <div style="font-size:.75rem;color:var(--muted);line-height:1.7">
+        Využití API lze sledovat na
+        <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--blue)">dash.cloudflare.com</a>
+        → Workers → pokedb-api → Analytics.<br>
+        Tvůj API klíč zobrazuje počet požadavků v záložce <strong>API klíč</strong> po přihlášení.
       </div>
     </div>
 
@@ -1400,7 +1415,65 @@ fetch('/api/v1/cards?q=Charizard&amp;api_key=pk_live_xxx')</pre>
 /* ════════════════════════════════════════════════════
    CONFIG
 ════════════════════════════════════════════════════ */
-const API_BASE = 'https://pokedb-api.poketrade.workers.dev/v1';
+// ═══════════════════════════════════════════════════════
+// LOAD BALANCER — více Cloudflare Worker účtů paralelně
+// Přidej URL svých dalších workerů do pole níže
+// Každý worker musí mít nasazen stejný worker.js
+// a stejné env proměnné (DATABASE_URL, ADMIN_SECRET)
+// ═══════════════════════════════════════════════════════
+const _WORKER_ENDPOINTS = [
+  'https://pokedb-api.poketrade.workers.dev/v1',
+  // 'https://pokedb-api2.poketrade.workers.dev/v1',  // ← druhý účet
+  // 'https://pokedb-api3.poketrade.workers.dev/v1',  // ← třetí účet
+  // ... až 10 účtů
+];
+
+let _currentEndpoint = 0;
+let _endpointFailures = {}; // { url: timestamp } — cooldown pro selhané
+
+function _getNextEndpoint() {
+  const now = Date.now();
+  const COOLDOWN = 60_000; // 60s cooldown po 429
+
+  // Projdi endpointy round-robin, přeskoč ty v cooldownu
+  for (let i = 0; i < _WORKER_ENDPOINTS.length; i++) {
+    const idx = (_currentEndpoint + i) % _WORKER_ENDPOINTS.length;
+    const url = _WORKER_ENDPOINTS[idx];
+    const failed = _endpointFailures[url];
+    if (!failed || now - failed > COOLDOWN) {
+      _currentEndpoint = (idx + 1) % _WORKER_ENDPOINTS.length;
+      return url;
+    }
+  }
+  // Všechny v cooldownu — vrať první (lepší než nic)
+  return _WORKER_ENDPOINTS[0];
+}
+
+// Inteligentní fetch s automatickým failover na další endpoint
+async function _apiFetch(path, opts = {}) {
+  const tried = new Set();
+  for (let attempt = 0; attempt < _WORKER_ENDPOINTS.length; attempt++) {
+    const base = _getNextEndpoint();
+    if (tried.has(base)) continue;
+    tried.add(base);
+    try {
+      const r = await fetch(`${base}${path}`, { ...opts, signal: AbortSignal.timeout(10000) });
+      if (r.status === 429) {
+        // Rate limit — označ endpoint a zkus další
+        _endpointFailures[base] = Date.now();
+        console.warn(`[LB] ${base} → 429, přepínám na další endpoint`);
+        continue;
+      }
+      return r;
+    } catch(e) {
+      _endpointFailures[base] = Date.now();
+      console.warn(`[LB] ${base} → chyba: ${e.message}`);
+    }
+  }
+  throw new Error('Všechny API endpointy selhaly');
+}
+
+const API_BASE = _WORKER_ENDPOINTS[0]; // zachováno pro zpětnou kompatibilitu
 
 /* ── Admin detekce — deleguje na topbar.js window._isAdmin ─────────── */
 const _DB_ADMIN_EMAILS = typeof _ADMIN_EMAILS !== 'undefined'
@@ -1479,7 +1552,7 @@ async function init() {
 // Jeden fetch /sets sdílený pro stats i dropdown — šetří rate limit
 async function loadSetsOnce() {
   try {
-    const r = await fetch(`${API_BASE}/sets`);
+    const r = await _apiFetch(`/sets`);
     if (!r.ok) return;
     const data = await r.json();
     const sets = data.data || [];
@@ -1551,7 +1624,7 @@ async function loadDbStatus() {
   try {
     // 1. Naše série z Worker D1
     const [ourRes, tcgRes] = await Promise.all([
-      fetch(`${API_BASE}/sets`),
+      _apiFetch(`/sets`),
       fetch('https://api.tcgdex.net/v2/en/sets'),
     ]);
 
@@ -1850,7 +1923,7 @@ async function fetchCards() {
   if (state.noImage)   params.set('no_image',   '1');
 
   try {
-    const r = await fetch(`${API_BASE}/cards?${params}`);
+    const r = await _apiFetch(`/cards?${params}`);
     const data = await r.json();
     if (!r.ok) throw new Error(data.error || 'API chyba');
     // Worker vrací: { data, total, page, pages, limit }
@@ -2013,7 +2086,7 @@ async function openCard(id) {
   document.body.style.overflow = 'hidden';
 
   try {
-    const r = await fetch(`${API_BASE}/cards/${encodeURIComponent(id)}`);
+    const r = await _apiFetch(`/cards/${encodeURIComponent(id)}`);
     if (!r.ok) throw new Error('Karta nenalezena');
     const c = await r.json();
 
@@ -2028,7 +2101,7 @@ async function openCard(id) {
       // Pokus 1: přímé ID bez lang prefixu
       if (enIdDirect !== id) {
         try {
-          const r1 = await fetch(`${API_BASE}/cards/${encodeURIComponent(enIdDirect)}`);
+          const r1 = await _apiFetch(`/cards/${encodeURIComponent(enIdDirect)}`);
           if (r1.ok) { const d = await r1.json(); if (d.name) enC = d; }
         } catch(_) {}
       }
@@ -2038,7 +2111,7 @@ async function openCard(id) {
         // Zkusit EN set_id — strip lang prefix ze set_id
         const enSetId = (c.set_id || '').replace(/^[a-z]{2}-/, '');
         try {
-          const r2 = await fetch(`${API_BASE}/cards?set_id=${encodeURIComponent(enSetId)}&number=${encodeURIComponent(c.number)}&lang=en&limit=1`);
+          const r2 = await _apiFetch(`/cards?set_id=${encodeURIComponent(enSetId)}&number=${encodeURIComponent(c.number)}&lang=en&limit=1`);
           if (r2.ok) { const d2 = await r2.json(); const first = (d2.data||[])[0]; if (first?.name) enC = first; }
         } catch(_) {}
       }
@@ -2046,7 +2119,7 @@ async function openCard(id) {
       // Pokus 3: hledání podle EN jména pokud ho máme (name_original)
       if (!enC && c.name_original) {
         try {
-          const r3 = await fetch(`${API_BASE}/cards?q=${encodeURIComponent(c.name_original)}&lang=en&limit=1`);
+          const r3 = await _apiFetch(`/cards?q=${encodeURIComponent(c.name_original)}&lang=en&limit=1`);
           if (r3.ok) { const d3 = await r3.json(); const first = (d3.data||[])[0]; if (first?.name) enC = first; }
         } catch(_) {}
       }
@@ -2281,7 +2354,7 @@ async function loadLangVariants(currentCard) {
   // Hledáme všechny karty se stejným číslem v sérii — bez lang filtru, s allLang=true
   const params = new URLSearchParams({ set_id: baseSetId, number: baseNum, limit: 20 });
   try {
-    const r = await fetch(`${API_BASE}/cards?${params}`);
+    const r = await _apiFetch(`/cards?${params}`);
     if (!r.ok) { wrap.innerHTML = ''; return; }
     const data = await r.json();
     const cards = (data.data || []).filter(c => c.id !== currentId);
@@ -2383,7 +2456,7 @@ async function handleUploadFile(input, cardId) {
     statusEl.innerHTML = `<img class="img-upload-preview" src="${previewUrl}" alt="Náhled"><div>✅ Storage OK. Aktualizuji D1…</div>`;
 
     // 2. PATCH Worker D1
-    const patchRes = await fetch(`${API_BASE}/admin/cards/${encodeURIComponent(cardId)}/image`, {
+    const patchRes = await _apiFetch(`/admin/cards/${encodeURIComponent(cardId)}/image`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'X-Admin-Token': token },
       body: JSON.stringify({ image_url: publicUrl, image_thumb_url: publicUrl }),
@@ -2596,7 +2669,7 @@ async function loadSets() {
     return;
   }
   try {
-    const r = await fetch(`${API_BASE}/sets`);
+    const r = await _apiFetch(`/sets`);
     const data = await r.json();
     state.setsData = data.data || [];
     state.setsLoaded = true;
@@ -2659,7 +2732,7 @@ async function registerKey() {
   btn.disabled = true; btn.textContent = '⏳ Generuji…';
 
   try {
-    const r = await fetch(`${API_BASE}/keys/register`, {
+    const r = await _apiFetch(`/keys/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, description: desc })
