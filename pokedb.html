@@ -848,7 +848,6 @@ body::after {
     <button class="nav-tab" onclick="switchPage('sets',this)">Série</button>
     <button class="nav-tab" onclick="switchPage('prices',this)">💰 Hledač cen</button>
     <button class="nav-tab" onclick="switchPage('api',this)">API</button>
-    <button class="nav-tab" onclick="switchPage('register',this)">API klíč</button>
     <div class="nav-spacer"></div>
     <span class="nav-api-badge">PUBLIC API</span>
   </div>
@@ -922,6 +921,8 @@ body::after {
       </div>
       <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)" style="white-space:nowrap">🌍 Všechny jazyky</button>
       <button class="btn btn-sm" id="btn-noimag" onclick="toggleNoImage()" title="Zobrazit jen karty bez obrázku" style="white-space:nowrap">📷 Bez obrázku</button>
+      <button class="btn btn-sm" id="btn-game-tcg"    onclick="setGameType('tcg')"    title="Jen fyzické TCG karty"         style="white-space:nowrap">🃏 Fyzické TCG</button>
+      <button class="btn btn-sm" id="btn-game-pocket" onclick="setGameType('pocket')" title="Jen Pokémon TCG Pocket (mobilní hra)" style="white-space:nowrap">📱 TCG Pocket</button>
       <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
       <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
     </div>
@@ -1089,6 +1090,8 @@ body::after {
     <div id="sets-panel-status" style="display:none">
       <div style="display:flex;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
         <button class="btn btn-sm" onclick="loadDbStatus()" id="btn-load-status">🔄 Načíst stav databáze</button>
+        <button class="btn btn-sm" onclick="triggerImageScan()" id="btn-image-scan" style="background:rgba(74,222,128,.15);color:var(--green);border:1px solid rgba(74,222,128,.3)">🖼 Spustit auto image scan</button>
+        <span style="font-size:.75rem;color:var(--muted)">Automaticky každou neděli v 6:00 UTC</span>
         <select id="status-filter-lang" class="filter-select" onchange="renderStatusTable()" style="min-width:130px">
           <option value="">Všechny jazyky</option>
           <option value="en">EN English</option>
@@ -1367,11 +1370,29 @@ Content-Type: application/json
       <div class="param-row"><span class="param-name" style="color:var(--red)">429</span><span class="param-type">Too Many Requests</span><span class="param-desc">Překročen rate limit</span></div>
       <div class="param-row"><span class="param-name" style="color:var(--red)">500</span><span class="param-type">Server Error</span><span class="param-desc">Interní chyba serveru</span></div>
     </div>
+
+    <!-- Registrace API klíče přímo na API stránce -->
+    <div id="api-register-section" style="max-width:600px;margin:2rem auto 0">
+      <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1rem">🔑 Získat API klíč zdarma</h2>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:1.5rem">
+        <p style="font-size:.85rem;color:var(--muted);margin:0 0 1.2rem">Bezplatný klíč dává 2 000 požadavků za hodinu. Klíč se zobrazí pouze jednou — ulož si ho.</p>
+        <div class="field"><label>Název projektu</label><input type="text" id="reg-name" placeholder="Moje Pokémon aplikace"></div>
+        <div class="field"><label>E-mail</label><input type="email" id="reg-email" placeholder="email@example.com"></div>
+        <div class="field"><label>Popis použití <span style="color:var(--muted)">(volitelné)</span></label><input type="text" id="reg-desc" placeholder="Stránka pro sběratele, mobilní appka…"></div>
+        <button class="btn" id="reg-btn" onclick="registerKey()" style="width:100%;justify-content:center;padding:.75rem;font-size:.9rem;margin-top:.3rem">🔑 Vygenerovat klíč zdarma</button>
+        <div class="key-reveal" id="key-reveal" style="display:none;margin-top:1rem;background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.2);border-radius:8px;padding:1rem">
+          <div style="font-size:.75rem;color:var(--muted);margin-bottom:.5rem">Tvůj API klíč — zkopíruj ho teď!</div>
+          <div id="key-value" style="font-family:monospace;font-size:.85rem;color:var(--green);word-break:break-all;margin-bottom:.5rem"></div>
+          <button class="btn btn-sm" onclick="copyKey()">📋 Kopírovat klíč</button>
+          <div style="font-size:.75rem;color:var(--orange);margin-top:.5rem">⚠️ Klíč se zobrazí pouze jednou.</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════
-     PAGE: REGISTER API KEY
+     PAGE: REGISTER API KEY (přesměruje na API)
 ══════════════════════════════════════════════════════ -->
 <div class="page-panel" id="page-register">
   <div class="wrap" style="max-width:600px;margin:0 auto;padding-top:2rem">
@@ -1518,8 +1539,9 @@ let state = {
   q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name',
   totalCards: 0, totalPages: 0,
   setsData: [], loading: false,
-  allLang: false, // ignorovat jazykový filtr — hledá ve všech jazycích
-  noImage: false  // zobrazit jen karty bez obrázku
+  allLang: false,  // ignorovat jazykový filtr — hledá ve všech jazycích
+  noImage: false,  // zobrazit jen karty bez obrázku
+  gameType: '',    // 'tcg' = fyzické karty, 'pocket' = TCG Pocket, '' = vše
 };
 
 function toggleAllLang() {
@@ -1542,6 +1564,18 @@ function toggleAllLang() {
 function toggleNoImage() {
   state.noImage = !state.noImage;
   document.getElementById('btn-noimag').classList.toggle('active', state.noImage);
+  doSearch(1);
+}
+
+function setGameType(type) {
+  // Toggle — kliknutí na aktivní filtr ho vypne
+  if (state.gameType === type) {
+    state.gameType = '';
+  } else {
+    state.gameType = type;
+  }
+  document.getElementById('btn-game-tcg').classList.toggle('active', state.gameType === 'tcg');
+  document.getElementById('btn-game-pocket').classList.toggle('active', state.gameType === 'pocket');
   doSearch(1);
 }
 
@@ -1660,6 +1694,24 @@ function _initAdminSetsTab() {
 
 // Cached data pro status tabulku
 let _dbStatusData = null;
+
+async function triggerImageScan() {
+  const btn = document.getElementById('btn-image-scan');
+  btn.disabled = true; btn.textContent = '⏳ Skenuje…';
+  try {
+    const r = await _apiFetch('/admin/image-scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': window._adminSecret || '' },
+      body: JSON.stringify({ limit: 500 }),
+    });
+    const d = await r.json();
+    btn.textContent = `✅ Hotovo: ${d.updated}/${d.scanned} aktualizováno`;
+    setTimeout(() => { btn.textContent = '🖼 Spustit auto image scan'; btn.disabled = false; }, 5000);
+  } catch(e) {
+    btn.textContent = '❌ Chyba';
+    btn.disabled = false;
+  }
+}
 
 async function loadDbStatus() {
   const out = document.getElementById('status-output');
@@ -1961,12 +2013,13 @@ async function fetchCards() {
   const params = new URLSearchParams({ page: state.page, limit: state.limit });
   if (state.q)         params.set('q',         state.q);
   if (state.set_id)    params.set('set_id',     state.set_id);
-  if (state.lang && !state.allLang) params.set('lang', state.lang); // allLang přeskočí jazykový filtr
+  if (state.lang && !state.allLang) params.set('lang', state.lang);
   if (state.type)      params.set('type',       state.type);
   if (state.supertype) params.set('supertype',  state.supertype);
   if (state.rarity)    params.set('rarity',     state.rarity);
   if (state.sort)      params.set('sort',       state.sort);
   if (state.noImage)   params.set('no_image',   '1');
+  if (state.gameType)  params.set('game_type',  state.gameType);
 
   try {
     const r = await _apiFetch(`/cards?${params}`);
@@ -2326,27 +2379,60 @@ function renderModal(c) {
 
 function renderPrices(c) {
   const prices = c.prices || [];
-  // Pro marketplace links preferujeme anglický název (non-EN karty mají lokální název)
-  const marketName = c._enName || c.name_original || c.name || c.id;
-  const marketSet  = c._enSetName || c.set_name || '';
-  // Cardmarket preferuje EN název; speciální znaky musí být správně enkódovány
-  const cmName  = encodeURIComponent(marketName);
-  const nameRaw = encodeURIComponent(marketName); // pro ostatní tržiště
-  const setRaw  = encodeURIComponent(marketSet);
+  const lang = (c.lang || 'en').toLowerCase();
+  const isEN = lang === 'en';
 
-  // Cardmarket: expansion filter pokud víme sérii
-  const cmExpansion = marketSet ? `&expansionName=${encodeURIComponent(marketSet)}` : '';
+  // Názvy pro tržiště
+  const enName   = c._enName   || c.name_en || c.name_original || c.name || '';
+  const localName = c.name || enName;
+  const setName  = c._enSetName || c.set_name || '';
+  const cardNum  = c.number || '';
+  const setId    = (c.set_id || '').replace(/^[a-z]{2}-/, ''); // strip lang prefix
 
-  // Marketplace links — vždy
+  // Cardmarket — preferuje lokální název (má DE/FR/IT/ES karty)
+  // Pro JP/KO karty použij EN název
+  const cmName = ['ja','ko','zh'].includes(lang) ? enName : localName;
+  const cmNum  = cardNum ? ` ${cardNum}` : '';
+  const cmExpansion = setName ? `&expansionName=${encodeURIComponent(setName)}` : '';
+
+  // eBay — použij EN název + číslo karty pro přesnější výsledky
+  const ebayQ = [enName, cardNum, isEN ? setName : ''].filter(Boolean).join(' ');
+
+  // TCGPlayer — jen pro EN karty, pro ostatní přesměruj na Cardmarket
+  const tcgQ = isEN ? enName : null;
+
+  // Pokéllector — správná URL, EN název
+  const pklQ = enName;
+
   const markets = [
-    { name: 'Cardmarket', icon: '🇪🇺', url: `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${cmName}${cmExpansion}` },
-    { name: 'eBay',       icon: '🔨', url: `https://www.ebay.com/sch/i.html?_nkw=pokemon+${nameRaw}+${setRaw}+card` },
-    { name: 'TCGPlayer',  icon: '🇺🇸', url: `https://www.tcgplayer.com/search/pokemon/product?q=${nameRaw}` },
-    { name: 'Pokéllector',icon: '📒', url: `https://pokecollector.com/search?q=${nameRaw}` },
+    {
+      name: 'Cardmarket', icon: '🇪🇺',
+      url: `https://www.cardmarket.com/en/Pokemon/Products/Singles?searchString=${encodeURIComponent(cmName + cmNum)}${cmExpansion}`,
+      title: lang !== 'en' ? `Hledá: "${cmName}${cmNum}"` : ''
+    },
+    {
+      name: 'eBay', icon: '🔨',
+      url: `https://www.ebay.com/sch/i.html?_nkw=pokemon+${encodeURIComponent(ebayQ)}+card&_sop=15`,
+      title: `Hledá: "${ebayQ}"`
+    },
+    isEN ? {
+      name: 'TCGPlayer', icon: '🇺🇸',
+      url: `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(tcgQ)}&view=grid`,
+      title: ''
+    } : {
+      name: 'TCGPlayer', icon: '🇺🇸',
+      url: `https://www.tcgplayer.com/search/pokemon/product?q=${encodeURIComponent(enName)}&view=grid`,
+      title: `EN verze: "${enName}" (TCGPlayer má jen EN karty)`
+    },
+    {
+      name: 'Pokéllector', icon: '📒',
+      url: `https://www.pokellector.com/search?q=${encodeURIComponent(pklQ)}`,
+      title: ''
+    },
   ];
 
   const marketHtml = markets.map(m =>
-    `<a href="${escH(m.url)}" target="_blank" rel="noopener" class="market-link">${m.icon} ${escH(m.name)}</a>`
+    `<a href="${escH(m.url)}" target="_blank" rel="noopener" class="market-link"${m.title ? ` title="${escH(m.title)}"` : ''}>${m.icon} ${escH(m.name)}</a>`
   ).join('');
 
   // Ceny z databáze
