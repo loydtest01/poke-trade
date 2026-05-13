@@ -1798,6 +1798,10 @@ function buildGroupEl(g, gi) {
         <button class="cg-search-btn" id="searchBtn-${gi}" onclick="tcgSearch(${gi})">
           🔍 Vyhledat v databázi
         </button>
+        <button class="cg-search-btn" id="searchOtherBtn-${gi}" onclick="tcgSearchOther(${gi})"
+          style="display:none;margin-left:.4rem;background:rgba(245,200,66,.12);color:var(--yellow);border-color:rgba(245,200,66,.3)">
+          🔄 Hledat jiné
+        </button>
         <div class="cg-search-status" id="searchStatus-${gi}">
           ${g.resolvedCard ? '✅ Vybrána: ' + esc(g.resolvedCard.name || '') + (g.resolvedCard.set ? ' · ' + esc(g.resolvedCard.set) : '') : ''}
         </div>
@@ -2580,6 +2584,11 @@ function _renderLearnStats(gi) {
 function _renderCardGrid(gi, cards) {
   const g = cardGroups[gi];
 
+  // Filtruj viděné karty pokud je "Hledat jiné" aktivní
+  if (g?._seenCardIds?.size) {
+    cards = cards.filter(c => !g._seenCardIds.has(c.id || c.apiId || ''));
+  }
+
   // Spočítej max skóre pro normalizaci šířky progress baru
   const maxScore = cards.reduce((m, c) => Math.max(m, c._score || 0), 1);
 
@@ -2641,6 +2650,7 @@ function _renderCardGrid(gi, cards) {
         onclick="tcgSelectCard(${gi},${idx})"
         style="position:relative"
         title="Skóre shody: ${score} / ${maxScore}"
+        data-card-id="${esc(cId)}"
         data-card='${cardPayload}'>
       ${img ? `<img src="${img}" alt="${esc(cName)}" loading="lazy">` : '<div style="height:110px;background:rgba(255,255,255,.05)"></div>'}
       ${langBadge}
@@ -3195,6 +3205,31 @@ async function tcgSearch(gi, autoMode = false) {
   }
 
   btn.disabled = false;
+
+  // Zobraz tlačítko "Hledat jiné" pokud jsou výsledky
+  const otherBtn = document.getElementById(`searchOtherBtn-${gi}`);
+  if (otherBtn) {
+    const grid = document.getElementById(`searchGrid-${gi}`);
+    otherBtn.style.display = grid && grid.children.length > 0 ? '' : 'none';
+  }
+}
+
+// ── Hledat jiné — přeskočí karty co už jsou zobrazeny ───────────────────────
+async function tcgSearchOther(gi) {
+  const g = cardGroups[gi];
+  if (!g) return;
+  // Uloži aktuální výsledky jako "viděné"
+  if (!g._seenCardIds) g._seenCardIds = new Set();
+  const grid = document.getElementById(`searchGrid-${gi}`);
+  if (grid) {
+    grid.querySelectorAll('[data-card-id]').forEach(el => {
+      g._seenCardIds.add(el.dataset.cardId);
+    });
+  }
+  // Spusť nové hledání s přeskočením viděných
+  g._skipSeenCards = true;
+  await tcgSearch(gi, false);
+  g._skipSeenCards = false;
 }
 
 
