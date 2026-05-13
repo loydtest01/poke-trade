@@ -26,6 +26,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const ADMIN_EMAILS = [
   'papez.ondrej@gmail.com',
   'loydtest@gmail.com',
+  'lasovlas@seznam.cz',
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -210,7 +211,18 @@ export default async function handler(req, res) {
       // Auth — token z Authorization header NEBO z ?t= query parametru
       const adminToken = token !== SUPABASE_ANON ? token : (req.query?.t || '');
       const user = await getUserFromToken(adminToken);
-      if (!user || !user.email || !ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+      const isAdminEmail = user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase());
+      let isAdminDb = false;
+      if (user && !isAdminEmail) {
+        try {
+          const dbR = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_admin`, {
+            headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON}` }
+          });
+          const dbD = await dbR.json();
+          isAdminDb = dbD?.[0]?.is_admin === true;
+        } catch(_) {}
+      }
+      if (!user || (!isAdminEmail && !isAdminDb)) {
         return jsonError(res, 403, 'Přístup odepřen');
       }
 
