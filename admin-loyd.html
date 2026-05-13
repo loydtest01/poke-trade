@@ -777,9 +777,10 @@ async function init() {
   document.querySelectorAll('.adm-tab').forEach(t => {
     t.addEventListener('click', () => {
       document.querySelectorAll('.adm-tab').forEach(x => x.classList.remove('active'));
-      document.querySelectorAll('#tabs > div').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('#tabs > div').forEach(x => { x.classList.remove('active'); x.style.display = 'none'; });
       t.classList.add('active');
-      document.getElementById('tab-' + t.dataset.tab).classList.add('active');
+      const panel = document.getElementById('tab-' + t.dataset.tab);
+      if (panel) { panel.classList.add('active'); panel.style.display = ''; }
       // Lazy load
       if (t.dataset.tab === 'clusters') loadClusters();
       else if (t.dataset.tab === 'signups') loadSignups();
