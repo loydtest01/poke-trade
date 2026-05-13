@@ -23,6 +23,7 @@
   const TCG_PROXY    = '/api/tcg';
   const TCG_DIRECT   = 'https://api.pokemontcg.io/v2';
   const TCGDEX_BASE  = 'https://api.tcgdex.net/v2';
+  const POKEDB_BASE  = 'https://pokedb-api.poketrade.workers.dev/v1'; // naše vlastní DB
   const FETCH_TIMEOUT = 8000;
 
   // ─── Konfigurace zdrojů (přepínatelné, persist v localStorage) ──────────────
@@ -1517,6 +1518,42 @@ No explanation. Just the JSON array.`;
       if (rawCard._source) return rawCard;
       if ('localId' in rawCard || 'category' in rawCard) return _normalizeTcgdex(rawCard);
       return _normalizeTcgIo(rawCard);
+    },
+
+    /**
+     * Hledá kartu v naší vlastní PokéDB — ideální pro JP/DE/FR/IT/ES/PT karty
+     */
+    async searchPokeDB(name, { lang, set, number } = {}) {
+      try {
+        const params = new URLSearchParams({ q: name, limit: 20 });
+        if (lang)   params.set('lang', lang);
+        if (set)    params.set('set_id', set);
+        if (number) params.set('number', number);
+        const r = await fetch(`${POKEDB_BASE}/cards?${params}`, { signal: AbortSignal.timeout(6000) });
+        if (!r.ok) return [];
+        const d = await r.json();
+        return (d.data || []).map(c => ({
+          _source:    'pokedb',
+          id:         c.id,
+          name:       c.name,
+          name_en:    c.name_en || c.name,
+          number:     c.number,
+          hp:         c.hp,
+          types:      c.types || [],
+          supertype:  c.supertype,
+          rarity:     c.rarity,
+          set: {
+            id:   c.set_id,
+            name: c.set_name,
+          },
+          image:      c.image_url || c.image_thumb_url,
+          imageSmall: c.image_thumb_url || c.image_url,
+          lang:       c.lang || 'en',
+        }));
+      } catch(e) {
+        console.warn('[PkSearch.searchPokeDB]', e.message);
+        return [];
+      }
     },
 
     /** Helpers */

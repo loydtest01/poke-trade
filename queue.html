@@ -2502,14 +2502,18 @@ async function tcgSwitchSource(gi, source) {
   try {
     if (source === 'tcgdex') {
       statusEl.textContent = '🔵 Hledám v TCGdex…';
-      // TCGdex přímý dotaz – PkSearch.search pro EN s tcgdex fallbackem
-      // nebo přímý fetch pokud pokemontcg.io by dal výsledky první
       const hpNum = hp ? parseInt(String(hp).replace(/[^0-9]/g,'')) : 0;
       const url = `https://api.tcgdex.net/v2/en/cards?name=${encodeURIComponent(enName)}`;
       const raw = await fetch(url).then(r => r.ok ? r.json() : []).catch(() => []);
       let dex = Array.isArray(raw) ? raw : [];
       if (hpNum > 0) { const byHp = dex.filter(c => parseInt(c.hp||'0') === hpNum); if (byHp.length) dex = byHp; }
       cards = dex.slice(0,24).map(c => PkSearch.normalize(c));
+    } else if (source === 'pokedb') {
+      statusEl.textContent = '🟡 Hledám v PokéDB (JP/DE/FR/IT/ES/PT)…';
+      cards = await PkSearch.searchPokeDB(enName || searchName);
+      if (!cards.length && enName !== searchName) {
+        cards = await PkSearch.searchPokeDB(searchName);
+      }
     } else {
       statusEl.textContent = '🔍 Hledám v pokemontcg.io…';
       cards = await PkSearch.searchTcgIo(enName, '', '');
@@ -2517,14 +2521,16 @@ async function tcgSwitchSource(gi, source) {
   } catch(e) { console.warn('[tcgSwitchSource]', e); }
 
   // Aktualizuj toggle bar
-  const _btnStyle = (active) => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?'rgba(245,200,66,.5)':'rgba(255,255,255,.1)'};background:${active?'rgba(245,200,66,.15)':'rgba(255,255,255,.04)'};color:${active?'#f5c842':'rgba(240,236,228,.4)'};`;
+  const _btnStyle = (active, color='245,200,66') => `padding:4px 11px;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;border:1px solid ${active?`rgba(${color},.5)`:'rgba(255,255,255,.1)'};background:${active?`rgba(${color},.15)`:'rgba(255,255,255,.04)'};color:${active?`rgb(${color})`:'rgba(240,236,228,.4)'};`;
   if (toggleEl) toggleEl.innerHTML =
     `<span style="font-size:10px;color:rgba(240,232,208,.35);letter-spacing:.06em;">ZDROJ:</span>` +
     `<button style="${_btnStyle(source==='tcgio')}"  onclick="tcgSwitchSource(${gi},'tcgio')">pokemontcg.io</button>` +
-    `<button style="${_btnStyle(source==='tcgdex')}" onclick="tcgSwitchSource(${gi},'tcgdex')">🔵 TCGdex</button>`;
+    `<button style="${_btnStyle(source==='tcgdex','74,200,255')}" onclick="tcgSwitchSource(${gi},'tcgdex')">🔵 TCGdex</button>` +
+    `<button style="${_btnStyle(source==='pokedb','74,222,128')}" onclick="tcgSwitchSource(${gi},'pokedb')">🟡 PokéDB</button>`;
 
   if (!cards.length) {
-    statusEl.textContent = source === 'tcgdex' ? '❌ TCGdex nic nenašlo' : '❌ pokemontcg.io nic nenašlo';
+    const srcNames = { tcgdex: 'TCGdex', tcgio: 'pokemontcg.io', pokedb: 'PokéDB' };
+    statusEl.textContent = `❌ ${srcNames[source] || source} nic nenašlo`;
     gridEl.innerHTML = '';
     return;
   }
