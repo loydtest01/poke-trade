@@ -9,6 +9,7 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const ADMIN_EMAILS = [
   'papez.ondrej@gmail.com',
   'loydtest@gmail.com',
+  'lasovlas@seznam.cz',
 ];
 
 const CORS_HEADERS = {
@@ -68,7 +69,25 @@ export default async function handler(req, res) {
   const adminToken = bearerToken || req.query?.t || '';
 
   const user = await getUserFromToken(adminToken);
-  if (!user || !ADMIN_EMAILS.includes((user.email || '').toLowerCase())) {
+  if (!user) {
+    return jsonError(res, 403, 'Přístup odepřen');
+  }
+
+  // Kontrola admina: hardcoded email NEBO is_admin=true v DB
+  const isAdminEmail = ADMIN_EMAILS.includes((user.email || '').toLowerCase());
+  let isAdminDb = false;
+  if (!isAdminEmail) {
+    try {
+      const dbR = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}&select=is_admin`,
+        { headers: { 'apikey': process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON, 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON}` } }
+      );
+      const dbD = await dbR.json();
+      isAdminDb = dbD?.[0]?.is_admin === true;
+    } catch(_) {}
+  }
+
+  if (!isAdminEmail && !isAdminDb) {
     return jsonError(res, 403, 'Přístup odepřen');
   }
 
