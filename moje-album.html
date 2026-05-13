@@ -5470,7 +5470,39 @@ async function repairAllCards() {
           } catch(e) { continue; }
         }
 
-        if (!card) { failed++; return; }
+        // ── PokéDB fallback — pro JP/DE/FR/IT/ES/PT karty kde pokemontcg.io selže ──
+        if (!card) {
+          try {
+            const lang = (c.lang || 'en').toLowerCase();
+            const pokedbBase = 'https://pokedb-api.poketrade.workers.dev/v1';
+            const searchName = c.name_en || c.nameEN || name;
+
+            // Zkus najít kartu v naší DB
+            const params = new URLSearchParams({ q: searchName, limit: 5 });
+            if (c.set)    params.set('set_id', c.set);
+            if (numRaw)   params.set('number', numRaw);
+            if (lang !== 'en') params.set('lang', lang);
+
+            const r = await fetch(`${pokedbBase}/cards?${params}`, { signal: AbortSignal.timeout(5000) });
+            if (r.ok) {
+              const d = await r.json();
+              const hits = d.data || [];
+              const hit  = hits.find(h => h.number === numRaw || h.number === numNoZ) || hits[0];
+              if (hit && hit.types?.length) {
+                // PokéDB má typ — oprav ho přímo
+                c.type  = hit.types[0];
+                c.types = hit.types.slice();
+                if (hit.hp)     c.hp     = hit.hp;
+                if (hit.rarity) c.rarity = hit.rarity;
+                if (hit.name_en && !c.name_en) c.name_en = hit.name_en;
+                await saveCardUpdates(c);
+                fixed++;
+                return;
+              }
+            }
+          } catch(e) { /* tiché selhání */ }
+          failed++; return;
+        }
 
         const cm = card.cardmarket?.prices || {};
         const newUrl = card.cardmarket?.url || '';
