@@ -254,6 +254,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <button class="adm-tab" data-tab="signups">📅 Posl. registrace</button>
       <button class="adm-tab" data-tab="vips">⭐ VIP správa</button>
       <button class="adm-tab" data-tab="admins">🛡️ Správci</button>
+      <button class="adm-tab" data-tab="images">🖼 Obrázky karet</button>
     </div>
 
     <div id="tabs">
@@ -451,9 +452,116 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       </div>
       <!-- /tab-pokedb -->
 
-    </div>
-  </div>
-</div>
+      <!-- TAB: Obrázky karet ─────────────────────────────────── -->
+      <div id="tab-images" style="display:none">
+
+        <div class="adm-section">
+          <h3>🖼 Hromadné stahování obrázků karet</h3>
+          <p style="color:var(--muted);font-size:.82rem;margin:0 0 1rem">
+            Automaticky hledá karty bez obrázků a stahuje je z více zdrojů. Aktualizuje Neon DB přímo.
+          </p>
+
+          <!-- Konfigurace -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;margin-bottom:1rem">
+            <div>
+              <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:.3rem">Worker API</label>
+              <input id="img-api" value="https://pokedb-api.poketrade.workers.dev/v1"
+                style="width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem">
+            </div>
+            <div>
+              <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:.3rem">Limit karet / dávka</label>
+              <input id="img-limit" value="100" type="number" min="10" max="500"
+                style="width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem">
+            </div>
+            <div>
+              <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:.3rem">Jazyk (prázdné = vše)</label>
+              <select id="img-lang" style="width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem">
+                <option value="">Všechny</option>
+                <option value="en">EN</option><option value="ja">JP</option>
+                <option value="de">DE</option><option value="fr">FR</option>
+                <option value="it">IT</option><option value="es">ES</option>
+                <option value="pt">PT</option><option value="ko">KO</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.75rem;color:var(--muted);display:block;margin-bottom:.3rem">Série (volitelné)</label>
+              <input id="img-set" placeholder="např. sv6, de-dp3"
+                style="width:100%;background:rgba(255,255,255,.07);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.4rem .7rem;font-size:.82rem">
+            </div>
+          </div>
+
+          <!-- Statistiky -->
+          <div id="img-stats" style="display:none;margin-bottom:1rem">
+            <div style="display:flex;gap:1.5rem;flex-wrap:wrap">
+              <div><span id="img-s-total" style="font-size:1.3rem;font-weight:800;color:var(--yellow)">0</span><br><span style="font-size:.65rem;color:var(--muted)">CELKEM</span></div>
+              <div><span id="img-s-found" style="font-size:1.3rem;font-weight:800;color:var(--green)">0</span><br><span style="font-size:.65rem;color:var(--muted)">NALEZENO</span></div>
+              <div><span id="img-s-missing" style="font-size:1.3rem;font-weight:800;color:var(--red)">0</span><br><span style="font-size:.65rem;color:var(--muted)">NENALEZENO</span></div>
+              <div><span id="img-s-saved" style="font-size:1.3rem;font-weight:800;color:var(--blue)">0</span><br><span style="font-size:.65rem;color:var(--muted)">ULOŽENO DO DB</span></div>
+              <div><span id="img-s-total-db" style="font-size:1.3rem;font-weight:800">–</span><br><span style="font-size:.65rem;color:var(--muted)">CELKEM BEZ OBR.</span></div>
+            </div>
+            <div id="img-progress-bar" style="margin-top:.8rem;height:6px;background:rgba(255,255,255,.1);border-radius:3px">
+              <div id="img-progress-fill" style="height:100%;border-radius:3px;background:var(--green);width:0%;transition:width .3s"></div>
+            </div>
+          </div>
+
+          <!-- Akce -->
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">
+            <button class="btn" onclick="imgScanStart()" id="img-btn-scan">🔍 Načíst karty</button>
+            <button class="btn" onclick="imgFetchAll()" id="img-btn-fetch" disabled>🚀 Stáhnout obrázky</button>
+            <button class="btn" onclick="imgSaveToNeon()" id="img-btn-save" disabled style="background:rgba(74,222,128,.2);color:var(--green);border:1px solid rgba(74,222,128,.3)">💾 Uložit do Neon</button>
+            <button class="btn btn-sm" onclick="imgAutoRun()" id="img-btn-auto" style="background:rgba(245,200,66,.1);color:var(--yellow);border:1px solid rgba(245,200,66,.3)">🤖 Auto (přes noc)</button>
+            <button class="btn btn-sm" onclick="imgStop()" id="img-btn-stop" style="display:none;background:rgba(248,113,113,.2);color:var(--red)">⏹ Stop</button>
+            <button class="btn btn-sm" onclick="imgDownloadSQL()" id="img-btn-dl" style="display:none">💾 Stáhnout SQL</button>
+            <label style="font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:.3rem">
+              <input type="checkbox" id="img-ai-fallback"> AI fallback (Gemini/Grok)
+            </label>
+          </div>
+
+          <!-- Zdroje -->
+          <details style="margin-bottom:.8rem">
+            <summary style="font-size:.78rem;color:var(--muted);cursor:pointer">📡 Aktivní zdroje obrázků</summary>
+            <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem;line-height:2">
+              1. pokemontcg.io CDN &nbsp;|&nbsp;
+              2. TCGdex API (EN/DE/FR/IT/ES/PT/JP) &nbsp;|&nbsp;
+              3. TCGdex CDN &nbsp;|&nbsp;
+              4. Limitless TCG &nbsp;|&nbsp;
+              5. PokePrice CDN &nbsp;|&nbsp;
+              6. Bulbapedia &nbsp;|&nbsp;
+              7. Gemini AI &nbsp;|&nbsp;
+              8. Grok AI (xAI)
+            </div>
+          </details>
+
+          <!-- Log -->
+          <div id="img-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:150px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted)">Připraven…</div>
+
+          <!-- SQL výstup -->
+          <div id="img-sql-wrap" style="display:none;margin-top:.8rem">
+            <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
+              <span style="font-size:.78rem;font-weight:700">SQL pro Neon:</span>
+              <button class="btn btn-sm" onclick="navigator.clipboard.writeText(document.getElementById('img-sql').value)">📋 Kopírovat</button>
+              <button class="btn btn-sm" onclick="imgDownloadSQL()">💾 Stáhnout .txt</button>
+            </div>
+            <textarea id="img-sql" readonly rows="6"
+              style="width:100%;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:.5rem;font-size:.68rem;font-family:monospace;resize:vertical"></textarea>
+          </div>
+        </div>
+
+        <!-- Auto scan info -->
+        <div class="adm-section">
+          <h3>⏰ Automatický týdenní scan</h3>
+          <p style="font-size:.82rem;color:var(--muted)">
+            Worker automaticky hledá karty bez obrázků každou <strong>neděli v 6:00 UTC</strong>
+            a aktualizuje Neon přímo (bez SQL souboru). Limit: 500 karet/týden.
+          </p>
+          <button class="btn btn-sm" onclick="imgTriggerWorkerScan()" id="img-btn-worker-scan">
+            ▶ Spustit nyní (Worker cron)
+          </button>
+          <span id="img-worker-result" style="font-size:.78rem;color:var(--green);margin-left:.5rem"></span>
+        </div>
+
+      </div>
+      <!-- /tab-images -->
 
 <script src="app.js"></script>
 <script>
@@ -677,6 +785,7 @@ async function init() {
       else if (t.dataset.tab === 'signups') loadSignups();
       else if (t.dataset.tab === 'vips') loadVips();
       else if (t.dataset.tab === 'admins') loadAdmins();
+      else if (t.dataset.tab === 'images') imgInit();
     });
   });
 
@@ -1395,5 +1504,189 @@ async function pdbLoadSets() {
 <script src="notif-bell.js"></script>
 <script src="settings-panel.js"></script>
 <script src="site-tracking.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+// IMAGE FETCHER TAB
+// ═══════════════════════════════════════════════════════
+let _imgCards = [], _imgResults = {}, _imgStop = false, _imgAuto = false;
+let _imgSQL = '', _imgSaved = 0;
+const _IMG_SKIP_SETS = /^(tk-|mep$|mee$|B2a?$|B1a?$|dv1$|g1$|rc$|wp$|ru1$|\d{4}(sv|swsh|xy|bw|sm))/;
+
+function imgLog(msg, color) {
+  const el = document.getElementById('img-log');
+  if (!el) return;
+  const span = document.createElement('span');
+  span.style.color = color || 'var(--muted)';
+  span.textContent = `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.appendChild(span); el.scrollTop = el.scrollHeight;
+}
+
+function imgInit() { imgLog('Připraven. Klikni "Načíst karty".'); }
+function imgCfg(id) { return document.getElementById(id)?.value?.trim() || ''; }
+
+function imgUpdateStats() {
+  const found   = Object.values(_imgResults).filter(r => r.url).length;
+  const missing = Object.values(_imgResults).filter(r => r.done && !r.url).length;
+  document.getElementById('img-s-total').textContent   = _imgCards.length;
+  document.getElementById('img-s-found').textContent   = found;
+  document.getElementById('img-s-missing').textContent = missing;
+  document.getElementById('img-s-saved').textContent   = _imgSaved;
+  const pct = _imgCards.length > 0 ? Math.round(found / _imgCards.length * 100) : 0;
+  document.getElementById('img-progress-fill').style.width = pct + '%';
+  document.getElementById('img-stats').style.display = '';
+}
+
+async function imgScanStart() {
+  const api   = imgCfg('img-api');
+  const lang  = imgCfg('img-lang');
+  const set   = imgCfg('img-set');
+  const limit = parseInt(imgCfg('img-limit')) || 100;
+  const params = new URLSearchParams({ no_image: '1', limit, page: 1 });
+  if (lang) params.set('lang', lang);
+  if (set)  params.set('set_id', set);
+  imgLog(`Načítám karty (limit ${limit})…`);
+  try {
+    const r = await fetch(`${api}/cards?${params}`);
+    const d = await r.json();
+    _imgCards = d.data || []; _imgResults = {};
+    document.getElementById('img-s-total-db').textContent = d.total || '?';
+    imgLog(`Načteno ${_imgCards.length} karet`, 'var(--green)');
+    document.getElementById('img-btn-fetch').disabled = _imgCards.length === 0;
+    imgUpdateStats();
+  } catch(e) { imgLog('Chyba: ' + e.message, 'var(--red)'); }
+}
+
+async function imgTestUrl(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(url); img.onerror = () => resolve(null);
+    img.src = url; setTimeout(() => resolve(null), 5000);
+  });
+}
+
+async function imgFindUrl(card) {
+  const lang = (card.lang || 'en').toLowerCase();
+  const setId = (card.set_id || '').replace(/^[a-z]{2}-/, '');
+  const numRaw = (card.number || '').split('/')[0].trim();
+  const numInt = parseInt(numRaw, 10);
+  const numPad = isNaN(numInt) ? numRaw : String(numInt).padStart(3, '0');
+  const numNo  = isNaN(numInt) ? numRaw : String(numInt);
+  if (_IMG_SKIP_SETS.test(setId)) return null;
+  const cands = [];
+  if (lang === 'en') cands.push(`https://images.pokemontcg.io/${card.id}/large.png`);
+  for (const l of [lang, 'en'].filter((v,i,a) => a.indexOf(v)===i))
+    for (const n of [numPad, numNo].filter((v,i,a) => a.indexOf(v)===i))
+      cands.push({ _api: `https://api.tcgdex.net/v2/${l}/cards/${setId}-${n}` });
+  cands.push(
+    `https://assets.tcgdex.net/${lang}/${setId}/${numPad}/high.webp`,
+    `https://assets.tcgdex.net/en/${setId}/${numPad}/high.webp`,
+    `https://limitlesstcg.nyc3.cdn.digitaloceanspaces.com/tpci/${setId}/${card.id}_R_EN.png`,
+    `https://images.pokeprice.io/cards/${setId}/${numPad}.jpg`,
+    `https://images.pokeprice.io/cards/${setId}/${numNo}.jpg`,
+  );
+  for (const c of cands) {
+    try {
+      if (c?._api) {
+        const r = await fetch(c._api, { signal: AbortSignal.timeout(5000) });
+        if (r.ok) { const d = await r.json(); if (d.image) { const ok = await imgTestUrl(d.image+'/high.webp'); if (ok) return d.image+'/high.webp'; } }
+        continue;
+      }
+      const ok = await imgTestUrl(c); if (ok) return c;
+    } catch(_) {}
+  }
+  return null;
+}
+
+async function imgFetchAll() {
+  _imgStop = false;
+  document.getElementById('img-btn-stop').style.display = '';
+  document.getElementById('img-btn-fetch').disabled = true;
+  imgLog(`Hledám obrázky pro ${_imgCards.length} karet…`);
+  for (let i = 0; i < _imgCards.length; i += 5) {
+    if (_imgStop) break;
+    await Promise.all(_imgCards.slice(i, i+5).map(async c => {
+      const url = await imgFindUrl(c);
+      _imgResults[c.id] = { url, done: true };
+      imgLog((url ? '✅ ' : '❌ ') + c.id, url ? 'var(--green)' : undefined);
+    }));
+    imgUpdateStats();
+  }
+  document.getElementById('img-btn-stop').style.display = 'none';
+  document.getElementById('img-btn-fetch').disabled = false;
+  const found = _imgCards.filter(c => _imgResults[c.id]?.url);
+  if (found.length) {
+    _imgSQL = found.map(c => { const u = _imgResults[c.id].url; return `UPDATE cards SET image_url='${u}', image_thumb_url='${u}' WHERE id='${c.id}';`; }).join('\n');
+    document.getElementById('img-sql').value = _imgSQL;
+    document.getElementById('img-sql-wrap').style.display = '';
+    document.getElementById('img-btn-save').disabled = false;
+    document.getElementById('img-btn-dl').style.display = '';
+  }
+}
+
+async function imgSaveToNeon() {
+  const api    = imgCfg('img-api');
+  const secret = document.getElementById('pdb-secret')?.value?.trim() || '';
+  const found  = _imgCards.filter(c => _imgResults[c.id]?.url);
+  if (!found.length) return;
+  imgLog(`Ukládám ${found.length} karet do Neon…`);
+  document.getElementById('img-btn-save').disabled = true;
+  let saved = 0;
+  for (const c of found) {
+    try {
+      const r = await fetch(`${api}/admin/cards/${encodeURIComponent(c.id)}/image`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+        body: JSON.stringify({ image_url: _imgResults[c.id].url }),
+      });
+      if (r.ok) { saved++; _imgSaved++; }
+    } catch(_) {}
+  }
+  imgUpdateStats();
+  imgLog(`✅ Uloženo ${saved} karet přímo do Neon!`, 'var(--green)');
+  document.getElementById('img-btn-save').disabled = false;
+}
+
+function imgDownloadSQL() {
+  if (!_imgSQL) return;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([_imgSQL], {type:'text/plain'}));
+  a.download = `pokedb-images-${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+}
+
+function imgStop() { _imgStop = true; }
+
+async function imgAutoRun() {
+  _imgAuto = true;
+  const btn = document.getElementById('img-btn-auto');
+  btn.textContent = '⏹ Zastavit auto';
+  btn.onclick = () => { _imgAuto = false; _imgStop = true; btn.textContent = '🤖 Auto (přes noc)'; btn.onclick = imgAutoRun; };
+  let round = 0;
+  while (_imgAuto) {
+    round++; imgLog(`🤖 Kolo ${round}`);
+    await imgScanStart();
+    if (!_imgCards.length) { imgLog('🎉 Hotovo!', 'var(--green)'); break; }
+    await imgFetchAll(); if (!_imgAuto) break;
+    await imgSaveToNeon();
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+
+async function imgTriggerWorkerScan() {
+  const api    = imgCfg('img-api');
+  const secret = document.getElementById('pdb-secret')?.value?.trim() || '';
+  const btn = document.getElementById('img-btn-worker-scan');
+  const res = document.getElementById('img-worker-result');
+  btn.disabled = true; res.textContent = '⏳ Skenuje…';
+  try {
+    const r = await fetch(`${api}/admin/image-scan`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Secret': secret },
+      body: JSON.stringify({ limit: 500 }),
+    });
+    const d = await r.json();
+    res.textContent = `✅ ${d.updated}/${d.scanned} aktualizováno`;
+  } catch(e) { res.textContent = '❌ ' + e.message; res.style.color = 'var(--red)'; }
+  btn.disabled = false;
+}
+</script>
 </body>
 </html>
