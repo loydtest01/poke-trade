@@ -3585,7 +3585,7 @@ async function loadMsgsThread(silent = false) {
   if (!_msgsActiveId) return;
   try {
     const r = await fetch(
-      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=200&select=*`,
+      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=100&select=id,conversation_id,sender_id,content,created_at,read_at,image_url`,
       { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
     );
     if (!r.ok) return;

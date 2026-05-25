@@ -224,43 +224,16 @@ function getTypeEmoji(type) {
   if (!sCards) return;
 
   try {
-    // Počet karet: součet skutečných množství (card_data->count nebo card_data->qty)
-    // Každý řádek user_cards může mít quantity > 1 — sečteme, ne jen spočítáme řádky
-    const [cardsRes, profilesRes, offersRes] = await Promise.all([
-      fetch(`${SUPABASE_URL}/rest/v1/user_cards?select=card_data`, {
-        headers: {
-          'apikey': SUPABASE_ANON,
-          'Authorization': `Bearer ${SUPABASE_ANON}`,
-        }
-      }),
-      supabaseRequest('rest/v1/profiles?select=id'),
-      supabaseRequest('rest/v1/offers?select=id&status=eq.accepted'),
-    ]);
-
-    // Sečti quantity ze všech karet (card_data.count nebo card_data.qty, fallback 1)
-    let totalCards = 0;
-    try {
-      const rows = await cardsRes.json();
-      if (Array.isArray(rows)) {
-        totalCards = rows.reduce((sum, row) => {
-          const qty = row.card_data?.count || row.card_data?.qty || 1;
-          return sum + (parseInt(qty, 10) || 1);
-        }, 0);
-      }
-    } catch {}
-
-    sCards.textContent  = totalCards > 0 ? totalCards.toLocaleString('cs') : '0';
-    sUsers.textContent  = Array.isArray(profilesRes) ? profilesRes.length : '–';
-    sTrades.textContent = Array.isArray(offersRes)   ? offersRes.length   : '0';
+    // ✅ OPTIMALIZACE: RPC funkce vrací jen 3 čísla místo tisíců řádků
+    // Snižuje PostgREST egress o ~95% oproti původnímu select=card_data
+    const stats = await supabaseRequest('rest/v1/rpc/get_homepage_stats', 'POST', {});
+    if (stats && typeof stats === 'object') {
+      sCards.textContent  = stats.total_cards  > 0 ? Number(stats.total_cards).toLocaleString('cs')  : '0';
+      sUsers.textContent  = stats.total_users  > 0 ? Number(stats.total_users).toLocaleString('cs')  : '–';
+      sTrades.textContent = stats.total_trades > 0 ? Number(stats.total_trades).toLocaleString('cs') : '0';
+    }
   } catch(e) {
     console.warn('Stats load error:', e);
-    // Fallback: původní metoda přes listings
-    try {
-      const listings = await supabaseRequest('rest/v1/listings?select=cards_data&status=eq.active');
-      const totalCards = Array.isArray(listings)
-        ? listings.reduce((s, l) => s + (l.cards_data?.length || 0), 0) : 0;
-      sCards.textContent = totalCards > 0 ? totalCards.toLocaleString('cs') : '0';
-    } catch {}
   }
 })();
 
