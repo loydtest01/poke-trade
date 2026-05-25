@@ -221,7 +221,10 @@ function getTypeEmoji(type) {
   const sCards  = document.getElementById('statCards');
   const sUsers  = document.getElementById('statUsers');
   const sTrades = document.getElementById('statTrades');
+  // index.html má vlastní loadHeroStats() – app.js sem nezasahuje
   if (!sCards) return;
+  // Na homepage (index.html) má prioritu loadHeroStats – přeskočíme
+  if (document.getElementById('statListings')) return;
 
   try {
     // ✅ OPTIMALIZACE: RPC funkce vrací jen 3 čísla místo tisíců řádků

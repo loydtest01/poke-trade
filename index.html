@@ -757,7 +757,8 @@ window.TOPBAR_ACTIVE = 'index';</script>
       <a href="marketplace.html" class="btn-ghost">Prozkoumat trh →</a>
     </div>
     <div class="hero-stats">
-      <div class="stat"><span id="statCards">–</span><small>aktivních nabídek</small></div>
+      <div class="stat"><span id="statCards">–</span><small>karet v albech</small></div>
+      <div class="stat"><span id="statListings">–</span><small>aktivních nabídek</small></div>
       <div class="stat"><span id="statUsers">–</span><small>sběratelů</small></div>
       <div class="stat"><span id="statTrades">–</span><small>proběhlých výměn</small></div>
     </div>
@@ -931,9 +932,9 @@ async function refreshVipBanner() {
 
       if (lifetime && lifetime.available && lifetime.remaining > 0) {
         // ⭐ LIFETIME — prvních 10 dostává navždy
-        if (titleEl) titleEl.textContent = '⭐ Prvních 10 uživatelů dostane VIP NAVŽDY zdarma!';
+        if (titleEl) titleEl.textContent = '⭐ Prvních 20 uživatelů dostane VIP NAVŽDY zdarma!';
         if (subEl)   subEl.textContent   = lifetime.remaining;
-        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + lifetime.remaining + '</span> míst zbývá z 10. <strong>VIP NAVŽDY</strong> = AI sken karet bez limitu, featured listings, neomezené listingy v Tržnici, hlídání cen.';
+        if (subParent) subParent.innerHTML = '<span id="vipPromoRemaining" style="color:#4ade80;font-weight:700;font-size:15px">' + lifetime.remaining + '</span> míst zbývá z 20. <strong>VIP NAVŽDY</strong> = AI sken karet bez limitu, featured listings, neomezené listingy v Tržnici, hlídání cen.';
       } else if (first100 && first100.available && first100.remaining > 0) {
         // 🎉 First 100 — měsíc VIP
         if (titleEl) titleEl.textContent = '🎉 Prvních 100 nových uživatelů má VIP měsíc zdarma!';
@@ -970,13 +971,14 @@ async function refreshVipBanner() {
       if (titleEl) titleEl.innerHTML = '⭐ Máš <strong>VIP NAVŽDY</strong> — všechny prémiové funkce zdarma.';
       if (subEl) {
         if (refCount < 10) {
-          subEl.innerHTML = 'Sdílej odkaz a pomoz nám růst! Odměny začínají až od <strong>10 přivedených</strong> — zatím jich máš <strong>' + refCount + '</strong>.';
+          subEl.innerHTML = 'Sdílej odkaz — odměny začínají až od <strong>10 přivedených</strong>, zatím jich máš <strong>' + refCount + '</strong>. Sdílej svůj odkaz:';
         } else {
-          subEl.innerHTML = 'Přivedl/a jsi <strong>' + refCount + ' lidí</strong> — díky! Za každého dalšího dostaneš <strong>+30 dní dobré karmy</strong>.';
+          subEl.innerHTML = 'Přivedl/a jsi <strong>' + refCount + ' lidí</strong> — za každého dalšího <strong>+30 dní dobré karmy</strong>. Sdílej dál:';
         }
       }
+      // Referral input a počítadlo jsou vždy viditelné (v obou případech)
       var noteEl = document.getElementById('vipRefNote');
-      if (noteEl) noteEl.style.display = refCount < 10 ? 'none' : '';
+      if (noteEl) noteEl.style.display = '';
     } else {
       if (titleEl) titleEl.innerHTML = 'Tvůj VIP končí za <span id="vipDaysLeft">' + s.daysLeft + '</span> dní.';
       if (subEl)   subEl.innerHTML   = 'Pozvi kámoše a získej <strong>+30 dní VIP zdarma</strong> za každého. Jen sdílej svůj odkaz:';
@@ -1328,22 +1330,39 @@ document.addEventListener('DOMContentLoaded',function(){
     } catch(e) { return 0; }
   }
 
-  var [cards, users, trades] = await Promise.all([
-    // Všechny aktivní inzeráty od všech uživatelů
+  // Celkový počet karet: RPC funkce (RLS by zablokovala přímý SELECT pro anon)
+  var totalCardsRes = 0;
+  try {
+    var rpcR = await fetch(SBU + '/rest/v1/rpc/get_homepage_stats', {
+      method: 'POST',
+      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + SBA,
+                 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (rpcR.ok) {
+      var rpcD = await rpcR.json();
+      totalCardsRes = rpcD.total_cards || 0;
+    }
+  } catch(e) {}
+
+  var [listings, users, trades] = await Promise.all([
+    // Aktivní marketplace inzeráty
     getCount('listings', 'status=eq.active'),
-    // Všichni uživatelé s profilem
+    // Registrovaní sběratelé
     getCount('profiles', ''),
-    // Dokončené transakce (prodané)
-    getCount('listings', 'status=eq.sold'),
+    // Dokončené výměny (accepted offers)
+    getCount('offers', 'status=eq.accepted'),
   ]);
 
   function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n); }
-  var c = document.getElementById('statCards');
-  var u = document.getElementById('statUsers');
-  var t = document.getElementById('statTrades');
-  if (c) c.textContent = fmt(cards);
-  if (u) u.textContent = fmt(users);
-  if (t) t.textContent = fmt(trades);
+  var c  = document.getElementById('statCards');
+  var l  = document.getElementById('statListings');
+  var u  = document.getElementById('statUsers');
+  var t  = document.getElementById('statTrades');
+  if (c)  c.textContent  = fmt(totalCardsRes);
+  if (l)  l.textContent  = fmt(listings);
+  if (u)  u.textContent  = fmt(users);
+  if (t)  t.textContent  = fmt(trades);
 })();
 </script>
 
