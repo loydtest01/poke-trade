@@ -1345,14 +1345,16 @@ document.addEventListener('DOMContentLoaded',function(){
     }
   } catch(e) {}
 
-  var [listings, users, trades] = await Promise.all([
-    // Aktivní marketplace inzeráty
+  // profiles a offers mohou mít RLS — používáme RPC pro všechna čísla co potřebují anon přístup
+  var [listings, trades] = await Promise.all([
+    // Aktivní marketplace inzeráty (listings je veřejná)
     getCount('listings', 'status=eq.active'),
-    // Registrovaní sběratelé
-    getCount('profiles', ''),
-    // Dokončené výměny (accepted offers)
+    // Dokončené výměny
     getCount('offers', 'status=eq.accepted'),
   ]);
+
+  // total_users a total_cards přišly z RPC (SECURITY DEFINER — obchází RLS)
+  var totalUsersRes = (typeof rpcD !== 'undefined' && rpcD) ? (rpcD.total_users || 0) : 0;
 
   function fmt(n) { return n >= 1000 ? (n/1000).toFixed(1).replace('.0','') + 'k' : String(n); }
   var c  = document.getElementById('statCards');
@@ -1361,7 +1363,7 @@ document.addEventListener('DOMContentLoaded',function(){
   var t  = document.getElementById('statTrades');
   if (c)  c.textContent  = fmt(totalCardsRes);
   if (l)  l.textContent  = fmt(listings);
-  if (u)  u.textContent  = fmt(users);
+  if (u)  u.textContent  = fmt(totalUsersRes);
   if (t)  t.textContent  = fmt(trades);
 })();
 </script>
