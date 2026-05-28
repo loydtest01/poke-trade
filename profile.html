@@ -3628,9 +3628,13 @@ window.toggleTradeMatching = async function() {
   async function sbGet(path) {
     try {
       var r = await fetch(SBU+'/rest/v1/'+path, { headers: hdr() });
-      if (!r.ok) return [];
+      if (!r.ok) {
+        var body = ''; try { body = await r.text(); } catch {}
+        console.warn('[rodina] sbGet '+r.status+' '+path.split('?')[0]+' '+body.slice(0,200));
+        return [];
+      }
       return await r.json();
-    } catch { return []; }
+    } catch (e) { console.warn('[rodina] sbGet selhal:', e.message); return []; }
   }
   async function sbPost(path, body) {
     return fetch(SBU+'/rest/v1/'+path, {
@@ -3682,10 +3686,11 @@ window.toggleTradeMatching = async function() {
   async function loadMembers() {
     var uid = myId(); if (!uid) return;
     // Načti connections + profil obou stran najednou (join obejde RLS na profiles)
+    // FIX: family_connections.user_id/member_id odkazují na auth.users, NE na profiles,
+    // takže PostgREST embed `profiles!user_id(...)` vracel 400 → tiše prázdno → "žádní členové".
+    // Načteme jen spojení; profil druhé strany dotáhneme zvlášť (RLS to povoluje).
     var rows = await sbGet(
-      'family_connections?or=(user_id.eq.'+uid+',member_id.eq.'+uid+')&status=eq.accepted' +
-      '&select=*,user_prof:profiles!user_id(username,email,avatar_url)' +
-      ',member_prof:profiles!member_id(username,email,avatar_url)'
+      'family_connections?or=(user_id.eq.'+uid+',member_id.eq.'+uid+')&status=eq.accepted&select=*'
     );
     var wrap = document.getElementById('famMembersList');
     var empty = document.getElementById('famMembersEmpty');
