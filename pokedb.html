@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>PokéDB – Databáze Pokémon karet</title>
 <meta name="description" content="Veřejná databáze Pokémon karet s API. Prohledávej tisíce karet, filtruj podle série, typu, HP a dalších atributů.">
+<link rel="canonical" href="https://www.poke-trade.eu/pokedb.html">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta property="og:title" content="PokéDB – Databáze Pokémon karet">
 <meta property="og:description" content="Prohledávej databázi Pokémon karet. Filtry, překlady, veřejné API.">
@@ -1491,13 +1492,20 @@ async function _apiFetch(path, opts = {}) {
   const sep = path.includes('?') ? '&' : '?';
   const pathWithKey = apiKey ? `${path}${sep}api_key=${encodeURIComponent(apiKey)}` : path;
 
+  // fetch s timeoutem BEZ AbortSignal – některé fetch wrappery / rozšíření neumí
+  // signal naklonovat přes postMessage ("AbortSignal object could not be cloned").
+  const _fetchTO = (url, ms = 10000) => Promise.race([
+    fetch(url, opts),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms}ms`)), ms)),
+  ]);
+
   const tried = new Set();
   for (let attempt = 0; attempt < _WORKER_ENDPOINTS.length; attempt++) {
     const base = _getNextEndpoint();
     if (tried.has(base)) continue;
     tried.add(base);
     try {
-      const r = await fetch(`${base}${pathWithKey}`, { ...opts, signal: AbortSignal.timeout(10000) });
+      const r = await _fetchTO(`${base}${pathWithKey}`, 10000);
       if (r.status === 429) {
         _endpointFailures[base] = Date.now();
         console.warn(`[LB] ${base} → 429, přepínám na další endpoint`);
