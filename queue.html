@@ -2900,10 +2900,11 @@ async function tcgSearch(gi, autoMode = false) {
         const _pdbName = (ai.nameEN || ai.name || '').trim();
         const _pdbLang = (ai.lang || '').toLowerCase();
         const _pdbCards = await searchInPokeDB(_pdbName, {
-          set:    ai.set || '',
-          number: cardNumber,
-          type:   ai.type || '',
-          lang:   _pdbLang !== 'en' ? _pdbLang : undefined,
+          set:     ai.set || '',
+          number:  cardNumber,
+          type:    ai.type || '',
+          lang:    _pdbLang !== 'en' ? _pdbLang : undefined,
+          altName: (ai.name || '').trim(),   // originální (cizojazyčný) název – najde lokální variantu
         });
         if (_pdbCards.length) {
           const _best = _matchPokeDBCard(ai.name || ai.nameEN, ai.set, cardNumber, _pdbCards);
@@ -2958,9 +2959,11 @@ async function tcgSearch(gi, autoMode = false) {
           statusEl.textContent = '🗃 Hledám ve vlastní PokéDB…';
           const _pdbName = (ai.nameEN || ai.name || '').trim();
           const _pdbCards = await searchInPokeDB(_pdbName, {
-            set:    isNonEn ? '' : (ai.set || ''),
-            number: isNonEn ? '' : cardNumber,
-            type:   ai.type || '',
+            set:     isNonEn ? '' : (ai.set || ''),
+            number:  cardNumber,
+            type:    ai.type || '',
+            lang:    (ai.lang || '').toLowerCase() !== 'en' ? (ai.lang || '').toLowerCase() : undefined,
+            altName: (ai.name || '').trim(),
           });
           if (_pdbCards.length) {
             // Zkus najít nejlepší shodu
@@ -3441,64 +3444,271 @@ async function translateJpNameViaAI(jpName, category, hp) {
 // ════════════════════════════════════════════════════════════════
 const POKEDB_API = 'https://pokedb-api.poketrade.workers.dev/v1';
 
-async function searchInPokeDB(query, opts = {}) {
-  if (!query) return [];
-  try {
-    const params = new URLSearchParams({ q: query, limit: 20 });
-    if (opts.set)    params.set('set_id',    opts.set);
-    if (opts.number) params.set('number',    opts.number);
-    if (opts.type)   params.set('type',      opts.type);
+// ══════════════════════════════════════════════════════════════════
+//  PokéDB helpery – rychlost (cache) + spolehlivé hledání cizích karet
+// ══════════════════════════════════════════════════════════════════
 
-    const res = await fetch(`${POKEDB_API}/cards?${params}`);
-    if (!res.ok) return [];
+// In-memory cache odpovědí (klíč = querystring). TTL 10 min.
+const _pokedbCache = new Map();
+const _POKEDB_TTL  = 10 * 60 * 1000;
+
+// Sety (id ↔ název) – přednačtené pro překlad názvu série na set_id.
+// Nepovinné: když /sets selže (CORS, výpadek), hledání funguje dál – jen bez
+// překladu názvu série na set_id (spolehne se na shodu podle jména + čísla).
+let _pokedbSets = null;
+let _pokedbSetsPromise = null;
+let _pokedbSetsFailedAt = 0;          // kdy naposledy selhal → krátký cooldown
+
+// fetch s timeoutem BEZ AbortSignal – některé fetch wrappery / preview proxy neumí
+// signal naklonovat přes postMessage ("AbortSignal object could not be cloned").
+function _pdbFetchTO(url, ms = 8000) {
+  return Promise.race([
+    fetch(url),
+    new Promise((_, rej) => setTimeout(() => rej(new Error(`timeout ${ms}ms`)), ms)),
+  ]);
+}
+
+async function _loadPokeDBSets() {
+  if (_pokedbSets) return _pokedbSets;
+  if (_pokedbSetsPromise) return _pokedbSetsPromise;
+  // Po nedávném selhání chvíli nezkoušej znovu (ať to nespamuje síť při každém hledání).
+  if (_pokedbSetsFailedAt && (Date.now() - _pokedbSetsFailedAt) < 60 * 1000) return [];
+  // sessionStorage cache (24 h) – ať se /sets netahá při každém načtení stránky
+  try {
+    const cached = JSON.parse(sessionStorage.getItem('pokedb_sets_v1') || 'null');
+    if (cached && Array.isArray(cached.sets) && (Date.now() - cached.t) < 24 * 3600 * 1000) {
+      _pokedbSets = cached.sets;
+      return _pokedbSets;
+    }
+  } catch {}
+  _pokedbSetsPromise = (async () => {
+    try {
+      const res = await _pdbFetchTO(`${POKEDB_API}/sets`, 8000);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const sets = ((data.data || data || []) || []).map(s => ({
+        id:     s.id || '',
+        name:   s.name || '',
+        series: s.series || '',
+      })).filter(s => s.id);
+      _pokedbSets = sets;
+      _pokedbSetsFailedAt = 0;
+      try { sessionStorage.setItem('pokedb_sets_v1', JSON.stringify({ t: Date.now(), sets })); } catch {}
+      console.log(`[PokeDB] přednačteno ${sets.length} sérií`);
+      return sets;
+    } catch (e) {
+      // Nepovinné – neblokuj a nech _pokedbSets = null, ať to po cooldownu zkusí znovu.
+      _pokedbSetsFailedAt = Date.now();
+      console.info('[PokeDB] /sets nedostupné (nepovinné, hledání funguje dál):', e.message);
+      return [];
+    } finally {
+      _pokedbSetsPromise = null;
+    }
+  })();
+  return _pokedbSetsPromise;
+}
+// Přednačti sety hned, jakmile je prohlížeč v klidu – první hledání pak nečeká.
+if (typeof window !== 'undefined') {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(() => { _loadPokeDBSets(); }, { timeout: 3000 });
+  } else {
+    setTimeout(() => { _loadPokeDBSets(); }, 1500);
+  }
+}
+
+// Lokální (název / kód / id) série → skutečné set_id v PokéDB, jinak '' (nehádat).
+function _resolvePokeDBSetId(setRaw) {
+  if (!setRaw || !_pokedbSets || !_pokedbSets.length) return '';
+  const low = String(setRaw).trim().toLowerCase();
+  if (!low) return '';
+  const strip = id => String(id || '').toLowerCase().replace(/^[a-z]{2}-/, '');
+  // 1) přesné id (sv6, swsh12pt5, it-sv6 …)
+  let m = _pokedbSets.find(x => x.id.toLowerCase() === low || strip(x.id) === low);
+  if (m) return m.id;
+  // 2) přesný název
+  m = _pokedbSets.find(x => x.name.toLowerCase() === low);
+  if (m) return m.id;
+  // 3) částečná shoda názvu (oboustranně)
+  m = _pokedbSets.find(x => x.name && (x.name.toLowerCase().includes(low) || low.includes(x.name.toLowerCase())));
+  return m ? m.id : '';
+}
+
+// Normalizace čísla karty: "020/100" → "20", "TG12" → "TG12", "SWSH001" → "SWSH1".
+function _pdbNormNum(n) {
+  if (!n) return '';
+  let x = String(n).split('/')[0].trim().toUpperCase().replace(/\s+/g, '');
+  if (/^\d+$/.test(x)) return String(parseInt(x, 10));
+  const am = x.match(/^([A-Z]+)0*(\d+)([A-Z]*)$/);
+  if (am) return am[1] + am[2] + am[3];
+  return x;
+}
+function _pdbNumEq(a, b) {
+  if (!a || !b) return false;
+  return _pdbNormNum(a) === _pdbNormNum(b);
+}
+
+// Jeden dotaz na /cards s cache + timeoutem. Vrací pole syrových karet (data[]).
+async function _pokedbFetch(paramsObj) {
+  const p = new URLSearchParams();
+  Object.entries(paramsObj).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, String(v)); });
+  const key = p.toString();
+  const hit = _pokedbCache.get(key);
+  if (hit && (Date.now() - hit.t) < _POKEDB_TTL) return hit.rows;
+  try {
+    const res = await _pdbFetchTO(`${POKEDB_API}/cards?${key}`, 8000);
+    if (!res.ok) {
+      if (res.status === 429) console.warn('[PokeDB] 429 rate-limit');
+      return [];
+    }
     const data = await res.json();
-    const cards = (data.data || []).map(c => ({
-      _source:    'pokedb',
-      apiId:      c.id || '',
-      name:       c.name || '',
-      name_cs:    c.name_cs || '',
-      set:        c.set_name || c.set_id || '',
-      setCode:    c.set_id || '',
-      number:     c.number || '',
-      imageUrl:   c.image_thumb_url || c.image_url || '',
-      apiSmall:   c.image_thumb_url || c.image_url || '',
-      apiLarge:   c.image_url || '',
-      hp:         String(c.hp || ''),
-      types:      c.types || [],
-      supertype:  c.supertype || '',
-      rarity:     c.rarity || '',
-      pMin: 0, pTrend: 0, p30d: 0,
-      cardmarketUrl: '',
-      sourceUrl: '',
-    }));
-    console.log(`[PokeDB] "${query}" → ${cards.length} výsledků`);
-    return cards;
-  } catch(e) {
-    console.warn('[PokeDB] search selhal:', e.message);
+    const rows = data.data || [];
+    _pokedbCache.set(key, { t: Date.now(), rows });
+    return rows;
+  } catch (e) {
+    console.warn('[PokeDB] dotaz selhal:', e.message);
     return [];
   }
 }
 
-// Porovnej název karty z AI s výsledky PokéDB – vrátí nejlepší shodu nebo null
+// Mapuj syrovou kartu z API → jednotný formát používaný v queue.
+function _pokedbMap(c) {
+  const small = c.image_thumb_url || c.image_url || '';
+  const large = c.image_hires_url || c.image_url || small;
+  return {
+    _source:       'pokedb',
+    apiId:         c.id || '',
+    name:          c.name || '',
+    name_en:       c.name_en || c.name_original || '',
+    name_original: c.name_original || '',
+    name_cs:       c.name_cs || '',
+    lang:          (c.lang || c.language || 'en').toLowerCase(),
+    set:           c.set_name || c.set_id || '',
+    setCode:       c.set_id || '',
+    number:        c.number || '',
+    imageUrl:      small,
+    apiSmall:      small,
+    apiLarge:      large,
+    hp:            String(c.hp || ''),
+    types:         c.types || [],
+    supertype:     c.supertype || '',
+    rarity:        c.rarity || '',
+    pMin: 0, pTrend: 0, p30d: 0,
+    cardmarketUrl: '',
+    sourceUrl:     '',
+  };
+}
+
+/**
+ * Spolehlivé hledání v PokéDB (vlastní 113k DB, vč. cizojazyčných sad).
+ *
+ * Spouští několik strategií PARALELNĚ a výsledky sloučí + oboduje:
+ *   A) set_id + number  – přesné místo karty napříč jazyky (jazykově nezávislé)
+ *   B) q = hlavní název  – najde EN i lokalizované karty, jejichž `name` sedí
+ *   C) q = alt. název    – originální (cizojazyčný) název, najde lokální variantu
+ *
+ * opts: { set, number, type, lang, altName, limit }
+ *  - `set`     může být název série i kód – přeloží se na set_id (nesprávný se NEpoužije)
+ *  - `number`  se používá jen pro přesný dotaz A + jako měkké bodování (ne tvrdý filtr)
+ *  - `altName` druhý název ke zkoušení (typicky originální vs. přeložený)
+ */
+async function searchInPokeDB(query, opts = {}) {
+  const q       = (query || '').trim();
+  const altName = (opts.altName || '').trim();
+  if (!q && !altName && !opts.number) return [];
+
+  // sety musí být načtené, ať umíme přeložit název série
+  if (!_pokedbSets) { try { await _loadPokeDBSets(); } catch {} }
+
+  const limit   = opts.limit || 30;
+  const setId   = opts.set ? _resolvePokeDBSetId(opts.set) : '';
+  const numRaw  = (opts.number || '').split('/')[0].trim();
+  const numNorm = _pdbNormNum(opts.number || '');
+  const lang    = (opts.lang || '').toLowerCase();
+  const type    = opts.type || '';
+
+  const jobs = [];
+  // A) přesné místo karty (set + číslo) – nejlepší pro cizí karty s jiným názvem.
+  //    Zkus normalizované i původní číslo (kvůli vedoucím nulám: "25" vs "025").
+  if (setId && numNorm) {
+    jobs.push(_pokedbFetch({ set_id: setId, number: numNorm, limit }));
+    if (numRaw && numRaw.toUpperCase() !== numNorm) jobs.push(_pokedbFetch({ set_id: setId, number: numRaw, limit }));
+  }
+  // B) hlavní název (+ typ); set_id přidáme jen pokud jsme ho spolehlivě přeložili
+  if (q) jobs.push(_pokedbFetch({ q, type, set_id: setId, limit }));
+  // C) alternativní (např. originální cizojazyčný) název – bez set filtru
+  if (altName && altName.toLowerCase() !== q.toLowerCase()) jobs.push(_pokedbFetch({ q: altName, type, limit }));
+  // D) pojistka: samotný název bez set filtru (kdyby překlad série spletl)
+  if (q && setId) jobs.push(_pokedbFetch({ q, limit }));
+
+  const batches = await Promise.all(jobs);
+
+  // Slouč + dedup podle id
+  const seen = new Map();
+  for (const rows of batches) {
+    for (const c of rows) {
+      const id = c.id || `${c.set_id}-${c.number}-${c.lang || c.language || ''}`;
+      if (!seen.has(id)) seen.set(id, _pokedbMap(c));
+    }
+  }
+  let cards = [...seen.values()];
+  if (!cards.length) {
+    console.log(`[PokeDB] "${q || altName}" → 0 výsledků`);
+    return [];
+  }
+
+  // Měkké bodování (nehledáme tvrdě, jen řadíme nejlepší nahoru)
+  const qlow   = q.toLowerCase();
+  const altlow = altName.toLowerCase();
+  const langWanted = lang && lang !== 'en' ? lang : '';
+  cards.forEach(c => {
+    let s = 0;
+    const nm = (c.name || '').toLowerCase();
+    const ne = (c.name_en || '').toLowerCase();
+    const no = (c.name_original || '').toLowerCase();
+    if (qlow && (nm === qlow || ne === qlow || no === qlow)) s += 50;
+    else if (qlow && (nm.startsWith(qlow) || ne.startsWith(qlow))) s += 25;
+    else if (qlow && (nm.includes(qlow) || ne.includes(qlow))) s += 10;
+    if (altlow && (nm === altlow || no === altlow || ne === altlow)) s += 30;
+    if (numNorm && _pdbNumEq(c.number, numNorm)) s += 40;
+    if (setId && (c.setCode === setId || c.setCode.replace(/^[a-z]{2}-/, '') === setId.replace(/^[a-z]{2}-/, ''))) s += 30;
+    if (langWanted && c.lang === langWanted) s += 20;   // preferuj scanovaný jazyk
+    if (c.apiLarge) s += 2;
+    c._score = s;
+  });
+  cards.sort((a, b) => b._score - a._score);
+
+  console.log(`[PokeDB] "${q || altName}" → ${cards.length} výsledků (set_id="${setId}", num="${numNorm}", ${jobs.length} dotazů)`);
+  return cards;
+}
+
+// Porovnej název karty z AI s výsledky PokéDB – vrátí nejlepší shodu nebo null.
+// (searchInPokeDB už řadí nejlepší nahoru; tahle funkce jen potvrdí/dohledá přesnou shodu.)
 function _matchPokeDBCard(aiName, aiSet, aiNumber, pokedbCards) {
-  if (!pokedbCards.length) return null;
-  const q = (aiName || '').toLowerCase().trim();
-  const num = (aiNumber || '').split('/')[0].trim();
-  // 1. Přesná shoda jméno + číslo
-  let m = pokedbCards.find(c => c.name.toLowerCase() === q && (num ? c.number === num : true));
+  if (!pokedbCards || !pokedbCards.length) return null;
+  const q   = (aiName || '').toLowerCase().trim();
+  const num = _pdbNormNum(aiNumber || '');
+  const nm  = c => (c.name || '').toLowerCase();
+  const ne  = c => (c.name_en || c.name_original || '').toLowerCase();
+
+  // 1. Přesné jméno (EN i lokální) + číslo
+  let m = pokedbCards.find(c => (nm(c) === q || ne(c) === q) && (num ? _pdbNumEq(c.number, num) : true));
   if (m) return m;
   // 2. Číslo + série
   if (num && aiSet) {
-    m = pokedbCards.find(c => c.number === num &&
-      (c.set.toLowerCase().includes(aiSet.toLowerCase()) || c.setCode.toLowerCase() === aiSet.toLowerCase()));
+    const setLow = aiSet.toLowerCase();
+    m = pokedbCards.find(c => _pdbNumEq(c.number, num) &&
+      (c.set.toLowerCase().includes(setLow) || c.setCode.toLowerCase() === setLow ||
+       c.setCode.toLowerCase().replace(/^[a-z]{2}-/, '') === setLow));
     if (m) return m;
   }
-  // 3. Přesné jméno
-  m = pokedbCards.find(c => c.name.toLowerCase() === q);
+  // 3. Přesné jméno (EN i lokální)
+  m = pokedbCards.find(c => nm(c) === q || ne(c) === q);
   if (m) return m;
-  // 4. Jméno startsWith
-  m = pokedbCards.find(c => c.name.toLowerCase().startsWith(q.split(' ')[0]));
-  return m || null;
+  // 4. Jméno startsWith prvního slova
+  const fw = q.split(' ')[0];
+  m = pokedbCards.find(c => nm(c).startsWith(fw) || ne(c).startsWith(fw));
+  // 5. Jinak vrať nejlépe obodovaný (cards[0] už je seřazený)
+  return m || pokedbCards[0] || null;
 }
 
 const _urlCache = {}; // url → { imageUrl, apiSmall, apiLarge, apiId, name, set, number }
