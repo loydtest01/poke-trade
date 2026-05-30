@@ -1873,6 +1873,13 @@ function renderStatusTable() {
 function onLangChange() {
   const lang = document.getElementById('f-lang').value;
   state.lang = lang;
+  // Výběr konkrétního jazyka vypne režim „Všechny jazyky" — jinak by se filtr ignoroval
+  // (doSearch posílá lang jen když !state.allLang).
+  if (lang && state.allLang) {
+    state.allLang = false;
+    const ab = document.getElementById('btn-alllang');
+    if (ab) { ab.style.background = ''; ab.style.borderColor = ''; ab.style.color = ''; ab.title = 'Hledat ve všech jazycích (ignoruje filtr jazyka)'; }
+  }
   // Filtruj série v dropdownu podle vybraného jazyka
   const filtered = lang
     ? state.setsData.filter(s => {
