@@ -3122,6 +3122,29 @@ async function tcgSearch(gi, autoMode = false) {
         if (dexCards.length) best = dexCards[0];
       }
 
+      // ── POJISTKA: nepředvybírej kartu, která tvrdě odporuje rozpoznaným datům ──
+      // Vizuální skóre (Groq) umí přebít tvrdá data a předvybrat úplně jinou kartu
+      // (jiný typ/číslo/HP). Když nejlepší shoda odporuje ve dvou+ tvrdých znacích,
+      // vezmi prvního kandidáta, který neodporuje (řazení už máme od nejlepší shody).
+      const _aiNum  = String(ai.number || '').split('/')[0].replace(/\D/g, '').replace(/^0+/, '');
+      const _aiType = (ai.type || '').toLowerCase();
+      const _aiHp   = parseInt(String(ai.hp || '').replace(/\D/g, ''), 10) || 0;
+      const _contradicts = (c) => {
+        if (!c) return false;
+        const cNum  = String(c.number || '').split('/')[0].replace(/\D/g, '').replace(/^0+/, '');
+        const cType = ((c.types && c.types[0]) || '').toLowerCase();
+        const cHp   = parseInt(String(c.hp || '').replace(/\D/g, ''), 10) || 0;
+        let bad = 0;
+        if (_aiNum  && cNum  && _aiNum !== cNum)              bad++;
+        if (_aiType && cType && _aiType !== cType)            bad++;
+        if (_aiHp   && cHp   && Math.abs(_aiHp - cHp) > 20)   bad++;
+        return bad >= 2;
+      };
+      if (_contradicts(best)) {
+        const _better = cards.find(c => !_contradicts(c));
+        if (_better) best = _better;
+      }
+
       const origImg  = g2._origImageSmall || g2._origImage || '';
       const origImgL = g2._origImage || '';
       const displayImg  = origImg  || best.apiSmall || '';
@@ -3203,6 +3226,10 @@ async function tcgSearch(gi, autoMode = false) {
     _tcgPageState[gi] = { query: searchName, page: 1, totalCount, cards: [...cards], autoMode };
     gridEl.innerHTML = _renderCardGrid(gi, cards);
 
+    // Tlačítko „Načíst další" – zobraz když máme pokemontcg.io výsledky (jen ty umí stránkovat
+    // přes /api/tcg). loadMoreTcg si tlačítko samo odebere, jakmile další stránka přijde prázdná.
+    if (enCount > 0 && cards.length >= 12) _appendLoadMoreBtn(gi);
+
     // Ukáže learn stats bar
     _renderLearnStats(gi);
 
@@ -3215,6 +3242,22 @@ async function tcgSearch(gi, autoMode = false) {
   btn.disabled = false;
 }
 
+
+// ── Vykreslí tlačítko „Načíst další" na konec mřížky (idempotentně) ──
+function _appendLoadMoreBtn(gi) {
+  const gridEl = document.getElementById(`searchGrid-${gi}`);
+  if (!gridEl || document.getElementById(`loadMore-${gi}`)) return;
+  const state = _tcgPageState[gi];
+  const shown = state ? state.cards.length : 0;
+  const wrap = document.createElement('div');
+  wrap.id = `loadMore-${gi}`;
+  wrap.style.cssText = 'grid-column:1/-1;text-align:center;margin-top:6px;';
+  wrap.innerHTML = `<button onclick="loadMoreTcg(${gi})"
+    style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
+    ⬇ Načíst další${shown ? ` (zobrazeno ${shown})` : ''}
+  </button>`;
+  gridEl.appendChild(wrap);
+}
 
 // ── Načíst další stránku výsledků ────────────────────────────
 async function loadMoreTcg(gi) {
@@ -3268,19 +3311,11 @@ async function loadMoreTcg(gi) {
       gridEl.appendChild(div);
     });
 
-    // Přidej nové tlačítko "Načíst další" pokud ještě jsou výsledky
-    if (state.cards.length < state.totalCount) {
-      const loadMoreBtn = document.createElement('div');
-      loadMoreBtn.id = `loadMore-${gi}`;
-      loadMoreBtn.style.cssText = 'grid-column:1/-1;text-align:center;margin-top:6px;';
-      loadMoreBtn.innerHTML = `<button onclick="loadMoreTcg(${gi})"
-        style="background:rgba(245,200,66,.1);border:1px solid rgba(245,200,66,.3);color:#f5c842;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;width:100%">
-        ⬇ Načíst další (${state.cards.length} z ${state.totalCount})
-      </button>`;
-      gridEl.appendChild(loadMoreBtn);
-    }
+    // Pokud poslední stránka byla plná (20), nejspíš jsou další → ukaž tlačítko znovu.
+    // Když příště přijde prázdná stránka, výše se tlačítko odebere a skončíme.
+    if (newCards.length >= 20) _appendLoadMoreBtn(gi);
 
-    if (statusEl) statusEl.textContent = `Zobrazeno ${state.cards.length} z ${state.totalCount} karet – vyber správnou:`;
+    if (statusEl) statusEl.textContent = `Zobrazeno ${state.cards.length} karet – vyber správnou:`;
 
   } catch(e) {
     if (loadBtn) { loadBtn.querySelector('button').disabled = false; loadBtn.querySelector('button').textContent = '⬇ Načíst další'; }
