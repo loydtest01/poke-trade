@@ -6640,11 +6640,24 @@ async function markAsCompleted(target) {
 /** Pomocná funkce: sestav card_data objekt pro upsert */
 
 // Cache-bust helper: přidá ?t= pro Supabase storage URL aby se zobrazila oříznutá verze
+// Sada storage_path fotek, které se v této session reálně změnily (po uploadu/editaci).
+// Jen těm přidáme cache-buster — ostatní vracíme STABILNÍ, aby je prohlížeč cachoval
+// a nestahoval znovu při každém otevření alba (to dřív žralo egress).
+window._bustedPhotos = window._bustedPhotos || new Set();
 function bustUrl(url) {
   if (!url || !url.includes('supabase.co/storage')) return url;
-  // Odstraň starý timestamp pokud existuje
   const base = url.replace(/[?&]t=\d+/, '').replace(/\?$/, '');
-  return base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+  // Buster jen pokud byla tahle fotka v této session změněna
+  if (window._bustedPhotos.has(base)) {
+    return base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
+  }
+  return base; // stabilní URL → prohlížeč ji nacachuje
+}
+// Zavolej po uploadu/editaci fotky, ať se příště načte čerstvá verze
+function markPhotoChanged(url) {
+  if (!url) return;
+  const base = url.replace(/[?&]t=\d+/, '').replace(/\?$/, '');
+  window._bustedPhotos.add(base);
 }
 function buildCardData(c) {
   if (!c) return {};
@@ -10712,6 +10725,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
           'Authorization': 'Bearer ' + tok,
           'Content-Type':  'image/jpeg',
           'x-upsert':      'true',
+          'cache-control': 'public, max-age=31536000, immutable',
         },
         body: buf,
       });
@@ -10723,6 +10737,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 
       // 4. Sestav veřejnou URL
       const publicUrl = `${sbUrl}/storage/v1/object/public/card-photo/${storagePath}`;
+      markPhotoChanged(publicUrl); // ať se nová verze ukáže čerstvá (jednorázový buster)
 
       // 5. Aktualizuj URL v databázi
       if (!photo.id) throw new Error('Fotka nemá ID – nelze uložit (otevři galerii znovu)');
