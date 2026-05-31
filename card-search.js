@@ -24,7 +24,7 @@
   const TCG_DIRECT   = 'https://api.pokemontcg.io/v2';
   const TCGDEX_BASE  = 'https://api.tcgdex.net/v2';
   const POKEDB_BASE  = 'https://pokedb-api.poketrade.workers.dev/v1'; // naše vlastní DB
-  const FETCH_TIMEOUT = 8000;
+  const FETCH_TIMEOUT = 4000;
 
   // ─── Konfigurace zdrojů (přepínatelné, persist v localStorage) ──────────────
 

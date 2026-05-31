@@ -4921,10 +4921,10 @@ function toast(msg, type = '') {
   var tk=localStorage.getItem('sb_token');
   var su=(function(){try{return JSON.parse(localStorage.getItem('sb_user')||'null')}catch(e){return null}})();
   if(!tk||!su||!su.id)return;
-  var uid=su.id,convs=[],prevUn=0,dropO=false;
+  var uid=su.id,convs=[],prevUn=0,dropO=false,_authDead=false;
   function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
   function fmtT(iso){if(!iso)return'';var d=new Date(iso),n=new Date(),df=n-d;if(df<60000)return'teď';if(df<3600000)return Math.floor(df/60000)+' min';if(d.toDateString()===n.toDateString())return d.toLocaleTimeString('cs',{hour:'2-digit',minute:'2-digit'});var y=new Date(n);y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'včera';return d.toLocaleDateString('cs',{day:'numeric',month:'numeric'})}
-  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
+  async function sbF(p){try{var r=await fetch(SBU+'/'+p,{headers:{'Content-Type':'application/json','apikey':SBA,'Authorization':'Bearer '+tk}});if(r.status===401){_authDead=true;return[]}var d=await r.json();return Array.isArray(d)?d:[]}catch(e){return[]}}
   window.toggleChatDrop=function(){var dr=document.getElementById('chatDrop');if(!dr)return;dropO=!dropO;dr.classList.toggle('open',dropO);if(dropO)renderDrop()};
   document.addEventListener('click',function(e){var w=document.getElementById('chatDropWrap');if(w&&!w.contains(e.target)&&dropO){dropO=false;var dr=document.getElementById('chatDrop');if(dr)dr.classList.remove('open')}});
   function renderDrop(){
@@ -4942,13 +4942,16 @@ function toast(msg, type = '') {
     }).join('');
   }
   async function poll(){
+    if(_authDead)return;
     convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
+    if(_authDead){if(_pollTimer)clearInterval(_pollTimer);console.warn('[chat] Supabase token vypršel — polling zastaven. Přihlas se znovu pro obnovení zpráv.');return;}
     var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
     var bg=document.getElementById('chatBadge');
     if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}
     if(dropO)renderDrop();
   }
-  poll();setInterval(poll,POLL);
+  var _pollTimer=null;
+  poll();_pollTimer=setInterval(poll,POLL);
 })();
 </script>
 
