@@ -2911,10 +2911,12 @@ async function loadCards() {
       };
     });
     updateStats();
-    setSyncState('syncing', 'Načítám obrázky…');
-    await fetchMissingImages();
-    updateStats(); // znovu po načtení cen (p30d)
+    // Dotahování chybějících obrázků běží NA POZADÍ — neblokuje vykreslení alba.
+    // Karty bez obrázku se hned ukážou s placeholderem; fetchMissingImages() po
+    // dokončení sama zavolá render() a doplní je. Jedna pomalá karta tak už
+    // nezdrží zobrazení celého alba.
     setSyncState('ok', 'Synchronizováno');
+    fetchMissingImages().then(() => { updateStats(); }).catch(() => {});
   } catch(e) {
     setSyncState('', 'Chyba karet'); console.error(e);
   }
@@ -2925,7 +2927,7 @@ async function loadCards() {
 // ══════════════════════════════════════════════════════════════════
 // ── Bug #5 fix: Doplnění chybějících obrázků z Pokemon TCG API ──
 async function fetchMissingImages() {
-  const missing = allCards.filter(c => !c.images?.small && !c.apiSmall && !c.imageUrl);
+  const missing = allCards.filter(c => !c.images?.small && !c.apiSmall && !c.imageUrl && !c._imgTried);
   if (!missing.length) return;
   const BATCH = 10;
   for (let i = 0; i < missing.length; i += BATCH) {
@@ -2941,7 +2943,7 @@ async function fetchMissingImages() {
         if (c.lang && c.lang !== 'EN' && c.set && rawNum) {
           try {
             const tcgdexId = `${c.set}-${rawNum}`;
-            const tcgRes = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgdexId)}`);
+            const tcgRes = await fetch(`https://api.tcgdex.net/v2/en/cards/${encodeURIComponent(tcgdexId)}`, { signal: AbortSignal.timeout(3500) });
             if (tcgRes.ok) {
               const tcgCard = await tcgRes.json();
               if (tcgCard.image) {
@@ -2991,6 +2993,9 @@ async function fetchMissingImages() {
           });
         }
       } catch(e) { console.warn('[fetchMissingImages]', c.name, e); }
+      // Pokud se ani po pokusu nenašel obrázek, označ kartu (jen pro tuto session),
+      // ať ji další běh fetchMissingImages přeskočí a nemlel dokola neúspěšné requesty.
+      if (!c.imageUrl && !c.apiSmall) c._imgTried = true;
     }));
     if (i + BATCH < missing.length) await new Promise(r => setTimeout(r, 150));
   }
@@ -3545,7 +3550,7 @@ function renderCard(c, albumCardIds) {
       ${photosBadge}
       <div class="card-inner">
         ${img
-          ? `<img class="card-img" src="${esc(img)}" alt="${esc(c.name||'')}" loading="eager">`
+          ? `<img class="card-img" src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy" decoding="async">`
           : `<div class="card-placeholder">
                <div class="emoji">${emoji}</div>
                <div class="name">${esc(c.name||'?')}</div>
