@@ -687,9 +687,19 @@ body::after {
 .img-upload-preview { width: 72px; height: 100px; object-fit: cover; border-radius: 6px; margin: .5rem auto .7rem; display: block; border: 1px solid var(--border); }
 .upload-progress { margin-top: .5rem; font-size: .78rem; color: var(--muted); }
 
-/* ── Filtr "Bez obrázku" ─────────────────────────────── */
-#btn-noimag { transition: background .15s, border-color .15s, color .15s; }
-#btn-noimag.active { background: rgba(245,200,66,.15) !important; border-color: rgba(245,200,66,.5) !important; color: var(--yellow) !important; }
+/* ── Jednotný "zapnutý" stav pro přepínací tlačítka filtru ──
+   Všechna čtyři tlačítka (Všechny jazyky / Bez obrázku / Fyzické TCG / TCG Pocket)
+   používají stejný vizuál, ať je jasné co je aktivní a co ne. */
+#btn-alllang, #btn-noimag, #btn-game-tcg, #btn-game-pocket {
+  transition: background .15s, border-color .15s, color .15s;
+}
+#btn-alllang.pill-active, #btn-noimag.pill-active,
+#btn-game-tcg.pill-active, #btn-game-pocket.pill-active {
+  background: rgba(245,200,66,.16) !important;
+  border-color: rgba(245,200,66,.55) !important;
+  color: var(--yellow) !important;
+  font-weight: 700;
+}
 
 /* ══ Price Finder — Heureka styl ══════════════════════════════ */
 #page-prices { padding: 0; }
@@ -1555,23 +1565,22 @@ let state = {
 function toggleAllLang() {
   state.allLang = !state.allLang;
   const btn = document.getElementById('btn-alllang');
+  btn.classList.toggle('pill-active', state.allLang);
+  btn.title = state.allLang
+    ? 'Aktivní: hledá ve všech jazycích (klikni pro vypnutí)'
+    : 'Hledat ve všech jazycích (ignoruje filtr jazyka)';
+  // Když zapnu „všechny jazyky", vyčisti konkrétní výběr jazyka v dropdownu
   if (state.allLang) {
-    btn.style.background = 'rgba(96,165,250,.18)';
-    btn.style.borderColor = 'rgba(96,165,250,.5)';
-    btn.style.color = 'var(--blue, #60a5fa)';
-    btn.title = 'Aktivní: hledá ve všech jazycích (klikni pro vypnutí)';
-  } else {
-    btn.style.background = '';
-    btn.style.borderColor = '';
-    btn.style.color = '';
-    btn.title = 'Hledat ve všech jazycích (ignoruje filtr jazyka)';
+    const ls = document.getElementById('f-lang');
+    if (ls) ls.value = '';
+    state.lang = '';
   }
   doSearch(1);
 }
 
 function toggleNoImage() {
   state.noImage = !state.noImage;
-  document.getElementById('btn-noimag').classList.toggle('active', state.noImage);
+  document.getElementById('btn-noimag').classList.toggle('pill-active', state.noImage);
   doSearch(1);
 }
 
@@ -1582,8 +1591,8 @@ function setGameType(type) {
   } else {
     state.gameType = type;
   }
-  document.getElementById('btn-game-tcg').classList.toggle('active', state.gameType === 'tcg');
-  document.getElementById('btn-game-pocket').classList.toggle('active', state.gameType === 'pocket');
+  document.getElementById('btn-game-tcg').classList.toggle('pill-active', state.gameType === 'tcg');
+  document.getElementById('btn-game-pocket').classList.toggle('pill-active', state.gameType === 'pocket');
   doSearch(1);
 }
 
@@ -1878,7 +1887,7 @@ function onLangChange() {
   if (lang && state.allLang) {
     state.allLang = false;
     const ab = document.getElementById('btn-alllang');
-    if (ab) { ab.style.background = ''; ab.style.borderColor = ''; ab.style.color = ''; ab.title = 'Hledat ve všech jazycích (ignoruje filtr jazyka)'; }
+    if (ab) { ab.classList.remove('pill-active'); ab.title = 'Hledat ve všech jazycích (ignoruje filtr jazyka)'; }
   }
   // Filtruj série v dropdownu podle vybraného jazyka
   const filtered = lang
