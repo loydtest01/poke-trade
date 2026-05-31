@@ -581,6 +581,21 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <div id="nameen-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:120px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted)">Připraven. Klikni „Spustit doplňování".</div>
         </div>
 
+        <!-- Test R2 endpointu pro uživatelské fotky -->
+        <div class="adm-section">
+          <h3>☁️ Test R2 — uživatelské fotky</h3>
+          <p style="font-size:.82rem;color:var(--muted)">
+            Ověří, že nový endpoint <code>/v1/user-photo</code> funguje a ukládá fotky
+            do Cloudflare R2 (místo Supabase Storage, kvůli egressu). Nahraje malý testovací
+            soubor a zkusí ho zpět načíst.
+          </p>
+          <button class="btn" onclick="testR2Upload()" id="r2-test-btn"
+            style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">
+            ▶ Otestovat R2 upload
+          </button>
+          <div id="r2-test-log" style="margin-top:.6rem;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;min-height:60px;font-size:.74rem;font-family:monospace;color:var(--muted);white-space:pre-wrap"></div>
+        </div>
+
       </div>
       <!-- /tab-images -->
 
@@ -1424,6 +1439,50 @@ async function nameEnBackfillRun() {
     document.getElementById('nameen-btn-run').disabled = false;
     document.getElementById('nameen-btn-stop').style.display = 'none';
     if (_nameEnStop) nameEnLog('Zastaveno uživatelem.', 'var(--red)');
+  }
+}
+
+// Test nového R2 endpointu pro uživatelské fotky (/v1/user-photo)
+async function testR2Upload() {
+  const log = document.getElementById('r2-test-log');
+  const btn = document.getElementById('r2-test-btn');
+  const w = (msg, color) => { log.innerHTML += (color ? `<span style="color:${color}">${msg}</span>` : msg) + '\n'; };
+  log.innerHTML = ''; btn.disabled = true;
+  try {
+    const tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+    if (!tok) { w('❌ Nejsi přihlášený (chybí token).', 'var(--red)'); btn.disabled = false; return; }
+    w('⏳ Nahrávám testovací soubor do R2…');
+    // minimální validní JPEG hlavička
+    const blob = new Blob([new Uint8Array([255,216,255,224,0,16,74,70,73,70,0,1,1,0,0,1,0,1,0,0,255,217])], { type: 'image/jpeg' });
+    const up = await fetch(POKEDB_WORKER + '/v1/user-photo?filename=admin-test.jpg', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'image/jpeg' },
+      body: blob
+    });
+    const data = await up.json().catch(() => ({}));
+    if (!up.ok || !data.ok) {
+      w('❌ Upload selhal: ' + up.status + ' — ' + (data.error || JSON.stringify(data)), 'var(--red)');
+      w('Zkontroluj v Cloudflare: R2 binding POKEDB_IMAGES a proměnnou R2_PUBLIC_URL.', 'var(--muted)');
+      btn.disabled = false; return;
+    }
+    w('✅ Upload OK', 'var(--green)');
+    w('   URL: ' + data.url);
+    w('   key: ' + data.key);
+    // Zkus načíst zpět
+    w('⏳ Zkouším načíst zpět z R2…');
+    const back = await fetch(data.url, { cache: 'no-store' });
+    if (back.ok) {
+      w('✅ Načtení z R2 OK (status ' + back.status + ', ' + back.headers.get('content-type') + ')', 'var(--green)');
+      w('   cache-control: ' + (back.headers.get('cache-control') || '—'));
+      w('🎉 R2 endpoint je plně funkční — můžeme přesměrovat nahrávání fotek sem.', 'var(--green)');
+    } else {
+      w('⚠️ Upload prošel, ale veřejné čtení z R2 vrátilo ' + back.status + '.', 'var(--red)');
+      w('R2 bucket nejspíš nemá veřejný přístup / R2_PUBLIC_URL ukazuje jinam.', 'var(--muted)');
+    }
+  } catch (e) {
+    w('❌ Chyba: ' + e.message, 'var(--red)');
+  } finally {
+    btn.disabled = false;
   }
 }
 
