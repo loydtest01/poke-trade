@@ -928,8 +928,10 @@ body::after {
     <div class="search-bar">
       <div class="search-main">
         <span class="si">🔍</span>
-        <input type="text" id="q" placeholder="Hledat kartu (jméno, číslo, typ…)" oninput="debouncedSearch()">
+        <input type="text" id="q" placeholder="Hledat podle jména (i anglicky)" oninput="debouncedSearch()">
       </div>
+      <input type="text" id="q-number" placeholder="Č. karty" title="Hledat podle čísla karty (např. 25 nebo SWSH272)"
+        oninput="debouncedSearch()" style="width:110px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .7rem;border-radius:9px;font-size:.9rem">
       <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)" style="white-space:nowrap">🌍 Všechny jazyky</button>
       <button class="btn btn-sm" id="btn-noimag" onclick="toggleNoImage()" title="Zobrazit jen karty bez obrázku" style="white-space:nowrap">📷 Bez obrázku</button>
       <button class="btn btn-sm" id="btn-game-tcg"    onclick="setGameType('tcg')"    title="Jen fyzické TCG karty"         style="white-space:nowrap">🃏 Fyzické TCG</button>
@@ -1554,7 +1556,7 @@ function _isAdmin() {
 
 let state = {
   page: 1, limit: 36, view: 'grid',
-  q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name',
+  q: '', set_id: '', type: '', supertype: '', rarity: '', lang: '', sort: 'name', number: '',
   totalCards: 0, totalPages: 0,
   setsData: [], loading: false,
   allLang: false,  // ignorovat jazykový filtr — hledá ve všech jazycích
@@ -2011,6 +2013,7 @@ function debouncedSearch() { clearTimeout(debTimer); debTimer = setTimeout(() =>
 
 function doSearch(pg) {
   state.q = document.getElementById('q').value.trim();
+  state.number = (document.getElementById('q-number')?.value || '').trim();
   // set_id is managed by selectSet() / state directly — no native select anymore
   state.type = document.getElementById('f-type').value;
   state.supertype = document.getElementById('f-supertype').value;
@@ -2027,6 +2030,8 @@ function doSearch(pg) {
 
 function clearSearch() {
   document.getElementById('q').value = '';
+  const numEl = document.getElementById('q-number'); if (numEl) numEl.value = '';
+  state.number = '';
   selectSet('', 'Všechny série', '');  // resets dropdown + triggers doSearch
   document.getElementById('f-type').value = '';
   document.getElementById('f-supertype').value = '';
@@ -2043,6 +2048,7 @@ function updateActiveTags() {
   tags.innerHTML = '';
   const active = [
     state.q && {label: `"${state.q}"`, key: 'q'},
+    state.number && {label: `#${state.number}`, key: 'number'},
     state.set_id && {label: (state.setsData.find(s=>s.id===state.set_id)||{name:state.set_id}).name, key: 'set_id'},
     state.type && {label: state.type, key: 'type'},
     state.supertype && {label: state.supertype, key: 'supertype'},
@@ -2053,6 +2059,7 @@ function updateActiveTags() {
     t.className = 'filter-tag'; t.textContent = f.label + ' ✕';
     t.onclick = () => {
       if (f.key === 'q') document.getElementById('q').value = '';
+      else if (f.key === 'number') { const e = document.getElementById('q-number'); if (e) e.value = ''; state.number = ''; }
       else if (f.key === 'set_id') { selectSet('', 'Všechny série', ''); return; }
       else document.getElementById('f-' + f.key).value = '';
       doSearch(1);
@@ -2069,8 +2076,12 @@ async function fetchCards() {
   // Parametry přesně odpovídají backendu (worker.js)
   const params = new URLSearchParams({ page: state.page, limit: state.limit });
   if (state.q)         params.set('q',         state.q);
+  if (state.number)    params.set('number',     state.number);
   if (state.set_id)    params.set('set_id',     state.set_id);
-  if (state.lang && !state.allLang) params.set('lang', state.lang);
+  // Jazyk: konkrétní výběr má přednost; jinak default EN (pokud není zapnuté „Všechny jazyky").
+  if (state.allLang)        { /* žádný lang filtr — hledá napříč jazyky */ }
+  else if (state.lang)      { params.set('lang', state.lang); }
+  else                      { params.set('lang', 'en'); }
   if (state.type)      params.set('type',       state.type);
   if (state.supertype) params.set('supertype',  state.supertype);
   if (state.rarity)    params.set('rarity',     state.rarity);
@@ -2535,26 +2546,21 @@ async function loadLangVariants(currentCard) {
   if (!wrap) return;
   wrap.innerHTML = `<div class="lang-variants-section"><div class="lang-variants-title">🌍 Načítám jazykové varianty…</div></div>`;
 
-  const { set_id, number, id: currentId } = currentCard;
-  // Odstranit lang prefix ze set_id (např. "de-sv6" → "sv6")
-  const baseSetId = (set_id || '').replace(/^[a-z]{2}-/, '');
-  const baseNum   = (number || '').split('/')[0]; // "25/91" → "25"
-
-  // Hledáme všechny karty se stejným číslem v sérii — bez lang filtru, s allLang=true
-  const params = new URLSearchParams({ set_id: baseSetId, number: baseNum, limit: 20 });
+  const { id: currentId } = currentCard;
   try {
-    const r = await _apiFetch(`/cards?${params}`);
+    // Nový endpoint páruje stejnou kartu napříč jazyky přes base_set_id + number_int
+    const r = await _apiFetch(`/cards/${encodeURIComponent(currentId)}/variants`);
     if (!r.ok) { wrap.innerHTML = ''; return; }
     const data = await r.json();
-    const cards = (data.data || []).filter(c => c.id !== currentId);
+    const cards = data.variants || [];
 
     if (!cards.length) { wrap.innerHTML = ''; return; }
 
-    const langLabels = { en:'EN', ja:'JP', de:'DE', fr:'FR', it:'IT', es:'ES', pt:'PT', ko:'KO', zh:'ZH' };
+    const langLabels = { en:'EN', ja:'JP', de:'DE', fr:'FR', it:'IT', es:'ES', pt:'PT', ko:'KO', zh:'ZH', 'zh-Tw':'ZH' };
     const flagCodes  = { en:'gb', ja:'jp', de:'de', fr:'fr', it:'it', es:'es', pt:'pt', ko:'kr' };
 
     const thumbsHtml = cards.map(c => {
-      const lang = c.lang || c.language || 'en';
+      const lang = c.lang || 'en';
       const img  = c.image_thumb_url || c.image_url || '';
       const flag = flagCodes[lang] ? `<img src="https://flagcdn.com/16x12/${flagCodes[lang]}.png" width="14" height="10" style="vertical-align:middle;margin-right:2px">` : '';
       return `<div class="lang-variant-thumb" onclick="openCard('${escH(c.id)}')" title="${escH(c.name)} (${lang.toUpperCase()})">
