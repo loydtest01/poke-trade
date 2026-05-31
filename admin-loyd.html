@@ -560,6 +560,27 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <span id="img-worker-result" style="font-size:.78rem;color:var(--green);margin-left:.5rem"></span>
         </div>
 
+        <!-- Doplnění anglických názvů (name_en) -->
+        <div class="adm-section">
+          <h3>🔤 Doplnit anglické názvy (name_en)</h3>
+          <p style="font-size:.82rem;color:var(--muted)">
+            Karty v cizích jazycích často nemají vyplněný anglický název, takže se nedají
+            dohledat anglicky. Tohle projde karty bez <code>name_en</code> a doplní ho
+            (Pokémon přes dexId, trenéři přes překlad). Běží v dávkách — nech to klidně
+            dojet, je to bezpečné spustit opakovaně.
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem">
+            <button class="btn" onclick="nameEnBackfillRun()" id="nameen-btn-run"
+              style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">
+              ▶ Spustit doplňování
+            </button>
+            <button class="btn btn-sm" onclick="nameEnBackfillStop()" id="nameen-btn-stop"
+              style="display:none;background:rgba(248,113,113,.2);color:var(--red)">⏹ Stop</button>
+            <span id="nameen-stat" style="font-size:.8rem;color:var(--muted)"></span>
+          </div>
+          <div id="nameen-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:120px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted)">Připraven. Klikni „Spustit doplňování".</div>
+        </div>
+
       </div>
       <!-- /tab-images -->
 
@@ -1361,6 +1382,49 @@ async function pdbFetch(path, method = 'GET', body = null) {
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(POKEDB_WORKER + path, opts);
   return r.json();
+}
+
+// ── Doplnění name_en (běží ve smyčce po dávkách) ──────────────
+let _nameEnStop = false;
+function nameEnLog(msg, color) {
+  const el = document.getElementById('nameen-log');
+  if (!el) return;
+  const line = document.createElement('div');
+  if (color) line.style.color = color;
+  line.textContent = `[${new Date().toLocaleTimeString('cs')}] ${msg}`;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function nameEnBackfillStop() { _nameEnStop = true; nameEnLog('Zastavuji po dokončení dávky…', 'var(--red)'); }
+
+async function nameEnBackfillRun() {
+  if (!pdbGetSecret()) { alert('Zadej POKEDB_ADMIN_SECRET nahoře v konfiguraci.'); return; }
+  _nameEnStop = false;
+  document.getElementById('nameen-btn-run').disabled = true;
+  document.getElementById('nameen-btn-stop').style.display = '';
+  nameEnLog('Spouštím doplňování name_en…', 'var(--green)');
+
+  let totalScanned = 0, totalUpdated = 0, round = 0;
+  try {
+    while (!_nameEnStop) {
+      round++;
+      const res = await pdbFetch('/v1/admin/backfill-name-en', 'POST', { limit: 200 });
+      if (!res || res.ok === false) { nameEnLog('Chyba: ' + (res?.error || 'neznámá'), 'var(--red)'); break; }
+      totalScanned += res.scanned || 0;
+      totalUpdated += res.updated || 0;
+      document.getElementById('nameen-stat').textContent =
+        `Celkem: ${totalUpdated} doplněno / ${totalScanned} zkontrolováno (dávka ${round})`;
+      nameEnLog(`Dávka ${round}: ${res.updated}/${res.scanned} doplněno`, res.updated ? 'var(--green)' : undefined);
+      if (res.done || (res.scanned || 0) === 0) { nameEnLog('🎉 Hotovo — všechny karty mají name_en.', 'var(--green)'); break; }
+      await new Promise(r => setTimeout(r, 400)); // šetrné tempo k TCGdex/PokeAPI
+    }
+  } catch (e) {
+    nameEnLog('Chyba: ' + e.message, 'var(--red)');
+  } finally {
+    document.getElementById('nameen-btn-run').disabled = false;
+    document.getElementById('nameen-btn-stop').style.display = 'none';
+    if (_nameEnStop) nameEnLog('Zastaveno uživatelem.', 'var(--red)');
+  }
 }
 
 function pdbShowResult(elId, data, isError = false) {
