@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>PokéDB – Databáze Pokémon karet</title>
-<meta name="description" content="Veřejná databáze Pokémon karet s API. Prohledávej tisíce karet, filtruj podle série, typu, HP a dalších atributů.">
+<meta name="description" content="Vyhledávač Pokémon karet pro tvé album na PokéTrade. Najdi kartu podle jména, série, typu nebo čísla a přidej ji do sbírky.">
 <link rel="canonical" href="https://www.poke-trade.eu/pokedb.html">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta property="og:title" content="PokéDB – Databáze Pokémon karet">
-<meta property="og:description" content="Prohledávej databázi Pokémon karet. Filtry, překlady, veřejné API.">
+<meta property="og:description" content="Vyhledávač Pokémon karet pro tvé album. Filtry, překlady, jazykové varianty.">
 <style>
 :root {
   --bg: #0a0608;
@@ -858,9 +858,9 @@ body::after {
     <button class="nav-tab active" onclick="switchPage('browse',this)">Procházet</button>
     <button class="nav-tab" onclick="switchPage('sets',this)">Série</button>
     <button class="nav-tab" onclick="switchPage('prices',this)">💰 Hledač cen</button>
-    <button class="nav-tab" onclick="switchPage('api',this)">API</button>
+    <!-- Veřejné API skryto: PokéDB je interní vyhledávací nástroj webu, ne veřejné API pro cizí vývojáře -->
+    <button class="nav-tab" onclick="switchPage('api',this)" style="display:none">API</button>
     <div class="nav-spacer"></div>
-    <span class="nav-api-badge">PUBLIC API</span>
   </div>
 </nav>
 
@@ -1612,6 +1612,11 @@ function switchPage(id, btn) {
    INIT
 ════════════════════════════════════════════════════ */
 async function init() {
+  // ── Přístup jen pro správce ──────────────────────────────────
+  // PokéDB je interní nástroj pro adminy (víc účtů s is_admin=true).
+  // Admin status z topbar.js se načítá async, takže chvíli počkáme a zkusíme víckrát.
+  if (!(await _waitForAdmin())) { _showAdminOnlyGate(); return; }
+
   loadSetsOnce();
   doSearch();
   document.getElementById('api-base-url').textContent = location.origin + '/api/v1';
@@ -1623,6 +1628,34 @@ async function init() {
     // Nastav API klíč pro admin pokud není uložený
     _initAdminApiKey();
   }
+}
+
+// Počká až topbar.js načte admin status (max ~3 s), pak vrátí výsledek _isAdmin().
+async function _waitForAdmin() {
+  if (_isAdmin()) return true;
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    if (_isAdmin()) return true;
+  }
+  return _isAdmin();
+}
+
+// Zobrazí hlášku místo databáze, když uživatel není správce.
+function _showAdminOnlyGate() {
+  // Schovej všechny vnitřní panely (browse/sets/prices/api) — ať nezůstanou viset filtry
+  document.querySelectorAll('.page-panel').forEach(el => { el.style.display = 'none'; });
+  const nav = document.querySelector('nav');
+  if (nav) nav.style.display = 'none';
+  const box = document.createElement('div');
+  box.style.cssText = 'max-width:520px;margin:4rem auto;text-align:center;padding:2rem;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.03)';
+  box.innerHTML = `
+    <div style="font-size:2.4rem;margin-bottom:.6rem">🔒</div>
+    <h2 style="margin:0 0 .5rem;font-size:1.3rem">Sekce jen pro správce</h2>
+    <p style="color:var(--muted);margin:0 0 1.2rem;font-size:.92rem">
+      Databáze karet je interní nástroj. Karty do svého alba si vyhledáš přímo při skenování.
+    </p>
+    <a href="/moje-album.html" style="display:inline-block;background:rgba(245,200,66,.16);border:1px solid rgba(245,200,66,.5);color:var(--yellow);padding:.6rem 1.4rem;border-radius:10px;text-decoration:none;font-weight:700">← Zpět do alba</a>`;
+  document.body.appendChild(box);
 }
 
 // Jeden fetch /sets sdílený pro stats i dropdown — šetří rate limit
