@@ -4943,8 +4943,10 @@ function toast(msg, type = '') {
   }
   async function poll(){
     if(_authDead)return;
+    // Zajisti čerstvý token (globální auto-refresh z topbar.js), pokud je k dispozici
+    if(typeof window.ensureFreshToken==='function'){try{var ft=await window.ensureFreshToken();if(ft)tk=ft;}catch(e){}}
     convs=await sbF('rest/v1/conversations?or=(user1_id.eq.'+uid+',user2_id.eq.'+uid+')&order=last_message_at.desc&limit=15');
-    if(_authDead){if(_pollTimer)clearInterval(_pollTimer);console.warn('[chat] Supabase token vypršel — polling zastaven. Přihlas se znovu pro obnovení zpráv.');return;}
+    if(_authDead){if(_pollTimer)clearInterval(_pollTimer);console.warn('[chat] Supabase token vypršel a nešel obnovit — polling zastaven. Přihlas se znovu.');return;}
     var tot=convs.reduce(function(s,c){return s+(c.user1_id===uid?(c.unread_user1||0):(c.unread_user2||0))},0);
     var bg=document.getElementById('chatBadge');
     if(bg){if(tot>0){bg.textContent=tot>99?'99+':tot;bg.style.display=''}else{bg.style.display='none'}}

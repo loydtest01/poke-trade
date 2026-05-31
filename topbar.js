@@ -2677,3 +2677,96 @@ window.spDoForgotPass = async function () {
     fb.className = 'sp-pass-fb err';
   }
 };
+
+/* ═══════════════════════════════════════════════════════════════
+   GLOBÁLNÍ AUTO-REFRESH SUPABASE TOKENU
+   Token vyprší po čase → bez obnovy padají požadavky na 401.
+   Tohle běží na každé stránce s topbar.js: po načtení a pak
+   periodicky zkontroluje token a včas ho obnoví přes refresh_token.
+   Vystaveno jako window.ensureFreshToken() — fetch volání si ho
+   mohou zavolat před požadavkem, aby měla jistě platný token.
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+  // Dekóduje 'exp' (ms) z JWT; 0 když nejde přečíst
+  function _jwtExp(token) {
+    if (!token || token.indexOf('.') < 0) return 0;
+    try {
+      var p = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return p.exp ? p.exp * 1000 : 0;
+    } catch (e) { return 0; }
+  }
+  // Token je prošlý nebo vyprší do 5 minut?
+  function _expiredOrSoon(token) {
+    if (!token) return true;
+    var exp = _jwtExp(token);
+    return exp === 0 || (exp - Date.now()) < 5 * 60 * 1000;
+  }
+  function _getRefreshToken() {
+    var rt = localStorage.getItem('sb_refresh_token');
+    if (rt) return rt;
+    // Fallback: hledej v JSON session klíčích (supabase-js formát)
+    for (var i = 0; i < localStorage.length; i++) {
+      var v = localStorage.getItem(localStorage.key(i));
+      if (v && v.charAt(0) === '{') {
+        try {
+          var o = JSON.parse(v);
+          var r = (o && o.refresh_token) || (o && o.currentSession && o.currentSession.refresh_token);
+          if (r) return r;
+        } catch (e) {}
+      }
+    }
+    return null;
+  }
+
+  var _refreshing = null; // sdílený slib, ať neběží víc refreshů naráz
+
+  async function _doRefresh() {
+    var url = _getSbUrl(), anon = _getSbAnon(), rt = _getRefreshToken();
+    if (!url || !anon || !rt) return null;
+    try {
+      var r = await fetch(url + '/auth/v1/token?grant_type=refresh_token', {
+        method: 'POST',
+        headers: { 'apikey': anon, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: rt })
+      });
+      if (!r.ok) return null;
+      var data = await r.json();
+      if (!data.access_token) return null;
+      localStorage.setItem('sb_token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('sb_refresh_token', data.refresh_token);
+      if (data.user) {
+        try { localStorage.setItem('sb_user', JSON.stringify(data.user)); } catch (e) {}
+        localStorage.setItem('sb_email', data.user.email || '');
+        localStorage.setItem('sb_user_id', data.user.id || '');
+      }
+      return data.access_token;
+    } catch (e) { return null; }
+  }
+
+  // Hlavní vstup: zajistí platný token. Vrací aktuální (případně obnovený) token.
+  window.ensureFreshToken = async function () {
+    var tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+    if (!_expiredOrSoon(tok)) return tok;
+    if (!_refreshing) {
+      _refreshing = _doRefresh().finally(function () { _refreshing = null; });
+    }
+    var fresh = await _refreshing;
+    return fresh || tok;
+  };
+
+  // Po načtení stránky hned zkontroluj + pak periodicky na pozadí.
+  // Interval 4 min < 5min práh, takže token se obnoví dřív, než vyprší.
+  function _startAutoRefresh() {
+    if (!localStorage.getItem('sb_token')) return; // nepřihlášený → nic
+    window.ensureFreshToken();
+    setInterval(function () {
+      if (localStorage.getItem('sb_token')) window.ensureFreshToken();
+    }, 4 * 60 * 1000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _startAutoRefresh);
+  } else {
+    _startAutoRefresh();
+  }
+})();
