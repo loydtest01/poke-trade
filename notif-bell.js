@@ -25,7 +25,10 @@
   .notif-item.unread:hover { background:rgba(245,200,66,.09); }
   .notif-dot { width:7px;height:7px;border-radius:50%;background:#f5c842;flex-shrink:0;margin-top:5px; }
   .notif-dot.read { background:transparent;border:1px solid rgba(255,255,255,.15); }
-  .notif-body { flex:1;min-width:0; }
+  .notif-body { flex:1;min-width:0;cursor:pointer; }
+  .notif-del-btn { flex-shrink:0;background:none;border:none;color:rgba(240,236,228,.25);font-size:13px;cursor:pointer;padding:2px 5px;border-radius:5px;line-height:1;opacity:0;transition:opacity .12s,color .12s,background .12s; }
+  .notif-item:hover .notif-del-btn { opacity:1; }
+  .notif-del-btn:hover { color:#f87171;background:rgba(248,113,113,.12); }
   .notif-item-title { font-size:12px;font-weight:600;color:#f0ece4;margin-bottom:2px; }
   .notif-item-body { font-size:11px;color:rgba(240,236,228,.5);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
   .notif-item-time { font-size:10px;color:rgba(240,236,228,.3);margin-top:3px; }
@@ -69,7 +72,7 @@
           <button class="notif-read-all-btn" id="notifReadAllBtn">Vše přečteno</button>
         </div>
         <div class="notif-drop-list" id="notifDropList"><div class="notif-empty">📭 Žádné notifikace</div></div>
-        <div class="notif-drop-footer"><a href="share-album.html">Sdílení alb →</a></div>
+        <div class="notif-drop-footer"><button class="notif-read-all-btn" id="notifClearAllBtn" style="color:rgba(248,113,113,.85)">🗑 Smazat vše</button></div>
       </div>`;
     return wrap;
   }
@@ -85,6 +88,7 @@
     else topbarRight.prepend(wrap);
     document.getElementById('notifBellBtn').addEventListener('click', toggleDrop);
     document.getElementById('notifReadAllBtn').addEventListener('click', markAllRead);
+    document.getElementById('notifClearAllBtn').addEventListener('click', deleteAll);
     document.addEventListener('click', function(e) {
       if (_open && !document.getElementById('notifBellWrap').contains(e.target)) closeDrop();
     });
@@ -133,6 +137,27 @@
     } catch {}
   }
 
+  async function deleteOne(id) {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return;
+    try {
+      await fetch(`${url}/rest/v1/notifications?id=eq.${id}&user_id=eq.${uid}`,
+        { method:'DELETE', headers:{...sbH(t),'Prefer':'return=minimal'} });
+    } catch {}
+  }
+
+  async function deleteAll() {
+    const t = getToken(), uid = getUid(), url = getSbUrl();
+    if (!t || !uid || !url) return;
+    if (!confirm('Smazat všechny notifikace? Tuto akci nelze vrátit.')) return;
+    try {
+      await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&type=neq.message`,
+        { method:'DELETE', headers:{...sbH(t),'Prefer':'return=minimal'} });
+      updateBadge(0);
+      renderList([]);
+    } catch {}
+  }
+
   function updateBadge(count) {
     _lastCount = count;
     const badge = document.getElementById('notifBadge');
@@ -169,14 +194,15 @@
     if (!list) return;
     if (!items||!items.length) { list.innerHTML='<div class="notif-empty">📭 Žádné notifikace</div>'; return; }
     list.innerHTML = items.map(n=>`
-      <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(n.link||'#')}" onclick="window._notifClick&&window._notifClick(this)">
-        <div class="notif-dot ${n.read?'read':''}"></div>
-        <div class="notif-body">
+      <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(n.link||'#')}">
+        <div class="notif-dot ${n.read?'read':''}" onclick="window._notifClick&&window._notifClick(this.parentNode)"></div>
+        <div class="notif-body" onclick="window._notifClick&&window._notifClick(this.parentNode)">
           <div class="notif-item-title">${notifIcon(n.title,n.body)} ${esc(n.title||'Notifikace')}</div>
           <div class="notif-item-body">${esc(n.body||'')}</div>
           ${n.link && n.link !== '#' ? `<div class="notif-item-link">🔗 Zobrazit →</div>` : ''}
           <div class="notif-item-time">${fmtTime(n.created_at)}</div>
         </div>
+        <button class="notif-del-btn" title="Smazat" onclick="event.stopPropagation();window._notifDelete&&window._notifDelete('${esc(n.id)}',this)">✕</button>
       </div>`).join('');
     window._notifClick = async function(el) {
       const id=el.dataset.id, href=el.dataset.href;
@@ -184,6 +210,15 @@
       await markRead(id);
       updateBadge(Math.max(0,_lastCount-1));
       if (href&&href!=='#') location.href=href;
+    };
+    window._notifDelete = async function(id, btn) {
+      const item = btn.closest('.notif-item');
+      const wasUnread = item && item.classList.contains('unread');
+      if (item) item.remove();
+      if (wasUnread) updateBadge(Math.max(0,_lastCount-1));
+      await deleteOne(id);
+      const listEl = document.getElementById('notifDropList');
+      if (listEl && !listEl.querySelector('.notif-item')) listEl.innerHTML='<div class="notif-empty">📭 Žádné notifikace</div>';
     };
   }
 

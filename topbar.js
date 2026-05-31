@@ -1727,20 +1727,27 @@ window.toggleSettingsDrop = function() {
 function npLoadFromServer() {
   var SBU = typeof SUPABASE_URL  !== 'undefined' ? SUPABASE_URL  : '';
   var SBA = typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : '';
-  var tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
   var uid = localStorage.getItem('sb_user_id');
-  if (!tok || !uid || !SBU) return;
-  fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=notification_prefs', {
-    headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tok }
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    var row = Array.isArray(d) ? d[0] : null;
-    if (row && row.notification_prefs) {
-      localStorage.setItem('pkc_notif_prefs', JSON.stringify(row.notification_prefs));
-      npLoad();
-    }
-  }).catch(function(){});
+  if (!uid || !SBU) { npLoad(); return; }  // bez serveru aspoň zobraz lokální/výchozí
+  // Zajisti čerstvý token (auto-refresh), ať dotaz nepadne na 401 a nezůstane „Načítám…"
+  var p = (typeof window.ensureFreshToken === 'function')
+    ? window.ensureFreshToken()
+    : Promise.resolve(localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token'));
+  p.then(function(tok) {
+    tok = tok || localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+    if (!tok) { npLoad(); return; }
+    return fetch(SBU + '/rest/v1/profiles?id=eq.' + uid + '&select=notification_prefs', {
+      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tok }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      var row = Array.isArray(d) ? d[0] : null;
+      if (row && row.notification_prefs) {
+        localStorage.setItem('pkc_notif_prefs', JSON.stringify(row.notification_prefs));
+      }
+      npLoad();  // vždy vykresli — i když server nic nevrátil (výchozí prefs)
+    });
+  }).catch(function(){ npLoad(); });  // i při chybě zobraz lokální/výchozí, ne „Načítám…"
 }
 
 /* Exportuj prefs pro použití v jiných souborech */
