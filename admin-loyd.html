@@ -1468,16 +1468,20 @@ async function testR2Upload() {
     w('✅ Upload OK', 'var(--green)');
     w('   URL: ' + data.url);
     w('   key: ' + data.key);
-    // Zkus načíst zpět
-    w('⏳ Zkouším načíst zpět z R2…');
-    const back = await fetch(data.url, { cache: 'no-store' });
-    if (back.ok) {
-      w('✅ Načtení z R2 OK (status ' + back.status + ', ' + back.headers.get('content-type') + ')', 'var(--green)');
-      w('   cache-control: ' + (back.headers.get('cache-control') || '—'));
+    // Ověř načtení přes <img> (tak se fotky reálně zobrazují — CORS to neblokuje, na rozdíl od fetch)
+    w('⏳ Zkouším zobrazit z R2 (jako <img>)…');
+    const ok = await new Promise((resolve) => {
+      const im = new Image();
+      im.onload = () => resolve(true);
+      im.onerror = () => resolve(false);
+      im.src = data.url + '?_=' + Date.now();
+      setTimeout(() => resolve(false), 6000);
+    });
+    if (ok) {
+      w('✅ Obrázek se z R2 načetl OK', 'var(--green)');
       w('🎉 R2 endpoint je plně funkční — můžeme přesměrovat nahrávání fotek sem.', 'var(--green)');
     } else {
-      w('⚠️ Upload prošel, ale veřejné čtení z R2 vrátilo ' + back.status + '.', 'var(--red)');
-      w('R2 bucket nejspíš nemá veřejný přístup / R2_PUBLIC_URL ukazuje jinam.', 'var(--muted)');
+      w('⚠️ Upload prošel, ale obrázek se nenačetl. Zkontroluj veřejný přístup R2 bucketu.', 'var(--red)');
     }
   } catch (e) {
     w('❌ Chyba: ' + e.message, 'var(--red)');

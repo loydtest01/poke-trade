@@ -6645,13 +6645,14 @@ async function markAsCompleted(target) {
 // a nestahoval znovu při každém otevření alba (to dřív žralo egress).
 window._bustedPhotos = window._bustedPhotos || new Set();
 function bustUrl(url) {
-  if (!url || !url.includes('supabase.co/storage')) return url;
-  const base = url.replace(/[?&]t=\d+/, '').replace(/\?$/, '');
-  // Buster jen pokud byla tahle fotka v této session změněna
+  if (!url) return url;
+  // Funguje pro Supabase Storage i nové R2 URL
+  if (!url.includes('supabase.co/storage') && !url.includes('.r2.dev') && !url.includes('/images/user-photos/')) return url;
+  const base = url.replace(/[?&]t=\d+/, '').replace(/[?&]_=\d+/, '').replace(/\?$/, '');
   if (window._bustedPhotos.has(base)) {
     return base + (base.includes('?') ? '&' : '?') + 't=' + Date.now();
   }
-  return base; // stabilní URL → prohlížeč ji nacachuje
+  return base;
 }
 // Zavolej po uploadu/editaci fotky, ať se příště načte čerstvá verze
 function markPhotoChanged(url) {
@@ -10713,30 +10714,30 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
       const sbUrl = (typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : null);
       const sbAnon = (typeof SUPABASE_ANON !== 'undefined' ? SUPABASE_ANON : null);
 
-      if (!tok || !uid || !sbUrl || !sbAnon) throw new Error('Nepřihlášen');
+      if (!tok || !uid) throw new Error('Nepřihlášen');
 
-      // 3. Nahraj do Supabase Storage (bucket card-photo)
+      // 3. Nahraj do Cloudflare R2 přes worker (místo Supabase Storage — kvůli egressu)
       const ts = Date.now();
-      const storagePath = `${uid}/crop_${photo.id || ts}_${ts}.jpg`;
-      const upRes = await fetch(`${sbUrl}/storage/v1/object/card-photo/${storagePath}`, {
+      const fname = `crop_${photo.id || ts}_${ts}.jpg`;
+      const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
+      const upRes = await fetch(`${R2_WORKER}/v1/user-photo?filename=${encodeURIComponent(fname)}`, {
         method: 'POST',
         headers: {
-          'apikey':        sbAnon,
           'Authorization': 'Bearer ' + tok,
           'Content-Type':  'image/jpeg',
-          'x-upsert':      'true',
-          'cache-control': 'public, max-age=31536000, immutable',
         },
         body: buf,
       });
 
       if (!upRes.ok) {
         const errText = await upRes.text().catch(() => '');
-        throw new Error('Storage upload selhal: ' + upRes.status + ' ' + errText);
+        throw new Error('R2 upload selhal: ' + upRes.status + ' ' + errText);
       }
+      const upData = await upRes.json().catch(() => ({}));
+      if (!upData.ok || !upData.url) throw new Error('R2 upload nevrátil URL');
 
-      // 4. Sestav veřejnou URL
-      const publicUrl = `${sbUrl}/storage/v1/object/public/card-photo/${storagePath}`;
+      // 4. Veřejná URL z R2
+      const publicUrl = upData.url;
       markPhotoChanged(publicUrl); // ať se nová verze ukáže čerstvá (jednorázový buster)
 
       // 5. Aktualizuj URL v databázi
