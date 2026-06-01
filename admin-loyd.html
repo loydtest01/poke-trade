@@ -616,6 +616,24 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <div id="mig-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:160px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted);white-space:pre-wrap">Připraven. Začni fází 1 (test).</div>
         </div>
 
+        <!-- Migrace VŠECH účtů (server-side, účet po účtu) -->
+        <div class="adm-section">
+          <h3>🏢 Migrace všech účtů (server-side)</h3>
+          <p style="font-size:.82rem;color:var(--muted)">
+            Přemigruje fotky <b>všech uživatelů</b> ze Supabase na R2 — bezpečně přes server
+            (service klíč zůstává na serveru, neprochází prohlížečem). Jede <b>účet po účtu</b>:
+            nejdřív načte seznam, pak každý účet zmigruje po dávkách. Nic nemaže.
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem">
+            <button class="btn btn-sm" onclick="migAllList()" id="migall-btn-list">📋 Načíst účty k migraci</button>
+            <button class="btn btn-sm" onclick="migAllRun()" id="migall-btn-run"
+              style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.4);display:none">▶ Spustit migraci všech</button>
+            <button class="btn btn-sm" onclick="window._migAllStop=true" id="migall-btn-stop" style="display:none">⏹ Stop</button>
+          </div>
+          <div id="migall-stat" style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem"></div>
+          <div id="migall-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:180px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted);white-space:pre-wrap">Klikni „Načíst účty k migraci".</div>
+        </div>
+
       </div>
       <!-- /tab-images -->
 
@@ -1552,11 +1570,20 @@ async function migPhotos(mode) {
   migLog(`Spouštím fázi: ${mode}`, 'var(--green)');
 
   try {
-    // Načti fotky z user_card_photos (hlavní zdroj). Pro test jen 10.
+    // Načti JEN VLASTNÍ fotky (explicitní filtr na user_id — ne spoléhat jen na RLS).
     const limit = mode === 'test' ? 10 : 2000;
-    const rows = await fetch(`${SBU}/rest/v1/user_card_photos?select=id,storage_path,url,user_card_local_id,user_id&limit=${limit}`, { headers: sbH })
+    if (!uid) { migLog('Chybí user_id — přihlas se znovu.', 'var(--red)'); return; }
+    const rows = await fetch(`${SBU}/rest/v1/user_card_photos?user_id=eq.${uid}&select=id,storage_path,url,user_card_local_id,user_id&limit=${limit}`, { headers: sbH })
       .then(r => r.json()).catch(() => []);
-    if (!Array.isArray(rows) || !rows.length) { migLog('Žádné fotky k migraci nenalezeny.', 'var(--muted)'); return; }
+    if (!Array.isArray(rows) || !rows.length) { migLog('Žádné tvoje fotky k migraci nenalezeny.', 'var(--muted)'); return; }
+
+    // Dohledej názvy karet (ať v logu vidíš, o jakou kartu jde)
+    const cardNames = {};
+    try {
+      const ucs = await fetch(`${SBU}/rest/v1/user_cards?user_id=eq.${uid}&select=local_id,card_data`, { headers: sbH }).then(r => r.json());
+      (ucs || []).forEach(c => { cardNames[String(c.local_id)] = (c.card_data && c.card_data.name) || ''; });
+    } catch (e) {}
+    const nameOf = (r) => cardNames[String(r.user_card_local_id)] || '(neznámá karta)';
 
     // Pro copy/test filtruj jen ještě nezmigrované (Supabase). Pro delete jen ty na Supabase.
     const todo = rows.filter(r => _isSupabasePhoto(r.storage_path) || _isSupabasePhoto(r.url));
@@ -1572,22 +1599,22 @@ async function migPhotos(mode) {
       try {
         if (mode === 'delete') {
           // Smaž originál ze Supabase Storage (jen pokud URL v DB už ukazuje na R2 — bezpečnostní pojistka)
-          if (_isSupabasePhoto(row.url)) { migLog(`⏭ ${row.id}: URL ještě není R2, přeskakuji mazání`, 'var(--muted)'); continue; }
+          if (_isSupabasePhoto(row.url)) { migLog(`⏭ ${nameOf(row)}: URL ještě není R2, přeskakuji mazání`, 'var(--muted)'); continue; }
           if (!supaPath) { continue; }
           const del = await fetch(`${SBU}/storage/v1/object/card-photo/${supaPath}`, { method:'DELETE', headers: sbH });
-          if (del.ok) { done++; migLog(`🗑 smazáno ${supaPath}`); }
-          else { failed++; migLog(`⚠️ mazání selhalo ${supaPath}: ${del.status}`, 'var(--red)'); }
+          if (del.ok) { done++; migLog(`🗑 smazáno: ${nameOf(row)}`); }
+          else { failed++; migLog(`⚠️ mazání selhalo (${nameOf(row)}): ${del.status}`, 'var(--red)'); }
         } else {
           // TEST / COPY: stáhni ze Supabase → nahraj na R2 → přepiš URL v DB
           const imgRes = await fetch(srcUrl);
-          if (!imgRes.ok) { failed++; migLog(`⚠️ ${row.id}: stažení selhalo ${imgRes.status}`, 'var(--red)'); continue; }
+          if (!imgRes.ok) { failed++; migLog(`⚠️ ${nameOf(row)}: stažení selhalo ${imgRes.status} (fotka už v Supabase nejspíš není)`, 'var(--red)'); continue; }
           const blob = await imgRes.blob();
           const fname = (supaPath || ('photo_'+row.id)).split('/').pop();
           const up = await fetch(`${R2_WORKER}/v1/user-photo?filename=${encodeURIComponent(fname)}`, {
             method:'POST', headers:{ 'Authorization':'Bearer '+tok, 'Content-Type': blob.type||'image/jpeg' }, body: blob
           });
           const upData = await up.json().catch(() => ({}));
-          if (!up.ok || !upData.url) { failed++; migLog(`⚠️ ${row.id}: R2 upload selhal`, 'var(--red)'); continue; }
+          if (!up.ok || !upData.url) { failed++; migLog(`⚠️ ${nameOf(row)}: R2 upload selhal`, 'var(--red)'); continue; }
 
           // Přepiš URL v user_card_photos (storage_path i url → R2 URL)
           await fetch(`${SBU}/rest/v1/user_card_photos?id=eq.${row.id}`, {
@@ -1602,10 +1629,10 @@ async function migPhotos(mode) {
             }).catch(()=>{});
           }
           done++;
-          migLog(`✅ ${done}/${todo.length}: ${fname} → R2`, done % 10 === 0 ? 'var(--green)' : undefined);
+          migLog(`✅ ${done}/${todo.length}: ${nameOf(row)} → R2`, done % 10 === 0 ? 'var(--green)' : undefined);
         }
       } catch (e) {
-        failed++; migLog(`❌ ${row.id}: ${e.message}`, 'var(--red)');
+        failed++; migLog(`❌ ${nameOf(row)}: ${e.message}`, 'var(--red)');
       }
       document.getElementById('mig-stat').textContent = `Hotovo ${done}, chyb ${failed} / ${todo.length}`;
       await new Promise(r => setTimeout(r, 120)); // šetrné tempo
@@ -1619,6 +1646,69 @@ async function migPhotos(mode) {
   } finally {
     document.getElementById('mig-btn-stop').style.display = 'none';
     ['test','copy','delete'].forEach(m => { const b = document.getElementById('mig-btn-'+m); if (b) b.disabled = false; });
+  }
+}
+
+// ── Server-side migrace VŠECH účtů (účet po účtu) ─────────────
+window._migAllStop = false;
+let _migAllAccounts = [];
+function migAllLog(msg, color) {
+  const el = document.getElementById('migall-log');
+  const line = document.createElement('div');
+  if (color) line.style.color = color;
+  line.textContent = `[${new Date().toLocaleTimeString('cs')}] ${msg}`;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+
+async function migAllList() {
+  document.getElementById('migall-log').innerHTML = '';
+  migAllLog('Načítám účty s nezmigrovanými fotkami…');
+  try {
+    const data = await api('migrate_photos_list');
+    _migAllAccounts = data.accounts || [];
+    if (!_migAllAccounts.length) { migAllLog('🎉 Žádné účty k migraci — vše je na R2.', 'var(--green)'); return; }
+    migAllLog(`Nalezeno ${_migAllAccounts.length} účtů, celkem ${data.total_pending} fotek:`, 'var(--green)');
+    _migAllAccounts.forEach(a => migAllLog(`  • ${a.name}: ${a.pending} fotek`));
+    document.getElementById('migall-btn-run').style.display = '';
+    document.getElementById('migall-stat').textContent = `${_migAllAccounts.length} účtů / ${data.total_pending} fotek čeká`;
+  } catch (e) {
+    migAllLog('❌ Chyba: ' + e.message, 'var(--red)');
+  }
+}
+
+async function migAllRun() {
+  if (!_migAllAccounts.length) { migAllLog('Nejdřív načti účty.', 'var(--red)'); return; }
+  if (!confirm(`Spustit migraci ${_migAllAccounts.length} účtů? Nic se nemaže, jen kopíruje na R2.`)) return;
+  window._migAllStop = false;
+  document.getElementById('migall-btn-stop').style.display = '';
+  document.getElementById('migall-btn-run').disabled = true;
+
+  let accDone = 0, totalPhotos = 0;
+  try {
+    for (const acc of _migAllAccounts) {
+      if (window._migAllStop) { migAllLog('Zastaveno uživatelem.', 'var(--red)'); break; }
+      migAllLog(`▶ Účet ${acc.name} (${acc.pending} fotek)…`, 'var(--green)');
+      let guard = 0;
+      // Migruj po dávkách dokud done_all
+      while (!window._migAllStop && guard < 50) {
+        guard++;
+        const res = await api('migrate_account_photos', {}, { user_id: acc.user_id, batch: 50 });
+        totalPhotos += res.done || 0;
+        migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb`);
+        document.getElementById('migall-stat').textContent =
+          `Účet ${accDone+1}/${_migAllAccounts.length} · celkem ${totalPhotos} fotek na R2`;
+        if (res.done_all || (res.done === 0 && res.failed === 0)) break;
+        await new Promise(r => setTimeout(r, 300));
+      }
+      accDone++;
+    }
+    migAllLog(`✅ Hotovo: ${accDone} účtů, ${totalPhotos} fotek přesunuto na R2.`, 'var(--green)');
+    migAllLog('➡️ Ověř namátkou alba a teprve pak řeš mazání originálů.', 'var(--green)');
+  } catch (e) {
+    migAllLog('❌ Chyba: ' + e.message, 'var(--red)');
+  } finally {
+    document.getElementById('migall-btn-stop').style.display = 'none';
+    document.getElementById('migall-btn-run').disabled = false;
   }
 }
 
