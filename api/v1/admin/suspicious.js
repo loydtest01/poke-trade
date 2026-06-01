@@ -257,6 +257,74 @@ export default async function handler(req, res) {
       return jsonOk(res, { users: await r.json() });
     }
 
+    // ── migrate_photos_list ──────────────────────────────
+    // Vrátí účty, které mají ještě nezmigrované fotky (na Supabase Storage).
+    if (action === 'migrate_photos_list') {
+      const r = await dbQuery(`user_card_photos?select=user_id,storage_path&limit=10000`);
+      const rows = await r.json();
+      const perUser = {};
+      (rows || []).forEach(row => {
+        const sp = row.storage_path || '';
+        const isSupabase = sp && !sp.startsWith('http'); // Supabase = relativní cesta
+        if (!isSupabase) return;
+        perUser[row.user_id] = (perUser[row.user_id] || 0) + 1;
+      });
+      // Dohledej jména
+      const ids = Object.keys(perUser);
+      let names = {};
+      if (ids.length) {
+        const pr = await dbQuery(`profiles?id=in.(${ids.join(',')})&select=id,username,email`);
+        (await pr.json() || []).forEach(p => { names[p.id] = p.username || p.email || p.id; });
+      }
+      const accounts = ids.map(id => ({ user_id: id, name: names[id] || id, pending: perUser[id] }))
+                          .sort((a,b) => b.pending - a.pending);
+      return jsonOk(res, { accounts, total_pending: accounts.reduce((s,a)=>s+a.pending,0) });
+    }
+
+    // ── migrate_account_photos ───────────────────────────
+    // Přemigruje fotky JEDNOHO účtu: stáhne ze Supabase → nahraje na R2 → přepíše URL.
+    // Service klíč zůstává na serveru; admin jen určí který účet a kolik (dávka).
+    if (action === 'migrate_account_photos' && method === 'POST') {
+      const targetUser = body?.user_id;
+      const batch = Math.min(parseInt(body?.batch) || 50, 200);
+      if (!targetUser) return jsonError(res, 400, 'Missing user_id');
+
+      const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
+      const r = await dbQuery(`user_card_photos?user_id=eq.${targetUser}&select=id,storage_path,url&limit=${batch}`);
+      const rows = await r.json();
+      const todo = (rows || []).filter(x => x.storage_path && !x.storage_path.startsWith('http'));
+
+      let done = 0, failed = 0;
+      for (const row of todo) {
+        try {
+          const srcUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+          const img = await fetch(srcUrl);
+          if (!img.ok) { failed++; continue; } // soubor už neexistuje → přeskoč
+          const arrBuf = await img.arrayBuffer();
+          const ct = img.headers.get('content-type') || 'image/jpeg';
+          const fname = row.storage_path.split('/').pop();
+          // Nahraj na R2 — server-side použijeme admin secret workeru (ne uživatelský token)
+          const up = await fetch(`${R2_WORKER}/admin/upload-user-photo?user_id=${targetUser}&filename=${encodeURIComponent(fname)}`, {
+            method: 'POST',
+            headers: { 'X-Admin-Secret': process.env.POKEDB_ADMIN_SECRET || '', 'Content-Type': ct },
+            body: Buffer.from(arrBuf),
+          });
+          const upData = await up.json().catch(() => ({}));
+          if (!up.ok || !upData.url) { failed++; continue; }
+          await dbQuery(`user_card_photos?id=eq.${row.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ storage_path: upData.url, url: upData.url }),
+          });
+          await dbQuery(`photo_queue?storage_path=eq.${encodeURIComponent(row.storage_path)}`, {
+            method: 'PATCH', body: JSON.stringify({ storage_path: upData.url }),
+          }).catch(()=>{});
+          done++;
+        } catch (e) { failed++; }
+      }
+      const remaining = todo.length - done - failed;
+      return jsonOk(res, { user_id: targetUser, done, failed, batch_size: todo.length, done_all: todo.length < batch });
+    }
+
     return jsonError(res, 400, 'Unknown action: ' + action);
 
   } catch (e) {
