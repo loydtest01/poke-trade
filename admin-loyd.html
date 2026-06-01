@@ -596,6 +596,26 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           <div id="r2-test-log" style="margin-top:.6rem;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;min-height:60px;font-size:.74rem;font-family:monospace;color:var(--muted);white-space:pre-wrap"></div>
         </div>
 
+        <!-- Migrace starých fotek Supabase → R2 -->
+        <div class="adm-section">
+          <h3>📦 Migrace fotek Supabase → R2</h3>
+          <p style="font-size:.82rem;color:var(--muted)">
+            Přesune existující fotky karet ze Supabase Storage do Cloudflare R2 (kvůli limitu).
+            <b>Tři fáze, dělej je popořadě:</b> nejdřív test na 10, pak zkopírovat vše
+            (nic se nemaže — fotky budou na obou místech), a teprve po ověření smazat originály ze Supabase.
+          </p>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.6rem">
+            <button class="btn btn-sm" onclick="migPhotos('test')" id="mig-btn-test">1️⃣ Test (10 fotek)</button>
+            <button class="btn btn-sm" onclick="migPhotos('copy')" id="mig-btn-copy"
+              style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">2️⃣ Zkopírovat + přesměrovat vše</button>
+            <button class="btn btn-sm" onclick="migPhotos('delete')" id="mig-btn-delete"
+              style="background:rgba(248,113,113,.15);color:var(--red);border:1px solid rgba(248,113,113,.4)">3️⃣ Smazat originály ze Supabase</button>
+            <button class="btn btn-sm" onclick="window._migStop=true" id="mig-btn-stop" style="display:none">⏹ Stop</button>
+          </div>
+          <div id="mig-stat" style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem"></div>
+          <div id="mig-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:160px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted);white-space:pre-wrap">Připraven. Začni fází 1 (test).</div>
+        </div>
+
       </div>
       <!-- /tab-images -->
 
@@ -1487,6 +1507,118 @@ async function testR2Upload() {
     w('❌ Chyba: ' + e.message, 'var(--red)');
   } finally {
     btn.disabled = false;
+  }
+}
+
+// ── Migrace fotek Supabase → R2 (3 fáze) ──────────────────────
+window._migStop = false;
+function migLog(msg, color) {
+  const el = document.getElementById('mig-log');
+  const line = document.createElement('div');
+  if (color) line.style.color = color;
+  line.textContent = `[${new Date().toLocaleTimeString('cs')}] ${msg}`;
+  el.appendChild(line); el.scrollTop = el.scrollHeight;
+}
+// Je to Supabase URL/cesta (tj. ještě nezmigrovaná)?
+function _isSupabasePhoto(p) {
+  if (!p) return false;
+  return p.includes('supabase.co/storage') || (!p.startsWith('http'));
+}
+// Sestaví plnou Supabase public URL z storage_path
+function _supaUrl(path) {
+  if (path.startsWith('http')) return path;
+  return `${SBU}/storage/v1/object/public/card-photo/${path}`;
+}
+
+async function migPhotos(mode) {
+  const tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+  const uid = localStorage.getItem('sb_user_id');
+  if (!tok) { alert('Nejsi přihlášený.'); return; }
+  const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
+  const SB_ANON = (typeof SBA !== 'undefined') ? SBA : ((typeof SUPABASE_ANON !== 'undefined') ? SUPABASE_ANON : null);
+  const sbH = { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' };
+
+  window._migStop = false;
+  document.getElementById('mig-btn-stop').style.display = '';
+  ['test','copy','delete'].forEach(m => { const b = document.getElementById('mig-btn-'+m); if (b) b.disabled = true; });
+  document.getElementById('mig-log').innerHTML = '';
+
+  if (mode === 'delete' && !confirm('SMAZAT originály fotek ze Supabase Storage?\nDělej to JEN když máš ověřeno, že vše jede z R2. Tato akce je nevratná.')) {
+    document.getElementById('mig-btn-stop').style.display = 'none';
+    ['test','copy','delete'].forEach(m => { const b = document.getElementById('mig-btn-'+m); if (b) b.disabled = false; });
+    return;
+  }
+
+  migLog(`Spouštím fázi: ${mode}`, 'var(--green)');
+
+  try {
+    // Načti fotky z user_card_photos (hlavní zdroj). Pro test jen 10.
+    const limit = mode === 'test' ? 10 : 2000;
+    const rows = await fetch(`${SBU}/rest/v1/user_card_photos?select=id,storage_path,url,user_card_local_id,user_id&limit=${limit}`, { headers: sbH })
+      .then(r => r.json()).catch(() => []);
+    if (!Array.isArray(rows) || !rows.length) { migLog('Žádné fotky k migraci nenalezeny.', 'var(--muted)'); return; }
+
+    // Pro copy/test filtruj jen ještě nezmigrované (Supabase). Pro delete jen ty na Supabase.
+    const todo = rows.filter(r => _isSupabasePhoto(r.storage_path) || _isSupabasePhoto(r.url));
+    migLog(`Nalezeno ${rows.length} fotek, k migraci ${todo.length}.`);
+    if (!todo.length) { migLog('🎉 Nic k migraci — vše už je na R2.', 'var(--green)'); return; }
+
+    let done = 0, failed = 0;
+    for (const row of todo) {
+      if (window._migStop) { migLog('Zastaveno uživatelem.', 'var(--red)'); break; }
+      const supaPath = row.storage_path && !row.storage_path.startsWith('http') ? row.storage_path : null;
+      const srcUrl = _supaUrl(row.storage_path || row.url);
+
+      try {
+        if (mode === 'delete') {
+          // Smaž originál ze Supabase Storage (jen pokud URL v DB už ukazuje na R2 — bezpečnostní pojistka)
+          if (_isSupabasePhoto(row.url)) { migLog(`⏭ ${row.id}: URL ještě není R2, přeskakuji mazání`, 'var(--muted)'); continue; }
+          if (!supaPath) { continue; }
+          const del = await fetch(`${SBU}/storage/v1/object/card-photo/${supaPath}`, { method:'DELETE', headers: sbH });
+          if (del.ok) { done++; migLog(`🗑 smazáno ${supaPath}`); }
+          else { failed++; migLog(`⚠️ mazání selhalo ${supaPath}: ${del.status}`, 'var(--red)'); }
+        } else {
+          // TEST / COPY: stáhni ze Supabase → nahraj na R2 → přepiš URL v DB
+          const imgRes = await fetch(srcUrl);
+          if (!imgRes.ok) { failed++; migLog(`⚠️ ${row.id}: stažení selhalo ${imgRes.status}`, 'var(--red)'); continue; }
+          const blob = await imgRes.blob();
+          const fname = (supaPath || ('photo_'+row.id)).split('/').pop();
+          const up = await fetch(`${R2_WORKER}/v1/user-photo?filename=${encodeURIComponent(fname)}`, {
+            method:'POST', headers:{ 'Authorization':'Bearer '+tok, 'Content-Type': blob.type||'image/jpeg' }, body: blob
+          });
+          const upData = await up.json().catch(() => ({}));
+          if (!up.ok || !upData.url) { failed++; migLog(`⚠️ ${row.id}: R2 upload selhal`, 'var(--red)'); continue; }
+
+          // Přepiš URL v user_card_photos (storage_path i url → R2 URL)
+          await fetch(`${SBU}/rest/v1/user_card_photos?id=eq.${row.id}`, {
+            method:'PATCH', headers:{...sbH,'Prefer':'return=minimal'},
+            body: JSON.stringify({ storage_path: upData.url, url: upData.url })
+          });
+          // Přepiš i v photo_queue (pokud existuje záznam se stejnou starou cestou)
+          if (supaPath) {
+            await fetch(`${SBU}/rest/v1/photo_queue?storage_path=eq.${encodeURIComponent(supaPath)}`, {
+              method:'PATCH', headers:{...sbH,'Prefer':'return=minimal'},
+              body: JSON.stringify({ storage_path: upData.url })
+            }).catch(()=>{});
+          }
+          done++;
+          migLog(`✅ ${done}/${todo.length}: ${fname} → R2`, done % 10 === 0 ? 'var(--green)' : undefined);
+        }
+      } catch (e) {
+        failed++; migLog(`❌ ${row.id}: ${e.message}`, 'var(--red)');
+      }
+      document.getElementById('mig-stat').textContent = `Hotovo ${done}, chyb ${failed} / ${todo.length}`;
+      await new Promise(r => setTimeout(r, 120)); // šetrné tempo
+    }
+
+    migLog(`Fáze ${mode} dokončena: ${done} OK, ${failed} chyb.`, failed ? 'var(--red)' : 'var(--green)');
+    if (mode === 'test') migLog('➡️ Teď ověř v albu, že těch 10 karet se zobrazuje z R2. Pak spusť fázi 2.', 'var(--green)');
+    if (mode === 'copy') migLog('➡️ Ověř, že se vše zobrazuje z R2. Teprve PAK spusť fázi 3 (mazání).', 'var(--green)');
+  } catch (e) {
+    migLog('❌ Chyba: ' + e.message, 'var(--red)');
+  } finally {
+    document.getElementById('mig-btn-stop').style.display = 'none';
+    ['test','copy','delete'].forEach(m => { const b = document.getElementById('mig-btn-'+m); if (b) b.disabled = false; });
   }
 }
 
