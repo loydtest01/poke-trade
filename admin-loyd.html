@@ -1549,8 +1549,12 @@ function _supaUrl(path) {
 }
 
 async function migPhotos(mode) {
-  const tok = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
-  const uid = localStorage.getItem('sb_user_id');
+  const tok = _token || localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token');
+  let uid = localStorage.getItem('sb_user_id');
+  // Když chybí v localStorage, vytáhni ho z JWT (sub) — ať test nespadne na „Chybí user_id"
+  if (!uid && tok && tok.includes('.')) {
+    try { uid = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).sub || ''; } catch(e) {}
+  }
   if (!tok) { alert('Nejsi přihlášený.'); return; }
   const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
   const SB_ANON = (typeof SBA !== 'undefined') ? SBA : ((typeof SUPABASE_ANON !== 'undefined') ? SUPABASE_ANON : null);
