@@ -1705,6 +1705,7 @@ async function migOneAccount(acc) {
       const res = await api('migrate_account_photos', {}, { user_id: acc.user_id, batch: 50 });
       total += res.done || 0;
       migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb`);
+      if (res.last_error) migAllLog(`   ⚠️ ${res.last_error}`, 'var(--red)');
       document.getElementById('migall-stat').textContent = `${acc.name}: ${total} fotek na R2`;
       if (res.done_all || (res.done === 0 && res.failed === 0)) break;
       await new Promise(r => setTimeout(r, 300));
