@@ -631,6 +631,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
             <button class="btn btn-sm" onclick="window._migAllStop=true" id="migall-btn-stop" style="display:none">⏹ Stop</button>
           </div>
           <div id="migall-stat" style="font-size:.8rem;color:var(--muted);margin-bottom:.4rem"></div>
+          <div id="migall-accounts" style="margin-bottom:.5rem"></div>
           <div id="migall-log" style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:7px;padding:.6rem;height:180px;overflow-y:auto;font-size:.72rem;font-family:monospace;color:var(--muted);white-space:pre-wrap">Klikni „Načíst účty k migraci".</div>
         </div>
 
@@ -1672,11 +1673,48 @@ async function migAllList() {
     _migAllAccounts = data.accounts || [];
     if (!_migAllAccounts.length) { migAllLog('🎉 Žádné účty k migraci — vše je na R2.', 'var(--green)'); return; }
     migAllLog(`Nalezeno ${_migAllAccounts.length} účtů, celkem ${data.total_pending} fotek:`, 'var(--green)');
-    _migAllAccounts.forEach(a => migAllLog(`  • ${a.name}: ${a.pending} fotek`));
+    // Vykresli účty jako tlačítka — můžeš spustit JEDEN konkrétní (např. nejdřív Lama13 jako test)
+    const box = document.getElementById('migall-accounts');
+    if (box) {
+      box.innerHTML = '';
+      // Seřaď vzestupně podle počtu — ať je nejmenší (test) první
+      [..._migAllAccounts].sort((a,b)=>a.pending-b.pending).forEach(a => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:.5rem;margin:.25rem 0';
+        row.innerHTML = `<button class="btn btn-sm" style="background:rgba(96,165,250,.15);color:#60a5fa;border:1px solid rgba(96,165,250,.4)">▶ Migrovat</button><span style="font-size:.82rem">${a.name} — <b>${a.pending}</b> fotek</span>`;
+        row.querySelector('button').onclick = () => migOneAccount(a);
+        box.appendChild(row);
+      });
+    }
     document.getElementById('migall-btn-run').style.display = '';
     document.getElementById('migall-stat').textContent = `${_migAllAccounts.length} účtů / ${data.total_pending} fotek čeká`;
   } catch (e) {
     migAllLog('❌ Chyba: ' + e.message, 'var(--red)');
+  }
+}
+
+// Migruj JEDEN konkrétní účet (po dávkách)
+async function migOneAccount(acc) {
+  window._migAllStop = false;
+  document.getElementById('migall-btn-stop').style.display = '';
+  migAllLog(`▶ Účet ${acc.name} (${acc.pending} fotek)…`, 'var(--green)');
+  let total = 0, guard = 0;
+  try {
+    while (!window._migAllStop && guard < 50) {
+      guard++;
+      const res = await api('migrate_account_photos', {}, { user_id: acc.user_id, batch: 50 });
+      total += res.done || 0;
+      migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb`);
+      document.getElementById('migall-stat').textContent = `${acc.name}: ${total} fotek na R2`;
+      if (res.done_all || (res.done === 0 && res.failed === 0)) break;
+      await new Promise(r => setTimeout(r, 300));
+    }
+    migAllLog(`✅ ${acc.name} hotovo: ${total} fotek na R2.`, 'var(--green)');
+    migAllLog('➡️ Ověř album toho účtu. Pak můžeš migrovat další.', 'var(--green)');
+  } catch (e) {
+    migAllLog(`❌ ${acc.name}: ${e.message}`, 'var(--red)');
+  } finally {
+    document.getElementById('migall-btn-stop').style.display = 'none';
   }
 }
 
