@@ -423,7 +423,7 @@ export default async function handler(req, res) {
           const r = await dbAdminQuery(`user_card_photos?user_id=eq.${targetUser}&select=id,storage_path,url&limit=${batch}`);
           const rows = await r.json();
           const todo = (rows || []).filter(x => x.storage_path && !x.storage_path.startsWith('http'));
-          let done = 0, failed = 0;
+          let done = 0, failed = 0, lastErr = null;
           for (const row of todo) {
             try {
               const srcUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
@@ -434,11 +434,15 @@ export default async function handler(req, res) {
               const fname = row.storage_path.split('/').pop();
               const up = await fetch(`${R2_WORKER}/admin/upload-user-photo?user_id=${targetUser}&filename=${encodeURIComponent(fname)}`, {
                 method: 'POST',
-                headers: { 'X-Admin-Secret': process.env.POKEDB_ADMIN_SECRET || '', 'Content-Type': ct },
+                headers: { 'X-Admin-Secret': process.env.POKEDB_ADMIN_SECRET || process.env.ADMIN_SECRET || '', 'Content-Type': ct },
                 body: Buffer.from(arrBuf),
               });
               const upData = await up.json().catch(() => ({}));
-              if (!up.ok || !upData.url) { failed++; continue; }
+              if (!up.ok || !upData.url) {
+                failed++;
+                if (!lastErr) lastErr = `R2 upload HTTP ${up.status}: ${upData.error || JSON.stringify(upData).slice(0,80)}`;
+                continue;
+              }
               await dbAdminQuery(`user_card_photos?id=eq.${row.id}`, {
                 method: 'PATCH', body: JSON.stringify({ storage_path: upData.url, url: upData.url }),
               });
@@ -448,7 +452,7 @@ export default async function handler(req, res) {
               done++;
             } catch (e) { failed++; }
           }
-          return jsonOk(res, { user_id: targetUser, done, failed, batch_size: todo.length, done_all: todo.length < batch });
+          return jsonOk(res, { user_id: targetUser, done, failed, batch_size: todo.length, done_all: todo.length < batch, last_error: lastErr });
         }
 
         return jsonError(res, 400, 'Unknown action: ' + action);
