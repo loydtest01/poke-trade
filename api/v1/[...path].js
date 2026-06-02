@@ -401,7 +401,7 @@ export default async function handler(req, res) {
           const perUser = {};
           (rows || []).forEach(row => {
             const sp = row.storage_path || '';
-            if (sp && !sp.startsWith('http')) perUser[row.user_id] = (perUser[row.user_id] || 0) + 1;
+            if (sp && !sp.startsWith('http') && !sp.startsWith('DEAD:')) perUser[row.user_id] = (perUser[row.user_id] || 0) + 1;
           });
           const ids = Object.keys(perUser);
           let names = {};
@@ -420,15 +420,27 @@ export default async function handler(req, res) {
           const batch = Math.min(parseInt(req.body?.batch) || 50, 200);
           if (!targetUser) return jsonError(res, 400, 'Missing user_id');
           const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
-          const r = await dbAdminQuery(`user_card_photos?user_id=eq.${targetUser}&select=id,storage_path,url&limit=${batch}`);
+          // Bereme JEN nezmigrované: storage_path není null a NEzačíná na http
+          // (zmigrované mají v storage_path plnou R2 URL; mrtvé jsou označené 'DEAD:' a taky http-/non-null nejsou → vypadnou níže).
+          // PostgREST: like používá '*' jako wildcard (server si ho přeloží na %).
+          // not.like.http* → vyřadí už zmigrované (R2 URL začínají http); not.like.DEAD:* → vyřadí mrtvé.
+          const r = await dbAdminQuery(`user_card_photos?user_id=eq.${targetUser}&select=id,storage_path,url&storage_path=not.is.null&storage_path=not.like.http*&storage_path=not.like.DEAD:*&limit=${batch}`);
           const rows = await r.json();
-          const todo = (rows || []).filter(x => x.storage_path && !x.storage_path.startsWith('http'));
-          let done = 0, failed = 0, lastErr = null;
+          const todo = Array.isArray(rows) ? rows : [];
+          let done = 0, failed = 0, dead = 0, lastErr = null;
           for (const row of todo) {
             try {
               const srcUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
               const img = await fetch(srcUrl);
-              if (!img.ok) { failed++; continue; }
+              if (!img.ok) {
+                // Soubor už v Supabase není → mrtvý záznam. Označíme, ať příště neblokuje dávku.
+                failed++; dead++;
+                if (!lastErr) lastErr = `stažení ${img.status} (mrtvý záznam, soubor už v Supabase není)`;
+                await dbAdminQuery(`user_card_photos?id=eq.${row.id}`, {
+                  method: 'PATCH', body: JSON.stringify({ storage_path: 'DEAD:' + row.storage_path }),
+                }).catch(()=>{});
+                continue;
+              }
               const arrBuf = await img.arrayBuffer();
               const ct = img.headers.get('content-type') || 'image/jpeg';
               const fname = row.storage_path.split('/').pop();
@@ -450,9 +462,14 @@ export default async function handler(req, res) {
                 method: 'PATCH', body: JSON.stringify({ storage_path: upData.url }),
               }).catch(()=>{});
               done++;
-            } catch (e) { failed++; }
+            } catch (e) {
+              failed++;
+              if (!lastErr) lastErr = 'výjimka: ' + (e?.message || String(e)).slice(0, 80);
+            }
           }
-          return jsonOk(res, { user_id: targetUser, done, failed, batch_size: todo.length, done_all: todo.length < batch, last_error: lastErr });
+          // done_all = dotaz vrátil míň nezmigrovaných než batch → už nic nezbývá.
+          // Mrtvé záznamy jsme označili 'DEAD:', takže příští dotaz je nevrátí → smyčka nikdy nezablokuje.
+          return jsonOk(res, { user_id: targetUser, done, failed, dead, batch_size: todo.length, done_all: todo.length < batch, last_error: lastErr });
         }
 
         return jsonError(res, 400, 'Unknown action: ' + action);
