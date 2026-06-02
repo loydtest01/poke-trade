@@ -1698,19 +1698,26 @@ async function migOneAccount(acc) {
   window._migAllStop = false;
   document.getElementById('migall-btn-stop').style.display = '';
   migAllLog(`▶ Účet ${acc.name} (${acc.pending} fotek)…`, 'var(--green)');
-  let total = 0, guard = 0;
+  let total = 0, totalDead = 0, guard = 0;
   try {
-    while (!window._migAllStop && guard < 50) {
+    while (!window._migAllStop && guard < 500) {
       guard++;
       const res = await api('migrate_account_photos', {}, { user_id: acc.user_id, batch: 50 });
       total += res.done || 0;
-      migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb`);
+      totalDead += res.dead || 0;
+      const deadTxt = res.dead ? `, ${res.dead} mrtvých` : '';
+      migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb${deadTxt}`);
       if (res.last_error) migAllLog(`   ⚠️ ${res.last_error}`, 'var(--red)');
       document.getElementById('migall-stat').textContent = `${acc.name}: ${total} fotek na R2`;
-      if (res.done_all || (res.done === 0 && res.failed === 0)) break;
-      await new Promise(r => setTimeout(r, 300));
+      // Ukonči JEN když server řekne done_all (dotaz vrátil míň nezmigrovaných než batch).
+      // Mrtvé záznamy se na serveru značí 'DEAD:' a z dalších dávek vypadnou, takže nezablokují postup.
+      if (res.done_all) break;
+      // Bezpečnostní pojistka: dávka nic neudělala A nic neoznačila → nemá smysl pokračovat.
+      if ((res.batch_size || 0) === 0) break;
+      await new Promise(r => setTimeout(r, 250));
     }
-    migAllLog(`✅ ${acc.name} hotovo: ${total} fotek na R2.`, 'var(--green)');
+    const deadSummary = totalDead ? ` (${totalDead} mrtvých záznamů přeskočeno)` : '';
+    migAllLog(`✅ ${acc.name} hotovo: ${total} fotek na R2${deadSummary}.`, 'var(--green)');
     migAllLog('➡️ Ověř album toho účtu. Pak můžeš migrovat další.', 'var(--green)');
   } catch (e) {
     migAllLog(`❌ ${acc.name}: ${e.message}`, 'var(--red)');
@@ -1731,18 +1738,23 @@ async function migAllRun() {
     for (const acc of _migAllAccounts) {
       if (window._migAllStop) { migAllLog('Zastaveno uživatelem.', 'var(--red)'); break; }
       migAllLog(`▶ Účet ${acc.name} (${acc.pending} fotek)…`, 'var(--green)');
-      let guard = 0;
+      let guard = 0, accDead = 0;
       // Migruj po dávkách dokud done_all
-      while (!window._migAllStop && guard < 50) {
+      while (!window._migAllStop && guard < 500) {
         guard++;
         const res = await api('migrate_account_photos', {}, { user_id: acc.user_id, batch: 50 });
         totalPhotos += res.done || 0;
-        migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb`);
+        accDead += res.dead || 0;
+        const deadTxt = res.dead ? `, ${res.dead} mrtvých` : '';
+        migAllLog(`   dávka: ${res.done} OK, ${res.failed} chyb${deadTxt}`);
+        if (res.last_error) migAllLog(`   ⚠️ ${res.last_error}`, 'var(--red)');
         document.getElementById('migall-stat').textContent =
           `Účet ${accDone+1}/${_migAllAccounts.length} · celkem ${totalPhotos} fotek na R2`;
-        if (res.done_all || (res.done === 0 && res.failed === 0)) break;
-        await new Promise(r => setTimeout(r, 300));
+        if (res.done_all) break;
+        if ((res.batch_size || 0) === 0) break;
+        await new Promise(r => setTimeout(r, 250));
       }
+      if (accDead) migAllLog(`   (${acc.name}: ${accDead} mrtvých záznamů přeskočeno)`, 'var(--muted)');
       accDone++;
     }
     migAllLog(`✅ Hotovo: ${accDone} účtů, ${totalPhotos} fotek přesunuto na R2.`, 'var(--green)');
