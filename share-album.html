@@ -794,6 +794,22 @@ async function sendShare() {
     return;
   }
 
+  // Ověř blokaci (oba směry) — když je blokace, vůbec neodesílej.
+  // RLS to zablokuje i na serveru, tohle je hezká hláška místo tiché chyby.
+  try {
+    const blk = await sbGet(
+      `rest/v1/blocked_users?or=(and(blocker_id.eq.${ME.id},blocked_id.eq.${selectedUser.id}),and(blocker_id.eq.${selectedUser.id},blocked_id.eq.${ME.id}))&select=blocker_id`
+    );
+    if (Array.isArray(blk) && blk.length > 0) {
+      const iBlocked = blk.some(b => b.blocker_id === ME.id);
+      toast(iBlocked
+        ? 'Tohoto uživatele máš zablokovaného — odblokuj ho, pokud mu chceš sdílet.'
+        : 'Sdílení nelze odeslat (uživatel není dostupný).', 'err');
+      btn.disabled = false; btn.textContent = 'Odeslat sdílení →';
+      return;
+    }
+  } catch (e) { console.warn('[share] block check', e); }
+
   // Vytvoř záznam sdílení
   const shareData = {
     sender_id: ME.id,
@@ -807,6 +823,13 @@ async function sendShare() {
   };
 
   const result = await sbPost('rest/v1/album_shares', shareData);
+
+  // RLS zamítnutí (blokace nebo pravidla) — POST vrátí prázdno / chybu
+  if (Array.isArray(result) && result.length === 0) {
+    toast('Sdílení nelze odeslat tomuto uživateli.', 'err');
+    btn.disabled = false; btn.textContent = 'Odeslat sdílení →';
+    return;
+  }
 
   // Race condition: stejné sdílení vytvořené z paralelního tabu
   if (result?.code === '23505' || (result?.message || '').includes('album_shares_unique_pending')) {
@@ -825,7 +848,7 @@ async function sendShare() {
       type: 'album_share_invite',
       title: `@${ME.username} s tebou sdílí album`,
       body: `Album: ${selectedAlbumData.name} — ${selectedAlbumData.cards.length} karet. Platí ${expiryHours < 24 ? expiryHours + ' hodin' : (expiryHours/24) + ' dní'}.`,
-      link: `share-album.html#incomingSection`,
+      link: null,
       metadata: { share_id: shareId, sender_username: ME.username, album_name: selectedAlbumData.name }
     });
 

@@ -1141,6 +1141,40 @@ function togglePanel(id){
   }
 }
 
+// ── Notifikace prodejci o obchodní akci (do zvonku) ───────────
+// Zvonek upozorňuje JEN na obchod: nabídka ceny, výměna, koupě/rezervace.
+async function notifySellerOffer(listing, kind, opts){
+  try {
+    if(!listing || !listing.user_id) return;
+    if(listing.user_id === userId) return; // sám sobě ne
+    opts = opts || {};
+    const cardName = listing.card_name || listing.title || 'tvoji nabídku';
+    let title, body;
+    if(kind === 'price'){
+      title = `💸 @${username} má zájem o ${cardName}`;
+      body  = opts.price ? `Nabízí ${Number(opts.price).toLocaleString('cs')} Kč${opts.msg?' — '+opts.msg:''}`
+                         : (opts.msg || 'Poslal ti nabídku.');
+    } else if(kind === 'trade'){
+      title = `🔄 @${username} nabízí výměnu za ${cardName}`;
+      body  = opts.cards ? `Výměnou: ${opts.cards}${opts.msg?' — '+opts.msg:''}` : (opts.msg || 'Navrhuje výměnu.');
+    } else { // buy / reserve
+      title = `🛒 @${username} rezervoval/a ${cardName}`;
+      body  = 'Domluvte se na předání v chatu.';
+    }
+    await sbReq('rest/v1/notifications','POST',{
+      user_id: listing.user_id,
+      type:    'offer',
+      title, body,
+      link:    null, // proklik řeší zvonek přes metadata (otevře chat s kupujícím)
+      metadata:{
+        kind, listing_id: listing.id,
+        buyer_id: userId, buyer_username: username,
+        sender_username: username   // zvonek z toho otevře chat
+      }
+    }, token);
+  } catch(e){ console.warn('[notifySellerOffer]', e); }
+}
+
 // ── Actions ───────────────────────────────────────────────────
 async function doBuy(){
   if(!token){ showMktToast('🔒 Pro rezervaci se přihlas.'); return; }
@@ -1158,6 +1192,7 @@ async function doBuy(){
   if(res && res._err){ showMktToast('❌ Chyba rezervace: '+res._err); return; }
   currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
   showMktToast('🔒 Rezervováno! Napiš prodejci a domluvte se.');
+  notifySellerOffer(currentListing, 'buy', {});
   document.getElementById('dBtnBuy').style.display = 'none';
   document.getElementById('dBtnTrade').style.display = 'none';
   document.getElementById('dBtnOffer').style.display = 'none';
@@ -1200,6 +1235,7 @@ async function sendOffer(){
   document.getElementById('dBtnOffer').style.display = 'none';
   document.getElementById('reservedForMeBanner').style.display = '';
   showMktToast('💸 Nabídka odeslána! Karta je rezervována.');
+  notifySellerOffer(l, 'price', { price: price||null, msg: msg||null });
   var _price = price, _msg = msg;
   setTimeout(() => openChat(_price, _msg, 'price', null), 300);
 }
@@ -1239,6 +1275,7 @@ async function sendTrade(){
   document.getElementById('dBtnOffer').style.display = 'none';
   document.getElementById('reservedForMeBanner').style.display = '';
   showMktToast('🔄 Výměna navržena! Karta je rezervována.');
+  notifySellerOffer(l, 'trade', { cards: selCards.map(c=>c.name).join(', '), msg: document.getElementById('tradeMsg').value.trim()||null });
   var _cards = selCards.map(c => c.name).join(', ');
   var _msg   = document.getElementById('tradeMsg').value.trim() || null;
   setTimeout(() => openChat(null, _msg, 'trade', _cards), 300);
@@ -1816,10 +1853,12 @@ function clearAddCard() {
 }
 
 function setAddType(type){
-  addType=type;
+  addType=type;  // může být null = nevybráno
   ['sell','trade','both'].forEach(t=>{
-    document.getElementById('addType'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('act',t===type);
+    const el = document.getElementById('addType'+t.charAt(0).toUpperCase()+t.slice(1));
+    if (el) el.classList.toggle('act', t===type);
   });
+  // Když není vybráno, schovej cenu i trade-řádek, dokud uživatel nevybere
   document.getElementById('addPriceRow').style.display=(type==='sell'||type==='both')?'':'none';
   document.getElementById('addTradeRow').style.display=(type==='trade'||type==='both')?'':'none';
   // Label fotek se mění podle typu — sekce je vždy viditelná
@@ -1829,10 +1868,14 @@ function setAddType(type){
     else if(type==='both') photoLabel.textContent='Fotky k prodeji / výměně';
     else photoLabel.textContent='Fotky k prodeji';
   }
+  // Vizuální výzva, když není vybráno
+  const wrap = document.getElementById('addTypeSell')?.closest('.tv-btns') || document.getElementById('addTypeSell')?.parentElement;
+  if (wrap) wrap.style.outline = (type ? 'none' : '2px solid #f5c842');
 }
 
 async function submitListing(){
   if(!token){ alert('Přihlas se.'); return; }
+  if(!addType){ alert('Vyber prosím typ nabídky: Prodej, Výměna nebo Obojí.'); return; }
   const price = parseInt(document.getElementById('addPrice').value)||null;
   const desc  = document.getElementById('addDesc').value.trim()||null;
   const cond  = document.getElementById('addCond').value;
@@ -2243,6 +2286,96 @@ function _getPendingImg(card) {
   return '';
 }
 
+/** Lišta hromadných akcí nad frontou */
+function injectBulkBar() {
+  const wrap = document.getElementById('pendingList');
+  if (!wrap || document.getElementById('pendingBulkBar')) return;
+  const bar = document.createElement('div');
+  bar.id = 'pendingBulkBar';
+  bar.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;margin-bottom:8px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);flex-wrap:wrap';
+  bar.innerHTML = `
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#cdd;cursor:pointer">
+      <input type="checkbox" id="pendingChkAll" onchange="togglePendingAll(this.checked)" style="width:16px;height:16px;accent-color:#f5c842;cursor:pointer">
+      Vybrat vše
+    </label>
+    <span id="pendingSelInfo" style="font-size:12px;color:#9aa;margin-left:auto"></span>
+    <button id="pendingBulkBtn" onclick="createBulkFromSelected()" disabled
+      style="padding:7px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;font-size:12px;cursor:pointer;opacity:.45;transition:opacity .15s">
+      📦 Vytvořit bulk z vybraných
+    </button>`;
+  wrap.parentNode.insertBefore(bar, wrap);
+}
+
+window.togglePendingAll = function(checked) {
+  document.querySelectorAll('.pending-chk').forEach(c => { c.checked = checked; });
+  updateBulkBar();
+};
+
+window.updateBulkBar = function() {
+  const checked = document.querySelectorAll('.pending-chk:checked');
+  const n = checked.length;
+  const info = document.getElementById('pendingSelInfo');
+  const btn  = document.getElementById('pendingBulkBtn');
+  if (info) info.textContent = n ? `${n} vybráno` : '';
+  if (btn) {
+    btn.disabled = n < 2;
+    btn.style.opacity = n < 2 ? '.45' : '1';
+    btn.style.cursor = n < 2 ? 'default' : 'pointer';
+    btn.textContent = n >= 2 ? `📦 Vytvořit bulk z vybraných (${n})` : '📦 Vytvořit bulk z vybraných';
+  }
+};
+
+/** Vytvoří bulk nabídku z vybraných karet ve frontě */
+window.createBulkFromSelected = function() {
+  if (!token) { alert('Přihlas se.'); return; }
+  const ids = Array.from(document.querySelectorAll('.pending-chk:checked')).map(c => c.value);
+  if (ids.length < 2) { alert('Vyber alespoň 2 karty pro bulk.'); return; }
+  const cards = ids.map(id => _pendingCardMap[id]).filter(Boolean);
+  if (!cards.length) return;
+
+  // Naplnit bulkPhotos fotkami vybraných karet (přední strana, R2 URL)
+  if (typeof bulkPhotos !== 'undefined') {
+    bulkPhotos.length = 0;
+    cards.forEach(card => {
+      const img = _getPendingImg(card);
+      if (img) bulkPhotos.push({ src: img, mime: 'image/jpeg' });
+    });
+  }
+
+  // Spočítat sety a rarity pro předvyplnění bulk formuláře
+  const sets = [...new Set(cards.map(c => c.set?.name || (typeof c.set === 'string' ? c.set : '')).filter(Boolean))].join(', ');
+  let common = 0, rare = 0, ultra = 0, secret = 0;
+  cards.forEach(c => {
+    const r = (c.rarity || '').toLowerCase();
+    if (r.includes('secret')) secret++;
+    else if (r.includes('ultra') || r.includes('hyper') || r.includes('rainbow')) ultra++;
+    else if (r.includes('rare') || r.includes('holo')) rare++;
+    else common++;
+  });
+
+  // Zapamatovat si, které pending karty po vystavení odebrat
+  _bulkSourcePendingIds = ids.slice();
+
+  // Zavřít panel fronty, otevřít formulář v bulk režimu
+  togglePendingPanel(false);
+  document.getElementById('addModal').style.display = 'flex';
+  if (typeof setListingTab === 'function') setListingTab('bulk');
+
+  // Předvyplnit bulk pole (pokud existují)
+  const setField = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  setTimeout(() => {
+    setField('bulkCount', String(cards.length));
+    setField('bulkCommon', common ? String(common) : '');
+    setField('bulkRare', rare ? String(rare) : '');
+    setField('bulkUltra', ultra ? String(ultra) : '');
+    setField('bulkSecret', secret ? String(secret) : '');
+    setField('bulkSets', sets);
+    if (typeof renderBulkPhotos === 'function') renderBulkPhotos();
+  }, 200);
+};
+
+let _bulkSourcePendingIds = [];
+
 function renderPendingList() {
   const wrap = document.getElementById('pendingList');
   if (!wrap) return;
@@ -2274,22 +2407,29 @@ function renderPendingList() {
       ? '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(167,139,250,0.15);color:#a78bfa;font-weight:600;white-space:nowrap">💰🔄 Obojí</span>'
       : '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:rgba(74,222,128,0.15);color:#4ade80;font-weight:600;white-space:nowrap">💰 Prodej</span>';
 
-    return `<div class="pending-row" onclick="openListingFromQueue('${pid}')">
-      <img class="pending-row-img" id="prow-img-${pid}" src="${img ? esc(img) : ''}" loading="lazy"
-        style="${img ? '' : 'display:none'}"
-        onerror="this.style.display='none';document.getElementById('prow-ph-${pid}').style.display='flex'">
-      <div class="pending-row-img pending-row-img-placeholder" id="prow-ph-${pid}"
-        style="${img ? 'display:none' : 'display:flex'};align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.2)">🃏</div>
-      <div class="pending-row-info">
-        <div class="pending-row-name">${name}</div>
-        <div class="pending-row-meta">${set}${num}</div>
+    return `<div class="pending-row" data-pid="${pid}">
+      <label class="pending-row-check" onclick="event.stopPropagation()" style="display:flex;align-items:center;padding:0 4px;cursor:pointer">
+        <input type="checkbox" class="pending-chk" value="${pid}" onchange="updateBulkBar()" style="width:18px;height:18px;cursor:pointer;accent-color:#f5c842">
+      </label>
+      <div style="display:flex;align-items:center;gap:10px;flex:1;cursor:pointer" onclick="openListingFromQueue('${pid}')">
+        <img class="pending-row-img" id="prow-img-${pid}" src="${img ? esc(img) : ''}" loading="lazy"
+          style="${img ? '' : 'display:none'}"
+          onerror="this.style.display='none';document.getElementById('prow-ph-${pid}').style.display='flex'">
+        <div class="pending-row-img pending-row-img-placeholder" id="prow-ph-${pid}"
+          style="${img ? 'display:none' : 'display:flex'};align-items:center;justify-content:center;font-size:20px;background:rgba(255,255,255,0.04);border-radius:8px;color:rgba(255,255,255,0.2)">🃏</div>
+        <div class="pending-row-info">
+          <div class="pending-row-name">${name}</div>
+          <div class="pending-row-meta">${set}${num}</div>
+        </div>
+        <div class="pending-row-cond">${cond}</div>
+        <div class="pending-row-price">${price}</div>
       </div>
-      <div class="pending-row-cond">${cond}</div>
-      ${typeBadge}
-      <div class="pending-row-price">${price}</div>
       <button class="pending-row-del" title="Odebrat z fronty" onclick="event.stopPropagation();removePendingCard('${pid}')">✕</button>
     </div>`;
   }).join('');
+
+  // Lišta hromadných akcí (bulk) — vždy viditelná nad seznamem
+  injectBulkBar();
 
   // Async: pro karty bez obrázku zkusit dohledat z TCG API podle jména
   q.forEach(card => {
@@ -2345,9 +2485,14 @@ function openListingFromQueue(pendingId) {
   resetAiZone();
   setTimeout(generateInlineQr, 300);
 
-  // Nastav typ nabídky dle toho, co bylo vybráno v albu (sell/trade/both)
-  const listingType = card.listing_type || 'sell';
-  setAddType(listingType);
+  // Nastav typ nabídky. NOVÝ TOK: karta z alba přijde bez typu (null) →
+  // necháme uživatele vybrat ve formuláři (nic nepředvybráno).
+  const listingType = card.listing_type || null;
+  if (listingType) {
+    setAddType(listingType);
+  } else {
+    setAddType(null); // žádný typ — formulář vyzve k výběru
+  }
 
   // Pre-fill basic card data immediately
   addCardData = card;
@@ -5936,6 +6081,11 @@ async function submitBulkListing() {
   if (res._err) { alert('Chyba: ' + res._err); return; }
 
   alert('✅ Bulk nabídka zveřejněna!');
+  // Odebrat zdrojové karty z fronty "Čeká na vystavení" (bulk z fronty)
+  if (typeof _bulkSourcePendingIds !== 'undefined' && _bulkSourcePendingIds.length) {
+    _bulkSourcePendingIds.forEach(pid => { try { removePendingCard(pid); } catch {} });
+    _bulkSourcePendingIds = [];
+  }
   closeAddListing();
   const newListing = Array.isArray(res) ? res[0] : res;
   if (newListing?.id) dispatchListingNotifications(newListing).catch(() => {});

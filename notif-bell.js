@@ -96,14 +96,21 @@
     setInterval(fetchCount, 30000);
   }
 
+  // Zvonek NEukazuje chatové zprávy — ty mají vlastní ikonu 💬.
+  // Filtrujeme i staré 'system' notifikace „ti napsal/a" (DB filtr na type nestačí).
+  function _isChatMsg(n) {
+    return n.type === 'message' || /ti napsal\/a|ti napsal|napsal\/a/i.test(n.title || '');
+  }
+
   async function fetchCount() {
     const t = getToken(), uid = getUid(), url = getSbUrl();
     if (!t || !uid || !url) return;
     try {
-      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false&type=neq.message&select=id`, { headers: sbH(t) });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&read=eq.false&type=neq.message&select=id,title,type`, { headers: sbH(t) });
       if (!r.ok) return;
       const d = await r.json();
-      updateBadge(Array.isArray(d) ? d.length : 0);
+      const arr = Array.isArray(d) ? d.filter(n => !_isChatMsg(n)) : [];
+      updateBadge(arr.length);
     } catch(e) {}
   }
 
@@ -111,9 +118,11 @@
     const t = getToken(), uid = getUid(), url = getSbUrl();
     if (!t || !uid || !url) return [];
     try {
-      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&order=created_at.desc&limit=10&type=neq.message&select=id,title,body,link,read,created_at`, { headers: sbH(t) });
+      const r = await fetch(`${url}/rest/v1/notifications?user_id=eq.${uid}&order=created_at.desc&limit=20&type=neq.message&select=id,title,body,link,read,created_at,metadata,type`, { headers: sbH(t) });
       if (!r.ok) return [];
-      return await r.json() || [];
+      const d = await r.json();
+      // Klientský filtr: vyřaď chatové zprávy, nech jen obchodní/ostatní notifikace
+      return (Array.isArray(d) ? d.filter(n => !_isChatMsg(n)) : []).slice(0, 10);
     } catch { return []; }
   }
 
@@ -189,26 +198,83 @@
     return '🔔';
   }
 
+  // Náhled těla: [IMG:...] / [img] → "📷 Fotka"; ořež dlouhé URL
+  function bodyPreview(body) {
+    if (!body) return '';
+    let s = String(body);
+    // Zpráva s fotkou: [IMG:https://...] nebo samotná image URL
+    if (/\[img[:\]]/i.test(s) || /https?:\/\/\S+\.(jpg|jpeg|png|webp|gif)/i.test(s)) {
+      // Pokud je tam i text vedle obrázku, necháme text + štítek
+      const txt = s.replace(/\[img:[^\]]*\]/ig, '').replace(/https?:\/\/\S+/ig, '').trim();
+      return txt ? ('📷 ' + txt) : '📷 Fotka';
+    }
+    return s;
+  }
+
+  // Je to notifikace o nové zprávě? (titulek „@xx ti napsal/a")
+  function isMsgNotif(n) {
+    return /ti napsal\/a|ti napsal|napsal\/a/i.test(n.title || '') || n.type === 'message';
+  }
+
+  // Z titulku „@username ti napsal/a" vytáhni username
+  function senderFromTitle(title) {
+    const m = (title || '').match(/@?([\w.\-]+)\s+ti napsal/i);
+    return m ? m[1] : null;
+  }
+
+  // username → user_id (pro otevření chatu z notifikace o zprávě)
+  async function _resolveUserId(username) {
+    const t = getToken(), url = getSbUrl();
+    if (!t || !url || !username) return null;
+    try {
+      const r = await fetch(`${url}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id&limit=1`, { headers: sbH(t) });
+      if (!r.ok) return null;
+      const d = await r.json();
+      return Array.isArray(d) && d[0] ? d[0].id : null;
+    } catch { return null; }
+  }
+  window._resolveUserId = _resolveUserId;
+
   function renderList(items) {
     const list = document.getElementById('notifDropList');
     if (!list) return;
     if (!items||!items.length) { list.innerHTML='<div class="notif-empty">📭 Žádné notifikace</div>'; return; }
-    list.innerHTML = items.map(n=>`
-      <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(n.link||'#')}">
+    // Odkazy na sdílení alb nechceme proklikávat — notifikace slouží jen jako upozornění.
+    const _noLink = (l) => (l && /share-album/i.test(l)) ? '#' : (l || '#');
+    list.innerHTML = items.map(n=>{
+      // Otevřít chat: u zpráv (legacy) i u obchodních notifikací (type:offer s metadaty kupujícího)
+      const wantsChat = isMsgNotif(n) || n.type === 'offer'
+        || (n.metadata && (n.metadata.sender_username || n.metadata.buyer_username || n.metadata.conversation_id));
+      let href = _noLink(n.link);
+      let openChat = '';
+      if (wantsChat) {
+        const convId = n.metadata && (n.metadata.conversation_id || n.metadata.conv_id || n.metadata.conv);
+        const sender = (n.metadata && (n.metadata.sender_username || n.metadata.buyer_username || n.metadata.from_username)) || senderFromTitle(n.title);
+        if (convId)      { href = 'chat.html?conv=' + encodeURIComponent(convId); }
+        else if (sender) { openChat = sender; href = '#'; }   // username→id při kliku
+      }
+      return `
+      <div class="notif-item ${!n.read?'unread':''}" data-id="${esc(n.id)}" data-href="${esc(href)}" data-openchat="${esc(openChat)}">
         <div class="notif-dot ${n.read?'read':''}" onclick="window._notifClick&&window._notifClick(this.parentNode)"></div>
         <div class="notif-body" onclick="window._notifClick&&window._notifClick(this.parentNode)">
           <div class="notif-item-title">${notifIcon(n.title,n.body)} ${esc(n.title||'Notifikace')}</div>
-          <div class="notif-item-body">${esc(n.body||'')}</div>
-          ${n.link && n.link !== '#' ? `<div class="notif-item-link">🔗 Zobrazit →</div>` : ''}
+          <div class="notif-item-body">${esc(bodyPreview(n.body))}</div>
+          ${(href && href !== '#') || openChat ? `<div class="notif-item-link">💬 Otevřít chat →</div>` : ''}
           <div class="notif-item-time">${fmtTime(n.created_at)}</div>
         </div>
         <button class="notif-del-btn" title="Smazat" onclick="event.stopPropagation();window._notifDelete&&window._notifDelete('${esc(n.id)}',this)">✕</button>
-      </div>`).join('');
+      </div>`;}).join('');
     window._notifClick = async function(el) {
-      const id=el.dataset.id, href=el.dataset.href;
+      const id=el.dataset.id, href=el.dataset.href, openChat=el.dataset.openchat;
       el.classList.remove('unread'); el.querySelector('.notif-dot').classList.add('read');
       await markRead(id);
       updateBadge(Math.max(0,_lastCount-1));
+      // Otevřít konkrétní chat podle username (najdi user_id)
+      if (openChat) {
+        const targetId = await _resolveUserId(openChat);
+        if (targetId) { location.href = 'chat.html?with=' + encodeURIComponent(targetId); return; }
+        location.href = 'chat.html'; return;
+      }
       if (href&&href!=='#') location.href=href;
     };
     window._notifDelete = async function(id, btn) {

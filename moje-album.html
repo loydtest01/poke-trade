@@ -3796,11 +3796,8 @@ function openCardDetail(c) {
   document.getElementById('cdActions').innerHTML = isRO
     ? `<div style="padding:8px 10px;border-radius:9px;background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.2);font-size:12px;color:rgba(130,190,255,0.8);text-align:center;">👁 Sdílené album — pouze ke čtení</div>`
     : `
-    <button class="cd-act-btn ${c.for_trade?'trade-on':'trade-off'}" onclick="toggleCdTrade()">
-      🔄 ${c.for_trade ? (_L?'Cancel trade':'Zrušit výměnu') : (_L?'For trade':'Dát k výměně')}
-    </button>
-    <button class="cd-act-btn ${c.for_sell?'sell-on':'sell-off'}" onclick="toggleCdSell()">
-      💰 ${c.for_sell ? (_L?'Cancel sale':'Zrušit prodej') : (_L?'For sale':'Dát k prodeji')}
+    <button class="cd-act-btn sell-off" onclick="sendCardToShop()" style="grid-column:1/-1">
+      📤 ${_L ? 'Send to shop' : 'Poslat do obchodu'}
     </button>
     <button class="cd-act-btn delete" onclick="deleteCdCard()">🗑 ${_L?'Delete':'Smazat'}</button>`;
 
@@ -4810,29 +4807,19 @@ async function saveCardUpdates(c) {
 }
 
 async function toggleCdTrade() {
-  if (!_detailCard) return;
-  if (!_detailCard.for_trade) {
-    // Enabling — open photo picker first
-    openListingPhotoModal('trade'); return;
-  }
-  // Disabling
-  _detailCard.for_trade = false;
-  _detailCard.updated_at = new Date().toISOString();
-  saveLocal(); openCardDetail(_detailCard); render();
-  await syncCardToServer(_detailCard);
-  syncVymenaAlbum().catch(e => console.warn('[vymena toggleCdTrade]', e));
+  // (zachováno pro zpětnou kompatibilitu, ale UI už volá sendCardToShop)
+  return sendCardToShop();
 }
 
 async function toggleCdSell() {
+  return sendCardToShop();
+}
+
+// Nový jednotný tok: pošli kartu do fronty "Čeká na vystavení" BEZ určení typu.
+// Typ (prodej/výměna/obojí) se vybere až ve formuláři v Obchodě.
+async function sendCardToShop() {
   if (!_detailCard) return;
-  if (!_detailCard.for_sell) {
-    openListingPhotoModal('sell'); return;
-  }
-  _detailCard.for_sell = false;
-  _detailCard.updated_at = new Date().toISOString();
-  saveLocal(); openCardDetail(_detailCard); render();
-  await syncCardToServer(_detailCard);
-  syncObchodAlbum().catch(e => console.warn('[obchod toggleCdSell]', e));
+  openListingPhotoModal('pending'); // 'pending' = bez typu
 }
 
 // ── Photo picker for new listing ───────────────────────────────
@@ -4915,17 +4902,23 @@ async function confirmListingPhoto() {
   const c = _detailCard;
   const cd = c.card_data || {};
 
-  // Mark card
-  if (_pendingListingType === 'trade' || _pendingListingType === 'both') c.for_trade = true;
-  if (_pendingListingType === 'sell'  || _pendingListingType === 'both') c.for_sell  = true;
-  c.updated_at = new Date().toISOString();
-  saveLocal(); render();
-  syncCardToServer(c).catch(()=>null);
-  if (c.for_trade) syncVymenaAlbum().catch(()=>null);
-  if (c.for_sell)  syncObchodAlbum().catch(()=>null);
+  // Nový tok: typ 'pending' = pošli do fronty BEZ určení prodej/výměna.
+  // Starý tok (sell/trade/both) ponecháváme funkční pro zpětnou kompatibilitu.
+  const isPending = _pendingListingType === 'pending';
+
+  if (!isPending) {
+    // Legacy: rovnou označit kartu
+    if (_pendingListingType === 'trade' || _pendingListingType === 'both') c.for_trade = true;
+    if (_pendingListingType === 'sell'  || _pendingListingType === 'both') c.for_sell  = true;
+    c.updated_at = new Date().toISOString();
+    saveLocal(); render();
+    syncCardToServer(c).catch(()=>null);
+    if (c.for_trade) syncVymenaAlbum().catch(()=>null);
+    if (c.for_sell)  syncObchodAlbum().catch(()=>null);
+  }
 
   // Přidat do fronty "Čeká na vystavení" pro marketplace
-  if (_pendingListingType === 'sell' || _pendingListingType === 'trade' || _pendingListingType === 'both') {
+  {
     // POZN: po načtení z Supabase jsou pole rozsprešená přímo na c (ne v c.card_data),
     // proto hledáme obrázek i na c přímo.
     const _imgSmall = cd.apiSmall || c.apiSmall || cd.images?.small || c.images?.small || cd.imageUrl || c.imageUrl || '';
@@ -4953,7 +4946,8 @@ async function confirmListingPhoto() {
       allPhotos:   _listingAllPhotoRows.length
                      ? _listingAllPhotoRows.map(p => ({ url: p.url, side: p.side || 'front', storage_path: p.storage_path || null }))
                      : (_selectedListingPhotoUrl ? [{ url: _selectedListingPhotoUrl, side: 'front' }] : []),
-      listing_type: _pendingListingType || 'sell',
+      // Nový tok: typ necháme prázdný (vybere se ve formuláři). Legacy: zachová typ.
+      listing_type: isPending ? null : _pendingListingType,
     };
     pushToPendingQueue([pendingCard]);
   }
@@ -6295,6 +6289,10 @@ function reconcilePendingQueue() {
     // Sada id karet, které uživatel záměrně odstranil z fronty v marketplace
     const dismissedIds = new Set(JSON.parse(localStorage.getItem('pkt_dismissed_ids') || '[]').map(String));
 
+    // NOVÝ TOK: fronta "Čeká na vystavení" se plní jen ručně přes "Poslat do obchodu".
+    // Automatické doplňování podle for_sell je vypnuté (jinak by se vracely staré karty).
+    return;
+    // eslint-disable-next-line no-unreachable
     const missing = allCards.filter(c => {
       if (!c.for_sell) return false;
       const cid = String(c.id || '');

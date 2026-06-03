@@ -318,9 +318,6 @@ function injectStyles() {
     .notif-item-body { font-size:11px;color:rgba(240,236,228,.5);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
     .notif-item-time { font-size:10px;color:rgba(240,236,228,.3);margin-top:3px; }
     .notif-empty { text-align:center;padding:28px 14px;font-size:13px;color:rgba(240,236,228,.35); }
-    .notif-drop-footer { border-top:1px solid rgba(255,255,255,.08);padding:9px 14px;text-align:center; }
-    .notif-drop-footer a { font-size:12px;color:rgba(245,200,66,.75);text-decoration:none; }
-    .notif-drop-footer a:hover { color:#f5c842; }
 
     /* ── Notifikační přepínače ── */
     .notif-pref-row {
@@ -1263,7 +1260,7 @@ function injectBell() {
     + '<div class="notif-drop-head"><span class="notif-drop-title">🔔 Notifikace</span>'
     + '<button class="notif-read-all-btn" id="notifReadAllBtn">Vše přečteno</button></div>'
     + '<div class="notif-drop-list" id="notifDropList"><div class="notif-empty">📭 Žádné notifikace</div></div>'
-    + '<div class="notif-drop-footer"><a href="share-album.html">Sdílení alb →</a></div></div>';
+    + '</div>';
   var ref = document.getElementById('chatDropWrap') || document.getElementById('settingsDropWrap') || document.getElementById('userChip');
   if (ref) tr.insertBefore(wrap, ref);
   else tr.prepend(wrap);
