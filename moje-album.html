@@ -1991,11 +1991,8 @@ body { background: #06040c; overflow-x: hidden; }
     <div class="sb-divider"></div>
 
     <div class="sb-section">
-      <span class="sb-label" data-i18n="spec_alb">Speciální alba</span>
-      <button class="sb-btn" onclick="setAlbumByName('Výměna')" id="sbVymena" data-i18n="trade_album"><img src="energi/vymena.png" class="sb-icon"> Výměna <span class="cnt" id="cnt-vymena">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Obchod')"  id="sbObchod" data-i18n="shop_album"><img src="energi/obchod.png" class="sb-icon"> Obchod <span class="cnt" id="cnt-obchod">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Vyměněno')" id="sbVymeneno" style="opacity:.75"><img src="energi/vymeneno.png" class="sb-icon"> Vyměněno <span class="cnt" id="cnt-vymeneno">0</span></button>
-      <button class="sb-btn" onclick="setAlbumByName('Prodáno')"  id="sbProdano"  style="opacity:.75"><img src="energi/prodano.png" class="sb-icon"> Prodáno <span class="cnt" id="cnt-prodano">0</span></button>
+      <span class="sb-label">Obchod</span>
+      <a class="sb-btn" href="marketplace.html?my=1" style="text-decoration:none"><img src="energi/obchod.png" class="sb-icon"> Správa inzerátů →</a>
     </div>
     <div class="sb-divider"></div>
 
@@ -2835,9 +2832,7 @@ let editingAlbumId = null;
     if (e.key === 'ArrowLeft')  { navigateCard(-1); return; }
     if (e.key === 'ArrowRight') { navigateCard(1);  return; }
   });
-  // Po načtení dat synchronizuj album "Výměna" a "Obchod" (tiše, bez čekání)
-  syncVymenaAlbum().catch(e => console.warn('[vymena init]', e));
-  syncObchodAlbum().catch(e => console.warn('[obchod init]', e));
+  // Speciální alba (Výměna/Obchod) zrušena — sync se nevolá.
   // First-run: pokud uživatel nemá žádná alba, zobraz uvítací modal
   if (!localStorage.getItem('pkc_first_run_done') && allAlbums.filter(a => !['Výměna','Obchod','Vyměněno','Prodáno'].includes(a.name)).length === 0) {
     document.getElementById('firstRunModal').classList.remove('hidden');
@@ -5876,16 +5871,7 @@ function renderAlbumList() {
   const obchod   = allAlbums.find(a => a.name === 'Obchod');
   const vymeneno = allAlbums.find(a => a.name === 'Vyměněno');
   const prodano  = allAlbums.find(a => a.name === 'Prodáno');
-  document.getElementById('cnt-vymena').textContent   = (vymena?.cardIds||[]).length;
-  document.getElementById('cnt-obchod').textContent   = (obchod?.cardIds||[]).length;
-  document.getElementById('cnt-vymeneno').textContent = (vymeneno?.cardIds||[]).length;
-  document.getElementById('cnt-prodano').textContent  = (prodano?.cardIds||[]).length;
-
-  // Zvýrazni aktivní speciální album
-  document.getElementById('sbVymena').classList.toggle('active',   activeAlbumIds.has(vymena?.id));
-  document.getElementById('sbObchod').classList.toggle('active',   activeAlbumIds.has(obchod?.id));
-  document.getElementById('sbVymeneno').classList.toggle('active', activeAlbumIds.has(vymeneno?.id));
-  document.getElementById('sbProdano').classList.toggle('active',  activeAlbumIds.has(prodano?.id));
+  // (Tlačítka speciálních alb byla odstraněna — správa nabídek je v Obchod → Správa inzerátů.)
 
   // Zobraz/skryj tlačítko "Označit jako dokončeno" ve select banneru
   const isSpecialTrade = activeAlbumIds.has(vymena?.id) || activeAlbumIds.has(obchod?.id);
@@ -6227,6 +6213,11 @@ async function bulkDelete() {
  * Vytvoří ho pokud neexistuje, aktualizuje cardIds na základě for_trade karet.
  */
 async function syncVymenaAlbum() {
+  // Speciální alba (Výměna/Obchod/Vyměněno/Prodáno) byla zrušena.
+  // Nabídky řeší fronta „Čeká na vystavení" + Obchod → Správa inzerátů.
+  return;
+}
+async function _syncVymenaAlbum_DISABLED() {
   const VYMENA_ID    = 'alb_vymena_web_' + userId;
   const tradeCardIds = allCards.filter(c => c.for_trade).map(c => String(c.id));
 
@@ -6250,6 +6241,10 @@ async function syncVymenaAlbum() {
  * Vytvoří ho pokud neexistuje, aktualizuje cardIds na základě for_sell karet.
  */
 async function syncObchodAlbum() {
+  // Zrušeno — viz syncVymenaAlbum.
+  return;
+}
+async function _syncObchodAlbum_DISABLED() {
   const OBCHOD_ID   = 'alb_obchod_web_' + userId;
   const sellCardIds = allCards.filter(c => c.for_sell).map(c => String(c.id));
 
