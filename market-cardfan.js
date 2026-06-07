@@ -63,7 +63,29 @@
       const c = el.querySelector('.wl-cnt');
       if (c) c.textContent = _watchCount[id] || 0;
     });
+    updateFavCount();
   }
+
+  // ── Oblíbené: počet + přepínač zobrazení ─────────────────────
+  function updateFavCount() {
+    const b = document.getElementById('favCountBadge');
+    if (b) b.textContent = _watched.size;
+  }
+  window._wlUpdateFavCount = updateFavCount;
+
+  let _favView = false;
+  window.toggleFavView = function () {
+    _favView = !_favView;
+    const btn = document.getElementById('favToggleBtn');
+    if (btn) {
+      btn.style.background = _favView ? '#ff5a78' : 'rgba(255,90,120,0.08)';
+      btn.style.color = _favView ? '#fff' : '#ff7088';
+    }
+    if (typeof applyFilters === 'function') applyFilters();
+    else if (typeof renderListings === 'function') renderListings();
+  };
+  window._isFavView = () => _favView;
+  window._isWatched = (id) => _watched.has(id);
 
   function heartHTML(id) {
     const on = _watched.has(id);
@@ -222,15 +244,23 @@
   const _origApply = window.applyFilters;
   window.applyFilters = function () {
     const r = _origApply ? _origApply.apply(this, arguments) : undefined;
+    // Filtr "jen oblíbené" — aplikuje se na filteredListings po standardních filtrech
+    if (_favView && Array.isArray(window.filteredListings || filteredListings)) {
+      try {
+        filteredListings = filteredListings.filter(l => _watched.has(l.id));
+        if (typeof renderListings === 'function') _origRender ? _origRender() : renderListings();
+      } catch (e) { console.warn('[fav filter]', e); }
+    }
     if (!_wlReady && Array.isArray(allListings) && allListings.length) {
       _wlReady = true;
       const ids = allListings.map(l => l.id).filter(Boolean);
       Promise.all([loadWatchlist(), loadWatchCounts(ids)]).then(() => {
         ids.forEach(_refreshHeart);
-        // re-render aby srdíčka dostala správný stav/počet
+        updateFavCount();
         if (typeof renderListings === 'function') renderListings();
       });
     }
+    updateFavCount();
     return r;
   };
 

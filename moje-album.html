@@ -112,6 +112,12 @@ body { background: #06040c; overflow-x: hidden; }
   height: calc(100vh - 56px); overflow-y: auto;
 }
 .sb-section { padding: 0 10px 12px; }
+/* Collapsible sekce */
+.sb-collap > .sb-label { cursor: pointer; display: flex; align-items: center; justify-content: space-between; user-select: none; }
+.sb-collap > .sb-label .sb-arrow { transition: transform .2s; font-size: 10px; opacity: .6; }
+.sb-collap.open > .sb-label .sb-arrow { transform: rotate(90deg); }
+.sb-collap-body { display: none; margin-top: 8px; }
+.sb-collap.open .sb-collap-body { display: block; }
 .sb-label {
   font-size: 10px; font-weight: 700; letter-spacing: .12em;
   color: var(--text3); text-transform: uppercase;
@@ -1954,13 +1960,15 @@ body { background: #06040c; overflow-x: hidden; }
 
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
-    <div class="sb-section">
-      <span class="sb-label" data-i18n="cond">Stav karty</span>
-      <button class="sb-btn active" onclick="setCond('')" data-i18n="c_all">Vše</button>
-      <button class="sb-btn" onclick="setCond('NM')">✨ NM</button>
-      <button class="sb-btn" onclick="setCond('LP')">🟡 LP</button>
-      <button class="sb-btn" onclick="setCond('MP')">🟠 MP</button>
-      <button class="sb-btn" onclick="setCond('HP')">🔴 HP</button>
+    <div class="sb-section sb-collap" id="secCond">
+      <span class="sb-label" onclick="toggleSbCollap('secCond')"><span data-i18n="cond">Stav karty</span> <span class="sb-arrow">▶</span></span>
+      <div class="sb-collap-body">
+        <button class="sb-btn active" onclick="setCond('');collapseAfterPick('secCond')" data-i18n="c_all">Vše</button>
+        <button class="sb-btn" onclick="setCond('NM');collapseAfterPick('secCond')">✨ NM</button>
+        <button class="sb-btn" onclick="setCond('LP');collapseAfterPick('secCond')">🟡 LP</button>
+        <button class="sb-btn" onclick="setCond('MP');collapseAfterPick('secCond')">🟠 MP</button>
+        <button class="sb-btn" onclick="setCond('HP');collapseAfterPick('secCond')">🔴 HP</button>
+      </div>
     </div>
     <div class="sb-divider"></div>
 
@@ -2014,22 +2022,21 @@ body { background: #06040c; overflow-x: hidden; }
     </div>
     <div class="sb-divider"></div>
 
-    <div class="sb-section">
-      <span class="sb-label">🔧 Správa dat</span>
-      <button class="sb-btn" onclick="showMergeDupConfirm()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
-      <button class="sb-btn" onclick="showBulkSellModal()" id="bulkSellBtn" title="Hromadně vytvoří marketplace nabídky ze zdvojených karet s Cardmarket cenou" style="color:rgba(100,210,100,0.85);border:1px solid rgba(100,210,100,0.2);background:rgba(100,210,100,0.05);">🛒 Prodej duplicit</button>
-      <button class="sb-btn" onclick="fetchMissingPricesOnly()" id="fetchMissingPricesBtn" title="Načte ceny pouze pro karty, které nemají žádnou cenu" style="color:rgba(100,220,120,0.85);border:1px solid rgba(100,220,120,0.2);background:rgba(100,220,120,0.05);">
-        💰 Načíst chybějící ceny
-      </button>
-      <button class="sb-btn" onclick="openBrokenCmModal()" id="brokenCmBtn" title="Zobrazí karty kde se nepodařilo načíst cenu a umožní opravit Cardmarket odkaz" style="color:rgba(255,150,100,0.85);border:1px solid rgba(255,150,100,0.2);background:rgba(255,150,100,0.05);">
-        🔗 Opravit CM odkazy
-      </button>
-      <button class="sb-btn" onclick="repairAllCards()" id="repairAllBtn" title="Automaticky opraví všechny karty — znovu vyhledá správnou kartu a načte ceny">
-        🛠️ <span data-i18n="sidebar.repairAuto">Opravit vše automaticky</span>
-      </button>
-      <button class="sb-btn" onclick="resetAllPrices()" id="resetPricesBtn" title="Vymaže uložené Cardmarket URL, apiId a ceny – karty se načtou při příštím otevření">
-        🔄 <span data-i18n="sidebar.resetPrices">Reset cen (ruční)</span>
-      </button>
+    <div class="sb-section sb-collap" id="secData">
+      <span class="sb-label" onclick="toggleSbCollap('secData')">🔧 Správa dat <span class="sb-arrow">▶</span></span>
+      <div class="sb-collap-body">
+        <button class="sb-btn" onclick="showMergeDupConfirm()" id="mergeDupBtn" title="Najde a sloučí duplicitní karty v aktivním albu — navýší počet ks a přenese fotky" style="color:rgba(245,200,66,0.85);border:1px solid rgba(245,200,66,0.2);background:rgba(245,200,66,0.05);">🔀 Sloučit duplicity</button>
+        <button class="sb-btn" onclick="showBulkSellModal()" id="bulkSellBtn" title="Pošle zdvojené karty do fronty „Čeká na vystavení" s Cardmarket cenou — vystavíš nebo stornuješ" style="color:rgba(100,210,100,0.85);border:1px solid rgba(100,210,100,0.2);background:rgba(100,210,100,0.05);">🛒 Prodej duplicit</button>
+        <button class="sb-btn" onclick="fetchMissingPricesOnly()" id="fetchMissingPricesBtn" title="Načte ceny pouze pro karty, které nemají žádnou cenu" style="color:rgba(100,220,120,0.85);border:1px solid rgba(100,220,120,0.2);background:rgba(100,220,120,0.05);">
+          💰 Načíst chybějící ceny
+        </button>
+        <button class="sb-btn" onclick="openBrokenCmModal()" id="brokenCmBtn" title="Zobrazí karty kde se nepodařilo načíst cenu a umožní opravit Cardmarket odkaz" style="color:rgba(255,150,100,0.85);border:1px solid rgba(255,150,100,0.2);background:rgba(255,150,100,0.05);">
+          🔗 Opravit CM odkazy
+        </button>
+        <button class="sb-btn" onclick="resetAllPrices()" id="resetPricesBtn" title="Resetuje ceny jen u karet, které se nepodařilo najít na Cardmarket – zkusí se načíst znovu">
+          🔄 <span data-i18n="sidebar.resetPrices">Reset cen (nenalezené)</span>
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -5331,10 +5338,22 @@ async function fetchPriceForCard(c, rowIdx, saveBtn) {
 // ── Oprava špatně načtených Cardmarket cen ────────────────────────
 async function resetAllPrices() {
   if (!allCards.length) return alert('Nejprve načti alba.');
+
+  // Resetovat JEN karty, kterým se NEPODAŘILO najít cenu (žádná cena + nemají zdroj).
+  // Karty s platnou cenou (Cardmarket i TCGPlayer fallback) necháme být.
+  const failed = allCards.filter(c => {
+    const hasPrice = (c.pMin > 0 || c.pTrend > 0 || c.p30d > 0);
+    return !hasPrice; // bez ceny = lookup selhal nebo ještě neproběhl
+  });
+
+  if (!failed.length) {
+    return alert('✅ Všechny karty mají platnou cenu — není co resetovat.');
+  }
+
   const confirmed = confirm(
-    `Opravit Cardmarket ceny pro ${allCards.length} karet?\n\n` +
-    `Tím se vymažou uložené URL, apiId a ceny – při dalším otevření detailu se každá karta znovu načte správně.\n\n` +
-    `Pokračovat?`
+    `Reset cen pro ${failed.length} karet, kterým se NEPODAŘILO najít cenu na Cardmarket?\n\n` +
+    `(Karty s platnou cenou zůstanou beze změny.)\n\n` +
+    `Vymažou se uložené URL/apiId u nenalezených → při dalším otevření se zkusí najít znovu.\n\nPokračovat?`
   );
   if (!confirmed) return;
 
@@ -5344,8 +5363,8 @@ async function resetAllPrices() {
   let done = 0, errors = 0;
   const BATCH = 10;
 
-  for (let i = 0; i < allCards.length; i += BATCH) {
-    const chunk = allCards.slice(i, i + BATCH);
+  for (let i = 0; i < failed.length; i += BATCH) {
+    const chunk = failed.slice(i, i + BATCH);
     await Promise.all(chunk.map(async c => {
       try {
         c.cardmarketUrl   = '';
@@ -5354,16 +5373,17 @@ async function resetAllPrices() {
         c.pMin   = 0;
         c.pTrend = 0;
         c.p30d   = 0;
+        c.priceSource = null;
         await saveCardUpdates(c);
         done++;
       } catch(e) { errors++; console.warn('[resetAllPrices]', c.name, e); }
     }));
-    if (btn) btn.textContent = `⏳ ${done}/${allCards.length}…`;
+    if (btn) btn.textContent = `⏳ ${done}/${failed.length}…`;
   }
   saveLocal();
   if (btn) { btn.disabled = false; btn.textContent = '✅ Hotovo – otevři detaily karet'; }
-  setTimeout(() => { if (btn) btn.textContent = '🔄 Opravit ceny karet'; }, 4000);
-  alert(`✅ Reset dokončen: ${done} karet${errors ? ', ' + errors + ' chyb' : ''}.\n\nCeny se načtou při příštím otevření detailu každé karty.`);
+  setTimeout(() => { if (btn) btn.textContent = '🔄 Reset cen (ruční)'; }, 4000);
+  alert(`✅ Reset dokončen: ${done} nenalezených karet${errors ? ', ' + errors + ' chyb' : ''}.\n\nCeny se zkusí načíst při příštím otevření detailu.`);
 }
 
 // ── Hromadná automatická oprava všech karet (apiId + ceny) ────────
@@ -5563,6 +5583,17 @@ function renderPrices(c, el) {
   const pTrend = fmt(c.pTrend);
   const p30d   = fmt(c.p30d);
   if (pMin || pTrend || p30d) {
+    // Reálný zdroj ceny — fallback na TCGPlayer když Cardmarket prázdný
+    const src = c.priceSource || 'cardmarket';
+    let srcHtml;
+    if (src === 'tcgplayer') {
+      srcHtml = `<div style="font-size:10px;color:#ffb454;margin-top:4px;display:flex;align-items:center;gap:4px">
+        ⚠️ <strong>Není z Cardmarketu</strong> — cena z TCGPlayer (přepočet z USD, orientační)</div>`;
+    } else if (src === 'cardmarket-csv') {
+      srcHtml = `<div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket (CSV katalog)</div>`;
+    } else {
+      srcHtml = `<div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket via pokemontcg.io</div>`;
+    }
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         <div class="cd-row">
@@ -5578,7 +5609,7 @@ function renderPrices(c, el) {
           <div class="cd-row-val" style="color:#74b4ff">${p30d||'—'}</div>
         </div>
       </div>
-      <div style="font-size:10px;color:var(--text3);margin-top:4px">Zdroj: Cardmarket via pokemontcg.io</div>`;
+      ${srcHtml}`;
   } else {
     el.innerHTML = `<div style="font-size:11px;color:var(--text3);padding:4px 0" id="cdPricesLoading">
       Načítám ceny…</div>`;
@@ -5688,6 +5719,8 @@ async function fetchLivePrices(c, el) {
     c.setCode       = card.set?.ptcgoCode || c.setCode || '';
     c.hp            = card.hp || c.hp || '';
     c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
+    // Zdroj ceny — pokud má Cardmarket data, je to cardmarket (fallback níž to případně přepíše)
+    if (c.pTrend > 0 || c.p30d > 0 || c.pMin > 0) c.priceSource = 'cardmarket';
 
     // ── TCGplayer fallback ───────────────────────────────────────
     // Když Cardmarket nemá ceny (časté u JP karet, novějších promo nebo méně populárních),
@@ -7431,6 +7464,15 @@ function updateAccordionLabels() {
   updateFlatFilter();
 }
 
+// ── Collapsible sekce v sidebaru ──────────────────────────────
+function toggleSbCollap(id) {
+  document.getElementById(id)?.classList.toggle('open');
+}
+function collapseAfterPick(id) {
+  // Po výběru se sekce zase sbalí
+  setTimeout(() => document.getElementById(id)?.classList.remove('open'), 150);
+}
+
 function setCond(c) {
   activeCond = c;
   document.querySelectorAll('.sb-btn').forEach(b => {
@@ -8835,43 +8877,37 @@ async function executeBulkSell() {
   if (!checkboxes.length) { toast('⚠️ Nevybral/a jsi žádné karty', 'warn'); return; }
 
   const btn = document.getElementById('bsSubmitBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Zveřejňuji…'; }
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Přidávám do fronty…'; }
 
-  let ok = 0, fail = 0;
-  const coef = parseFloat(document.getElementById('bsPriceCoef')?.value) || 0.85;
-  const username = (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.user_metadata?.username || currentUser.email?.split('@')[0] || '') : '';
-
+  // NOVÝ TOK: prodej duplicit NEzveřejní rovnou, ale pošle karty do fronty
+  // "Čeká na vystavení", kde je uživatel může stornovat nebo vystavit.
+  const queueCards = [];
   for (const cb of checkboxes) {
     const idx = parseInt(cb.dataset.idx);
     const item = _bulkSellCandidates[idx];
     if (!item) continue;
     const c = item.card;
-    const payload = {
-      user_id: userId, username,
-      title: c.name || 'Nabídka',
-      card_name: c.name || '', card_set: c.set || '',
-      card_number: c.number || '', card_hp: c.hp || '',
-      card_type: c.types?.[0] || '', card_rarity: c.rarity || '',
-      card_condition: 'NM',
-      api_image_url: c.images?.large || c.images?.small || '',
-      cards_data: [{ name: c.name, set: c.set?.name || c.set || '',
-        number: c.number || '', images: c.images || null, rarity: c.rarity || '',
-        pTrend: c.cardmarket?.prices?.trendPrice || null,
-        pMin: c.cardmarket?.prices?.lowPrice || null }],
-      price_czk: item.sellPrice,
-      allow_trade: false, allow_offer: true,
-      description: 'Auto-listing ze zdvojených karet (Bulk Sell)',
-      status: 'active',
-    };
-    try {
-      const res = await sbReq('rest/v1/listings', 'POST', payload, token);
-      if (res && !res._err) ok++; else fail++;
-    } catch { fail++; }
+    queueCards.push({
+      _pendingId: 'dup_' + (c.id || c.name) + '_' + Date.now() + '_' + idx,
+      id: c.id || null,
+      name: c.name || 'Nabídka',
+      number: c.number || '',
+      set: c.set?.name || c.set || '',
+      images: c.images || null,
+      rarity: c.rarity || '',
+      hp: c.hp || '',
+      types: c.types || [],
+      suggestedPrice: item.sellPrice,           // předvyplní cenu ve formuláři
+      listing_type: null,                        // typ zvolí ve formuláři
+      _fromDuplicates: true,
+    });
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '🛒 Zveřejnit vybrané'; }
+  if (typeof pushToPendingQueue === 'function') pushToPendingQueue(queueCards);
+
+  if (btn) { btn.disabled = false; btn.textContent = '🛒 Přidat do fronty'; }
   closeBulkSellModal();
-  toast(`✅ Zveřejněno ${ok} nabídek${fail ? ` · ${fail} chyb` : ''}`, ok ? 'ok' : 'warn');
+  toast(`✅ ${queueCards.length} karet přidáno do „Čeká na vystavení". Tam je můžeš vystavit nebo stornovat.`, 'ok');
 }
 
 let _cbSearchTimer = null;

@@ -36,6 +36,9 @@
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
+  <!-- Leaflet (mapy zdarma, OpenStreetMap) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 </head>
 <body>
 
@@ -81,6 +84,13 @@
     <span data-i18n="common.filters">Filtry</span>
   </button>
   <aside class="sidebar" id="mainSidebar">
+    <div class="sb-section">
+      <button id="favToggleBtn" onclick="toggleFavView()" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;border-radius:9px;border:1px solid rgba(255,90,120,0.25);background:rgba(255,90,120,0.08);color:#ff7088;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">
+        <span>♥ Oblíbené</span>
+        <span id="favCountBadge" style="background:rgba(255,90,120,0.18);border-radius:20px;padding:1px 9px;font-size:12px;min-width:20px;text-align:center">0</span>
+      </button>
+    </div>
+    <div class="sb-divider"></div>
     <div class="sb-section">
       <span class="sb-label" data-i18n="marketplace.sidebar.item_type">Typ položek</span>
       <label class="filter-opt"><input type="checkbox" id="itCards" checked onchange="applyItemTypeCheckboxes()"><span data-i18n="marketplace.sidebar.cards">🃏 Karty</span> <span class="sb-count" id="sbCountCards">0</span></label>
@@ -229,10 +239,11 @@
 
     <!-- LIST VIEW -->
     <div id="listView">
-      <!-- MODE TABS: Nabídky / Poptávky -->
+      <!-- MODE TABS: Nabídky / Poptávky / Porovnání cen -->
       <div class="market-mode-tabs">
         <button class="mmt-btn active" id="mmtOffer" onclick="setMarketMode('offer')" data-i18n="marketplace.tabs.offers">🏷️ Nabídky</button>
         <button class="mmt-btn" id="mmtDemand" onclick="setMarketMode('demand')" data-i18n="marketplace.tabs.demands">🔍 Poptávky</button>
+        <button class="mmt-btn" id="mmtCompare" onclick="setMarketMode('compare')">🔎 Porovnání cen</button>
         <a class="mmt-btn" id="mmtMyListings" href="marketplace.html?my=1" data-i18n="marketplace.tabs.my_listings">🏪 Správa inzerátů</a>
         <a class="mmt-btn" id="mmtTransactions" href="transactions.html" data-i18n="marketplace.tabs.transactions">💳 Transakce</a>
       </div>
@@ -386,6 +397,52 @@
           <span class="count-info" id="demandCountInfo">0 poptávek</span>
         </div>
         <div id="demandsWrap" class="demands-wrap"></div>
+      </div>
+
+      <!-- PRICE COMPARE VIEW -->
+      <div id="compareView" style="display:none">
+        <div style="max-width:860px;margin:0 auto">
+          <div style="font-size:18px;font-weight:800;color:var(--yellow);margin-bottom:2px">🔎 Porovnání cen z jiných obchodů</div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:14px">Najdi kartu, ověř že je to ona, a porovnej ceny napříč obchody (eBay živě + odkazy).</div>
+
+          <!-- Hledání -->
+          <div style="display:flex;gap:8px;align-items:stretch;margin-bottom:6px;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px;display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:0 14px">
+              <span style="opacity:.6">🔍</span>
+              <input id="cmpName" placeholder="Jméno karty — např. Charizard" onkeydown="if(event.key==='Enter')cmpSearchCards()" style="flex:1;background:none;border:none;color:var(--text);font-size:14px;padding:12px 0;outline:none;font-family:inherit">
+            </div>
+            <input id="cmpNumber" placeholder="Č. karty" style="width:90px;background:var(--card);border:1px solid var(--border);border-radius:11px;color:var(--text);padding:0 12px;outline:none;font-family:inherit">
+            <button onclick="cmpSearchCards()" style="padding:0 20px;border-radius:11px;border:none;background:var(--yellow);color:#1a1410;font-weight:800;cursor:pointer">Najít kartu</button>
+          </div>
+
+          <!-- Vizuální výběr karty -->
+          <div id="cmpCardPick" style="display:none">
+            <div style="font-size:11px;color:var(--text3);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.5px">Vyber správnou kartu — je to vizuálně ona?</div>
+            <div id="cmpCardResults" style="display:flex;gap:10px;overflow-x:auto;padding-bottom:6px"></div>
+          </div>
+
+          <!-- Filtry porovnání -->
+          <div id="cmpFilters" style="display:none;gap:8px;flex-wrap:wrap;align-items:center;margin:16px 0 8px">
+            <select class="sort-sel" id="cmpSort" onchange="cmpRunCompare()">
+              <option value="price">💰 Cena: nejlevnější</option>
+              <option value="-price">💰 Cena: nejdražší</option>
+              <option value="new">🆕 Nejnovější</option>
+            </select>
+            <select class="sort-sel" id="cmpCond" onchange="cmpRunCompare()">
+              <option value="">Stav: vše</option>
+              <option value="new">Nové</option>
+              <option value="used">Použité</option>
+            </select>
+            <select class="sort-sel" id="cmpRegion" onchange="cmpRunCompare()">
+              <option value="">📍 Odkud: vše</option>
+              <option value="eu">🇪🇺 Jen EU</option>
+            </select>
+            <input id="cmpMax" type="number" placeholder="Max € " style="width:90px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;outline:none" onchange="cmpRunCompare()">
+          </div>
+
+          <!-- Výsledky -->
+          <div id="cmpResults"></div>
+        </div>
       </div>
     </div>
 
@@ -566,19 +623,19 @@
               <a href="https://www.pokemontcg.io/" target="_blank" class="fs-ext-link">🌐 pokemontcg.io</a>
               <a href="https://www.cardmarket.com/cs/Pokemon" target="_blank" class="fs-ext-link">🌐 Cardmarket</a>
             </div>
-            <div id="addCardPreview" class="fs-card-preview" style="display:none">
+            <div id="addCardPreview" class="fs-card-preview" style="display:none;flex-direction:column;align-items:center;text-align:center;gap:8px;position:relative;padding:14px">
+              <button onclick="clearAddCard()" style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.4);border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1;border-radius:50%;width:24px;height:24px">✕</button>
               <div class="card-preview-hover-wrap">
-                <img id="addCardImg" class="card-preview-thumb" style="width:52px;height:72px;border-radius:6px;object-fit:cover;cursor:zoom-in" src="" onclick="(function(el){var lg=document.getElementById('addCardLargeImg');var lsrc=(lg&&lg.getAttribute('src'))||'';openCardImgZoom(el.src,lsrc&&!lsrc.includes('marketplace')&&!lsrc.includes('index')?lsrc:'');})(this)">
+                <img id="addCardImg" class="card-preview-thumb" style="width:150px;max-width:60%;border-radius:10px;object-fit:contain;cursor:zoom-in;border:1px solid rgba(255,255,255,0.12)" src="" onclick="(function(el){var lg=document.getElementById('addCardLargeImg');var lsrc=(lg&&lg.getAttribute('src'))||'';openCardImgZoom(el.src,lsrc&&!lsrc.includes('marketplace')&&!lsrc.includes('index')?lsrc:'');})(this)">
                 <div class="card-preview-zoom-overlay" id="cardZoomOverlay">
                   <img id="addCardLargeImg" src="" class="card-zoom-large">
                 </div>
               </div>
-              <div style="flex:1;min-width:0">
-                <div id="addCardName" style="font-size:14px;font-weight:700;color:var(--text)"></div>
-                <div id="addCardMeta" style="font-size:12px;color:var(--text3)"></div>
-                <div id="addCardAlbumBadge" style="display:none;margin-top:4px;font-size:10px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:12px;padding:1px 8px;display:inline-flex;align-items:center;gap:4px">📒 Z alba</div>
+              <div>
+                <div id="addCardName" style="font-size:16px;font-weight:800;color:var(--text)"></div>
+                <div id="addCardMeta" style="font-size:12px;color:var(--text3);margin-top:2px"></div>
+                <div id="addCardAlbumBadge" style="display:none;margin-top:6px;font-size:10px;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:12px;padding:2px 10px;align-items:center;gap:4px">📒 Z alba</div>
               </div>
-              <button onclick="clearAddCard()" style="position:absolute;top:6px;right:6px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;line-height:1">✕</button>
             </div>
           </div>
 
@@ -640,6 +697,22 @@
             <div style="display:flex;gap:14px">
               <label class="filter-opt"><input type="checkbox" id="addDeliveryPost" checked> 📬 Poštou</label>
               <label class="filter-opt"><input type="checkbox" id="addDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+            <div style="margin-top:10px;font-size:11px;color:var(--text3);background:rgba(116,180,255,0.07);border:1px solid rgba(116,180,255,0.18);border-radius:8px;padding:8px 10px;line-height:1.5">
+              💡 <strong style="color:var(--text2)">Tip:</strong> Dobírka je férový kompromis pro obě strany — kupující platí až při převzetí, ty máš jistotu platby. Domluvte se přímo v chatu.
+            </div>
+            <div id="pickupMapBlock" style="display:none;margin-top:12px">
+              <div class="fs-label">📍 Místo vyzvednutí (osobní předání)</div>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+                <input id="pickupAddr" class="panel-inp" placeholder="Adresa nebo místo — např. Havířov, náměstí…" style="flex:1;min-width:160px">
+                <button type="button" onclick="window._geocodePickup&&_geocodePickup()" class="fs-btn-sm gold">Najít na mapě</button>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:8px">
+                <button type="button" class="tv-btn act" id="precExact" onclick="window._setPickupPrecision&&_setPickupPrecision('exact')">📍 Přesná adresa</button>
+                <button type="button" class="tv-btn" id="precArea" onclick="window._setPickupPrecision&&_setPickupPrecision('area')">🔵 Jen oblast</button>
+              </div>
+              <div id="pickupMap" style="height:200px;border-radius:10px;overflow:hidden;display:none;border:1px solid rgba(255,255,255,0.1)"></div>
+              <div id="pickupHint" style="font-size:11px;color:var(--text3);margin-top:5px"></div>
             </div>
           </div>
 
@@ -920,8 +993,31 @@
       <button onclick="saveDraftListing()" class="fs-btn-draft">💾 Uložit rozdělanou</button>
       <div style="display:flex;gap:8px">
         <button onclick="closeAddListing()" class="fs-btn-cancel">Storno</button>
-        <button onclick="submitCurrentListing()" class="fs-btn-submit offer">🏷️ Vystavit nabídku</button>
+        <button onclick="openListingPreview()" class="fs-btn-submit offer">👁 Náhled nabídky →</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ NÁHLED NABÍDKY PŘED VYSTAVENÍM ═══ -->
+<div id="listingPreviewModal" class="fs-modal" style="display:none;z-index:10000">
+  <div class="fs-modal-inner" style="max-width:780px">
+    <div class="fs-header">
+      <div>
+        <div class="fs-title">👁 Náhled nabídky</div>
+        <div class="fs-sub">Takhle uvidí tvou nabídku ostatní. Zkontroluj a vystav, nebo se vrať k úpravám.</div>
+      </div>
+      <button class="fs-close" onclick="closeListingPreview()" title="Zavřít">✕</button>
+    </div>
+    <div class="fs-body" style="display:block">
+      <div class="fs-label">V seznamu obchodu</div>
+      <div id="lpListRow" style="margin-bottom:18px"></div>
+      <div class="fs-label">Po rozkliknutí (detail)</div>
+      <div id="lpDetail"></div>
+    </div>
+    <div class="fs-footer">
+      <button onclick="closeListingPreview()" class="fs-btn-cancel">← Zpět na editaci</button>
+      <button onclick="confirmListingFromPreview()" class="fs-btn-submit offer">✓ Vystavit nabídku</button>
     </div>
   </div>
 </div>
@@ -1222,6 +1318,9 @@ function mktRunFakeCheck() {
 <script src="marketplace.js"></script>
 <script src="listing-photos-r2.js"></script>
 <script src="market-cardfan.js"></script>
+<script src="listing-preview.js"></script>
+<script src="pickup-map.js"></script>
+<script src="price-compare.js"></script>
 <script src="marketplace-chat.js"></script>
 
 <!-- QR FULLSCREEN MODAL -->

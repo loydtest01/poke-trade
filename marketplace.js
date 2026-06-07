@@ -896,6 +896,31 @@ async function openDetail(id){
   if(descText){ descEl.textContent=descText; descEl.style.display=''; }
   else descEl.style.display='none';
 
+  // Místo vyzvednutí — mapa (osobní předání + souřadnice)
+  {
+    let mapWrap = document.getElementById('dPickupWrap');
+    if (!mapWrap && descEl && descEl.parentNode) {
+      mapWrap = document.createElement('div');
+      mapWrap.id = 'dPickupWrap';
+      mapWrap.style.marginTop = '12px';
+      descEl.parentNode.insertBefore(mapWrap, descEl.nextSibling);
+    }
+    if (mapWrap) {
+      if (l.pickup_lat != null && l.pickup_lng != null) {
+        mapWrap.style.display = '';
+        mapWrap.innerHTML =
+          (l.location ? '<div style="font-size:12px;color:var(--text3);margin-bottom:6px">📍 '+esc(l.location)+'</div>' : '')
+          + '<div id="dPickupMap" style="height:220px;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.1)"></div>'
+          + '<button onclick="planRoute('+l.pickup_lat+','+l.pickup_lng+')" style="margin-top:8px;padding:8px 14px;border-radius:8px;border:1px solid rgba(245,200,66,.4);background:rgba(245,200,66,.12);color:#f5c842;font-weight:700;font-size:12px;cursor:pointer">🧭 Naplánovat trasu</button>';
+        if (typeof window.renderPickupMap === 'function') {
+          setTimeout(() => window.renderPickupMap('dPickupMap', l), 200);
+        }
+      } else {
+        mapWrap.style.display = 'none';
+      }
+    }
+  }
+
   // Buttons — owner / buyer / reserved logic
   const isOwner    = !!(userId && l.user_id === userId);
   const isReserved = l.status === 'reserved';
@@ -1207,7 +1232,18 @@ async function sendOffer(){
   const price = parseInt(document.getElementById('offerPrice').value)||0;
   const msg   = document.getElementById('offerMsg').value.trim();
   if(!price && !msg){ showMktToast('⚠️ Zadej cenu nebo zprávu.'); return; }
+
+  // Anti-spam: minimální hranice protinávrhu (% z ceny nabídky, z nastavení; default 50 %)
   const l = currentListing;
+  if (price > 0 && l && l.price_czk > 0) {
+    let minPct = 50;
+    try { const s = JSON.parse(localStorage.getItem('pkt_settings')||'{}'); if (s.minOffer) minPct = s.minOffer; } catch(e){}
+    const minPrice = Math.round(l.price_czk * minPct / 100);
+    if (price < minPrice) {
+      showMktToast(`⚠️ Nabídka je příliš nízká. Minimum je ${minPrice.toLocaleString('cs')} Kč (${minPct} % z ceny ${l.price_czk.toLocaleString('cs')} Kč).`);
+      return;
+    }
+  }
   // Rezervuj kartu
   const patch = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', {
     status: 'reserved',
@@ -1911,6 +1947,12 @@ async function submitListing(){
     trade_wants:    wants,
     description:    desc,
     status:         'active',
+    location:       (document.getElementById('addLocation')?.value || '').trim() || null,
+    pickup_lat:     (typeof _pickupGeo !== 'undefined' && _pickupGeo) ? _pickupGeo.lat : null,
+    pickup_lng:     (typeof _pickupGeo !== 'undefined' && _pickupGeo) ? _pickupGeo.lng : null,
+    pickup_precision: (typeof _pickupGeo !== 'undefined' && _pickupGeo) ? _pickupGeo.precision : null,
+    delivery_personal: !!document.getElementById('addDeliveryPersonal')?.checked,
+    delivery_post:     !!document.getElementById('addDeliveryPost')?.checked,
     // Sale photos: uložit jen reálné fotky (isOfficial=true je už v api_image_url)
     user_photos:    salePhotos.filter(p => !p.isOfficial).length ? salePhotos.filter(p => !p.isOfficial).map(p => ({
       src: p.croppedUrl || p.src,
@@ -2482,6 +2524,9 @@ function openListingFromQueue(pendingId) {
   // Close pending modal and open the listing modal
   togglePendingPanel(false);
   document.getElementById('addModal').style.display = 'flex';
+  // DŮLEŽITÉ: jedna karta z fronty = vždy režim "card".
+  // Bez tohoto by po předchozím bulku zůstal tab 'bulk' a karta/fotky se nezobrazily.
+  if (typeof setListingTab === 'function') setListingTab('card');
   resetAiZone();
   setTimeout(generateInlineQr, 300);
 
@@ -3559,12 +3604,17 @@ function setMarketMode(mode) {
   marketMode = mode;
   const isOffer  = mode === 'offer';
   const isDemand = mode === 'demand';
+  const isCompare = mode === 'compare';
 
   document.getElementById('mmtOffer').classList.toggle('active', isOffer);
   document.getElementById('mmtDemand').classList.toggle('active', isDemand);
+  const mmtCmp = document.getElementById('mmtCompare');
+  if (mmtCmp) mmtCmp.classList.toggle('active', isCompare);
 
   document.getElementById('listView').style.display      = isOffer  ? '' : 'none';
   document.getElementById('demandsView').style.display   = isDemand ? '' : 'none';
+  const cmpView = document.getElementById('compareView');
+  if (cmpView) cmpView.style.display = isCompare ? '' : 'none';
   document.getElementById('detailView').style.display    = 'none';
 
   document.getElementById('btnAddOffer').style.display   = isOffer  ? '' : 'none';
@@ -5538,13 +5588,47 @@ async function dispatchListingNotifications(listing) {
     if (toNotify.length >= 50) break;
   }
 
-  if (!toNotify.length) return;
+  if (toNotify.length) {
+    await fetch(`${SBU}/rest/v1/notifications`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}`, 'Prefer': 'return=minimal' },
+      body: JSON.stringify(toNotify),
+    });
+  }
 
-  await fetch(`${SBU}/rest/v1/notifications`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}`, 'Prefer': 'return=minimal' },
-    body: JSON.stringify(toNotify),
-  });
+  // ── Hlídané karty: komu se shoduje název → notifikace (+ e-mail flag) ──
+  try {
+    const cName = listing.card_name || listing.title || '';
+    if (cName) {
+      const mr = await fetch(`${SBU}/rest/v1/rpc/match_card_watches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}` },
+        body: JSON.stringify({ p_card_name: cName, p_card_number: listing.card_number || null }),
+      });
+      if (mr.ok) {
+        const matches = await mr.json();
+        const watchNotif = (Array.isArray(matches) ? matches : [])
+          .filter(m => m.user_id && m.user_id !== userId)
+          .map(m => ({
+            user_id: m.user_id,
+            type:    'card_watch_match',
+            title:   `⭐ Hlídaná karta v obchodě: ${cName}`,
+            body:    `${listing.username || 'Někdo'} nabízí ${cName} za ${priceStr}`,
+            link:    notifLink,
+            metadata:{ listing_id: listing.id, card_name: cName, email: !!m.notify_email },
+            read:    false,
+          }));
+        if (watchNotif.length) {
+          await fetch(`${SBU}/rest/v1/notifications`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': SBA, 'Authorization': `Bearer ${SBA}`, 'Prefer': 'return=minimal' },
+            body: JSON.stringify(watchNotif),
+          });
+          // E-mail řeší server (email-digest cron) podle metadata.email + typ card_watch_match.
+        }
+      }
+    }
+  } catch (e) { console.warn('[card watch match]', e); }
 }
 
 // ══════════════════════════════════════════════════════════════

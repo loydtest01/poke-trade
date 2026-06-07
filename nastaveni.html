@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0a0608">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nastavení – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#06040c; color:#e8e4ef; font-family:'DM Sans',sans-serif; margin:0; min-height:100vh; }
+    body::before { content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:url('wallpaper.png'); background-size:cover; background-position:center 30%;
+      background-repeat:no-repeat; filter:brightness(0.18) saturate(0.6); }
+    .set-wrap { position:relative; z-index:1; max-width:760px; margin:0 auto; padding:24px 16px 60px; }
+    .set-head h1 { font-family:'Unbounded',sans-serif; font-size:26px; font-weight:800; color:#f5c842; margin:0 0 4px; }
+    .set-head p { color:rgba(232,228,239,.55); font-size:13px; margin:0 0 24px; }
+    .set-sec { border:1px solid rgba(255,255,255,.08); border-radius:14px; background:rgba(255,255,255,.025); margin-bottom:12px; overflow:hidden; }
+    .set-sec-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 18px; cursor:pointer; user-select:none; }
+    .set-sec-head:hover { background:rgba(255,255,255,.03); }
+    .set-sec-title { display:flex; align-items:center; gap:10px; font-size:15px; font-weight:700; color:#f0ece4; }
+    .set-sec-title .ico { font-size:18px; }
+    .set-sec-sub { font-size:12px; color:rgba(232,228,239,.45); font-weight:400; }
+    .set-sec-arrow { color:rgba(232,228,239,.4); transition:transform .2s; }
+    .set-sec.open .set-sec-arrow { transform:rotate(90deg); }
+    .set-sec-body { display:none; padding:0 18px 18px; }
+    .set-sec.open .set-sec-body { display:block; }
+    .set-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-top:1px solid rgba(255,255,255,.05); }
+    .set-row:first-child { border-top:none; }
+    .set-row-label { font-size:14px; color:#e8e4ef; }
+    .set-row-hint { font-size:11px; color:rgba(232,228,239,.45); margin-top:2px; }
+    .set-inp, .set-sel { padding:8px 12px; border-radius:8px; border:1px solid rgba(255,255,255,.15); background:#15111e; color:#fff; font-size:13px; font-family:inherit; }
+    .set-btn { padding:8px 14px; border-radius:8px; border:1px solid rgba(245,200,66,.4); background:rgba(245,200,66,.12); color:#f5c842; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
+    .set-btn:hover { background:rgba(245,200,66,.2); }
+    .set-link { display:block; padding:11px 0; border-top:1px solid rgba(255,255,255,.05); color:#7bb3ef; text-decoration:none; font-size:14px; }
+    .set-link:hover { color:#a9cdf5; }
+    .switch { position:relative; width:42px; height:24px; flex-shrink:0; }
+    .switch input { opacity:0; width:0; height:0; }
+    .switch .sl { position:absolute; inset:0; background:rgba(255,255,255,.15); border-radius:24px; transition:.2s; cursor:pointer; }
+    .switch .sl:before { content:''; position:absolute; height:18px; width:18px; left:3px; top:3px; background:#fff; border-radius:50%; transition:.2s; }
+    .switch input:checked + .sl { background:#f5c842; }
+    .switch input:checked + .sl:before { transform:translateX(18px); }
+  </style>
+</head>
+<body>
+
+<script>window.TOPBAR_ACTIVE = '';</script>
+<script src="i18n.js"></script>
+<script src="topbar.js"></script>
+
+<div class="set-wrap">
+  <div class="set-head">
+    <h1>⚙️ Nastavení</h1>
+    <p>Vše na jednom místě. Klikni na sekci pro rozbalení.</p>
+  </div>
+
+  <!-- OBECNÉ -->
+  <div class="set-sec open" id="secGeneral">
+    <div class="set-sec-head" onclick="toggleSec('secGeneral')">
+      <div class="set-sec-title"><span class="ico">🌐</span> Obecné <span class="set-sec-sub">jazyk, měna, synchronizace</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <div class="set-row">
+        <div><div class="set-row-label">Jazyk rozhraní</div></div>
+        <select class="set-sel" id="setLang" onchange="setSaveLang(this.value)">
+          <option value="cs">🇨🇿 Čeština</option><option value="en">🇬🇧 English</option>
+          <option value="de">🇩🇪 Deutsch</option><option value="sk">🇸🇰 Slovenčina</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">Zobrazovat ceny v</div></div>
+        <select class="set-sel" id="setCurrency" onchange="setSaveCurrency(this.value)">
+          <option value="czk">Kč (CZK)</option><option value="eur">€ (EUR)</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">Frekvence synchronizace alba</div>
+          <div class="set-row-hint">Jak často se album ukládá na server</div></div>
+        <select class="set-sel" id="setSync">
+          <option value="auto">Automaticky</option><option value="manual">Ručně</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKETPLACE -->
+  <div class="set-sec" id="secMarket">
+    <div class="set-sec-head" onclick="toggleSec('secMarket')">
+      <div class="set-sec-title"><span class="ico">🏷️</span> Marketplace <span class="set-sec-sub">obchod a nabídky</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <div class="set-row">
+        <div><div class="set-row-label">Výchozí zobrazení</div>
+          <div class="set-row-hint">Seznam nebo mřížka</div></div>
+        <select class="set-sel" id="setMarketView">
+          <option value="list">Seznam</option><option value="grid">Mřížka</option>
+        </select>
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">Minimální protinávrh ceny (%)</div>
+          <div class="set-row-hint">Nabídky nižší než toto % z ceny budou odmítnuty (anti-spam)</div></div>
+        <input class="set-inp" id="setMinOffer" type="number" value="50" min="1" max="100" style="width:80px">
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">Skrýt prodané nabídky</div></div>
+        <label class="switch"><input type="checkbox" id="setHideSold" checked><span class="sl"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- NOTIFIKACE -->
+  <div class="set-sec" id="secNotif">
+    <div class="set-sec-head" onclick="toggleSec('secNotif')">
+      <div class="set-sec-title"><span class="ico">🔔</span> Notifikace <span class="set-sec-sub">upozornění a e-maily</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <div class="set-row">
+        <div><div class="set-row-label">Upozornění na nové nabídky o mé karty</div></div>
+        <label class="switch"><input type="checkbox" id="setNotifOffers" checked><span class="sl"></span></label>
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">E-mail při shodě hlídané karty</div>
+          <div class="set-row-hint">Když se objeví karta, kterou hlídáš</div></div>
+        <label class="switch"><input type="checkbox" id="setNotifEmail"><span class="sl"></span></label>
+      </div>
+      <a class="set-link" href="hlidane-karty.html">⭐ Spravovat hlídané karty →</a>
+    </div>
+  </div>
+
+  <!-- MOJE ALBA -->
+  <div class="set-sec" id="secAlbum">
+    <div class="set-sec-head" onclick="toggleSec('secAlbum')">
+      <div class="set-sec-title"><span class="ico">📒</span> Moje alba <span class="set-sec-sub">ceny a data</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <div class="set-row">
+        <div><div class="set-row-label">Hranice cenového upozornění (Kč)</div>
+          <div class="set-row-hint">Upozorní, když karta překročí hodnotu</div></div>
+        <input class="set-inp" id="setPriceThreshold" type="number" placeholder="1000" style="width:100px">
+      </div>
+      <div class="set-row">
+        <div><div class="set-row-label">Zobrazovat ceny u všech karet</div></div>
+        <label class="switch"><input type="checkbox" id="setShowAllPrices"><span class="sl"></span></label>
+      </div>
+      <a class="set-link" href="moje-album.html">📒 Otevřít Moje alba →</a>
+    </div>
+  </div>
+
+  <!-- SOUKROMÍ -->
+  <div class="set-sec" id="secPrivacy">
+    <div class="set-sec-head" onclick="toggleSec('secPrivacy')">
+      <div class="set-sec-title"><span class="ico">🔒</span> Soukromí <span class="set-sec-sub">blokace a sdílení</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <a class="set-link" href="profile.html#blocked" style="border-top:none">🚫 Moje blokace →</a>
+      <a class="set-link" href="share-album.html">🔗 Sdílení alb →</a>
+    </div>
+  </div>
+
+  <!-- ÚČET -->
+  <div class="set-sec" id="secAccount">
+    <div class="set-sec-head" onclick="toggleSec('secAccount')">
+      <div class="set-sec-title"><span class="ico">👤</span> Účet <span class="set-sec-sub">profil a odhlášení</span></div>
+      <span class="set-sec-arrow">▶</span>
+    </div>
+    <div class="set-sec-body">
+      <a class="set-link" href="profile.html" style="border-top:none">👤 Můj profil →</a>
+      <div class="set-row">
+        <div><div class="set-row-label">Odhlásit se</div></div>
+        <button class="set-btn" onclick="setLogout()" style="border-color:rgba(255,90,90,.4);background:rgba(255,90,90,.12);color:#ff7a7a">Odhlásit</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:20px">
+    <button class="set-btn" onclick="setSaveAll()" style="padding:11px 28px;font-size:14px">💾 Uložit nastavení</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+function toggleSec(id){ document.getElementById(id)?.classList.toggle('open'); }
+
+// Načti uložené hodnoty
+function setLoad(){
+  try {
+    const g = JSON.parse(localStorage.getItem('pkt_settings')||'{}');
+    if(g.lang) document.getElementById('setLang').value = g.lang;
+    if(g.currency) document.getElementById('setCurrency').value = g.currency;
+    if(g.sync) document.getElementById('setSync').value = g.sync;
+    if(g.marketView) document.getElementById('setMarketView').value = g.marketView;
+    if(g.minOffer!=null) document.getElementById('setMinOffer').value = g.minOffer;
+    if(g.hideSold!=null) document.getElementById('setHideSold').checked = g.hideSold;
+    if(g.notifOffers!=null) document.getElementById('setNotifOffers').checked = g.notifOffers;
+    if(g.notifEmail!=null) document.getElementById('setNotifEmail').checked = g.notifEmail;
+    if(g.priceThreshold!=null) document.getElementById('setPriceThreshold').value = g.priceThreshold;
+    if(g.showAllPrices!=null) document.getElementById('setShowAllPrices').checked = g.showAllPrices;
+  } catch(e){}
+  // Jazyk z i18n pokud existuje
+  try { if(window.pt && localStorage.getItem('pkc_lang')) document.getElementById('setLang').value = localStorage.getItem('pkc_lang'); } catch(e){}
+}
+
+function setSaveLang(v){ try{ localStorage.setItem('pkc_lang', v); }catch(e){} setSaveAll(); if(window.location) setTimeout(()=>location.reload(),300); }
+function setSaveCurrency(v){ try{ localStorage.setItem('pkc_currency', v); }catch(e){} setSaveAll(); }
+
+function setSaveAll(){
+  const s = {
+    lang: document.getElementById('setLang').value,
+    currency: document.getElementById('setCurrency').value,
+    sync: document.getElementById('setSync').value,
+    marketView: document.getElementById('setMarketView').value,
+    minOffer: parseInt(document.getElementById('setMinOffer').value)||50,
+    hideSold: document.getElementById('setHideSold').checked,
+    notifOffers: document.getElementById('setNotifOffers').checked,
+    notifEmail: document.getElementById('setNotifEmail').checked,
+    priceThreshold: parseInt(document.getElementById('setPriceThreshold').value)||null,
+    showAllPrices: document.getElementById('setShowAllPrices').checked,
+  };
+  try { localStorage.setItem('pkt_settings', JSON.stringify(s)); } catch(e){}
+  const btn = event?.target; if(btn){ const t=btn.textContent; btn.textContent='✓ Uloženo'; setTimeout(()=>btn.textContent=t,1500); }
+}
+
+function setLogout(){
+  try { localStorage.removeItem('sb_token'); localStorage.removeItem('sb_user'); localStorage.removeItem('sb_user_id'); } catch(e){}
+  location.href = 'login.html';
+}
+
+setLoad();
+</script>
+</body>
+</html>

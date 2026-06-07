@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#0a0608">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hlídané karty – PokéTrade</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#06040c; color:#e8e4ef; font-family:'DM Sans',sans-serif; margin:0; min-height:100vh; }
+    body::before { content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+      background-image:url('wallpaper.png'); background-size:cover; background-position:center 30%;
+      background-repeat:no-repeat; filter:brightness(0.18) saturate(0.6); }
+    .hw-wrap { position:relative; z-index:1; max-width:920px; margin:0 auto; padding:24px 16px 60px; }
+    .hw-head h1 { font-family:'Unbounded',sans-serif; font-size:26px; font-weight:800; color:#f5c842; margin:0 0 4px; }
+    .hw-head p { color:rgba(232,228,239,.55); font-size:13px; margin:0 0 20px; }
+    .hw-search { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:16px; margin-bottom:20px; }
+    .hw-filters { display:grid; grid-template-columns:2fr 1fr 1.5fr 1fr auto; gap:8px; }
+    .hw-inp, .hw-sel { padding:9px 12px; border-radius:9px; border:1px solid rgba(255,255,255,.15); background:#15111e; color:#fff; font-size:13px; font-family:inherit; }
+    .hw-btn { padding:9px 16px; border-radius:9px; border:none; background:#f5c842; color:#1a1410; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit; }
+    .hw-results { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:12px; margin-top:16px; }
+    .hw-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:8px; text-align:center; cursor:pointer; transition:all .15s; }
+    .hw-card:hover { border-color:rgba(245,200,66,.4); transform:translateY(-2px); }
+    .hw-card img { width:100%; border-radius:8px; aspect-ratio:.72; object-fit:cover; background:#1c1726; }
+    .hw-card-name { font-size:12px; font-weight:700; color:#f0ece4; margin-top:6px; line-height:1.3; }
+    .hw-card-meta { font-size:10px; color:#8b8794; }
+    .hw-card-add { margin-top:6px; width:100%; padding:5px; border-radius:7px; border:1px solid rgba(245,200,66,.4); background:rgba(245,200,66,.12); color:#f5c842; font-weight:700; font-size:11px; cursor:pointer; }
+    .hw-sec-title { font-family:'Unbounded',sans-serif; font-size:16px; font-weight:700; color:#f0ece4; margin:24px 0 12px; }
+    .hw-watch-row { display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid rgba(255,255,255,.08); border-radius:10px; background:rgba(255,255,255,.03); margin-bottom:8px; }
+    .hw-watch-row img { width:38px; height:53px; object-fit:cover; border-radius:6px; background:#1c1726; }
+    .hw-watch-info { flex:1; }
+    .hw-watch-name { font-size:14px; font-weight:700; color:#f0ece4; }
+    .hw-watch-meta { font-size:11px; color:#8b8794; }
+    .hw-rm { padding:6px 12px; border-radius:8px; border:1px solid rgba(255,90,90,.4); background:rgba(255,90,90,.12); color:#ff7a7a; font-weight:700; font-size:12px; cursor:pointer; }
+    .hw-empty, .hw-loading { text-align:center; color:rgba(232,228,239,.45); font-size:13px; padding:24px; }
+    @media(max-width:640px){ .hw-filters{ grid-template-columns:1fr 1fr; } }
+  </style>
+</head>
+<body>
+
+<script>window.TOPBAR_ACTIVE = '';</script>
+<script src="i18n.js"></script>
+<script src="topbar.js"></script>
+
+<div class="hw-wrap">
+  <div class="hw-head">
+    <h1>⭐ Hlídané karty</h1>
+    <p>Najdi kartu a přidej ji do hlídaných. Když se objeví v obchodě, dáme ti vědět — i e-mailem.</p>
+  </div>
+
+  <div class="hw-search">
+    <div class="hw-filters">
+      <input class="hw-inp" id="hwName" placeholder="Jméno pokémona — např. Charizard" onkeydown="if(event.key==='Enter')hwSearch()">
+      <input class="hw-inp" id="hwNumber" placeholder="Číslo">
+      <select class="hw-sel" id="hwSet"><option value="">Všechny série</option></select>
+      <select class="hw-sel" id="hwType">
+        <option value="">Typ</option>
+        <option>Fire</option><option>Water</option><option>Grass</option><option>Lightning</option>
+        <option>Psychic</option><option>Fighting</option><option>Darkness</option><option>Metal</option>
+        <option>Dragon</option><option>Fairy</option><option>Colorless</option>
+      </select>
+      <button class="hw-btn" onclick="hwSearch()">🔍 Hledat</button>
+    </div>
+    <div class="hw-results" id="hwResults"></div>
+  </div>
+
+  <div class="hw-sec-title">Moje hlídané karty</div>
+  <div id="hwWatchList"><div class="hw-loading">Načítám…</div></div>
+</div>
+
+<script src="app.js"></script>
+<script>
+const HW_API = 'https://pokedb-api.poketrade.workers.dev/v1';
+function hwTok(){ return localStorage.getItem('sb_token'); }
+function hwUid(){ return localStorage.getItem('sb_user_id'); }
+const HW_SBU = (typeof SUPABASE_URL!=='undefined')?SUPABASE_URL:'';
+const HW_SBA = (typeof SUPABASE_ANON!=='undefined')?SUPABASE_ANON:'';
+function hwEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ── Načti série do filtru ────────────────────────────────────
+async function hwLoadSets(){
+  try {
+    const r = await fetch(HW_API+'/sets?limit=300');
+    const d = await r.json();
+    const sets = (d.data||d||[]);
+    const sel = document.getElementById('hwSet');
+    sets.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name||s.id; sel.appendChild(o); });
+  } catch(e){}
+}
+
+// ── Vyhledávání karet ────────────────────────────────────────
+async function hwSearch(){
+  const name = document.getElementById('hwName').value.trim();
+  const num  = document.getElementById('hwNumber').value.trim();
+  const set  = document.getElementById('hwSet').value;
+  const type = document.getElementById('hwType').value;
+  const res = document.getElementById('hwResults');
+  if(!name && !num && !set){ res.innerHTML='<div class="hw-empty" style="grid-column:1/-1">Zadej jméno, číslo nebo sérii.</div>'; return; }
+  res.innerHTML='<div class="hw-loading" style="grid-column:1/-1">Hledám…</div>';
+  let q = '/cards?limit=24';
+  if(name) q+='&q='+encodeURIComponent(name);
+  if(num)  q+='&number='+encodeURIComponent(num);
+  if(set)  q+='&set_id='+encodeURIComponent(set);
+  if(type) q+='&type='+encodeURIComponent(type);
+  try {
+    const r = await fetch(HW_API+q);
+    const d = await r.json();
+    const cards = d.data||d||[];
+    if(!cards.length){ res.innerHTML='<div class="hw-empty" style="grid-column:1/-1">Nic nenalezeno.</div>'; return; }
+    res.innerHTML = cards.map(c=>{
+      const img = c.image_small||c.images?.small||c.imageUrl||'';
+      const setN = c.set_name||c.set?.name||'';
+      const cd = JSON.stringify({name:c.name,number:c.number||'',set:setN,img}).replace(/"/g,'&quot;');
+      return `<div class="hw-card">
+        <img src="${hwEsc(img)}" alt="${hwEsc(c.name)}" loading="lazy">
+        <div class="hw-card-name">${hwEsc(c.name)}</div>
+        <div class="hw-card-meta">${hwEsc(setN)}${c.number?' · #'+hwEsc(c.number):''}</div>
+        <button class="hw-card-add" onclick="hwAdd(${cd})">+ Hlídat</button>
+      </div>`;
+    }).join('');
+  } catch(e){ res.innerHTML='<div class="hw-empty" style="grid-column:1/-1">Chyba hledání.</div>'; }
+}
+
+// ── Přidat do hlídaných ──────────────────────────────────────
+async function hwAdd(card){
+  if(!hwTok()){ alert('Přihlas se.'); return; }
+  try {
+    const r = await fetch(HW_SBU+'/rest/v1/card_watches', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':HW_SBA,'Authorization':'Bearer '+hwTok(),'Prefer':'return=minimal'},
+      body: JSON.stringify({ user_id:hwUid(), card_name:card.name, card_number:card.number||null, set_name:card.set||null, notify_email:true })
+    });
+    if(r.ok || r.status===409){ hwLoadWatches(); }
+    else alert('Nepodařilo se přidat (možná už hlídáš).');
+  } catch(e){ alert('Chyba.'); }
+}
+
+// ── Seznam hlídaných ─────────────────────────────────────────
+async function hwLoadWatches(){
+  const wrap = document.getElementById('hwWatchList');
+  if(!hwTok()){ wrap.innerHTML='<div class="hw-empty">Přihlas se pro hlídání karet.</div>'; return; }
+  try {
+    const r = await fetch(HW_SBU+'/rest/v1/card_watches?user_id=eq.'+hwUid()+'&order=created_at.desc', { headers:{'apikey':HW_SBA,'Authorization':'Bearer '+hwTok()} });
+    const d = await r.json();
+    if(!Array.isArray(d)||!d.length){ wrap.innerHTML='<div class="hw-empty">Zatím nehlídáš žádnou kartu. Najdi ji výše ↑</div>'; return; }
+    wrap.innerHTML = d.map(w=>`
+      <div class="hw-watch-row">
+        <div class="hw-watch-info">
+          <div class="hw-watch-name">${hwEsc(w.card_name)}</div>
+          <div class="hw-watch-meta">${hwEsc(w.set_name||'')}${w.card_number?' · #'+hwEsc(w.card_number):''} · ${w.notify_email?'📧 e-mail':'🔔 jen v aplikaci'}</div>
+        </div>
+        <button class="hw-rm" onclick="hwRemove('${w.id}')">Odebrat</button>
+      </div>`).join('');
+  } catch(e){ wrap.innerHTML='<div class="hw-empty">Chyba načítání.</div>'; }
+}
+
+async function hwRemove(id){
+  try {
+    await fetch(HW_SBU+'/rest/v1/card_watches?id=eq.'+id, { method:'DELETE', headers:{'apikey':HW_SBA,'Authorization':'Bearer '+hwTok()} });
+    hwLoadWatches();
+  } catch(e){}
+}
+
+hwLoadSets();
+hwLoadWatches();
+</script>
+</body>
+</html>

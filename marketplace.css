@@ -450,10 +450,11 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
 .trade-card-item.sel { border: 2px solid var(--yellow); }
 .trade-view-toggle { display: flex; gap: 5px; }
 .tv-btn {
-  padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer;
-  border: 1px solid var(--border); background: transparent; color: var(--text3); transition: all .15s;
+  padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.04); color: var(--text2); transition: all .15s;
 }
-.tv-btn.act { background: rgba(255,255,255,0.08); color: var(--text2); }
+.tv-btn:hover { border-color: rgba(245,200,66,0.5); color: var(--text); }
+.tv-btn.act { background: #f5c842; color: #1a1410; border-color: #f5c842; }
 .trade-list-wrap { display: none; }
 .trade-list-wrap.show { display: block; }
 .trade-list-item {
@@ -1628,10 +1629,16 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
    ══════════════════════════════════════════════════════════════ */
 .fs-modal {
   position: fixed; inset: 0; z-index: 500;
-  background: rgba(6,4,12,0.97);
+  background: rgba(6,4,12,0.94);
   backdrop-filter: blur(20px);
   overflow-y: auto;
   animation: fsIn .2s ease;
+}
+.fs-modal::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background-image: url('wallpaper.png');
+  background-size: cover; background-position: center 30%; background-repeat: no-repeat;
+  filter: brightness(0.18) saturate(0.6);
 }
 @keyframes fsIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
 

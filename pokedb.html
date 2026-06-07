@@ -142,6 +142,30 @@ body::after {
 .search-main .si { color: var(--muted); font-size: 1rem; }
 .search-main input::placeholder { color: var(--muted); }
 
+/* ── Vyhledávání v2 ── */
+.search-bar-v2 { align-items: stretch; }
+.search-bar-v2 .search-main { padding: 0 1.1rem; border-radius: 12px; }
+.search-bar-v2 .search-main input { padding: .95rem 0; font-size: 1rem; }
+.search-number-inp {
+  width: 100px; background: var(--card); border: 1px solid var(--border);
+  color: var(--text); padding: 0 .8rem; border-radius: 12px; font-size: .92rem; outline: none;
+}
+.search-number-inp:focus { border-color: rgba(245,200,66,.4); }
+.search-go-btn {
+  padding: 0 1.6rem; border-radius: 12px; border: none;
+  background: #f5c842; color: #1a1410; font-weight: 800; font-size: .95rem; cursor: pointer; white-space: nowrap;
+}
+.search-go-btn:hover { background: #ffd75e; }
+.adv-search { margin-bottom: 1.2rem; border-top: 1px solid rgba(255,255,255,.06); padding-top: .8rem; }
+.adv-search-toggle {
+  display: inline-flex; align-items: center; gap: .4rem; cursor: pointer;
+  color: var(--muted); font-size: .8rem; font-weight: 700; user-select: none;
+}
+.adv-search-toggle:hover { color: var(--text); }
+.adv-search-toggle #advSearchArrow { transition: transform .2s; display: inline-block; }
+.adv-search-toggle.open #advSearchArrow { transform: rotate(90deg); }
+.adv-search-body { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .8rem; }
+
 /* ── Filters row ── */
 .filters {
   display: flex; gap: .6rem; margin-bottom: 1.2rem; flex-wrap: wrap; align-items: center;
@@ -925,19 +949,14 @@ body::after {
 
   <div class="wrap">
     <!-- Search -->
-    <div class="search-bar">
+    <div class="search-bar search-bar-v2">
       <div class="search-main">
         <span class="si">🔍</span>
-        <input type="text" id="q" placeholder="Hledat podle jména (i anglicky)" oninput="debouncedSearch()">
+        <input type="text" id="q" placeholder="Hledat kartu podle jména — např. Charizard (i anglicky)" oninput="debouncedSearch()">
       </div>
       <input type="text" id="q-number" placeholder="Č. karty" title="Hledat podle čísla karty (např. 25 nebo SWSH272)"
-        oninput="debouncedSearch()" style="width:110px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--text);padding:.55rem .7rem;border-radius:9px;font-size:.9rem">
-      <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)" style="white-space:nowrap">🌍 Všechny jazyky</button>
-      <button class="btn btn-sm" id="btn-noimag" onclick="toggleNoImage()" title="Zobrazit jen karty bez obrázku" style="white-space:nowrap">📷 Bez obrázku</button>
-      <button class="btn btn-sm" id="btn-game-tcg"    onclick="setGameType('tcg')"    title="Jen fyzické TCG karty"         style="white-space:nowrap">🃏 Fyzické TCG</button>
-      <button class="btn btn-sm" id="btn-game-pocket" onclick="setGameType('pocket')" title="Jen Pokémon TCG Pocket (mobilní hra)" style="white-space:nowrap">📱 TCG Pocket</button>
-      <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
-      <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
+        oninput="debouncedSearch()" class="search-number-inp">
+      <button class="btn search-go-btn" onclick="doSearch(1)">Hledat</button>
     </div>
 
     <!-- Filters -->
@@ -1001,12 +1020,27 @@ body::after {
         <option value="Hyper Rare">Hyper Rare</option>
       </select>
       <select class="filter-select" id="f-sort" onchange="doSearch()">
-        <option value="name">Seřadit: Jméno A–Z</option>
-        <option value="-hp">Seřadit: HP ↓</option>
-        <option value="hp">Seřadit: HP ↑</option>
-        <option value="-id">Seřadit: Nejnovější</option>
-        <option value="number">Seřadit: Číslo ↑</option>
+        <option value="name">↕ Jméno A–Z</option>
+        <option value="-hp">↕ HP ↓</option>
+        <option value="hp">↕ HP ↑</option>
+        <option value="-id">↕ Nejnovější</option>
+        <option value="number">↕ Číslo ↑</option>
       </select>
+    </div>
+
+    <!-- Pokročilé možnosti (rozbalovací) -->
+    <div class="adv-search">
+      <div class="adv-search-toggle" onclick="toggleAdvSearch()">
+        <span id="advSearchArrow">▶</span> Pokročilé možnosti
+      </div>
+      <div class="adv-search-body" id="advSearchBody" style="display:none">
+        <button class="btn btn-sm" id="btn-alllang" onclick="toggleAllLang()" title="Hledat ve všech jazycích (ignoruje filtr jazyka)">🌍 Všechny jazyky</button>
+        <button class="btn btn-sm" id="btn-game-tcg"    onclick="setGameType('tcg')"    title="Jen fyzické TCG karty">🃏 Fyzické TCG</button>
+        <button class="btn btn-sm" id="btn-game-pocket" onclick="setGameType('pocket')" title="Jen Pokémon TCG Pocket (mobilní hra)">📱 TCG Pocket</button>
+        <button class="btn btn-sm" id="btn-noimag" onclick="toggleNoImage()" title="Zobrazit jen karty bez obrázku">📷 Bez obrázku</button>
+        <button class="btn btn-sm" onclick="clearSearch()" title="Vymazat filtry">✕ Reset</button>
+        <button class="img-search-btn" onclick="openImgSearch()" title="Hledat podle obrázku karty">📷 Hledat obrázkem</button>
+      </div>
     </div>
 
     <!-- Toolbar -->
@@ -2010,6 +2044,13 @@ function filterSetDropdown(q) {
 ════════════════════════════════════════════════════ */
 let debTimer;
 function debouncedSearch() { clearTimeout(debTimer); debTimer = setTimeout(() => doSearch(1), 400); }
+function toggleAdvSearch() {
+  var body = document.getElementById('advSearchBody');
+  var wrap = document.querySelector('.adv-search-toggle');
+  var open = body.style.display === 'none';
+  body.style.display = open ? 'flex' : 'none';
+  if (wrap) wrap.classList.toggle('open', open);
+}
 
 function doSearch(pg) {
   state.q = document.getElementById('q').value.trim();
