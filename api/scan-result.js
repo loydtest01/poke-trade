@@ -62,23 +62,24 @@ export default async function handler(req, res) {
     const buffer    = Buffer.from(base64, 'base64');
     const ext       = mimeType.includes('png') ? 'png' : 'jpg';
 
-    // ── 3. Nahrej do Supabase Storage ──────────────────────────
+    // ── 3. Nahraj do Cloudflare R2 (přes worker) místo Supabase Storage ──
+    //    Kvůli egressu: fotky se servírují z R2, ne ze Supabase.
+    //    Do photo_queue uložíme plnou R2 URL jako storage_path — queue.html
+    //    ji pozná podle http prefixu a použije rovnou (umí R2 i staré Supabase).
     const batchId   = body.batchId   || Date.now().toString(36);
     const side      = body.side      || 'front';
     const cardIdx   = body.cardIndex || 1;
     const timestamp = Date.now();
     const filename  = `${batchId}_card${cardIdx}_${side}_${timestamp}.${ext}`;
-    const storagePath = `${user.id}/${filename}`;
 
+    const R2_WORKER = 'https://pokedb-api.poketrade.workers.dev';
     const uploadRes = await fetch(
-      `${SUPABASE_URL}/storage/v1/object/card-photo/${storagePath}`,
+      `${R2_WORKER}/v1/user-photo?filename=${encodeURIComponent(filename)}`,
       {
         method: 'POST',
         headers: {
-          'apikey':          SUPABASE_ANON,
-          'Authorization':   `Bearer ${token}`,
-          'Content-Type':    mimeType,
-          'x-upsert':        'true',
+          'Authorization': `Bearer ${token}`,
+          'Content-Type':  mimeType,
         },
         body: buffer,
       }
@@ -86,9 +87,15 @@ export default async function handler(req, res) {
 
     if (!uploadRes.ok) {
       const errText = await uploadRes.text();
-      console.error('Storage upload error:', errText);
-      return res.status(500).json({ error: 'Nepodařilo se nahrát fotku do storage', detail: errText });
+      console.error('R2 upload error:', errText);
+      return res.status(500).json({ error: 'Nepodařilo se nahrát fotku do R2', detail: errText });
     }
+    const uploadData = await uploadRes.json().catch(() => ({}));
+    if (!uploadData.ok || !uploadData.url) {
+      return res.status(500).json({ error: 'R2 upload nevrátil URL' });
+    }
+    // storage_path = plná R2 URL (queue.html ji použije přímo)
+    const storagePath = uploadData.url;
 
     // ── 4. Metadata z AI výsledku ───────────────────────────────
     const metadata = {
