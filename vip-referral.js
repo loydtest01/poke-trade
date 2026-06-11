@@ -295,9 +295,9 @@
     try {
       const data = await supabaseRequest('rest/v1/lifetime_vip_status?select=*');
       const row = Array.isArray(data) ? data[0] : null;
-      return row || { granted: 0, remaining: 20, total: 20, available: true };
+      return row || { granted: 0, remaining: 10, total: 10, available: true };
     } catch (e) {
-      return { granted: 0, remaining: 20, total: 20, available: true };
+      return { granted: 0, remaining: 10, total: 10, available: true };
     }
   }
 

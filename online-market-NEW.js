@@ -11,7 +11,7 @@ import { toast, openModal, closeModal } from './ui.js';
 // ─── KONFIGURACE API ─────────────────────────────────────────────────────────
 // Po nasazení webu na Vercel sem vlož svoji URL:
 // Příklad: 'https://pokemon-trade-abc123.vercel.app/v1'
-const API_BASE = 'https://pokemon-trade-ruddy.vercel.app/v1';
+const API_BASE = 'https://pokemon-trade-ruddy.vercel.app/api/v1';
 
 // ─── LOKÁLNÍ STAV ONLINE ÚČTU ────────────────────────────────────────────────
 function getOnlineSession() {
@@ -215,7 +215,7 @@ export function onlineLogout() {
 
 export function openOnlineRegisterInfo() {
   // Otevři web v prohlížeči
-  const url = API_BASE.replace('/v1', '') + '/register.html';
+  const url = API_BASE.replace('/api/v1', '') + '/register.html';
   if (window.pokemonBridge?.openExternal) {
     window.pokemonBridge.openExternal(url);
   } else {

@@ -39,10 +39,6 @@
       "dest": "/api/translate-jp.js"
     },
     {
-      "src": "/api/groq-key(.*)",
-      "dest": "/api/groq-key.js"
-    },
-    {
       "src": "/api/v1/(.*)",
       "dest": "/api/v1/[...path].js"
     },
