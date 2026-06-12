@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Statistiky sbírky – PokéTrade</title>
+<link rel="icon" type="image/png" href="favicon.ico">
+<link rel="manifest" href="app-manifest.json">
+<meta name="theme-color" content="#0a0608">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; }
+.stats-wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 80px; }
+.stats-head { display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:22px; }
+.stats-head h1 { font-family:'Unbounded',sans-serif; font-size:26px; font-weight:800; margin:0; }
+.stats-head h1 em { color:#f5c842; font-style:normal; }
+.stats-sub { color:rgba(240,236,228,0.55); font-size:14px; margin-top:6px; }
+
+/* Filtry */
+.filters { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.seg { display:inline-flex; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; overflow:hidden; }
+.seg button { background:none; border:none; color:rgba(240,236,228,0.6); padding:8px 14px; font-size:13px; font-weight:600; font-family:inherit; cursor:pointer; transition:.15s; }
+.seg button.on { background:rgba(245,200,66,0.16); color:#f5c842; }
+.seg button:hover:not(.on) { color:#f0ece4; }
+
+/* KPI */
+.kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:18px 0 26px; }
+.kpi { background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:14px; padding:16px 18px; }
+.kpi b { display:block; font-family:'Unbounded',sans-serif; font-size:24px; color:#f5c842; line-height:1.15; }
+.kpi small { color:rgba(240,236,228,0.5); font-size:12px; }
+
+/* Karty grafů */
+.chart-card { background:rgba(255,255,255,0.035); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:18px 18px 12px; margin-bottom:22px; }
+.chart-card h2 { font-family:'Unbounded',sans-serif; font-size:15px; font-weight:600; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+.chart-card .hint { color:rgba(240,236,228,0.45); font-size:12px; margin:0 0 12px; }
+.chart-box { position:relative; height:300px; }
+.chart-box.tall { height:340px; }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+@media (max-width:860px){ .grid-2{grid-template-columns:1fr;} .chart-box{height:260px;} }
+
+/* Výběr karty pro cenový graf */
+.card-pick { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+.card-pick select, .card-pick input {
+  background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.14); color:#f0ece4;
+  border-radius:10px; padding:9px 12px; font-size:13px; font-family:inherit; min-width:240px;
+}
+.card-pick select:focus, .card-pick input:focus { outline:none; border-color:rgba(245,200,66,0.5); }
+.muted-note { color:rgba(240,236,228,0.4); font-size:12px; }
+.empty-state { text-align:center; padding:60px 20px; color:rgba(240,236,228,0.5); }
+.empty-state .big { font-size:40px; margin-bottom:10px; }
+#loadState { text-align:center; padding:50px 0; color:rgba(240,236,228,0.5); }
+</style>
+<script>window.TOPBAR_ACTIVE = 'stats';</script>
+<script src="i18n.js"></script>
+<script src="topbar.js"></script>
+<script src="pwa-init.js"></script>
+</head>
+<body>
+
+<div class="stats-wrap">
+  <div class="stats-head">
+    <div>
+      <h1>📈 Statistiky <em>sbírky</em></h1>
+      <div class="stats-sub">Hodnota karet, přírůstky, sety a typy v čase — vše z tvého alba.</div>
+    </div>
+    <div class="filters">
+      <div class="seg" id="rangeSeg">
+        <button data-days="7">Týden</button>
+        <button data-days="30">Měsíc</button>
+        <button data-days="90">3 měsíce</button>
+        <button data-days="365" class="on">Rok</button>
+        <button data-days="0">Vše</button>
+      </div>
+      <div class="seg" id="granSeg">
+        <button data-g="day">Dny</button>
+        <button data-g="week" class="on">Týdny</button>
+        <button data-g="month">Měsíce</button>
+        <button data-g="year">Roky</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loadState">⏳ Načítám tvoje album…</div>
+  <div id="content" style="display:none">
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="chart-card">
+      <h2>💰 Hodnota sbírky v čase</h2>
+      <p class="hint">Kumulativní hodnota podle data přidání karet (aktuální tržní ceny pTrend, EUR). Říká: „kdybych ji stavěl znovu, takhle rostla."</p>
+      <div class="chart-box tall"><canvas id="chValue"></canvas></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <h2>🃏 Přidané karty</h2>
+        <p class="hint">Kolik karet přibylo do alba v každém období.</p>
+        <div class="chart-box"><canvas id="chAdded"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h2>⚡ Typy Pokémonů</h2>
+        <p class="hint">Rozložení typů ve tvém albu (trenéři a energie zvlášť).</p>
+        <div class="chart-box"><canvas id="chTypes"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h2>📦 Sety v průběhu času</h2>
+      <p class="hint">Z jakých setů karty přibývaly (top 8 setů, zbytek jako „ostatní").</p>
+      <div class="chart-box tall"><canvas id="chSets"></canvas></div>
+    </div>
+
+    <div class="chart-card">
+      <h2>📉 Cena konkrétní karty v čase</h2>
+      <p class="hint">Skutečná denní historie z PokéDB (Cardmarket trend). Vyber kartu z alba a rozsah.</p>
+      <div class="card-pick">
+        <input id="cardFilter" type="text" placeholder="🔍 filtrovat karty…">
+        <select id="cardSelect"><option value="">— vyber kartu —</option></select>
+        <div class="seg" id="histSeg">
+          <button data-d="7">7 dní</button>
+          <button data-d="30" class="on">30 dní</button>
+          <button data-d="90">90 dní</button>
+          <button data-d="365">Rok</button>
+        </div>
+      </div>
+      <div class="chart-box"><canvas id="chPrice"></canvas></div>
+      <div class="muted-note" id="priceNote">Historie se sbírá od nasazení denního cron refreshe — čím déle poběží, tím delší graf.</div>
+    </div>
+
+  </div>
+  <div class="empty-state" id="emptyState" style="display:none">
+    <div class="big">📭</div>
+    <div>V albu zatím nemáš žádné karty.<br><a href="moje-album.html" style="color:#f5c842">Začni skenovat →</a></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const SUPABASE_URL  = 'https://xrduqwrinzvmpixgmqta.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+const POKEDB_API    = 'https://pokedb-api.poketrade.workers.dev/v1';
+
+const COLORS = ['#f5c842','#4f8ef7','#4ade80','#d07ef7','#ff8c42','#38d9d9','#f76d8e','#a3e635','#94a3b8'];
+const TYPE_COLORS = { Grass:'#4ade80', Fire:'#ff6b4a', Water:'#4f8ef7', Lightning:'#f5c842', Psychic:'#d07ef7',
+  Fighting:'#c2703e', Darkness:'#7c6f93', Metal:'#9aa5b1', Dragon:'#caa84a', Fairy:'#f78fb3', Colorless:'#cbd5e1',
+  Trenér:'#94a3b8', Energie:'#64748b', Ostatní:'#6b7280' };
+
+let allCards = [];      // {created:Date, value:Number(EUR), set, type, name, apiId, count}
+let rangeDays = 365, gran = 'week', histDays = 30;
+let charts = {};
+
+Chart.defaults.color = 'rgba(240,236,228,0.55)';
+Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+
+function token() { return localStorage.getItem('sb_token') || ''; }
+
+async function loadAlbum() {
+  const t = token();
+  if (!t) { location.href = 'login.html'; return []; }
+  // user id z tokenu (JWT payload.sub)
+  let uid = '';
+  try { uid = JSON.parse(atob(t.split('.')[1])).sub || ''; } catch {}
+  const url = `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${uid}&select=local_id,card_data,created_at&order=created_at.asc&limit=10000`;
+  const r = await fetch(url, { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + t } });
+  if (!r.ok) throw new Error('Supabase ' + r.status);
+  const rows = await r.json();
+  return rows.map(row => {
+    const d = row.card_data || {};
+    const count = Math.max(1, parseInt(d.count) || 1);
+    const unit  = parseFloat(d.pTrend) || parseFloat(d.p30d) || parseFloat(d.pMin) || 0;
+    let type = 'Ostatní';
+    if (d.supertype === 'Trainer' || d.category === 'trainer') type = 'Trenér';
+    else if (d.supertype === 'Energy' || d.category === 'energy') type = 'Energie';
+    else type = (Array.isArray(d.types) && d.types[0]) || d.type || 'Ostatní';
+    return {
+      created: new Date(row.created_at),
+      value: unit * count,
+      count,
+      set: d.set || d.setCode || '(bez setu)',
+      type,
+      name: d.name || row.local_id,
+      number: d.number || '',
+      apiId: d.apiId || null,
+    };
+  });
+}
+
+/* ── bucketování podle granularity ── */
+function bucketKey(date, g) {
+  const y = date.getFullYear(), m = date.getMonth(), day = date.getDate();
+  if (g === 'year')  return String(y);
+  if (g === 'month') return `${y}-${String(m + 1).padStart(2, '0')}`;
+  if (g === 'week') {
+    const d = new Date(Date.UTC(y, m, day));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-T${String(week).padStart(2, '0')}`;
+  }
+  return `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function filtered() {
+  if (!rangeDays) return allCards;
+  const from = Date.now() - rangeDays * 86400000;
+  return allCards.filter(c => c.created.getTime() >= from);
+}
+
+/* ── KPI ── */
+function renderKpis() {
+  const cards = filtered();
+  const totalCards = cards.reduce((s, c) => s + c.count, 0);
+  const totalValue = cards.reduce((s, c) => s + c.value, 0);
+  const sets  = new Set(cards.map(c => c.set)).size;
+  const prev  = rangeDays
+    ? allCards.filter(c => { const t = c.created.getTime(), now = Date.now();
+        return t >= now - 2 * rangeDays * 86400000 && t < now - rangeDays * 86400000; })
+    : [];
+  const prevValue = prev.reduce((s, c) => s + c.value, 0);
+  const diff = prevValue > 0 ? Math.round(((totalValue - prevValue) / prevValue) * 100) : null;
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><b>${totalCards.toLocaleString('cs')}</b><small>karet ${rangeDays ? 'přidáno v období' : 'celkem'}</small></div>
+    <div class="kpi"><b>${totalValue.toFixed(2).replace('.', ',')} €</b><small>hodnota přírůstků (pTrend)</small></div>
+    <div class="kpi"><b>${sets}</b><small>různých setů</small></div>
+    <div class="kpi"><b>${diff === null ? '–' : (diff >= 0 ? '+' : '') + diff + ' %'}</b><small>vs. předchozí stejné období</small></div>`;
+}
+
+function destroy(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+/* ── 1) Kumulativní hodnota ── */
+function renderValueChart() {
+  const cards = filtered().slice().sort((a, b) => a.created - b.created);
+  const buckets = new Map();
+  for (const c of cards) {
+    const k = bucketKey(c.created, gran);
+    buckets.set(k, (buckets.get(k) || 0) + c.value);
+  }
+  const labels = [...buckets.keys()];
+  let run = 0;
+  const data = labels.map(k => { run += buckets.get(k); return +run.toFixed(2); });
+  destroy('chValue');
+  charts.chValue = new Chart(document.getElementById('chValue'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Hodnota (EUR)', data, fill: true, tension: 0.3,
+      borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.10)',
+      pointRadius: labels.length > 60 ? 0 : 3, pointBackgroundColor: '#f5c842',
+    }]},
+    options: { maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(2)} €` } } },
+      scales: { y: { ticks: { callback: v => v + ' €' } } } }
+  });
+}
+
+/* ── 2) Přidané karty ── */
+function renderAddedChart() {
+  const buckets = new Map();
+  for (const c of filtered()) {
+    const k = bucketKey(c.created, gran);
+    buckets.set(k, (buckets.get(k) || 0) + c.count);
+  }
+  const labels = [...buckets.keys()];
+  destroy('chAdded');
+  charts.chAdded = new Chart(document.getElementById('chAdded'), {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Karet', data: labels.map(k => buckets.get(k)),
+      backgroundColor: 'rgba(79,142,247,0.55)', borderColor: '#4f8ef7', borderWidth: 1, borderRadius: 5 }]},
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+
+/* ── 3) Typy ── */
+function renderTypesChart() {
+  const counts = new Map();
+  for (const c of filtered()) counts.set(c.type, (counts.get(c.type) || 0) + c.count);
+  const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  destroy('chTypes');
+  charts.chTypes = new Chart(document.getElementById('chTypes'), {
+    type: 'doughnut',
+    data: { labels: entries.map(e => e[0]),
+      datasets: [{ data: entries.map(e => e[1]),
+        backgroundColor: entries.map((e, i) => TYPE_COLORS[e[0]] || COLORS[i % COLORS.length]),
+        borderColor: '#0a0608', borderWidth: 2 }]},
+    options: { maintainAspectRatio: false, cutout: '58%',
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 10 } } } }
+  });
+}
+
+/* ── 4) Sety v čase (stacked) ── */
+function renderSetsChart() {
+  const cards = filtered();
+  const setTotals = new Map();
+  for (const c of cards) setTotals.set(c.set, (setTotals.get(c.set) || 0) + c.count);
+  const topSets = [...setTotals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+  const isTop = s => topSets.includes(s);
+
+  const buckets = new Map(); // key -> Map(set -> count)
+  for (const c of cards) {
+    const k = bucketKey(c.created, gran);
+    if (!buckets.has(k)) buckets.set(k, new Map());
+    const setKey = isTop(c.set) ? c.set : 'Ostatní';
+    const m = buckets.get(k);
+    m.set(setKey, (m.get(setKey) || 0) + c.count);
+  }
+  const labels = [...buckets.keys()];
+  const seriesNames = [...topSets, 'Ostatní'];
+  destroy('chSets');
+  charts.chSets = new Chart(document.getElementById('chSets'), {
+    type: 'bar',
+    data: { labels, datasets: seriesNames.map((s, i) => ({
+      label: s, data: labels.map(k => buckets.get(k).get(s) || 0),
+      backgroundColor: COLORS[i % COLORS.length] + 'cc', borderRadius: 3, stack: 'a' })) },
+    options: { maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 11, padding: 8, font: { size: 11 } } } },
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { precision: 0 } } } }
+  });
+}
+
+/* ── 5) Cena konkrétní karty (worker price_history) ── */
+function fillCardSelect() {
+  const sel = document.getElementById('cardSelect');
+  const filter = (document.getElementById('cardFilter').value || '').toLowerCase();
+  const withId = allCards.filter(c => c.apiId)
+    .filter(c => !filter || c.name.toLowerCase().includes(filter))
+    .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— vyber kartu —</option>' +
+    withId.map(c => `<option value="${c.apiId}">${c.name} ${c.number ? '· ' + c.number : ''} (${c.set})</option>`).join('');
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+
+async function renderPriceChart() {
+  const apiId = document.getElementById('cardSelect').value;
+  const note  = document.getElementById('priceNote');
+  destroy('chPrice');
+  if (!apiId) { note.textContent = 'Vyber kartu z alba (jen karty spárované s databází mají historii).'; return; }
+  note.textContent = '⏳ Načítám historii…';
+  try {
+    const r = await fetch(`${POKEDB_API}/cards/${encodeURIComponent(apiId)}/prices?days=${histDays}`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const data = await r.json();
+    const hist = (data.history || []).filter(h => h.source === 'cardmarket' || !h.source);
+    if (!hist.length) { note.textContent = 'Pro tuhle kartu zatím není nasbíraná historie — denní cron ji začne plnit.'; return; }
+    const labels = hist.map(h => new Date(h.recorded_at).toLocaleDateString('cs'));
+    const trend  = hist.map(h => parseFloat(h.price_trend) || parseFloat(h.price_avg) || null);
+    const low    = hist.map(h => parseFloat(h.price_low) || null);
+    charts.chPrice = new Chart(document.getElementById('chPrice'), {
+      type: 'line',
+      data: { labels, datasets: [
+        { label: 'Trend (€)', data: trend, borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.08)',
+          fill: true, tension: 0.25, pointRadius: labels.length > 40 ? 0 : 3 },
+        { label: 'Nejnižší (€)', data: low, borderColor: '#4ade80', borderDash: [5, 4],
+          fill: false, tension: 0.25, pointRadius: 0 },
+      ]},
+      options: { maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 11 } } },
+        scales: { y: { ticks: { callback: v => v + ' €' } } } }
+    });
+    note.textContent = `Zdroj: PokéDB price_history (Cardmarket), ${hist.length} záznamů.`;
+  } catch (e) {
+    note.textContent = '⚠️ Historii se nepodařilo načíst: ' + e.message;
+  }
+}
+
+/* ── render all ── */
+function renderAll() {
+  renderKpis(); renderValueChart(); renderAddedChart(); renderTypesChart(); renderSetsChart();
+}
+
+/* ── segmenty ── */
+function wireSeg(id, attr, cb) {
+  document.getElementById(id).addEventListener('click', e => {
+    const btn = e.target.closest('button'); if (!btn) return;
+    document.querySelectorAll(`#${id} button`).forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    cb(btn.dataset[attr]);
+  });
+}
+wireSeg('rangeSeg', 'days', v => { rangeDays = parseInt(v); renderAll(); });
+wireSeg('granSeg',  'g',    v => { gran = v; renderAll(); });
+wireSeg('histSeg',  'd',    v => { histDays = parseInt(v); renderPriceChart(); });
+document.getElementById('cardSelect').addEventListener('change', renderPriceChart);
+document.getElementById('cardFilter').addEventListener('input', fillCardSelect);
+
+/* ── init ── */
+(async () => {
+  try {
+    allCards = await loadAlbum();
+    document.getElementById('loadState').style.display = 'none';
+    if (!allCards.length) { document.getElementById('emptyState').style.display = ''; return; }
+    document.getElementById('content').style.display = '';
+    // chytrá výchozí granularita podle stáří alba
+    const spanDays = (Date.now() - allCards[0].created.getTime()) / 86400000;
+    if (spanDays < 45) { gran = 'day';
+      document.querySelectorAll('#granSeg button').forEach(b => b.classList.toggle('on', b.dataset.g === 'day')); }
+    fillCardSelect();
+    renderAll();
+  } catch (e) {
+    document.getElementById('loadState').textContent = '⚠️ Nepodařilo se načíst album: ' + e.message;
+  }
+})();
+</script>
+
+<script src="notif-bell.js"></script>
+<script src="settings-panel.js"></script>
+<script src="site-tracking.js"></script>
+</body>
+</html>
