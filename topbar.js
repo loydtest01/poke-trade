@@ -46,6 +46,7 @@ var PAGES = [
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
   { href: 'deck-builder.html', icon: 'energi/moje alba.png',        labelKey: 'nav.deckBuilder', label: 'Deck Builder',      id: 'deck-builder'},
+  { href: 'statistiky.html',   icon: 'energi/porovnat.png',         labelKey: 'nav.stats',       label: 'Statistiky',        id: 'stats'       },
 ];
 
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
