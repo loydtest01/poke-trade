@@ -1278,8 +1278,11 @@ async function loadQueue() {
       for (const row of g.rows) {
         try {
           if (!row.storage_path) continue; // Přeskoč řádky bez storage_path
-          // Přímá public URL
-          const url = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+          // storage_path může být buď stará Supabase cesta, nebo (po migraci PhotoBridge na R2)
+          // už rovnou hotová veřejná R2 URL – v tom případě ji NESMÍME znovu skládat se Supabase URL.
+          const url = /^https?:\/\//i.test(row.storage_path)
+            ? row.storage_path
+            : `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
           const meta = row.metadata || {};
           // Pokud byl ořez nahraný do Storage, použij oříznutou URL (s cache-bustem zachovaným)
           const finalUrl = meta._cropStorageUrl || url;

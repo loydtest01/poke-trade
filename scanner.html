@@ -2224,8 +2224,11 @@ async function pollNewPhotos() {
     for (const row of rows) {
       if (existingQueueIds.has(row.id)) continue;
       // Bucket card-photo is public – use direct public URL (no signing, no CORS issues)
-      // Same approach as queue.html
-      const photoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+      // Same approach as queue.html. Po migraci PhotoBridge na R2 může storage_path
+      // už být hotová veřejná URL – v tom případě ji nesmíme znovu skládat se Supabase URL.
+      const photoUrl = /^https?:\/\//i.test(row.storage_path)
+        ? row.storage_path
+        : `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
 
       const id = nextId++;
       photos.push({
