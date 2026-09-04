@@ -42,6 +42,7 @@ if (!window.showRateLimitModal && !document.querySelector('script[src*="rate-lim
 var PAGES = [
   { href: 'marketplace.html',  icon: 'energi/obchod.png',          labelKey: 'nav.marketplace', label: 'Obchod',            id: 'marketplace' },
   { href: 'moje-album.html',   icon: 'energi/moje alba.png',        labelKey: 'nav.myAlbum',     label: 'Moje alba',         id: 'moje-album'  },
+  { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Naskenovat kartu',  id: 'scanner'     },
   { href: 'compare.html',      icon: 'energi/porovnat.png',         labelKey: 'nav.compare',     label: 'Porovnat alba',     id: 'compare'     },
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
@@ -2773,5 +2774,26 @@ window.spDoForgotPass = async function () {
     document.addEventListener('DOMContentLoaded', _startAutoRefresh);
   } else {
     _startAutoRefresh();
+  }
+})();
+
+/* ══════════════════════════════════════════════════════════════
+   QR BRIDGE – trvalý panel "Nahraj kartičky z mobilu"
+   Načte se automaticky na každé stránce, kde je topbar.js.
+   Logika a styly jsou v samostatném qr-bridge.js.
+══════════════════════════════════════════════════════════════ */
+(function loadQrBridge() {
+  function inject() {
+    if (document.querySelector('script[data-qr-bridge]')) return;
+    var s = document.createElement('script');
+    s.src = 'qr-bridge.js';
+    s.defer = true;
+    s.setAttribute('data-qr-bridge', '1');
+    document.head.appendChild(s);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inject);
+  } else {
+    inject();
   }
 })();
