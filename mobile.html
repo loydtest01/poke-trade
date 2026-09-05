@@ -778,6 +778,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
         </div>
       </div>
 
+      <div id="galAiBadge" style="display:none;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0 2px 10px"></div>
+
       <div id="galDetailPanel" style="display:none;padding:0 2px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">🔍 Detaily</span>
@@ -1512,10 +1514,60 @@ function galSelectCount(n) {
 
 function galStartWizard() {
   galCards = Array.from({ length: galWizardTotal }, () => ({
-    frontPhoto: null, backPhoto: null, detailPhotos: [], status: 'pending'
+    frontPhoto: null, backPhoto: null, detailPhotos: [], status: 'pending',
+    frontAI: null, aiState: 'idle'   // 'idle' | 'running' | 'done' | 'failed'
   }));
   galWizardCurrent = 0;
   galShowCard(0);
+}
+
+// ── AI rozpoznání pro režim galerie ─────────────────────────────
+// Stejná logika jako u fotoaparátu (handleCapture), jen bez UI panelu.
+// Výsledek se uloží do galCards[idx].frontAI a odešle se s fotkou do fronty.
+async function galIdentify(idx, dataUrl) {
+  const c = galCards[idx];
+  if (!c || !dataUrl) return;
+  if (!(groqKey || useSharedProxy || !_groqReady)) return;
+
+  c.aiState = 'running';
+  galUpdateAiBadge(idx);
+
+  try {
+    if (!_groqReady) await Promise.race([_groqReadyPromise, delay(8000)]);
+    if (!groqKey && !useSharedProxy) { c.aiState = 'idle'; galUpdateAiBadge(idx); return; }
+
+    const result = await identifyCard(dataUrl);
+    c.frontAI = result?.name ? result : null;
+    c.aiState = result?.name ? 'done' : 'failed';
+  } catch (e) {
+    console.warn('[galIdentify]', e.message);
+    c.frontAI = null;
+    c.aiState = 'failed';
+  }
+  galUpdateAiBadge(idx);
+  // Přerenderuj přehled, pokud je zrovna vidět
+  if (document.getElementById('scGalReview')?.classList.contains('active')) galShowReview();
+}
+
+function galUpdateAiBadge(idx) {
+  const el = document.getElementById('galAiBadge');
+  if (!el || idx !== galWizardCurrent) return;
+  const c = galCards[idx];
+  if (c.aiState === 'running') {
+    el.style.display = '';
+    el.innerHTML = '<div class="ai-spinner"><div class="spinner"></div> AI rozpoznává kartu…</div>';
+  } else if (c.aiState === 'done' && c.frontAI?.name) {
+    el.style.display = '';
+    el.innerHTML = `<div style="font-size:14px;font-weight:800;color:var(--accent)">${escHtml(c.frontAI.name)}</div>` +
+      `<div style="font-size:11px;color:var(--muted);margin-top:2px">${escHtml(c.frontAI.set || '')}` +
+      `${c.frontAI.number ? ' · #' + escHtml(String(c.frontAI.number)) : ''}</div>`;
+  } else if (c.aiState === 'failed') {
+    el.style.display = '';
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted)">❓ AI kartu nerozpoznala — dohledá se na PC</div>';
+  } else {
+    el.style.display = 'none';
+    el.innerHTML = '';
+  }
 }
 
 function galShowCard(idx) {
@@ -1538,6 +1590,9 @@ function galShowCard(idx) {
 
   // Detaily
   galRenderDetailStrip();
+
+  // AI výsledek pro tuto kartu
+  galUpdateAiBadge(idx);
 
   // Zadní foto panel
   const backPanel = document.getElementById('galBackPanel');
@@ -1590,6 +1645,10 @@ function handleGalFilePick(input) {
     reader.onload = e => {
       c.frontPhoto = e.target.result;
       galShowCard(galWizardCurrent);
+      // AI rozpoznání i pro fotky z galerie — dřív se tu vůbec nespouštělo,
+      // takže karty dorazily do fronty úplně bez dat (name: null) a na PC
+      // se muselo u každé mačkat „Znovu AI".
+      galIdentify(galWizardCurrent, e.target.result);
     };
     reader.readAsDataURL(files[0]);
   } else if (galPickMode === 'back') {
@@ -1692,8 +1751,10 @@ function galShowReview() {
     el.innerHTML = `
       ${c.frontPhoto ? `<img class="review-thumb" src="${c.frontPhoto}" alt="">` : `<div class="review-thumb-empty">?</div>`}
       <div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px">Karta ${i + 1}</div>
+        <div style="font-weight:700;font-size:13px">${c.frontAI?.name ? escHtml(c.frontAI.name) : `Karta ${i + 1}`}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">
+          ${c.aiState === 'running' ? '🤖 AI rozpoznává…' : ''}
+          ${c.frontAI?.set ? escHtml(c.frontAI.set) + (c.frontAI.number ? ' · #' + escHtml(String(c.frontAI.number)) : '') + ' · ' : ''}
           ${c.frontPhoto ? '📷 Přední' : '⏭ Bez přední'}${backStr}${detStr}
         </div>
       </div>
@@ -1737,8 +1798,18 @@ async function sendGallery() {
     const hasBack    = !!c.backPhoto;
     const hasDetails = !!(c.detailPhotos?.length);
 
-    // Přední strana
+    // Přední strana — včetně dat z AI, ať fronta nemusí nic dohledávat
+    const gai = c.frontAI || {};
     reqs.push(postPhoto({
+      name: gai.name || null, nameEN: gai.nameEN || null, set: gai.set || null,
+      number: gai.number || null, type: gai.type || null, hp: gai.hp || null,
+      category: gai.category || null, subtype: gai.subtype || null,
+      variant: gai.variant || null,
+      condition: gai.condition || c.condition || 'NM',
+      conditionNotes: gai.conditionNotes || '',
+      confidence: gai.confidence || null,
+      notes: gai.notes || c.note || '',
+      lang: gai.lang || 'EN',
       photo: frontComp, photoDataUrl: frontComp,
       side: 'front', cardIndex: i + 1, totalCards: total,
       batchId: bId, isFakeTraining: fakeMode,
