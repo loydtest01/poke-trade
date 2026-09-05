@@ -52,6 +52,25 @@ body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; 
 .empty-state { text-align:center; padding:60px 20px; color:rgba(240,236,228,0.5); }
 .empty-state .big { font-size:40px; margin-bottom:10px; }
 #loadState { text-align:center; padding:50px 0; color:rgba(240,236,228,0.5); }
+
+/* ── Global topbar (záloha než topbar.js injektuje styly) ── */
+.app-topbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(8,8,12,0.92);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center;
+  height: 56px; padding: 0 20px; gap: 0;
+}
+.app-logo {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px; font-weight: 800;
+  color: #fff; display: flex; align-items: center; gap: 6px;
+  text-decoration: none; margin-right: 28px; white-space: nowrap; flex-shrink: 0;
+}
+.app-logo strong { color: #f5c842; }
+.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.nav-lnks img.nav-icon { width:18px!important; height:18px!important; flex-shrink:0!important; object-fit:contain!important; }
 </style>
 <script>window.TOPBAR_ACTIVE = 'stats';</script>
 <script src="i18n.js"></script>
@@ -59,6 +78,15 @@ body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; 
 <script src="pwa-init.js"></script>
 </head>
 <body>
+
+<!-- ── Topbar (globální navigace) ─────────────────────────── -->
+<header class="app-topbar">
+  <a href="/" class="app-logo">
+    <img src="pokemon.png" alt="Pokémon" style="width:28px;height:28px;object-fit:contain;vertical-align:middle;border-radius:6px"> Poké<strong>Trade</strong>
+  </a>
+  <nav class="nav-lnks" id="mainNav"></nav>
+  <div class="topbar-right"></div>
+</header>
 
 <div class="stats-wrap">
   <div class="stats-head">
