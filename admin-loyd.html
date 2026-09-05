@@ -1111,7 +1111,11 @@ async function grantVip() {
       await loadVips();
       await loadStats();
     } else {
-      result.innerHTML = `<div class="error">Chyba: ${r.reason || 'unknown'}</div>`;
+      const why = r.reason || r.message || r.error || 'unknown';
+      const hint = r.pg_hint ? `<br><small style="opacity:.75">${escapeHtml(String(r.pg_hint))}</small>` : '';
+      const code = r.pg_code ? ` <small style="opacity:.6">[${escapeHtml(String(r.pg_code))}]</small>` : '';
+      result.innerHTML = `<div class="error">Chyba: ${escapeHtml(String(why))}${code}${hint}</div>`;
+      console.warn('[grantVip] odpověď serveru:', r);
     }
   } catch (e) {
     result.innerHTML = `<div class="error">Chyba: ${e.message}</div>`;

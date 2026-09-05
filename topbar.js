@@ -2778,6 +2778,30 @@ window.spDoForgotPass = async function () {
 })();
 
 /* ══════════════════════════════════════════════════════════════
+   VIP REFERRAL – claim welcome VIP na každé stránce
+   Dřív byl vip-referral.js jen na index/marketplace/moje-album.
+   Kdo po registraci skončil jinde (profile.html, scanner.html…),
+   claim_welcome_vip se mu nikdy nezavolal a VIP nedostal.
+   Načítáme jen když ho stránka nemá vlastním <script> tagem.
+══════════════════════════════════════════════════════════════ */
+(function loadVipReferral() {
+  function inject() {
+    if (window.VIP) return;
+    if (document.querySelector('script[src*="vip-referral.js"]')) return;
+    if (!localStorage.getItem('sb_token')) return;   // nepřihlášený → nemá co claimovat
+    var s = document.createElement('script');
+    s.src = 'vip-referral.js';
+    s.defer = true;
+    document.head.appendChild(s);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', inject);
+  } else {
+    inject();
+  }
+})();
+
+/* ══════════════════════════════════════════════════════════════
    QR BRIDGE – trvalý panel "Nahraj kartičky z mobilu"
    Načte se automaticky na každé stránce, kde je topbar.js.
    Logika a styly jsou v samostatném qr-bridge.js.
