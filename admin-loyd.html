@@ -256,6 +256,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <button class="adm-tab" data-tab="vips">⭐ VIP správa</button>
       <button class="adm-tab" data-tab="admins">🛡️ Správci</button>
       <button class="adm-tab" data-tab="images">🖼 Obrázky karet</button>
+      <button class="adm-tab" data-tab="pokedb">🗃 PokéDB</button>
     </div>
 
     <div id="tabs">
@@ -388,7 +389,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       </div>
 
       <!-- TAB: PokéDB Admin ─────────────────────────────────── -->
-      <div id="tab-pokedb">
+      <div id="tab-pokedb" style="display:none">
 
         <!-- Stats -->
         <div class="adm-section">
@@ -906,6 +907,7 @@ async function init() {
       else if (t.dataset.tab === 'vips') loadVips();
       else if (t.dataset.tab === 'admins') loadAdmins();
       else if (t.dataset.tab === 'images') imgInit();
+      else if (t.dataset.tab === 'pokedb') pdbLoadJobs();
     });
   });
 
