@@ -118,7 +118,7 @@ body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; 
 
     <div class="chart-card">
       <h2>💰 Hodnota sbírky v čase</h2>
-      <p class="hint">Kumulativní hodnota podle data přidání karet (aktuální tržní ceny pTrend, EUR). Říká: „kdybych ji stavěl znovu, takhle rostla."</p>
+      <p class="hint">Kumulativní hodnota podle data přidání karet (aktuální tržní ceny pTrend). Říká: „kdybych ji stavěl znovu, takhle rostla."</p>
       <div class="chart-box tall"><canvas id="chValue"></canvas></div>
     </div>
 
@@ -179,6 +179,59 @@ const TYPE_COLORS = { Grass:'#4ade80', Fire:'#ff6b4a', Water:'#4f8ef7', Lightnin
 let allCards = [];      // {created:Date, value:Number(EUR), set, type, name, apiId, count}
 let rangeDays = 365, gran = 'week', histDays = 30;
 let charts = {};
+
+// ══════════════════════════════════════════════
+//  MĚNA — respektuje nastavení pkc_currency (EUR / CZK)
+//  Ceny z API chodí vždy v EUR, převádíme až při zobrazení.
+// ══════════════════════════════════════════════
+window._currency = localStorage.getItem('pkc_currency') || 'EUR';
+window._eurRate  = null;
+
+async function fetchEurRate() {
+  // Kurz cachujeme 12 h, ať se externí API netahá při každém načtení
+  try {
+    const ts   = parseInt(localStorage.getItem('pkc_eur_rate_ts') || '0');
+    const cach = parseFloat(localStorage.getItem('pkc_eur_rate') || '');
+    if (cach > 0 && Date.now() - ts < 12 * 3600 * 1000) { window._eurRate = cach; return; }
+    const r = await fetch('https://open.er-api.com/v6/latest/EUR');
+    const d = await r.json();
+    const rate = d?.rates?.CZK;
+    if (rate > 0) {
+      window._eurRate = rate;
+      localStorage.setItem('pkc_eur_rate', String(rate));
+      localStorage.setItem('pkc_eur_rate_ts', String(Date.now()));
+    } else if (cach > 0) {
+      window._eurRate = cach;                 // API selhalo → starý kurz je lepší než nic
+    }
+  } catch {
+    const cach = parseFloat(localStorage.getItem('pkc_eur_rate') || '');
+    if (cach > 0) window._eurRate = cach;
+  }
+}
+
+function useCzk() { return window._currency === 'CZK' && window._eurRate > 0; }
+function curSymbol() { return useCzk() ? 'Kč' : '€'; }
+
+// Plná částka do KPI a tooltipů
+function fmtMoney(eur) {
+  const n = Number(eur) || 0;
+  return useCzk()
+    ? Math.round(n * window._eurRate).toLocaleString('cs-CZ') + ' Kč'
+    : n.toFixed(2).replace('.', ',') + ' €';
+}
+
+// Hodnota pro osu grafu (číslo ve zvolené měně)
+function toDisplay(eur) {
+  const n = Number(eur) || 0;
+  return useCzk() ? Math.round(n * window._eurRate) : +n.toFixed(2);
+}
+
+// Popisek osy — bez desetinných míst, ať se to vejde
+function fmtAxis(v) {
+  return useCzk()
+    ? Number(v).toLocaleString('cs-CZ') + ' Kč'
+    : v + ' €';
+}
 
 Chart.defaults.color = 'rgba(240,236,228,0.55)';
 Chart.defaults.borderColor = 'rgba(255,255,255,0.07)';
@@ -254,7 +307,7 @@ function renderKpis() {
 
   document.getElementById('kpis').innerHTML = `
     <div class="kpi"><b>${totalCards.toLocaleString('cs')}</b><small>karet ${rangeDays ? 'přidáno v období' : 'celkem'}</small></div>
-    <div class="kpi"><b>${totalValue.toFixed(2).replace('.', ',')} €</b><small>hodnota přírůstků (pTrend)</small></div>
+    <div class="kpi"><b>${fmtMoney(totalValue)}</b><small>hodnota přírůstků (pTrend)</small></div>
     <div class="kpi"><b>${sets}</b><small>různých setů</small></div>
     <div class="kpi"><b>${diff === null ? '–' : (diff >= 0 ? '+' : '') + diff + ' %'}</b><small>vs. předchozí stejné období</small></div>`;
 }
@@ -271,19 +324,19 @@ function renderValueChart() {
   }
   const labels = [...buckets.keys()];
   let run = 0;
-  const data = labels.map(k => { run += buckets.get(k); return +run.toFixed(2); });
+  const data = labels.map(k => { run += buckets.get(k); return toDisplay(run); });
   destroy('chValue');
   charts.chValue = new Chart(document.getElementById('chValue'), {
     type: 'line',
     data: { labels, datasets: [{
-      label: 'Hodnota (EUR)', data, fill: true, tension: 0.3,
+      label: 'Hodnota (' + curSymbol() + ')', data, fill: true, tension: 0.3,
       borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.10)',
       pointRadius: labels.length > 60 ? 0 : 3, pointBackgroundColor: '#f5c842',
     }]},
     options: { maintainAspectRatio: false,
       plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(2)} €` } } },
-      scales: { y: { ticks: { callback: v => v + ' €' } } } }
+        tooltip: { callbacks: { label: ctx => ' ' + fmtAxis(ctx.parsed.y) } } },
+      scales: { y: { ticks: { callback: v => fmtAxis(v) } } } }
   });
 }
 
@@ -378,19 +431,19 @@ async function renderPriceChart() {
     const hist = (data.history || []).filter(h => h.source === 'cardmarket' || !h.source);
     if (!hist.length) { note.textContent = 'Pro tuhle kartu zatím není nasbíraná historie — denní cron ji začne plnit.'; return; }
     const labels = hist.map(h => new Date(h.recorded_at).toLocaleDateString('cs'));
-    const trend  = hist.map(h => parseFloat(h.price_trend) || parseFloat(h.price_avg) || null);
-    const low    = hist.map(h => parseFloat(h.price_low) || null);
+    const trend  = hist.map(h => { const v = parseFloat(h.price_trend) || parseFloat(h.price_avg); return v ? toDisplay(v) : null; });
+    const low    = hist.map(h => { const v = parseFloat(h.price_low); return v ? toDisplay(v) : null; });
     charts.chPrice = new Chart(document.getElementById('chPrice'), {
       type: 'line',
       data: { labels, datasets: [
-        { label: 'Trend (€)', data: trend, borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.08)',
+        { label: 'Trend (' + curSymbol() + ')', data: trend, borderColor: '#f5c842', backgroundColor: 'rgba(245,200,66,0.08)',
           fill: true, tension: 0.25, pointRadius: labels.length > 40 ? 0 : 3 },
-        { label: 'Nejnižší (€)', data: low, borderColor: '#4ade80', borderDash: [5, 4],
+        { label: 'Nejnižší (' + curSymbol() + ')', data: low, borderColor: '#4ade80', borderDash: [5, 4],
           fill: false, tension: 0.25, pointRadius: 0 },
       ]},
       options: { maintainAspectRatio: false,
         plugins: { legend: { position: 'bottom', labels: { boxWidth: 11 } } },
-        scales: { y: { ticks: { callback: v => v + ' €' } } } }
+        scales: { y: { ticks: { callback: v => fmtAxis(v) } } } }
     });
     note.textContent = `Zdroj: PokéDB price_history (Cardmarket), ${hist.length} záznamů.`;
   } catch (e) {
@@ -421,6 +474,7 @@ document.getElementById('cardFilter').addEventListener('input', fillCardSelect);
 /* ── init ── */
 (async () => {
   try {
+    await fetchEurRate();               // kurz musí být dřív, než se něco vykreslí
     allCards = await loadAlbum();
     document.getElementById('loadState').style.display = 'none';
     if (!allCards.length) { document.getElementById('emptyState').style.display = ''; return; }
@@ -434,6 +488,26 @@ document.getElementById('cardFilter').addEventListener('input', fillCardSelect);
   } catch (e) {
     document.getElementById('loadState').textContent = '⚠️ Nepodařilo se načíst album: ' + e.message;
   }
+})();
+
+/* ── Přepnutí měny v panelu nastavení → překresli, ať nemusí refreshovat ── */
+(function watchCurrency() {
+  const apply = () => {
+    const cur = localStorage.getItem('pkc_currency') || 'EUR';
+    if (cur === window._currency) return;
+    window._currency = cur;
+    if (allCards.length) { renderAll(); renderPriceChart(); }
+  };
+  // změna v jiné záložce
+  window.addEventListener('storage', e => { if (e.key === 'pkc_currency') apply(); });
+  // změna v panelu nastavení na této stránce
+  const orig = window.albumSettingsSetCurrency;
+  window.albumSettingsSetCurrency = function (cur) {
+    if (typeof orig === 'function') orig(cur);
+    else { localStorage.setItem('pkc_currency', cur); window._pkc_currency = cur; }
+    apply();
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) apply(); });
 })();
 </script>
 
