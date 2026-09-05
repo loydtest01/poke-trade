@@ -420,6 +420,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
               <option value="pt">pt</option><option value="zh">zh</option>
             </select>
             <button class="btn btn-sm" onclick="pdbCreateJob()">➕ Nová úloha (obrázky)</button>
+            <button class="btn btn-sm" onclick="pdbRunJob(this)">▶ Spustit dávku teď</button>
           </div>
           <div id="pdb-jobs"><div class="loading">Klikni na „Načíst"…</div></div>
         </div>
@@ -1616,6 +1617,17 @@ async function pdbCreateJob() {
   const d = await pdbFetch('/v1/admin/jobs', 'POST', { job_type: 'images', lang, batch_size: 40 });
   if (d?.ok) pdbLoadJobs();
   else alert('Nepodařilo se založit: ' + (d?.error || 'neznámá chyba'));
+}
+
+async function pdbRunJob(btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Běží…';
+  const d = await pdbFetch('/v1/admin/jobs', 'POST', { action: 'run' });
+  btn.disabled = false; btn.textContent = orig;
+  if (!d)          { alert('Chybí admin secret.'); return; }
+  if (d.ok)        { alert('Dávka doběhla:\n' + JSON.stringify(d.result, null, 2)); }
+  else             { alert('Chyba: ' + (d.error || JSON.stringify(d))); }
+  pdbLoadJobs();
 }
 
 async function pdbLoadJobs() {
