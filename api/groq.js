@@ -58,7 +58,7 @@ const PROVIDERS = {
   gemini: {
     endpoint:        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
     envKey:          'GEMINI_API_KEY',
-    defaultModel:    'gemini-1.5-flash',
+    defaultModel:    'gemini-2.5-flash',
     signupHost:      'aistudio.google.com',
     daily_text:      1500,     // 1500 req/den free tier
     daily_vision:    500,      // vision výrazně dražší na tokenech
@@ -530,6 +530,21 @@ export default async function handler(req, res) {
     res, req, provider, providerName, sharedKeys, safeBody, true
   );
 
+  // FIX: s returnMeta=true rotace sama neodesílá odpověď. Když všechny
+  // sdílené klíče selhaly, request dřív zůstal viset až do Vercel timeoutu
+  // (klient viděl 504 / nekonečné načítání). Teď vždy odpovíme.
+  if (!result?.ok) {
+    if (res.headersSent) return;
+    const st = result?.status || 502;
+    return res.status(st).json({
+      error: result?.error
+        || `Všechny sdílené klíče pro ${providerName} selhaly (HTTP ${st}). Zkus to za chvíli, nebo si v Nastavení přidej vlastní klíč.`,
+      code:  st === 429 ? 'RATE_LIMITED' : 'PROVIDER_FAILED',
+      provider: providerName,
+      providerHint: `Klíč zdarma získáš na ${provider.signupHost}`,
+    });
+  }
+
   if (result?.ok) {
     const patch = usageType === 'fake'
       ? { fake_count:   (usage?.fake_count   || 0) + 1 }
@@ -801,7 +816,7 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
             provider: providerName,
           });
         }
-        return { ok: false };
+        return { ok: false, status: r.status, error: data?.error?.message || `${providerName} error` };
       }
       console.log(`[${providerName}] ✓ klíč #${i+1}/${keys.length}`);
       res.status(200).json(data);
@@ -829,5 +844,9 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
       keysAvailable: keys.length,
     });
   }
-  return { ok: false };
+  return {
+    ok:     false,
+    status: lastErrorStatus,
+    error:  `Všech ${keys.length} ${providerName} klíčů selhalo: ${lastErrorMessage}`,
+  };
 }
