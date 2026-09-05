@@ -81,6 +81,7 @@
     </div>
   </div>
 </div>
+<script src="username-filter.js"></script>
 <script src="app.js"></script>
 <script>
 // ── IP helper funkce ─────────────────────────────────────────
@@ -109,6 +110,11 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   if (!/^[a-zA-Z0-9_.-]{3,30}$/.test(username)) {
     showError('Uživatelské jméno smí obsahovat jen písmena, čísla, _ . - (3–30 znaků)');
     return;
+  }
+  // Filtr hanlivých a vyhrazených přezdívek (vynucení je i v DB triggeru)
+  if (typeof UsernameFilter !== 'undefined') {
+    const uv = UsernameFilter.check(username);
+    if (!uv.ok) { showError(uv.reason); return; }
   }
   if (!document.getElementById('agreeTerms').checked) {
     showError('Musíš souhlasit s podmínkami služby pro pokračování');
