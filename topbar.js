@@ -42,7 +42,7 @@ if (!window.showRateLimitModal && !document.querySelector('script[src*="rate-lim
 var PAGES = [
   { href: 'marketplace.html',  icon: 'energi/obchod.png',          labelKey: 'nav.marketplace', label: 'Obchod',            id: 'marketplace' },
   { href: 'moje-album.html',   icon: 'energi/moje alba.png',        labelKey: 'nav.myAlbum',     label: 'Moje alba',         id: 'moje-album'  },
-  { href: 'scanner.html',      icon: 'energi/scanner.png',          labelKey: 'nav.scanner',     label: 'Naskenovat kartu',  id: 'scanner'     },
+  { href: 'queue.html?tab=bulk', icon: 'energi/scanner.png',        labelKey: 'nav.scanner',     label: 'Naskenovat kartu',  id: 'scanner'     },
   { href: 'compare.html',      icon: 'energi/porovnat.png',         labelKey: 'nav.compare',     label: 'Porovnat alba',     id: 'compare'     },
   { href: 'share-album.html',  icon: 'energi/sdilet.png',           labelKey: 'nav.share',       label: 'Sdílet album',      id: 'share'  },
   { href: 'queue.html',        icon: 'energi/ceka_na_zarazeni.png', labelKey: 'nav.queue',       label: 'Čeká na zařazení',  id: 'queue'       },
