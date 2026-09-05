@@ -1025,7 +1025,7 @@ async function detectAIMethod(){
   // 1. Gemini (free tier)
   if(gemKey){
     try{
-      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gemKey}`,{
+      const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gemKey}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({contents:[{parts:[{inlineData:{mimeType:'image/jpeg',data:b64}},{text:prompt}]}],generationConfig:{maxOutputTokens:1024,temperature:.1}})
       });
@@ -1315,7 +1315,7 @@ Value ranges:
   // 1. Gemini Flash 1.5 (free tier, excellent vision)
   if(gemKey && !vals){
     try{
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${gemKey}`,{
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gemKey}`,{
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           contents:[{parts:[
@@ -1563,10 +1563,7 @@ async function fetchAlbumPhotos(){
       if(Array.isArray(rows)){
         rows.forEach(r2=>{
           if(!r2.storage_path)return;
-          // Po migraci PhotoBridge na R2 může storage_path už být hotová veřejná URL.
-          const url=/^https?:\/\//i.test(r2.storage_path)
-            ? r2.storage_path
-            : SUPABASE_URL+'/storage/v1/object/public/card-photo/'+r2.storage_path;
+          const url=SUPABASE_URL+'/storage/v1/object/public/card-photo/'+r2.storage_path;
           const meta=r2.metadata||{};
           const name=r2.filename?.replace(/\.[^.]+$/,'')||meta.cardName||('Fronta #'+(meta.cardIndex||''));
           allPhotos.push({id:'q_'+r2.id,url,side:meta.side||'front',name,local_id:null,src:'queue',created_at:r2.created_at});

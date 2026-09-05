@@ -376,7 +376,7 @@ const GROQ_PROXY = '/api/groq';
 async function _deckFetch(headers, bodyObj) {
   // Try Gemini first, fallback to Groq on quota/rate limit
   const providers = [
-    { provider: 'gemini', model: 'gemini-1.5-flash' },
+    { provider: 'gemini', model: 'gemini-2.5-flash' },
     { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
   ];
   let lastErr = null;

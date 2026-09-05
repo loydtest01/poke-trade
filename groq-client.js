@@ -757,8 +757,8 @@
     const GEMINI_MODEL_FALLBACK = [
       model,                        // požadovaný model (primární)
       'gemini-2.5-flash',   // verze stabilní, paid tier
-      'gemini-1.5-flash',           // starší, stabilní
-      'gemini-1.5-flash-8b',        // nejlehčí fallback
+      'gemini-flash-latest',        // vždy aktuální flash (nezastará)
+      'gemini-2.5-flash-lite',      // nejlehčí fallback
     ].filter((m, i, a) => m && a.indexOf(m) === i); // deduplicate
 
     let lastError = null;

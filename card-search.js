@@ -24,7 +24,10 @@
   const TCG_DIRECT   = 'https://api.pokemontcg.io/v2';
   const TCGDEX_BASE  = 'https://api.tcgdex.net/v2';
   const POKEDB_BASE  = 'https://pokedb-api.poketrade.workers.dev/v1'; // naše vlastní DB
-  const FETCH_TIMEOUT = 4000;
+  // 12 s: pokemontcg.io pres Vercel proxy bezne odpovida 3-8 s (cold start).
+  // Puvodni 4 s znamenaly, ze se dotaz sam prerusil driv, nez dorazila data,
+  // a hledani "nic nenaslo" i kdyz karta existuje.
+  const FETCH_TIMEOUT = 12000;
 
   // ─── Konfigurace zdrojů (přepínatelné, persist v localStorage) ──────────────
 
@@ -150,9 +153,12 @@
       const rs = (card.setCode || card.setId || '').toLowerCase();
       const rsName = (card.set || '').toLowerCase();
       if (qs && (rs || rsName)) {
-        if (rs === qs || rsName.includes(qs) || qs.includes(rs)) score += 20;
-        else if (rs.includes(qs) || qs.includes(rs)) score += 10;
-        else score -= 12; // ← penalizace za jasnou neshodu série
+        // POZOR: rs může být prázdný řetězec (TCGdex nevrací setCode).
+        // Bez kontroly `rs &&` platilo qs.includes('') === true, takže +20
+        // dostal úplně každý kandidát a série přestala rozlišovat vůbec.
+        if (rs === qs || (qs && rsName.includes(qs)) || (rs && qs.includes(rs))) score += 20;
+        else if (rs && (rs.includes(qs) || qs.includes(rs))) score += 10;
+        else if (rs || rsName) score -= 12; // ← penalizace za jasnou neshodu série
       }
     }
 
@@ -684,10 +690,25 @@ No explanation. Just the JSON array.`;
       }
     }
     if (number) {
-      const n = String(number).split('/')[0].replace(/\D/g, '');
-      if (n) parts.push(`number:${n}`);
+      const n = _queryNumber(number);
+      if (n) parts.push(`number:"${n}"`);
     }
     return parts.join(' ');
+  }
+
+  // Číslo karty pro dotaz na pokemontcg.io.
+  // Dvě chyby, které tu byly:
+  //  1) vedoucí nuly se nestripovaly → "012/100" dalo number:012, ale API má
+  //     v poli number řetězec "12" ⇒ 0 výsledků (typické pro JP a asijské sety)
+  //  2) replace(/\D/g,'') zahazovalo písmena → "TG05" dalo "05", "GG69" → "69",
+  //     "SWSH284" → "284" ⇒ hledání našlo úplně jiné karty
+  // _scoreCard přitom nuly stripoval, takže scoring a dotaz si odporovaly.
+  function _queryNumber(number) {
+    const raw = String(number || '').split('/')[0].trim();
+    if (!raw) return '';
+    if (/^\d+$/.test(raw)) return raw.replace(/^0+/, '') || '0';
+    if (/^[A-Za-z]+\d+[A-Za-z]*$/.test(raw)) return raw.toUpperCase();
+    return raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
   }
 
   // ─── Nízkoúrovňový fetch ─────────────────────────────────────────────────────
@@ -730,7 +751,9 @@ No explanation. Just the JSON array.`;
         const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT);
         const r = await fetch(url, { signal: ctrl.signal });
         clearTimeout(timer);
-        if (r.status === 429 || r.status === 503) {
+        if (r.status === 429 || r.status >= 500) {
+          // 5xx = docasny vypadek upstreamu (pokemontcg.io pada na 502/504
+          // a /api/tcg to mapuje na 502). Driv se neretryovalo -> tichy null.
           const wait = 800 * Math.pow(2, attempt);
           await new Promise(res => setTimeout(res, wait));
           continue;
@@ -1272,9 +1295,9 @@ No explanation. Just the JSON array.`;
             // Důvod: AI může napsat "Obsidian Flames" ale API set se jmenuje jinak.
             // Bez B1c spadneme na B2 (jen jméno) a scoring vybere kartu z jiné populárnější série.
             if (!tcgCards.length && number && enName) {
-              const numClean = String(number).split('/')[0].replace(/\D/g, '');
+              const numClean = _queryNumber(number);
               if (numClean) {
-                const q3 = `name:"${enName.replace(/"/g, '')}" number:${numClean}`;
+                const q3 = `name:"${enName.replace(/"/g, '')}" number:"${numClean}"`;
                 status(`🔍 Zkouším jméno + číslo (bez série)…`);
                 tcgCards = await _searchTcgIo(q3, pageSize);
               }
