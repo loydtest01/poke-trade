@@ -420,6 +420,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
               <option value="pt">pt</option><option value="zh">zh</option>
             </select>
             <button class="btn btn-sm" onclick="pdbCreateJob()">➕ Nová úloha (obrázky)</button>
+            <button class="btn btn-sm" onclick="pdbCreateJob('discover')">🔎 Hledat nové sady</button>
             <button class="btn btn-sm" onclick="pdbRunJob(this)">▶ Spustit dávku teď</button>
           </div>
           <div id="pdb-jobs"><div class="loading">Klikni na „Načíst"…</div></div>
@@ -1612,9 +1613,12 @@ function pdbToggleJobsAuto(on) {
   if (on) { pdbLoadJobs(); _pdbJobsTimer = setInterval(pdbLoadJobs, 30000); }
 }
 
-async function pdbCreateJob() {
+async function pdbCreateJob(kind) {
   const lang = document.getElementById('pdbJobLang').value || null;
-  const d = await pdbFetch('/v1/admin/jobs', 'POST', { job_type: 'images', lang, batch_size: 40 });
+  const body = kind === 'discover'
+    ? { job_type: 'discover', lang }
+    : { job_type: 'images', lang, batch_size: 40 };
+  const d = await pdbFetch('/v1/admin/jobs', 'POST', body);
   if (d?.ok) pdbLoadJobs();
   else alert('Nepodařilo se založit: ' + (d?.error || 'neznámá chyba'));
 }
