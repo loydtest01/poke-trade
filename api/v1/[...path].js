@@ -360,6 +360,17 @@ export default async function handler(req, res) {
             body: JSON.stringify(rpcBody),
           });
           const result = await r.json();
+          // Kdyz RPC selze, PostgREST vrati {code, message, details, hint} -
+          // bez success/reason, takze admin panel drive ukazal jen "unknown".
+          if (!r.ok || (result && result.code && !('success' in result))) {
+            return jsonOk(res, {
+              success: false,
+              reason:  result?.message || result?.code || `RPC HTTP ${r.status}`,
+              pg_code: result?.code || null,
+              pg_hint: result?.hint || result?.details || null,
+              rpc:     rpcName,
+            });
+          }
           return jsonOk(res, result);
         }
 
@@ -377,6 +388,17 @@ export default async function handler(req, res) {
             body: JSON.stringify({ p_target_user_id: user_id }),
           });
           const result = await r.json();
+          // Kdyz RPC selze, PostgREST vrati {code, message, details, hint} -
+          // bez success/reason, takze admin panel drive ukazal jen "unknown".
+          if (!r.ok || (result && result.code && !('success' in result))) {
+            return jsonOk(res, {
+              success: false,
+              reason:  result?.message || result?.code || `RPC HTTP ${r.status}`,
+              pg_code: result?.code || null,
+              pg_hint: result?.hint || result?.details || null,
+              rpc:     'admin_revoke_vip',
+            });
+          }
           return jsonOk(res, result);
         }
 
