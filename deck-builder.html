@@ -713,15 +713,18 @@ async function loadMyCards() {
     }
     const rows = await r.json();
 
-    // Sečti stejné karty do jednoho záznamu s qty
+    // Počet kusů drží album uvnitř card_data jako "count" (moje-album.html:2908),
+    // ne jako sloupec v tabulce. Jeden řádek tedy může představovat víc kusů.
+    // Stejné karty navíc sečteme, kdyby byly rozepsané do víc řádků.
     const podle = new Map();
     for (const row of rows) {
       const d = typeof row.card_data === 'string' ? JSON.parse(row.card_data) : row.card_data;
       if (!d) continue;
+      const kusu = Number(d.count || d.qty || 1) || 1;
       const klic = `${(d.name || d.apiId || '').toLowerCase()}|${d.setId || d.set || ''}|${d.number || ''}`;
       const p = podle.get(klic);
-      if (p) p.qty += 1;
-      else podle.set(klic, { ...d, qty: 1 });
+      if (p) p.qty += kusu;
+      else podle.set(klic, { ...d, qty: kusu });
     }
     myCards = [...podle.values()];
     const druhu = myCards.length;
@@ -736,9 +739,14 @@ async function loadMyCards() {
 }
 
 function tryAutoLoadCards() {
-  // Zkus načíst z window.userCards pokud app.js je načten
+  // Cache z app.js má karty ve stejném tvaru jako album — počet je v "count".
+  // Bez normalizace by tady qty chybělo a omezení "jen mé karty" by
+  // povolilo jen jeden kus od každé karty.
   if (window._cardsCache && window._cardsCache.length) {
-    myCards = window._cardsCache;
+    myCards = window._cardsCache.map(c => ({
+      ...c,
+      qty: Number(c.count || c.qty || 1) || 1,
+    }));
   }
 }
 
