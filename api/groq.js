@@ -57,8 +57,12 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const PROVIDERS = {
   gemini: {
     endpoint:        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    modelsUrl:       'https://generativelanguage.googleapis.com/v1beta/openai/models',
     envKey:          'GEMINI_API_KEY',
     defaultModel:    'gemini-2.5-flash',
+    // Pořadí náhrad, když požadovaný model zmizí. První živý vyhraje.
+    preferText:      ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.5-pro'],
+    preferVision:    ['gemini-2.5-flash', 'gemini-flash-latest'],
     signupHost:      'aistudio.google.com',
     daily_text:      1500,     // 1500 req/den free tier
     daily_vision:    500,      // vision výrazně dražší na tokenech
@@ -67,8 +71,11 @@ const PROVIDERS = {
   },
   groq: {
     endpoint:        'https://api.groq.com/openai/v1/chat/completions',
+    modelsUrl:       'https://api.groq.com/openai/v1/models',
     envKey:          'GROQ_API_KEY',
-    defaultModel:    'meta-llama/llama-4-scout-17b-16e-instruct',
+    defaultModel:    'qwen/qwen3.6-27b',
+    preferText:      ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'],
+    preferVision:    ['qwen/qwen3.6-27b', 'openai/gpt-oss-120b'],
     signupHost:      'console.groq.com',
     daily_text:      800,      // 500k tokens/den / ~600 tokens/req
     daily_vision:    60,       // 500k tokens/den / ~8000 tokens/vision req
@@ -77,8 +84,11 @@ const PROVIDERS = {
   },
   cerebras: {
     endpoint:        'https://api.cerebras.ai/v1/chat/completions',
+    modelsUrl:       'https://api.cerebras.ai/v1/models',
     envKey:          'CEREBRAS_API_KEY',
     defaultModel:    'gpt-oss-120b',
+    preferText:      ['gpt-oss-120b', 'gpt-oss-20b'],
+    preferVision:    [],
     signupHost:      'cloud.cerebras.ai',
     daily_text:      200,      // 1M tokens/den / ~5000 tokens/req (gpt-oss-120b)
     daily_vision:    0,        // Cerebras vision nemá
@@ -87,8 +97,11 @@ const PROVIDERS = {
   },
   openrouter: {
     endpoint:        'https://openrouter.ai/api/v1/chat/completions',
+    modelsUrl:       'https://openrouter.ai/api/v1/models',
     envKey:          'OPENROUTER_API_KEY',
     defaultModel:    'meta-llama/llama-3.3-70b-instruct:free',
+    preferText:      ['meta-llama/llama-3.3-70b-instruct:free', 'qwen/qwen3-30b-a3b:free'],
+    preferVision:    ['qwen/qwen2.5-vl-72b-instruct:free'],
     signupHost:      'openrouter.ai',
     daily_text:      50,       // free models striktní 50/den/klíč
     daily_vision:    50,
@@ -100,8 +113,11 @@ const PROVIDERS = {
   },
   mistral: {
     endpoint:        'https://api.mistral.ai/v1/chat/completions',
+    modelsUrl:       'https://api.mistral.ai/v1/models',
     envKey:          'MISTRAL_API_KEY',
     defaultModel:    'mistral-small-latest',
+    preferText:      ['mistral-small-latest', 'mistral-medium-latest'],
+    preferVision:    ['pixtral-12b-latest', 'mistral-small-latest'],
     signupHost:      'console.mistral.ai',
     daily_text:      1000,     // 1B tokens/měsíc = 33M/den; ~30k tokens/text req → ~1100/den, conservatively 1000
     daily_vision:    500,      // vision ~10k tokens/req → ~3000/den, conservatively 500
@@ -239,6 +255,90 @@ const CORS = {
 let _cachedKeyCounts = null;
 let _cachedAt        = 0;
 const KEY_CACHE_TTL  = 60_000;
+
+/* ══════════════════════════════════════════════════════════════
+   AUTOMATICKÉ ŘEŠENÍ MODELŮ
+   ------------------------------------------------------------
+   Poskytovatelé ruší modely v řádu měsíců (Groq vypnul llama-4-scout
+   17.7.2026 a llama-3.3-70b 16.8.2026). Když se název modelu píše
+   natvrdo do kódu, celá aplikace spadne na HTTP 404 a nikdo neví proč.
+
+   Řešení: server si vytáhne od poskytovatele seznam živých modelů
+   (endpoint /models, který mají všechna OpenAI-kompatibilní API),
+   nechá si ho hodinu v paměti a neexistující model tiše nahradí
+   nejbližším živým podle pořadí v preferText / preferVision.
+══════════════════════════════════════════════════════════════ */
+const MODEL_CACHE_TTL = 60 * 60 * 1000;   // 1 hodina
+const _modelCache = {};                   // provider → { list:Set, at:number }
+
+async function ziskejZiveModely(provider, providerName, key) {
+  const c = _modelCache[providerName];
+  if (c && Date.now() - c.at < MODEL_CACHE_TTL) return c.list;
+  if (!provider.modelsUrl || !key) return null;
+
+  try {
+    const r = await fetch(provider.modelsUrl, {
+      headers: { Authorization: `Bearer ${key}` },
+      signal:  AbortSignal.timeout(6000),
+    });
+    if (!r.ok) return c?.list || null;      // při chybě raději starý seznam
+    const d = await r.json();
+    const ids = (d?.data || d?.models || [])
+      .map(m => m?.id || m?.name || '')
+      .filter(Boolean)
+      .map(id => String(id).replace(/^models\//, ''));   // Gemini vrací "models/xxx"
+    if (!ids.length) return c?.list || null;
+    const list = new Set(ids);
+    _modelCache[providerName] = { list, at: Date.now() };
+    return list;
+  } catch {
+    return c?.list || null;
+  }
+}
+
+/**
+ * Vrátí model, který u poskytovatele opravdu existuje.
+ * Když je požadovaný model živý, nechá ho být.
+ * Když ne, projde preferovaný seznam a pak cokoli, co odpovídá rodině.
+ */
+async function vyresModel(provider, providerName, key, pozadovany, jeVision) {
+  const zive = await ziskejZiveModely(provider, providerName, key);
+  // Seznam se nepodařilo načíst → nech požadavek projít beze změny
+  if (!zive) return { model: pozadovany, zmeneno: false };
+  if (pozadovany && zive.has(pozadovany)) return { model: pozadovany, zmeneno: false };
+
+  const preferovane = (jeVision ? provider.preferVision : provider.preferText) || [];
+  for (const kandidat of [...preferovane, provider.defaultModel]) {
+    if (kandidat && zive.has(kandidat)) {
+      console.warn(`[modely] ${providerName}: "${pozadovany}" neexistuje → "${kandidat}"`);
+      return { model: kandidat, zmeneno: true, puvodni: pozadovany };
+    }
+  }
+
+  // Poslední záchrana: cokoli, co nevypadá na embedding/whisper/guard
+  const vhodny = [...zive].find(id =>
+    !/embed|whisper|tts|guard|moderation|rerank/i.test(id));
+  if (vhodny) {
+    console.warn(`[modely] ${providerName}: nouzová volba "${vhodny}"`);
+    return { model: vhodny, zmeneno: true, puvodni: pozadovany };
+  }
+  return { model: pozadovany, zmeneno: false };
+}
+
+/** Poznal poskytovatel, že model neexistuje? Pak zahoď cache. */
+function jeChybaModelu(status, data) {
+  if (status !== 404 && status !== 400) return false;
+  const t = JSON.stringify(data || '').toLowerCase();
+  return t.includes('does not exist')
+      || t.includes('model_not_found')
+      || t.includes('is not found')
+      || t.includes('decommissioned')
+      || t.includes('unknown model');
+}
+
+function zapomenModely(providerName) {
+  delete _modelCache[providerName];
+}
 
 function parseKeys(raw) {
   if (!raw) return [];
@@ -399,6 +499,7 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     // Sub-routes podle query stringu (router pattern — uvolňuje funkční slot na Vercelu)
+    if (req.query.action === 'models') return handleModelsInfo(req, res);
     if (req.query?.action === 'get-key') return handleGetKey(req, res);
     if (req.query?.info   === 'usage')   return handleUsageInfo(req, res);
     return res.status(200).json({ ok: true, ts: Date.now() });
@@ -613,6 +714,28 @@ export default async function handler(req, res) {
 // Volá se z mobile.html (Electron flow) přes:
 //   GET /api/groq?action=get-key&t=<supabase_token>
 // Vrací JSON s: groq_key, cerebras_key, openrouter_key, source, vip
+// ── GET ?action=models — co poskytovatelé právě nabízejí ──────────
+// Rychlá diagnostika: uvidíš, které modely jsou živé a co by se
+// použilo místo zrušeného. Hodí se, až zase něco vypnou.
+async function handleModelsInfo(req, res) {
+  const out = {};
+  for (const [name, p] of Object.entries(PROVIDERS)) {
+    const keys = parseKeys(process.env[p.envKey]);
+    if (!keys.length) { out[name] = { klicu: 0, modely: null }; continue; }
+    const zive = await ziskejZiveModely(p, name, keys[0]);
+    const text   = await vyresModel(p, name, keys[0], null, false);
+    const vision = p.vision ? await vyresModel(p, name, keys[0], null, true) : null;
+    out[name] = {
+      klicu:       keys.length,
+      pocetModelu: zive ? zive.size : null,
+      proText:     text.model,
+      proVision:   vision ? vision.model : null,
+      modely:      zive ? [...zive].sort().slice(0, 40) : null,
+    };
+  }
+  return res.status(200).json({ ts: new Date().toISOString(), providers: out });
+}
+
 async function handleGetKey(req, res) {
   const token = req.query.t || (req.headers.authorization || '').replace('Bearer ', '').trim();
   if (!token) return res.status(401).json({ error: 'Chybí token' });
@@ -766,12 +889,34 @@ async function proxyToProvider(res, req, provider, providerName, key, body, retu
       'Content-Type':  'application/json',
     };
     if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
-    const r = await fetch(provider.endpoint, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body),
+
+    // Zjisti, jestli požadovaný model u poskytovatele ještě existuje.
+    // Vision poznáme podle toho, že zpráva obsahuje obrázek.
+    const jeVision = JSON.stringify(body?.messages || '').includes('image_url');
+    let telo = body;
+    const reseni = await vyresModel(provider, providerName, key, body?.model, jeVision);
+    if (reseni.zmeneno) telo = { ...body, model: reseni.model };
+
+    let r = await fetch(provider.endpoint, {
+      method: 'POST', headers, body: JSON.stringify(telo),
     });
-    const data = await r.json();
+    let data = await r.json();
+
+    // Poskytovatel hlásí neexistující model → seznam byl zastaralý.
+    // Zahoď cache, načti znovu a zkus to ještě jednou.
+    if (!r.ok && jeChybaModelu(r.status, data)) {
+      zapomenModely(providerName);
+      const znovu = await vyresModel(provider, providerName, key, null, jeVision);
+      if (znovu.model && znovu.model !== telo.model) {
+        console.warn(`[modely] ${providerName}: opakuji s "${znovu.model}"`);
+        r = await fetch(provider.endpoint, {
+          method: 'POST', headers,
+          body: JSON.stringify({ ...telo, model: znovu.model }),
+        });
+        data = await r.json();
+      }
+    }
+
     if (!r.ok) {
       if (!returnMeta) {
         res.status(r.status).json({
@@ -802,6 +947,8 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
   let lastErrorMessage = `Žádný ${providerName} klíč nefunguje`;
   let exhaustedByLimit = false;
 
+  const jeVision = JSON.stringify(body?.messages || '').includes('image_url');
+
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
     try {
@@ -810,11 +957,32 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
         'Content-Type':  'application/json',
       };
       if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
-      const r = await fetch(provider.endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
+
+      // Ověř model proti živému seznamu poskytovatele (viz vyresModel).
+      // Bez toho by zrušený model shodil postupně všechny klíče v rotaci.
+      let telo = body;
+      const reseni = await vyresModel(provider, providerName, key, body?.model, jeVision);
+      if (reseni.zmeneno) telo = { ...body, model: reseni.model };
+
+      let r = await fetch(provider.endpoint, {
+        method: 'POST', headers, body: JSON.stringify(telo),
       });
+
+      // Model mezitím zmizel → obnov seznam a zkus jednou znovu
+      if (!r.ok && r.status !== 401 && r.status !== 429) {
+        const peek = await r.clone().json().catch(() => ({}));
+        if (jeChybaModelu(r.status, peek)) {
+          zapomenModely(providerName);
+          const znovu = await vyresModel(provider, providerName, key, null, jeVision);
+          if (znovu.model && znovu.model !== telo.model) {
+            console.warn(`[modely] ${providerName}: opakuji s "${znovu.model}"`);
+            r = await fetch(provider.endpoint, {
+              method: 'POST', headers,
+              body: JSON.stringify({ ...telo, model: znovu.model }),
+            });
+          }
+        }
+      }
 
       if (r.status === 401 || r.status === 429) {
         const errData = await r.json().catch(() => ({}));
