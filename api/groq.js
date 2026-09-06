@@ -439,6 +439,26 @@ export default async function handler(req, res) {
   ).trim();
 
   if (personalKey.length > 10) {
+    // BEZPEČNOST: dřív se tenhle blok vykonal BEZ ověření tokenu, takže
+    // /api/groq fungovala jako otevřená AI proxy pro kohokoli na internetu
+    // (stačilo poslat hlavičku X-AI-Key). Šlo o cizí provoz na tvém Vercelu
+    // bez logování i bez limitů. Teď musí být uživatel přihlášený i tady.
+    const tokPersonal = (req.headers.authorization || '').replace('Bearer ', '').trim()
+                      || (req.query.t || '').trim();
+    if (!tokPersonal) {
+      return res.status(401).json({ error: 'Nejsi přihlášen', code: 'NO_AUTH' });
+    }
+    try {
+      const uRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${tokPersonal}` },
+        signal: AbortSignal.timeout(6000),
+      });
+      if (!uRes.ok) {
+        return res.status(401).json({ error: 'Neplatný token', code: 'BAD_TOKEN' });
+      }
+    } catch (e) {
+      return res.status(503).json({ error: 'Ověření se nezdařilo, zkus to znovu' });
+    }
     return proxyToProvider(res, req, provider, providerName, personalKey, safeBody);
   }
 
@@ -631,31 +651,29 @@ async function handleGetKey(req, res) {
       });
     }
 
-    // 2. Sdílený klíč pro všechny přihlášené (jen Groq v env)
-    const sharedKey = (process.env.GROQ_API_KEY || '').trim();
-    if (sharedKey) {
-      const validKeys = sharedKey.split(',').map(k => k.trim()).filter(k => k.length > 10);
-      if (validKeys.length > 0) {
-        const sharedJoined = validKeys.join(',');
-        return res.status(200).json({
-          groq_key:       sharedJoined,
-          cerebras_key:   null,
-          openrouter_key: null,
-          key:            sharedJoined,
-          enabled:        true,
-          source:         'shared',
-          keysCount:      validKeys.length,
-          vip,
-        });
-      }
-    }
+    // 2. BEZ vlastního klíče → klient jede přes sdílenou proxy.
+    //
+    // BEZPEČNOST: dřív se tady vracely SDÍLENÉ serverové klíče
+    // (process.env.GROQ_API_KEY) každému přihlášenému uživateli.
+    // Klíče pak putovaly do prohlížeče, kde je kdokoli viděl
+    // v DevTools → Network, a šlo je použít mimo aplikaci.
+    //
+    // Server teď neposílá žádný klíč, který nepatří uživateli.
+    // Klient s odpovědí `use_proxy: true` posílá AI požadavky
+    // na POST /api/groq, kde se klíč doplní až na serveru —
+    // mobile.html tuhle cestu už umí (useSharedProxy).
+    const sdileneKDispozici = (process.env.GROQ_API_KEY || '')
+      .split(',').map(k => k.trim()).filter(k => k.length > 10).length;
 
     return res.status(200).json({
       groq_key:       null,
       cerebras_key:   null,
       openrouter_key: null,
       key:            null,
-      enabled:        false,
+      enabled:        sdileneKDispozici > 0,
+      use_proxy:      sdileneKDispozici > 0,
+      proxy_url:      '/api/groq',
+      source:         sdileneKDispozici > 0 ? 'proxy' : 'none',
       vip,
     });
 
