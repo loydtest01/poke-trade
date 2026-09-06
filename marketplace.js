@@ -1,4 +1,50 @@
 
+/* ══════════════════════════════════════════════════════════════
+   DOPRAVCI — rozšířené způsoby doručení
+   Zásilkovna, Balíkovna, Česká pošta, PPL, DPD, GLS, AlzaBox, WEDO
+   + příznak, jestli prodejce posílá do zahraničí.
+══════════════════════════════════════════════════════════════ */
+const DOPRAVCI_NAZVY = {
+  zasilkovna: 'Zásilkovna', balikovna: 'Balíkovna', cposta: 'Česká pošta',
+  ppl: 'PPL ParcelShop',   dpd: 'DPD',              gls: 'GLS',
+  alzabox: 'AlzaBox',      wedo: 'WEDO / DoDo',
+};
+
+/** Skryje seznam přepravců, když prodejce neposílá poštou. */
+function tglDopravci(prefix) {
+  const post = document.getElementById(prefix + 'DeliveryPost');
+  const box  = document.getElementById(prefix + 'Dopravci');
+  if (box) box.style.display = post && post.checked ? '' : 'none';
+}
+
+/** Vybraní přepravci jako pole kódů. */
+function ctiDopravce(prefix) {
+  const post = document.getElementById(prefix + 'DeliveryPost');
+  if (post && !post.checked) return [];
+  return Array.from(document.querySelectorAll('.' + prefix + 'Carrier:checked'))
+              .map(el => el.value);
+}
+
+function ctiZahranici(prefix) {
+  return !!document.getElementById(prefix + 'Abroad')?.checked;
+}
+
+/** Hezký popis pro výpis nabídky. */
+function popisDopravy(d) {
+  const c = Array.isArray(d?.delivery_carriers) ? d.delivery_carriers : [];
+  const casti = [];
+  if (c.length) casti.push(c.map(k => DOPRAVCI_NAZVY[k] || k).join(', '));
+  else if (d?.delivery_post) casti.push('Poštou');
+  if (d?.delivery_personal) casti.push('Osobně');
+  if (d?.ships_abroad) casti.push('i do zahraničí');
+  return casti.join(' · ');
+}
+
+// Nastav viditelnost seznamů po načtení stránky
+document.addEventListener('DOMContentLoaded', function () {
+  ['add', 'addProd', 'bulk', 'dem'].forEach(tglDopravci);
+});
+
 // ── TCG Proxy Helper ─────────────────────────────────────────────
 // Přesměruje api.pokemontcg.io → Supabase Edge Function (X-Api-Key bezpečně na serveru)
 // Lokální název _MKT_TCG_PROXY zabraňuje konfliktu s případnou const _TCG_PROXY v app.js
@@ -1953,6 +1999,8 @@ async function submitListing(){
     pickup_precision: (typeof _pickupGeo !== 'undefined' && _pickupGeo) ? _pickupGeo.precision : null,
     delivery_personal: !!document.getElementById('addDeliveryPersonal')?.checked,
     delivery_post:     !!document.getElementById('addDeliveryPost')?.checked,
+    delivery_carriers: ctiDopravce('add'),
+    ships_abroad:      ctiZahranici('add'),
     // Sale photos: uložit jen reálné fotky (isOfficial=true je už v api_image_url)
     user_photos:    salePhotos.filter(p => !p.isOfficial).length ? salePhotos.filter(p => !p.isOfficial).map(p => ({
       src: p.croppedUrl || p.src,
@@ -3721,10 +3769,10 @@ function renderDemands(list) {
     const notes    = d.notes ? `<div class="demand-notes">"${esc(d.notes)}"</div>` : '';
     const sealedTag = d.item_type === 'sealed' ? `<span class="demand-tag" style="background:rgba(168,85,247,0.15);color:#a855f7;border:1px solid rgba(168,85,247,0.25)">📦 Sealed${d.product_type ? ' · ' + esc(d.product_type) : ''}</span>` : '';
     const locTag   = d.location ? `<span class="demand-tag" style="background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border)">📍 ${esc(d.location)}</span>` : '';
-    const delTags  = [];
-    if (d.delivery_post) delTags.push('📬');
-    if (d.delivery_personal) delTags.push('🤝');
-    const delStr   = delTags.length ? `<span class="demand-tag" style="background:rgba(255,255,255,0.05);color:var(--text3);border:1px solid var(--border)">${delTags.join(' ')}</span>` : '';
+    const delPopis = popisDopravy(d);
+    const delStr   = delPopis
+      ? `<span class="demand-tag" title="${esc(delPopis)}" style="background:rgba(255,255,255,0.05);color:var(--text2);border:1px solid var(--border)">${d.delivery_post ? '📬 ' : ''}${d.delivery_personal ? '🤝 ' : ''}${esc(delPopis)}</span>`
+      : '';
     // Trade cards previews
     const tc = d.trade_cards || [];
     const tradeImgs = tc.length ? `<div style="display:flex;gap:3px;margin-top:5px">${tc.slice(0,4).map(c =>
@@ -4954,6 +5002,8 @@ window.submitListing = async function() {
     location:       loc,
     delivery_post:     dPost,
     delivery_personal: dPers,
+    delivery_carriers: ctiDopravce('add'),
+    ships_abroad:      ctiZahranici('add'),
     status:         'active',
     user_photos:    salePhotos.filter(p => !p.isOfficial).length ? salePhotos.filter(p => !p.isOfficial).map(p => ({
       src: p.croppedUrl || p.src, mime: p.mime, cropped: !!p.croppedUrl
@@ -5016,6 +5066,8 @@ window.submitDemand = async function() {
     location:      loc,
     delivery_post:     dPost,
     delivery_personal: dPers,
+    delivery_carriers: ctiDopravce('dem'),
+    ships_abroad:      ctiZahranici('dem'),
     item_type:     isSealed ? 'sealed' : 'card',
     product_type:  isSealed ? demProdType : null,
     product_lang:  isSealed ? demProdLang : null,
@@ -6150,6 +6202,8 @@ async function submitBulkListing() {
     location:          loc,
     delivery_post:     dPost,
     delivery_personal: dPers,
+    delivery_carriers: ctiDopravce('bulk'),
+    ships_abroad:      ctiZahranici('bulk'),
     status:            'active',
     card_name:         '',
     card_set:          sets || '',

@@ -436,7 +436,8 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none;
   resize: none; height: 70px; line-height: 1.5;
 }
-.panel-textarea::placeholder, .panel-inp::placeholder { color: var(--text3); }
+.panel-textarea::placeholder, .panel-inp::placeholder { color: #9a9ab2; opacity: 1; }
+.panel-textarea { color: var(--text); font-size: 14px; line-height: 1.55; }
 
 .trade-cards-wrap { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
 .trade-card-item {

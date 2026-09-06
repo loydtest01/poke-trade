@@ -683,7 +683,7 @@
               <option value="D" style="background:#0e0c14;color:#f0ece4;">D – Poškozená</option>
             </select>
             <div class="fs-label" style="margin-top:10px">Popis (nepovinné)</div>
-            <textarea id="addDesc" class="panel-textarea" style="height:150px;resize:vertical" placeholder="Stav karty, odkud pochází, co přijmete za výměnu..."></textarea>
+            <textarea id="addDesc" class="panel-textarea" style="height:260px;min-height:180px;resize:vertical" placeholder="Stav karty, odkud pochází, co přijmete za výměnu..."></textarea>
           </div>
         </div>
 
@@ -694,9 +694,23 @@
             <div class="fs-label">Odkud jsem (město / kraj)</div>
             <input id="addLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
             <div class="fs-label" style="margin-top:10px">Způsob předání</div>
-            <div style="display:flex;gap:14px">
-              <label class="filter-opt"><input type="checkbox" id="addDeliveryPost" checked> 📬 Poštou</label>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" id="addDeliveryPost" checked onchange="tglDopravci('add')"> 📬 Poštou / přepravcem</label>
               <label class="filter-opt"><input type="checkbox" id="addDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+            <div id="addDopravci" style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px">
+              <div style="font-size:11px;color:var(--text2);margin-bottom:7px">Kterými přepravci posíláš?</div>
+              <div style="display:flex;gap:10px 16px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="zasilkovna"> 📦 Zásilkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="balikovna"> 📮 Balíkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="cposta"> ✉️ Česká pošta</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="ppl"> 🚚 PPL ParcelShop</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="dpd"> 🚛 DPD</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="gls"> 🚐 GLS</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="alzabox"> 🅰️ AlzaBox</label>
+              <label class="filter-opt"><input type="checkbox" class="addCarrier" value="wedo"> 🏃 WEDO / DoDo</label>
+              </div>
+              <label class="filter-opt" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="addAbroad"> 🌍 Posílám i do zahraničí</label>
             </div>
             <div style="margin-top:10px;font-size:11px;color:var(--text3);background:rgba(116,180,255,0.07);border:1px solid rgba(116,180,255,0.18);border-radius:8px;padding:8px 10px;line-height:1.5">
               💡 <strong style="color:var(--text2)">Tip:</strong> Dobírka je férový kompromis pro obě strany — kupující platí až při převzetí, ty máš jistotu platby. Domluvte se přímo v chatu.
@@ -860,16 +874,30 @@
             <div class="fs-label">Odkud jsem (město / kraj)</div>
             <input id="addProdLocation" class="panel-inp" placeholder="Např. Praha, Brno..." style="width:100%">
             <div class="fs-label" style="margin-top:10px">Způsob předání</div>
-            <div style="display:flex;gap:14px">
-              <label class="filter-opt"><input type="checkbox" id="addProdDeliveryPost" checked> 📬 Poštou</label>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" id="addProdDeliveryPost" checked onchange="tglDopravci('addProd')"> 📬 Poštou / přepravcem</label>
               <label class="filter-opt"><input type="checkbox" id="addProdDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+            <div id="addProdDopravci" style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px">
+              <div style="font-size:11px;color:var(--text2);margin-bottom:7px">Kterými přepravci posíláš?</div>
+              <div style="display:flex;gap:10px 16px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="zasilkovna"> 📦 Zásilkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="balikovna"> 📮 Balíkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="cposta"> ✉️ Česká pošta</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="ppl"> 🚚 PPL ParcelShop</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="dpd"> 🚛 DPD</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="gls"> 🚐 GLS</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="alzabox"> 🅰️ AlzaBox</label>
+              <label class="filter-opt"><input type="checkbox" class="addProdCarrier" value="wedo"> 🏃 WEDO / DoDo</label>
+              </div>
+              <label class="filter-opt" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="addProdAbroad"> 🌍 Posílám i do zahraničí</label>
             </div>
           </div>
 
           <div class="fs-section">
             <div class="fs-section-title">📝 Popis & fotky</div>
             <div class="fs-label">Popis / poznámka (nepovinné)</div>
-            <textarea id="prodDesc" class="panel-textarea" style="height:70px" placeholder="Stav pečetě, odkud pochází, detail obalu..."></textarea>
+            <textarea id="prodDesc" class="panel-textarea" style="height:200px;min-height:140px;resize:vertical" placeholder="Stav pečetě, odkud pochází, detail obalu..."></textarea>
             <div class="fs-label" style="margin-top:10px">Fotky produktu</div>
             <div class="sale-photos-strip" id="prodSalePhotosStrip">
               <div class="sale-photo-add" onclick="document.getElementById('prodPhotoInput').click()" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="handleProdPhotoDrop(event)">
@@ -945,7 +973,7 @@
               <option value="HP" style="background:#0e0c14;color:#f0ece4;">HP – hrané, bulk kvality</option>
             </select>
             <div class="fs-label" style="margin-top:10px">Popis bulku (nepovinné)</div>
-            <textarea id="bulkDesc" class="panel-textarea" style="height:140px;resize:vertical" placeholder="Z jakých setů jsou karty, jestli jsou přesortované, zvláštní kusy, podmínky výměny..."></textarea>
+            <textarea id="bulkDesc" class="panel-textarea" style="height:240px;min-height:160px;resize:vertical" placeholder="Z jakých setů jsou karty, jestli jsou přesortované, zvláštní kusy, podmínky výměny..."></textarea>
           </div>
         </div>
 
@@ -956,9 +984,23 @@
             <div class="fs-label">Odkud jsem (město / kraj)</div>
             <input id="bulkLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
             <div class="fs-label" style="margin-top:10px">Způsob předání</div>
-            <div style="display:flex;gap:14px">
-              <label class="filter-opt"><input type="checkbox" id="bulkDeliveryPost" checked> 📬 Poštou</label>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" id="bulkDeliveryPost" checked onchange="tglDopravci('bulk')"> 📬 Poštou / přepravcem</label>
               <label class="filter-opt"><input type="checkbox" id="bulkDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+            <div id="bulkDopravci" style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px">
+              <div style="font-size:11px;color:var(--text2);margin-bottom:7px">Kterými přepravci posíláš?</div>
+              <div style="display:flex;gap:10px 16px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="zasilkovna"> 📦 Zásilkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="balikovna"> 📮 Balíkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="cposta"> ✉️ Česká pošta</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="ppl"> 🚚 PPL ParcelShop</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="dpd"> 🚛 DPD</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="gls"> 🚐 GLS</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="alzabox"> 🅰️ AlzaBox</label>
+              <label class="filter-opt"><input type="checkbox" class="bulkCarrier" value="wedo"> 🏃 WEDO / DoDo</label>
+              </div>
+              <label class="filter-opt" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="bulkAbroad"> 🌍 Posílám i do zahraničí</label>
             </div>
           </div>
 
@@ -1184,7 +1226,7 @@
               <option value="NM" style="background:#0e0c14;color:#f0ece4;" selected>NM – Pouze nová / Mint</option>
             </select>
             <div class="fs-label" style="margin-top:10px">Poznámka (nepovinné)</div>
-            <textarea id="demandNotes" class="panel-textarea" style="height:80px" placeholder="Preferuji CZ verzi, zajímá mě pouze full art, hledám urgentně..."></textarea>
+            <textarea id="demandNotes" class="panel-textarea" style="height:170px;min-height:120px;resize:vertical" placeholder="Preferuji CZ verzi, zajímá mě pouze full art, hledám urgentně..."></textarea>
           </div>
 
           <div class="fs-section">
@@ -1192,9 +1234,23 @@
             <div class="fs-label">Odkud jsem (město / kraj)</div>
             <input id="demLocation" class="panel-inp" placeholder="Např. Praha, Brno, Ostrava..." style="width:100%">
             <div class="fs-label" style="margin-top:10px">Způsob předání</div>
-            <div style="display:flex;gap:14px">
-              <label class="filter-opt"><input type="checkbox" id="demDeliveryPost" checked> 📬 Poštou</label>
+            <div style="display:flex;gap:14px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" id="demDeliveryPost" checked onchange="tglDopravci('dem')"> 📬 Poštou / přepravcem</label>
               <label class="filter-opt"><input type="checkbox" id="demDeliveryPersonal"> 🤝 Osobně</label>
+            </div>
+            <div id="demDopravci" style="margin-top:8px;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:9px">
+              <div style="font-size:11px;color:var(--text2);margin-bottom:7px">Kterými přepravci posíláš?</div>
+              <div style="display:flex;gap:10px 16px;flex-wrap:wrap">
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="zasilkovna"> 📦 Zásilkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="balikovna"> 📮 Balíkovna</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="cposta"> ✉️ Česká pošta</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="ppl"> 🚚 PPL ParcelShop</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="dpd"> 🚛 DPD</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="gls"> 🚐 GLS</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="alzabox"> 🅰️ AlzaBox</label>
+              <label class="filter-opt"><input type="checkbox" class="demCarrier" value="wedo"> 🏃 WEDO / DoDo</label>
+              </div>
+              <label class="filter-opt" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="demAbroad"> 🌍 Posílám i do zahraničí</label>
             </div>
           </div>
 
