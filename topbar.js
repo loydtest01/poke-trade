@@ -850,9 +850,9 @@ var SETTINGS_HTML = [
   '            </div>',
   '            <label class="groq-label-sm" style="margin-top:12px">Model</label>',
   '            <select class="groq-select-sm" id="groqModelSelect">',
-  '              <option value="llama-3.3-70b-versatile">Llama 3.3 70B (text)</option>',
+  '              <option value="openai/gpt-oss-120b">GPT-OSS 120B (text)</option>',
   '              <option value="llama-3.1-70b-versatile">Llama 3.1 70B</option>',
-  '              <option value="llama-3.1-8b-instant">Llama 3.1 8B (rychlý)</option>',
+  '              <option value="openai/gpt-oss-20b">GPT-OSS 20B (rychlý)</option>',
   '              <option value="mixtral-8x7b-32768">Mixtral 8×7B</option>',
   '              <option value="gemma2-9b-it">Gemma 2 9B</option>',
   '            </select>',
@@ -880,7 +880,7 @@ var SETTINGS_HTML = [
   '            </div>',
   '            <div class="groq-info-box">',
   '              <strong>⚡ Ultra-rychlý – stejné modely jako Groq</strong><br>',
-  '              Cerebras používá Llama 4 Scout (vision) a Llama 3.3 70B (text). Free tier = 1M tokenů/den/klíč — přidej více klíčů z různých účtů pro větší kapacitu. Rotace a fallback stejně jako u Groqu.',
+  '              Cerebras používá Llama 4 Scout (vision) a GPT-OSS 120B (text). Free tier = 1M tokenů/den/klíč — přidej více klíčů z různých účtů pro větší kapacitu. Rotace a fallback stejně jako u Groqu.',
   '              <a href="https://cloud.cerebras.ai" target="_blank" rel="noopener">Získat klíč zdarma →</a>',
   '            </div>',
   '            <label class="groq-label-sm">Cerebras API klíče</label>',
@@ -1968,7 +1968,7 @@ async function _groqSaveAll() {
   if (!uid) throw new Error('Nepřihlášen');
   var keyStr = _groqKeys.join(',');
   var modelSel = document.getElementById('groqModelSelect');
-  var model = modelSel ? modelSel.value : 'llama-3.3-70b-versatile';
+  var model = modelSel ? modelSel.value : 'openai/gpt-oss-120b';
   var existing = await _groqSbReq('rest/v1/user_api_keys?user_id=eq.' + uid + '&select=id', 'GET');
   var hasRow = Array.isArray(existing) && existing.length > 0;
   var res = await _groqSbReq(
@@ -2110,13 +2110,13 @@ async function _testProviderKey(providerName, apiKey, cfg) {
     groq: {
       method:   'POST',
       url:      'https://api.groq.com/openai/v1/chat/completions',
-      body:     JSON.stringify({ model: 'llama-3.1-8b-instant', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
+      body:     JSON.stringify({ model: 'openai/gpt-oss-20b', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
       testType: 'chat',
     },
     cerebras: {
       method:   'POST',
       url:      'https://api.cerebras.ai/v1/chat/completions',
-      body:     JSON.stringify({ model: 'llama-3.1-8b', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
+      body:     JSON.stringify({ model: 'gpt-oss-20b', messages: [{ role: 'user', content: 'Say OK' }], max_tokens: 5, temperature: 0 }),
       testType: 'chat',
     },
     openrouter: {
@@ -2204,7 +2204,7 @@ async function _testProviderKey(providerName, apiKey, cfg) {
   if (cfg2.testType === 'cloudflare') {
     // Cloudflare Workers AI: { result: { response: '...' } } nebo { result: { response: '...' } }
     var cfReply = data?.result?.response || data?.choices?.[0]?.message?.content || '?';
-    return { model: 'llama-3.3-70b-fp8', time: t1 - t0, reply: cfReply.slice(0, 30) };
+    return { model: 'gpt-oss-120b', time: t1 - t0, reply: cfReply.slice(0, 30) };
   }
   if (cfg2.testType === 'gemini') {
     // Gemini: { candidates: [{ content: { parts: [{ text: '...' }] } }] }

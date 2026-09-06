@@ -10331,7 +10331,7 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
           ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
         },
         body: JSON.stringify({
-          model:       'meta-llama/llama-4-scout-17b-16e-instruct',
+          model:       'qwen/qwen3.6-27b',
           max_tokens:  1000,
           usage_type:  'search',
           messages: [
@@ -10420,7 +10420,7 @@ textury, fonty, ohraničení, správnost rozvržení textu a symbolů, obecné z
           ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
         },
         body: JSON.stringify({
-          model:      'meta-llama/llama-4-scout-17b-16e-instruct',
+          model:      'qwen/qwen3.6-27b',
           max_tokens: 800,
           usage_type: 'search',
           messages: [
@@ -10514,7 +10514,7 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
           ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
         },
         body: JSON.stringify({
-          model:      'meta-llama/llama-4-scout-17b-16e-instruct',
+          model:      'qwen/qwen3.6-27b',
           max_tokens: 400,
           usage_type: 'search',
           messages: [

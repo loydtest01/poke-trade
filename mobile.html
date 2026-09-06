@@ -979,8 +979,8 @@ const _aiProviders = {
   groq: {
     name:    'Groq',
     endpoint:'https://api.groq.com/openai/v1/chat/completions',
-    vision:  'meta-llama/llama-4-scout-17b-16e-instruct',
-    text:    'llama-3.3-70b-versatile',
+    vision:  'qwen/qwen3.6-27b',
+    text:    'openai/gpt-oss-120b',
     headers: (key) => ({
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + key,
@@ -989,8 +989,8 @@ const _aiProviders = {
   cerebras: {
     name:    'Cerebras',
     endpoint:'https://api.cerebras.ai/v1/chat/completions',
-    vision:  'llama-4-scout-17b-16e-instruct',
-    text:    'llama-3.3-70b',
+    vision:  'gpt-oss-120b',
+    text:    'gpt-oss-120b',
     headers: (key) => ({
       'Content-Type': 'application/json',
       'Authorization': 'Bearer ' + key,
@@ -1083,7 +1083,11 @@ async function groqFetch(bodyObj, signal) {
     const modelForProvider = isVision ? prov.vision : prov.text;
     const bodyForProvider = { ...bodyObj };
     // Pokud původní request měl model, který neznáme napříč providery, přepíšeme
-    if (!bodyForProvider.model || bodyForProvider.model.startsWith('meta-llama/llama-4-scout') || bodyForProvider.model.startsWith('llama-3')) {
+    // Model přepisujeme vždy, když nesedí s aktuálním providerem. Dřív se tu
+    // kontrolovaly konkrétní názvy Llama modelů — ty Groq v roce 2026 zrušil,
+    // takže podmínka přestala platit a posílal se model, který neexistuje.
+    if (!bodyForProvider.model
+        || bodyForProvider.model !== prov.vision && bodyForProvider.model !== prov.text) {
       bodyForProvider.model = modelForProvider;
     }
     const bodyStr = JSON.stringify(bodyForProvider);
@@ -2247,7 +2251,7 @@ RULES:
 - NO English explanation, NO translation, NO punctuation
 - If the image is blurry or unreadable, return the hint name if provided`;
   const body = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'qwen/qwen3.6-27b',
     max_tokens: 40, temperature: 0.0,
     messages: [
       { role: 'system', content: 'You are a Japanese OCR specialist for Pokémon cards. Output only the exact characters you see, nothing else.' },
@@ -2837,8 +2841,8 @@ function initSwipe() {
 // ══════════════════════════════════════════════
 let _visionModelsCache = null;
 const KNOWN_VISION_MODELS = [
-  'meta-llama/llama-4-scout-17b-16e-instruct',
-  'meta-llama/llama-4-maverick-17b-128e-instruct',
+  'qwen/qwen3.6-27b',
+  'qwen/qwen3.6-27b',
   'llava-v1.5-7b-4096-preview',
 ];
 async function getVisionModels() {
@@ -2889,7 +2893,7 @@ Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English
   // Stačí jedno volání — interně zkouší všechny providery + klíče.
   // Retry provedeme pouze jednou při síťové chybě (nestabilní mobilní připojení).
   const bodyObj = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct', // groqFetch přepíše dle providera
+    model: 'qwen/qwen3.6-27b', // groqFetch přepíše dle providera
     max_tokens: 500, temperature: 0.05,
     messages: [{ role: 'user', content: [
       { type: 'image_url', image_url: { url: `data:${mt};base64,${b64}` } },
@@ -2941,7 +2945,7 @@ async function identifyCardWithCondition(dataUrl) {
   if (!groqKey && !useSharedProxy) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
   const bodyObj = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'qwen/qwen3.6-27b',
     max_tokens: 280, temperature: 0.05,
     messages: [
       { role:'system', content:`You are a Pokemon TCG expert. Read the card name EXACTLY as printed - do NOT translate.
@@ -3082,7 +3086,7 @@ async function analyzeBackPhoto(dataUrl) {
   if (!groqKey && !useSharedProxy) return null;
   const { mt, b64 } = splitDataUrl(dataUrl);
   const bodyObj = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'qwen/qwen3.6-27b',
     max_tokens: 200, temperature: 0.05,
     messages: [
       { role: 'system', content: `Analyze ONLY the physical condition of this Pokemon card BACK side.
@@ -4454,7 +4458,7 @@ Task: Look at the character in the photo and output ONLY the single character yo
 If you cannot read it clearly, output "${targetChar}".`;
 
   const body = {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    model: 'qwen/qwen3.6-27b',
     max_tokens: 10, temperature: 0.0,
     messages: [
       { role: 'system', content: 'You are a Japanese OCR specialist. Output only the single character you see in the image, nothing else.' },

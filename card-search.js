@@ -314,7 +314,7 @@ No explanation. Just the JSON array.`;
       //    Používá se jen pokud GroqClient nevrátil odpověď. Vercel tu hlídá limity 20/10.
       if (!text && groqKey) {
         const body = {
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: 'qwen/qwen3.6-27b',
           max_tokens: 80,
           temperature: 0,
           messages,

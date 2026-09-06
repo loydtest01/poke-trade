@@ -375,9 +375,12 @@ const POKEDB_API = 'https://pokedb-api.poketrade.workers.dev/v1';
 const GROQ_PROXY = '/api/groq';
 async function _deckFetch(headers, bodyObj) {
   // Try Gemini first, fallback to Groq on quota/rate limit
+  // Groq první: máš u něj víc klíčů a je spolehlivější. Gemini zůstává
+  // jako záloha — Google modely poměrně často ruší a vrací na ně 404,
+  // což dřív shodilo celé generování (viz fallback na 404 níže).
   const providers = [
+    { provider: 'groq',   model: 'openai/gpt-oss-120b' },
     { provider: 'gemini', model: 'gemini-2.5-flash' },
-    { provider: 'groq',   model: 'llama-3.3-70b-versatile' },
   ];
   let lastErr = null;
   for (const p of providers) {
@@ -386,10 +389,15 @@ async function _deckFetch(headers, bodyObj) {
       const res = await fetch(GROQ_PROXY, { method: 'POST', headers, body: JSON.stringify(body) });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        const msg = errData?.error?.message || ('HTTP ' + res.status);
-        // On quota/rate limit → try next provider
-        if (res.status === 429 || res.status === 503 || msg.includes('quota') || msg.includes('limit')) {
-          lastErr = new Error(msg); continue;
+        const msg = errData?.error?.message || errData?.error || ('HTTP ' + res.status);
+        // Zkus dalšího poskytovatele nejen při vyčerpané kvótě, ale i když
+        // model neexistuje (404) nebo je požadavek odmítnutý (400/403).
+        // Dřív se na 404 rovnou vyhodila chyba, takže vypnutý model
+        // (Gemini 1.5) shodil celý Deck Builder, i když Groq fungoval.
+        if ([400, 401, 403, 404, 429, 500, 502, 503].includes(res.status)
+            || String(msg).includes('quota') || String(msg).includes('limit')) {
+          console.warn('[AI Deck] ' + p.provider + ' selhal (' + res.status + '): ' + msg + ' — zkouším další');
+          lastErr = new Error(p.provider + ': ' + msg); continue;
         }
         throw new Error(msg);
       }

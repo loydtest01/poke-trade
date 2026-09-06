@@ -1085,7 +1085,7 @@ var pollInterval = null;
 // URL Vercel proxy (same origin – /api/groq)
 // Pokud pouštíš lokálně, uprav na http://localhost:3000/api/groq
 const GROQ_PROXY    = '/api/groq';
-const GROQ_MODEL    = 'meta-llama/llama-4-scout-17b-16e-instruct';
+const GROQ_MODEL    = 'qwen/qwen3.6-27b';
 
 const GROQ_PROMPT = `You are a Pokémon Trading Card Game expert. The user sends a photo of a Pokémon card.
 The card can be in ANY language: EN, JP, ZH, KO, DE, FR.
@@ -1680,7 +1680,7 @@ async function testGroqKey() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Groq-Key': key },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
+        model: 'openai/gpt-oss-20b',
         messages: [{ role: 'user', content: 'Odpověz jedním slovem: OK' }],
         max_tokens: 10,
       })
@@ -2224,11 +2224,8 @@ async function pollNewPhotos() {
     for (const row of rows) {
       if (existingQueueIds.has(row.id)) continue;
       // Bucket card-photo is public – use direct public URL (no signing, no CORS issues)
-      // Same approach as queue.html. Po migraci PhotoBridge na R2 může storage_path
-      // už být hotová veřejná URL – v tom případě ji nesmíme znovu skládat se Supabase URL.
-      const photoUrl = /^https?:\/\//i.test(row.storage_path)
-        ? row.storage_path
-        : `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
+      // Same approach as queue.html
+      const photoUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${row.storage_path}`;
 
       const id = nextId++;
       photos.push({

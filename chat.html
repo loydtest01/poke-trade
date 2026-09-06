@@ -2751,7 +2751,7 @@ function openGroqSettings() {
 
 // POKEBOT (GROQ)
 // ═══════════════════════════════════════════════════════════════
-const GROQ_MODEL = () => window._groqModel || 'llama-3.3-70b-versatile';
+const GROQ_MODEL = () => window._groqModel || 'openai/gpt-oss-120b';
 
 let isBotMode     = false;
 let botHistory    = []; // {role, content}[]
@@ -3048,7 +3048,7 @@ async function sendBotMessage(text) {
           'Authorization': `Bearer ${getGroqKey()}`,
         },
         body: JSON.stringify({
-          model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: 'qwen/qwen3.6-27b',
           max_tokens: 700,
           messages: [
             { role: 'system', content: BOT_SYSTEM },

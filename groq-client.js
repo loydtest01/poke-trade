@@ -37,8 +37,8 @@
       name:         'Groq',
       endpoint:     'https://api.groq.com/openai/v1/chat/completions',
       validateUrl:  'https://api.groq.com/openai/v1/models',
-      textModel:    'llama-3.3-70b-versatile',
-      visionModel:  'meta-llama/llama-4-scout-17b-16e-instruct',
+      textModel:    'openai/gpt-oss-120b',
+      visionModel:  'qwen/qwen3.6-27b',
     },
     cerebras: {
       name:         'Cerebras',
@@ -160,7 +160,7 @@
       gemini:     0,
       cloudflare: 0,
     },
-    model:           'meta-llama/llama-4-scout-17b-16e-instruct',  // user preferred text model (kompat)
+    model:           'qwen/qwen3.6-27b',  // user preferred text model (kompat)
     enabled:         false,
     loaded:          false,
     xaiPreferred:    false,  // xAI jde jako první v chainu (uloženo v localStorage)
@@ -169,10 +169,9 @@
 
   // ── GROQ_MODELS (zpětná kompatibilita) ────────────────────────────
   const GROQ_MODELS = [
-    { id: 'meta-llama/llama-4-scout-17b-16e-instruct',       label: 'Llama 4 Scout 17B (vision, doporučeno)' },
-    { id: 'meta-llama/llama-4-maverick-17b-128e-instruct',   label: 'Llama 4 Maverick 17B (vision)' },
-    { id: 'llama-3.3-70b-versatile',                         label: 'Llama 3.3 70B (text)' },
-    { id: 'llama-3.1-8b-instant',                            label: 'Llama 3.1 8B (rychlý, text)' },
+    { id: 'qwen/qwen3.6-27b',       label: 'Qwen 3.6 27B (vision, doporučeno)' },
+    { id: 'openai/gpt-oss-120b',                         label: 'GPT-OSS 120B (text)' },
+    { id: 'openai/gpt-oss-20b',                            label: 'GPT-OSS 20B (rychlý, text)' },
   ];
 
   // ── Interní REST helper ──────────────────────────────────────────
@@ -296,7 +295,7 @@
       _state.keys.gemini     = _parseKeys(data.gemini_key);      // undefined → []
       _state.keys.cloudflare = _parseKeys(data.cloudflare_key);  // formát: 'account_id:token'
 
-      _state.model   = data.groq_model || 'meta-llama/llama-4-scout-17b-16e-instruct';
+      _state.model   = data.groq_model || 'qwen/qwen3.6-27b';
       _state.enabled = (data.groq_enabled !== false);
       _state.loaded  = true;
 

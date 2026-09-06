@@ -1594,7 +1594,7 @@ If photo quality is too poor to assess, return {"grade":"NM","confidence":"low",
       headers: { 'Content-Type': 'application/json',
                  ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'qwen/qwen3.6-27b',
         max_tokens: 300,
         usage_type: 'search',
         messages: [{
@@ -1645,7 +1645,7 @@ If you cannot identify the card at all, return {"confidence":"low","name":"","no
     headers: { 'Content-Type': 'application/json',
                ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
     body: JSON.stringify({
-      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      model: 'qwen/qwen3.6-27b',
       max_tokens: 400,
       usage_type: 'search',
       messages: [{
@@ -5884,7 +5884,7 @@ Napiš typický popis stavu karty v gradingu ${condTag || 'NM'} – co kupujíc�
       headers: { 'Content-Type': 'application/json',
                  ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
       body: JSON.stringify({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: 'qwen/qwen3.6-27b',
         max_tokens: 1000,
         usage_type: 'search',
         messages: [

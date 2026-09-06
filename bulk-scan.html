@@ -1038,7 +1038,7 @@ async function detectAIMethod(){
     try{
       const PROMPT=`You are detecting Pokemon trading cards.\nReturn ONLY valid JSON:\n{"cards":[{"x":5.0,"y":3.0,"w":18.0,"h":25.0}]}\nWhere x,y=top-left as PERCENTAGE (0-100), w,h=width/height as PERCENTAGE. Detect EVERY card.`;
       const r=await fetch('/api/groq',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
-        body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:.1,response_format:{type:'json_object'},usage_type:'search',
+        body:JSON.stringify({model:'qwen/qwen3.6-27b',max_tokens:2000,temperature:.1,response_format:{type:'json_object'},usage_type:'search',
           messages:[{role:'user',content:[{type:'text',text:PROMPT},{type:'image_url',image_url:{url:tmp.toDataURL('image/jpeg',.85)}}]}]})});
       if(r.ok){
         const d=await r.json();

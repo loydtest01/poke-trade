@@ -20,7 +20,7 @@
   'use strict';
 
   const GROQ_PROXY = '/api/groq';
-  const GROQ_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct';
+  const GROQ_MODEL = 'qwen/qwen3.6-27b';
 
   // ── Prompt pro AI rozpoznávání karty ──────────────────────────────────────
   const RECOGNIZE_PROMPT = `Jsi expert na Pokémon karty. Analyzuj tento obrázek Pokémon karty a vrať JSON.
