@@ -437,7 +437,12 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
   resize: none; height: 70px; line-height: 1.5;
 }
 .panel-textarea::placeholder, .panel-inp::placeholder { color: #9a9ab2; opacity: 1; }
-.panel-textarea { color: var(--text); font-size: 14px; line-height: 1.55; }
+/* Bez width si textarea drží výchozí šířku podle sloupců (cols),
+   ne podle rodiče — proto byla užší než ostatní pole ve formuláři. */
+.panel-textarea {
+  color: var(--text); font-size: 14px; line-height: 1.55;
+  width: 100%; box-sizing: border-box; display: block;
+}
 
 .trade-cards-wrap { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
 .trade-card-item {
