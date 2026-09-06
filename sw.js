@@ -1,13 +1,17 @@
-// PokéTrade – Service Worker v3.1
-// ⚡ Opraveno: JS/CSS nyní stale-while-revalidate (nepotřebuješ Ctrl+Shift+R)
+// PokéTrade – Service Worker v3.2
+// ⚡ JS/CSS: network-first s krátkým timeoutem (dřív stale-while-revalidate,
+//    což po deployi servírovalo starou verzi a mátlo při ladění)
 // 🔔 Nová verze: zobrazí uživateli tlačítko "Aktualizovat"
-// ♾️  Automatický skip waiting – nový SW se aktivuje hned bez čekání na zavření
+// ♾️  Automatický skip waiting – nový SW se aktivuje hned bez čekání
 
-// ── VERZE: změň při každém deployi (nebo automatizuj přes build skript) ──────
-const SW_VERSION = '3.1';
+// ── VERZE: změň při každém deployi ───────────────────────────────────────────
+const SW_VERSION = '3.2';
 const CACHE_STATIC = `poketrade-static-v${SW_VERSION}`;
 const CACHE_PAGES  = `poketrade-pages-v${SW_VERSION}`;
 const CACHE_IMGS   = `poketrade-imgs-v${SW_VERSION}`;
+
+// Kolik ms čekáme na síť u JS/CSS, než sáhneme do cache
+const NET_TIMEOUT = 3000;
 
 // Statické assety které předkešujeme při instalaci
 const PRECACHE_ASSETS = [
@@ -21,7 +25,6 @@ const PRECACHE_ASSETS = [
 
 // ── Install ───────────────────────────────────────────────────────────────────
 self.addEventListener('install', e => {
-  // skipWaiting = nový SW se okamžitě aktivuje (nepotřebuješ Ctrl+Shift+R)
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_STATIC).then(cache =>
@@ -39,7 +42,6 @@ self.addEventListener('activate', e => {
         keys.filter(k => !validCaches.has(k)).map(k => caches.delete(k))
       ))
       .then(() => clients.claim())
-      // Oznám všem otevřeným tabům že je nová verze
       .then(() => notifyClientsNewVersion())
   );
 });
@@ -55,7 +57,6 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   const url = new URL(req.url);
 
-  // Přeskoč: non-GET, devtools, externe domény, API endpointy
   if (req.method !== 'GET') return;
   if (url.protocol === 'chrome-extension:') return;
   if (url.hostname !== self.location.hostname) return;
@@ -63,33 +64,33 @@ self.addEventListener('fetch', e => {
 
   const ext = url.pathname.split('.').pop().toLowerCase();
 
-  // ── HTML stránky → Network-first (vždy čerstvý obsah) ─────────────────────
+  // ── HTML stránky → Network-first ──────────────────────────────────────────
   if (req.headers.get('Accept')?.includes('text/html') || ext === 'html' || ext === '') {
     e.respondWith(networkFirst(req, CACHE_PAGES));
     return;
   }
 
-  // ── JS a CSS → Stale-While-Revalidate ─────────────────────────────────────
-  // Okamžitě vrátí z cache (rychlé načtení) + paralelně aktualizuje cache na pozadí.
-  // Příští načtení stránky bude mít novou verzi → bez potřeby Ctrl+Shift+R
+  // ── JS a CSS → Network-first s timeoutem ──────────────────────────────────
+  // ZMĚNA v3.2: dřív tu byl stale-while-revalidate, který po nasazení vždycky
+  // jednou vrátil STAROU verzi. Kombinace nové HTML + starého JS způsobovala
+  // chyby, které vypadaly jako by oprava nefungovala. Teď se čeká na síť
+  // (max 3 s) a cache slouží jen jako záchrana při výpadku.
   if (ext === 'js' || ext === 'css') {
-    e.respondWith(staleWhileRevalidate(req, CACHE_STATIC));
+    e.respondWith(networkFirstTimeout(req, CACHE_STATIC, NET_TIMEOUT));
     return;
   }
 
-  // ── Obrázky a fonty → Cache-first (mění se zřídka) ────────────────────────
+  // ── Obrázky a fonty → Cache-first ─────────────────────────────────────────
   if (['png','jpg','jpeg','webp','svg','ico','woff','woff2'].includes(ext)) {
     e.respondWith(cacheFirst(req, CACHE_IMGS));
     return;
   }
 
-  // ── Ostatní → Network-first ────────────────────────────────────────────────
   e.respondWith(networkFirst(req, CACHE_STATIC));
 });
 
 // ── Strategie ─────────────────────────────────────────────────────────────────
 
-// Network-first: pokusí se stáhnout ze sítě, fallback na cache, fallback offline.html
 async function networkFirst(req, cacheName) {
   try {
     const res = await fetch(req);
@@ -104,22 +105,26 @@ async function networkFirst(req, cacheName) {
   }
 }
 
-// Stale-While-Revalidate: okamžitě z cache, aktualizuje na pozadí
-async function staleWhileRevalidate(req, cacheName) {
-  const cache   = await caches.open(cacheName);
-  const cached  = await cache.match(req);
+// Network-first, ale nečeká donekonečna — po timeoutu vrátí cache.
+// Síť přesto doběhne a cache se aktualizuje.
+async function networkFirstTimeout(req, cacheName, ms) {
+  const cache = await caches.open(cacheName);
 
-  // Vždy spusť fetch na pozadí
-  const fetchPromise = fetch(req).then(res => {
+  const network = fetch(req).then(res => {
     if (res.ok) cache.put(req, res.clone());
     return res;
-  }).catch(() => null);
+  });
 
-  // Pokud máme cache → vrátíme ji okamžitě, síť jede na pozadí
-  return cached || fetchPromise;
+  const cached = await cache.match(req);
+  if (!cached) return network.catch(() => new Response('', { status: 504 }));
+
+  // Máme cache → dáme síti šanci, ale jen na chvíli
+  return Promise.race([
+    network.catch(() => cached),
+    new Promise(resolve => setTimeout(() => resolve(cached), ms)),
+  ]);
 }
 
-// Cache-first: pokud v cache → vrátí okamžitě, jinak síť
 async function cacheFirst(req, cacheName) {
   const cached = await caches.match(req);
   if (cached) return cached;
@@ -135,7 +140,7 @@ async function cacheFirst(req, cacheName) {
   }
 }
 
-// ── Zprávy od klienta (např. "skipWaiting" po kliknutí na aktualizovat) ───────
+// ── Zprávy od klienta ─────────────────────────────────────────────────────────
 self.addEventListener('message', e => {
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
