@@ -700,23 +700,38 @@ async function loadMyCards() {
     if (!token) { alert('Pro načtení sbírky se přihlas.'); return; }
     const SBU = 'https://xrduqwrinzvmpixgmqta.supabase.co';
     const SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
-    const r = await fetch(`${SBU}/rest/v1/user_cards?select=card_data,quantity`, {
+    // POZOR: tabulka user_cards sloupec "quantity" NEMÁ (viz KOMPLETNI_SETUP.sql:304).
+    // Dotaz na neexistující sloupec vracel 400 a sbírka se nikdy nenačetla —
+    // proto hlásil "Nepodařilo se načíst sbírku. Zkontroluj přihlášení."
+    // Každý řádek = jeden fyzický kus, duplicity sečteme níž.
+    const r = await fetch(`${SBU}/rest/v1/user_cards?select=local_id,card_data`, {
       headers: { apikey: SBA, Authorization: 'Bearer ' + token }
     });
-    if (!r.ok) throw new Error('Fetch failed');
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error(`HTTP ${r.status}${txt ? ': ' + txt.slice(0, 120) : ''}`);
+    }
     const rows = await r.json();
-    myCards = [];
+
+    // Sečti stejné karty do jednoho záznamu s qty
+    const podle = new Map();
     for (const row of rows) {
       const d = typeof row.card_data === 'string' ? JSON.parse(row.card_data) : row.card_data;
-      if (d) myCards.push({ ...d, qty: row.quantity || 1 });
+      if (!d) continue;
+      const klic = `${(d.name || d.apiId || '').toLowerCase()}|${d.setId || d.set || ''}|${d.number || ''}`;
+      const p = podle.get(klic);
+      if (p) p.qty += 1;
+      else podle.set(klic, { ...d, qty: 1 });
     }
-    const count = myCards.length;
-    showToast(`📦 Načteno ${count} karet ze sbírky`);
+    myCards = [...podle.values()];
+    const druhu = myCards.length;
+    const kusu  = myCards.reduce((a, c) => a + (c.qty || 1), 0);
+    showToast(`📦 Načteno ${kusu} karet (${druhu} různých)`);
     // Obnov statistiky pokud je preset otevřen
     if (selectedPreset) showPresetDetail(selectedPreset);
   } catch(e) {
     console.warn('[DeckBuilder] loadMyCards:', e);
-    showToast('❌ Nepodařilo se načíst sbírku. Zkontroluj přihlášení.', true);
+    showToast('❌ Sbírku se nepodařilo načíst: ' + (e.message || 'neznámá chyba'), true);
   }
 }
 
