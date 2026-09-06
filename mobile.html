@@ -1217,6 +1217,15 @@ async function loadGroqInBackground() {
           _groqReady = true; _groqReadyResolve();
           updateStatusChips(); return;
         }
+        // Server nevrátil žádný klíč, ale nabídl proxy — to je nová,
+        // bezpečná cesta: klíč zůstává na serveru a my posíláme
+        // požadavky na /api/groq, kde se doplní až tam.
+        if (d.use_proxy) {
+          useSharedProxy = true;
+          dbg('[AI] Sdílená proxy (klíč zůstává na serveru)');
+          _groqReady = true; _groqReadyResolve();
+          updateStatusChips(); return;
+        }
       }
     } catch(e) { dbg('Server fetch chyba: ' + e.message); }
   }
