@@ -412,7 +412,15 @@ async function _deckFetch(headers, bodyObj) {
 }
 
 
-// Aktuální meta decky (2025–2026 format: Scarlet & Violet era)
+// POZOR NA STÁŘÍ: tyhle presety odpovídají éře Scarlet & Violet.
+// Stav standardu k 9/2026 (formát SVI–ASC) je jiný:
+//   • Lugia VSTAR  — ze Sword & Shield, ve standardu UŽ NENÍ (nehratelné)
+//   • Miraidon ex   — vypadlo z tier listu
+//   • Charizard ex, Gardevoir ex, Raging Bolt ex — pořád hratelné, ale níž
+//   • CHYBÍ nejhranější archetypy: Dragapult ex (~18 %), Marnie's Grimmsnarl ex (~14 %),
+//     dále N's Zoroark ex, Gholdengo ex, Froslass Munkidori, Joltik Box
+// Aktuální decklisty ber z limitlesstcg.com a přepiš je sem ručně —
+// odhadnutý decklist vypadá důvěryhodně a přitom nefunguje.
 const PRESET_DECKS = [
   {
     id: 'charizard-ex',
@@ -719,15 +727,28 @@ function tryAutoLoadCards() {
   }
 }
 
-function getOwnedCount(cardName, cardNumber) {
-  const name = (cardName || '').toLowerCase();
-  const num  = (cardNumber || '').split('/')[0];
-  const found = myCards.find(c => {
-    const cn = (c.name || c.name_cs || c.apiId || '').toLowerCase();
-    const cnum = (c.number || '').split('/')[0];
-    return cn.includes(name.split(' ')[0]) || (num && cnum === num);
-  });
-  return found ? (found.qty || 1) : 0;
+function getOwnedCount(cardName, cardNumber, cardSet) {
+  // POZOR na párování: dřív tu bylo `cn.includes(name.split(' ')[0]) || cnum === num`,
+  // takže "Charizard ex" matchoval každou kartu se slovem Charizard a navíc
+  // JAKÁKOLI karta se stejným číslem se počítala jako vlastněná. Čísla se
+  // napříč sériemi opakují, takže to hlásilo nesmysly oběma směry.
+  const jmeno = (cardName || '').toLowerCase().trim();
+  const cislo = (cardNumber || '').split('/')[0].replace(/^0+(?=\d)/, '');
+  const set   = (cardSet || '').toLowerCase();
+  if (!jmeno) return 0;
+
+  let celkem = 0;
+  for (const c of myCards) {
+    const cn   = (c.name || c.name_cs || c.apiId || '').toLowerCase().trim();
+    const cnum = (c.number || '').split('/')[0].replace(/^0+(?=\d)/, '');
+    const cset = (c.setId || c.set || '').toLowerCase();
+
+    // Přesná shoda set + číslo je nejsilnější důkaz
+    if (set && cislo && cset === set && cnum === cislo) { celkem += (c.qty || 1); continue; }
+    // Jinak musí sedět celé jméno; číslo samo o sobě nestačí
+    if (cn === jmeno) { celkem += (c.qty || 1); continue; }
+  }
+  return celkem;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -776,7 +797,7 @@ function showPresetDetail(preset) {
 
   // Own progress
   const owned = preset.cards.reduce((sum, c) => {
-    const have = Math.min(getOwnedCount(c.name, c.number), c.count);
+    const have = Math.min(getOwnedCount(c.name, c.number, c.set), c.count);
     return sum + have;
   }, 0);
   const total = preset.cards.reduce((sum,c) => sum + c.count, 0);
@@ -792,7 +813,7 @@ function showMissingCards() {
   if (!selectedPreset) return;
   const el = document.getElementById('missing-cards');
   const missing = selectedPreset.cards.filter(c => {
-    const have = getOwnedCount(c.name, c.number);
+    const have = getOwnedCount(c.name, c.number, c.set);
     return have < c.count;
   });
   if (!missing.length) {
@@ -800,7 +821,7 @@ function showMissingCards() {
   } else {
     el.innerHTML = '<div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Chybí ti:</div>' +
       missing.map(c => {
-        const have = getOwnedCount(c.name, c.number);
+        const have = getOwnedCount(c.name, c.number, c.set);
         const need = c.count - have;
         return `<div style="display:flex;justify-content:space-between;padding:.2rem 0;font-size:.78rem">
           <span>${c.name}</span>
@@ -843,9 +864,44 @@ async function aiGenerateDeck() {
   statusEl.style.display = 'block';
   statusEl.innerHTML = '<span class="loading-dots">🤖 AI sestavuje deck</span>';
 
-  const myCardsList = useMyCards && myCards.length
-    ? 'Uživatel má tyto karty ve sbírce:\n' + myCards.slice(0, 50).map(c => `- ${c.name || c.apiId} (${c.qty || 1}×)`).join('\n') + '\n\n'
-    : '';
+  // Dřív se sbírka posílala jen jako informace ("Uživatel má tyto karty"),
+  // takže AI si klidně vymyslela deck z karet, které uživatel nemá.
+  // Teď je to tvrdé omezení a posílá se i set + číslo, aby šla karta určit.
+  let myCardsList = '';
+  if (useMyCards) {
+    if (!myCards.length) {
+      statusEl.innerHTML = '<span style="color:#f87171">⚠️ Sbírka je prázdná — načti nejdřív „Načíst moje karty", nebo odškrtni „Jen karty z mé sbírky".</span>';
+      btn.disabled = false;
+      return;
+    }
+    // Seskup podle jména, ať se neposílá stejná karta desetkrát
+    const mapa = new Map();
+    for (const c of myCards) {
+      const klic = `${c.name || c.apiId}|${c.setId || c.set || ''}|${c.number || ''}`;
+      const p = mapa.get(klic);
+      if (p) p.qty += (c.qty || 1);
+      else mapa.set(klic, { name: c.name || c.apiId, set: c.setId || c.set || '', number: c.number || '', qty: c.qty || 1 });
+    }
+    const seznam = [...mapa.values()]
+      .slice(0, 400)
+      .map(c => `- ${c.name}${c.set ? ` [${c.set}-${c.number}]` : ''} ×${c.qty}`)
+      .join('\n');
+
+    const celkem = [...mapa.values()].reduce((a, c) => a + c.qty, 0);
+
+    myCardsList =
+      '════ POVINNÉ OMEZENÍ: POUZE KARTY ZE SBÍRKY ════\n' +
+      'Deck sestav VÝHRADNĚ z karet v tomhle seznamu. Nesmíš přidat ani jednu\n' +
+      'kartu, která tu není. Počet kusů nesmí přesáhnout uvedené ×N.\n' +
+      'Výjimka: základní energie (Fire Energy, Water Energy…) smíš použít vždy.\n' +
+      `Uživatel má celkem ${celkem} karet (${mapa.size} různých).\n` +
+      (celkem < 60
+        ? 'POZOR: sbírka má méně než 60 karet. Sestav nejlepší možný deck z toho,\n' +
+          'co je k dispozici, doplň základními energiemi do 60 a v "summary"\n' +
+          'napiš, které klíčové karty uživateli chybí.\n'
+        : '') +
+      '\nSEZNAM KARET:\n' + seznam + '\n\n';
+  }
 
   const levelMap = { beginner: 'začátečník (jednoduché mechaniky, levné karty, žádné ex/VSTAR)', intermediate: 'pokročilý (standardní karty, mid-tier)', competitive: 'kompetitivní (nejsilnější meta karty, turnajová úroveň)' };
 
@@ -937,7 +993,9 @@ POVINNÉ INSTRUKCE:
 3. VŽDY: Ultra Ball (3-4x), Nest Ball (3-4x), Professor's Research (4x), Iono (2-3x), Boss's Orders (2x).
 4. Stage 2 → VŽDY 4x Rare Candy.
 5. Min. 8 základních energií odpovídajícího typu.
-6. Preferuj Scarlet & Violet (sv1-sv9).
+6. Preferuj karty z aktuálně nejnovějších sérií, ne z těch nejstarších.
+   (Konkrétní série nediktujeme — formát se každý rok mění a natvrdo
+   napsaná éra by tě po roce nutila stavět zastaralé decky.)
 7. PŘED odesláním zkontroluj: součet countů = 60.
 8. Odpověz POUZE čistým JSON.`;
   try {
@@ -1083,7 +1141,7 @@ function showAiResult(deck) {
   const stats = getDeckStats(deck.cards);
   document.getElementById('ai-deck-stats').innerHTML = statsHTML(stats);
 
-  const owned = deck.cards.reduce((sum, c) => sum + Math.min(getOwnedCount(c.name, c.number), c.count), 0);
+  const owned = deck.cards.reduce((sum, c) => sum + Math.min(getOwnedCount(c.name, c.number, c.set), c.count), 0);
   const total = deck.cards.reduce((sum,c) => sum + c.count, 0);
   const pct = Math.round(owned / total * 100);
   document.getElementById('ai-own-progress').style.width = pct + '%';
@@ -1113,7 +1171,7 @@ function renderDeckList(cards, containerId) {
 
   function groupRows(list) {
     return list.map(c => {
-      const owned = getOwnedCount(c.name, c.number);
+      const owned = getOwnedCount(c.name, c.number, c.set);
       const ownCls = owned >= c.count ? 'own-yes' : (owned > 0 ? 'own-partial' : 'own-no');
       const ownTxt = owned >= c.count ? '✓ mám' : (owned > 0 ? `mám ${owned}` : 'chybí');
       return `<div class="deck-row">
