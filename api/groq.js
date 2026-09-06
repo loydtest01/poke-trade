@@ -257,75 +257,80 @@ let _cachedAt        = 0;
 const KEY_CACHE_TTL  = 60_000;
 
 /* ══════════════════════════════════════════════════════════════
-   AUTOMATICKÉ ŘEŠENÍ MODELŮ
+   AUTOMATICKÉ ŘEŠENÍ MODELŮ — líný režim
    ------------------------------------------------------------
-   Poskytovatelé ruší modely v řádu měsíců (Groq vypnul llama-4-scout
-   17.7.2026 a llama-3.3-70b 16.8.2026). Když se název modelu píše
-   natvrdo do kódu, celá aplikace spadne na HTTP 404 a nikdo neví proč.
+   Poskytovatelé ruší modely v řádu měsíců. Kdybychom před každým
+   požadavkem ověřovali seznam živých modelů, platíme latencí
+   pořád — a to i ve chvíli, kdy je všechno v pořádku.
 
-   Řešení: server si vytáhne od poskytovatele seznam živých modelů
-   (endpoint /models, který mají všechna OpenAI-kompatibilní API),
-   nechá si ho hodinu v paměti a neexistující model tiše nahradí
-   nejbližším živým podle pořadí v preferText / preferVision.
+   Proto se neptáme dopředu. Požadavek pošleme rovnou a teprve když
+   poskytovatel odpoví „model does not exist", zjistíme si seznam,
+   vybereme náhradu a požadavek zopakujeme. Náhradu si zapamatujeme
+   do konce dne, takže druhý uživatel už zdržení nepocítí.
+
+   Cena v běžném provozu: nula requestů navíc.
+   Cena při zrušení modelu: jeden pomalejší požadavek na instanci.
 ══════════════════════════════════════════════════════════════ */
-const MODEL_CACHE_TTL = 60 * 60 * 1000;   // 1 hodina
-const _modelCache = {};                   // provider → { list:Set, at:number }
 
-async function ziskejZiveModely(provider, providerName, key) {
-  const c = _modelCache[providerName];
-  if (c && Date.now() - c.at < MODEL_CACHE_TTL) return c.list;
+// provider → { 'puvodni-model': 'nahrada' }, platí do konce dne
+const _nahrady = {};
+let   _nahradyDen = '';
+
+function _dnes() { return new Date().toISOString().slice(0, 10); }
+
+function _uklidPokudNovyDen() {
+  const d = _dnes();
+  if (_nahradyDen !== d) {
+    _nahradyDen = d;
+    for (const k of Object.keys(_nahrady)) delete _nahrady[k];
+  }
+}
+
+/** Známe už pro tenhle model náhradu? Žádné volání ven. */
+function znamaNahrada(providerName, model) {
+  _uklidPokudNovyDen();
+  return _nahrady[providerName]?.[model || '_default'] || null;
+}
+
+function zapamatujNahradu(providerName, model, nahrada) {
+  _uklidPokudNovyDen();
+  (_nahrady[providerName] ||= {})[model || '_default'] = nahrada;
+}
+
+/** Stáhne seznam živých modelů. Volá se JEN při chybě modelu. */
+async function ziskejZiveModely(provider, key) {
   if (!provider.modelsUrl || !key) return null;
-
   try {
     const r = await fetch(provider.modelsUrl, {
       headers: { Authorization: `Bearer ${key}` },
       signal:  AbortSignal.timeout(6000),
     });
-    if (!r.ok) return c?.list || null;      // při chybě raději starý seznam
+    if (!r.ok) return null;
     const d = await r.json();
     const ids = (d?.data || d?.models || [])
       .map(m => m?.id || m?.name || '')
       .filter(Boolean)
       .map(id => String(id).replace(/^models\//, ''));   // Gemini vrací "models/xxx"
-    if (!ids.length) return c?.list || null;
-    const list = new Set(ids);
-    _modelCache[providerName] = { list, at: Date.now() };
-    return list;
+    return ids.length ? new Set(ids) : null;
   } catch {
-    return c?.list || null;
+    return null;
   }
 }
 
-/**
- * Vrátí model, který u poskytovatele opravdu existuje.
- * Když je požadovaný model živý, nechá ho být.
- * Když ne, projde preferovaný seznam a pak cokoli, co odpovídá rodině.
- */
-async function vyresModel(provider, providerName, key, pozadovany, jeVision) {
-  const zive = await ziskejZiveModely(provider, providerName, key);
-  // Seznam se nepodařilo načíst → nech požadavek projít beze změny
-  if (!zive) return { model: pozadovany, zmeneno: false };
-  if (pozadovany && zive.has(pozadovany)) return { model: pozadovany, zmeneno: false };
+/** Vybere živou náhradu za zrušený model. */
+async function najdiNahradu(provider, providerName, key, puvodni, jeVision) {
+  const zive = await ziskejZiveModely(provider, key);
+  if (!zive) return null;
 
   const preferovane = (jeVision ? provider.preferVision : provider.preferText) || [];
   for (const kandidat of [...preferovane, provider.defaultModel]) {
-    if (kandidat && zive.has(kandidat)) {
-      console.warn(`[modely] ${providerName}: "${pozadovany}" neexistuje → "${kandidat}"`);
-      return { model: kandidat, zmeneno: true, puvodni: pozadovany };
-    }
+    if (kandidat && zive.has(kandidat) && kandidat !== puvodni) return kandidat;
   }
-
-  // Poslední záchrana: cokoli, co nevypadá na embedding/whisper/guard
-  const vhodny = [...zive].find(id =>
-    !/embed|whisper|tts|guard|moderation|rerank/i.test(id));
-  if (vhodny) {
-    console.warn(`[modely] ${providerName}: nouzová volba "${vhodny}"`);
-    return { model: vhodny, zmeneno: true, puvodni: pozadovany };
-  }
-  return { model: pozadovany, zmeneno: false };
+  return [...zive].find(id =>
+    !/embed|whisper|tts|guard|moderation|rerank/i.test(id) && id !== puvodni) || null;
 }
 
-/** Poznal poskytovatel, že model neexistuje? Pak zahoď cache. */
+/** Poznal poskytovatel, že model neexistuje? */
 function jeChybaModelu(status, data) {
   if (status !== 404 && status !== 400) return false;
   const t = JSON.stringify(data || '').toLowerCase();
@@ -336,8 +341,8 @@ function jeChybaModelu(status, data) {
       || t.includes('unknown model');
 }
 
-function zapomenModely(providerName) {
-  delete _modelCache[providerName];
+function jeVisionPozadavek(body) {
+  return JSON.stringify(body?.messages || '').includes('image_url');
 }
 
 function parseKeys(raw) {
@@ -722,15 +727,19 @@ async function handleModelsInfo(req, res) {
   for (const [name, p] of Object.entries(PROVIDERS)) {
     const keys = parseKeys(process.env[p.envKey]);
     if (!keys.length) { out[name] = { klicu: 0, modely: null }; continue; }
-    const zive = await ziskejZiveModely(p, name, keys[0]);
-    const text   = await vyresModel(p, name, keys[0], null, false);
-    const vision = p.vision ? await vyresModel(p, name, keys[0], null, true) : null;
+    const zive   = await ziskejZiveModely(p, keys[0]);
+    const text   = await najdiNahradu(p, name, keys[0], null, false);
+    const vision = p.vision ? await najdiNahradu(p, name, keys[0], null, true) : null;
+    const chybi  = [...(p.preferText || []), ...(p.preferVision || []), p.defaultModel]
+      .filter((m, i, a) => m && a.indexOf(m) === i && zive && !zive.has(m));
     out[name] = {
-      klicu:       keys.length,
-      pocetModelu: zive ? zive.size : null,
-      proText:     text.model,
-      proVision:   vision ? vision.model : null,
-      modely:      zive ? [...zive].sort().slice(0, 40) : null,
+      klicu:            keys.length,
+      pocetModelu:      zive ? zive.size : null,
+      proText:          text,
+      proVision:        vision,
+      mrtve_v_nastaveni: chybi,      // co máš v preferencích, ale už neexistuje
+      nahrady_dnes:     _nahrady[name] || {},
+      modely:           zive ? [...zive].sort().slice(0, 40) : null,
     };
   }
   return res.status(200).json({ ts: new Date().toISOString(), providers: out });
@@ -890,28 +899,26 @@ async function proxyToProvider(res, req, provider, providerName, key, body, retu
     };
     if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
 
-    // Zjisti, jestli požadovaný model u poskytovatele ještě existuje.
-    // Vision poznáme podle toho, že zpráva obsahuje obrázek.
-    const jeVision = JSON.stringify(body?.messages || '').includes('image_url');
-    let telo = body;
-    const reseni = await vyresModel(provider, providerName, key, body?.model, jeVision);
-    if (reseni.zmeneno) telo = { ...body, model: reseni.model };
+    // Náhrada jen z paměti — žádné volání ven, nulová režie.
+    const jeVision = jeVisionPozadavek(body);
+    const zapamatovana = znamaNahrada(providerName, body?.model);
+    let telo = zapamatovana ? { ...body, model: zapamatovana } : body;
 
     let r = await fetch(provider.endpoint, {
       method: 'POST', headers, body: JSON.stringify(telo),
     });
     let data = await r.json();
 
-    // Poskytovatel hlásí neexistující model → seznam byl zastaralý.
-    // Zahoď cache, načti znovu a zkus to ještě jednou.
+    // Až teď, když model opravdu neexistuje, se zeptáme na seznam
+    // a požadavek zopakujeme. Náhradu si necháme do konce dne.
     if (!r.ok && jeChybaModelu(r.status, data)) {
-      zapomenModely(providerName);
-      const znovu = await vyresModel(provider, providerName, key, null, jeVision);
-      if (znovu.model && znovu.model !== telo.model) {
-        console.warn(`[modely] ${providerName}: opakuji s "${znovu.model}"`);
+      const nahrada = await najdiNahradu(provider, providerName, key, telo.model, jeVision);
+      if (nahrada) {
+        console.warn(`[modely] ${providerName}: "${telo.model}" zrušen → "${nahrada}"`);
+        zapamatujNahradu(providerName, body?.model, nahrada);
         r = await fetch(provider.endpoint, {
           method: 'POST', headers,
-          body: JSON.stringify({ ...telo, model: znovu.model }),
+          body: JSON.stringify({ ...telo, model: nahrada }),
         });
         data = await r.json();
       }
@@ -947,7 +954,7 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
   let lastErrorMessage = `Žádný ${providerName} klíč nefunguje`;
   let exhaustedByLimit = false;
 
-  const jeVision = JSON.stringify(body?.messages || '').includes('image_url');
+  const jeVision = jeVisionPozadavek(body);
 
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
@@ -958,27 +965,26 @@ async function proxyToProviderWithRotation(res, req, provider, providerName, key
       };
       if (provider.extraHeaders) Object.assign(headers, provider.extraHeaders(req));
 
-      // Ověř model proti živému seznamu poskytovatele (viz vyresModel).
-      // Bez toho by zrušený model shodil postupně všechny klíče v rotaci.
-      let telo = body;
-      const reseni = await vyresModel(provider, providerName, key, body?.model, jeVision);
-      if (reseni.zmeneno) telo = { ...body, model: reseni.model };
+      // Náhrada jen z paměti — bez volání ven
+      const zapamatovana = znamaNahrada(providerName, body?.model);
+      let telo = zapamatovana ? { ...body, model: zapamatovana } : body;
 
       let r = await fetch(provider.endpoint, {
         method: 'POST', headers, body: JSON.stringify(telo),
       });
 
-      // Model mezitím zmizel → obnov seznam a zkus jednou znovu
+      // Model zrušen → zjisti náhradu a zopakuj. Jinak by zrušený model
+      // postupně „spálil" všechny klíče v rotaci, přestože fungují.
       if (!r.ok && r.status !== 401 && r.status !== 429) {
         const peek = await r.clone().json().catch(() => ({}));
         if (jeChybaModelu(r.status, peek)) {
-          zapomenModely(providerName);
-          const znovu = await vyresModel(provider, providerName, key, null, jeVision);
-          if (znovu.model && znovu.model !== telo.model) {
-            console.warn(`[modely] ${providerName}: opakuji s "${znovu.model}"`);
+          const nahrada = await najdiNahradu(provider, providerName, key, telo.model, jeVision);
+          if (nahrada) {
+            console.warn(`[modely] ${providerName}: "${telo.model}" zrušen → "${nahrada}"`);
+            zapamatujNahradu(providerName, body?.model, nahrada);
             r = await fetch(provider.endpoint, {
               method: 'POST', headers,
-              body: JSON.stringify({ ...telo, model: znovu.model }),
+              body: JSON.stringify({ ...telo, model: nahrada }),
             });
           }
         }
