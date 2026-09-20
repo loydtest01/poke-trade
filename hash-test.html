@@ -82,17 +82,13 @@
     <p class="hint">Stáhne karty jedné série z PokéDB a spočítá jim otisky.
        Začni něčím menším, třeba <code>sv1</code> nebo <code>cel25</code>.</p>
     <div class="row">
-      <div style="flex:2">
-        <label>ID série</label>
-        <input type="text" id="setId" value="cel25" placeholder="např. sv1, cel25, base1">
+      <div style="flex:3">
+        <label>Série <small id="setCount" style="color:var(--text2)"></small></label>
+        <select id="setSel"><option value="">— načítám seznam sérií —</option></select>
       </div>
-      <div>
-        <label>Jazyk</label>
-        <select id="lang">
-          <option value="en">en</option><option value="ja">ja</option>
-          <option value="de">de</option><option value="fr">fr</option>
-          <option value="es">es</option><option value="it">it</option>
-        </select>
+      <div style="flex:2">
+        <label>nebo ID ručně</label>
+        <input type="text" id="setId" placeholder="např. sv1, cel25">
       </div>
       <div style="flex:0 0 auto">
         <button id="btnLoad" onclick="nactiSadu()">Načíst a zahashovat</button>
@@ -195,26 +191,66 @@ function nactiObrazek(url) {
 
 /* ── 1. Načtení sady ────────────────────────────────────────── */
 async function nactiSadu() {
-  const setId = document.getElementById('setId').value.trim();
-  const lang  = document.getElementById('lang').value;
+  const rucne = document.getElementById('setId').value.trim();
+  const setId = rucne || document.getElementById('setSel').value;
   const btn   = document.getElementById('btnLoad');
-  if (!setId) return;
+  if (!setId) { alert('Vyber sérii ze seznamu, nebo zadej ID ručně.'); return; }
 
   btn.disabled = true;
   document.getElementById('logLoad').innerHTML = '';
   databaze = [];
   progress('barLoad', 0);
 
-  const plneId = lang === 'en' ? setId : `${lang}-${setId}`;
-  log('logLoad', `Hledám karty v sérii ${plneId}…`);
+  log('logLoad', `Hledám karty v sérii ${setId}…`);
+
+  // Jednorázová diagnostika tvaru odpovědi — ať víme, jak se pole jmenují
+  try {
+    const t = await fetch(`${POKEDB}/cards?limit=1`);
+    const td = await t.json();
+    const vzor = (td.data || [])[0];
+    if (vzor) {
+      log('logLoad', '  API vrací pole: ' + Object.keys(vzor).slice(0, 14).join(', '));
+    }
+  } catch (_) {}
+
+  // API může mít parametr pojmenovaný různě — zkusíme postupně všechny
+  // varianty a vezmeme první, která něco vrátí. Poslední záchrana je
+  // stáhnout víc karet a odfiltrovat je až tady.
+  const varianty = [
+    `set=${encodeURIComponent(setId)}&limit=500`,
+    `set_id=${encodeURIComponent(setId)}&limit=500`,
+    `setId=${encodeURIComponent(setId)}&limit=500`,
+    `series=${encodeURIComponent(setId)}&limit=500`,
+  ];
 
   let karty = [];
-  try {
-    const r = await fetch(`${POKEDB}/cards?set_id=${encodeURIComponent(plneId)}&limit=500`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    karty = (await r.json()).data || [];
-  } catch (e) {
-    log('logLoad', 'Nepodařilo se načíst seznam: ' + e.message, 'err');
+  for (const v of varianty) {
+    try {
+      const r = await fetch(`${POKEDB}/cards?${v}`);
+      if (!r.ok) { log('logLoad', `  ?${v.split('=')[0]} → HTTP ${r.status}`); continue; }
+      const d = await r.json();
+      const nalez = d.data || [];
+      log('logLoad', `  ?${v.split('=')[0]} → ${nalez.length} karet`);
+      if (nalez.length) { karty = nalez; break; }
+    } catch (e) {
+      log('logLoad', `  ?${v.split('=')[0]} → ${e.message}`, 'warn');
+    }
+  }
+
+  if (!karty.length) {
+    log('logLoad', 'Žádný z parametrů nezabral. Zkouším stáhnout a filtrovat ručně…', 'warn');
+    try {
+      const r = await fetch(`${POKEDB}/cards?limit=1000&page=1`);
+      const d = await r.json();
+      karty = (d.data || []).filter(c => String(c.set_id || '').toLowerCase() === setId.toLowerCase());
+      log('logLoad', `  ručním filtrem nalezeno ${karty.length} karet`);
+    } catch (e) {
+      log('logLoad', 'Ani to nevyšlo: ' + e.message, 'err');
+    }
+  }
+
+  if (!karty.length) {
+    log('logLoad', 'Série nenalezena — vyber jinou ze seznamu.', 'err');
     btn.disabled = false; return;
   }
 
@@ -302,6 +338,33 @@ async function zpracujFoto(soubor) {
 
   URL.revokeObjectURL(url);
 }
+
+/* ── Seznam sérií z PokéDB ───────────────────────────────────
+   Bez něj bys musel ID hádat. Řadíme podle počtu karet vzestupně,
+   ať jsou malé série (rychlý test) nahoře. */
+(async function nactiSerie() {
+  const sel = document.getElementById('setSel');
+  try {
+    const r = await fetch(`${POKEDB}/sets?limit=1000`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const serie = (d.data || d.sets || [])
+      .map(x => ({ id: x.id, name: x.name || x.id, total: Number(x.total || x.card_count || 0), lang: x.lang || 'en' }))
+      .filter(x => x.id)
+      .sort((a, b) => (a.total || 999) - (b.total || 999));
+
+    if (!serie.length) throw new Error('prázdný seznam');
+
+    sel.innerHTML = serie.map(x =>
+      `<option value="${x.id}">${x.lang} · ${x.name} (${x.total || '?'} karet) — ${x.id}</option>`
+    ).join('');
+    document.getElementById('setCount').textContent = `· ${serie.length} k dispozici`;
+    log('logLoad', `Načteno ${serie.length} sérií. Začni něčím malým.`, 'ok');
+  } catch (e) {
+    sel.innerHTML = '<option value="">— seznam se nenačetl, zadej ID ručně —</option>';
+    log('logLoad', 'Seznam sérií se nenačetl: ' + e.message, 'warn');
+  }
+})();
 
 // Přetažení souboru
 const drop = document.getElementById('drop');
