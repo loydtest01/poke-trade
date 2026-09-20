@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test rozpoznávání karet podle otisku — PokéTrade</title>
+<style>
+  :root { --bg:#0e0e14; --bg2:#16161f; --line:#2a2a3a; --text:#f2f2f8; --text2:#c2c2d4; --gold:#f5c842; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size:14px; }
+  .wrap { max-width:880px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  h1 em { color:var(--gold); font-style:normal; }
+  .sub { color:var(--text2); font-size:13.5px; line-height:1.6; margin:0 0 22px; }
+
+  .card { background:var(--bg2); border:1px solid var(--line); border-radius:13px;
+          padding:18px; margin-bottom:14px; }
+  .card h2 { font-size:15px; margin:0 0 4px; display:flex; align-items:center; gap:8px; }
+  .card .hint { color:var(--text2); font-size:12.5px; line-height:1.6; margin:0 0 14px; }
+  .num { background:var(--gold); color:#1a1712; width:22px; height:22px; border-radius:50%;
+         display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; }
+
+  label { display:block; font-size:12px; color:var(--text2); margin:10px 0 5px; }
+  input[type=text], select {
+    width:100%; padding:10px 12px; border-radius:9px; border:1px solid var(--line);
+    background:rgba(255,255,255,.05); color:var(--text); font-size:14px; font-family:inherit; outline:none;
+  }
+  input[type=text]:focus, select:focus { border-color:rgba(245,200,66,.5); }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+  .row > * { flex:1; min-width:150px; }
+
+  button { background:var(--gold); color:#1a1712; border:none; border-radius:9px;
+           padding:11px 18px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+  button:disabled { opacity:.45; cursor:default; }
+  button.ghost { background:transparent; color:var(--text2); border:1px solid var(--line); }
+
+  .log { background:#0a0a10; border:1px solid var(--line); border-radius:9px; padding:11px 13px;
+         font-family:ui-monospace,monospace; font-size:11.5px; line-height:1.6; color:var(--text2);
+         max-height:200px; overflow:auto; margin-top:12px; white-space:pre-wrap; }
+  .log .ok  { color:#4ade80; }
+  .log .err { color:#f87171; }
+  .log .warn{ color:#fbbf24; }
+
+  .bar { height:7px; background:rgba(255,255,255,.07); border-radius:4px; overflow:hidden; margin-top:10px; }
+  .bar i { display:block; height:100%; background:var(--gold); width:0; transition:width .2s; }
+
+  .drop { border:2px dashed var(--line); border-radius:12px; padding:30px 16px; text-align:center;
+          color:var(--text2); cursor:pointer; }
+  .drop:hover { border-color:rgba(245,200,66,.45); color:var(--gold); }
+
+  .hits { margin-top:14px; }
+  .hit { display:flex; gap:12px; align-items:center; padding:10px; border-radius:10px;
+         border:1px solid var(--line); margin-bottom:8px; background:rgba(255,255,255,.02); }
+  .hit.best { border-color:rgba(245,200,66,.5); background:rgba(245,200,66,.07); }
+  .hit img { width:52px; height:72px; object-fit:contain; border-radius:5px; background:#000; }
+  .hit .nm { font-weight:700; font-size:13.5px; }
+  .hit .mt { font-size:11.5px; color:var(--text2); margin-top:2px; }
+  .hit .dist { margin-left:auto; text-align:right; }
+  .hit .dist b { font-size:19px; color:var(--gold); }
+  .hit .dist small { display:block; font-size:10.5px; color:var(--text2); }
+
+  .stat { display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--text2); margin-top:10px; }
+  .stat b { color:var(--text); }
+  canvas { display:none; }
+  .prev { max-width:150px; border-radius:8px; margin-top:12px; display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>🔍 Test rozpoznávání karet podle <em>otisku</em></h1>
+  <p class="sub">
+    Ověří, jestli se dá karta poznat porovnáním perceptuálního otisku (dHash) místo AI.
+    Funguje offline a v řádu milisekund — to je technika, na které stojí živé skenování kamerou.
+    Nic se nikam neukládá, celé to běží ve tvém prohlížeči.
+  </p>
+
+  <!-- ── 1 ── -->
+  <div class="card">
+    <h2><span class="num">1</span> Načti sadu karet</h2>
+    <p class="hint">Stáhne karty jedné série z PokéDB a spočítá jim otisky.
+       Začni něčím menším, třeba <code>sv1</code> nebo <code>cel25</code>.</p>
+    <div class="row">
+      <div style="flex:2">
+        <label>ID série</label>
+        <input type="text" id="setId" value="cel25" placeholder="např. sv1, cel25, base1">
+      </div>
+      <div>
+        <label>Jazyk</label>
+        <select id="lang">
+          <option value="en">en</option><option value="ja">ja</option>
+          <option value="de">de</option><option value="fr">fr</option>
+          <option value="es">es</option><option value="it">it</option>
+        </select>
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="btnLoad" onclick="nactiSadu()">Načíst a zahashovat</button>
+      </div>
+    </div>
+    <div class="bar"><i id="barLoad"></i></div>
+    <div class="log" id="logLoad">Připraven.</div>
+    <div class="stat" id="statLoad"></div>
+  </div>
+
+  <!-- ── 2 ── -->
+  <div class="card">
+    <h2><span class="num">2</span> Vyfoť nebo nahraj kartu</h2>
+    <p class="hint">Nahraj fotku karty — ideálně tak, aby karta vyplnila skoro celý záběr.
+       Otisk se spočítá a porovná se všemi načtenými.</p>
+    <div class="drop" id="drop" onclick="document.getElementById('foto').click()">
+      📷 Klepni pro výběr fotky<br>
+      <small>nebo sem soubor přetáhni</small>
+    </div>
+    <input type="file" id="foto" accept="image/*" style="display:none" onchange="zpracujFoto(this.files[0])">
+    <img class="prev" id="prev" alt="">
+    <div class="hits" id="hits"></div>
+  </div>
+
+  <!-- ── 3 ── -->
+  <div class="card">
+    <h2><span class="num">3</span> Automatický test přesnosti</h2>
+    <p class="hint">Vezme obrázky přímo z databáze, trochu je zhorší (zmenší, ztmaví, přidá šum —
+       simulace fotky z ruky) a zkusí je poznat. Ukáže, kolik procent by se trefilo.</p>
+    <button id="btnTest" onclick="autoTest()" disabled>Spustit test</button>
+    <div class="bar"><i id="barTest"></i></div>
+    <div class="log" id="logTest">Nejdřív načti sadu v kroku 1.</div>
+  </div>
+
+  <canvas id="cv"></canvas>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   dHash — perceptuální otisk obrázku
+   ------------------------------------------------------------
+   Obrázek se zmenší na 9×8 v odstínech šedi a porovná se každý
+   pixel se sousedem vpravo. Výsledkem je 64 bitů, které přežijí
+   změnu jasu, měřítka i mírné rozmazání. Shoda se pak měří
+   Hammingovou vzdáleností — počtem rozdílných bitů.
+══════════════════════════════════════════════════════════════ */
+const POKEDB = 'https://pokedb-api.poketrade.workers.dev/v1';
+const SIR = 9, VYS = 8;          // 9×8 → 64 bitů
+let   databaze = [];             // [{id,name,number,img,hash}]
+
+function log(kam, text, typ) {
+  const el = document.getElementById(kam);
+  const t  = new Date().toLocaleTimeString('cs-CZ');
+  el.innerHTML += `\n<span class="${typ || ''}">[${t}] ${text}</span>`;
+  el.scrollTop = el.scrollHeight;
+}
+function progress(kam, pct) { document.getElementById(kam).style.width = pct + '%'; }
+
+/** Spočítá dHash z HTMLImageElement / ImageBitmap. Vrací BigInt. */
+function spocitejHash(obrazek) {
+  const cv = document.getElementById('cv');
+  cv.width = SIR; cv.height = VYS;
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(obrazek, 0, 0, SIR, VYS);
+  const d = ctx.getImageData(0, 0, SIR, VYS).data;
+
+  // Odstíny šedi podle vnímané jasnosti
+  const sedy = [];
+  for (let i = 0; i < d.length; i += 4) {
+    sedy.push(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+  }
+
+  let hash = 0n;
+  for (let y = 0; y < VYS; y++) {
+    for (let x = 0; x < SIR - 1; x++) {
+      const vlevo = sedy[y * SIR + x], vpravo = sedy[y * SIR + x + 1];
+      hash = (hash << 1n) | (vlevo > vpravo ? 1n : 0n);
+    }
+  }
+  return hash;
+}
+
+/** Hammingova vzdálenost — kolik bitů se liší (0 = shoda, 64 = opak). */
+function vzdalenost(a, b) {
+  let x = a ^ b, n = 0;
+  while (x) { n += Number(x & 1n); x >>= 1n; }
+  return n;
+}
+
+/** Načte obrázek s ohledem na CORS (kvůli čtení pixelů z canvasu). */
+function nactiObrazek(url) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload  = () => res(img);
+    img.onerror = () => rej(new Error('nelze načíst'));
+    img.src = url;
+  });
+}
+
+/* ── 1. Načtení sady ────────────────────────────────────────── */
+async function nactiSadu() {
+  const setId = document.getElementById('setId').value.trim();
+  const lang  = document.getElementById('lang').value;
+  const btn   = document.getElementById('btnLoad');
+  if (!setId) return;
+
+  btn.disabled = true;
+  document.getElementById('logLoad').innerHTML = '';
+  databaze = [];
+  progress('barLoad', 0);
+
+  const plneId = lang === 'en' ? setId : `${lang}-${setId}`;
+  log('logLoad', `Hledám karty v sérii ${plneId}…`);
+
+  let karty = [];
+  try {
+    const r = await fetch(`${POKEDB}/cards?set_id=${encodeURIComponent(plneId)}&limit=500`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    karty = (await r.json()).data || [];
+  } catch (e) {
+    log('logLoad', 'Nepodařilo se načíst seznam: ' + e.message, 'err');
+    btn.disabled = false; return;
+  }
+
+  const sObrazkem = karty.filter(c => c.image_url || c.image_thumb_url);
+  log('logLoad', `Nalezeno ${karty.length} karet, z toho ${sObrazkem.length} s obrázkem.`);
+  if (!sObrazkem.length) {
+    log('logLoad', 'Žádné obrázky — zkus jinou sérii.', 'warn');
+    btn.disabled = false; return;
+  }
+
+  let ok = 0, chyb = 0, corsChyba = false;
+  for (let i = 0; i < sObrazkem.length; i++) {
+    const c = sObrazkem[i];
+    try {
+      const img  = await nactiObrazek(c.image_thumb_url || c.image_url);
+      const hash = spocitejHash(img);
+      databaze.push({ id: c.id, name: c.name, number: c.number,
+                      img: c.image_thumb_url || c.image_url, hash });
+      ok++;
+    } catch (e) {
+      chyb++;
+      if (String(e.message).includes('Tainted') || e.name === 'SecurityError') corsChyba = true;
+    }
+    progress('barLoad', Math.round((i + 1) / sObrazkem.length * 100));
+    if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));   // ať UI dýchá
+  }
+
+  log('logLoad', `Hotovo: ${ok} otisků spočítáno, ${chyb} selhalo.`, ok ? 'ok' : 'err');
+  if (corsChyba || (chyb > ok && chyb > 3)) {
+    log('logLoad', 'Vypadá to na CORS — worker musí u /images/ posílat '
+      + 'Access-Control-Allow-Origin. Bez toho prohlížeč nepustí čtení pixelů.', 'warn');
+  }
+
+  // Kolik dvojic karet je otiskem příliš blízko = riziko záměny
+  let kolize = 0;
+  for (let i = 0; i < databaze.length; i++)
+    for (let j = i + 1; j < databaze.length; j++)
+      if (vzdalenost(databaze[i].hash, databaze[j].hash) <= 5) kolize++;
+
+  document.getElementById('statLoad').innerHTML =
+    `<span>V paměti: <b>${databaze.length}</b> karet</span>` +
+    `<span>Velikost dat: <b>${(databaze.length * 8 / 1024).toFixed(1)} kB</b></span>` +
+    `<span>Podezřele blízkých dvojic: <b>${kolize}</b></span>`;
+
+  document.getElementById('btnTest').disabled = databaze.length < 3;
+  btn.disabled = false;
+}
+
+/* ── 2. Rozpoznání nahrané fotky ────────────────────────────── */
+async function zpracujFoto(soubor) {
+  if (!soubor || !databaze.length) {
+    if (!databaze.length) alert('Nejdřív načti sadu v kroku 1.');
+    return;
+  }
+  const url = URL.createObjectURL(soubor);
+  const prev = document.getElementById('prev');
+  prev.src = url; prev.style.display = 'block';
+
+  const img   = await nactiObrazek(url);
+  const start = performance.now();
+  const hash  = spocitejHash(img);
+
+  const vysledky = databaze
+    .map(c => ({ ...c, d: vzdalenost(hash, c.hash) }))
+    .sort((a, b) => a.d - b.d)
+    .slice(0, 5);
+  const trvani = (performance.now() - start).toFixed(1);
+
+  document.getElementById('hits').innerHTML =
+    `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+       Porovnáno s ${databaze.length} kartami za ${trvani} ms
+     </div>` +
+    vysledky.map((v, i) => `
+      <div class="hit ${i === 0 ? 'best' : ''}">
+        <img src="${v.img}" alt="">
+        <div>
+          <div class="nm">${v.name || v.id}</div>
+          <div class="mt">${v.id}${v.number ? ' · č. ' + v.number : ''}</div>
+        </div>
+        <div class="dist">
+          <b>${v.d}</b>
+          <small>${v.d <= 8 ? 'jistá shoda' : v.d <= 14 ? 'možná' : 'nesedí'}</small>
+        </div>
+      </div>`).join('');
+
+  URL.revokeObjectURL(url);
+}
+
+// Přetažení souboru
+const drop = document.getElementById('drop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#f5c842'; });
+drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.style.borderColor = '';
+  if (e.dataTransfer.files[0]) zpracujFoto(e.dataTransfer.files[0]);
+});
+
+/* ── 3. Automatický test přesnosti ──────────────────────────── */
+async function autoTest() {
+  const btn = document.getElementById('btnTest');
+  btn.disabled = true;
+  document.getElementById('logTest').innerHTML = '';
+  progress('barTest', 0);
+
+  const vzorek = databaze.slice(0, Math.min(40, databaze.length));
+  log('logTest', `Testuji ${vzorek.length} karet se simulovaným zhoršením…`);
+
+  let trefa = 0, doTri = 0, mimo = 0;
+  const cv = document.createElement('canvas');
+  const ctx = cv.getContext('2d', { willReadFrequently: true });
+
+  for (let i = 0; i < vzorek.length; i++) {
+    const c = vzorek[i];
+    try {
+      const img = await nactiObrazek(c.img);
+
+      // Simulace fotky z ruky: zmenšení, ztmavení, lehký šum a posun
+      cv.width = 220; cv.height = 300;
+      ctx.filter = 'brightness(0.82) contrast(1.12) blur(0.6px)';
+      ctx.drawImage(img, -4, -3, 228, 306);
+      ctx.filter = 'none';
+      const d = ctx.getImageData(0, 0, cv.width, cv.height);
+      for (let p = 0; p < d.data.length; p += 4) {
+        const sum = (Math.random() - 0.5) * 22;
+        d.data[p] += sum; d.data[p+1] += sum; d.data[p+2] += sum;
+      }
+      ctx.putImageData(d, 0, 0);
+
+      const hash = spocitejHash(cv);
+      const poradi = databaze
+        .map(x => ({ id: x.id, d: vzdalenost(hash, x.hash) }))
+        .sort((a, b) => a.d - b.d);
+
+      if (poradi[0].id === c.id) trefa++;
+      else if (poradi.slice(0, 3).some(x => x.id === c.id)) { doTri++;
+        log('logTest', `${c.name}: až ${poradi.findIndex(x => x.id === c.id) + 1}. místo`, 'warn'); }
+      else { mimo++;
+        log('logTest', `${c.name}: MIMO (nejblíž ${poradi[0].id}, vzdálenost ${poradi[0].d})`, 'err'); }
+    } catch (e) { mimo++; }
+    progress('barTest', Math.round((i + 1) / vzorek.length * 100));
+  }
+
+  const proc = (trefa / vzorek.length * 100).toFixed(0);
+  log('logTest', `\nHotovo. Přesně: ${trefa}/${vzorek.length} (${proc} %), `
+    + `do 3. místa: ${doTri}, mimo: ${mimo}`, proc >= 85 ? 'ok' : 'warn');
+  log('logTest', proc >= 85
+    ? 'Otisky fungují — má smysl jít do živého skenování.'
+    : 'Slabší výsledek. Půjde zlepšit hashováním jen oblasti ilustrace místo celé karty.',
+    proc >= 85 ? 'ok' : 'warn');
+
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
