@@ -94,6 +94,20 @@
         <button id="btnLoad" onclick="nactiSadu()">Načíst a zahashovat</button>
       </div>
     </div>
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--line)">
+      <label style="margin-top:0">Nevíš, ze které je sady? Zadej jméno karty z obrázku</label>
+      <div class="row">
+        <div style="flex:3">
+          <input type="text" id="hledJmeno" placeholder="např. Squirtle, Pikachu, Charizard"
+                 onkeydown="if(event.key==='Enter')najdiSady()">
+        </div>
+        <div style="flex:0 0 auto">
+          <button class="ghost" onclick="najdiSady()">Najít sady</button>
+        </div>
+      </div>
+      <div id="nalezeneSady" style="margin-top:10px"></div>
+    </div>
+
     <div class="bar"><i id="barLoad"></i></div>
     <div class="log" id="logLoad">Připraven.</div>
     <div class="stat" id="statLoad"></div>
@@ -103,7 +117,8 @@
   <div class="card">
     <h2><span class="num">2</span> Vyfoť nebo nahraj kartu</h2>
     <p class="hint">Nahraj fotku karty — ideálně tak, aby karta vyplnila skoro celý záběr.
-       Otisk se spočítá a porovná se všemi načtenými.</p>
+       <b>Musí jít o kartu z načtené série</b>, jinak nemá nástroj co najít
+       a ukáže jen „nejmíň špatnou" shodu.</p>
     <div class="drop" id="drop" onclick="document.getElementById('foto').click()">
       📷 Klepni pro výběr fotky<br>
       <small>nebo sem soubor přetáhni</small>
@@ -358,7 +373,28 @@ async function zpracujFoto(soubor) {
     .slice(0, 5);
   const trvani = (performance.now() - start).toFixed(1);
 
+  // Verdikt: je to vůbec shoda? U 256bitového otisku je hranice kolem 30.
+  // Bez tohohle kroku skener jen "hádá nejmíň špatnou" kartu — a přesně
+  // tohle musí umět i ostrá verze: přiznat, že kartu nezná.
+  const nej = vysledky[0].d;
+  const druhy = vysledky[1] ? vysledky[1].d : 999;
+  const odstup = druhy - nej;          // velký odstup = jistota
+
+  let verdikt, barva;
+  if (nej <= 30 && odstup >= 8)      { verdikt = '✅ Karta rozpoznána';           barva = '#4ade80'; }
+  else if (nej <= 30)                { verdikt = '⚠️ Shoda, ale podobných je víc'; barva = '#fbbf24'; }
+  else if (nej <= 55)                { verdikt = '⚠️ Nejistá shoda — možná jiné vydání'; barva = '#fbbf24'; }
+  else                               { verdikt = '❌ Tahle karta v načtené sadě není'; barva = '#f87171'; }
+
   document.getElementById('hits').innerHTML =
+    `<div style="background:rgba(255,255,255,.04);border:1px solid ${barva}44;
+                 border-left:3px solid ${barva};border-radius:9px;padding:11px 14px;margin-bottom:12px">
+       <div style="color:${barva};font-weight:700;font-size:14px">${verdikt}</div>
+       <div style="font-size:12px;color:var(--text2);margin-top:4px">
+         Nejbližší vzdálenost ${nej}, odstup od druhé ${odstup === 999 ? '—' : odstup}.
+         ${nej > 55 ? 'Načti sérii, ze které ta karta opravdu je.' : ''}
+       </div>
+     </div>` +
     `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">
        Porovnáno s ${databaze.length} kartami za ${trvani} ms
      </div>` +
@@ -377,6 +413,55 @@ async function zpracujFoto(soubor) {
       </div>`).join('');
 
   URL.revokeObjectURL(url);
+}
+
+/* ── Pomůcka: ve kterých sadách karta je? ────────────────────
+   Bez ní bys musel sadu hádat podle zkratky v rohu karty.
+   Najde karty podle jména a nabídne sady, ve kterých vyšly. */
+async function najdiSady() {
+  const jmeno = document.getElementById('hledJmeno').value.trim();
+  const box   = document.getElementById('nalezeneSady');
+  if (jmeno.length < 3) { box.innerHTML = '<span style="color:#fbbf24;font-size:12.5px">Zadej aspoň tři písmena.</span>'; return; }
+
+  box.innerHTML = '<span style="font-size:12.5px;color:var(--text2)">Hledám…</span>';
+  try {
+    const r = await fetch(`${POKEDB}/cards?q=${encodeURIComponent(jmeno)}&limit=200`);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const karty = (await r.json()).data || [];
+    if (!karty.length) {
+      box.innerHTML = '<span style="color:#f87171;font-size:12.5px">Nic nenalezeno. Zkus jméno anglicky.</span>';
+      return;
+    }
+
+    // Seskup podle sady
+    const sady = new Map();
+    for (const c of karty) {
+      const sid = c.set_id || '?';
+      if (!sady.has(sid)) sady.set(sid, { id: sid, pocet: 0, ukazka: c });
+      sady.get(sid).pocet++;
+    }
+
+    box.innerHTML =
+      `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+         Nalezeno ${karty.length} karet v ${sady.size} sadách — klepni na tu svoji:
+       </div>` +
+      [...sady.values()].slice(0, 24).map(x => `
+        <button class="ghost" style="margin:0 6px 6px 0;padding:7px 11px;font-size:12px"
+                onclick="vyberSadu('${x.id}')">
+          ${x.id} <span style="opacity:.6">· ${x.pocet}×</span>
+        </button>`).join('') +
+      `<div style="font-size:11.5px;color:var(--text2);margin-top:6px">
+         Poznáš ji podle zkratky u čísla v dolním rohu karty.
+       </div>`;
+  } catch (e) {
+    box.innerHTML = `<span style="color:#f87171;font-size:12.5px">Chyba: ${e.message}</span>`;
+  }
+}
+
+function vyberSadu(id) {
+  document.getElementById('setId').value = id;
+  document.getElementById('nalezeneSady').innerHTML =
+    `<span style="color:#4ade80;font-size:12.5px">Vybráno <b>${id}</b> — klepni na „Načíst a zahashovat".</span>`;
 }
 
 /* ── Seznam sérií z PokéDB ───────────────────────────────────
