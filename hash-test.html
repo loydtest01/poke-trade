@@ -147,28 +147,48 @@ function log(kam, text, typ) {
 }
 function progress(kam, pct) { document.getElementById(kam).style.width = pct + '%'; }
 
-/** Spočítá dHash z HTMLImageElement / ImageBitmap. Vrací BigInt. */
-function spocitejHash(obrazek) {
+/** Jádro dHash — zmenší výřez obrázku na w×h a porovná sousední pixely. */
+function dHash(obrazek, w, h, vyrez) {
   const cv = document.getElementById('cv');
-  cv.width = SIR; cv.height = VYS;
+  cv.width = w; cv.height = h;
   const ctx = cv.getContext('2d', { willReadFrequently: true });
-  ctx.drawImage(obrazek, 0, 0, SIR, VYS);
-  const d = ctx.getImageData(0, 0, SIR, VYS).data;
 
-  // Odstíny šedi podle vnímané jasnosti
+  const iw = obrazek.width || obrazek.naturalWidth;
+  const ih = obrazek.height || obrazek.naturalHeight;
+  if (vyrez) {
+    ctx.drawImage(obrazek,
+      iw * vyrez.x, ih * vyrez.y, iw * vyrez.w, ih * vyrez.h,
+      0, 0, w, h);
+  } else {
+    ctx.drawImage(obrazek, 0, 0, w, h);
+  }
+
+  const d = ctx.getImageData(0, 0, w, h).data;
   const sedy = [];
   for (let i = 0; i < d.length; i += 4) {
     sedy.push(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
   }
 
   let hash = 0n;
-  for (let y = 0; y < VYS; y++) {
-    for (let x = 0; x < SIR - 1; x++) {
-      const vlevo = sedy[y * SIR + x], vpravo = sedy[y * SIR + x + 1];
-      hash = (hash << 1n) | (vlevo > vpravo ? 1n : 0n);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w - 1; x++) {
+      hash = (hash << 1n) | (sedy[y * w + x] > sedy[y * w + x + 1] ? 1n : 0n);
     }
   }
   return hash;
+}
+
+/* Tři způsoby otisku — porovnáváme, který nejlíp rozliší podobné karty.
+   ART je výřez samotné ilustrace; rámeček a text jsou u karet podobné,
+   takže celá karta rozlišuje hůř než její obrázek.                     */
+const ART = { x: 0.07, y: 0.10, w: 0.86, h: 0.45 };
+
+function spocitejHash(obrazek) {
+  return {
+    cela:  dHash(obrazek, 9, 8, null),     //  64 bitů, celá karta
+    art:   dHash(obrazek, 9, 8, ART),      //  64 bitů, jen ilustrace
+    jemny: dHash(obrazek, 17, 16, ART),    // 256 bitů, ilustrace v detailu
+  };
 }
 
 /** Hammingova vzdálenost — kolik bitů se liší (0 = shoda, 64 = opak). */
@@ -225,15 +245,24 @@ async function nactiSadu() {
 
   let karty = [];
   for (const v of varianty) {
+    const jmeno = v.split('=')[0];
     try {
       const r = await fetch(`${POKEDB}/cards?${v}`);
-      if (!r.ok) { log('logLoad', `  ?${v.split('=')[0]} → HTTP ${r.status}`); continue; }
+      if (!r.ok) { log('logLoad', `  ?${jmeno} → HTTP ${r.status}`); continue; }
       const d = await r.json();
       const nalez = d.data || [];
-      log('logLoad', `  ?${v.split('=')[0]} → ${nalez.length} karet`);
-      if (nalez.length) { karty = nalez; break; }
+
+      // KLÍČOVÉ: API může parametr tiše ignorovat a vrátit prostě
+      // prvních N karet. Ověříme, že vrácené karty do série opravdu patří,
+      // jinak bychom hashovali náhodnou směs napříč sadami a jazyky.
+      const sedi = nalez.filter(c => String(c.set_id || '').toLowerCase() === setId.toLowerCase());
+      log('logLoad', `  ?${jmeno} → ${nalez.length} karet, z toho ${sedi.length} ze správné série`);
+
+      if (sedi.length && sedi.length >= nalez.length * 0.9) { karty = sedi; break; }
+      if (sedi.length && sedi.length > karty.length) karty = sedi;   // aspoň částečně
+      if (!sedi.length && nalez.length) log('logLoad', `     (filtr ignorován)`, 'warn');
     } catch (e) {
-      log('logLoad', `  ?${v.split('=')[0]} → ${e.message}`, 'warn');
+      log('logLoad', `  ?${jmeno} → ${e.message}`, 'warn');
     }
   }
 
@@ -262,6 +291,7 @@ async function nactiSadu() {
   }
 
   let ok = 0, chyb = 0, corsChyba = false;
+  const duvody = {};   // proč obrázky selhaly — bez toho se to špatně ladí
   for (let i = 0; i < sObrazkem.length; i++) {
     const c = sObrazkem[i];
     try {
@@ -272,28 +302,34 @@ async function nactiSadu() {
       ok++;
     } catch (e) {
       chyb++;
-      if (String(e.message).includes('Tainted') || e.name === 'SecurityError') corsChyba = true;
+      const m = String(e.message || e.name);
+      duvody[m] = (duvody[m] || 0) + 1;
+      if (m.includes('Tainted') || e.name === 'SecurityError') corsChyba = true;
     }
     progress('barLoad', Math.round((i + 1) / sObrazkem.length * 100));
     if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));   // ať UI dýchá
   }
 
   log('logLoad', `Hotovo: ${ok} otisků spočítáno, ${chyb} selhalo.`, ok ? 'ok' : 'err');
+  for (const [d, n] of Object.entries(duvody)) log('logLoad', `  ${n}× ${d}`, 'warn');
   if (corsChyba || (chyb > ok && chyb > 3)) {
     log('logLoad', 'Vypadá to na CORS — worker musí u /images/ posílat '
       + 'Access-Control-Allow-Origin. Bez toho prohlížeč nepustí čtení pixelů.', 'warn');
   }
 
-  // Kolik dvojic karet je otiskem příliš blízko = riziko záměny
-  let kolize = 0;
+  // Kolize zvlášť pro každou variantu otisku
+  const kolize = { cela: 0, art: 0, jemny: 0 };
   for (let i = 0; i < databaze.length; i++)
     for (let j = i + 1; j < databaze.length; j++)
-      if (vzdalenost(databaze[i].hash, databaze[j].hash) <= 5) kolize++;
+      for (const k of ['cela', 'art', 'jemny'])
+        if (vzdalenost(databaze[i].hash[k], databaze[j].hash[k]) <= 5) kolize[k]++;
 
   document.getElementById('statLoad').innerHTML =
     `<span>V paměti: <b>${databaze.length}</b> karet</span>` +
-    `<span>Velikost dat: <b>${(databaze.length * 8 / 1024).toFixed(1)} kB</b></span>` +
-    `<span>Podezřele blízkých dvojic: <b>${kolize}</b></span>`;
+    `<span>Data: <b>${(databaze.length * 40 / 1024).toFixed(1)} kB</b></span>` +
+    `<span>Kolize — celá karta: <b>${kolize.cela}</b></span>` +
+    `<span>ilustrace: <b>${kolize.art}</b></span>` +
+    `<span>ilustrace jemně: <b>${kolize.jemny}</b></span>`;
 
   document.getElementById('btnTest').disabled = databaze.length < 3;
   btn.disabled = false;
@@ -314,7 +350,10 @@ async function zpracujFoto(soubor) {
   const hash  = spocitejHash(img);
 
   const vysledky = databaze
-    .map(c => ({ ...c, d: vzdalenost(hash, c.hash) }))
+    .map(c => ({ ...c,
+      d:  vzdalenost(hash.jemny, c.hash.jemny),
+      dc: vzdalenost(hash.cela,  c.hash.cela),
+      da: vzdalenost(hash.art,   c.hash.art) }))
     .sort((a, b) => a.d - b.d)
     .slice(0, 5);
   const trvani = (performance.now() - start).toFixed(1);
@@ -332,7 +371,8 @@ async function zpracujFoto(soubor) {
         </div>
         <div class="dist">
           <b>${v.d}</b>
-          <small>${v.d <= 8 ? 'jistá shoda' : v.d <= 14 ? 'možná' : 'nesedí'}</small>
+          <small>${v.d <= 30 ? 'jistá shoda' : v.d <= 55 ? 'možná' : 'nesedí'}</small>
+          <small style="opacity:.6">celá ${v.dc} · ilustr. ${v.da}</small>
         </div>
       </div>`).join('');
 
@@ -385,7 +425,9 @@ async function autoTest() {
   const vzorek = databaze.slice(0, Math.min(40, databaze.length));
   log('logTest', `Testuji ${vzorek.length} karet se simulovaným zhoršením…`);
 
-  let trefa = 0, doTri = 0, mimo = 0;
+  const skore = { cela:  { trefa: 0, doTri: 0, mimo: 0 },
+                  art:   { trefa: 0, doTri: 0, mimo: 0 },
+                  jemny: { trefa: 0, doTri: 0, mimo: 0 } };
   const cv = document.createElement('canvas');
   const ctx = cv.getContext('2d', { willReadFrequently: true });
 
@@ -407,26 +449,44 @@ async function autoTest() {
       ctx.putImageData(d, 0, 0);
 
       const hash = spocitejHash(cv);
-      const poradi = databaze
-        .map(x => ({ id: x.id, d: vzdalenost(hash, x.hash) }))
+      for (const k of ['cela', 'art', 'jemny']) {
+        const poradi = databaze
+          .map(x => ({ id: x.id, d: vzdalenost(hash[k], x.hash[k]) }))
+          .sort((a, b) => a.d - b.d);
+        if (poradi[0].id === c.id) skore[k].trefa++;
+        else if (poradi.slice(0, 3).some(x => x.id === c.id)) skore[k].doTri++;
+        else skore[k].mimo++;
+      }
+      // Detailní log jen pro nejjemnější variantu
+      const p = databaze
+        .map(x => ({ id: x.id, d: vzdalenost(hash.jemny, x.hash.jemny) }))
         .sort((a, b) => a.d - b.d);
-
-      if (poradi[0].id === c.id) trefa++;
-      else if (poradi.slice(0, 3).some(x => x.id === c.id)) { doTri++;
-        log('logTest', `${c.name}: až ${poradi.findIndex(x => x.id === c.id) + 1}. místo`, 'warn'); }
-      else { mimo++;
-        log('logTest', `${c.name}: MIMO (nejblíž ${poradi[0].id}, vzdálenost ${poradi[0].d})`, 'err'); }
-    } catch (e) { mimo++; }
+      if (p[0].id !== c.id) {
+        const poz = p.findIndex(x => x.id === c.id) + 1;
+        log('logTest', poz > 0 && poz <= 3
+          ? `${c.name}: až ${poz}. místo`
+          : `${c.name}: MIMO (nejblíž ${p[0].id}, vzdálenost ${p[0].d})`,
+          poz > 0 && poz <= 3 ? 'warn' : 'err');
+      }
+    } catch (e) { for (const k of ['cela','art','jemny']) skore[k].mimo++; }
     progress('barTest', Math.round((i + 1) / vzorek.length * 100));
   }
 
-  const proc = (trefa / vzorek.length * 100).toFixed(0);
-  log('logTest', `\nHotovo. Přesně: ${trefa}/${vzorek.length} (${proc} %), `
-    + `do 3. místa: ${doTri}, mimo: ${mimo}`, proc >= 85 ? 'ok' : 'warn');
-  log('logTest', proc >= 85
-    ? 'Otisky fungují — má smysl jít do živého skenování.'
-    : 'Slabší výsledek. Půjde zlepšit hashováním jen oblasti ilustrace místo celé karty.',
-    proc >= 85 ? 'ok' : 'warn');
+  const nazvy = { cela: 'celá karta, 64 b', art: 'ilustrace, 64 b', jemny: 'ilustrace, 256 b' };
+  let nej = 0, nejK = 'cela';
+  log('logTest', '\n── Srovnání variant otisku ──');
+  for (const k of ['cela', 'art', 'jemny']) {
+    const p = skore[k].trefa / vzorek.length * 100;
+    if (p > nej) { nej = p; nejK = k; }
+    log('logTest', `${nazvy[k].padEnd(20)} přesně ${String(skore[k].trefa).padStart(2)}/${vzorek.length}`
+      + ` (${p.toFixed(0).padStart(3)} %), do 3.: ${skore[k].doTri}, mimo: ${skore[k].mimo}`,
+      p >= 85 ? 'ok' : p >= 70 ? 'warn' : 'err');
+  }
+  log('logTest', `\nNejlepší: ${nazvy[nejK]} — ${nej.toFixed(0)} %`, nej >= 85 ? 'ok' : 'warn');
+  log('logTest', nej >= 85
+    ? 'Otisky fungují. Tuhle variantu použijeme pro živé skenování.'
+    : 'Zatím slabé. Zkus sérii, kde nejsou tytéž ilustrace ve více jazycích.',
+    nej >= 85 ? 'ok' : 'warn');
 
   btn.disabled = false;
 }
