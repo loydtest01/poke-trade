@@ -251,11 +251,12 @@ async function nactiSadu() {
   // API může mít parametr pojmenovaný různě — zkusíme postupně všechny
   // varianty a vezmeme první, která něco vrátí. Poslední záchrana je
   // stáhnout víc karet a odfiltrovat je až tady.
+  // Pořadí podle skutečného kódu workeru: handleCards čte "set_id".
+  // Parametr "set" API tiše ignoruje a vrátí prvních N karet ze všeho.
   const varianty = [
-    `set=${encodeURIComponent(setId)}&limit=500`,
     `set_id=${encodeURIComponent(setId)}&limit=500`,
+    `set=${encodeURIComponent(setId)}&limit=500`,
     `setId=${encodeURIComponent(setId)}&limit=500`,
-    `series=${encodeURIComponent(setId)}&limit=500`,
   ];
 
   let karty = [];
@@ -425,37 +426,87 @@ async function najdiSady() {
 
   box.innerHTML = '<span style="font-size:12.5px;color:var(--text2)">Hledám…</span>';
   try {
-    const r = await fetch(`${POKEDB}/cards?q=${encodeURIComponent(jmeno)}&limit=200`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const karty = (await r.json()).data || [];
+    // Bereme víc stránek — populární Pokémon je ve stovkách sad a limit
+    // 100 by ti tu správnou vůbec nemusel ukázat.
+    let karty = [];
+    for (let str = 1; str <= 5; str++) {
+      const r = await fetch(`${POKEDB}/cards?q=${encodeURIComponent(jmeno)}&limit=100&page=${str}`);
+      if (!r.ok) { if (str === 1) throw new Error('HTTP ' + r.status); break; }
+      const d = await r.json();
+      const cast = d.data || [];
+      karty = karty.concat(cast);
+      if (cast.length < 100 || karty.length >= (d.total || 0)) break;
+    }
     if (!karty.length) {
       box.innerHTML = '<span style="color:#f87171;font-size:12.5px">Nic nenalezeno. Zkus jméno anglicky.</span>';
       return;
     }
 
-    // Seskup podle sady
+    // Seskup podle sady, ulož i název a čísla karet — podle nich ji poznáš
     const sady = new Map();
     for (const c of karty) {
       const sid = c.set_id || '?';
-      if (!sady.has(sid)) sady.set(sid, { id: sid, pocet: 0, ukazka: c });
-      sady.get(sid).pocet++;
+      if (!sady.has(sid)) {
+        sady.set(sid, { id: sid, nazev: c.set_name || '', lang: c.lang || 'en', cisla: [], pocet: 0 });
+      }
+      const z = sady.get(sid);
+      z.pocet++;
+      if (z.cisla.length < 4 && c.number) z.cisla.push(c.number);
     }
+
+    _naleznuteSady = [...sady.values()].sort((a, b) => {
+      if (a.lang !== b.lang) return a.lang === 'en' ? -1 : b.lang === 'en' ? 1 : a.lang.localeCompare(b.lang);
+      return a.id.localeCompare(b.id);
+    });
 
     box.innerHTML =
       `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">
-         Nalezeno ${karty.length} karet v ${sady.size} sadách — klepni na tu svoji:
-       </div>` +
-      [...sady.values()].slice(0, 24).map(x => `
-        <button class="ghost" style="margin:0 6px 6px 0;padding:7px 11px;font-size:12px"
-                onclick="vyberSadu('${x.id}')">
-          ${x.id} <span style="opacity:.6">· ${x.pocet}×</span>
-        </button>`).join('') +
-      `<div style="font-size:11.5px;color:var(--text2);margin-top:6px">
-         Poznáš ji podle zkratky u čísla v dolním rohu karty.
+         Nalezeno ${karty.length} karet v ${sady.size} sadách.
+         Filtruj psaním, nebo klepni na tu svoji:
+       </div>
+       <input type="text" id="filtrSad" placeholder="Filtruj podle názvu nebo čísla — např. sv7, Stellar, 148"
+              oninput="vykresliSady(this.value)" style="margin-bottom:10px">
+       <div id="seznamSad"></div>
+       <div style="font-size:11.5px;color:var(--text2);margin-top:8px">
+         Sadu poznáš podle zkratky u čísla v dolním rohu karty —
+         u <code>148/142</code> hledej sadu, která má kolem 142 karet.
        </div>`;
+    vykresliSady('');
   } catch (e) {
     box.innerHTML = `<span style="color:#f87171;font-size:12.5px">Chyba: ${e.message}</span>`;
   }
+}
+
+let _naleznuteSady = [];
+
+function vykresliSady(filtr) {
+  const f = (filtr || '').toLowerCase().trim();
+  const sez = document.getElementById('seznamSad');
+  if (!sez) return;
+
+  const vybrane = f
+    ? _naleznuteSady.filter(x =>
+        x.id.toLowerCase().includes(f) ||
+        (x.nazev || '').toLowerCase().includes(f) ||
+        x.cisla.some(c => String(c).toLowerCase().includes(f)))
+    : _naleznuteSady;
+
+  if (!vybrane.length) {
+    sez.innerHTML = '<span style="font-size:12.5px;color:var(--text2)">Nic neodpovídá filtru.</span>';
+    return;
+  }
+
+  sez.innerHTML =
+    `<div style="max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:9px;padding:8px">` +
+    vybrane.map(x => `
+      <button class="ghost" style="display:block;width:100%;text-align:left;margin-bottom:5px;
+                                   padding:8px 11px;font-size:12.5px"
+              onclick="vyberSadu('${x.id}')">
+        <b style="color:var(--gold)">${x.id}</b>
+        <span style="opacity:.75">${x.nazev ? ' · ' + x.nazev : ''}</span>
+        <span style="opacity:.5"> · ${x.lang} · č. ${x.cisla.join(', ')}</span>
+      </button>`).join('') +
+    `</div>`;
 }
 
 function vyberSadu(id) {
