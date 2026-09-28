@@ -25,6 +25,8 @@
 <link rel="stylesheet" href="style.css">
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
+  <!-- Centrální log — tato stránka nemá topbar.js, tak se načítá přímo -->
+  <script src="logger.js?v=1"></script>
   <script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -174,6 +176,8 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
       });
     } catch { /* ignoruj */ }
 
+    window.PTLog?.udalost('registrace', 'účet vytvořen, čeká na potvrzení e-mailu');
+
     // Úspěch – zobraz zprávu
     document.getElementById('registerForm').style.display = 'none';
     const succEl = document.getElementById('authSuccess');
@@ -184,6 +188,11 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     `;
     succEl.style.display = 'block';
   } catch(err) {
+    // Obsazené jméno nebo e-mail je běžná věc (varování). Cokoli jiného —
+    // neznámá odpověď Supabase, výpadek, limit — je důvod, proč lidi odcházejí.
+    const _m = String(err.message || '');
+    const _uzivatel = /obsazeno|již zaregistrován|již registrován|already/i.test(_m);
+    (_uzivatel ? window.PTLog?.warn : window.PTLog?.error)?.('registrace', 'registrace selhala: ' + _m);
     showError(translateError(err.message));
   }
   setLoading(false);

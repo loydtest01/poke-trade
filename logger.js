@@ -16,10 +16,25 @@
   'use strict';
   if (window.PTLog) return;
 
-  var VERZE_LOGGERU = '1.1';
+  var VERZE_LOGGERU = '1.2';
   var SBU = 'https://xrduqwrinzvmpixgmqta.supabase.co';
   var SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
   var CIL = '/rest/v1/client_logs';
+
+  /* Adresy, jejichž selhání je očekávané a nemá smysl je hlásit:
+     - Vercel Insights a Speed Insights běžně blokují blokovače reklam
+     - api.ipify.org (zjištění IP při registraci/přihlášení) taky, a kód
+       s tím počítá — vrátí 'unknown' a pokračuje
+     - ingest analytiky a trackery třetích stran */
+  var IGNOROVAT = [
+    /\/_vercel\/(insights|speed-insights)\//,
+    /api\.ipify\.org/,
+    /vitals\.vercel-insights\.com/,
+  ];
+  function ignorovat(url) {
+    for (var i = 0; i < IGNOROVAT.length; i++) if (IGNOROVAT[i].test(url)) return true;
+    return false;
+  }
 
   var puvodniFetch = window.fetch ? window.fetch.bind(window) : null;
   var puvodniError = console.error, puvodniWarn = console.warn;
@@ -178,6 +193,7 @@
       var tag = (cil.tagName || '').toLowerCase();
       // Obrázky karet selhávají běžně (záloha → zadní strana) — jen počítat
       if (tag === 'img') { nenactenychObrazku++; return; }
+      if (ignorovat(cil.src || cil.href)) return;
       zapis('error', 'zdroj', 'Nenačteno <' + tag + '>: ' + adresa(cil.src || cil.href));
       return;
     }
@@ -210,7 +226,7 @@
     window.fetch = function (vstup, nastaveni) {
       var url = typeof vstup === 'string' ? vstup : (vstup && vstup.url) || '';
       var metoda = ((nastaveni && nastaveni.method) || (vstup && vstup.method) || 'GET').toUpperCase();
-      if (url.indexOf(CIL) !== -1) return puvodniFetch(vstup, nastaveni);   // vlastní odesílání nelogovat
+      if (url.indexOf(CIL) !== -1 || ignorovat(url)) return puvodniFetch(vstup, nastaveni);   // vlastní odesílání a očekávaná selhání nelogovat
       var t0 = performance.now();
       return puvodniFetch(vstup, nastaveni).then(function (r) {
         var ms = Math.round(performance.now() - t0);
@@ -260,7 +276,8 @@
     warn:    function (kat, zprava, detail) { zapis('warn',  kat, zprava, detail); },
     info:    function (kat, zprava, detail) { zapis('info',  kat, zprava, detail); },
     udalost: function (kat, zprava, detail) { zapis('info',  kat, zprava, detail); },
-    odeslat: function () { odesli(false); },
+    // keepalive: dotaz přežije i odchod ze stránky (volá se před přesměrováním)
+    odeslat: function () { odesli(true); },
     posledni: function () { return pamet.slice(); },   // v konzoli: PTLog.posledni()
   };
 })();

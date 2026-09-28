@@ -179,6 +179,8 @@ body.auth-page::after {
 </style>
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
+  <!-- Centrální log — tato stránka nemá topbar.js, tak se načítá přímo -->
+  <script src="logger.js?v=1"></script>
   <script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -382,10 +384,18 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
     // Zaloguj úspěšné přihlášení
     await logSuccessfulLogin(user.id, clientIP);
+    window.PTLog?.udalost('prihlaseni', 'přihlášení úspěšné');
+    window.PTLog?.odeslat();   // před přesměrováním, jinak by se záznam ztratil
 
     window.location.replace('profile.html');
 
   } catch(err) {
+    // Špatné heslo je chyba uživatele (jen varování); nepotvrzený e-mail,
+    // zablokování nebo neznámá odpověď serveru jsou problém, který chceme vidět.
+    const _m = String(err.message || '');
+    const _uzivatel = /Špatný e-mail nebo heslo|Příliš mnoho pokusů/.test(_m);
+    (_uzivatel ? window.PTLog?.warn : window.PTLog?.error)?.('prihlaseni', 'přihlášení selhalo: ' + _m);
+
     // Zaloguj neúspěšný pokus přes RPC (obchází RLS)
     await logFailedAttempt(clientIP);
 
