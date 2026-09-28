@@ -174,12 +174,37 @@ function progress(kam, pct) { $(kam).style.width = pct + '%'; }
 const esc = t => String(t ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
 /* ── dHash ─────────────────────────────────────────────────── */
+/* Zmenšení s poctivým průměrováním.
+   Prohlížeč při velkém zmenšení (250 → 17 px) vezme jen pár vzorků
+   a zbytek zahodí. U digitálního obrázku to nevadí, ale u fotky holo
+   karty pak otisk skáče podle toho, na který třpytivý bod se trefí.
+   Zmenšujeme proto po polovinách — každý krok zprůměruje 2×2 pixely,
+   takže výsledný otisk vidí celou plochu, ne náhodné body. */
+function zmensi(obr, sx, sy, sw, sh, w, h) {
+  let cw = sw, ch = sh;
+  let cur = document.createElement('canvas');
+  cur.width = Math.max(1, Math.round(cw)); cur.height = Math.max(1, Math.round(ch));
+  cur.getContext('2d').drawImage(obr, sx, sy, sw, sh, 0, 0, cur.width, cur.height);
+  while (cur.width / 2 >= w && cur.height / 2 >= h) {
+    const dalsi = document.createElement('canvas');
+    dalsi.width = Math.max(w, cur.width >> 1); dalsi.height = Math.max(h, cur.height >> 1);
+    const c = dalsi.getContext('2d');
+    c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    c.drawImage(cur, 0, 0, dalsi.width, dalsi.height);
+    cur = dalsi;
+  }
+  const fin = $('cv'); fin.width = w; fin.height = h;
+  const fc = fin.getContext('2d', { willReadFrequently: true });
+  fc.imageSmoothingEnabled = true; fc.imageSmoothingQuality = 'high';
+  fc.drawImage(cur, 0, 0, w, h);
+  return fc;
+}
+
 function dHash(obr, w, h, vyrez) {
-  const cv = $('cv'); cv.width = w; cv.height = h;
-  const ctx = cv.getContext('2d', { willReadFrequently: true });
   const iw = obr.naturalWidth || obr.width, ih = obr.naturalHeight || obr.height;
-  if (vyrez) ctx.drawImage(obr, iw*vyrez.x, ih*vyrez.y, iw*vyrez.w, ih*vyrez.h, 0, 0, w, h);
-  else       ctx.drawImage(obr, 0, 0, w, h);
+  const ctx = vyrez
+    ? zmensi(obr, iw*vyrez.x, ih*vyrez.y, iw*vyrez.w, ih*vyrez.h, w, h)
+    : zmensi(obr, 0, 0, iw, ih, w, h);
   const d = ctx.getImageData(0, 0, w, h).data, s = [];
   for (let i = 0; i < d.length; i += 4) s.push(0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2]);
   let hash = 0n;
@@ -377,22 +402,24 @@ function detekujKartu(obr) {
     ds[y * W + x] = s / n;
   }
 
-  // Otsu — práh, který nejlépe rozdělí histogram na dvě skupiny
-  const hist = new Array(256).fill(0);
-  for (const v of ds) hist[Math.min(255, v / 3 | 0)]++;
-  let sumAll = 0; for (let t = 0; t < 256; t++) sumAll += t * hist[t];
-  let wB = 0, sumB = 0, best = 0, prah = 40;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t]; if (!wB) continue;
-    const wF = ds.length - wB; if (!wF) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB, mF = (sumAll - sumB) / wF;
-    const v = wB * wF * (mB - mF) ** 2;
-    if (v > best) { best = v; prah = t; }
+  // Práh podle šumu POZADÍ, ne podle celé fotky.
+  // Dřív tu byla Otsuova metoda, jenže ta dělí jen na dvě skupiny —
+  // a na fotce jsou tři: dřevo, stříbrný rámeček karty a pestrá
+  // ilustrace. Otsu je rozdělil na "dřevo+rámeček" proti "ilustraci"
+  // a ořez pak vynechal rámeček. Teď se ptáme jinak: jak moc kolísá
+  // samotné pozadí? Cokoli výrazně mimo toto kolísání patří ke kartě.
+  const okraj = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (x >= pruh && x < W - pruh && y >= pruh && y < H - pruh) continue;
+    okraj.push(ds[y * W + x]);
   }
-  prah = Math.max(prah, 12);   // při skoro stejném pozadí nechceme zachytit šum
+  okraj.sort((a, b) => a - b);
+  // Robustní odhad: medián a rozptyl bez extrémů (kdyby karta sahala k okraji)
+  const q = p => okraj[Math.min(okraj.length - 1, Math.floor(okraj.length * p))];
+  const stred = q(0.5), rozptyl = Math.max(4, q(0.85) - q(0.15));
+  const prah = Math.max(stred + rozptyl * 2.2, 18);
   const maska = new Uint8Array(W * H);
-  for (let i = 0; i < ds.length; i++) maska[i] = (ds[i] / 3) > prah ? 1 : 0;
+  for (let i = 0; i < ds.length; i++) maska[i] = ds[i] > prah ? 1 : 0;
 
   // 4) Největší souvislá oblast (BFS)
   const oznac = new Int32Array(W * H).fill(-1);
@@ -662,12 +689,15 @@ function narovnatARozpoznat() {
   narovnej(nejlepsi.natoceni.poradi, $('narovnano'));
   $('narovnano').style.display = 'block';
 
+  // U skutečné fotky je rozhodující ODSTUP od druhé karty, ne samotná
+  // vzdálenost. Holo lesk, barvy a ostrost fotky posunou i správnou kartu
+  // na 60–90 z 256 — ale pořád s jasným náskokem před ostatními.
+  // Hranice jsou prozatímní, doladíme je podle dalších fotek.
   const vys = nejlepsi.vys, nej = vys[0].d, odstup = vys[1] ? vys[1].d - nej : 99;
   let verdikt, barva;
-  if (nej <= 45 && odstup >= 12) { verdikt = '✅ Karta rozpoznána'; barva = '#4ade80'; }
-  else if (nej <= 45)            { verdikt = '⚠️ Shoda, ale podobných je víc'; barva = '#fbbf24'; }
-  else if (nej <= 70)            { verdikt = '⚠️ Nejistá shoda'; barva = '#fbbf24'; }
-  else                           { verdikt = '❌ Tahle karta v načtené sadě není'; barva = '#f87171'; }
+  if (nej <= 110 && odstup >= 18)      { verdikt = '✅ Karta rozpoznána'; barva = '#4ade80'; }
+  else if (nej <= 110 && odstup >= 10) { verdikt = '⚠️ Pravděpodobně — ověř, že sedí'; barva = '#fbbf24'; }
+  else                                 { verdikt = '❌ Nejistá — tahle karta tu možná není'; barva = '#f87171'; }
 
   $('hits').innerHTML =
     `<div style="border:1px solid ${barva}55;border-left:3px solid ${barva};border-radius:9px;padding:11px 14px;margin:12px 0">
@@ -682,7 +712,7 @@ function narovnatARozpoznat() {
         <img src="${esc(v.img)}" alt="">
         <div><div class="nm">${esc(v.name)}</div><div class="mt">${esc(v.id)} · č. ${esc(v.number)}</div></div>
         <div class="dist"><b>${v.d}</b>
-          <small>${v.d <= 45 ? 'shoda' : v.d <= 70 ? 'možná' : 'nesedí'}</small>
+          <small>${i === 0 ? 'nejbližší' : '+' + (v.d - nej)}</small>
           <small style="opacity:.6">celá ${v.dc} · ilustr. ${v.da}</small></div>
       </div>`).join('');
 }
