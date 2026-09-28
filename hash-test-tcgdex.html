@@ -178,8 +178,8 @@
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
 /* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
-const VERZE = '3.5';
-const VERZE_POPIS = 'rohy přes proložené strany + hrana na polovině signálu';
+const VERZE = '3.6';
+const VERZE_POPIS = 'detekce podle hran pro alba + výběr kandidáta podle shody s databází';
 const VERZE_DATUM = '2026-09-27';
 
 /* ══ Diagnostický log ══════════════════════════════════════════
@@ -674,6 +674,220 @@ function hranaNaPolovine(ds, W, H, rohy, urovenPozadi) {
   return { rohy: vys, pocty };
 }
 
+/* ══════════════════════════════════════════════════════════════
+   DETEKCE PODLE HRAN — pro fotky z alba a s jinými kartami okolo
+   ------------------------------------------------------------
+   Metoda "co se liší od stolu" selže, když kolem karty není stůl,
+   ale sousední karty, kapsy alba a fólie. Tahle metoda hledá
+   ROVNÉ HRANY (Houghova transformace), skládá z nich čtyřúhelníky
+   a vybírá ten, který:
+     • má poměr stran karty 63 : 88 (0,716) — to se se vzdáleností nemění
+     • jeho strany leží na skutečných hranách ve fotce
+     • je blízko středu (fotíš kartu, ne okolí)
+     • je dost velký
+   Sousední karty bývají fotkou uříznuté, takže poměr nesedí,
+   nebo leží u kraje — proto vyhraje ta, kterou fotíš.
+══════════════════════════════════════════════════════════════ */
+const POMER_KARTY = 63 / 88;
+
+function detekujHrany(obr) {
+  const MAX = 400;
+  const k = Math.min(1, MAX / Math.max(obr.naturalWidth, obr.naturalHeight));
+  const W = Math.max(8, Math.round(obr.naturalWidth * k));
+  const H = Math.max(8, Math.round(obr.naturalHeight * k));
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  cx.drawImage(obr, 0, 0, W, H);
+  const px = cx.getImageData(0, 0, W, H).data;
+  L(`--- DETEKCE PODLE HRAN: zpracovávám ve ${W}×${H}`);
+
+  // Šedá + rozmazání 3×3
+  const g0 = new Float32Array(W * H);
+  for (let i = 0, p = 0; i < g0.length; i++, p += 4) g0[i] = 0.299 * px[p] + 0.587 * px[p + 1] + 0.114 * px[p + 2];
+  // POZOR: krajní řádky a sloupce musí dostat hodnotu z originálu. Když
+  // zůstaly na nule, filtr hran viděl na přechodu nula → obraz obří falešnou
+  // hranu po celém obvodu fotky a ta přebila skutečné hrany karty.
+  const g = Float32Array.from(g0);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += g0[(y + dy) * W + x + dx];
+    g[y * W + x] = s / 9;
+  }
+  // Sobel — síla a směr hrany
+  const mag = new Float32Array(W * H), ang = new Float32Array(W * H);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x;
+    const gx = g[i - W + 1] + 2 * g[i + 1] + g[i + W + 1] - g[i - W - 1] - 2 * g[i - 1] - g[i + W - 1];
+    const gy = g[i + W - 1] + 2 * g[i + W] + g[i + W + 1] - g[i - W - 1] - 2 * g[i - W] - g[i - W + 1];
+    mag[i] = Math.hypot(gx, gy); ang[i] = Math.atan2(gy, gx);
+  }
+  // Práh hran = 88. percentil síly
+  const vz = []; for (let i = 0; i < mag.length; i += 3) if (mag[i] > 0) vz.push(mag[i]);
+  vz.sort((a, b) => a - b);
+  const prahH = vz[Math.floor(vz.length * 0.88)] || 30;
+
+  // Houghova transformace — každý hranový bod hlasuje jen pro úhly blízko svého směru
+  const D = Math.ceil(Math.hypot(W, H)), NR = 2 * D + 1;
+  const acc = new Float32Array(180 * NR);
+  const cosT = [], sinT = [];
+  for (let t = 0; t < 180; t++) { cosT.push(Math.cos(t * Math.PI / 180)); sinT.push(Math.sin(t * Math.PI / 180)); }
+  let hranovych = 0;
+  const OKR = 3;   // pás u okraje fotky nehlasuje — tam nebývá hrana karty, jen řez záběru
+  for (let y = OKR; y < H - OKR; y++) for (let x = OKR; x < W - OKR; x++) {
+    const i = y * W + x; if (mag[i] < prahH) continue;
+    hranovych++;
+    let t0 = Math.round(ang[i] * 180 / Math.PI); t0 = ((t0 % 180) + 180) % 180;
+    for (let dt = -2; dt <= 2; dt++) {
+      const t = (t0 + dt + 180) % 180;
+      const r = Math.round(x * cosT[t] + y * sinT[t]) + D;
+      acc[t * NR + r] += mag[i];
+    }
+  }
+  // Vrcholy — nejsilnější přímky s potlačením okolí
+  const primky = [];
+  const kopie = acc.slice();
+  for (let n = 0; n < 34; n++) {
+    let best = 0, bi = -1;
+    for (let i = 0; i < kopie.length; i++) if (kopie[i] > best) { best = kopie[i]; bi = i; }
+    if (bi < 0 || best <= 0) break;
+    const t = Math.floor(bi / NR), r = (bi % NR) - D;
+    primky.push({ th: t * Math.PI / 180, r, sila: best });
+    for (let dt = -4; dt <= 4; dt++) for (let dr = -6; dr <= 6; dr++) {
+      const tt = (t + dt + 180) % 180, rr = r + dr + D;
+      if (rr >= 0 && rr < NR) kopie[tt * NR + rr] = 0;
+    }
+  }
+  // Rozdělení na „vodorovné" a „svislé" (tolerance 30°)
+  const deg = th => th * 180 / Math.PI;
+  const svisle   = primky.filter(p => deg(p.th) < 30 || deg(p.th) > 150);
+  const vodorovne = primky.filter(p => deg(p.th) > 60 && deg(p.th) < 120);
+  L(`hranových bodů ${hranovych}, přímek ${primky.length} (svislých ${svisle.length}, vodorovných ${vodorovne.length})`);
+  if (svisle.length < 2 || vodorovne.length < 2) return { ok: false, duvod: 'málo rovných hran' };
+
+  const prus = (a, b) => {
+    const det = Math.cos(a.th) * Math.sin(b.th) - Math.sin(a.th) * Math.cos(b.th);
+    if (Math.abs(det) < 1e-6) return null;
+    return { x: (a.r * Math.sin(b.th) - b.r * Math.sin(a.th)) / det,
+             y: (b.r * Math.cos(a.th) - a.r * Math.cos(b.th)) / det };
+  };
+  const posX = p => (p.r - (H / 2) * Math.sin(p.th)) / Math.cos(p.th);   // x svislé přímky ve středu výšky
+  const posY = p => (p.r - (W / 2) * Math.cos(p.th)) / Math.sin(p.th);   // y vodorovné přímky ve středu šířky
+  svisle.sort((a, b) => posX(a) - posX(b));
+  vodorovne.sort((a, b) => posY(a) - posY(b));
+
+  // Podpora strany = kolik bodů podél ní leží na skutečné hraně se správným směrem
+  const podpora = (A, B) => {
+    const len = Math.hypot(B.x - A.x, B.y - A.y); if (len < 5) return 0;
+    const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, nx = -dy, ny = dx;
+    let hit = 0, n = 0;
+    for (let t = 0.1; t <= 0.9; t += 0.025) {
+      n++;
+      const qx = A.x + (B.x - A.x) * t, qy = A.y + (B.y - A.y) * t;
+      for (let o = -1.5; o <= 1.5; o += 0.75) {
+        const x = Math.round(qx + nx * o), y = Math.round(qy + ny * o);
+        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+        const i = y * W + x;
+        if (mag[i] >= prahH * 0.6 && Math.abs(Math.cos(ang[i]) * nx + Math.sin(ang[i]) * ny) > 0.8) { hit++; break; }
+      }
+    }
+    return hit / n;
+  };
+
+  let nej = null, zkouseno = 0;
+  const kandidati = [];
+  for (let a = 0; a < svisle.length; a++) for (let b = a + 1; b < svisle.length; b++)
+  for (let c = 0; c < vodorovne.length; c++) for (let d = c + 1; d < vodorovne.length; d++) {
+    const L1 = svisle[a], R1 = svisle[b], T1 = vodorovne[c], B1 = vodorovne[d];
+    const lh = prus(L1, T1), ph = prus(R1, T1), pd = prus(R1, B1), ld = prus(L1, B1);
+    if (!lh || !ph || !pd || !ld) continue;
+    const q = [lh, ph, pd, ld];
+    if (q.some(p => p.x < -W * 0.05 || p.x > W * 1.05 || p.y < -H * 0.05 || p.y > H * 1.05)) continue;
+    // Strana ležící na samém okraji fotky = uříznutá karta nebo řez záběru, ne hrana karty
+    const uKraje = p => p.x < W * 0.015 || p.x > W * 0.985 || p.y < H * 0.01 || p.y > H * 0.99;
+    if ((uKraje(lh) && uKraje(ld)) || (uKraje(ph) && uKraje(pd)) ||
+        (uKraje(lh) && uKraje(ph)) || (uKraje(ld) && uKraje(pd))) continue;
+    const sir = (Math.hypot(ph.x - lh.x, ph.y - lh.y) + Math.hypot(pd.x - ld.x, pd.y - ld.y)) / 2;
+    const vys = (Math.hypot(ld.x - lh.x, ld.y - lh.y) + Math.hypot(pd.x - ph.x, pd.y - ph.y)) / 2;
+    if (sir < W * 0.18 || vys < H * 0.12) continue;
+    const pomer = Math.min(sir, vys) / Math.max(sir, vys);
+    const chybaPomeru = Math.abs(pomer - POMER_KARTY) / POMER_KARTY;
+    if (chybaPomeru > 0.2) continue;                       // poměr neodpovídá kartě
+    const plo = plocha(q) / (W * H);
+    if (plo < 0.08 || plo > 0.97) continue;
+    zkouseno++;
+    const sp = [podpora(lh, ph), podpora(ph, pd), podpora(pd, ld), podpora(ld, lh)];
+    const spMin = Math.min(...sp), spPrum = sp.reduce((x, y) => x + y) / 4;
+    if (spMin < 0.25) continue;
+    const scx = (lh.x + ph.x + pd.x + ld.x) / 4, scy = (lh.y + ph.y + pd.y + ld.y) / 4;
+    const odStredu = Math.hypot(scx - W / 2, scy - H / 2) / Math.hypot(W, H);
+    const skore = spPrum * Math.exp(-((chybaPomeru / 0.07) ** 2)) * Math.sqrt(plo) * Math.exp(-((odStredu / 0.25) ** 2));
+    const kand = { q, skore, sp, spMin, pomer, chybaPomeru, plo, odStredu };
+    kandidati.push(kand);
+    if (!nej || skore > nej.skore) nej = kand;
+  }
+  L(`čtyřúhelníků s poměrem karty: ${zkouseno}`);
+  if (!nej) return { ok: false, duvod: 'žádný obdélník s poměrem karty' };
+
+  // Zpřesnění: každou stranu proložíme hranovými body v jejím okolí
+  const zpresni = (quad) => {
+    const [lh, ph, pd, ld] = quad;
+    const strany = [[lh, ph], [ph, pd], [pd, ld], [ld, lh]];
+    const ps = strany.map(([A, B]) => {
+      const len = Math.hypot(B.x - A.x, B.y - A.y);
+      const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len, nx = -dy, ny = dx;
+      const body = [];
+      for (let t = 0.1; t <= 0.9; t += 0.01) {
+        const qx = A.x + (B.x - A.x) * t, qy = A.y + (B.y - A.y) * t;
+        let bm = 0, bo = null;
+        for (let o = -2; o <= 2; o += 0.5) {
+          const x = Math.round(qx + nx * o), y = Math.round(qy + ny * o);
+          if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) continue;
+          const i = y * W + x;
+          if (Math.abs(Math.cos(ang[i]) * nx + Math.sin(ang[i]) * ny) > 0.8 && mag[i] > bm) { bm = mag[i]; bo = o; }
+        }
+        if (bo !== null && bm >= prahH * 0.6) body.push({ x: qx + nx * bo, y: qy + ny * bo });
+      }
+      if (body.length < 8) return { px: A.x, py: A.y, dx, dy };
+      let mx = 0, my = 0; for (const p of body) { mx += p.x; my += p.y; } mx /= body.length; my /= body.length;
+      let sxx = 0, syy = 0, sxy = 0;
+      for (const p of body) { const u = p.x - mx, v = p.y - my; sxx += u * u; syy += v * v; sxy += u * v; }
+      const u = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+      return { px: mx, py: my, dx: Math.cos(u), dy: Math.sin(u) };
+    });
+    const pr2 = (a, b) => {
+      const det = a.dx * b.dy - a.dy * b.dx; if (Math.abs(det) < 1e-6) return null;
+      const t = ((b.px - a.px) * b.dy - (b.py - a.py) * b.dx) / det;
+      return { x: a.px + t * a.dx, y: a.py + t * a.dy };
+    };
+    const vel = Math.hypot(pd.x - lh.x, pd.y - lh.y);
+    return [pr2(ps[3], ps[0]), pr2(ps[0], ps[1]), pr2(ps[1], ps[2]), pr2(ps[2], ps[3])]
+      .map((p, i) => p && Math.hypot(p.x - quad[i].x, p.y - quad[i].y) < vel * 0.05 ? p : quad[i]);
+  };
+
+  // Nejlepší kandidáti podle geometrie, bez skoro-duplikátů
+  kandidati.sort((a, b) => b.skore - a.skore);
+  const vybrani = [];
+  for (const c of kandidati) {
+    if (vybrani.some(v => v.q.every((p, i) => Math.hypot(p.x - c.q[i].x, p.y - c.q[i].y) < Math.min(W, H) * 0.04))) continue;
+    vybrani.push(c);
+    if (vybrani.length >= 12) break;
+  }
+  const kandidatiVen = vybrani.map(c => ({
+    rohy: zpresni(c.q).map(p => ({ x: p.x / k, y: p.y / k })),
+    skore: c.skore, pomer: c.pomer,
+  }));
+  const rohy = zpresni(nej.q);
+
+  const jistota = nej.spMin >= 0.45 && nej.chybaPomeru < 0.08;
+  L(`nejlepší: podpora stran ${nej.sp.map(v => (v * 100).toFixed(0)).join('/')} %, poměr ${nej.pomer.toFixed(3)}, ` +
+    `plocha ${(nej.plo * 100).toFixed(0)} %, od středu ${(nej.odStredu * 100).toFixed(0)} %, skóre ${nej.skore.toFixed(3)} → ${jistota ? 'JISTÉ' : 'NEJISTÉ'}`);
+  L(`rohy (v plné velikosti): ` + rohy.map(p => `(${Math.round(p.x / k)},${Math.round(p.y / k)})`).join(' '));
+  return {
+    ok: true, jistota, metoda: 'hrany', kandidati: kandidatiVen,
+    rohy: rohy.map(p => ({ x: p.x / k, y: p.y / k })),
+    info: `podpora stran ${nej.sp.map(v => (v * 100).toFixed(0)).join('/')} %, poměr ${nej.pomer.toFixed(3)}`,
+  };
+}
+
 function konvexniObal(b) {
   const p = b.slice().sort((a, c) => a.x - c.x || a.y - c.y);
   const kr = (o, a, c) => (a.x - o.x) * (c.y - o.y) - (a.y - o.y) * (c.x - o.x);
@@ -686,30 +900,80 @@ function konvexniObal(b) {
 function plocha(b) { let s = 0; for (let i = 0; i < b.length; i++) { const a = b[i], c = b[(i + 1) % b.length]; s += a.x * c.y - c.x * a.y; } return Math.abs(s) / 2; }
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
+/* Rychlé ohodnocení ořezu: jak blízko je k nějaké kartě v databázi.
+   Zkouší jen natočení 0° a 180° (kandidát z hran je vždy na výšku). */
+function ohodnotOrez(rohy) {
+  const [lh, ph, pd, ld] = seradRohy(rohy);
+  const tmp = document.createElement('canvas');
+  let nej = null;
+  for (const poradi of [[lh, ph, pd, ld], [pd, ld, lh, ph]]) {
+    narovnej(poradi, tmp);
+    const h = otisky(tmp).jemny;
+    let d1 = 999, d2 = 999, jm = '';
+    for (const k of databaze) {
+      const d = vzdal(h, k.hash.jemny);
+      if (d < d1) { d2 = d1; d1 = d; jm = k.name; } else if (d < d2) d2 = d;
+    }
+    if (!nej || d1 < nej.d) nej = { d: d1, odstup: d2 - d1, jmeno: jm };
+  }
+  return nej;
+}
+
 function autoDetekce() {
   L('akce: automatická detekce');
   _rezim = 'auto';
   $('rohyPokyn').textContent = 'Hledám kartu…';
   $('hits').innerHTML = '';
-  setTimeout(() => {           // ať se text stihne vykreslit
+  setTimeout(() => {
     const t0 = performance.now();
-    const r = detekujKartu(_foto);
-    const ms = (performance.now() - t0).toFixed(0);
-    if (r.ok) {
-      _rohy = r.rohy;
-      prekresliRohy();
-      $('rohyPokyn').innerHTML = r.jistota
-        ? `✅ Karta nalezena automaticky za ${ms} ms — když rohy nesedí, přetáhni je`
-        : `⚠️ Karta nalezena, ale tvar je nejistý — zkontroluj rohy a případně je přetáhni`
-          + `<br><small style="font-weight:400;color:var(--text2)">${r.info}</small>`;
-      narovnatARozpoznat();
-    } else {
-      _rohy = [];
-      prekresliRohy();
-      $('rohyPokyn').textContent = `❌ Automatika kartu nenašla (${r.duvod}) — klikni na 4 rohy ručně`;
-      _rezim = 'rucne';
+
+    // 1) Karta na stole — rychlé a spolehlivé, když kolem je jednolitý podklad
+    const r1 = detekujKartu(_foto);
+    if (r1.ok && r1.jistota) {
+      L(`→ použita metoda POZADÍ (${(performance.now() - t0).toFixed(0)} ms)`);
+      return pouzijDetekci(r1, 'na podkladu', t0);
     }
+    L(`metoda pozadí ${r1.ok ? 'nejistá' : 'selhala'} → zkouším hrany`);
+
+    // 2) Karta mezi jinými (album, fólie) — hledání obdélníků z hran
+    const r2 = detekujHrany(_foto);
+    if (!r2.ok) {
+      if (r1.ok) { L('→ hrany selhaly, beru nejistý výsledek metody pozadí'); return pouzijDetekci(r1, 'nejisté', t0); }
+      _rohy = []; prekresliRohy();
+      $('rohyPokyn').textContent = `❌ Automatika kartu nenašla (${r2.duvod}) — klikni na 4 rohy ručně`;
+      _rezim = 'rucne';
+      return;
+    }
+
+    // 3) Mezi kandidáty rozhodne samotné rozpoznání: správný ořez sedí
+    //    na kartu v databázi výrazně líp než ořez posunutý o kus vedle.
+    if (databaze.length && r2.kandidati?.length > 1) {
+      L(`vybírám z ${r2.kandidati.length} kandidátů podle shody s databází:`);
+      let vitez = null;
+      r2.kandidati.forEach((c, i) => {
+        const o = ohodnotOrez(c.rohy);
+        L(`  kandidát ${String(i + 1).padStart(2)}: geometrie ${c.skore.toFixed(3)}, poměr ${c.pomer.toFixed(3)} → ` +
+          `${o.jmeno} = ${o.d}, odstup ${o.odstup}`);
+        if (!vitez || o.d < vitez.o.d) vitez = { c, o, i };
+      });
+      L(`→ použita metoda HRANY, vítěz kandidát ${vitez.i + 1} (${vitez.o.jmeno} = ${vitez.o.d})`);
+      return pouzijDetekci({ ok: true, jistota: vitez.o.odstup >= 18, rohy: vitez.c.rohy,
+        info: `vybráno z ${r2.kandidati.length} kandidátů podle shody s databází` }, 'mezi jinými kartami', t0);
+    }
+    L('→ použita metoda HRANY (bez databáze, podle geometrie)');
+    pouzijDetekci(r2, 'mezi jinými kartami', t0);
   }, 30);
+}
+
+function pouzijDetekci(r, kde, t0) {
+  const ms = (performance.now() - t0).toFixed(0);
+  _rohy = r.rohy;
+  prekresliRohy();
+  $('rohyPokyn').innerHTML = r.jistota
+    ? `✅ Karta nalezena automaticky (${kde}) za ${ms} ms — když rohy nesedí, přetáhni je`
+    : `⚠️ Karta nalezena (${kde}), ale nejistě — zkontroluj rohy a případně je přetáhni` +
+      (r.info ? `<br><small style="font-weight:400;color:var(--text2)">${r.info}</small>` : '');
+  narovnatARozpoznat();
 }
 
 function rucneOdZacatku() {
