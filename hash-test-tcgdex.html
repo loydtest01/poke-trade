@@ -118,7 +118,10 @@
         <label>ID sady</label>
         <input type="text" id="setId" placeholder="vyplní se samo po výběru v kroku 1, např. sv07">
       </div>
-      <div style="flex:0 0 auto"><button id="btnLoad" onclick="nactiSadu()">Načíst a zahashovat</button></div>
+      <div style="flex:0 0 auto;display:flex;gap:8px">
+        <button id="btnLoad" onclick="nactiSadu(false)">Načíst a zahashovat</button>
+        <button class="ghost" id="btnPridat" onclick="nactiSadu(true)" title="Ponechá už načtené karty a přidá k nim další sadu — třeba stejnou kartu v jiném jazyce">+ Přidat další sadu</button>
+      </div>
     </div>
     <div class="bar"><i id="barLoad"></i></div>
     <div class="log" id="logLoad">Připraven.</div>
@@ -187,8 +190,8 @@
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
 /* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
-const VERZE = '4.0';
-const VERZE_POPIS = 'pokemontcg.io: 5 pokusů s pauzou + záloha obrázků přímo z CDN';
+const VERZE = '4.1';
+const VERZE_POPIS = 'více sad a jazyků najednou + určení jazyka podle textových oblastí';
 const VERZE_DATUM = '2026-09-27';
 
 /* ══ Diagnostický log ══════════════════════════════════════════
@@ -237,6 +240,11 @@ async function kopirujLog() {
 
 const TCGDEX = 'https://api.tcgdex.net/v2';
 const ART    = { x: 0.07, y: 0.10, w: 0.86, h: 0.45 };   // výřez ilustrace
+/* Textové oblasti — tady se jazykové verze téže karty liší.
+   Ilustrace je napříč jazyky stejná, takže otisk ilustrace najde
+   celou "rodinu" verzí; o jazyku rozhodne až porovnání textu. */
+const TEXT_JMENO = { x: 0.04, y: 0.025, w: 0.72, h: 0.075 };  // pruh se jménem
+const TEXT_SPOD  = { x: 0.05, y: 0.56,  w: 0.90, h: 0.33 };   // útoky a pravidla
 let   databaze = [];
 
 const $ = id => document.getElementById(id);
@@ -293,6 +301,8 @@ function otisky(obr) {
     cela:  dHash(obr, 9, 8, null),     //  64 b, celá karta
     art:   dHash(obr, 9, 8, ART),      //  64 b, jen ilustrace
     jemny: dHash(obr, 17, 16, ART),    // 256 b, ilustrace v detailu
+    jmeno: dHash(obr, 25, 6,  TEXT_JMENO),  // 144 b, pruh se jménem
+    spod:  dHash(obr, 17, 12, TEXT_SPOD),   // 192 b, blok s útoky
   };
 }
 function vzdal(a, b) { let x = a ^ b, n = 0; while (x) { n += Number(x & 1n); x >>= 1n; } return n; }
@@ -455,11 +465,13 @@ function vyberSadu(id) {
 }
 
 /* ── 2. Načtení sady ──────────────────────────────────────── */
-async function nactiSadu() {
+async function nactiSadu(pridat) {
   const setId = $('setId').value.trim(), lang = $('lang').value, btn = $('btnLoad');
   if (!setId) { alert('Vyber sadu v kroku 1, nebo zadej ID ručně.'); return; }
-  btn.disabled = true; $('logLoad').innerHTML = ''; databaze = []; progress('barLoad', 0);
-  L(`akce: načíst sadu ${setId}, zdroj ${zdroj()}, jazyk ${lang}`);
+  btn.disabled = true; progress('barLoad', 0);
+  if (!pridat) { $('logLoad').innerHTML = ''; databaze = []; }
+  else log('logLoad', `Přidávám k ${databaze.length} už načteným kartám…`);
+  L(`akce: ${pridat ? 'PŘIDAT' : 'načíst'} sadu ${setId}, zdroj ${zdroj()}, jazyk ${lang}`);
   log('logLoad', `Stahuji sadu ${setId} (${lang}) z TCGdexu…`);
 
   let karty = [];
@@ -513,7 +525,9 @@ async function nactiSadu() {
     const k = karty[i], url = k.obr || (k.image + '/low.webp');
     try {
       const obr = await nactiObr(url);
-      databaze.push({ id: k.id, name: k.name, number: k.localId, img: url, hash: otisky(obr) });
+      const jaz = zdroj() === 'ptcg' ? 'en' : lang;
+      databaze.push({ id: k.id, name: k.name, number: k.localId, img: url, hash: otisky(obr),
+                      lang: jaz, sada: setId });
       ok++;
     } catch (e) {
       const m = e.name === 'SecurityError' ? 'CORS — nelze číst pixely' : e.message;
@@ -1064,12 +1078,11 @@ function ohodnotOrez(rohy) {
   for (const poradi of [[lh, ph, pd, ld], [pd, ld, lh, ph]]) {
     narovnej(poradi, tmp);
     const h = otisky(tmp).jemny;
-    let d1 = 999, d2 = 999, jm = '';
-    for (const k of databaze) {
-      const d = vzdal(h, k.hash.jemny);
-      if (d < d1) { d2 = d1; d1 = d; jm = k.name; } else if (d < d2) d2 = d;
-    }
-    if (!nej || d1 < nej.d) nej = { d: d1, odstup: d2 - d1, jmeno: jm };
+    const dd = databaze.map(k => ({ d: vzdal(h, k.hash.jemny), jm: k.name })).sort((a, b) => a.d - b.d);
+    const d1 = dd[0]?.d ?? 999;
+    // Druhá "jiná" karta = první mimo rodinu stejné ilustrace (jazykové verze se nepočítají)
+    const d2 = dd.find(x => x.d > d1 + 25)?.d ?? 999;
+    if (!nej || d1 < nej.d) nej = { d: d1, odstup: d2 - d1, jmeno: dd[0]?.jm || '' };
   }
   return nej;
 }
@@ -1313,8 +1326,34 @@ function narovnatARozpoznat() {
       .sort((a, b) => a.d - b.d);
     L(`  natočení ${n.nazev.padStart(4)}: nejblíž ${serazene[0].name} (${serazene[0].id}) = ${serazene[0].d}, ` +
       `druhá ${serazene[1]?.name} = ${serazene[1]?.d}, odstup ${serazene[1] ? serazene[1].d - serazene[0].d : '-'}`);
-    if (!nejlepsi || serazene[0].d < nejlepsi.vys[0].d) nejlepsi = { natoceni: n, vys: serazene.slice(0, 5) };
+    if (!nejlepsi || serazene[0].d < nejlepsi.vys[0].d) nejlepsi = { natoceni: n, vys: serazene.slice(0, 5), vse: serazene, h };
   }
+
+  /* ── Krok 2: jazyk ──────────────────────────────────────────
+     Karty se stejnou ilustrací (jazykové verze) vyjdou v otisku
+     ilustrace těsně vedle sebe — to je "rodina". Uvnitř rodiny
+     rozhodne otisk textových oblastí, protože text se liší. */
+  const RODINA_TOL = 25;
+  const vse = nejlepsi.vse, best = vse[0].d;
+  const rodina = vse.filter(k => k.d <= best + RODINA_TOL);
+  const mimoRodinu = vse.find(k => k.d > best + RODINA_TOL);
+  if (rodina.length > 1) {
+    const h = nejlepsi.h;
+    for (const k of rodina) k.td = vzdal(h.jmeno, k.hash.jmeno) + vzdal(h.spod, k.hash.spod);
+    rodina.sort((a, b) => a.td - b.td);
+    L(`rodina se stejnou ilustrací: ${rodina.length} verzí, jazyky ${[...new Set(rodina.map(k => k.lang))].join(', ')}`);
+    rodina.forEach(k => L(`  ${String(k.lang).padEnd(3)} ${k.id.padEnd(16)} ilustrace ${String(k.d).padStart(3)}, ` +
+      `text ${String(k.td).padStart(3)} (jméno ${vzdal(h.jmeno, k.hash.jmeno)}, útoky ${vzdal(h.spod, k.hash.spod)})`));
+    const rozdilTextu = rodina[1] ? rodina[1].td - rodina[0].td : 99;
+    L(`→ jazyk podle textu: ${rodina[0].lang} (${rodina[0].id}), náskok před další verzí ${rozdilTextu}`);
+    // Vítěz podle textu jde na první místo, zbytek rodiny za něj
+    const ostatni = vse.filter(k => !rodina.includes(k));
+    nejlepsi.vys = [...rodina, ...ostatni].slice(0, 5);
+    nejlepsi.rodina = { pocet: rodina.length, rozdilTextu, jazyky: [...new Set(rodina.map(k => k.lang))] };
+  }
+  // Odstup se měří proti nejbližší kartě MIMO rodinu — jazyková verze
+  // téže karty není konkurence, ale potvrzení.
+  nejlepsi.odstupMimo = mimoRodinu ? mimoRodinu.d - best : 99;
   const ms = (performance.now() - t0).toFixed(0);
 
   // Náhled vítězného natočení
@@ -1325,13 +1364,13 @@ function narovnatARozpoznat() {
   // vzdálenost. Holo lesk, barvy a ostrost fotky posunou i správnou kartu
   // na 60–90 z 256 — ale pořád s jasným náskokem před ostatními.
   // Hranice jsou prozatímní, doladíme je podle dalších fotek.
-  const vys = nejlepsi.vys, nej = vys[0].d, odstup = vys[1] ? vys[1].d - nej : 99;
+  const vys = nejlepsi.vys, nej = Math.min(...nejlepsi.vse.slice(0, 1).map(k => k.d)), odstup = nejlepsi.odstupMimo;
   let verdikt, barva;
   if (nej <= 110 && odstup >= 18)      { verdikt = '✅ Karta rozpoznána'; barva = '#4ade80'; }
   else if (nej <= 110 && odstup >= 10) { verdikt = '⚠️ Pravděpodobně — ověř, že sedí'; barva = '#fbbf24'; }
   else                                 { verdikt = '❌ Nejistá — tahle karta tu možná není'; barva = '#f87171'; }
 
-  L(`VÝSLEDEK: ${verdikt.replace(/[✅⚠️❌]/g, '').trim()} — ${vys[0].name} (${vys[0].id}), ` +
+  L(`VÝSLEDEK: ${verdikt.replace(/[✅⚠️❌]/g, '').trim()} — ${vys[0].name} (${vys[0].id}, ${vys[0].lang}), ` +
     `vzdálenost ${nej}, odstup ${odstup}, natočení ${nejlepsi.natoceni.nazev}, ${ms} ms`);
   L(`  top 5: ` + vys.map(v => `${v.id}=${v.d}`).join(', '));
 
@@ -1339,14 +1378,16 @@ function narovnatARozpoznat() {
     `<div style="border:1px solid ${barva}55;border-left:3px solid ${barva};border-radius:9px;padding:11px 14px;margin:12px 0">
        <div style="color:${barva};font-weight:700">${verdikt}</div>
        <div style="font-size:12px;color:var(--text2);margin-top:4px">
-         Vzdálenost ${nej} z 256, odstup od druhé ${odstup}, natočení ${nejlepsi.natoceni.nazev}.
+         Vzdálenost ${nej} z 256, odstup od jiné karty ${odstup}, natočení ${nejlepsi.natoceni.nazev}.
+         ${nejlepsi.rodina ? `<br>Stejná ilustrace ve ${nejlepsi.rodina.pocet} verzích (${nejlepsi.rodina.jazyky.join(', ')}) —
+           jazyk vybrán podle textu: <b>${esc(vys[0].lang)}</b>, náskok ${nejlepsi.rodina.rozdilTextu}.` : ''}
          Porovnáno s ${databaze.length} kartami ve 4 natočeních za ${ms} ms.
        </div>
      </div>` +
     vys.map((v, i) => `
       <div class="hit ${i === 0 ? 'best' : ''}">
         <img src="${esc(v.img)}" alt="">
-        <div><div class="nm">${esc(v.name)}</div><div class="mt">${esc(v.id)} · č. ${esc(v.number)}</div></div>
+        <div><div class="nm">${esc(v.name)}</div><div class="mt">${esc(v.id)} · č. ${esc(v.number)}${v.lang ? ' · ' + esc(v.lang).toUpperCase() : ''}${v.td != null ? ' · text ' + v.td : ''}</div></div>
         <div class="dist"><b>${v.d}</b>
           <small>${i === 0 ? 'nejbližší' : '+' + (v.d - nej)}</small>
           <small style="opacity:.6">celá ${v.dc} · ilustr. ${v.da}</small></div>
