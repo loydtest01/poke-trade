@@ -150,6 +150,20 @@
     <div class="log" id="logTest">Nejdřív načti sadu v kroku 2.</div>
   </div>
 
+  <!-- Diagnostický log -->
+  <div class="card">
+    <h2><span class="num">📋</span> Diagnostický log</h2>
+    <p class="hint">Zapisuje každý krok s čísly — odhad pozadí, práh, nalezené rohy, poměr stran,
+       vzdálenosti ve všech natočeních. Když něco nesedí, zkopíruj ho a pošli jako text.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button onclick="kopirujLog()" id="btnKopie">📋 Kopírovat log</button>
+      <button class="ghost" onclick="smazLog()">Vymazat</button>
+    </div>
+    <pre id="diagLog" style="background:#0a0a10;border:1px solid var(--line);border-radius:9px;
+         padding:11px 13px;font-family:ui-monospace,monospace;font-size:11px;line-height:1.55;
+         color:var(--text2);max-height:320px;overflow:auto;margin-top:12px;white-space:pre-wrap"></pre>
+  </div>
+
   <canvas id="cv"></canvas>
 </div>
 
@@ -160,6 +174,32 @@
    /v2/{lang}/sets/{id}     → sada se seznamem karet a obrázků
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
+/* ══ Diagnostický log ══════════════════════════════════════════
+   Všechno podstatné jde sem jako text, ať se dá poslat bez screenshotů. */
+const _log = [];
+function L(zprava) {
+  const t = new Date().toLocaleTimeString('cs-CZ');
+  _log.push(`[${t}] ${zprava}`);
+  const el = document.getElementById('diagLog');
+  if (el) { el.textContent = _log.join('\n'); el.scrollTop = el.scrollHeight; }
+}
+function smazLog() { _log.length = 0; document.getElementById('diagLog').textContent = ''; hlavickaLogu(); }
+function hlavickaLogu() {
+  L(`=== hash-test v3 · ${navigator.userAgent.slice(0, 110)}`);
+  L(`=== obrazovka ${screen.width}×${screen.height}, DPR ${devicePixelRatio}`);
+}
+async function kopirujLog() {
+  const text = _log.join('\n');
+  try { await navigator.clipboard.writeText(text); }
+  catch {
+    const ta = document.createElement('textarea'); ta.value = text;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  const b = document.getElementById('btnKopie'); const p = b.textContent;
+  b.textContent = '✅ Zkopírováno (' + _log.length + ' řádků)';
+  setTimeout(() => b.textContent = p, 1800);
+}
+
 const TCGDEX = 'https://api.tcgdex.net/v2';
 const ART    = { x: 0.07, y: 0.10, w: 0.86, h: 0.45 };   // výřez ilustrace
 let   databaze = [];
@@ -321,6 +361,8 @@ async function nactiSadu() {
   }
 
   log('logLoad', `Hotovo: ${ok} otisků, ${karty.length - ok} selhalo.`, ok ? 'ok' : 'err');
+  L(`sada ${setId} (${lang}): ${ok} otisků, ${karty.length - ok} selhalo` +
+    (Object.keys(duvody).length ? ' — ' + Object.entries(duvody).map(([d, n]) => `${n}× ${d}`).join(', ') : ''));
   for (const [d, n] of Object.entries(duvody)) log('logLoad', `  ${n}× ${d}`, 'warn');
 
   const kol = { cela: 0, art: 0, jemny: 0 };
@@ -350,6 +392,7 @@ async function nactiFoto(soubor) {
   if (!soubor) return;
   if (!databaze.length) { alert('Nejdřív načti sadu v kroku 2.'); return; }
   _foto = await nactiObr(URL.createObjectURL(soubor));
+  L(`fotka nahrána: ${soubor.name || 'bez názvu'}, ${(soubor.size / 1024).toFixed(0)} kB, ${_foto.naturalWidth}×${_foto.naturalHeight}`);
   $('rohyBox').style.display = 'block';
   $('rohyBox').scrollIntoView({ behavior: 'smooth', block: 'start' });
   autoDetekce();
@@ -377,21 +420,30 @@ function detekujKartu(obr) {
   const ctx = cv.getContext('2d', { willReadFrequently: true });
   ctx.drawImage(obr, 0, 0, W, H);
   const px = ctx.getImageData(0, 0, W, H).data;
+  L(`--- DETEKCE: fotka ${obr.naturalWidth}×${obr.naturalHeight}, zpracovávám ve ${W}×${H}`);
 
-  // 2) Pozadí = medián okrajového pruhu
-  const pruh = Math.max(2, Math.round(Math.min(W, H) * 0.04));
-  const R = [], G = [], B = [];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (x >= pruh && x < W - pruh && y >= pruh && y < H - pruh) continue;
-    const i = (y * W + x) * 4; R.push(px[i]); G.push(px[i + 1]); B.push(px[i + 2]);
-  }
-  const med = a => { a.sort((p, q) => p - q); return a[a.length >> 1]; };
-  const bR = med(R), bG = med(G), bB = med(B);
+  // 2) Pozadí odhadneme z ROHŮ fotky, ne z celého okraje.
+  //    Když karta vyplní skoro celou šířku, okrajový pás vlevo a vpravo
+  //    zasáhne rámeček i ilustraci a odhad pozadí se rozhodí. Rohy fotky
+  //    bývají volné i tehdy. Ze 4 rohů vezmeme medián, takže jeden
+  //    zakrytý roh výsledek nerozbije.
+  const p = Math.max(3, Math.round(Math.min(W, H) * 0.08));
+  const rohyPatch = [[0, 0], [W - p, 0], [0, H - p], [W - p, H - p]];
+  const med = a => { const b = a.slice().sort((x, y) => x - y); return b[b.length >> 1]; };
+  const medRohu = rohyPatch.map(([x0, y0]) => {
+    const r = [], g = [], b = [];
+    for (let y = y0; y < y0 + p; y++) for (let x = x0; x < x0 + p; x++) {
+      const i = (y * W + x) * 4; r.push(px[i]); g.push(px[i + 1]); b.push(px[i + 2]);
+    }
+    return [med(r), med(g), med(b)];
+  });
+  const bR = med(medRohu.map(c => c[0])), bG = med(medRohu.map(c => c[1])), bB = med(medRohu.map(c => c[2]));
+  L(`pozadí z rohů: rgb(${bR},${bG},${bB}); jednotlivé rohy: ` + medRohu.map(c => `(${c.join(',')})`).join(' '));
 
   // 3) Odlišnost od pozadí + rozmazání 5×5 (potlačí kresbu dřeva)
   const d = new Float32Array(W * H);
-  for (let i = 0, p = 0; i < d.length; i++, p += 4)
-    d[i] = Math.abs(px[p] - bR) + Math.abs(px[p + 1] - bG) + Math.abs(px[p + 2] - bB);
+  for (let i = 0, q = 0; i < d.length; i++, q += 4)
+    d[i] = Math.abs(px[q] - bR) + Math.abs(px[q + 1] - bG) + Math.abs(px[q + 2] - bB);
   const ds = new Float32Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     let s = 0, n = 0;
@@ -402,24 +454,19 @@ function detekujKartu(obr) {
     ds[y * W + x] = s / n;
   }
 
-  // Práh podle šumu POZADÍ, ne podle celé fotky.
-  // Dřív tu byla Otsuova metoda, jenže ta dělí jen na dvě skupiny —
-  // a na fotce jsou tři: dřevo, stříbrný rámeček karty a pestrá
-  // ilustrace. Otsu je rozdělil na "dřevo+rámeček" proti "ilustraci"
-  // a ořez pak vynechal rámeček. Teď se ptáme jinak: jak moc kolísá
-  // samotné pozadí? Cokoli výrazně mimo toto kolísání patří ke kartě.
-  const okraj = [];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (x >= pruh && x < W - pruh && y >= pruh && y < H - pruh) continue;
-    okraj.push(ds[y * W + x]);
-  }
-  okraj.sort((a, b) => a - b);
-  // Robustní odhad: medián a rozptyl bez extrémů (kdyby karta sahala k okraji)
-  const q = p => okraj[Math.min(okraj.length - 1, Math.floor(okraj.length * p))];
-  const stred = q(0.5), rozptyl = Math.max(4, q(0.85) - q(0.15));
-  const prah = Math.max(stred + rozptyl * 2.2, 18);
+  // Práh podle šumu pozadí: medián + násobek MAD (robustní rozptyl),
+  // měřeno jen v rozích. Cokoli výrazně nad kolísáním stolu = karta.
+  const vzorky = [];
+  for (const [x0, y0] of rohyPatch)
+    for (let y = y0; y < y0 + p; y++) for (let x = x0; x < x0 + p; x++) vzorky.push(ds[y * W + x]);
+  const mS = med(vzorky);
+  const mad = med(vzorky.map(v => Math.abs(v - mS))) * 1.4826;
+  const prah = Math.max(mS + Math.max(mad, 3) * 4.5, 15);
   const maska = new Uint8Array(W * H);
-  for (let i = 0; i < ds.length; i++) maska[i] = ds[i] > prah ? 1 : 0;
+  let pokryti = 0;
+  for (let i = 0; i < ds.length; i++) { maska[i] = ds[i] > prah ? 1 : 0; pokryti += maska[i]; }
+  L(`šum pozadí: medián ${mS.toFixed(1)}, MAD ${mad.toFixed(1)} → práh ${prah.toFixed(1)}; ` +
+    `nad prahem ${(pokryti / ds.length * 100).toFixed(0)} % fotky`);
 
   // 4) Největší souvislá oblast (BFS)
   const oznac = new Int32Array(W * H).fill(-1);
@@ -438,7 +485,11 @@ function detekujKartu(obr) {
     if (vel > nejVel) { nejVel = vel; nejId = id; }
     id++;
   }
-  if (nejId < 0 || nejVel < W * H * 0.06) return { ok: false, duvod: 'karta nenalezena (příliš malá oblast)' };
+  L(`souvislých oblastí: ${id}, největší ${nejVel} px = ${(nejVel / (W * H) * 100).toFixed(1)} % fotky`);
+  if (nejId < 0 || nejVel < W * H * 0.06) {
+    L(`✗ největší oblast je menší než 6 % fotky → vzdávám`);
+    return { ok: false, duvod: 'karta nenalezena (příliš malá oblast)' };
+  }
 
   // 5) Body obrysu → konvexní obal
   const body = [];
@@ -461,6 +512,10 @@ function detekujKartu(obr) {
   const podilFotky = plQuad / (W * H);
 
   const jistota = vyplneni >= 0.88 && pomer > 0.55 && pomer < 0.88 && podilFotky > 0.08;
+  L(`obrys: ${body.length} bodů, konvexní obal ${obal.length} bodů`);
+  L(`rohy (v plné velikosti): ` + rohy.map(p => `(${Math.round(p.x / k)},${Math.round(p.y / k)})`).join(' '));
+  L(`vyplnění ${(vyplneni * 100).toFixed(1)} % (chci ≥ 88), poměr stran ${pomer.toFixed(3)} (karta 0,716, chci 0,55–0,88), ` +
+    `zabírá ${(podilFotky * 100).toFixed(1)} % fotky (chci > 8) → ${jistota ? 'JISTÉ' : 'NEJISTÉ'}`);
   return {
     ok: true, jistota,
     rohy: rohy.map(p => ({ x: p.x / k, y: p.y / k })),
@@ -482,6 +537,7 @@ function plocha(b) { let s = 0; for (let i = 0; i < b.length; i++) { const a = b
 function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 
 function autoDetekce() {
+  L('akce: automatická detekce');
   _rezim = 'auto';
   $('rohyPokyn').textContent = 'Hledám kartu…';
   $('hits').innerHTML = '';
@@ -507,12 +563,14 @@ function autoDetekce() {
 }
 
 function rucneOdZacatku() {
+  L('akce: přepnuto na ruční klikání rohů');
   _rezim = 'rucne'; _rohy = [];
   $('narovnano').style.display = 'none'; $('hits').innerHTML = '';
   prekresliRohy();
 }
 
 function celyObrazek() {
+  L('akce: použít celý obrázek bez ořezu');
   const w = _foto.naturalWidth, h = _foto.naturalHeight;
   _rohy = [{x:0,y:0}, {x:w,y:0}, {x:w,y:h}, {x:0,y:h}];
   prekresliRohy(); narovnatARozpoznat();
@@ -589,6 +647,7 @@ $('rohyCv').addEventListener('pointermove', e => {
 
 $('rohyCv').addEventListener('pointerup', () => {
   if (_tazeny < 0) return;
+  L(`akce: roh ${_tazeny + 1} přetažen na (${Math.round(_rohy[_tazeny].x)},${Math.round(_rohy[_tazeny].y)})`);
   _tazeny = -1;
   if (_rohy.length === 4) {
     $('rohyPokyn').textContent = 'Upraveno ručně — rohy jde dál přetahovat';
@@ -665,6 +724,8 @@ function narovnej(poradi, cil) {
    všechna 4 natočení a vezmeme to, které se s databází shoduje nejlíp. */
 function narovnatARozpoznat() {
   const [lh, ph, pd, ld] = seradRohy(_rohy);
+  L(`--- ROZPOZNÁNÍ: rohy ` + [lh, ph, pd, ld].map(p => `(${Math.round(p.x)},${Math.round(p.y)})`).join(' ') +
+    `, databáze ${databaze.length} karet`);
   const natoceni = [
     { nazev: '0°',   poradi: [lh, ph, pd, ld] },
     { nazev: '90°',  poradi: [ld, lh, ph, pd] },
@@ -681,6 +742,8 @@ function narovnatARozpoznat() {
     const serazene = databaze
       .map(k => ({ ...k, d: vzdal(h.jemny, k.hash.jemny), dc: vzdal(h.cela, k.hash.cela), da: vzdal(h.art, k.hash.art) }))
       .sort((a, b) => a.d - b.d);
+    L(`  natočení ${n.nazev.padStart(4)}: nejblíž ${serazene[0].name} (${serazene[0].id}) = ${serazene[0].d}, ` +
+      `druhá ${serazene[1]?.name} = ${serazene[1]?.d}, odstup ${serazene[1] ? serazene[1].d - serazene[0].d : '-'}`);
     if (!nejlepsi || serazene[0].d < nejlepsi.vys[0].d) nejlepsi = { natoceni: n, vys: serazene.slice(0, 5) };
   }
   const ms = (performance.now() - t0).toFixed(0);
@@ -698,6 +761,10 @@ function narovnatARozpoznat() {
   if (nej <= 110 && odstup >= 18)      { verdikt = '✅ Karta rozpoznána'; barva = '#4ade80'; }
   else if (nej <= 110 && odstup >= 10) { verdikt = '⚠️ Pravděpodobně — ověř, že sedí'; barva = '#fbbf24'; }
   else                                 { verdikt = '❌ Nejistá — tahle karta tu možná není'; barva = '#f87171'; }
+
+  L(`VÝSLEDEK: ${verdikt.replace(/[✅⚠️❌]/g, '').trim()} — ${vys[0].name} (${vys[0].id}), ` +
+    `vzdálenost ${nej}, odstup ${odstup}, natočení ${nejlepsi.natoceni.nazev}, ${ms} ms`);
+  L(`  top 5: ` + vys.map(v => `${v.id}=${v.d}`).join(', '));
 
   $('hits').innerHTML =
     `<div style="border:1px solid ${barva}55;border-left:3px solid ${barva};border-radius:9px;padding:11px 14px;margin:12px 0">
@@ -717,6 +784,7 @@ function narovnatARozpoznat() {
       </div>`).join('');
 }
 
+hlavickaLogu();
 const drop = $('drop');
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#f5c842'; });
 drop.addEventListener('dragleave', () => drop.style.borderColor = '');
@@ -766,6 +834,7 @@ async function autoTest() {
         p >= 85 ? 'ok' : p >= 70 ? 'warn' : 'err');
   }
   log('logTest', `\nNejlepší: ${nazvy[nejT].trim()} — ${nej.toFixed(0)} %`, nej >= 85 ? 'ok' : 'warn');
+  L(`AUTOTEST: ` + ['cela','art','jemny'].map(t => `${t} ${sk[t].t}/${vz.length}`).join(', '));
   log('logTest', nej >= 85 ? 'Otisky fungují. Má smysl stavět živé skenování.'
                            : 'Zatím slabé — pošli výsledek, zkusíme jiný přístup.', nej >= 85 ? 'ok' : 'warn');
   btn.disabled = false;
