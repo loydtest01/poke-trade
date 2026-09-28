@@ -1474,6 +1474,13 @@ async function retryAi(gi) {
 
     if (!result.name) throw new Error('AI nenašla název karty');
 
+    // Data pro srovnání AI a budoucího rozpoznání otiskem (viz logger.js)
+    window.PTLog?.udalost('ai-rozpoznani',
+      `AI: ${result.name}${result.nameEN && result.nameEN !== result.name ? ' / ' + result.nameEN : ''} · ` +
+      `${result.set || '?'} #${result.number || '?'} · jazyk ${result.lang || '?'}`,
+      { name: result.name, nameEN: result.nameEN, set: result.set, number: result.number,
+        lang: result.lang, variant: result.variant, zdroj: 'retryAi' });
+
     // Ulož nový výsledek — zachovej původní metadata (side, batchId, atd.) a přepiš jen AI pole
     const _origMeta = { ...(g.aiResult || {}) };
     g.aiResult = { ..._origMeta, ...result, _retried: true };
@@ -2005,6 +2012,16 @@ async function doAssign(groups, albumId) {
       const cardNumber  = ai.number  || rc?.number || '';
       const cardLang    = ai.lang    || 'EN';  // jazyk varianty (EN/JP/CN/...)
       const cardVariant = ai.variant || 'Normal'; // Reverse Holo ≠ Normal!
+
+      // Srovnání: co navrhla AI a co se nakonec zařadilo. Když se liší,
+      // uživatel AI opravil — přesně ta data, podle kterých poznáme,
+      // kde AI chybuje a kde by pomohl otisk.
+      window.PTLog?.udalost('zarazeni',
+        `zařazeno: ${cardName} · ${cardSet} #${cardNumber} · ${cardLang}` +
+        ((rc && ai.name && rc.name && rc.name !== ai.name) ? ` (AI navrhla ${ai.name})` : ''),
+        { ai_name: ai.name, ai_set: ai.set, ai_number: ai.number, ai_lang: ai.lang,
+          vybrano_name: rc?.name, vybrano_set: rc?.set, vybrano_id: rc?.id || rc?.apiId,
+          opraveno: !!(rc && ai.name && rc.name && rc.name !== ai.name) });
       let existingId = null;
       let dupCardData = null;  // card_data existující karty při duplikátu
       if (cardName) {

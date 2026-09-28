@@ -257,6 +257,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
       <button class="adm-tab" data-tab="admins">🛡️ Správci</button>
       <button class="adm-tab" data-tab="images">🖼 Obrázky karet</button>
       <button class="adm-tab" data-tab="pokedb">🗃 PokéDB</button>
+      <button class="adm-tab" data-tab="logy">📋 Logy</button>
     </div>
 
     <div id="tabs">
@@ -385,6 +386,45 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
             <button class="btn" onclick="grantAdmin()" style="white-space:nowrap">🛡️ Udělit admin</button>
           </div>
           <div id="adminGrantResult" style="margin-top:.8rem;display:none"></div>
+        </div>
+      </div>
+
+      <!-- TAB: Logy — centrální log z prohlížečů (logger.js) ─────── -->
+      <div id="tab-logy" style="display:none">
+        <div class="card" style="padding:16px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+            <label style="font-size:12px">Úroveň<br>
+              <select id="logUroven" onchange="logyNacti()" style="padding:6px 8px">
+                <option value="">vše</option>
+                <option value="error" selected>jen chyby</option>
+                <option value="warn">chyby + varování</option>
+              </select></label>
+            <label style="font-size:12px">Za posledních<br>
+              <select id="logCas" onchange="logyNacti()" style="padding:6px 8px">
+                <option value="1">1 hodinu</option>
+                <option value="24" selected>24 hodin</option>
+                <option value="168">7 dní</option>
+                <option value="336">14 dní</option>
+              </select></label>
+            <label style="font-size:12px">Kdo<br>
+              <select id="logKdo" onchange="logyNacti()" style="padding:6px 8px">
+                <option value="">všichni</option>
+                <option value="ja">jen já</option>
+                <option value="anon">nepřihlášení</option>
+              </select></label>
+            <label style="font-size:12px;flex:1;min-width:180px">Hledat ve zprávě / stránce<br>
+              <input id="logHledat" placeholder="např. queue, HTTP 500, groq"
+                     onkeydown="if(event.key==='Enter')logyNacti()" style="width:100%;padding:6px 8px"></label>
+            <button class="btn btn-sm" onclick="logyNacti()">🔄 Načíst</button>
+            <button class="btn btn-sm" onclick="logyKopiruj()" id="logBtnKopie">📋 Kopírovat</button>
+            <label style="font-size:12px;display:flex;gap:6px;align-items:center">
+              <input type="checkbox" id="logAuto" onchange="logyAuto()"> auto 15 s</label>
+            <button class="btn btn-sm" onclick="logyUklid()" style="margin-left:auto">🧹 Smazat starší 14 dní</button>
+          </div>
+          <div id="logSouhrn" style="margin:12px 0 8px;font-size:12.5px;color:var(--muted)"></div>
+          <pre id="logVypis" style="background:#0a0a10;border:1px solid rgba(255,255,255,.08);border-radius:9px;
+               padding:11px 13px;font-family:ui-monospace,monospace;font-size:11.5px;line-height:1.55;
+               max-height:560px;overflow:auto;white-space:pre-wrap;margin:0">Klikni na „Načíst".</pre>
         </div>
       </div>
 
@@ -910,11 +950,108 @@ async function init() {
       else if (t.dataset.tab === 'admins') loadAdmins();
       else if (t.dataset.tab === 'images') imgInit();
       else if (t.dataset.tab === 'pokedb') pdbLoadJobs();
+      else if (t.dataset.tab === 'logy') logyNacti();
     });
   });
 
   // Load initial
   await Promise.all([loadStats(), loadEvents()]);
+}
+
+/* ══ Záložka Logy — čtení client_logs ze Supabase ══════════════
+   Zapisuje logger.js ze všech stránek. Číst smí jen admin (RLS). */
+let _logyText = '', _logyTimer = null;
+
+function _logEsc(t) { return String(t ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+async function logyNacti() {
+  await ensureFreshToken();
+  const uroven = document.getElementById('logUroven').value;
+  const hodin  = Number(document.getElementById('logCas').value) || 24;
+  const kdo    = document.getElementById('logKdo').value;
+  const hledat = document.getElementById('logHledat').value.trim();
+  const od = new Date(Date.now() - hodin * 3600e3).toISOString();
+
+  const q = new URLSearchParams({
+    select: 'created_at,uroven,kategorie,zprava,detail,stranka,opakovani,user_id,session_id',
+    order: 'created_at.desc', limit: '500',
+  });
+  q.append('created_at', 'gte.' + od);
+  if (uroven === 'error') q.append('uroven', 'eq.error');
+  if (uroven === 'warn')  q.append('uroven', 'in.(error,warn)');
+  if (kdo === 'anon') q.append('user_id', 'is.null');
+  if (kdo === 'ja') {
+    try { const u = JSON.parse(localStorage.getItem('sb_user') || 'null'); if (u?.id) q.append('user_id', 'eq.' + u.id); } catch (_) {}
+  }
+  if (hledat) q.append('or', `(zprava.ilike.*${hledat}*,stranka.ilike.*${hledat}*,kategorie.ilike.*${hledat}*)`);
+
+  const vypis = document.getElementById('logVypis');
+  vypis.textContent = 'Načítám…';
+  try {
+    const r = await fetch(`${SBU}/rest/v1/client_logs?${q}`, {
+      headers: { apikey: SBA, Authorization: 'Bearer ' + _token },
+    });
+    if (!r.ok) {
+      const t = await r.text();
+      vypis.textContent = `Chyba ${r.status}: ${t.slice(0, 300)}\n\nPokud tabulka neexistuje, spusť v Supabase client_logs.sql.`;
+      return;
+    }
+    const rows = await r.json();
+
+    // Souhrn podle úrovně a kategorie
+    const pocty = {};
+    for (const x of rows) { const k = x.uroven + '/' + x.kategorie; pocty[k] = (pocty[k] || 0) + (x.opakovani || 1); }
+    document.getElementById('logSouhrn').innerHTML =
+      `<b>${rows.length}</b> záznamů za ${hodin} h` + (rows.length === 500 ? ' (zobrazeno prvních 500)' : '') + ' · ' +
+      Object.entries(pocty).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k}: <b>${n}</b>`).join(' · ');
+
+    // Text chronologicky (nejstarší nahoře), aby se dal číst jako příběh
+    const barvy = { error: '#f87171', warn: '#fbbf24', info: '#93c5fd', debug: '#9ca3af' };
+    const radky = rows.slice().reverse().map(x => {
+      const cas = new Date(x.created_at).toLocaleString('cs-CZ', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const kdo = x.user_id ? x.user_id.slice(0, 8) : 'anon';
+      const opak = x.opakovani > 1 ? ` ×${x.opakovani}` : '';
+      const det = x.detail ? ' ' + JSON.stringify(x.detail) : '';
+      return { html: `<span style="color:#6b7280">${cas}</span> <span style="color:${barvy[x.uroven] || '#fff'}">${x.uroven.toUpperCase().padEnd(5)}</span> ` +
+                      `<span style="color:#c4b5fd">[${_logEsc(x.kategorie)}]</span> ${_logEsc(x.zprava)}${opak}` +
+                      ` <span style="color:#6b7280">· ${_logEsc(x.stranka || '')} · ${kdo}${_logEsc(det)}</span>`,
+               text: `[${cas}] ${x.uroven.toUpperCase()} [${x.kategorie}] ${x.zprava}${opak} · ${x.stranka || ''} · ${kdo}${det}` };
+    });
+    _logyText = radky.map(r => r.text).join('\n');
+    vypis.innerHTML = radky.length ? radky.map(r => r.html).join('\n') : 'Žádné záznamy pro zvolený filtr.';
+    vypis.scrollTop = vypis.scrollHeight;
+  } catch (e) {
+    vypis.textContent = 'Chyba: ' + e.message;
+  }
+}
+
+async function logyKopiruj() {
+  const hlavicka = `=== PokéTrade log · filtr: ${document.getElementById('logUroven').selectedOptions[0].text}, ` +
+    `${document.getElementById('logCas').selectedOptions[0].text}, ${document.getElementById('logKdo').selectedOptions[0].text}` +
+    (document.getElementById('logHledat').value ? `, hledat „${document.getElementById('logHledat').value}"` : '') + ' ===\n';
+  const text = hlavicka + (_logyText || '(prázdné)');
+  try { await navigator.clipboard.writeText(text); }
+  catch (_) { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  const b = document.getElementById('logBtnKopie'); const p = b.textContent;
+  b.textContent = '✅ Zkopírováno'; setTimeout(() => b.textContent = p, 1600);
+}
+
+function logyAuto() {
+  clearInterval(_logyTimer);
+  if (document.getElementById('logAuto').checked) _logyTimer = setInterval(logyNacti, 15000);
+}
+
+async function logyUklid() {
+  if (!confirm('Smazat všechny logy starší 14 dní?')) return;
+  await ensureFreshToken();
+  const r = await fetch(`${SBU}/rest/v1/rpc/client_logs_uklid`, {
+    method: 'POST',
+    headers: { apikey: SBA, Authorization: 'Bearer ' + _token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dni: 14 }),
+  });
+  const t = await r.text();
+  alert(r.ok ? `Smazáno ${t} záznamů.` : `Chyba ${r.status}: ${t.slice(0, 200)}`);
+  logyNacti();
 }
 
 async function api(action, params = {}, body = null) {

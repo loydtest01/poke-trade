@@ -20,6 +20,22 @@
  * PŘIDAT/ODEBRAT záložku: stačí upravit pole PAGES níže.
  * ================================================================
  */
+
+/* ── Centrální log (logger.js) ─────────────────────────────────
+   Načítá se jako úplně první věc, ať zachytí i chyby při načítání
+   stránky. Sbírá chyby JS, neúspěšné dotazy a události aplikace
+   do Supabase; admin je vidí v admin-loyd.html → záložka Logy.
+   Synchronní document.write tu nepoužíváme — blokoval by stránku. */
+(function () {
+  try {
+    if (window.PTLog || document.querySelector('script[data-pt-logger]')) return;
+    var s = document.createElement('script');
+    s.src = 'logger.js?v=1';
+    s.setAttribute('data-pt-logger', '1');
+    (document.head || document.documentElement).appendChild(s);
+  } catch (_) {}
+})();
+
 (function () {
 'use strict';
 
@@ -53,6 +69,7 @@ var PAGES = [
 /* VIP/Admin emaily — shodné s bulk-scan.html a admin-loyd.html */
 var _VIP_EMAILS   = ['adelka.papezova@gmail.com','james.t.kirk1933@gmail.com','lasovlas@seznam.cz','loydtest@gmail.com','pan.spock30@gmail.com','pokecards.app.info@gmail.com','papez.ondrej@gmail.com'];
 var _ADMIN_EMAILS = ['papez.ondrej@gmail.com','loydtest@gmail.com','lasovlas@seznam.cz'];
+window._ADMIN_EMAILS = _ADMIN_EMAILS;   // logger.js to potřebuje vidět — tady jsme uvnitř uzavřené funkce
 
 /* Vrátí email přihlášeného uživatele z localStorage (lowercase), nebo '' */
 function _getLocalEmail() {
