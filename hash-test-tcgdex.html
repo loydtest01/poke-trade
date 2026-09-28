@@ -187,8 +187,8 @@
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
 /* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
-const VERZE = '3.7';
-const VERZE_POPIS = 'druhý zdroj obrázků pokemontcg.io pro sady, kde TCGdex obrázky nemá';
+const VERZE = '3.9';
+const VERZE_POPIS = 'všechny dotazy a chyby do logu, včetně chyb JavaScriptu';
 const VERZE_DATUM = '2026-09-27';
 
 /* ══ Diagnostický log ══════════════════════════════════════════
@@ -200,6 +200,23 @@ function L(zprava) {
   const el = document.getElementById('diagLog');
   if (el) { el.textContent = _log.join('\n'); el.scrollTop = el.scrollHeight; }
 }
+// Jakákoli neošetřená chyba na stránce jde taky do logu
+window.addEventListener('error', e =>
+  L(`!!! CHYBA JS: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`));
+window.addEventListener('unhandledrejection', e =>
+  L(`!!! NEOŠETŘENÁ CHYBA: ${e.reason?.message || e.reason}`));
+
+/** fetch s logem: adresa, stav, velikost odpovědi a doba */
+async function logFetch(url, popis) {
+  const t0 = performance.now();
+  L(`→ ${popis}: ${url}`);
+  let r;
+  try { r = await fetch(url); }
+  catch (e) { L(`✗ ${popis}: síťová chyba — ${e.message}`); throw e; }
+  L(`← ${popis}: HTTP ${r.status} za ${(performance.now() - t0).toFixed(0)} ms`);
+  return r;
+}
+
 function smazLog() { _log.length = 0; document.getElementById('diagLog').textContent = ''; hlavickaLogu(); }
 function hlavickaLogu() {
   L(`=== hash-test verze ${VERZE} (${VERZE_DATUM}) — ${VERZE_POPIS}`);
@@ -296,6 +313,37 @@ function nactiObr(url) {
    tyhle sady obvykle s obrázky. ID sad se mezi zdroji liší. */
 const PTCG = 'https://api.pokemontcg.io/v2';
 const zdroj = () => $('zdroj').value;
+/* Dotaz na pokemontcg.io — celý q zakódovaný, jeden opakovaný pokus
+   při chybě 5xx (bez API klíče API občas vrátí 500 i samo od sebe)
+   a do logu adresa i začátek odpovědi, ať je jasné, co se stalo. */
+async function ptcgGet(cesta, parametry) {
+  const qs = Object.entries(parametry)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  const url = `${PTCG}/${cesta}?${qs}`;
+  for (let pokus = 1; pokus <= 2; pokus++) {
+    let r;
+    try { r = await logFetch(url, `pokemontcg.io (pokus ${pokus})`); }
+    catch (e) { if (pokus === 2) throw e; continue; }
+    if (r.ok) {
+      const d = await r.json();
+      L(`  pokemontcg.io vrátilo ${(d.data || []).length} záznamů (celkem ${d.totalCount ?? '?'})`);
+      return d;
+    }
+    const telo = (await r.text().catch(() => '')).slice(0, 180).replace(/\s+/g, ' ');
+    L(`pokemontcg.io HTTP ${r.status} (pokus ${pokus}) — ${url}`);
+    if (telo) L(`  odpověď: ${telo}`);
+    if (r.status < 500 || pokus === 2) throw new Error('HTTP ' + r.status);
+    await new Promise(res => setTimeout(res, 1500));
+  }
+}
+
+/* Dotaz podle jména: jedno slovo → hledání s hvězdičkou (Pikachu*),
+   víc slov → přesná fráze v uvozovkách. Hvězdička v uvozovkách nefunguje. */
+function ptcgDotazJmeno(jmeno) {
+  const j = jmeno.trim().replace(/["\\]/g, '');
+  return /\s/.test(j) ? `name:"${j}"` : `name:${j}*`;
+}
+
 function zmenaZdroje() {
   const ptcg = zdroj() === 'ptcg';
   $('lang').disabled = ptcg;
@@ -311,19 +359,21 @@ async function najdiKartu() {
   const jmeno = $('jmeno').value.trim(), lang = $('lang').value, box = $('nalezene');
   if (jmeno.length < 3) { box.innerHTML = '<p class="hint" style="color:#fbbf24;margin-top:10px">Zadej aspoň tři písmena.</p>'; return; }
   box.innerHTML = '<p class="hint" style="margin-top:10px">Hledám…</p>';
+  L(`akce: hledat „${jmeno}", zdroj ${zdroj()}, jazyk ${lang}`);
 
   try {
     let karty;
     if (zdroj() === 'ptcg') {
       // pokemontcg.io: dotaz přes q=name:, výsledek má set.id přímo
-      const r = await fetch(`${PTCG}/cards?q=name:"${encodeURIComponent(jmeno)}*"&pageSize=250&select=id,name,number,set,images`);
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      karty = ((await r.json()).data || []).map(k => ({
+      const d = await ptcgGet('cards', {
+        q: ptcgDotazJmeno(jmeno), pageSize: 250, select: 'id,name,number,set',
+      });
+      karty = (d.data || []).map(k => ({
         id: k.id, localId: k.number, name: k.name,
         sadaPtcg: k.set?.id, nazevSady: k.set?.name,
       }));
     } else {
-      const r = await fetch(`${TCGDEX}/${lang}/cards?name=${encodeURIComponent(jmeno)}`);
+      const r = await logFetch(`${TCGDEX}/${lang}/cards?name=${encodeURIComponent(jmeno)}`, 'TCGdex hledání');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       karty = await r.json();
     }
@@ -345,7 +395,8 @@ async function najdiKartu() {
        <div class="setlist" id="seznam"></div>`;
     vykresliVysledky('');
   } catch (e) {
-    box.innerHTML = `<p class="hint" style="color:#f87171;margin-top:10px">Chyba: ${esc(e.message)}</p>`;
+    L(`✗ HLEDÁNÍ SELHALO (${zdroj()}): ${e.message}`);
+    box.innerHTML = `<p class="hint" style="color:#f87171;margin-top:10px">Chyba: ${esc(e.message)} — podrobnosti v logu dole</p>`;
   }
 }
 
@@ -374,6 +425,7 @@ async function nactiSadu() {
   const setId = $('setId').value.trim(), lang = $('lang').value, btn = $('btnLoad');
   if (!setId) { alert('Vyber sadu v kroku 1, nebo zadej ID ručně.'); return; }
   btn.disabled = true; $('logLoad').innerHTML = ''; databaze = []; progress('barLoad', 0);
+  L(`akce: načíst sadu ${setId}, zdroj ${zdroj()}, jazyk ${lang}`);
   log('logLoad', `Stahuji sadu ${setId} (${lang}) z TCGdexu…`);
 
   let karty = [];
@@ -382,9 +434,9 @@ async function nactiSadu() {
       // pokemontcg.io stránkuje po 250
       let vse = [];
       for (let str = 1; str <= 4; str++) {
-        const r = await fetch(`${PTCG}/cards?q=set.id:${encodeURIComponent(setId)}&pageSize=250&page=${str}&select=id,name,number,images,set`);
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        const d = await r.json();
+        const d = await ptcgGet('cards', {
+          q: `set.id:${setId}`, pageSize: 250, page: str, select: 'id,name,number,images,set',
+        });
         vse = vse.concat(d.data || []);
         if ((d.data || []).length < 250) break;
       }
@@ -396,7 +448,7 @@ async function nactiSadu() {
       log('logLoad', `Sada „${nazev}" (pokemontcg.io): ${vse.length} karet, z toho ${karty.length} s obrázkem.`);
       L(`sada ${setId} z pokemontcg.io: ${vse.length} karet, ${karty.length} s obrázkem`);
     } else {
-      const r = await fetch(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`);
+      const r = await logFetch(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`, 'TCGdex sada');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
       karty = (d.cards || []).filter(k => k.image);
@@ -406,7 +458,8 @@ async function nactiSadu() {
         L(`  TCGdex tu sadu zná, ale bez obrázků — zkus zdroj pokemontcg.io`);
     }
   } catch (e) {
-    log('logLoad', 'Nepodařilo se načíst sadu: ' + e.message, 'err');
+    L(`✗ NAČTENÍ SADY SELHALO (${setId}, ${zdroj()}): ${e.message}`);
+    log('logLoad', 'Nepodařilo se načíst sadu: ' + e.message + ' — podrobnosti v logu dole', 'err');
     btn.disabled = false; return;
   }
   if (!karty.length) {
@@ -426,6 +479,7 @@ async function nactiSadu() {
     } catch (e) {
       const m = e.name === 'SecurityError' ? 'CORS — nelze číst pixely' : e.message;
       duvody[m] = (duvody[m] || 0) + 1;
+      if (duvody[m] <= 3) L(`  obrázek selhal (${m}): ${url}`);   // prvních pár s adresou
     }
     progress('barLoad', Math.round((i + 1) / karty.length * 100));
     if (i % 8 === 0) await new Promise(r => setTimeout(r, 0));
