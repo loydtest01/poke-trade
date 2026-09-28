@@ -502,8 +502,14 @@ function detekujKartu(obr) {
   const obal = konvexniObal(body);
   if (obal.length < 4) return { ok: false, duvod: 'obrys nemá tvar karty' };
 
-  // 6) Čtyři rohy = krajní body obalu
-  const rohy = seradRohy(obal);
+  // 6) Čtyři rohy = krajní body obalu, pak zpřesnění přes proložené strany
+  const hrube = seradRohy(obal);
+  const upr = upresniRohy(body, hrube);
+  L(`zpřesnění rohů (zaoblení): bodů na stranách ${upr.pocty.join('/')}, ` +
+    `posun rohů o ${upr.posun.map(v => (v / k).toFixed(0)).join('/')} px`);
+  const jem = hranaNaPolovine(ds, W, H, upr.rohy, mS);
+  const rohy = jem.rohy;
+  L(`hrana na polovině signálu: bodů na stranách ${jem.pocty.join('/')}`);
   const plQuad = plocha(rohy), plObal = plocha(obal);
   const vyplneni = plQuad / plObal;                 // blízko 1 = opravdu čtyřúhelník
   const [lh, ph, pd, ld] = rohy;
@@ -522,6 +528,141 @@ function detekujKartu(obr) {
     info: `vyplnění ${(vyplneni * 100).toFixed(0)} %, poměr stran ${pomer.toFixed(2)} (karta 0,72), ` +
           `zabírá ${(podilFotky * 100).toFixed(0)} % fotky`,
   };
+}
+
+/* ══ Zpřesnění rohů u zaoblené karty ═════════════════════════════
+   Karta má zaoblené rohy, takže krajní bod obrysu leží na oblouku
+   a obdélník přes takové body kartu v rozích "usekne". Místo toho
+   proložíme přímku každou stranou — jen jejím rovným středem, konce
+   s obloukem vynecháme — a skutečné rohy spočítáme jako průsečíky
+   sousedních stran. Vyjdou tam, kde by roh byl u ostré karty. */
+function upresniRohy(body, rohy) {
+  const [lh, ph, pd, ld] = rohy;
+  const strany = [[lh, ph], [ph, pd], [pd, ld], [ld, lh]];   // horní, pravá, dolní, levá
+  const primky = [];
+  const pocty = [];
+
+  // Střed čtyřúhelníku — podle něj poznáme, kterým směrem je "ven"
+  const cx = (lh.x + ph.x + pd.x + ld.x) / 4, cy = (lh.y + ph.y + pd.y + ld.y) / 4;
+
+  for (const [A, B] of strany) {
+    const len = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+    const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len;
+    let nx = -dy, ny = dx;
+    if ((cx - A.x) * nx + (cy - A.y) * ny > 0) { nx = -nx; ny = -ny; }   // normála ven z karty
+    const tol = len * 0.06;
+
+    // Z každého místa podél strany jen NEJVZDÁLENĚJŠÍ bod směrem ven.
+    // Hranice masky obsahuje i okraje děr uvnitř karty (kde ilustrace
+    // u rámečku splývá se stolem) — ty leží kousek uvnitř a stáhly by
+    // proloženou přímku dovnitř. Vnější obrys je vždycky ten nejdál.
+    const nejvic = new Map();
+    for (const p of body) {
+      const t = (p.x - A.x) * dx + (p.y - A.y) * dy;
+      const n = (p.x - A.x) * nx + (p.y - A.y) * ny;
+      if (t <= len * 0.15 || t >= len * 0.85 || Math.abs(n) > tol) continue;
+      const kos = Math.round(t);
+      const bylo = nejvic.get(kos);
+      if (!bylo || n > bylo.n) nejvic.set(kos, { x: p.x, y: p.y, n });
+    }
+    const vybrane = [...nejvic.values()];
+    pocty.push(vybrane.length);
+    if (vybrane.length < 8) { primky.push({ px: A.x, py: A.y, dx, dy }); continue; }
+
+    // Proložení přímky metodou hlavních komponent (zvládne i svislou stranu)
+    let mx = 0, my = 0;
+    for (const p of vybrane) { mx += p.x; my += p.y; }
+    mx /= vybrane.length; my /= vybrane.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const p of vybrane) { const a = p.x - mx, b = p.y - my; sxx += a * a; syy += b * b; sxy += a * b; }
+    const uhel = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    primky.push({ px: mx, py: my, dx: Math.cos(uhel), dy: Math.sin(uhel) });
+  }
+
+  // Průsečík dvou přímek
+  const prusecik = (a, b) => {
+    const det = a.dx * b.dy - a.dy * b.dx;
+    if (Math.abs(det) < 1e-6) return null;
+    const t = ((b.px - a.px) * b.dy - (b.py - a.py) * b.dx) / det;
+    return { x: a.px + t * a.dx, y: a.py + t * a.dy };
+  };
+
+  // Roh = průsečík jeho dvou stran: LH = levá∩horní, PH = horní∩pravá, …
+  const nove = [
+    prusecik(primky[3], primky[0]),
+    prusecik(primky[0], primky[1]),
+    prusecik(primky[1], primky[2]),
+    prusecik(primky[2], primky[3]),
+  ];
+
+  // Pojistka: nový roh nesmí uletět dál než o 8 % velikosti karty
+  const velikost = Math.max(Math.hypot(pd.x - lh.x, pd.y - lh.y), 1);
+  const vysledek = nove.map((p, i) =>
+    p && Math.hypot(p.x - rohy[i].x, p.y - rohy[i].y) < velikost * 0.08 ? p : rohy[i]);
+  const posun = vysledek.map((p, i) => Math.hypot(p.x - rohy[i].x, p.y - rohy[i].y));
+  return { rohy: vysledek, pocty, posun };
+}
+
+/* ══ Subpixelové dohledání hrany ══════════════════════════════════
+   Rozmazání, které potlačuje kresbu dřeva, rozmaže i hranu karty,
+   takže maska je o 1–2 px větší. U symetrického rozmazání ale leží
+   bod, kde signál překročí POLOVINU mezi stolem a kartou, přesně na
+   skutečné hraně. Podél každé strany tedy napříč hranou změříme
+   průběh a najdeme ten poloviční bod, pak znovu proložíme přímky. */
+function hranaNaPolovine(ds, W, H, rohy, urovenPozadi) {
+  const smp = (x, y) => {                       // bilineární vzorek
+    if (x < 0 || y < 0 || x >= W - 1 || y >= H - 1) return urovenPozadi;
+    const x0 = x | 0, y0 = y | 0, fx = x - x0, fy = y - y0, i = y0 * W + x0;
+    return ds[i] * (1 - fx) * (1 - fy) + ds[i + 1] * fx * (1 - fy) +
+           ds[i + W] * (1 - fx) * fy + ds[i + W + 1] * fx * fy;
+  };
+  const [lh, ph, pd, ld] = rohy;
+  const cx = (lh.x + ph.x + pd.x + ld.x) / 4, cy = (lh.y + ph.y + pd.y + ld.y) / 4;
+  const strany = [[lh, ph], [ph, pd], [pd, ld], [ld, lh]];
+  const primky = [], pocty = [];
+
+  for (const [A, B] of strany) {
+    const len = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+    const dx = (B.x - A.x) / len, dy = (B.y - A.y) / len;
+    let nx = -dy, ny = dx;
+    if ((cx - A.x) * nx + (cy - A.y) * ny > 0) { nx = -nx; ny = -ny; }
+    const body = [];
+    for (let t = len * 0.15; t < len * 0.85; t += 1.5) {
+      const qx = A.x + dx * t, qy = A.y + dy * t;
+      // úroveň karty = kousek uvnitř, úroveň stolu = kousek venku
+      const uvnitr = (smp(qx - nx * 5, qy - ny * 5) + smp(qx - nx * 6, qy - ny * 6)) / 2;
+      const venku  = Math.min(smp(qx + nx * 5, qy + ny * 5), urovenPozadi * 2);
+      if (uvnitr - venku < 6) continue;                 // hrana tu není zřetelná
+      const pul = (uvnitr + venku) / 2;
+      // od vnitřku ven najdi přechod přes polovinu
+      let pred = smp(qx - nx * 4, qy - ny * 4), nalez = null;
+      for (let o = -3.75; o <= 4; o += 0.25) {
+        const v = smp(qx + nx * o, qy + ny * o);
+        if (pred >= pul && v < pul) { nalez = o - 0.25 * (pul - v) / (pred - v || 1); break; }
+        pred = v;
+      }
+      if (nalez !== null) body.push({ x: qx + nx * nalez, y: qy + ny * nalez });
+    }
+    pocty.push(body.length);
+    if (body.length < 8) { primky.push({ px: A.x, py: A.y, dx, dy }); continue; }
+    let mx = 0, my = 0;
+    for (const p of body) { mx += p.x; my += p.y; }
+    mx /= body.length; my /= body.length;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const p of body) { const a = p.x - mx, b = p.y - my; sxx += a * a; syy += b * b; sxy += a * b; }
+    const u = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    primky.push({ px: mx, py: my, dx: Math.cos(u), dy: Math.sin(u) });
+  }
+  const pr = (a, b) => {
+    const det = a.dx * b.dy - a.dy * b.dx;
+    if (Math.abs(det) < 1e-6) return null;
+    const t = ((b.px - a.px) * b.dy - (b.py - a.py) * b.dx) / det;
+    return { x: a.px + t * a.dx, y: a.py + t * a.dy };
+  };
+  const nove = [pr(primky[3], primky[0]), pr(primky[0], primky[1]), pr(primky[1], primky[2]), pr(primky[2], primky[3])];
+  const vel = Math.max(Math.hypot(pd.x - lh.x, pd.y - lh.y), 1);
+  const vys = nove.map((p, i) => p && Math.hypot(p.x - rohy[i].x, p.y - rohy[i].y) < vel * 0.05 ? p : rohy[i]);
+  return { rohy: vys, pocty };
 }
 
 function konvexniObal(b) {
