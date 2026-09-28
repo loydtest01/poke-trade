@@ -16,7 +16,7 @@
   'use strict';
   if (window.PTLog) return;
 
-  var VERZE_LOGGERU = '1.0';
+  var VERZE_LOGGERU = '1.1';
   var SBU = 'https://xrduqwrinzvmpixgmqta.supabase.co';
   var SBA = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
   var CIL = '/rest/v1/client_logs';
@@ -40,8 +40,19 @@
       return e.toLowerCase();
     } catch (_) { return ''; }
   }
+  /* Podrobný log na tomhle zařízení — zapne se jednou adresou
+     ?logvse=1 (a vypne ?logvse=0). Hodí se na telefonu, kde se admin
+     jinak nepozná: mobil se přihlašuje tokenem z QR kódu a topbar.js,
+     který admina určuje, tam neběží. Čtení logů zůstává jen pro admina. */
+  try {
+    var pq = new URLSearchParams(location.search).get('logvse');
+    if (pq === '1') localStorage.setItem('pt_log_vse', '1');
+    if (pq === '0') localStorage.removeItem('pt_log_vse');
+  } catch (_) {}
+
   function jeAdmin() {
     try {
+      if (localStorage.getItem('pt_log_vse') === '1') return true;
       if (typeof window._isAdmin === 'function' && window._isAdmin()) return true;   // helper z topbar.js
       if (localStorage.getItem('pkc_is_admin') === '1') return true;
       var seznam = window._ADMIN_EMAILS || [];
@@ -50,6 +61,8 @@
     } catch (_) { return false; }
   }
   function token() {
+    // Stránka může token předat sama (mobil ho má z QR kódu)
+    if (window.PT_LOG_TOKEN) return window.PT_LOG_TOKEN;
     try { return localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || ''; }
     catch (_) { return ''; }
   }

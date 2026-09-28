@@ -355,6 +355,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 .cfm-alt:active{transform:scale(.92);background:rgba(79,142,247,.2);border-color:var(--accent)}
 .cfm-alt-label{font-size:9px;color:var(--muted);margin-top:2px}
 </style>
+  <!-- Centrální log (mobil nemá topbar.js, tak se načítá přímo).
+       Podrobný log na tomto telefonu: otevři jednou s ?logvse=1 -->
+  <script src="logger.js?v=1"></script>
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
@@ -863,6 +866,8 @@ const SB_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsIn
 
 // ─── Auth token – načteme z localStorage, NE z URL ──────────
 let mobileToken = localStorage.getItem('sb_token') || '';
+// Logger si token bere odsud, aby záznamy z mobilu patřily přihlášenému uživateli
+Object.defineProperty(window, 'PT_LOG_TOKEN', { get: () => mobileToken || '', configurable: true });
 
 // ─── VAPID public key (pár vygenerovaný pro tento projekt) ───
 const VAPID_PUBLIC = 'BJQQ3j0RLJKmhZR7_EdpnRWF-rSblz9w5HhAbtKGZoX7OyeJjNC2HuCL-jrhmtbFq6cS2FJAW8gUvV0R8xBZncQ';
@@ -2642,6 +2647,7 @@ async function sendAll() {
   const total = cards.length;
   let failCount = 0;
   let lastErr = '';
+  window.PTLog?.udalost('mobil-odeslani', `odesílám ${total} karet do fronty`);
 
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
@@ -2735,6 +2741,8 @@ async function sendAll() {
   const withPhoto = cards.filter(c => c.frontPhoto).length;
   const withAI    = cards.filter(c => c.frontAI?.name).length;
 
+  if (failCount > 0) window.PTLog?.error('mobil-odeslani', `${failCount} z ${total} karet se neodeslalo: ${lastErr}`);
+  else window.PTLog?.udalost('mobil-odeslani', `odesláno všech ${total} karet`);
   if (failCount > 0) {
     // Aspoň jedna karta se neodeslala – zobraz chybu místo "Odesláno!"
     document.getElementById('scDone').querySelector('.done-icon').textContent  = '⚠️';
@@ -2920,7 +2928,13 @@ Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English
       const data = await resp.json();
       lastRaw = data.choices?.[0]?.message?.content || '';
       const p = parseJson(lastRaw);
-      if (p?.name) { p.name = cleanPokemonName(p.name); return p; }
+      if (p?.name) {
+        p.name = cleanPokemonName(p.name);
+        window.PTLog?.udalost('ai-rozpoznani',
+          `mobil AI: ${p.name}${p.nameEN && p.nameEN !== p.name ? ' / ' + p.nameEN : ''} · ${p.set || '?'} #${p.number || '?'} · jazyk ${p.lang || '?'}`,
+          { name: p.name, nameEN: p.nameEN, set: p.set, number: p.number, lang: p.lang, zdroj: 'mobil' });
+        return p;
+      }
       lastErr = `JSON bez name – "${lastRaw.slice(0, 80)}"`;
       break;
     } catch (e) {
@@ -2935,6 +2949,8 @@ Respond ONLY with valid JSON, no markdown: {"name":"","nameEN":"official English
     }
   }
 
+  window.PTLog?.warn('ai-rozpoznani', `mobil AI selhala: ${lastErr || 'neznámá chyba'}`,
+    { raw: lastRaw.slice(0, 200) });
   return { _error: lastErr || 'Neznámá chyba', _raw: lastRaw.slice(0, 200) };
 }
 
