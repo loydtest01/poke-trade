@@ -358,6 +358,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
   <!-- Centrální log (mobil nemá topbar.js, tak se načítá přímo).
        Podrobný log na tomto telefonu: otevři jednou s ?logvse=1 -->
   <script src="logger.js?v=1"></script>
+  <script src="card-vision.js?v=1"></script>
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
 </head>
@@ -611,6 +612,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
       </div>
       <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:-4px">Galerie: nahrát hotové fotky, AI odhadne stav automaticky.</div>
 
+      <button class="btn" onclick="stojanStart()" style="margin-top:14px;width:100%;background:rgba(74,222,128,.12);
+              border:1px solid rgba(74,222,128,.45);color:#4ade80">🎥 Režim stojanu — fotí sám</button>
+      <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:6px">
+        Telefon na stojanu kamerou dolů, karty pokládáš pod něj. Každou novou kartu sám vyfotí, vyřízne a narovná.
+      </div>
+
     </div>
 
     <!-- ══ FRONT PHOTO ══ -->
@@ -822,6 +829,41 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
     </div>
 
     <!-- ══ SENDING ══ -->
+    <!-- ══ REŽIM STOJANU ══ -->
+    <div class="screen" id="scStojan" style="padding:0">
+      <div id="stojanObal" style="position:relative;width:100%;height:62vh;background:#000;border-radius:0 0 14px 14px;overflow:hidden">
+        <video id="stojanVideo" playsinline muted autoplay
+               style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain"></video>
+        <canvas id="stojanOverlay" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+        <div id="stojanBlesk" style="position:absolute;inset:0;background:#fff;opacity:0;transition:opacity .25s;pointer-events:none"></div>
+        <div id="stojanStav" style="position:absolute;left:10px;right:10px;bottom:10px;padding:9px 12px;border-radius:10px;
+             background:rgba(0,0,0,.65);color:#fff;font-size:14px;font-weight:600;text-align:center">Spouštím kameru…</div>
+        <div id="stojanPocet" style="position:absolute;top:10px;right:10px;padding:6px 12px;border-radius:20px;
+             background:rgba(0,0,0,.65);color:#4ade80;font-size:15px;font-weight:800">0</div>
+      </div>
+
+      <div style="padding:12px 14px">
+        <div id="stojanNahledy" style="display:flex;gap:6px;overflow-x:auto;min-height:70px;padding-bottom:6px"></div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">
+          <button class="btn" onclick="stojanPauza()" id="stojanBtnPauza">⏸ Pauza</button>
+          <button class="btn" onclick="stojanVyfotTed()">📸 Teď</button>
+          <button class="btn" onclick="stojanSmazPosledni()">↩ Zpět</button>
+        </div>
+        <button class="btn btn-primary" onclick="stojanOdeslat()" id="stojanBtnOdeslat"
+                style="width:100%;margin-top:10px" disabled>📤 Odeslat 0 karet do fronty</button>
+
+        <div style="display:flex;gap:14px;align-items:center;justify-content:center;margin-top:12px;font-size:12.5px;color:var(--muted)">
+          <label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="stojanOtocit"> Otočit o 180°</label>
+          <button class="btn" onclick="stojanKonec()" style="padding:6px 12px;font-size:12.5px">✕ Zavřít</button>
+        </div>
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5">
+          Tmavá matná podložka a světlo ze strany dají nejlepší výsledek. Karty se odešlou bez rozpoznání —
+          to proběhne ve frontě na počítači. Neobnovuj stránku, nafocené karty jsou jen v paměti telefonu.
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="scSending">
       <div style="text-align:center;padding:40px 0">
         <div style="font-size:48px;margin-bottom:16px">📤</div>
@@ -4556,6 +4598,254 @@ function _cfmApplyChar(char) {
   haptic([30, 40, 60]);
   toast('✅ Znak opraven → ' + newName);
 }
+</script>
+<script>
+/* ══════════════════════════════════════════════════════════════
+   REŽIM STOJANU
+   ------------------------------------------------------------
+   Telefon leží na stojanu kamerou dolů, karty se pokládají pod něj.
+   Smyčka ~8× za vteřinu:
+     1. zmenšený snímek → CardVision.detekuj() najde kartu
+     2. čeká, až se karta přestane hýbat (rohy stabilní 3 snímky)
+     3. otisk karty porovná s poslední vyfocenou — nová karta se liší
+        o desítky bitů, stejná karta skoro vůbec, takže se nefotí dvakrát
+     4. z plného rozlišení kartu vyřízne, narovná a uloží jako JPEG
+   Rozpoznání neprobíhá tady — karty jdou do fronty jako fotky a AI
+   (později otisk) je rozpozná tam. Stojan tak nevyčerpá limity AI.
+══════════════════════════════════════════════════════════════ */
+const STOJAN = {
+  MAX: 50,                 // karet v jedné dávce (paměť telefonu)
+  // Min. vzdálenost otisku od předchozí karty, aby se brala jako nová.
+  // Stejná karta ležící na místě kolísá o 0–5 bitů, nepříbuzné karty
+  // se liší kolem 100. Podobné karty (stejný Pokémon, jiné vydání) ale
+  // můžou vyjít i kolem 40, proto je práh nízko: radši občas duplikát,
+  // který se smaže tlačítkem Zpět, než potichu vynechaná karta.
+  NOVA_KARTA: 25,
+  STABILNI_SNIMKU: 3,
+  POHYB_MAX: 0.012,        // max posun rohů mezi snímky (podíl úhlopříčky)
+  stream: null, zapnuto: false, pauza: false, wakeLock: null,
+  historie: [], posledniOtisk: null, mezera: 0, zachyceno: [],
+  maly: document.createElement('canvas'),
+  plny: document.createElement('canvas'),
+  posledniDetekce: null, vynutit: false,
+};
+
+function stojanStav(t) { const el = document.getElementById('stojanStav'); if (el) el.textContent = t; }
+
+async function stojanStart() {
+  if (!window.CardVision) { toast('Detekce karet se nenačetla — obnov stránku'); return; }
+  showScreen('scStojan');
+  stojanStav('Spouštím kameru…');
+  try {
+    STOJAN.stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+  } catch (e) {
+    stojanStav('Kamera nejde spustit: ' + e.message);
+    window.PTLog?.error('stojan', 'kamera nejde spustit: ' + e.message);
+    return;
+  }
+  const v = document.getElementById('stojanVideo');
+  v.srcObject = STOJAN.stream;
+  try { await v.play(); } catch (_) {}
+  // Průběžné ostření, kde to telefon umí
+  try {
+    const track = STOJAN.stream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    if (caps.focusMode && caps.focusMode.includes('continuous'))
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+  } catch (_) {}
+  // Telefon na stojanu nesmí zhasnout
+  try { STOJAN.wakeLock = await navigator.wakeLock?.request('screen'); } catch (_) {}
+
+  CardVision.nastavLog(null);
+  STOJAN.zapnuto = true; STOJAN.pauza = false; STOJAN.historie = [];
+  window.PTLog?.udalost('stojan', `spuštěn, kamera ${v.videoWidth}×${v.videoHeight}`);
+  stojanStav('Polož kartu pod telefon');
+  stojanSmycka();
+}
+
+function stojanSmycka() {
+  if (!STOJAN.zapnuto) return;
+  if (!STOJAN.pauza && STOJAN.zachyceno.length < STOJAN.MAX) {
+    try { stojanKrok(); }
+    catch (e) { window.PTLog?.error('stojan', 'chyba ve smyčce: ' + e.message, { stack: String(e.stack || '').slice(0, 400) }); }
+  }
+  setTimeout(stojanSmycka, 120);
+}
+
+function stojanKrok() {
+  const v = document.getElementById('stojanVideo');
+  if (!v.videoWidth) return;
+
+  // 1) Zmenšený snímek na detekci
+  const k = 400 / Math.max(v.videoWidth, v.videoHeight);
+  const m = STOJAN.maly;
+  m.width = Math.round(v.videoWidth * k); m.height = Math.round(v.videoHeight * k);
+  m.getContext('2d', { willReadFrequently: true }).drawImage(v, 0, 0, m.width, m.height);
+  const r = CardVision.detekuj(m);
+  stojanKresli(r.ok ? r.rohy : null, r.ok && r.jistota ? '#f5c842' : '#f87171', k);
+
+  if (!r.ok || !r.jistota) {
+    STOJAN.historie = [];
+    if (++STOJAN.mezera >= 2) stojanStav(STOJAN.zachyceno.length ? `✅ ${STOJAN.zachyceno.length} uloženo — polož další kartu` : 'Polož kartu pod telefon');
+    STOJAN.posledniDetekce = null;
+    return;
+  }
+
+  // 2) Stabilita — rohy se mezi snímky skoro nehýbou
+  const rohy = CardVision.seradRohy(r.rohy);
+  STOJAN.posledniDetekce = { rohy, k };
+  STOJAN.historie.push(rohy);
+  if (STOJAN.historie.length > STOJAN.STABILNI_SNIMKU) STOJAN.historie.shift();
+  const diag = Math.hypot(m.width, m.height);
+  let pohyb = 0;
+  for (let i = 1; i < STOJAN.historie.length; i++)
+    for (let j = 0; j < 4; j++)
+      pohyb = Math.max(pohyb, Math.hypot(STOJAN.historie[i][j].x - STOJAN.historie[i - 1][j].x,
+                                          STOJAN.historie[i][j].y - STOJAN.historie[i - 1][j].y) / diag);
+  const stabilni = STOJAN.historie.length >= STOJAN.STABILNI_SNIMKU && pohyb < STOJAN.POHYB_MAX;
+  if (!stabilni && !STOJAN.vynutit) { stojanStav('Drž… karta se ještě hýbe'); return; }
+
+  // 3) Natočení: karta na výšku, případně o 180°
+  const poradi = stojanPoradi(rohy);
+
+  // 4) Nová karta? Porovnání otisku s poslední uloženou
+  const nahled = CardVision.narovnej(m, poradi, 250, 350, false);
+  const o = CardVision.otisk(nahled).jemny;
+  const vzd = STOJAN.posledniOtisk != null ? CardVision.vzdalenost(o, STOJAN.posledniOtisk) : 999;
+  // Stejnou kartu podruhé vyfotí jen po odebrání (mezera) nebo tlačítkem „Teď"
+  if (vzd < STOJAN.NOVA_KARTA && STOJAN.mezera < 2 && !STOJAN.vynutit) {
+    stojanStav(`✅ ${STOJAN.zachyceno.length} uloženo — polož další kartu`);
+    stojanKresli(r.rohy, '#4ade80', k);
+    return;
+  }
+
+  // 5) Uložit z plného rozlišení
+  const p = STOJAN.plny;
+  p.width = v.videoWidth; p.height = v.videoHeight;
+  p.getContext('2d').drawImage(v, 0, 0);
+  const rohyPlne = poradi.map(b => ({ x: b.x / k, y: b.y / k }));
+  const karta = CardVision.narovnej(p, rohyPlne, 630, 880, true);
+  const ostrost = CardVision.ostrost(karta);
+  const dataUrl = karta.toDataURL('image/jpeg', 0.9);
+
+  STOJAN.zachyceno.push({ dataUrl, otisk: o, ostrost });
+  STOJAN.posledniOtisk = o; STOJAN.historie = []; STOJAN.mezera = 0;
+  const vynuceno = STOJAN.vynutit; STOJAN.vynutit = false;
+
+  haptic?.(60);
+  const b = document.getElementById('stojanBlesk'); b.style.opacity = '.55'; setTimeout(() => b.style.opacity = '0', 120);
+  stojanObnovUI();
+  stojanStav(`✅ Karta ${STOJAN.zachyceno.length} uložena`);
+  window.PTLog?.udalost('stojan', `zachycena karta ${STOJAN.zachyceno.length}` + (vynuceno ? ' (ručně)' : ''),
+    { ostrost: Math.round(ostrost), vzdalenost_od_predchozi: vzd === 999 ? null : vzd, pohyb: +pohyb.toFixed(4) });
+
+  if (STOJAN.zachyceno.length >= STOJAN.MAX) {
+    STOJAN.pauza = true;
+    stojanStav(`Limit ${STOJAN.MAX} karet — odešli dávku a pokračuj`);
+  }
+}
+
+// Karta ležící na šířku se otočí na výšku; volitelně celé o 180°
+function stojanPoradi(rohy) {
+  let [lh, ph, pd, ld] = rohy;
+  const d = (a, c) => Math.hypot(a.x - c.x, a.y - c.y);
+  if (d(lh, ph) > d(lh, ld)) [lh, ph, pd, ld] = [ld, lh, ph, pd];
+  if (document.getElementById('stojanOtocit')?.checked) [lh, ph, pd, ld] = [pd, ld, lh, ph];
+  return [lh, ph, pd, ld];
+}
+
+// Obrys karty přes živý obraz (video je zobrazené s object-fit: contain)
+function stojanKresli(rohy, barva, k) {
+  const v = document.getElementById('stojanVideo'), c = document.getElementById('stojanOverlay');
+  const W = c.clientWidth, H = c.clientHeight;
+  if (c.width !== W) c.width = W; if (c.height !== H) c.height = H;
+  const x = c.getContext('2d'); x.clearRect(0, 0, W, H);
+  if (!rohy || !v.videoWidth) return;
+  const sk = Math.min(W / v.videoWidth, H / v.videoHeight);
+  const ox = (W - v.videoWidth * sk) / 2, oy = (H - v.videoHeight * sk) / 2;
+  const P = CardVision.seradRohy(rohy).map(b => ({ x: ox + (b.x / k) * sk, y: oy + (b.y / k) * sk }));
+  x.strokeStyle = barva; x.lineWidth = 3; x.beginPath();
+  P.forEach((b, i) => i ? x.lineTo(b.x, b.y) : x.moveTo(b.x, b.y)); x.closePath(); x.stroke();
+}
+
+function stojanObnovUI() {
+  const n = STOJAN.zachyceno.length;
+  document.getElementById('stojanPocet').textContent = n;
+  const b = document.getElementById('stojanBtnOdeslat');
+  b.disabled = !n;
+  b.textContent = `📤 Odeslat ${n} ${n === 1 ? 'kartu' : n < 5 && n > 0 ? 'karty' : 'karet'} do fronty`;
+  document.getElementById('stojanNahledy').innerHTML = STOJAN.zachyceno.slice().reverse().map((z, i) =>
+    `<img src="${z.dataUrl}" style="height:70px;border-radius:5px;flex:0 0 auto;
+      ${i === 0 ? 'outline:2px solid #4ade80' : ''}" title="ostrost ${Math.round(z.ostrost)}">`).join('');
+}
+
+function stojanPauza() {
+  STOJAN.pauza = !STOJAN.pauza;
+  document.getElementById('stojanBtnPauza').textContent = STOJAN.pauza ? '▶ Pokračovat' : '⏸ Pauza';
+  stojanStav(STOJAN.pauza ? 'Pozastaveno' : 'Polož kartu pod telefon');
+}
+
+// Vyfotí právě detekovanou kartu i když se hýbe nebo je stejná jako předchozí
+function stojanVyfotTed() {
+  if (!STOJAN.posledniDetekce) { toast('Karta není vidět'); return; }
+  STOJAN.vynutit = true;
+}
+
+function stojanSmazPosledni() {
+  const z = STOJAN.zachyceno.pop();
+  if (!z) return;
+  STOJAN.posledniOtisk = STOJAN.zachyceno.length ? STOJAN.zachyceno[STOJAN.zachyceno.length - 1].otisk : null;
+  if (STOJAN.pauza && STOJAN.zachyceno.length < STOJAN.MAX) stojanPauza();
+  stojanObnovUI();
+  window.PTLog?.udalost('stojan', `smazána poslední karta, zbývá ${STOJAN.zachyceno.length}`);
+}
+
+function stojanVypniKameru() {
+  STOJAN.zapnuto = false;
+  try { STOJAN.stream?.getTracks().forEach(t => t.stop()); } catch (_) {}
+  try { STOJAN.wakeLock?.release(); } catch (_) {}
+  STOJAN.stream = null; STOJAN.wakeLock = null;
+}
+
+function stojanKonec() {
+  if (STOJAN.zachyceno.length && !confirm(`Zahodit ${STOJAN.zachyceno.length} nafocených karet?`)) return;
+  window.PTLog?.udalost('stojan', `zavřen, zahozeno ${STOJAN.zachyceno.length} karet`);
+  stojanVypniKameru();
+  STOJAN.zachyceno = []; STOJAN.posledniOtisk = null;
+  stojanObnovUI();
+  showScreen('scSetup');
+}
+
+/* Odeslání: nafocené karty převedeme na stejný tvar jako při běžném
+   focení a použijeme existující sendAll() — žádná zvláštní cesta. */
+async function stojanOdeslat() {
+  const n = STOJAN.zachyceno.length;
+  if (!n) return;
+  stojanVypniKameru();
+  cards = STOJAN.zachyceno.map(z => ({
+    frontPhoto: z.dataUrl, frontAI: null, condition: 'NM', note: '',
+    backPhoto: null, backAI: null, detailPhotos: [], backDetailPhotos: [],
+    jpNamePhoto: null, isFakeTraining: false,
+  }));
+  totalCards = n; currentCard = 0;
+  batchId = 'stojan-' + Date.now().toString(36);
+  window.PTLog?.udalost('stojan', `odesílám ${n} karet do fronty`);
+  STOJAN.zachyceno = []; STOJAN.posledniOtisk = null;
+  stojanObnovUI();
+  await sendAll();
+}
+
+// Při odchodu ze stránky kameru vždy vypnout
+window.addEventListener('pagehide', stojanVypniKameru);
+document.addEventListener('visibilitychange', async () => {
+  // Zámek obrazovky se při přepnutí aplikace ztratí — obnovit po návratu
+  if (document.visibilityState === 'visible' && STOJAN.zapnuto && !STOJAN.wakeLock) {
+    try { STOJAN.wakeLock = await navigator.wakeLock?.request('screen'); } catch (_) {}
+  }
+});
 </script>
 <script src="site-tracking.js"></script>
 
