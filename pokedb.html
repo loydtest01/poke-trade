@@ -2182,8 +2182,13 @@ function renderCards(cards) {
     // Fallback z pokemontcg.io CDN — POUZE pro EN karty; jiné jazyky mají jiný formát ID a vrátí špatnou kartu
     const lang = c.lang || c.language || '';
     const isEn = !lang || lang === 'en';
+    // Angličtina: opravená adresa CDN pokemontcg.io (viz ptcgCdnUrl).
+    // Ostatní jazyky: adresa zůstává beze změny. Je sice neplatná (TCGdex
+    // potřebuje zkratku série, kterou seznam nemá), ale její selhání spustí
+    // CardImages.fallback a ten zobrazí zadní stranu. Bez adresy by se místo
+    // zadní strany ukázala jen ikonka 🃏.
     const fallbackImg = isEn
-      ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`
+      ? ptcgCdnUrl(c.id, false)
       : (c.set_id && c.number ? `https://assets.tcgdex.net/${lang||'en'}/${c.set_id.replace(/-/g,'/')}/${c.number.split('/')[0]}/high.webp` : '');
     const imgSrc = img || fallbackImg;
     const imgHtml = imgSrc
@@ -2371,9 +2376,11 @@ function renderModal(c) {
     enSub.textContent = c.name_en;
     modalTitle.insertAdjacentElement('afterend', enSub);
   }
+  // Angličtina: opravená adresa CDN (viz ptcgCdnUrl). Ostatní jazyky beze
+  // změny — jejich selhání spouští CardImages.fallback se zadní stranou.
   const _tcgFb = (isEnCard ? '' : (c.set_id && c.number ? `https://assets.tcgdex.net/${cardLang||'en'}/${c.set_id.replace(/-/g,'/')}/${c.number.split('/')[0]}/high.webp` : ''));
-  const fallbackImg   = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/large.png` : _tcgFb;
-  const fallbackThumb = isEnCard ? `https://images.pokemontcg.io/${encodeURIComponent(c.id)}/low.png`   : _tcgFb;
+  const fallbackImg   = isEnCard ? ptcgCdnUrl(c.id, true)  : _tcgFb;
+  const fallbackThumb = isEnCard ? ptcgCdnUrl(c.id, false) : _tcgFb;
   const img   = c.image_url || c.image_thumb_url || fallbackThumb;
   const hiRes = c.image_hires_url || c.image_url || fallbackImg;
   const types = (c.types || []).map(t =>
@@ -3024,6 +3031,20 @@ function toast(msg, type='info') {
 /* ════════════════════════════════════════════════════
    UTILS
 ════════════════════════════════════════════════════ */
+/* Adresa obrázku na CDN pokemontcg.io.
+   Formát je images.pokemontcg.io/{sada}/{číslo}.png (nebo _hires.png).
+   Dřív se sem dosazovalo celé ID karty a soubor "low.png" — taková
+   adresa neexistuje, takže záloha selhala vždycky a karta skočila
+   rovnou na zadní stranu. ID anglické karty je "{sada}-{číslo}",
+   číslo je vždy za posledním pomlčkou (sada může mít tečku: sv3pt5). */
+function ptcgCdnUrl(id, velky) {
+  const s = String(id || ''); const p = s.lastIndexOf('-');
+  if (p < 1) return '';
+  const sada = s.slice(0, p), cislo = s.slice(p + 1);
+  if (!sada || !cislo) return '';
+  return `https://images.pokemontcg.io/${encodeURIComponent(sada)}/${encodeURIComponent(cislo)}${velky ? '_hires' : ''}.png`;
+}
+
 function escH(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
