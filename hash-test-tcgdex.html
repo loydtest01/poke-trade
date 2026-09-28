@@ -75,12 +75,21 @@
   <div class="card">
     <h2><span class="num">1</span> Najdi sadu, ze které je tvoje karta</h2>
     <p class="hint">Napiš jméno karty. Ukáže se, ve kterých sadách vyšla, včetně čísla —
-       podle čísla v dolním rohu karty poznáš tu svoji.</p>
+       podle čísla v dolním rohu karty poznáš tu svoji.
+       Když TCGdex u sady nemá obrázky, přepni zdroj na <b>pokemontcg.io</b> —
+       ID sady tam bývá jiné (např. McDonald's 2021 je <code>mcd21</code>).</p>
     <div class="row">
       <div style="flex:3">
         <label>Jméno karty (anglicky spolehlivěji)</label>
         <input type="text" id="jmeno" placeholder="např. Squirtle, Pikachu, Charizard"
                onkeydown="if(event.key==='Enter')najdiKartu()">
+      </div>
+      <div>
+        <label>Zdroj obrázků</label>
+        <select id="zdroj" onchange="zmenaZdroje()">
+          <option value="tcgdex">TCGdex — všechny jazyky</option>
+          <option value="ptcg">pokemontcg.io — jen angličtina</option>
+        </select>
       </div>
       <div>
         <label>Jazyk</label>
@@ -178,8 +187,8 @@
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
 /* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
-const VERZE = '3.6';
-const VERZE_POPIS = 'detekce podle hran pro alba + výběr kandidáta podle shody s databází';
+const VERZE = '3.7';
+const VERZE_POPIS = 'druhý zdroj obrázků pokemontcg.io pro sady, kde TCGdex obrázky nemá';
 const VERZE_DATUM = '2026-09-27';
 
 /* ══ Diagnostický log ══════════════════════════════════════════
@@ -281,6 +290,20 @@ function nactiObr(url) {
   });
 }
 
+/* ── Zdroje obrázků ─────────────────────────────────────────
+   TCGdex má všechny jazyky, ale u některých sad (McDonald's, část
+   promo karet) obrázky chybí. pokemontcg.io má jen angličtinu, zato
+   tyhle sady obvykle s obrázky. ID sad se mezi zdroji liší. */
+const PTCG = 'https://api.pokemontcg.io/v2';
+const zdroj = () => $('zdroj').value;
+function zmenaZdroje() {
+  const ptcg = zdroj() === 'ptcg';
+  $('lang').disabled = ptcg;
+  if (ptcg) $('lang').value = 'en';
+  $('nalezene').innerHTML = '';
+  L(`zdroj přepnut na ${ptcg ? 'pokemontcg.io' : 'TCGdex'}`);
+}
+
 /* ── 1. Hledání karty ─────────────────────────────────────── */
 let _vysledky = [];
 
@@ -290,9 +313,20 @@ async function najdiKartu() {
   box.innerHTML = '<p class="hint" style="margin-top:10px">Hledám…</p>';
 
   try {
-    const r = await fetch(`${TCGDEX}/${lang}/cards?name=${encodeURIComponent(jmeno)}`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const karty = await r.json();
+    let karty;
+    if (zdroj() === 'ptcg') {
+      // pokemontcg.io: dotaz přes q=name:, výsledek má set.id přímo
+      const r = await fetch(`${PTCG}/cards?q=name:"${encodeURIComponent(jmeno)}*"&pageSize=250&select=id,name,number,set,images`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      karty = ((await r.json()).data || []).map(k => ({
+        id: k.id, localId: k.number, name: k.name,
+        sadaPtcg: k.set?.id, nazevSady: k.set?.name,
+      }));
+    } else {
+      const r = await fetch(`${TCGDEX}/${lang}/cards?name=${encodeURIComponent(jmeno)}`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      karty = await r.json();
+    }
     if (!Array.isArray(karty) || !karty.length) {
       box.innerHTML = '<p class="hint" style="color:#f87171;margin-top:10px">Nic nenalezeno. Zkus jméno anglicky nebo jiný jazyk.</p>';
       return;
@@ -300,8 +334,9 @@ async function najdiKartu() {
     // ID karty = "{sada}-{číslo}" → sadu dostaneme odříznutím čísla
     _vysledky = karty.map(k => ({
       ...k,
-      sada: k.id.slice(0, k.id.length - String(k.localId).length - 1),
+      sada: k.sadaPtcg || k.id.slice(0, k.id.length - String(k.localId).length - 1),
     }));
+    L(`hledání „${jmeno}" (${zdroj()}): ${karty.length} karet`);
     box.innerHTML =
       `<p class="hint" style="margin-top:10px">Nalezeno ${karty.length} karet. Filtruj číslem nebo sadou
          (např. <code>148</code> nebo <code>sv07</code>) a klepni na tu svoji:</p>
@@ -322,7 +357,7 @@ function vykresliVysledky(f) {
     <button class="ghost setbtn" onclick="vyberSadu('${esc(k.sada)}')">
       <b style="color:var(--gold)">${esc(k.sada)}</b>
       <span style="opacity:.8"> · č. ${esc(k.localId)}</span>
-      <span style="opacity:.5"> · ${esc(k.name)}</span>
+      <span style="opacity:.5"> · ${esc(k.name)}${k.nazevSady ? ' · ' + esc(k.nazevSady) : ''}</span>
     </button>`).join('')
     : '<span class="hint">Nic neodpovídá filtru.</span>';
 }
@@ -343,20 +378,47 @@ async function nactiSadu() {
 
   let karty = [];
   try {
-    const r = await fetch(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const d = await r.json();
-    karty = (d.cards || []).filter(k => k.image);
-    log('logLoad', `Sada „${d.name}": ${d.cards?.length || 0} karet, z toho ${karty.length} s obrázkem.`);
+    if (zdroj() === 'ptcg') {
+      // pokemontcg.io stránkuje po 250
+      let vse = [];
+      for (let str = 1; str <= 4; str++) {
+        const r = await fetch(`${PTCG}/cards?q=set.id:${encodeURIComponent(setId)}&pageSize=250&page=${str}&select=id,name,number,images,set`);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const d = await r.json();
+        vse = vse.concat(d.data || []);
+        if ((d.data || []).length < 250) break;
+      }
+      // Sjednotíme tvar s TCGdexem; 'obr' je rovnou celá URL
+      karty = vse.filter(k => k.images?.small).map(k => ({
+        id: k.id, localId: k.number, name: k.name, obr: k.images.small,
+      }));
+      const nazev = vse[0]?.set?.name || setId;
+      log('logLoad', `Sada „${nazev}" (pokemontcg.io): ${vse.length} karet, z toho ${karty.length} s obrázkem.`);
+      L(`sada ${setId} z pokemontcg.io: ${vse.length} karet, ${karty.length} s obrázkem`);
+    } else {
+      const r = await fetch(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      karty = (d.cards || []).filter(k => k.image);
+      log('logLoad', `Sada „${d.name}": ${d.cards?.length || 0} karet, z toho ${karty.length} s obrázkem.`);
+      L(`sada ${setId} (${lang}) z TCGdexu: ${d.cards?.length || 0} karet, ${karty.length} s obrázkem`);
+      if (!karty.length && (d.cards || []).length)
+        L(`  TCGdex tu sadu zná, ale bez obrázků — zkus zdroj pokemontcg.io`);
+    }
   } catch (e) {
     log('logLoad', 'Nepodařilo se načíst sadu: ' + e.message, 'err');
     btn.disabled = false; return;
   }
-  if (!karty.length) { log('logLoad', 'Sada nemá obrázky.', 'warn'); btn.disabled = false; return; }
+  if (!karty.length) {
+    log('logLoad', zdroj() === 'tcgdex'
+      ? 'Sada nemá obrázky. Přepni zdroj na pokemontcg.io v kroku 1 a najdi sadu znovu podle jména.'
+      : 'Sada nemá obrázky ani na pokemontcg.io.', 'warn');
+    btn.disabled = false; return;
+  }
 
   let ok = 0; const duvody = {};
   for (let i = 0; i < karty.length; i++) {
-    const k = karty[i], url = k.image + '/low.webp';
+    const k = karty[i], url = k.obr || (k.image + '/low.webp');
     try {
       const obr = await nactiObr(url);
       databaze.push({ id: k.id, name: k.name, number: k.localId, img: url, hash: otisky(obr) });
