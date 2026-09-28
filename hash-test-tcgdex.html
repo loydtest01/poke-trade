@@ -187,8 +187,8 @@
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
 /* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
-const VERZE = '3.9';
-const VERZE_POPIS = 'všechny dotazy a chyby do logu, včetně chyb JavaScriptu';
+const VERZE = '4.0';
+const VERZE_POPIS = 'pokemontcg.io: 5 pokusů s pauzou + záloha obrázků přímo z CDN';
 const VERZE_DATUM = '2026-09-27';
 
 /* ══ Diagnostický log ══════════════════════════════════════════
@@ -317,24 +317,53 @@ const zdroj = () => $('zdroj').value;
    při chybě 5xx (bez API klíče API občas vrátí 500 i samo od sebe)
    a do logu adresa i začátek odpovědi, ať je jasné, co se stalo. */
 async function ptcgGet(cesta, parametry) {
+  // pokemontcg.io je od přechodu na Scrydex nespolehlivé — běžně vrací
+  // HTTP 500 a projde až na druhý, třetí pokus. Síťová chyba bývá taky
+  // jen chybová odpověď bez CORS hlavičky. Zkoušíme tedy víckrát.
   const qs = Object.entries(parametry)
     .map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
   const url = `${PTCG}/${cesta}?${qs}`;
-  for (let pokus = 1; pokus <= 2; pokus++) {
+  const pauzy = [0, 1500, 3000, 5000, 8000];
+  let posledni = null;
+  for (let pokus = 1; pokus <= pauzy.length; pokus++) {
+    if (pauzy[pokus - 1]) await new Promise(r => setTimeout(r, pauzy[pokus - 1]));
     let r;
-    try { r = await logFetch(url, `pokemontcg.io (pokus ${pokus})`); }
-    catch (e) { if (pokus === 2) throw e; continue; }
+    try { r = await logFetch(url, `pokemontcg.io (pokus ${pokus}/${pauzy.length})`); }
+    catch (e) { posledni = e; continue; }                 // síťová chyba → znovu
     if (r.ok) {
       const d = await r.json();
       L(`  pokemontcg.io vrátilo ${(d.data || []).length} záznamů (celkem ${d.totalCount ?? '?'})`);
       return d;
     }
     const telo = (await r.text().catch(() => '')).slice(0, 180).replace(/\s+/g, ' ');
-    L(`pokemontcg.io HTTP ${r.status} (pokus ${pokus}) — ${url}`);
     if (telo) L(`  odpověď: ${telo}`);
-    if (r.status < 500 || pokus === 2) throw new Error('HTTP ' + r.status);
-    await new Promise(res => setTimeout(res, 1500));
+    posledni = new Error('HTTP ' + r.status);
+    if (r.status < 500 && r.status !== 429) break;        // 4xx kromě limitu nemá smysl opakovat
   }
+  L(`✗ pokemontcg.io nevyšlo ani na ${pauzy.length} pokusů`);
+  throw posledni || new Error('pokemontcg.io nedostupné');
+}
+
+/* Záloha bez API: obrázky leží na CDN s předvídatelnou adresou
+   images.pokemontcg.io/{sada}/{číslo}.png — to CDN je spolehlivé,
+   stávkuje jen API nad ním. Zkoušíme čísla 1, 2, 3… dokud nepřijde
+   víc chybějících za sebou. Jména karet tím nezjistíme, ale na test
+   rozpoznání stačí číslo. */
+async function ptcgZCdn(setId) {
+  L(`záloha: načítám obrázky sady ${setId} přímo z CDN podle čísla`);
+  const karty = [];
+  let chybi = 0;
+  for (let n = 1; n <= 400 && chybi < 8; n++) {
+    const url = `https://images.pokemontcg.io/${encodeURIComponent(setId)}/${n}.png`;
+    try {
+      await nactiObr(url);
+      karty.push({ id: `${setId}-${n}`, localId: String(n), name: `#${n}`, obr: url });
+      chybi = 0;
+    } catch { chybi++; }
+    if (n % 10 === 0) log('logLoad', `  CDN: zkoušeno ${n}, nalezeno ${karty.length}…`);
+  }
+  L(`záloha CDN: nalezeno ${karty.length} obrázků`);
+  return karty;
 }
 
 /* Dotaz podle jména: jedno slovo → hledání s hvězdičkou (Pikachu*),
@@ -396,7 +425,12 @@ async function najdiKartu() {
     vykresliVysledky('');
   } catch (e) {
     L(`✗ HLEDÁNÍ SELHALO (${zdroj()}): ${e.message}`);
-    box.innerHTML = `<p class="hint" style="color:#f87171;margin-top:10px">Chyba: ${esc(e.message)} — podrobnosti v logu dole</p>`;
+    box.innerHTML = `<p class="hint" style="color:#f87171;margin-top:10px">Chyba: ${esc(e.message)} — podrobnosti v logu dole</p>` +
+      (zdroj() === 'ptcg'
+        ? `<p class="hint">Hledání podle jména potřebuje API, které teď nejede. Když znáš ID sady,
+             napiš ho rovnou do kroku 2 — načtení sady má zálohu přes CDN a funguje i bez API.
+             McDonald's 2021 je nejspíš <code>mcd21</code>.</p>`
+        : '');
   }
 }
 
@@ -431,22 +465,27 @@ async function nactiSadu() {
   let karty = [];
   try {
     if (zdroj() === 'ptcg') {
-      // pokemontcg.io stránkuje po 250
+      // pokemontcg.io stránkuje po 250; když API nejede, vezmeme obrázky z CDN
       let vse = [];
-      for (let str = 1; str <= 4; str++) {
-        const d = await ptcgGet('cards', {
-          q: `set.id:${setId}`, pageSize: 250, page: str, select: 'id,name,number,images,set',
-        });
-        vse = vse.concat(d.data || []);
-        if ((d.data || []).length < 250) break;
+      try {
+        for (let str = 1; str <= 4; str++) {
+          const d = await ptcgGet('cards', {
+            q: `set.id:${setId}`, pageSize: 250, page: str, select: 'id,name,number,images,set',
+          });
+          vse = vse.concat(d.data || []);
+          if ((d.data || []).length < 250) break;
+        }
+        karty = vse.filter(k => k.images?.small).map(k => ({
+          id: k.id, localId: k.number, name: k.name, obr: k.images.small,
+        }));
+        const nazev = vse[0]?.set?.name || setId;
+        log('logLoad', `Sada „${nazev}" (pokemontcg.io): ${vse.length} karet, z toho ${karty.length} s obrázkem.`);
+        L(`sada ${setId} z pokemontcg.io: ${vse.length} karet, ${karty.length} s obrázkem`);
+      } catch (e) {
+        log('logLoad', 'API pokemontcg.io nejede — zkouším obrázky přímo z CDN…', 'warn');
+        karty = await ptcgZCdn(setId);
+        log('logLoad', `Z CDN načteno ${karty.length} obrázků (bez jmen karet, jen čísla).`, karty.length ? 'ok' : 'err');
       }
-      // Sjednotíme tvar s TCGdexem; 'obr' je rovnou celá URL
-      karty = vse.filter(k => k.images?.small).map(k => ({
-        id: k.id, localId: k.number, name: k.name, obr: k.images.small,
-      }));
-      const nazev = vse[0]?.set?.name || setId;
-      log('logLoad', `Sada „${nazev}" (pokemontcg.io): ${vse.length} karet, z toho ${karty.length} s obrázkem.`);
-      L(`sada ${setId} z pokemontcg.io: ${vse.length} karet, ${karty.length} s obrázkem`);
     } else {
       const r = await logFetch(`${TCGDEX}/${lang}/sets/${encodeURIComponent(setId)}`, 'TCGdex sada');
       if (!r.ok) throw new Error('HTTP ' + r.status);
