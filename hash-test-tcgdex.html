@@ -61,7 +61,10 @@
 <body>
 <div class="wrap">
 
-  <h1>🔍 Test rozpoznávání karet podle <em>otisku</em></h1>
+  <h1>🔍 Test rozpoznávání karet podle <em>otisku</em>
+      <span id="verzeStitek" style="font-size:12px;font-weight:600;color:var(--text2);
+            background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:20px;
+            padding:3px 10px;vertical-align:middle;margin-left:6px"></span></h1>
   <p class="sub">
     Ověří, jestli se dá karta poznat porovnáním perceptuálního otisku místo AI.
     Data bere přímo z <b>TCGdexu</b>, takže nepotřebuje PokéDB ani databázi —
@@ -174,6 +177,11 @@
    /v2/{lang}/sets/{id}     → sada se seznamem karet a obrázků
    Obrázek: {image}/low.webp (malý, na otisk stačí)
 ══════════════════════════════════════════════════════════════ */
+/* ══ VERZE — zvyš při každé změně, ať je v logu vidět, co se načetlo ══ */
+const VERZE = '3.5';
+const VERZE_POPIS = 'rohy přes proložené strany + hrana na polovině signálu';
+const VERZE_DATUM = '2026-09-27';
+
 /* ══ Diagnostický log ══════════════════════════════════════════
    Všechno podstatné jde sem jako text, ať se dá poslat bez screenshotů. */
 const _log = [];
@@ -185,7 +193,8 @@ function L(zprava) {
 }
 function smazLog() { _log.length = 0; document.getElementById('diagLog').textContent = ''; hlavickaLogu(); }
 function hlavickaLogu() {
-  L(`=== hash-test v3 · ${navigator.userAgent.slice(0, 110)}`);
+  L(`=== hash-test verze ${VERZE} (${VERZE_DATUM}) — ${VERZE_POPIS}`);
+  L(`=== ${navigator.userAgent.slice(0, 110)}`);
   L(`=== obrazovka ${screen.width}×${screen.height}, DPR ${devicePixelRatio}`);
 }
 async function kopirujLog() {
@@ -925,6 +934,9 @@ function narovnatARozpoznat() {
       </div>`).join('');
 }
 
+$('verzeStitek').textContent = 'v' + VERZE;
+$('verzeStitek').title = VERZE_POPIS + ' · ' + VERZE_DATUM;
+document.title = `Test rozpoznávání karet v${VERZE} — PokéTrade`;
 hlavickaLogu();
 const drop = $('drop');
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.style.borderColor = '#f5c842'; });
