@@ -30,7 +30,8 @@
 
   const REFERRAL_KEY    = 'pkc_referral_code';   // v localStorage
   const FP_KEY          = 'pkc_browser_fp';      // v localStorage (cache)
-  const CLAIM_DONE_KEY  = 'pkc_vip_claimed';     // 1× per účet flag
+  const CLAIM_DONE_KEY  = 'pkc_vip_claimed_v2';  // _v2: dřívější verze si ukládala „hotovo" i po neúspěchu — nový klíč
+  // zajistí, že se každý prohlížeč jednou zeptá znovu (VIP s podmínkou 5 karet)     // 1× per účet flag
 
   let _vipState = {
     isVip:      false,
@@ -156,10 +157,16 @@
         p_referral_code: refCode,
       });
 
-      // Mark jako claimed lokálně bez ohledu na výsledek (server řeší duplicity)
-      localStorage.setItem(CLAIM_DONE_KEY + '_' + user.id, '1');
-      // Vyčisti referral kód po použití
+      // Doporučující kód si server uložil hned při prvním volání (i když
+      // VIP ještě nedal), takže ho prohlížeč smí zapomenout.
       localStorage.removeItem(REFERRAL_KEY);
+
+      // „Hotovo" si pamatujeme jen když je opravdu hotovo. Dřív se to
+      // ukládalo vždy — s podmínkou 5 karet by se prohlížeč po prvním
+      // „ještě ne" už nikdy nezeptal a VIP by uživatel nedostal nikdy.
+      const konecne = resp && (resp.success ||
+        ['already_claimed', 'duplicate_fingerprint', 'unauthorized'].includes(resp.reason));
+      if (konecne) localStorage.setItem(CLAIM_DONE_KEY + '_' + user.id, '1');
 
       if (resp && resp.success) {
         console.log(`[VIP] Welcome VIP uděleno: ${resp.vip_days === -1 ? 'LIFETIME' : resp.vip_days + ' dní'} (${resp.vip_source})`);
@@ -176,12 +183,31 @@
         if (resp?.reason === 'duplicate_fingerprint') {
           // Tichý fail — neukazujeme nic uživateli aby nevěděl jak to obejít
         }
+        if (resp?.reason === 'not_qualified') _showPostup(user.id, resp);
         return resp;
       }
     } catch (e) {
       console.error('[VIP] claim_welcome_vip selhal:', e);
       return null;
     }
+  }
+
+  /* Postup k VIP — „máš 2 z 5 karet". Nejvýš jednou za 6 hodin, ať to
+     neotravuje na každé stránce. Když je doživotních míst málo, řekne to. */
+  function _showPostup(userId, r) {
+    try {
+      const klic = 'pkc_vip_postup_' + userId;
+      const posledni = Number(localStorage.getItem(klic) || 0);
+      if (Date.now() - posledni < 6 * 3600e3) return;
+      localStorage.setItem(klic, String(Date.now()));
+    } catch (_) {}
+    const zbyva = Math.max(0, (r.potreba || 5) - (r.karet || 0));
+    const slovo = zbyva === 1 ? 'kartu' : zbyva < 5 ? 'karty' : 'karet';
+    let odmena;
+    if (r.volnych_lifetime > 0)      odmena = `VIP NAVŽDY — zbývá ${r.volnych_lifetime} z 10 míst`;
+    else if (r.volnych_first100 > 0) odmena = 'VIP na 30 dní zdarma';
+    else                             odmena = 'VIP na 14 dní zdarma';
+    _toast(`⭐ Přidej do alba ještě ${zbyva} ${slovo} a získáš ${odmena}.`, 'info', 7000);
   }
 
   function _showLifetimeToast(source) {
@@ -333,6 +359,9 @@
     getLifetimeStatus: _getLifetimeStatus,
     checkReferralQualification: _checkReferralQualification,
     getFingerprint:    _getFingerprint,
+    // Zkusit VIP znovu hned — volá fronta po zařazení karet, ať gratulace
+    // naskočí u páté karty a ne až při dalším načtení stránky.
+    zkusitZnovu: async () => { const r = await _claimWelcomeVip(); if (r?.success) await _loadVipStatus(); return r; },
   };
 
   // Auto-init na DOMContentLoaded (po app.js)

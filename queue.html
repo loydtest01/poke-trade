@@ -2210,6 +2210,11 @@ async function doAssign(groups, albumId) {
   renderGroups();
   updateBadge();
   if (ok)   toast(`✅ ${ok} karet zařazeno${albumId ? ' do alba' : ''}`, 'ok');
+  // VIP se uděluje po 5 kartách v albu — zkusit hned, ať gratulace
+  // naskočí u páté karty a ne až při dalším načtení stránky.
+  if (ok && window.VIP?.zkusitZnovu && !window.VIP.isVIP()) {
+    window.VIP.zkusitZnovu().catch(() => {});
+  }
   if (fail) toast(`⚠️ ${fail} karet se nepodařilo zařadit`, 'err');
 }
 
