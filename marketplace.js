@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function () {
 // Lokální název _MKT_TCG_PROXY zabraňuje konfliktu s případnou const _TCG_PROXY v app.js
 var _MKT_TCG_PROXY = 'https://xrduqwrinzvmpixgmqta.supabase.co/functions/v1/tcg-proxy';
 function tcgFetch(url) {
+  if (window.PT_tcgFetch) return window.PT_tcgFetch(url); // tcg-zdroj.js: proxy → záloha TCGdex
   const m = url.match(/api\.pokemontcg\.io\/v2\/([^?]+)(\?.*)?$/);
   if (!m) return fetch(url);
   const segment = m[1]; const qs = m[2] || '';
@@ -1512,9 +1513,9 @@ async function handleAiPhoto(file){
       ]);
 
       fill.style.width='60%';
-      stat.textContent='Hledám v databázi pokemontcg.io...';
+      stat.textContent='Hledám kartu v databázi…';
 
-      // Step 2: Search pokemontcg.io
+      // Step 2: hledání (PokéDB, TCGdex, pokemontcg.io jako záloha)
       const candidates = await searchPokemonTcg(aiResult);
 
       fill.style.width='90%';
@@ -1625,9 +1626,16 @@ async function callClaudeVision(base64, mimeType){
 6. Card type/subtype (Pokémon, Trainer, Energy; and V, VMAX, ex, GX, etc.)
 7. HP value if visible
 
+8. Language of the text printed on the card: EN, JP, DE, FR, IT, ES, PT, KO or ZH.
+   Judge by the printed text itself, not by what the Pokémon is called in English.
+   Japanese has kana/kanji, Korean has hangul, Chinese has only hanzi.
+9. The name EXACTLY as printed (in the card's own language), and separately the English name.
+
 Respond ONLY with a JSON object, no explanation:
 {
   "name": "...",
+  "nameEN": "...",
+  "lang": "EN",
   "number": "...",
   "setName": "...",
   "setCode": "...",
@@ -1667,6 +1675,35 @@ If you cannot identify the card at all, return {"confidence":"low","name":"","no
 
 async function searchPokemonTcg(aiResult){
   const { name, number, setName, setCode, confidence } = aiResult;
+  const lang = String(aiResult.lang || 'EN').toUpperCase();
+
+  // Společné vyhledávání z card-search.js — umí jazyk karty a PokéDB.
+  // Dřív se tu hledalo jen přímo na pokemontcg.io, takže nabídka z fotky
+  // byla vždy anglická karta, i když AI poznala japonskou nebo německou.
+  // pokemontcg.io je navíc od přechodu na Scrydex nespolehlivé.
+  if (window.PkSearch?.search && name) {
+    try {
+      const vys = await PkSearch.search(name, {
+        set: setCode || setName || '', number: number || '', lang,
+        hp: aiResult.hp || null, pageSize: 12,
+        _preResolvedEnName: aiResult.nameEN || '',
+      });
+      window.PTLog?.udalost('obchod-ai', `AI: ${name} · ${lang} · #${number || '?'} → ${vys.length} kandidátů` +
+        (vys[0] ? `, nejlepší ${vys[0].name} (${vys[0].lang || '?'}, skóre ${vys[0]._score})` : ''));
+      // Výběr kandidátů a náhled v obchodě čtou tvar pokemontcg.io
+      // (images.small, set.name, id) — doplníme ho, ať se ukážou obrázky i sady.
+      if (vys.length) return vys.slice(0, 8).map(c => ({
+        ...c,
+        id:     c.apiId || c.id,
+        images: { small: c.apiSmall || c.imageUrl || '', large: c.apiLarge || c.imageUrl || '' },
+        set:    { name: (typeof c.set === 'string' ? c.set : c.set?.name) || c.setId || '', id: c.setId || '' },
+      }));
+    } catch (e) {
+      window.PTLog?.warn('obchod-ai', 'společné vyhledávání selhalo: ' + e.message);
+    }
+  }
+
+  // Záloha: původní přímé hledání na pokemontcg.io
   const candidates = [];
 
   // Build queries from most specific to least
