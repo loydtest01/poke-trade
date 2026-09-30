@@ -1237,79 +1237,88 @@ window.addEventListener('DOMContentLoaded', function() {
     after(2700 + PULSE_MS + FADE_MS + PAUSE_MS, startCycle);
   }
 
-  // ── Načti 3 náhodné vzácné karty z pokemontcg.io API ─────────────
-  // Strategie: hledáme nejvzácnější karty (Rare Holo VMAX, EX, ex, GX, Special Illustration Rare, atd.)
-  // Z velkého poolu (~250 karet napříč nedávnými sety) náhodně vybereme 3.
-  // Fallback: pokud API selže, zůstanou původní lokální obrázky (pikachu-gx.png atd.)
+  // ── 3 náhodné vzácné karty z TCGdex ───────────────────────────────
+  // pokemontcg.io (přes tcg-proxy) po přechodu na Scrydex nefunguje → TCGdex
+  // (zdarma, bez klíče). Zásobník ~60 karet se ukládá na 24 h, takže opakovaná
+  // návštěva API nevolá. Obrázky se před výměnou ověří. Při jakékoli chybě
+  // zůstanou lokální obrázky z HTML (pikachu-gx.png atd.).
   (async function loadRandomCards() {
     var cardEls = [pikachu, mewtwo, charizard];
+    var API = 'https://api.tcgdex.net/v2/en';
+    var KLIC = 'pt_hero_pool_v1', PLATNOST = 24 * 3600 * 1000;
 
-    // Rarity klíčová slova pro nejhodnotnější/nejvzácnější karty:
-    //   - VMAX, V, ex (jp/sword&shield), GX, EX (sun&moon)
-    //   - Special Illustration Rare, Hyper Rare, Secret Rare
-    //   - Rainbow Rare, Gold/Full Art Trainer, Amazing Rare, Radiant
-    // Pokud bude pool prázdný (filter chybí), zkusíme menší rarity jako Holo Rare.
-    var rarityPools = [
-      // Tier 1 — nejvzácnější ze všech: Special Illustration Rare, Hyper Rare, Rainbow
-      'rarity:"Special Illustration Rare" OR rarity:"Hyper Rare" OR rarity:"Rare Rainbow" OR rarity:"Rare Secret"',
-      // Tier 2 — VMAX, V, EX, ex, GX
-      '(subtypes:VMAX OR subtypes:VSTAR OR subtypes:GX OR subtypes:EX OR subtypes:ex)',
-      // Tier 3 — fallback Holo Rare karty (ty jsou vždy dostupné)
-      'rarity:"Rare Holo" OR rarity:"Rare Holo V" OR rarity:"Rare Holo VMAX"',
-    ];
-
-    var fetched = [];
-    var lastErr = null;
-
-    // Zkus pooly postupně — když T1 nemá výsledky, padni na T2 atd.
-    for (var poolIdx = 0; poolIdx < rarityPools.length && fetched.length < 3; poolIdx++) {
+    function zamichej(a) {
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+    function stahni(url, ms) {
+      var ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var t = setTimeout(function () { if (ctl) ctl.abort(); }, ms || 4000);
+      return fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) {
+        clearTimeout(t);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }, function (e) { clearTimeout(t); throw e; });
+    }
+    function overObrazek(src, ms) {
+      return new Promise(function (ok, ko) {
+        var im = new Image();
+        var t = setTimeout(function () { ko(new Error('timeout')); }, ms || 6000);
+        im.onload  = function () { clearTimeout(t); ok(src); };
+        im.onerror = function () { clearTimeout(t); ko(new Error('obrázek nejde načíst')); };
+        im.src = src;
+      });
+    }
+    async function ziskejZasobnik() {
       try {
-        var q = rarityPools[poolIdx];
-        // Náhodná stránka (1–10) ze všech vyhovujících karet — různé výsledky každý reload
-        var page = Math.floor(Math.random() * 10) + 1;
-        var url = 'https://api.pokemontcg.io/v2/cards?q=' + encodeURIComponent(q)
-                + '&pageSize=80&page=' + page + '&orderBy=-set.releaseDate';
-        var r = await tcgFetch(url);
-        if (!r || !r.ok) throw new Error('HTTP ' + (r && r.status));
-        var d = await r.json();
-        var pool = (d.data || []).filter(function(c) {
-          return c.images && c.images.large;
-        });
-        if (!pool.length) continue;
-
-        // Fisher-Yates shuffle pro skutečnou náhodnost
-        for (var i = pool.length - 1; i > 0; i--) {
-          var j = Math.floor(Math.random() * (i + 1));
-          var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
-        }
-        fetched = pool.slice(0, 3);
-        console.log('[hero] Načteno ' + fetched.length + ' karet z pokemontcg.io (tier ' + (poolIdx+1) + ')');
-      } catch (e) {
-        lastErr = e;
-        console.warn('[hero] Tier ' + (poolIdx+1) + ' selhal:', e.message);
+        var c = JSON.parse(localStorage.getItem(KLIC) || 'null');
+        if (c && c.cas > Date.now() - PLATNOST && c.karty && c.karty.length >= 3) return c.karty;
+      } catch (e) {}
+      // Názvy vzácností si stáhneme — TCGdex je občas mění
+      var vzacnosti = await stahni(API + '/rarities');
+      var vzacne = vzacnosti.filter(function (r) {
+        return /special illustration|hyper|illustration rare|secret|rainbow|ultra rare|double rare|vmax|vstar/i.test(r);
+      });
+      if (!vzacne.length) vzacne = vzacnosti.filter(function (r) { return /holo/i.test(r); });
+      zamichej(vzacne);
+      var karty = [];
+      for (var i = 0; i < vzacne.length && i < 3; i++) {
+        try {
+          var d = await stahni(API + '/rarities/' + encodeURIComponent(vzacne[i]));
+          (d.cards || []).forEach(function (k) {
+            if (k.image && k.name) karty.push({ n: k.name, i: k.image });
+          });
+        } catch (e) { console.warn('[hero] vzácnost ' + vzacne[i] + ': ' + e.message); }
       }
+      karty = zamichej(karty).slice(0, 60);
+      if (karty.length >= 3) {
+        try { localStorage.setItem(KLIC, JSON.stringify({ cas: Date.now(), karty: karty })); } catch (e) {}
+      }
+      return karty;
     }
 
-    if (!fetched.length) {
-      console.warn('[hero] API nedostupné, používám lokální fallback obrázky', lastErr);
-      // Lokální obrázky (pikachu-gx.png atd.) jsou už nastavené v <img src="..."> v HTML.
-      // Stačí spustit cycle.
-      startCycle();
-      return;
+    try {
+      var kandidati = zamichej((await ziskejZasobnik()).slice()).slice(0, 6);
+      var vysledky = await Promise.allSettled(kandidati.map(function (k) {
+        return overObrazek(k.i + '/high.webp').then(function (src) { return { n: k.n, src: src }; });
+      }));
+      var vybrane = vysledky.filter(function (v) { return v.status === 'fulfilled'; })
+                            .map(function (v) { return v.value; }).slice(0, 3);
+      vybrane.forEach(function (card, i) {
+        var el = cardEls[i];
+        var img = el && el.querySelector('img');
+        if (!img) return;
+        img.src = card.src;
+        img.alt = card.n;
+        el.title = card.n;
+      });
+      if (vybrane.length) console.log('[hero] TCGdex: ' + vybrane.length + ' karet (zásobník ' + kandidati.length + '+)');
+      else console.warn('[hero] TCGdex bez použitelných obrázků, zůstávají lokální');
+    } catch (e) {
+      console.warn('[hero] TCGdex nedostupný, zůstávají lokální obrázky:', e.message);
     }
-
-    // Aplikuj fetched karty do <img> elementů
-    fetched.forEach(function(card, i) {
-      var el = cardEls[i];
-      if (!el) return;
-      var img = el.querySelector('img');
-      if (img && card.images && card.images.large) {
-        img.src = card.images.large;
-        img.alt = card.name + ' (' + (card.set?.name || '') + ' #' + (card.number || '?') + ')';
-        // Drobný hover tooltip s názvem karty
-        el.title = card.name + ' — ' + (card.set?.name || 'Neznámý set');
-      }
-    });
 
     startCycle();
   })();
