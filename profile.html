@@ -3577,12 +3577,14 @@ window.toggleTradeMatching = async function() {
     var uid = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.id : null;
     if (!uid || !SBU || !tk) throw new Error('not auth');
 
-    await fetch(SBU + '/rest/v1/profiles?id=eq.' + uid, {
+    var r = await fetch(SBU + '/rest/v1/profiles?id=eq.' + uid, {
       method: 'PATCH',
       headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tk,
         'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
       body: JSON.stringify({ trade_matching_enabled: _tradeMatchEnabled })
     });
+    // Dřív se úspěch hlásil i při odmítnutí databází → po obnovení zase „Vypnuto"
+    if (!r.ok) throw new Error('HTTP ' + r.status);
     if (fb) {
       fb.textContent = _tradeMatchEnabled
         ? '✅ Trade matching aktivován — začneš dostávat notifikace o vzájemných výměnách.'
