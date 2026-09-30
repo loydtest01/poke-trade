@@ -79,8 +79,9 @@ export default async function handler(req, res) {
   async function isIPBlocked() {
     if (clientIP === 'unknown') return false;
     try {
-      const r = await sbFetch(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(clientIP)}&select=id`, 'GET', null, SUPABASE_ANON);
-      return Array.isArray(r) && r.length > 0;
+      // Jen odpověď ano/ne — seznam blokovaných IP je od 30. 9. vidět jen adminovi
+      const r = await sbFetch('rest/v1/rpc/je_ip_blokovana', 'POST', { p_ip: clientIP }, SUPABASE_ANON);
+      return r === true;
     } catch { return false; }
   }
 
