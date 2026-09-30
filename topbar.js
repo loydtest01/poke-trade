@@ -2710,6 +2710,17 @@ window.spDoForgotPass = async function () {
    mohou zavolat před požadavkem, aby měla jistě platný token.
    ═══════════════════════════════════════════════════════════════ */
 (function () {
+  // Vlastní pomocníci — funkce _getSbUrl/_getSbAnon z notifikační sekce
+  // leží v jiném bloku a odsud nejsou vidět (ReferenceError při obnově tokenu).
+  function _getSbUrl() {
+    return (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) || window.SUPABASE_URL
+        || 'https://xrduqwrinzvmpixgmqta.supabase.co';
+  }
+  function _getSbAnon() {
+    return (typeof SUPABASE_ANON !== 'undefined' && SUPABASE_ANON) || window.SUPABASE_ANON
+        || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhyZHVxd3Jpbnp2bXBpeGdtcXRhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDI0MjksImV4cCI6MjA5MDk3ODQyOX0.2p404Vy77CH_MsvQlnpxaO0H-KlSSt_oJlaFrmttFXs';
+  }
+
   // Dekóduje 'exp' (ms) z JWT; 0 když nejde přečíst
   function _jwtExp(token) {
     if (!token || token.indexOf('.') < 0) return 0;
