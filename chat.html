@@ -1829,7 +1829,7 @@ function autoGrow(el) {
 async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
   // If we don't have partner username, fetch it
   if (!partnerUsername) {
-    const pRes = await sb(`rest/v1/profiles?id=eq.${partnerId}&select=username`, 'GET', null, token);
+    const pRes = await sb(`rest/v1/public_profiles?id=eq.${partnerId}&select=username`, 'GET', null, token);
     if (Array.isArray(pRes) && pRes[0]) partnerUsername = pRes[0].username;
     else partnerUsername = 'Uživatel';
   }
@@ -2519,7 +2519,7 @@ async function searchNewConvUsers(q) {
   );
   if (!Array.isArray(data) || data.code) {
     data = await sb(
-      `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${userId}&select=id,username&limit=8`,
+      `rest/v1/public_profiles?username=ilike.*${enc}*&id=neq.${userId}&select=id,username&limit=8`,
       'GET', null, token
     );
   }
@@ -2655,7 +2655,7 @@ async function findClients(q) {
     );
     if (!Array.isArray(res) || res.code) {
       res = await sb(
-        `rest/v1/profiles?or=(username.ilike.*${enc}*,email.ilike.*${enc}*)&id=neq.${userId}&select=id,username,avatar_url&limit=12`,
+        `rest/v1/public_profiles?username=ilike.*${enc}*&id=neq.${userId}&select=id,username,avatar_url&limit=12`,
         'GET', null, token
       );
     }

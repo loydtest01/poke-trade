@@ -1558,7 +1558,7 @@ let catStarsVal     = {};
 async function resolveUsernameToId(username) {
   try {
     const res = await supabaseRequest(
-      `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`
+      `rest/v1/public_profiles?username=eq.${encodeURIComponent(username)}&select=id`
     );
     if (Array.isArray(res) && res.length > 0) profileUserId = res[0].id;
   } catch {}
@@ -1569,8 +1569,11 @@ async function resolveUsernameToId(username) {
 // ═══════════════════════════════════════════════════════════
 async function loadProfile() {
   try {
+    // Vlastní profil celý, cizí jen veřejná část (e-mail apod. ostatní nevidí)
+    const _ja = (typeof currentUser !== 'undefined' && currentUser && currentUser.id === profileUserId);
     const data = await supabaseRequest(
-      `rest/v1/profiles?id=eq.${profileUserId}&select=*`
+      _ja ? `rest/v1/profiles?id=eq.${profileUserId}&select=*`
+          : `rest/v1/public_profiles?id=eq.${profileUserId}&select=*`
     );
     if (!Array.isArray(data) || data.length === 0) {
       // Pokud profiles tabulka neexistuje nebo uživatel není tam, zkus auth.users metadata
@@ -3708,7 +3711,7 @@ window.toggleTradeMatching = async function() {
       var p = (Array.isArray(rawProf) ? rawProf[0] : rawProf) || {};
       // Záložní dotaz pokud join nevracím data (starší schéma)
       if (!p.username && !p.display_name) {
-        var fallback = await sbGet('profiles?id=eq.'+otherId+'&select=id,username,email,avatar_url');
+        var fallback = await sbGet('public_profiles?id=eq.'+otherId+'&select=id,username,avatar_url');
         p = fallback[0] || {};
       }
       var nick = esc(p.username || (p.email ? p.email.split('@')[0] : null) || otherId.slice(0,8));
@@ -3813,7 +3816,7 @@ window.toggleTradeMatching = async function() {
     if (!email||!email.includes('@')) { setFb('famInviteFeedback','⚠️ Zadej platný email','err'); return; }
     btn.disabled = true;
     setFb('famInviteFeedback','Hledám uživatele…','');
-    var users = await sbGet('profiles?email=eq.'+encodeURIComponent(email)+'&select=id,username');
+    var users = await sbGet('rpc/najdi_uzivatele_podle_emailu?p_email='+encodeURIComponent(email));
     if (!users.length) {
       setFb('famInviteFeedback','❌ Uživatel s tímto emailem nenalezen','err');
       btn.disabled = false; return;
@@ -3848,7 +3851,7 @@ window.toggleTradeMatching = async function() {
     var html='';
     for (var i=0; i<rows.length; i++) {
       var row=rows[i];
-      var prof = await sbGet('profiles?id=eq.'+row.user_id+'&select=username,display_name');
+      var prof = await sbGet('public_profiles?id=eq.'+row.user_id+'&select=username');
       var p = prof[0]||{};
       var nick = esc(p.display_name||p.username||'Neznámý');
       html += '<div class="family-pending-card" id="fpend-'+row.id+'">' +

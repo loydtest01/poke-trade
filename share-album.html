@@ -595,7 +595,7 @@ async function saveUsername() {
     return;
   }
   // Zkontroluj unikátnost
-  const check = await sbGet(`rest/v1/profiles?username=eq.${encodeURIComponent(val)}&select=id`);
+  const check = await sbGet(`rest/v1/public_profiles?username=eq.${encodeURIComponent(val)}&id=neq.${ME.id}&select=id`);
   if (check && check.length > 0) { err.textContent = 'Tato přezdívka je již obsazena.'; return; }
 
   // Ulož — použij UPSERT místo PATCH, aby fungovalo i když profil ještě neexistuje
@@ -736,7 +736,7 @@ async function searchUsers(q) {
   if (viewFailed) {
     // Hledej pouze podle username (email může být null nebo nesdílený)
     data = await sbGet(
-      `rest/v1/profiles?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url,email&limit=8`
+      `rest/v1/public_profiles?username=ilike.*${enc}*&id=neq.${ME.id}&select=id,username,avatar_url&limit=8`
     );
     if (Array.isArray(data)) {
       data = data.map(u => ({
@@ -1016,7 +1016,7 @@ async function loadSent() {
 
   // Načti přezdívky příjemců
   const ids = [...new Set(data.map(s => s.receiver_id))];
-  const profiles = await sbGet(`rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username`);
+  const profiles = await sbGet(`rest/v1/public_profiles?id=in.(${ids.join(',')})&select=id,username`);
   const profileMap = Object.fromEntries((profiles||[]).map(p => [p.id, p.username]));
 
   const statusLabel = { pending: 'Čeká', accepted: 'Přijato', declined: 'Odmítnuto', expired: 'Expirováno' };

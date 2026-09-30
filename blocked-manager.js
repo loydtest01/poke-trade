@@ -29,7 +29,7 @@
     const rows = await sb(`rest/v1/blocked_users?blocker_id=eq.${me}&select=blocked_id,created_at`);
     if (!Array.isArray(rows) || !rows.length) return [];
     const ids = rows.map(r => r.blocked_id);
-    const profs = await sb(`rest/v1/profiles?id=in.(${ids.join(',')})&select=id,username,avatar_url`);
+    const profs = await sb(`rest/v1/public_profiles?id=in.(${ids.join(',')})&select=id,username,avatar_url`);
     const pmap = {};
     (Array.isArray(profs) ? profs : []).forEach(p => { pmap[p.id] = p; });
     return rows.map(r => ({

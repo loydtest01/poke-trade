@@ -4077,14 +4077,9 @@ async function searchUsers(q) {
   if (!mobileToken) return;
   const el = document.getElementById('userSearchResults');
   try {
-    // Search in profiles table by username (ilike) OR email (ilike)
-    const isEmail = q.includes('@');
-    let url;
-    if (isEmail) {
-      url = `${SB_URL}/rest/v1/profiles?email=ilike.*${encodeURIComponent(q)}*&select=id,username,email,avatar_url&limit=20`;
-    } else {
-      url = `${SB_URL}/rest/v1/profiles?username=ilike.*${encodeURIComponent(q)}*&select=id,username,email,avatar_url&limit=20`;
-    }
+    // Hledá přes user_search: přezdívka nebo maskovaný e-mail (cizí e-maily nejsou vidět)
+    const enc = encodeURIComponent(q);
+    const url = `${SB_URL}/rest/v1/user_search?or=(username.ilike.*${enc}*,email_hint.ilike.*${enc}*)&select=id,username,avatar_url,email_hint&limit=20`;
     const r = await fetch(url, {
       headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken }
     });
@@ -4106,7 +4101,7 @@ function renderUserSearchResults(users, q) {
   el.innerHTML = filtered.map(u => {
     const init = (u.username || u.email || '?')[0].toUpperCase();
     const name = escHtml(u.username || u.email || 'Neznámý');
-    const sub  = u.username && u.email ? escHtml(maskEmail(u.email)) : '';
+    const sub  = u.email_hint ? escHtml(u.email_hint) : (u.username && u.email ? escHtml(maskEmail(u.email)) : '');
     return `<div onclick="startConvWithUser('${u.id}','${escHtml(u.username||u.email||'')}')"
       style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;active-background:var(--card)"
       onmousedown="this.style.background='var(--card)'" onmouseup="this.style.background=''"

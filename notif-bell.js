@@ -227,7 +227,7 @@
     const t = getToken(), url = getSbUrl();
     if (!t || !url || !username) return null;
     try {
-      const r = await fetch(`${url}/rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id&limit=1`, { headers: sbH(t) });
+      const r = await fetch(`${url}/rest/v1/public_profiles?username=eq.${encodeURIComponent(username)}&select=id&limit=1`, { headers: sbH(t) });
       if (!r.ok) return null;
       const d = await r.json();
       return Array.isArray(d) && d[0] ? d[0].id : null;

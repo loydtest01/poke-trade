@@ -136,7 +136,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
   try {
     // 1. Zkontroluj jestli přezdívka již existuje v tabulce profiles
     const usernameCheck = await supabaseRequest(
-      `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=id`
+      `rest/v1/public_profiles?username=eq.${encodeURIComponent(username)}&select=id`
     );
     if (Array.isArray(usernameCheck) && usernameCheck.length > 0) {
       throw new Error('Toto uživatelské jméno je již obsazeno');
