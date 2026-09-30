@@ -254,8 +254,9 @@ async function getClientIP() {
 async function checkIPBlocked(ip) {
   if (ip === 'unknown') return false;
   try {
-    const r = await supabaseRequest(`rest/v1/blocked_ips?ip_address=eq.${encodeURIComponent(ip)}&select=id`);
-    return Array.isArray(r) && r.length > 0;
+    // Jen odpověď ano/ne — seznam blokovaných IP je od 30. 9. vidět jen adminovi
+    const r = await supabaseRequest('rest/v1/rpc/je_ip_blokovana', 'POST', { p_ip: ip });
+    return r === true;
   } catch { return false; }
 }
 
