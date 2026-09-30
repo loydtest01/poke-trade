@@ -1364,6 +1364,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
     </div><!-- /family-section -->
 
     <!-- ═══ TRADE MATCHING SEKCE ═══ -->
+    <a id="vymeny"></a>
     <div class="family-section" id="tradeMatchSection" style="display:none">
       <div class="section-title" style="margin-top:32px">🔄 Trade Matching</div>
       <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:20px;margin-top:12px;">
@@ -1377,7 +1378,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
             <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text3);">
               <div>✅ Dostaneš notifikaci: <em style="color:var(--text2);">„Jana hledá tvůj Charizard EX"</em></div>
               <div>✅ Vidíš: <em style="color:var(--text2);">kdo chce co ty máš + má co ty chceš</em></div>
-              <div>✅ Trade kruhy: A→B→C→A (3-cestné výměny)</div>
+              <div style="opacity:.6">🕐 Připravujeme: trade kruhy A→B→C→A (3-cestné výměny)</div>
             </div>
           </div>
           <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:6px;">
@@ -1386,6 +1387,7 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
           </div>
         </div>
         <div id="tradeMatchFeedback" style="font-size:12px;min-height:16px;margin-top:10px;"></div>
+        <div id="vymenySeznam" style="margin-top:6px;"></div>
       </div>
     </div>
     <!-- ═══ / TRADE MATCHING SEKCE ═══ -->
@@ -3553,7 +3555,65 @@ window.tradeMatchInit = function(profileData) {
   // Load from profile data (column trade_matching_enabled)
   _tradeMatchEnabled = !!(profileData && profileData.trade_matching_enabled);
   _tmUpdateUI();
+  nactiVymeny();
+  if (location.hash === '#vymeny' && sec) setTimeout(function () { sec.scrollIntoView({ behavior: 'smooth' }); }, 300);
 };
+
+// ── Seznam vzájemných výměn ──────────────────────────────────────
+function _vymEsc(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function _vymKarty(karty) {
+  return (karty || []).map(function (k) {
+    var cislo = k.number ? ' #' + _vymEsc(k.number) : '';
+    var sada = k.set ? ' · ' + _vymEsc(k.set) : '';
+    return '<span style="display:inline-block;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);'
+         + 'border-radius:8px;padding:3px 8px;margin:2px 4px 2px 0;font-size:12px;color:var(--text2);">'
+         + _vymEsc(k.name) + cislo + '<span style="color:var(--text3)">' + sada + '</span></span>';
+  }).join('');
+}
+async function nactiVymeny() {
+  var box = document.getElementById('vymenySeznam');
+  if (!box) return;
+  if (!_tradeMatchEnabled) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div style="font-size:12px;color:var(--text3);">Hledám vzájemné výměny…</div>';
+  try {
+    var SBU = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) || 'https://xrduqwrinzvmpixgmqta.supabase.co';
+    var SBA = (typeof SUPABASE_ANON !== 'undefined' && SUPABASE_ANON) || '';
+    var tk = localStorage.getItem('sb_token') || localStorage.getItem('sb_access_token') || '';
+    if (typeof ensureFreshToken === 'function') tk = (await ensureFreshToken()) || tk;
+    var r = await fetch(SBU + '/rest/v1/rpc/moje_vzajemne_vymeny', {
+      method: 'POST',
+      headers: { 'apikey': SBA, 'Authorization': 'Bearer ' + tk, 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var shody = await r.json();
+    if (!shody.length) {
+      box.innerHTML = '<div style="font-size:12px;color:var(--text3);line-height:1.6;">Zatím žádná vzájemná výměna. '
+        + 'Označ v albu karty <b>k výměně</b> a přidej si <b>hlídané karty</b> — jakmile se najde shoda, dostaneš notifikaci.</div>';
+      return;
+    }
+    box.innerHTML = '<div style="font-size:13px;font-weight:600;color:var(--text);margin:8px 0;">🤝 Vzájemné výměny (' + shody.length + ')</div>'
+      + shody.map(function (v) {
+          var jm = _vymEsc(v.partner_username);
+          return '<div style="border:1px solid rgba(255,255,255,0.09);border-radius:12px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,0.03);">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">'
+            +   '<a href="profile.html?user=' + encodeURIComponent(v.partner_username) + '" style="font-weight:600;color:var(--text);text-decoration:none;">👤 ' + jm + '</a>'
+            +   '<a href="chat.html?with=' + encodeURIComponent(v.partner_id) + '&username=' + encodeURIComponent(v.partner_username) + '" '
+            +     'style="font-size:12px;padding:5px 12px;border-radius:8px;background:rgba(74,222,128,0.15);color:#4ade80;text-decoration:none;">💬 Napsat</a>'
+            + '</div>'
+            + '<div style="font-size:11px;color:var(--text3);margin-bottom:2px;">Dostaneš (hledáš):</div><div>' + _vymKarty(v.dostanes) + '</div>'
+            + '<div style="font-size:11px;color:var(--text3);margin:6px 0 2px;">Dáš (hledá ' + jm + '):</div><div>' + _vymKarty(v.das) + '</div>'
+            + '</div>';
+        }).join('');
+  } catch (e) {
+    console.warn('[vymeny] seznam:', e.message);
+    box.innerHTML = '<div style="font-size:12px;color:#f87171;">Seznam výměn se nepodařilo načíst.</div>';
+  }
+}
 
 function _tmUpdateUI() {
   var toggle = document.getElementById('tradeMatchToggle');
@@ -3585,6 +3645,7 @@ window.toggleTradeMatching = async function() {
     });
     // Dřív se úspěch hlásil i při odmítnutí databází → po obnovení zase „Vypnuto"
     if (!r.ok) throw new Error('HTTP ' + r.status);
+    nactiVymeny();
     if (fb) {
       fb.textContent = _tradeMatchEnabled
         ? '✅ Trade matching aktivován — začneš dostávat notifikace o vzájemných výměnách.'
