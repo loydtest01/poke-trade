@@ -5056,7 +5056,7 @@ window.submitListing = async function() {
   }
   closeAddListing();
   const _newListing = Array.isArray(res) ? res[0] : res;
-  if (_newListing?.id) dispatchListingNotifications(_newListing).catch(() => {});
+  // Upozornění (hlídané karty, nové nabídky) rozesílá od 30. 9. databáze — trigger nabidka_upozorneni
   allListings.unshift(_newListing);
   applyFilters();
 };
@@ -6263,7 +6263,7 @@ async function submitBulkListing() {
   }
   closeAddListing();
   const newListing = Array.isArray(res) ? res[0] : res;
-  if (newListing?.id) dispatchListingNotifications(newListing).catch(() => {});
+  // Upozornění (hlídané karty, nové nabídky) rozesílá od 30. 9. databáze — trigger nabidka_upozorneni
   if (newListing) allListings.unshift(newListing);
   applyFilters();
 }
