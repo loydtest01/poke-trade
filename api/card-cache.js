@@ -69,6 +69,12 @@ function isExpired(isoDate, days) {
 
 // ── Supabase helpers ──────────────────────────────────────────────────────
 
+// Zápis do card_cache a počítadla API smí jen server (service klíč).
+// Databáze od 30. 9. zápis přihlášeným uživatelům nepovoluje.
+function zapisHlavicky(token) {
+  return { 'apikey': SB_SVC || SB_ANON, 'Authorization': `Bearer ${SB_SVC || token}` };
+}
+
 async function sbGet(path, token) {
   const r = await fetch(`${SB_URL}/${path}`, {
     headers: {
@@ -85,8 +91,7 @@ async function sbUpsert(table, data, token) {
   await fetch(`${SB_URL}/rest/v1/${table}`, {
     method:  'POST',
     headers: {
-      'apikey':        SB_ANON,
-      'Authorization': `Bearer ${token}`,
+      ...zapisHlavicky(token),
       'Content-Type':  'application/json',
       'Prefer':        'resolution=merge-duplicates,return=minimal',
     },
@@ -99,8 +104,7 @@ async function sbPatch(table, match, data, token) {
   await fetch(`${SB_URL}/rest/v1/${table}?${qs}`, {
     method:  'PATCH',
     headers: {
-      'apikey':        SB_ANON,
-      'Authorization': `Bearer ${token}`,
+      ...zapisHlavicky(token),
       'Content-Type':  'application/json',
     },
     body: JSON.stringify(data),
@@ -118,8 +122,7 @@ async function checkAndIncrementApiUsage() {
     const r = await fetch(`${SB_URL}/rest/v1/rpc/increment_api_usage`, {
       method:  'POST',
       headers: {
-        'apikey':        SB_ANON,
-        'Authorization': `Bearer ${SB_ANON}`,
+        ...zapisHlavicky(SB_ANON),
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
