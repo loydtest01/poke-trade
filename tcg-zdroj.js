@@ -131,6 +131,25 @@
     if (!_sady) _sady = (await tcgdexJson('/sets')) || [];
     return _sady;
   }
+  // Názvy sad se mezi pokemontcg.io a TCGdex liší („EX Deoxys" × „Deoxys",
+  // „Pokémon GO" × „Pokemon GO"). Přesná shoda má přednost; jinak jedna obsahuje
+  // druhou s rozdílem nejvýš 4 znaky (aby „Base" nesplynulo s „Base Set 2").
+  function najdiSady(sady, nazev) {
+    var n = normalizuj(nazev);
+    if (!n) return [];
+    var presne = sady.filter(function (s) { return normalizuj(s.name) === n; });
+    var vyber = presne.length ? presne : sady.filter(function (s) {
+      var m = normalizuj(s.name);
+      return m && (m.indexOf(n) !== -1 || n.indexOf(m) !== -1) && Math.abs(m.length - n.length) <= 4;
+    });
+    return vyber.map(function (s) { return String(s.id).toLowerCase() + '-'; });
+  }
+  // Jméno karty: symboly ★ δ ◇ ex GX… MUSÍ zůstat — „Rayquaza ★" je jiná
+  // (a řádově dražší) karta než „Rayquaza". Sjednotí se jen ☆→★, diakritika a mezery.
+  function normalizujJmeno(t) {
+    return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/☆/g, '★').replace(/\s+/g, ' ').trim();
+  }
   function normalizuj(t) {
     return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, ' ').trim();
@@ -154,24 +173,23 @@
     var seznam = (await tcgdexJson('/cards?' + dotaz.join('&'))) || [];
 
     if (presne && jmeno) {
-      var nj = normalizuj(jmeno);
-      var shoda = seznam.filter(function (k) { return normalizuj(k.name) === nj; });
-      if (shoda.length) seznam = shoda;       // bez přesné shody nech i podobné
+      // Přesné jméno jako u pokemontcg.io. Bez přesné shody NIC — podobná karta
+      // (např. „Rayquaza" místo „Rayquaza ★") by se ke kartě uložila se špatnou cenou.
+      var nj = normalizujJmeno(jmeno);
+      seznam = seznam.filter(function (k) { return normalizujJmeno(k.name) === nj; });
     }
     if (q['set.id']) {
       var sid = String(q['set.id']).toLowerCase();
       seznam = seznam.filter(function (k) { return String(k.id).toLowerCase().indexOf(sid + '-') === 0; });
     }
     if (q['set.name']) {
-      var ns = normalizuj(q['set.name']);
-      var ids = (await sadyTcgdex()).filter(function (s) { return normalizuj(s.name) === ns; })
-                                    .map(function (s) { return String(s.id).toLowerCase() + '-'; });
-      if (ids.length) {
-        seznam = seznam.filter(function (k) {
-          var id = String(k.id).toLowerCase();
-          return ids.some(function (p) { return id.indexOf(p) === 0; });
-        });
-      }
+      // Sada zadaná → MUSÍ sedět. Nenajde-li se, výsledek je prázdný
+      // (dřív se filtr vynechal a vrátila se karta z jiné sady).
+      var ids = najdiSady(await sadyTcgdex(), q['set.name']);
+      seznam = seznam.filter(function (k) {
+        var id = String(k.id).toLowerCase();
+        return ids.some(function (p) { return id.indexOf(p) === 0; });
+      });
     }
     // pokemontcg.io řadí -set.releaseDate (nejnovější první); TCGdex vrací od nejstarších
     if (/-set\.releaseDate/.test(parametry.get('orderBy') || '')) seznam = seznam.slice().reverse();
