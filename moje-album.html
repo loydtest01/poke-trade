@@ -1904,6 +1904,7 @@ body { background: #06040c; overflow-x: hidden; }
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
   <script src="tcg-zdroj.js"></script>
+<script src="demo-karty.js"></script>
 <script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -2806,7 +2807,10 @@ let editingAlbumId = null;
     // Načti profilový avatar z Supabase profiles
     loadAvatar(userId);
   } else {
-    setSyncState('', 'Nepřihlášen'); showLoginPrompt(); return;
+    setSyncState('', 'Ukázka');
+    // Až po dočtení celého skriptu — jinak render() sahá na ještě nevytvořené proměnné
+    if (window.PT_DEMO) setTimeout(spustDemo, 0); else showLoginPrompt();
+    return;
   }
 
   const syncSel = document.getElementById('syncModeSelect');
@@ -3255,6 +3259,7 @@ async function saveAlbumsToServer() {
 }
 
 function saveAlbumsLocal() {
+  if (window._demoRezim) return;   // ukázka: demo karty NIKDY do prohlížeče (album-sync by je nahrál po přihlášení)
   localStorage.setItem('pkc_albums', JSON.stringify(
     allAlbums.map(a => ({
       id: a.id, name: a.name, color: a.color, icon: a.icon,
@@ -3621,6 +3626,7 @@ function renderCard(c, albumCardIds) {
     <div class="card-slot ${cls}" data-id="${esc(c.id)}" data-rarity="${esc(c.rarity || '(prázdné)')}" data-name="${esc(c.name || '')}" onclick="cardClick('${esc(c.id)}')">
       ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
       ${photosBadge}
+      ${c._demo ? '<div class="demo-razitko-k">DEMO</div>' : ''}
       <div class="card-inner">
         ${img
           ? `<img class="card-img" src="${esc(img)}" alt="${esc(c.name||'')}" loading="lazy" decoding="async">`
@@ -4851,6 +4857,7 @@ function _refreshCdModal(c) {
 }
 
 async function saveCardUpdates(c) {
+  if (window._demoRezim) { demoUpozorni(); return; }   // ukázka: změna jen v paměti
   if (!token || !userId || !c.id) return;
   const localId = String(c.id);
   const payload = {
@@ -5131,6 +5138,7 @@ async function deleteCdCard() {
 }
 
 function saveLocal() {
+  if (window._demoRezim) return;   // ukázka: demo karty NIKDY do prohlížeče (album-sync by je nahrál po přihlášení)
   // localStorage má cca 5 MB limit. Pokud má uživatel stovky karet s base64 obrázky,
   // může to překročit. Při QuotaExceeded se pokusíme uložit jen základní data (bez velkých
   // obrázků v JSON), abychom alespoň něco zachovali.
@@ -5161,6 +5169,7 @@ function saveLocal() {
 }
 
 async function syncCardToServer(c) {
+  if (window._demoRezim) { demoUpozorni(); return; }   // ukázka: změna jen v paměti
   if (!token || !userId) return;
   const payload = [{
     local_id: String(c.id),
@@ -7913,6 +7922,7 @@ function applyI18N() {
 }
 
 function setSyncState(state, label) {
+  if (window._demoRezim) { state = ''; label = 'Ukázka'; }   // v ukázce nic nesynchronizujeme
   const dot = document.getElementById('syncDot');
   const lbl = document.getElementById('syncLabel');
   if (dot) dot.className = 'sync-dot' + (state ? ' ' + state : '');
@@ -7982,6 +7992,11 @@ async function tryRefreshToken() {
 }
 
 async function sbReq(path, method = 'GET', body = null, extraHeaders = {}) {
+  // Ukázka pro nepřihlášené: nic neodesílat — změny platí jen v paměti
+  if (window._demoRezim) {
+    if (method !== 'GET') demoUpozorni();
+    return method === 'GET' ? [] : {};
+  }
   const makeHeaders = () => ({
     'Content-Type': 'application/json',
     'apikey': SUPABASE_ANON,
@@ -8620,6 +8635,7 @@ function renderBookView() {
     return `<div class="book-card-wrap${sel ? ' selected' : ''}">
       ${selectMode ? `<div class="card-check">${sel ? '\u2713' : ''}</div>` : ''}
       <div class="book-card${bcCls}" data-id="${esc(c.id)}" data-rarity="${esc(c.rarity || '(prázdné)')}" data-name="${esc(c.name || '')}" onclick="cardClick('${esc(c.id)}')">
+      ${c._demo ? '<div class="demo-razitko-k">DEMO</div>' : ''}
       ${img
         ? `<img src="${esc(img)}" alt="${esc(c.name||'')}" loading="eager">`
         : `<div class="book-card-placeholder">
@@ -8712,9 +8728,108 @@ _tiltObserver.observe(document.body, { childList: true, subtree: true });
 // Prvotní aplikace
 setTimeout(applyTiltToAll, 300);
 
-function showLoginPrompt() {
+// ══ UKÁZKA PRO NEPŘIHLÁŠENÉ ═══════════════════════════════════
+// Skutečné album s ukázkovými kartami v paměti: filtry, hledání, řazení,
+// detail karty, mřížka i kniha fungují stejně jako u přihlášeného.
+// Do databáze se nic neukládá (pojistka v sbReq).
+function spustDemo() {
+  window._demoRezim = true;
+  var RARITA = { 'Umbreon VMAX': 'Rare Secret', 'Charizard': 'Rare Holo', 'Blastoise': 'Rare Holo',
+                 'Charizard ex': 'Special Illustration Rare', 'Mewtwo': 'Rare Holo', 'Mew ex': 'Double Rare',
+                 'Pikachu': 'Common', 'Bill': 'Common', 'Fire Energy': 'Common' };
+  var ted = new Date().toISOString();
+  allCards = PT_DEMO.karty.map(function (k, i) {
+    var mala = k.img + '/low.webp', velka = k.img + '/high.webp';
+    return {
+      id: 'demo-' + (i + 1), name: k.name, set: k.set, number: k.number, num: k.number,
+      supertype: k.supertype, types: (k.types || []).slice(), type: (k.types && k.types[0]) || '',
+      rarity: RARITA[k.name] || '', images: { small: mala, large: velka },
+      apiSmall: mala, apiLarge: velka, imageUrl: mala,
+      p30d: k.p30d, pMin: Math.round(k.p30d * 80) / 100, pTrend: k.p30d,
+      pricesFetchedAt: ted, priceSource: 'cardmarket',
+      count: 1, condition: 'NM', lang: 'EN', price_czk: null,
+      for_trade: /výměn/.test(k.stitek), for_sell: /prodej/.test(k.stitek),
+      _demo: true,
+    };
+  });
+  allAlbums = [
+    { id: 'demo-alb-1', name: 'Ukázkové album', color: '#facc15', icon: '⭐', ownerId: null,
+      cardIds: allCards.map(function (c) { return c.id; }) },
+    { id: 'demo-alb-2', name: 'Na výměnu', color: '#4ade80', icon: '🔄', ownerId: null,
+      cardIds: allCards.filter(function (c) { return c.for_trade; }).map(function (c) { return c.id; }) },
+  ];
+  activeAlbumIds.clear();
+  activeAlbumIds.add('demo-alb-1');
+  demoStylALista();
+  renderAlbumList();
+  render();
+  updateStats();          // počítadla u filtrů (Vše, Pokémoni, Celkem…)
+  renderFlatFilterBtns();
+  if ((localStorage.getItem('pkc_view_mode') || 'grid') === 'book') setViewMode('book');
+  document.addEventListener('keydown', function (e) {
+    var modal = document.getElementById('cardDetailModal');
+    var otevreno = modal && modal.classList.contains('open');
+    if (e.key === 'Escape') { closeCardDetail(); return; }
+    if (!otevreno) return;
+    if (e.key === 'ArrowLeft')  { navigateCard(-1); return; }
+    if (e.key === 'ArrowRight') { navigateCard(1);  return; }
+  });
+}
+
+function demoStylALista() {
+  if (!document.getElementById('demoStyl')) {
+    var st = document.createElement('style');
+    st.id = 'demoStyl';
+    st.textContent =
+      '.card-slot,.book-card{position:relative}' +
+      '#qrBridge{display:none!important}' +   // nahrávání z mobilu bez přihlášení nedává smysl
+      '.demo-razitko-k{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%) rotate(-28deg);z-index:6;' +
+        'font-family:Unbounded,sans-serif;font-weight:900;font-size:clamp(11px,1.6vw,18px);letter-spacing:2px;color:rgba(255,255,255,.92);' +
+        'border:2px solid rgba(239,68,68,.9);background:rgba(239,68,68,.6);padding:1px 9px;border-radius:6px;' +
+        'text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;white-space:nowrap}' +
+      '.demo-lista-alba{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:space-between;' +
+        'background:rgba(250,204,21,.08);border:1px solid rgba(250,204,21,.3);border-radius:14px;padding:10px 16px;margin:0 0 14px;' +
+        'font-size:13px;color:var(--text2)}' +
+      '.demo-lista-alba b{color:var(--text)}' +
+      '.demo-lista-alba .dla-btns{display:flex;gap:8px;flex-wrap:wrap}' +
+      '.demo-lista-alba a{font-size:13px;padding:6px 12px;border-radius:8px;text-decoration:none;font-weight:600}' +
+      '.demo-toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;max-width:92vw;' +
+        'background:#1f2937;color:#f3f4f6;border:1px solid rgba(250,204,21,.4);border-radius:12px;padding:10px 16px;' +
+        'font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.4);transition:opacity .3s}';
+    document.head.appendChild(st);
+  }
+  if (document.getElementById('demoListaAlba')) return;
+  var grid = document.getElementById('cardsGrid');
+  var obal = grid && grid.parentElement;
+  if (!obal) return;
+  var d = document.createElement('div');
+  d.id = 'demoListaAlba';
+  d.className = 'demo-lista-alba';
+  d.innerHTML = '<span>👀 <b>Ukázka alba</b> — vyzkoušej filtry, hledání, řazení i detail karty. ' +
+    'Karty i ceny jsou ukázkové, změny se neukládají.</span>' +
+    '<span class="dla-btns"><a href="register.html" style="background:#facc15;color:#111">Založit album zdarma</a>' +
+    '<a href="login.html?return=moje-album.html" style="border:1px solid rgba(255,255,255,.2);color:var(--text)">Přihlásit se</a></span>';
+  obal.insertBefore(d, obal.firstChild);
+}
+
+var _demoToastCas = 0;
+function demoUpozorni() {
+  if (Date.now() - _demoToastCas < 4000) return;
+  _demoToastCas = Date.now();
+  var t = document.createElement('div');
+  t.className = 'demo-toast';
+  t.innerHTML = '👀 V ukázce se změny neukládají. <a href="register.html" style="color:#facc15">Založ si album zdarma</a> a začni sbírat.';
+  document.body.appendChild(t);
+  setTimeout(function () { t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 400); }, 3500);
+}
+
+function showLoginPrompt(cil) {
   // Nepřihlášený návštěvník uvidí ukázku alba místo zamčené stránky.
   // Karty jsou jen na ukázku: nikam se neukládají a jsou přes ně vidět nápisy DEMO.
+  // cil = kam kreslit: mřížka (výchozí) nebo kniha (režim „Album").
+  window._demoRezim = true;
+  var _kniha = !!cil;
+  cil = cil || document.getElementById('cardsGrid');
   document.getElementById('sidebar').style.display = 'none';
   var T = 'https://assets.tcgdex.net/en/';
   var DEMO = [
@@ -8744,7 +8859,7 @@ function showLoginPrompt() {
       + '<div class="demo-cena">≈ ' + fmt(k.cena) + '</div>'
       + '</div>';
   }).join('');
-  document.getElementById('cardsGrid').innerHTML = `
+  cil.innerHTML = `
     <style>
       .demo-album { grid-column: 1 / -1; width: 100%; max-width: 980px; margin: 0 auto; padding: 8px 4px 32px; box-sizing: border-box; }
       .demo-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;
@@ -8754,6 +8869,8 @@ function showLoginPrompt() {
       .demo-souhrn { display:flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--text2); margin: 0 2px 16px; }
       .demo-souhrn b { color: var(--text); font-size: 15px; }
       .demo-mrizka { display:grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+      .demo-kniha { grid-template-columns: repeat(3, 1fr); max-width: 620px; margin: 0 auto; padding: 18px;
+        background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; }
       .demo-karta { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 10px; text-align:center; }
       .demo-obr { position: relative; aspect-ratio: 63 / 88; border-radius: 8px; overflow:hidden; background: rgba(255,255,255,0.04); margin-bottom: 8px; }
       .demo-obr img { width:100%; height:100%; object-fit: cover; display:block; }
@@ -8782,7 +8899,7 @@ function showLoginPrompt() {
         <div>Hodnota sbírky: <b>≈ ${fmt(celkem)}</b></div>
         <div>K výměně: <b>${DEMO.filter(function (k) { return /výměn/.test(k.stitek); }).length}</b></div>
       </div>
-      <div class="demo-mrizka">${karty}</div>
+      <div class="demo-mrizka${_kniha ? ' demo-kniha' : ''}">${karty}</div>
       <div class="demo-vyhody">
         <div>📸 Naskenuj karty mobilem — rozpozná je sama</div>
         <div>💶 Aktuální ceny z Cardmarketu</div>
