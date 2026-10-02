@@ -14,7 +14,7 @@ function tcgFetch(url) {
 }
 // ─────────────────────────────────────────────────────────────────
 /**
- * fake-detector.js v3 – PokéTrade Univerzální AI detektor falzifikátů
+ * fake-detector.js v4 – PokéTrade AI detektor falzifikátů (ověřené znaky, zadní strana, bezpečné srovnání, pojistky verdiktu)
  *
  * KOMUNITA: Každá analýza se ukládá do sdílené Supabase databáze.
  * Před novou analýzou se načtou výsledky komunity pro danou kartu
@@ -46,56 +46,81 @@ function tcgFetch(url) {
   // ══════════════════════════════════════════════════════════════
   //  KNOWLEDGE BASE – vestavěná databáze znaků padělků
   // ══════════════════════════════════════════════════════════════
+  // Jen znaky, které platí obecně a dají se ověřit. Nepřesná „pravidla" by AI vedla
+  // k označení pravé karty za padělek (v3 obsahovala např. „V karty mají stříbrný okraj").
   const KNOWLEDGE_BASE = {
     common_fakes: [
-      'HP hodnoty nad 300 u Base/Jungle/Fossil era karet',
-      'HP hodnoty nad 340 u moderních V/VMAX karet',
-      'Chybějící nebo špatný copyright řádek (© Nintendo/Creatures/GAME FREAK)',
-      'Špatné odstíny žluté u Pikachu karet',
-      'Rozmazaný nebo pixelovaný text (zejména drobné popisky)',
-      'Příliš lesklý povrch u ne-holo karet',
-      'Chybějící textura linen/crosshatch na kartě',
-      'Špatně zarovnaný okraj (border) – nerovnoměrná šířka',
-      'Nesprávné fonty (Sans-serif místo Futura pro jména)',
-      'Chybějící nebo špatný holo pattern (V, VMAX, GX, EX)',
+      'HP není násobek 10 (pravé karty mají HP vždy po desítkách)',
+      'Nesmyslně vysoké HP pro danou éru (karty z let 1999–2003 mají nejvýš kolem 120 HP)',
+      'Pravopisné chyby, „Pokemon" bez é, nesmyslná gramatika v textu útoků a schopností',
+      'Chybějící nebo podivný řádek s copyrightem (Pokémon / Nintendo / Creatures / GAME FREAK a rok)',
+      'Rozmazaný nebo rozpitý drobný text, neostré symboly energie',
+      'Celá karta nepřirozeně lesklá, přestože karta nemá být holo',
+      'Holo efekt na špatném místě (celá karta místo ilustrace, nebo naopak chybí)',
+      'Barvy vybledlé nebo přesycené oproti oficiálnímu obrázku',
+      'Okraje výrazně nerovnoměrné, rámeček posunutý, okraje karty roztřepené nebo ručně stříhané',
+      'Číslo karty, symbol nebo kód sady či symbol rarity neodpovídají sadě',
+      'Písmo jména, HP a útoků nesedí s ostatními kartami ze stejné série',
+      'Zadní strana: jiný odstín modré, rozmazaný Poké Ball nebo logo',
     ],
     era_specific: {
-      'Base/Jungle/Fossil (WOTC)': [
-        'Šedý border 1. edice musí mít razítko "1st Edition"',
-        'Galaxy holo pattern – hvězdice s gradientem, ne kosmos foil',
-        'Copyright 1999 Wizards (ne 1998)',
-        'Shadowless verze – chybí stín na pravé straně obrázku',
+      'WOTC (1999–2003: Base Set, Jungle, Fossil, Team Rocket, Gym, Neo)': [
+        'Maximální HP kolem 120',
+        'Razítko 1st Edition se často padělá — zkontroluj jeho ostrost a umístění',
+        'Shadowless a Unlimited jsou různé tisky, ne znaky padělku',
       ],
-      'e-Reader / EX (2003-2007)': [
-        'ex karty mají stříbrný border, ne zlatý',
-        'Dot code na spodní části (e-Reader)',
-        'EX jméno je vždy lowercase "ex"',
-      ],
-      'Diamond & Pearl / HGSS (2007-2011)': [
-        'Lv.X karty mají speciální level-up mechaniku',
-        'LEGEND karty jsou vždy dvoudílné',
-      ],
-      'B&W / XY (2011-2016)': [
-        'EX (velkými) – zlatý okraj',
-        'Full Art – texturovaný povrch, ne hladký',
-        'BREAK karty – horizontální orientace',
-      ],
-      'Sun & Moon / Sword & Shield (2017-2023)': [
-        'GX karty – stříbrný border, GX attack vždy poslední',
-        'V karty – stříbrný border s V texturou',
-        'VMAX – rainbow pattern na pozadí',
-        'VSTAR – zlatý hvězdný pattern',
-        'Alt Art – textured foil povrch',
-        'Trainer Gallery – specifický TG prefix v číslování',
+      'Sword & Shield (2020–2023)': [
+        'Anglické karty mají žlutý okraj',
+        'U čísla karty je kód regulace (D, E nebo F)',
       ],
       'Scarlet & Violet (2023+)': [
-        'ex (malými) – nový formát bez border designu',
-        'Illustration Rare – full art s unikátní ilustrací',
-        'Special Art Rare – SAR má specifický foil vzor',
-        'Nový formát čísla (např. 025/198)',
+        'Anglické karty mají stříbrnošedý okraj; žlutý okraj u karty z této série je silné varování',
+        'Vlevo dole je kód regulace (G, H, I…) a kód sady s číslem karty',
       ],
     },
   };
+
+  // Éra karty podle ID (swsh7-218, sv3pt5-6, base1-4…) nebo podle názvu sady
+  function eraKarty(cardInfo) {
+    if (!cardInfo) return null;
+    const id = String(cardInfo.apiId || cardInfo.tcgId || '').toLowerCase();
+    const sada = String(cardInfo.set || '').toLowerCase();
+    if (/^(base|gym|neo|si|ecard|basep)\d*/.test(id) || /\b(base set|jungle|fossil|team rocket|gym (heroes|challenge)|neo )/.test(sada))
+      return 'WOTC (1999–2003: Base Set, Jungle, Fossil, Team Rocket, Gym, Neo)';
+    if (/^sv/.test(id) || /scarlet|violet|paldea|obsidian|151|paradox|temporal|twilight|stellar|surging|prismatic|journey together|destined rivals/.test(sada))
+      return 'Scarlet & Violet (2023+)';
+    if (/^swsh/.test(id) || /sword|shield|rebel clash|darkness ablaze|vivid voltage|battle styles|chilling reign|evolving skies|fusion strike|brilliant stars|astral radiance|lost origin|silver tempest|crown zenith/.test(sada))
+      return 'Sword & Shield (2020–2023)';
+    return null;
+  }
+
+  // „218/203" → „218", „004" → „4"
+  function normCislo(n) {
+    return String(n == null ? '' : n).toLowerCase().split('/')[0].trim().replace(/^0+(?=[0-9a-z])/, '');
+  }
+
+  // Odolné čtení odpovědi modelu: přemýšlení <think>, ozdoby ```, text okolo
+  function najdiJson(text) {
+    let t = String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/```(?:json)?/gi, '');
+    let start = t.indexOf('{');
+    while (start !== -1) {
+      let hl = 0, str = false, esc = false;
+      for (let i = start; i < t.length; i++) {
+        const ch = t[i];
+        if (str) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') str = false; continue; }
+        if (ch === '"') str = true;
+        else if (ch === '{') hl++;
+        else if (ch === '}' && --hl === 0) {
+          const kus = t.slice(start, i + 1);
+          try { return JSON.parse(kus); } catch (e) {}
+          try { return JSON.parse(kus.replace(/,\s*([}\]])/g, '$1').replace(/[\u201C\u201D]/g, '"')); } catch (e) {}
+          break;
+        }
+      }
+      start = t.indexOf('{', start + 1);
+    }
+    return null;
+  }
 
   // ══════════════════════════════════════════════════════════════
   //  SUPABASE INTEGRACE – sdílená komunita
@@ -180,106 +205,52 @@ function tcgFetch(url) {
   //  PROMPT BUILDER
   // ══════════════════════════════════════════════════════════════
 
-  function buildPrompt(cardInfo, hasComparison, communityStats) {
+  function buildPrompt(cardInfo, hasComparison, communityStats, hasBack) {
     const hint = cardInfo
-      ? `Analyzovaná karta: ${cardInfo.name || '?'}${cardInfo.set ? ' · sada: ' + cardInfo.set : ''}${cardInfo.number ? ' #' + cardInfo.number : ''}${cardInfo.hp ? ' · ' + cardInfo.hp + ' HP' : ''}${cardInfo.rarity ? ' · vzácnost: ' + cardInfo.rarity : ''}.`
+      ? `Analyzovaná karta: ${cardInfo.name || '?'}${cardInfo.set ? ' · sada: ' + cardInfo.set : ''}${cardInfo.number ? ' #' + cardInfo.number : ''}${cardInfo.hp ? ' · HP ' + cardInfo.hp : ''}${cardInfo.lang ? ' · jazyk ' + cardInfo.lang : ''}`
       : '';
+    const era = eraKarty(cardInfo);
+    const eraHints = era ? KNOWLEDGE_BASE.era_specific[era] : null;
 
-    // Éra
-    let eraHints = '';
-    if (cardInfo?.set) {
-      const s = (cardInfo.set || '').toLowerCase();
-      for (const [era, hints] of Object.entries(KNOWLEDGE_BASE.era_specific)) {
-        const e = era.toLowerCase();
-        if ((s.includes('base')||s.includes('jungle')||s.includes('fossil')) && e.includes('base')) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('sv')||s.includes('scarlet')||s.includes('violet')||s.includes('paldea')) && e.includes('scarlet')) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('swsh')||s.includes('sword')||s.includes('shield')||s.includes('sm')||s.includes('sun')||s.includes('moon')) && (e.includes('sun')||e.includes('sword'))) { eraHints = hints.join('\n- '); break; }
-        if ((s.includes('xy')||s.includes('bw')||s.includes('black')||s.includes('white')) && e.includes('b&w')) { eraHints = hints.join('\n- '); break; }
-      }
-    }
-
-    // Komunitní data
+    // Komunita: jen na co se zaměřit. Jiní uživatelé hodnotili JINÉ kusy této karty —
+    // jejich verdikt o tomto kusu nic neříká (a výsledek AI se do komunity ukládá zpět,
+    // takže by se chybný verdikt sám posiloval).
     let communitySection = '';
-    if (communityStats && communityStats.total > 0) {
-      const cs = communityStats;
-      const v = cs.verdicts || {};
-      communitySection = `
-
-COMMUNITY DATA (${cs.total} previous analyses of this card by other users):
-- Average authenticity score: ${cs.avg_score}/100
-- Verdicts: real=${v.real||0}, fake=${v.fake||0}, suspicious=${v.suspicious||0}, unknown=${v.unknown||0}`;
-
-      // Nejčastější flagy od komunity
-      if (cs.common_flags && cs.common_flags.length > 0) {
-        communitySection += '\n- Most common flags from community:';
-        for (const f of cs.common_flags.slice(0, 8)) {
-          communitySection += `\n  · [${f.severity}] ${f.label} (reported ${f.count}x)`;
-        }
-      }
-
-      // Nedávné shrnutí
-      if (cs.recent_summaries && cs.recent_summaries.length > 0) {
-        communitySection += '\n- Recent community summaries:';
-        for (const s of cs.recent_summaries.slice(0, 3)) {
-          communitySection += `\n  · "${s}"`;
-        }
-      }
-
-      communitySection += `\n\nUse this community data to inform your analysis. If the community consistently found this card to be fake/real, give extra weight to that signal. If the community flagged specific issues, check those areas carefully.`;
+    if (communityStats && communityStats.common_flags && communityStats.common_flags.length) {
+      communitySection = '\n\nOther users checking OTHER copies of this card most often flagged these points. ' +
+        'Use them only as hints where to look closely — they say nothing about THIS copy:\n' +
+        communityStats.common_flags.slice(0, 6).map(f => `- ${f.label}`).join('\n');
     }
 
-    // Porovnání
-    const comparisonNote = hasComparison
-      ? `\n\nIMPORTANT: You are receiving TWO images:
-1. FIRST image = the user's photo of the card being checked
-2. SECOND image = the OFFICIAL card image from the Pokémon TCG database
+    let images = 'IMAGES YOU RECEIVE (in this order):\n1. the user\'s photo of the FRONT of the card being checked';
+    let n = 1;
+    if (hasBack) images += `\n${++n}. the user's photo of the BACK of the same card`;
+    if (hasComparison) images += `\n${++n}. an OFFICIAL reference image of this card from a card database`;
 
-Compare them carefully:
-- Does the artwork match exactly? (colors, positioning, details)
-- Is the card layout identical? (borders, text placement, symbol positions)
-- Are there any differences in typography or font weight?
-- Does the holo/foil pattern match what the official version should have?
-- Are energy symbols, HP, and damage values identical?`
-      : '';
+    const comparisonNote = hasComparison ? `
 
-    return `You are an expert Pokémon TCG card authenticator. You have been trained on thousands of real and fake cards.
+Comparing with the official reference image:
+- The reference may be a DIFFERENT LANGUAGE or edition (e.g. English reference, Japanese card). Different language of the text is NOT a sign of a fake.
+- If the artwork is completely different, the reference is probably another version of the card (e.g. regular vs. alternate art). Say so in comparison_notes and do NOT count it as a fake sign.
+- Do compare: layout and proportions, border, positions of symbols and text boxes, colors and print sharpness, holo area.` : '';
+
+    const backNote = hasBack ? `
+
+Back of the card: check the shade of blue and its gradients, sharpness of the Poké Ball and the Pokémon logo, centering and print quality. A wrong or flat blue and a blurry logo are strong fake signs.` : '';
+
+    return `You are an expert Pokémon TCG card authenticator. Judge ONLY what is visible in the photos.
+
+${images}
 
 ${hint}
-${eraHints ? `\nEra-specific checks for this card:\n- ${eraHints}` : ''}
+${eraHints ? `\nEra-specific checks (${era}):\n- ${eraHints.join('\n- ')}` : ''}
 
-Known common fake indicators:
-${KNOWLEDGE_BASE.common_fakes.map(f => '- ' + f).join('\n')}
-${communitySection}
-${comparisonNote}
+Known fake indicators:
+${KNOWLEDGE_BASE.common_fakes.map(f => '- ' + f).join('\n')}${communitySection}${comparisonNote}${backNote}
 
-Carefully examine this card photo for authenticity. Perform ALL of these checks:
+Check: text and typography (spelling, HP plausibility, attack text), layout (border color and width for the era, symbols, rarity and set symbol, number format, copyright line, illustrator), print quality (sharpness, colors, holo area, alignment), visible edges.
 
-TYPOGRAPHY & TEXT:
-- Font matches official Pokémon TCG fonts (Futura-like for names, specific fonts per era)
-- HP value is plausible for the card's era and type
-- Attack names, damage values and energy costs are consistent with official data
-- Ability/move descriptions use correct official grammar
-- Set number format correct (e.g. 025/198)
-
-VISUAL DESIGN:
-- Card border width and color correct for the era/set
-- Type symbols (energy icons) look sharp and correctly colored
-- Rarity symbol (circle/diamond/star) matches claimed rarity
-- Evolution stage banner present and correct
-- Weakness/Resistance/Retreat cost section correct
-- Illustrator credit visible and plausible
-
-PRINT QUALITY:
-- Colors saturated correctly (not too dull, not oversaturated)
-- No visible pixel artifacts, blur or JPEG compression on text
-- Holographic foil pattern (if applicable) matches official patterns
-- Card texture consistent
-- No misalignment between layers
-- Copyright line at bottom (© Nintendo/Creatures/GAME FREAK + year)
-
-CARD STOCK (if visible):
-- Card thickness normal
-- Edges clean, not rough or home-cut
+Be careful with accusations: many things (card thickness, texture, light test) CANNOT be judged from a photo. If the photo is blurry, small, partial or glare hides details, use verdict "unknown" or lower confidence. Never return "fake" without at least one concrete "fail" flag.
 
 Respond ONLY with this JSON (no explanation, no markdown fences):
 {
@@ -288,17 +259,12 @@ Respond ONLY with this JSON (no explanation, no markdown fences):
   "confidence": "high|med|low",
   "summary": "2-3 sentence verdict in Czech",
   "flags": [
-    { "label": "short check name", "severity": "ok|warn|fail", "detail": "Czech explanation" }
+    { "label": "short check name in Czech", "severity": "ok|warn|fail", "detail": "Czech explanation" }
   ],
-  "comparison_notes": "If comparing with official image, note key differences here in Czech. Otherwise empty string."
+  "comparison_notes": "If comparing with the reference, key differences in Czech. Otherwise empty string."
 }
 
-verdict meanings:
-- real: card appears genuine (score >= 75)
-- suspicious: some red flags but not conclusive (score 40-74)
-- fake: clear indicators of counterfeit (score < 40)
-- unknown: image too blurry/small/partial to assess
-
+verdict: real = looks genuine (score >= 75), suspicious = some red flags (40-74), fake = clear counterfeit signs (< 40), unknown = cannot be assessed from these photos.
 Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious red flag.`;
   }
 
@@ -324,12 +290,14 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       const cleanNumPadded = (cardInfo.number || '').split('/')[0].trim();
 
       // 2. Hledání přes jméno + číslo + sada
+      // Srovnání s JINOU kartou (jiné číslo = jiná verze) by vypadalo jako padělek → jen stejné číslo
+      const chciCislo = normCislo(cardInfo.number);
       const trySearch = async (parts) => {
         if (!parts.length) return null;
-        const resp = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=3`);
+        const resp = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(parts.join(' '))}&pageSize=5`);
         if (!resp.ok) return null;
         const data = await resp.json();
-        const card = data.data?.[0];
+        const card = (data.data || []).find(c => !chciCislo || normCislo(c.number) === chciCislo);
         return card?.images?.large || card?.images?.small || null;
       };
 
@@ -351,11 +319,8 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
         if (r) return r;
       }
 
-      // Pokus 4: jen jméno (jako poslední záchrana)
-      if (cardInfo.name) {
-        const r = await trySearch([`name:"${cardInfo.name}"`]);
-        if (r) return r;
-      }
+      // (Dřívější „Pokus 4: jen jméno" vracel libovolnou verzi karty → falešné „padělek".
+      //  Bez čísla raději srovnání vynecháme.)
 
       return null;
     } catch (e) {
@@ -395,29 +360,28 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
   //  ANALÝZA
   // ══════════════════════════════════════════════════════════════
 
-  async function analyze(imageSource, cardInfo) {
+  // backSource = volitelná fotka zadní strany (zpřesní výsledek)
+  async function analyze(imageSource, cardInfo, backSource) {
     try {
-      // 1. Načti komunitní data paralelně s oficiálním obrázkem
-      const [communityStats, officialImgFromApi] = await Promise.all([
+      const [communityStats, officialImg] = await Promise.all([
         getCommunityStats(cardInfo).catch(() => null),
-        cardInfo ? _resolveOfficialImage(cardInfo) : Promise.resolve(null),
+        cardInfo ? _resolveOfficialImage(cardInfo).catch(() => null) : Promise.resolve(null),
       ]);
-
-      const officialImg = officialImgFromApi;
-
       if (officialImg) {
-        return analyzeWithComparison(imageSource, officialImg, cardInfo, communityStats);
+        return analyzeWithComparison(imageSource, officialImg, cardInfo, communityStats, backSource);
       }
-
-      // Single image
-      const { base64, mimeType } = await toBase64(imageSource);
-      return await _callClaude([
-        { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-        { type: 'text', text: buildPrompt(cardInfo, false, communityStats) }
-      ], cardInfo, communityStats);
+      const content = [await _obrazek(imageSource)];
+      if (backSource) content.push(await _obrazek(backSource));
+      content.push({ type: 'text', text: buildPrompt(cardInfo, false, communityStats, !!backSource) });
+      return await _callClaude(content, cardInfo, communityStats);
     } catch (e) {
       return _errorResult('Chyba analýzy: ' + e.message);
     }
+  }
+
+  async function _obrazek(zdroj) {
+    const { base64, mimeType } = await toBase64(zdroj);
+    return { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } };
   }
 
   /** Resolve official image – z cardInfo nebo z API */
@@ -428,28 +392,24 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
     return fetchOfficialImage(cardInfo);
   }
 
-  async function analyzeWithComparison(userImg, officialImg, cardInfo, communityStats) {
+  async function analyzeWithComparison(userImg, officialImg, cardInfo, communityStats, backImg) {
+    if (!communityStats && cardInfo) communityStats = await getCommunityStats(cardInfo).catch(() => null);
+    const predni = await _obrazek(userImg);
+    const zadni = backImg ? await _obrazek(backImg) : null;
     try {
-      const user = await toBase64(userImg);
-      const official = await toBase64(officialImg);
-      // Pokud nemáme community stats, zkus je načíst
-      if (!communityStats && cardInfo) {
-        communityStats = await getCommunityStats(cardInfo).catch(() => null);
-      }
-      return await _callClaude([
-        { type: 'image', source: { type: 'base64', media_type: user.mimeType, data: user.base64 } },
-        { type: 'image', source: { type: 'base64', media_type: official.mimeType, data: official.base64 } },
-        { type: 'text', text: buildPrompt(cardInfo, true, communityStats) }
-      ], cardInfo, communityStats);
+      const content = [predni];
+      if (zadni) content.push(zadni);
+      content.push(await _obrazek(officialImg));
+      content.push({ type: 'text', text: buildPrompt(cardInfo, true, communityStats, !!zadni) });
+      return await _callClaude(content, cardInfo, communityStats);
     } catch (e) {
-      // Fallback na single image
-      console.warn('[FakeDetector] Comparison failed, fallback:', e);
+      // Srovnávací obrázek nejde načíst → bez něj
+      console.warn('[FakeDetector] Srovnání selhalo, zkouším bez něj:', e);
       try {
-        const user = await toBase64(userImg);
-        return await _callClaude([
-          { type: 'image', source: { type: 'base64', media_type: user.mimeType, data: user.base64 } },
-          { type: 'text', text: buildPrompt(cardInfo, false, communityStats) }
-        ], cardInfo, communityStats);
+        const content = [predni];
+        if (zadni) content.push(zadni);
+        content.push({ type: 'text', text: buildPrompt(cardInfo, false, communityStats, !!zadni) });
+        return await _callClaude(content, cardInfo, communityStats);
       } catch (e2) {
         return _errorResult('Chyba analýzy: ' + e2.message);
       }
@@ -492,34 +452,45 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       throw new Error(err?.error || err?.message || 'HTTP ' + response.status);
     }
 
-    const data    = await response.json();
-    const rawText = data.choices?.[0]?.message?.content || '{}';
-    const clean   = rawText.replace(/```json|```/g, '').trim();
+    const data = await response.json();
+    let obsah = data.choices?.[0]?.message?.content || '';
+    if (Array.isArray(obsah)) obsah = obsah.map(c => c.text || '').join('');
+    const result = najdiJson(obsah);
+    if (!result || typeof result !== 'object') throw new Error('AI vrátila nečitelnou odpověď, zkus to znovu');
 
-    let result;
-    try { result = JSON.parse(clean); } catch { throw new Error('AI vrátila neplatnou odpověď'); }
-
-    // Sanitize
-    result.verdict          = ['real','fake','suspicious','unknown'].includes(result.verdict) ? result.verdict : 'unknown';
-    result.score            = Math.max(0, Math.min(100, parseInt(result.score) || 50));
-    result.confidence       = ['high','med','low'].includes(result.confidence) ? result.confidence : 'low';
-    result.flags            = Array.isArray(result.flags) ? result.flags : [];
-    result.summary          = result.summary || '';
-    result.comparison_notes = result.comparison_notes || '';
+    // Úklid a pojistky
+    result.score      = Math.max(0, Math.min(100, parseInt(result.score, 10) || 50));
+    result.confidence = ({ medium: 'med', mid: 'med' }[String(result.confidence).toLowerCase()]) || result.confidence;
+    result.confidence = ['high', 'med', 'low'].includes(result.confidence) ? result.confidence : 'low';
+    result.flags = (Array.isArray(result.flags) ? result.flags : []).slice(0, 10).map(f => ({
+      label: String(f?.label || '').slice(0, 80),
+      severity: ['ok', 'warn', 'fail'].includes(f?.severity) ? f.severity : 'warn',
+      detail: String(f?.detail || '').slice(0, 300),
+    }));
+    // Verdikt musí odpovídat skóre (AI občas vrátí „fake" se skóre 80)
+    if (result.verdict !== 'unknown') {
+      result.verdict = result.score >= 75 ? 'real' : result.score >= 40 ? 'suspicious' : 'fake';
+    }
+    // Obvinit z padělku jen s doloženým vážným nálezem a ne s nízkou jistotou
+    if (result.verdict === 'fake' && (result.confidence === 'low' || !result.flags.some(f => f.severity === 'fail'))) {
+      result.verdict = 'suspicious';
+      result.score = Math.max(result.score, 40);
+    }
+    result.summary          = String(result.summary || '');
+    result.comparison_notes = String(result.comparison_notes || '');
     result.timestamp        = new Date().toISOString();
     result.cardName         = cardInfo?.name || '';
     result.cardSet          = cardInfo?.set || '';
+    result.sZadniStranou    = /BACK of the same card/.test(content[content.length - 1]?.text || '');
 
-    // Přidej info o komunitě do výsledku
     if (communityStats && communityStats.total > 0) {
       result.communityTotal    = communityStats.total;
       result.communityAvgScore = communityStats.avg_score;
     }
 
-    // Ulož do Supabase (sdílená komunita) + localStorage (local cache)
-    _saveToSupabase(result, cardInfo);
+    // Do komunity jen použitelné výsledky (nejisté by zkreslily tipy pro ostatní)
+    if (result.verdict !== 'unknown' && result.confidence !== 'low') _saveToSupabase(result, cardInfo);
     _saveToLocalHistory(result);
-
     return result;
   }
 
@@ -592,11 +563,26 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
       ? `<div style="margin-top:10px;padding:8px 10px;background:rgba(139,92,246,.08);border:1px solid rgba(139,92,246,.2);border-radius:8px;display:flex;align-items:center;gap:8px">
            <span style="font-size:18px">👥</span>
            <div>
-             <div style="font-size:11px;color:rgba(139,92,246,.8);font-weight:600">Komunita: ${result.communityTotal} analýz této karty</div>
+             <div style="font-size:11px;color:rgba(139,92,246,.8);font-weight:600">Komunita: ${result.communityTotal} analýz jiných kusů této karty</div>
              <div style="font-size:10px;color:rgba(240,232,208,.4);margin-top:1px">Průměrné skóre komunity: ${result.communityAvgScore}/100 · Tvoje: ${result.score}/100</div>
            </div>
          </div>`
       : '';
+
+    // Zadní strana: nejspolehlivější vizuální znak padělku — nabídnout, pokud chyběla
+    const zadniHtml = (!result.sZadniStranou && !result.error && _posledni.predni)
+      ? `<button type="button" onclick="FakeDetector._pridatZadniStranu()" style="margin-top:10px;width:100%;padding:9px;border-radius:10px;border:1px dashed rgba(245,158,11,.4);background:rgba(245,158,11,.06);color:#f59e0b;font-size:12px;cursor:pointer">📷 Přidat fotku zadní strany a zkontrolovat znovu (přesnější)</button>`
+      : '';
+    // Co z fotky poznat nejde
+    const rucneHtml = `<details style="margin-top:10px;padding:8px 10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:8px">
+        <summary style="font-size:11px;color:rgba(240,232,208,.6);cursor:pointer">🔦 Ověř ručně — tohle z fotky poznat nejde</summary>
+        <ul style="margin:8px 0 0 16px;padding:0;font-size:11px;color:rgba(240,232,208,.55);line-height:1.6">
+          <li><b>Světlo:</b> posviť zezadu baterkou mobilu. Pravá karta má uvnitř tmavou vrstvu a propustí jen málo světla, padělek často prosvítá.</li>
+          <li><b>Srovnání s pravou kartou</b> ze stejné doby: tloušťka, tuhost, povrch (pravé bývají matnější) a odstín modré na zadní straně.</li>
+          <li><b>Lupa:</b> pravé karty mají ostrý tiskový rastr z drobných teček, padělky bývají rozmazané nebo vytištěné jinak.</li>
+          <li><b>Okraje:</b> pravé karty jsou čistě vyseknuté, padělky mívají roztřepené nebo nerovné hrany.</li>
+        </ul>
+      </details>`;
 
     containerEl.innerHTML = `
       <div style="border:1px solid ${v.border};background:${v.bg};border-radius:14px;padding:16px;margin-top:10px">
@@ -618,7 +604,9 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
         <div style="margin-top:8px">${flagsHtml}</div>
         ${compNotes}
         ${communityBadge}
-        <div style="font-size:10px;color:rgba(240,232,208,.2);margin-top:12px;text-align:right">🤖 Claude AI + pokemontcg.io + komunita · Vždy zkontroluj fyzicky</div>
+        ${zadniHtml}
+        ${rucneHtml}
+        <div style="font-size:10px;color:rgba(240,232,208,.25);margin-top:12px;text-align:right">🤖 AI odhad z fotky + srovnání s databází · není to certifikát pravosti</div>
       </div>`;
   }
 
@@ -665,6 +653,30 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
   }
 
   let _pendingCardInfo = null;
+  const _posledni = { predni: null, cardInfo: null };   // pro dodatečné přidání zadní strany
+
+  function _ukazNacitani(resultEl, text) {
+    resultEl.innerHTML = `
+      <div style="text-align:center;padding:20px 0">
+        <div style="display:inline-block;width:28px;height:28px;border:3px solid rgba(245,158,11,.2);border-top-color:#f59e0b;border-radius:50%;animation:fdspin 1s linear infinite"></div>
+        <div style="font-size:12px;color:rgba(240,232,208,.45);margin-top:10px">${text}</div>
+      </div>
+      <style>@keyframes fdspin{to{transform:rotate(360deg)}}</style>`;
+  }
+
+  function _pridatZadniStranu() {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
+    inp.onchange = async () => {
+      const zadni = inp.files && inp.files[0];
+      if (!zadni || !_posledni.predni) return;
+      const resultEl = document.getElementById('fdModalResult');
+      if (resultEl) _ukazNacitani(resultEl, '⏳ AI porovnává přední i zadní stranu…');
+      const result = await analyze(_posledni.predni, _posledni.cardInfo, zadni);
+      if (resultEl) renderResult(result, resultEl);
+    };
+    inp.click();
+  }
 
   async function openModal(imgSource, cardInfo) {
     _ensureModal();
@@ -696,6 +708,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
     modal.style.display = 'flex';
 
     try {
+      _posledni.predni = imgSource; _posledni.cardInfo = cardInfo;
       const result = await analyze(imgSource, cardInfo);
       renderResult(result, resultEl);
     } catch (e) {
@@ -722,6 +735,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
     modal.style.display = 'flex';
 
     try {
+      _posledni.predni = file; _posledni.cardInfo = cardInfo;
       const result = await analyze(file, cardInfo);
       renderResult(result, resultEl);
     } catch (e) {
@@ -748,7 +762,7 @@ Include 5-8 flags. severity: ok = passed, warn = minor concern, fail = serious r
     getCommunityStats,
     renderResult, showModal, closeModal, openModal, openModalWithFile,
     getHistory, clearHistory, KNOWLEDGE_BASE,
-    _onFileSelected,
+    _onFileSelected, _pridatZadniStranu,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = FakeDetector;
