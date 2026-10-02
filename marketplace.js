@@ -1408,7 +1408,7 @@ async function sendMsg(){
 
 // ── Add listing ───────────────────────────────────────────────
 function openAddListing(){
-  if(!token){ alert('Přihlas se pro přidání nabídky.'); return; }
+  if(!token){ if (confirm('Přidat nabídku můžeš po přihlášení. Přejít na přihlášení?')) location.href = 'login.html?return=marketplace.html'; return; }
   document.getElementById('addModal').style.display='flex';
   setListingTab('card');
   resetAiZone();
@@ -2604,7 +2604,7 @@ function openListingFromQueue(pendingId) {
   const card = _pendingCardMap[pendingId];
   if (!card) { console.error('[openListingFromQueue] card not found for id:', pendingId); return; }
   _pendingFromQueue = card;
-  if (!token) { alert('Přihlas se pro přidání nabídky.'); return; }
+  if (!token) { if (confirm('Přidat nabídku můžeš po přihlášení. Přejít na přihlášení?')) location.href = 'login.html?return=marketplace.html'; return; }
 
   // Close pending modal and open the listing modal
   togglePendingPanel(false);
@@ -4950,7 +4950,7 @@ window.closeAddDemand = function() {
 
 // ── Updated openAddListing ───────────────────────────────────
 window.openAddListing = function() {
-  if (!token) { alert('Přihlas se pro přidání nabídky.'); return; }
+  if (!token) { if (confirm('Přidat nabídku můžeš po přihlášení. Přejít na přihlášení?')) location.href = 'login.html?return=marketplace.html'; return; }
   document.getElementById('addModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   setListingTab('card');

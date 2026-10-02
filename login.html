@@ -233,11 +233,20 @@ body.auth-page::after {
 
 <script src="app.js"></script>
 <script>
+// Kam po přihlášení: ?return=stranka.html — jen stránky tohoto webu (ne cizí adresy)
+function navratovaStranka() {
+  try {
+    var r = new URLSearchParams(location.search).get('return') || '';
+    if (/^[a-z0-9_-]+\.html([?#][^\s]*)?$/i.test(r)) return r;
+  } catch (e) {}
+  return 'profile.html';
+}
+
 // ── Pokud je uživatel JIŽ přihlášen → přesměrování ──────────
 (function checkAlreadyLoggedIn() {
   const token = localStorage.getItem('sb_token');
   const user  = (() => { try { return JSON.parse(localStorage.getItem('sb_user') || 'null'); } catch { return null; } })();
-  if (token && user?.id) window.location.replace('profile.html');
+  if (token && user?.id) window.location.replace(navratovaStranka());
 })();
 
 // ── Brute force: max pokusů z jedné IP za hodinu ─────────────
@@ -388,7 +397,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     window.PTLog?.udalost('prihlaseni', 'přihlášení úspěšné');
     window.PTLog?.odeslat();   // před přesměrováním, jinak by se záznam ztratil
 
-    window.location.replace('profile.html');
+    window.location.replace(navratovaStranka());
 
   } catch(err) {
     // Špatné heslo je chyba uživatele (jen varování); nepotvrzený e-mail,
