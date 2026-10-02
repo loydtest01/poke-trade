@@ -2976,6 +2976,7 @@ async function fetchMissingImages() {
         const data = await res.json();
         const card = data.data?.[0];
         if (!card) return;
+        if (!cisloSedi(c, card)) { console.warn('[fetchMissingImages] jiné číslo', c.name, c.number, '≠', card.number); return; }
         c.imageUrl = card.images.small;
         c.apiSmall = card.images.small;
         c.apiLarge = card.images.large;
@@ -2983,10 +2984,12 @@ async function fetchMissingImages() {
         // Pokud ještě nemáme ceny, vezmi je rovnou z téhož API odpovědi
         if (!c.pricesFetchedAt) {
           const cm = card.cardmarket?.prices || {};
+          const _stare = snimekCeny(c);
           c.pMin           = cm.lowPrice   || 0;
           c.pTrend         = cm.trendPrice || 0;
           c.p30d           = cm.avg30 || cm.avg7 || 0;
-          c.cardmarketUrl  = card.cardmarket?.url || '';
+          if (!c.cardmarketUrlRucne) c.cardmarketUrl = card.cardmarket?.url || '';
+          zachovejPriPropadu(c, _stare);
           c.setCode        = card.set?.ptcgoCode || c.setCode || '';
           c.hp             = c.hp || card.hp || '';
           c.rarity         = c.rarity || card.rarity || '';
@@ -3336,7 +3339,7 @@ function render() {
       if (activeRarity && !matchRarity(c, activeRarity)) return false;
       if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
       if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
-      if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
+      if (activeExpFilter && cenaEur(c) < getExpThreshold()) return false;
       if (q && !((c.name||'').toLowerCase().includes(q) ||
                  (c.set||'').toLowerCase().includes(q)  ||
                  (c.number||'').toLowerCase().includes(q))) return false;
@@ -3400,9 +3403,9 @@ function render() {
   const tvAmt  = document.getElementById('totalValueAmt');
   const tvExp  = document.getElementById('totalExpCnt');
   const tvExpN = document.getElementById('totalExpNum');
-  const cardsWithPrice = filtered.filter(c => c.p30d > 0);
-  const totalVal = cardsWithPrice.reduce((s, c) => s + (c.p30d * (c.count || c.qty || 1)), 0);
-  const expCount = filtered.filter(c => c.p30d >= getExpThreshold() && c.p30d > 0).length;
+  const cardsWithPrice = filtered.filter(c => cenaEur(c) > 0);
+  const totalVal = cardsWithPrice.reduce((s, c) => s + (cenaEur(c) * (c.count || c.qty || 1)), 0);
+  const expCount = filtered.filter(c => cenaEur(c) >= getExpThreshold() && cenaEur(c) > 0).length;
   if (tvBar) tvBar.style.display = bookViewMode === 'book' ? 'none' : 'flex';
   if (tvAmt) {
     const cnt = filtered.reduce((s, c) => s + (c.count || c.qty || 1), 0);
@@ -3440,7 +3443,7 @@ function render() {
   if (bookViewMode === 'book') renderBookView();
   // Aktualizuj počítadlo drahých karet v sidebaru (p30d může být načteno postupně)
   const expSbEl = document.getElementById('cnt-expensive');
-  if (expSbEl) expSbEl.textContent = allCards.filter(c => (c.p30d||0) >= getExpThreshold() && c.p30d > 0).length;
+  if (expSbEl) expSbEl.textContent = allCards.filter(c => cenaEur(c) >= getExpThreshold() && cenaEur(c) > 0).length;
 }
 
 function getExpThreshold() {
@@ -3463,21 +3466,84 @@ function setGridPage(p) {
 // ══════════════════════════════════════════════
 //  CURRENCY / EUR→CZK
 // ══════════════════════════════════════════════
-window._eurRate = null;  // e.g. 25.30
+// Kurz si pamatujeme v prohlížeči → při dalším otevření jsou koruny hned,
+// i když služba s kurzem odpovídá pomalu nebo vůbec.
+window._eurRate = (function () {
+  try {
+    var c = JSON.parse(localStorage.getItem('pkc_eur_rate') || 'null');
+    return c && c.r > 10 && c.r < 60 ? c.r : null;
+  } catch (e) { return null; }
+})();
 window._currency = localStorage.getItem('pkc_currency') || 'EUR';
 
 async function fetchEurRate() {
-  try {
-    const r = await fetch('https://open.er-api.com/v6/latest/EUR');
-    const d = await r.json();
-    window._eurRate = d?.rates?.CZK || null;
-  } catch {}
+  var mel = window._eurRate;
+  var zdroje = [
+    ['https://open.er-api.com/v6/latest/EUR',                     function (d) { return d && d.rates && d.rates.CZK; }],
+    ['https://api.frankfurter.dev/v1/latest?base=EUR&symbols=CZK', function (d) { return d && d.rates && d.rates.CZK; }],
+  ];
+  for (var i = 0; i < zdroje.length; i++) {
+    try {
+      var ctl = new AbortController();
+      var t = setTimeout(function () { ctl.abort(); }, 5000);
+      var r = await fetch(zdroje[i][0], { signal: ctl.signal });
+      clearTimeout(t);
+      var kurz = zdroje[i][1](await r.json());
+      if (kurz > 10 && kurz < 60) {
+        window._eurRate = kurz;
+        try { localStorage.setItem('pkc_eur_rate', JSON.stringify({ r: kurz, cas: Date.now() })); } catch (e) {}
+        break;
+      }
+    } catch (e) {}
+  }
   updateCurrencyUI();
+  // Karty se mohly vykreslit dřív, než kurz dorazil (pak by byly v €) → překreslit
+  if (window._currency === 'CZK' && window._eurRate && window._eurRate !== mel && typeof render === 'function') {
+    try { render(); } catch (e) {}
+  }
 }
 
 function eurToCzk(eur) {
   if (!window._eurRate) return '?';
   return Math.round(eur * window._eurRate).toLocaleString('cs-CZ');
+}
+
+// Cena pro hodnotu sbírky, řazení, filtry a cenovku: vlastní cena (Kč) má přednost
+// před Cardmarketem — zdroj se může mýlit (např. pokemontcg.io spojí alt art s běžnou verzí).
+function cenaEur(c) {
+  if (c && Number(c.price_czk) > 0) return Number(c.price_czk) / (window._eurRate || 25);
+  return (c && c.p30d) || 0;
+}
+
+// Pojistka: automatické načtení nesmí srazit cenu pod čtvrtinu dosavadní (od 20 €).
+// Takový skok bývá chyba zdroje, ne trhu. Původní cena zůstane, nová se jen poznamená.
+function zachovejPriPropadu(c, stare) {
+  // Zdroj cenu nenašel → známou cenu nezahazovat
+  if (stare.p30d > 0 && !(c.p30d > 0)) {
+    c.p30d = stare.p30d; c.pMin = stare.pMin; c.pTrend = stare.pTrend;
+    if (!c.cardmarketUrl) c.cardmarketUrl = stare.url;
+    return true;
+  }
+  if (stare.p30d >= 20 && c.p30d > 0 && c.p30d < stare.p30d * 0.25) {
+    console.warn('[ceny] podezřelý propad', c.name, stare.p30d, '→', c.p30d, '— ponechávám původní cenu');
+    c.cenaPodezrela = { nova: c.p30d, cas: new Date().toISOString() };
+    c.p30d = stare.p30d; c.pMin = stare.pMin; c.pTrend = stare.pTrend; c.cardmarketUrl = stare.url;
+    return true;
+  }
+  return false;
+}
+// Číslo karty: „218/203" = „218", „004" = „4". Různé verze stejné karty v jedné sérii
+// (běžná 111, duhová 217, alt art 218) se liší JEN číslem — bez kontroly se zamění.
+function normCislo(n) {
+  return String(n || '').toLowerCase().split('/')[0].trim().replace(/^0+(?=[0-9a-z])/, '');
+}
+function cisloSedi(c, hit) {
+  var a = normCislo(c && (c.number || c.num));
+  var b = normCislo(hit && hit.number);
+  return !a || !b || a === b;
+}
+function snimekCeny(c) {
+  return { p30d: c.p30d || 0, pMin: c.pMin || 0, pTrend: c.pTrend || 0, url: c.cardmarketUrl || '' };
 }
 
 function fmtCardPrice(eurVal) {
@@ -3570,7 +3636,7 @@ function renderCard(c, albumCardIds) {
           // Cenovka — chování závisí na toggle "Zobrazit ceny i u levných karet"
           // Default OFF: hvězdička ⭐ jen u karet nad limit (legacy)
           // ON: zobrazí cenu u VŠECH karet co cenu mají (badge bez hvězdičky pro pod-limit)
-          const price = c.p30d || 0;
+          const price = cenaEur(c);
           if (price <= 0) return '';
           const threshold = getExpThreshold();
           if (price >= threshold) {
@@ -5164,7 +5230,7 @@ async function fetchMissingPricesOnly() {
         c.p30d            = cm.avg30 || cm.avg7 || 0;
         c.pMin            = cm.lowPrice   || 0;
         c.pTrend          = cm.trendPrice || 0;
-        c.cardmarketUrl   = card.cardmarket?.url || '';
+        if (!c.cardmarketUrlRucne) c.cardmarketUrl = card.cardmarket?.url || '';
         c.pricesFetchedAt = new Date().toISOString();
 
         // TCGplayer fallback — pokud Cardmarket nemá ceny, zkus TCGplayer (USD → EUR)
@@ -5287,6 +5353,7 @@ async function saveBrokenCmUrl(cardId, rowIdx) {
   saveBtn.textContent = '⏳';
 
   c.cardmarketUrl = newUrl;
+  c.cardmarketUrlRucne = !!newUrl;   // ruční odkaz už nepřepisovat odkazem ze zdroje
   // Reset pricesFetchedAt — při příštím otevření detailu se cena znovu načte
   c.pricesFetchedAt = null;
   c.p30d = 0; c.pMin = 0; c.pTrend = 0;
@@ -5318,12 +5385,14 @@ async function fetchPriceForCard(c, rowIdx, saveBtn) {
     if (res.ok) {
       const data = await res.json();
       const card = data.data?.[0];
-      if (card) {
+      if (card && cisloSedi(c, card)) {
         const cm = card.cardmarket?.prices || {};
+        const _stare = snimekCeny(c);
         c.p30d  = cm.avg30 || cm.avg7 || 0;
         c.pMin  = cm.lowPrice || 0;
         c.pTrend = cm.trendPrice || 0;
-        if (card.cardmarket?.url) c.cardmarketUrl = card.cardmarket.url;
+        if (card.cardmarket?.url && !c.cardmarketUrlRucne) c.cardmarketUrl = card.cardmarket.url;
+        zachovejPriPropadu(c, _stare);
         c.pricesFetchedAt = new Date().toISOString();
         await saveCardUpdates(c);
       }
@@ -5698,6 +5767,10 @@ async function fetchLivePrices(c, el) {
             continue; // Špatná série — zkus dalšího kandidáta
           }
         }
+        if (!cisloSedi(c, hit)) {
+          console.warn(`[fetchLivePrices] Přeskakuji ${hit.name} #${hit.number} — karta má číslo ${c.number || c.num}`);
+          continue; // jiná verze karty (např. běžná místo alt artu)
+        }
         card = hit;
         break;
       } catch(e) { continue; }
@@ -5714,11 +5787,15 @@ async function fetchLivePrices(c, el) {
     }
 
     const cm = card.cardmarket?.prices || {};
+    // Opravené ID karty si pamatovat (špatné apiId by se jinak načítalo pořád dokola)
+    if (card.id && c.apiId !== card.id) c.apiId = card.id;
     // Ulož do karty pro příště
+    const _stare = snimekCeny(c);
     c.pMin          = cm.lowPrice   || 0;
     c.pTrend        = cm.trendPrice || 0;
     c.p30d          = cm.avg30 || cm.avg7 || 0;
-    c.cardmarketUrl = card.cardmarket?.url || c.cardmarketUrl || '';
+    if (!c.cardmarketUrlRucne) c.cardmarketUrl = card.cardmarket?.url || c.cardmarketUrl || '';
+    zachovejPriPropadu(c, _stare);
     c.setCode       = card.set?.ptcgoCode || c.setCode || '';
     c.hp            = card.hp || c.hp || '';
     c.pricesFetchedAt = new Date().toISOString(); // vždy ulož timestamp
@@ -6701,6 +6778,8 @@ function buildCardData(c) {
     hp: c.hp || '', rarity: c.rarity || '',
     pMin: c.pMin || 0, pTrend: c.pTrend || 0, p30d: c.p30d || 0,
     cardmarketUrl: c.cardmarketUrl || '',
+    cardmarketUrlRucne: !!c.cardmarketUrlRucne,
+    cenaPodezrela: c.cenaPodezrela || null,
     setCode: c.setCode || '',
     pricesFetchedAt: c.pricesFetchedAt || null,
     photoUrl: c.photoUrl || '', note: c.note || '',
@@ -7596,7 +7675,7 @@ function updateStats() {
   if (stEnergy) stEnergy.textContent = allCards.filter(c => matchSupertype(c,'Energy')).length;
   // Drahé karty
   const expEl = document.getElementById('cnt-expensive');
-  if (expEl) expEl.textContent = allCards.filter(c => (c.p30d||0) >= getExpThreshold() && c.p30d > 0).length;
+  if (expEl) expEl.textContent = allCards.filter(c => cenaEur(c) >= getExpThreshold() && cenaEur(c) > 0).length;
 }
 
 function setSupertype(st) {
@@ -8351,9 +8430,9 @@ function sortCards(cards) {
     const eb = ELEMENT_ORDER.indexOf(getCardElement(b));
     return (ea < 0 ? 99 : ea) - (eb < 0 ? 99 : eb) || (a.name||'').localeCompare(b.name||'', 'cs');
   });
-  if (activeSort === 'price_desc') return c.sort((a,b) => (b.p30d||0) - (a.p30d||0));
+  if (activeSort === 'price_desc') return c.sort((a,b) => cenaEur(b) - cenaEur(a));
   if (activeSort === 'price_asc')  return c.sort((a,b) => {
-    const pa = a.p30d||0, pb = b.p30d||0;
+    const pa = cenaEur(a), pb = cenaEur(b);
     if (pa === 0 && pb === 0) return 0;
     if (pa === 0) return 1;
     if (pb === 0) return -1;
@@ -8463,7 +8542,7 @@ function renderBookView() {
       if (activeRarity && !matchRarity(c, activeRarity)) return false;
       if (activeTrainerSub && !matchTrainerSub(c, activeTrainerSub)) return false;
       if (albumCardIds && !albumCardIds.includes(String(c.id))) return false;
-      if (activeExpFilter && (c.p30d||0) < getExpThreshold()) return false;
+      if (activeExpFilter && cenaEur(c) < getExpThreshold()) return false;
       if (q && !((c.name||'').toLowerCase().includes(q) ||
                  (c.set||'').toLowerCase().includes(q)  ||
                  (c.number||'').toLowerCase().includes(q))) return false;
@@ -8489,7 +8568,7 @@ function renderBookView() {
   const btv = document.getElementById('bookTotalValue');
   if (bvi && bcc && btv) {
     const realCards = bookFilteredCards.filter(c => c !== null);
-    const totalVal = realCards.reduce((s, c) => s + (c.p30d > 0 ? c.p30d * (c.count || c.qty || 1) : 0), 0);
+    const totalVal = realCards.reduce((s, c) => s + (cenaEur(c) > 0 ? cenaEur(c) * (c.count || c.qty || 1) : 0), 0);
     bcc.textContent = realCards.length + ' karet';
     btv.textContent = totalVal > 0 ? fmtCardPrice(totalVal) : '—';
     bvi.style.display = 'flex';
@@ -11744,7 +11823,7 @@ async function saveCardEdit() {
 
   // Apply to card object
   if (newName)      c.name      = newName;
-  if (newCmUrl)     c.cardmarketUrl = newCmUrl;
+  if (newCmUrl)     { c.cardmarketUrl = newCmUrl; c.cardmarketUrlRucne = true; }
   if (newApiSmall)  { c.apiSmall = newApiSmall; if (!c.images) c.images = {}; c.images.small = newApiSmall; }
   if (newApiLarge)  { c.apiLarge = newApiLarge; if (!c.images) c.images = {}; c.images.large = newApiLarge; }
   if (newSet)       c.set       = newSet;
