@@ -655,7 +655,7 @@
       await fetch(sb.url + '/auth/v1/recover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': sb.anon },
-        body: JSON.stringify({ email: email, gotrue_meta_security: {} })
+        body: JSON.stringify({ email: email, gotrue_meta_security: window.PT_Captcha ? await PT_Captcha.bezpecnost() : {} })
       });
       fb.textContent = '✅ E-mail odeslán! Zkontroluj schránku.';
       fb.className = 'sp-pass-fb ok';

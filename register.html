@@ -26,7 +26,8 @@
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
   <!-- Centrální log — tato stránka nemá topbar.js, tak se načítá přímo -->
-  <script src="logger.js?v=1"></script>
+  <script src="captcha.js"></script>
+<script src="logger.js?v=1"></script>
   <script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -146,7 +147,8 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     const res = await supabaseRequest('auth/v1/signup', 'POST', {
       email,
       password,
-      data: { username }
+      data: { username },
+      ...(window.PT_Captcha ? await PT_Captcha.pole() : {}),
     });
 
     // Zachyť všechny formáty chyb ze Supabase

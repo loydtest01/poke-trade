@@ -357,7 +357,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Segoe 
 </style>
   <!-- Centrální log (mobil nemá topbar.js, tak se načítá přímo).
        Podrobný log na tomto telefonu: otevři jednou s ?logvse=1 -->
-  <script src="logger.js?v=1"></script>
+  <script src="captcha.js"></script>
+<script src="logger.js?v=1"></script>
   <script src="card-vision.js?v=1"></script>
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -1429,7 +1430,7 @@ async function doMobileLogin() {
     const r = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: { 'apikey': SB_ANON, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: pass })
+      body: JSON.stringify({ email, password: pass, ...(window.PT_Captcha ? await PT_Captcha.pole() : {}) })
     });
     const data = await r.json();
     if (!r.ok || !data.access_token) {
@@ -4928,7 +4929,7 @@ async function doForgotPassword() {
     await fetch(SB_URL + '/auth/v1/recover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': SB_ANON },
-      body: JSON.stringify({ email: email, gotrue_meta_security: {} })
+      body: JSON.stringify({ email: email, gotrue_meta_security: window.PT_Captcha ? await PT_Captcha.bezpecnost() : {} })
     });
     closeForgotPassword();
     toast('✅ Reset e-mail odeslán! Zkontroluj schránku.');

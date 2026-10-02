@@ -26,6 +26,15 @@
    stránky. Sbírá chyby JS, neúspěšné dotazy a události aplikace
    do Supabase; admin je vidí v admin-loyd.html → záložka Logy.
    Synchronní document.write tu nepoužíváme — blokoval by stránku. */
+// CAPTCHA (captcha.js) — pro žádost o reset hesla z nastavení na všech stránkách
+(function () {
+  try {
+    if (window.PT_Captcha || document.querySelector('script[src="captcha.js"]')) return;
+    var s = document.createElement('script'); s.src = 'captcha.js'; s.async = true;
+    (document.head || document.documentElement).appendChild(s);
+  } catch (e) {}
+})();
+
 // Měna: Nastavení dřív ukládalo „czk"/„eur" malými písmeny, stránky čekají „CZK"/„EUR"
 try {
   var _pkcCur = localStorage.getItem('pkc_currency');
@@ -2696,7 +2705,7 @@ window.spDoForgotPass = async function () {
     await fetch(sb.url + '/auth/v1/recover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'apikey': sb.anon },
-      body: JSON.stringify({ email: email, gotrue_meta_security: {} })
+      body: JSON.stringify({ email: email, gotrue_meta_security: window.PT_Captcha ? await PT_Captcha.bezpecnost() : {} })
     });
     fb.textContent = '✅ E-mail odeslán! Zkontroluj schránku.';
     fb.className = 'sp-pass-fb ok';

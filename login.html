@@ -180,7 +180,8 @@ body.auth-page::after {
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
   <!-- Centrální log — tato stránka nemá topbar.js, tak se načítá přímo -->
-  <script src="logger.js?v=1"></script>
+  <script src="captcha.js"></script>
+<script src="logger.js?v=1"></script>
   <script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
@@ -351,7 +352,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
 
   try {
-    const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST', { email, password });
+    const res = await supabaseRequest('auth/v1/token?grant_type=password', 'POST',
+      { email, password, ...(window.PT_Captcha ? await PT_Captcha.pole() : {}) });
 
     if (res.error || res.error_description || res.msg) {
       const raw = res.error_description || res.msg || res.error?.message || res.error || '';
