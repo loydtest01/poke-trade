@@ -222,7 +222,8 @@ textarea.form-textarea::placeholder{color:rgba(255,255,255,0.2)}
   .cat-grid{grid-template-columns:1fr}
 }
 </style>
-  <script>window.TOPBAR_ACTIVE = 'transactions';</script>
+  <script src="demo-karty.js"></script>
+<script>window.TOPBAR_ACTIVE = 'transactions';</script>
   <script src="i18n.js"></script>
   <script src="topbar.js"></script>
   <!-- ═══ PWA init + mobile CSS ═══ -->
@@ -349,7 +350,12 @@ let currentUser = null, userToken = null, uid = null, uname = '';
     } catch {}
   } else {
     document.getElementById('loginLink').style.display = '';
-    window.location.href = 'login.html';
+    if (window.PT_DEMO) PT_DEMO.vyzva(document.querySelector('.page-wrap'), {
+      ikona: '📦', titulek: 'Přehled tvých obchodů',
+      popis: 'Tady najdeš všechny koupené a prodané karty a po dokončení obchodu tu ohodnotíš druhou stranu.',
+      vyhody: ['📦 Koupené i prodané karty', '⭐ Hodnocení po obchodu', '💬 Přímo do chatu s protistranou'],
+      navrat: 'transactions.html' });
+    else window.location.href = 'login.html?return=transactions.html';
   }
 })();
 

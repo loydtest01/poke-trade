@@ -1028,7 +1028,8 @@ textarea.form-textarea::placeholder { color: rgba(255,255,255,0.2); }
 </style>
   <!-- ═══ PWA init + mobile CSS ═══ -->
   <link rel="stylesheet" href="mobile-responsive.css">
-  <script src="pwa-init.js"></script>
+  <script src="demo-karty.js"></script>
+<script src="pwa-init.js"></script>
   <!-- ═══ /PWA init ═══ -->
   <script defer src="/_vercel/insights/script.js"></script>
   <script defer src="/_vercel/speed-insights/script.js"></script>
@@ -1537,7 +1538,13 @@ let catStarsVal     = {};
     if (currentUser?.id) {
       profileUserId = currentUser.id;
     } else {
-      window.location.href = 'login.html';
+      // Nepřihlášený bez parametru: místo vyhození ukázat, co profil umí
+      if (window.PT_DEMO) PT_DEMO.vyzva(document.querySelector('.page-wrap'), {
+        ikona: '👤', titulek: 'Tvůj sběratelský profil',
+        popis: 'Profil ukazuje tvoje hodnocení jako prodejce i kupujícího, nabídky v obchodě a vzájemné výměny s ostatními sběrateli.',
+        vyhody: ['⭐ Hodnocení od ostatních sběratelů', '🤝 Vzájemné výměny na jednom místě', '🛒 Tvoje nabídky v obchodě', '👨‍👩‍👧 Rodinné sdílení sbírky'],
+        navrat: 'profile.html' });
+      else window.location.href = 'login.html?return=profile.html';
       return;
     }
   } else if (userParam) {

@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@400;600;800&family=DM+Sans:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
+<script src="demo-karty.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; }
@@ -241,14 +242,21 @@ function token() { return localStorage.getItem('sb_token') || ''; }
 
 async function loadAlbum() {
   const t = token();
-  if (!t) { location.href = 'login.html'; return []; }
-  // user id z tokenu (JWT payload.sub)
-  let uid = '';
-  try { uid = JSON.parse(atob(t.split('.')[1])).sub || ''; } catch {}
-  const url = `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${uid}&select=local_id,card_data,created_at&order=created_at.asc&limit=10000`;
-  const r = await fetch(url, { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + t } });
-  if (!r.ok) throw new Error('Supabase ' + r.status);
-  const rows = await r.json();
+  let rows;
+  if (!t) {
+    // Nepřihlášený: ukázkové grafy místo vyhození na přihlášení
+    if (!window.PT_DEMO) { location.href = 'login.html?return=statistiky.html'; return []; }
+    PT_DEMO.lista(document.getElementById('content'), 'takhle uvidíš hodnotu a vývoj své sbírky.', 'statistiky.html');
+    rows = PT_DEMO.radky();
+  } else {
+    // user id z tokenu (JWT payload.sub)
+    let uid = '';
+    try { uid = JSON.parse(atob(t.split('.')[1])).sub || ''; } catch {}
+    const url = `${SUPABASE_URL}/rest/v1/user_cards?user_id=eq.${uid}&select=local_id,card_data,created_at&order=created_at.asc&limit=10000`;
+    const r = await fetch(url, { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + t } });
+    if (!r.ok) throw new Error('Supabase ' + r.status);
+    rows = await r.json();
+  }
   return rows.map(row => {
     const d = row.card_data || {};
     const count = Math.max(1, parseInt(d.count) || 1);
