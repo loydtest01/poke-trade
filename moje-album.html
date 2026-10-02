@@ -3758,9 +3758,9 @@ function buildCardmarketUrl(c) {
   const num      = (c.number || c.num || '').toString().split('/')[0];
   const numPad   = num ? num.padStart(3, '0') : '';
   const suffix   = setCode && numPad ? `-${setCode}${numPad}` : '';
-  if (nameSlug && setSlug) {
-    return `https://www.cardmarket.com/en/Pokemon/Products/Singles/${setSlug}/${nameSlug}${suffix}${reverseParam}`;
-  }
+  // Sestavený odkaz (Singles/sada/jméno-KÓD000) často neexistuje — kód sady na Cardmarketu
+  // (např. EVS) se liší od ID sady (swsh7) a verze mají přípony (V1, V2…). Hledání funguje vždy.
+  void nameSlug; void setSlug; void suffix;
   // 3. Fallback — hledej jen podle jména karty (ne série!)
   return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name||'')}`;
 }
@@ -5714,7 +5714,9 @@ async function refreshCardPrices() {
 async function fetchLivePrices(c, el) {
   if (!el) return;
   try {
-    const apiId    = c.apiId || c.id;
+    // c.id je interní ID řádku (UUID) — jako ID karty ho použít nelze
+    const _jeUuid  = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const apiId    = c.apiId || (_jeUuid.test(String(c.id)) ? '' : c.id);
     const numRaw   = (c.number || c.num || "").toString().split("/")[0];
     const numNoZero = numRaw.replace(/^0+/, '') || numRaw; // "009" -> "9"
     const name     = c.name || '';

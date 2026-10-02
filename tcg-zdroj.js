@@ -150,6 +150,10 @@
     return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/☆/g, '★').replace(/\s+/g, ' ').trim();
   }
+  // „218/203" → „218", „004" → „4", „SWSH136" → „swsh136"
+  function normCislo(n) {
+    return String(n == null ? '' : n).toLowerCase().split('/')[0].trim().replace(/^0+(?=[0-9a-z])/, '');
+  }
   function normalizuj(t) {
     return String(t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, ' ').trim();
@@ -167,7 +171,9 @@
       // „like" a přesnou shodu dořešíme sami — eq: v TCGdex může rozlišovat velikost písmen
       dotaz.push('name=' + encodeURIComponent(jmeno));
     }
-    if (q.number) dotaz.push('localId=eq:' + encodeURIComponent(q.number));
+    // Číslo filtrujeme sami: serverový filtr localId u TCGdex nevracel nic (Rayquaza VMAX 218).
+    // Jen když chybí jméno, pošle se na server (jinak by se stahovalo všechno).
+    if (q.number && !jmeno) dotaz.push('localId=eq:' + encodeURIComponent(q.number));
     if (!dotaz.length) return jsonOdpoved({ data: [], page: 1, pageSize: velikost, count: 0, totalCount: 0 });
 
     var seznam = (await tcgdexJson('/cards?' + dotaz.join('&'))) || [];
@@ -177,6 +183,10 @@
       // (např. „Rayquaza" místo „Rayquaza ★") by se ke kartě uložila se špatnou cenou.
       var nj = normalizujJmeno(jmeno);
       seznam = seznam.filter(function (k) { return normalizujJmeno(k.name) === nj; });
+    }
+    if (q.number && jmeno) {
+      var nc = normCislo(q.number);
+      seznam = seznam.filter(function (k) { return normCislo(k.localId) === nc; });
     }
     if (q['set.id']) {
       var sid = String(q['set.id']).toLowerCase();
