@@ -236,7 +236,7 @@ function setLoad(){
 }
 
 function setSaveLang(v){ try{ localStorage.setItem('pkc_lang', v); }catch(e){} setSaveAll(); if(window.location) setTimeout(()=>location.reload(),300); }
-function setSaveCurrency(v){ try{ localStorage.setItem('pkc_currency', v); }catch(e){} setSaveAll(); }
+function setSaveCurrency(v){ try{ localStorage.setItem('pkc_currency', String(v || 'EUR').toUpperCase()); }catch(e){} setSaveAll(); }
 
 function setSaveAll(){
   const s = {

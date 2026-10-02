@@ -26,6 +26,12 @@
    stránky. Sbírá chyby JS, neúspěšné dotazy a události aplikace
    do Supabase; admin je vidí v admin-loyd.html → záložka Logy.
    Synchronní document.write tu nepoužíváme — blokoval by stránku. */
+// Měna: Nastavení dřív ukládalo „czk"/„eur" malými písmeny, stránky čekají „CZK"/„EUR"
+try {
+  var _pkcCur = localStorage.getItem('pkc_currency');
+  if (_pkcCur && _pkcCur !== _pkcCur.toUpperCase()) localStorage.setItem('pkc_currency', _pkcCur.toUpperCase());
+} catch (e) {}
+
 (function () {
   try {
     if (window.PTLog || document.querySelector('script[data-pt-logger]')) return;

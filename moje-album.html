@@ -3474,7 +3474,8 @@ window._eurRate = (function () {
     return c && c.r > 10 && c.r < 60 ? c.r : null;
   } catch (e) { return null; }
 })();
-window._currency = localStorage.getItem('pkc_currency') || 'EUR';
+// Nastavení ukládalo „czk" malými písmeny → sjednotit, jinak se koruny nepoznají
+window._currency = String(localStorage.getItem('pkc_currency') || 'EUR').toUpperCase();
 
 async function fetchEurRate() {
   var mel = window._eurRate;
@@ -3731,7 +3732,12 @@ function buildCardmarketUrl(c) {
   const isReverseHolo = (c.variant||'').toLowerCase().includes('reverse');
   const reverseParam  = isReverseHolo ? '?isReverseHolo=Y' : '';
 
-  // 1. Přímý URL uložený z pokemontcg API — přidáme param pokud chybí
+  // 0. Přesměrování přes prices.pokemontcg.io po přechodu na Scrydex často vede na
+  //    „Invalid product" → raději hledání na Cardmarketu (funguje vždy, ukáže všechny verze)
+  if (c.cardmarketUrl && /^https?:\/\/prices\.pokemontcg\.io\//.test(c.cardmarketUrl) && !c.cardmarketUrlRucne) {
+    return `https://www.cardmarket.com/en/Pokemon/Products/Search?searchString=${encodeURIComponent(c.name || '')}`;
+  }
+  // 1. Přímý URL (ručně zadaný nebo přímo z Cardmarketu) — přidáme param pokud chybí
   if (c.cardmarketUrl) {
     const url = c.cardmarketUrl.split('?')[0]; // očisti starý param
     return url + reverseParam;
