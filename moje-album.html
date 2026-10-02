@@ -8746,7 +8746,7 @@ function showLoginPrompt() {
   }).join('');
   document.getElementById('cardsGrid').innerHTML = `
     <style>
-      .demo-album { max-width: 980px; margin: 0 auto; padding: 8px 4px 32px; }
+      .demo-album { grid-column: 1 / -1; width: 100%; max-width: 980px; margin: 0 auto; padding: 8px 4px 32px; box-sizing: border-box; }
       .demo-banner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:space-between;
         background: rgba(250,204,21,0.08); border: 1px solid rgba(250,204,21,0.3); border-radius: 14px; padding: 12px 16px; margin-bottom: 14px; }
       .demo-banner b { color: var(--text); }
