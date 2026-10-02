@@ -221,7 +221,9 @@ function setLoad(){
   try {
     const g = JSON.parse(localStorage.getItem('pkt_settings')||'{}');
     if(g.lang) document.getElementById('setLang').value = g.lang;
-    if(g.currency) document.getElementById('setCurrency').value = g.currency;
+    // Měna podle toho, co skutečně používají ostatní stránky (pkc_currency), jinak z uloženého nastavení
+    const cur = (localStorage.getItem('pkc_currency') || g.currency || '').toLowerCase();
+    if(cur === 'czk' || cur === 'eur') document.getElementById('setCurrency').value = cur;
     if(g.sync) document.getElementById('setSync').value = g.sync;
     if(g.marketView) document.getElementById('setMarketView').value = g.marketView;
     if(g.minOffer!=null) document.getElementById('setMinOffer').value = g.minOffer;
@@ -252,7 +254,9 @@ function setSaveAll(){
     showAllPrices: document.getElementById('setShowAllPrices').checked,
   };
   try { localStorage.setItem('pkt_settings', JSON.stringify(s)); } catch(e){}
-  const btn = event?.target; if(btn){ const t=btn.textContent; btn.textContent='✓ Uloženo'; setTimeout(()=>btn.textContent=t,1500); }
+  // „✓ Uloženo" jen u tlačítka — u výběru (select) by přepsání textu smazalo všechny jeho možnosti
+  const btn = (typeof event !== 'undefined') ? event?.target : null;
+  if(btn && btn.tagName === 'BUTTON'){ const t=btn.textContent; btn.textContent='✓ Uloženo'; setTimeout(()=>btn.textContent=t,1500); }
 }
 
 function setLogout(){
