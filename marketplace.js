@@ -1617,6 +1617,9 @@ If photo quality is too poor to assess, return {"grade":"NM","confidence":"low",
 }
 
 async function callClaudeVision(base64, mimeType){
+  // Společný modul ai-rozpoznani.js (pilot): jednotné zadání, odolné čtení odpovědi.
+  // Původní kód níže zůstává jako záloha, kdyby se modul nenačetl.
+  if (window.PT_AI) return PT_AI.rozpoznejKartu(base64, mimeType, { token });
   const prompt = `You are a Pokémon TCG card recognition expert. Analyze this card image and extract:
 1. Pokemon name (exactly as printed on card)
 2. Card number (e.g. "025/198" or "SV001")
@@ -4058,7 +4061,8 @@ async function handleDemandAiPhoto(file) {
     try {
       const aiResult = await callClaudeVision(base64, mime);
       if (aiResult?.name) {
-        const q   = `name:"${aiResult.name}"${aiResult.setName ? ` set.name:"${aiResult.setName}"` : ''}`;
+        // Hledání v anglické databázi → anglický název (u japonské karty by japonský nic nenašel)
+        const q   = `name:"${aiResult.nameEN || aiResult.name}"${aiResult.setName ? ` set.name:"${aiResult.setName}"` : ''}`;
         const res = await tcgFetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=1`);
         const json = await res.json();
         const card = json?.data?.[0];
