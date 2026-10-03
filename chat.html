@@ -1272,8 +1272,10 @@ function renderMsgText(raw) {
   const parts = String(raw||'').split(/(\[IMG:[^\]]+\])/g);
   return parts.map(p => {
     const m = p.match(/^\[IMG:(.+)\]$/);
-    if (m) {
-      const url = m[1];
+    // Jen skutečné webové adresy obrázků. Dřív prošlo i [IMG:javascript:…] a klik na
+    // „obrázek" spustil cizí kód s přihlášením toho, kdo zprávu četl.
+    if (m && /^https:\/\/[^\s"'<>]+$/i.test(m[1].trim())) {
+      const url = m[1].trim();
       return `<a href="${esc(url)}" target="_blank" style="display:block;margin:4px 0">` +
              `<img src="${esc(url)}" alt="Obrázek" onclick="event.stopPropagation()" ` +
              `style="max-width:240px;max-height:240px;border-radius:8px;display:block;cursor:zoom-in;border:1px solid rgba(255,255,255,.1)"></a>`;
@@ -1594,7 +1596,7 @@ function renderMessages() {
     // ── Album share invite zpráva ────────────────────────────────
     if (m.type === 'album_share_invite' && m.metadata) {
       const meta     = typeof m.metadata === 'string' ? JSON.parse(m.metadata) : m.metadata;
-      const shareId  = meta.share_id || '';
+      const shareId  = String(meta.share_id || '').replace(/[^A-Za-z0-9_-]/g, '');   // jde do onclick → jen bezpečné znaky
       const status   = meta.status || 'pending';
       const cards    = meta.cards_count || 0;
       const expires  = meta.expires_at ? new Date(meta.expires_at) : null;
@@ -1642,7 +1644,7 @@ function renderMessages() {
       refs.forEach(ref => {
         const price = ref.price_czk ? ref.price_czk.toLocaleString('cs')+' Kč' : 'Výměna';
         listingsHtml += `
-          <a class="msg-listing-attach" href="marketplace.html?open=${ref.listing_id}" target="_blank" title="Otevřít nabídku">
+          <a class="msg-listing-attach" href="marketplace.html?open=${encodeURIComponent(ref.listing_id || '')}" target="_blank" title="Otevřít nabídku">
             <div class="msg-listing-thumb">
               ${ref.api_image_url ? `<img src="${esc(ref.api_image_url)}" alt="">` : '<span style="font-size:16px">🃏</span>'}
             </div>
@@ -1874,6 +1876,8 @@ async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
         renderAttachBar();
 
         // Auto-odešli zprávu pokud přicházíme z marketplace nabídky (sendOffer / sendTrade)
+        // (params dřív v této funkci neexistovalo → nabídka z obchodu se neodeslala)
+        const params = new URLSearchParams(location.search);
         if (params.get('auto_send') === '1') {
           const offerPrice = params.get('offer_price');
           const offerMsg   = params.get('offer_msg') || '';
@@ -1894,6 +1898,11 @@ async function openOrCreateConversation(partnerId, partnerUsername, listingId) {
 
           const inp = document.getElementById('chatInput');
           if (inp) inp.value = autoText;
+          // Parametry z adresy pryč — jinak by obnovení stránky poslalo nabídku znovu
+          try {
+            ['auto_send', 'offer_price', 'offer_msg', 'offer_type', 'trade_cards'].forEach(k => params.delete(k));
+            history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
+          } catch (_) {}
           await sendMessage();
         }
       }
@@ -2894,7 +2903,8 @@ function renderBotMessages() {
       }
       html += `<div class="msg-row me"><div class="msg-bubble">${imgPart}${textPart}<div class="msg-time">${time}</div></div></div>`;
     } else {
-      const formatted = (m.content||'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
+      const formatted = esc(String(m.content||'').replace(/<think>[\s\S]*?<\/think>/gi,'').trim())
+        .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>');
       html += `
         <div class="msg-row them" style="align-items:flex-start;gap:8px">
           <div style="width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(74,158,255,.3));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;margin-top:2px">🤖</div>
@@ -3153,9 +3163,16 @@ function clearBotImagePreview() {
 let _fakeImageBase64 = null;
 let _fakeImageMime   = null;
 
+// Detektor padělků = společný fake-detector.js v4 (stejný jako v obchodě a albu).
+// Původní verze tady volala api.anthropic.com přímo z prohlížeče bez klíče → vždy selhala.
 function openFakeDetectorModal() {
-  document.getElementById('fakeDetectorModal').classList.add('open');
-  resetFakeDetector();
+  const otevri = () => window.FakeDetector.openModal(null, null);
+  if (window.FakeDetector) return otevri();
+  const sc = document.createElement('script');
+  sc.src = '/fake-detector.js';
+  sc.onload = () => window.FakeDetector ? otevri() : showToast('Detektor se nepodařilo načíst', 'error');
+  sc.onerror = () => showToast('Detektor se nepodařilo načíst', 'error');
+  document.head.appendChild(sc);
 }
 
 function closeFakeDetectorModal() {
