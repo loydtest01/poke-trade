@@ -3729,13 +3729,16 @@ async function loadMsgsThread(silent = false) {
   if (!_msgsActiveId) return;
   try {
     const r = await fetch(
-      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.asc&limit=100&select=id,conversation_id,sender_id,content,created_at,read_at,image_url`,
+      // Jen sloupce, které tabulka má — dřív se žádalo i o neexistující content/image_url,
+      // databáze vrátila chybu a vlákno zpráv na mobilu zůstalo prázdné.
+      // Nejnovějších 100 (dřív nejstarších 100 → nové zprávy v delší konverzaci chyběly).
+      `${SB_URL}/rest/v1/chat_messages?conversation_id=eq.${_msgsActiveId}&order=created_at.desc&limit=100&select=id,conversation_id,sender_id,text,listing_refs,created_at,read_at`,
       { headers: {'apikey':SB_ANON,'Authorization':'Bearer '+mobileToken} }
     );
     if (!r.ok) return;
     const msgs = await r.json();
     if (Array.isArray(msgs) && msgs.length > 0) {
-      _msgsMessages = msgs;
+      _msgsMessages = msgs.reverse();
       renderMsgsThread(silent);
     }
     // Pokud server vrátí prázdné pole, zachováme optimistické zprávy
@@ -3749,8 +3752,9 @@ function renderMobileMsgText(raw) {
   const parts = str.split(/(\[IMG:[^\]]+\])/g);
   return parts.map(p => {
     const m = p.match(/^\[IMG:(.+)\]$/);
-    if (m) {
-      const url = m[1];
+    // Jen skutečné adresy https:// a ošetřené — dřív šel přes [IMG:…] vložit libovolný kód
+    if (m && /^https:\/\/[^\s"'<>]+$/i.test(m[1].trim())) {
+      const url = escHtml(m[1].trim());
       return `<a href="${url}" target="_blank" style="display:block;margin:2px 0">` +
              `<img src="${url}" alt="Obrázek" style="max-width:220px;max-height:220px;border-radius:10px;display:block;border:1px solid rgba(255,255,255,.12)"></a>`;
     }
@@ -3771,7 +3775,16 @@ function renderMsgsThread(silent = false) {
     const isMe = m.sender_id === _msgsUserId;
     const time = d.toLocaleTimeString('cs', {hour:'2-digit', minute:'2-digit'});
     const rawTxt = m.text || m.content || m.message || m.body || '';
-    const txt = renderMobileMsgText(rawTxt);
+    let txt = renderMobileMsgText(rawTxt);
+    // Připojené inzeráty a nabídky (vyřízení nabídky zatím jen na webu v Chatu)
+    (m.listing_refs || []).forEach(ref => {
+      const nazev = escHtml(ref.title || ref.card_name || 'Nabídka');
+      const odkaz = 'marketplace.html?open=' + encodeURIComponent(ref.listing_id || '');
+      const nabidka = ref.offer_id
+        ? (ref.offer_type === 'trade' ? ' · 🔄 návrh výměny' : (ref.offer_price ? ' · 💸 ' + escHtml(Number(ref.offer_price).toLocaleString('cs')) + ' Kč' : ' · 💸 nabídka'))
+        : '';
+      txt += `<a href="${odkaz}" target="_blank" style="display:block;margin-top:4px;font-size:12px;opacity:.85;color:inherit">📎 ${nazev}${nabidka}</a>`;
+    });
 
     // Read receipt – pouze u odeslaných zpráv (isMe)
     let ticksHtml = '';

@@ -10451,7 +10451,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     // zůstane v prohlížeči, dokud se nezpracuje — dřív se smazal hned a při
     // ještě nenačteném albu se ztratil. Ukládá se přes saveCardUpdates (celá
     // data karty); dřívější přímý PATCH by card_data přepsal jen { photoUrl }.
-    (function checkBulkScanAlbumReturn() {
+    function checkBulkScanAlbumReturn() {
       if (!localStorage.getItem('pkc_bulkscan_album_result')) return;
       const start = Date.now();
       (function zkus() {
@@ -10493,7 +10493,10 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
           if (typeof render === 'function') render();
         } catch (e) { console.warn('[BulkScanAlbumReturn]', e); }
       })();
-    })();
+    }
+    checkBulkScanAlbumReturn();
+    // Bulk Scan běží v jiné záložce → zpracovat hned, jak výsledek uloží
+    window.addEventListener('storage', e => { if (e.key === 'pkc_bulkscan_album_result' && e.newValue) checkBulkScanAlbumReturn(); });
 
   window.closePhotoGallery = function() {
     document.getElementById('photoGalleryModal').style.display = 'none';

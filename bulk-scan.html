@@ -425,12 +425,12 @@ details summary::-webkit-details-marker{display:none;}
 
 <!-- ALBUM RETURN BANNER -->
 <div id="albumReturnBanner">
-  <strong>📷 Album karta:</strong>
+  <strong id="arbLabel">📷 Album karta:</strong>
   <span id="arbCardName">—</span>
-  <label style="display:flex;align-items:center;gap:5px;font-size:10px;color:#ccc;cursor:pointer">
+  <label id="arbMainLbl" style="display:flex;align-items:center;gap:5px;font-size:10px;color:#ccc;cursor:pointer">
     <input type="checkbox" id="setAsMainChk"> Nastavit jako hlavní foto
   </label>
-  <button class="btn-save-album" onclick="arbSaveBack()">✅ Uložit zpět do alba</button>
+  <button class="btn-save-album" id="arbSaveBtn" onclick="arbSaveBack()">✅ Uložit zpět do alba</button>
   <button class="btn-share-community" onclick="arbShareCommunity()">🌍 Sdílet do komunity</button>
   <button onclick="arbDiscard()" style="background:transparent;border:none;color:#aaa;cursor:pointer;font-size:15px;padding:2px 6px">✕</button>
 </div>
@@ -1040,9 +1040,13 @@ async function detectAIMethod(){
       const r=await fetch('/api/groq',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+TOKEN},
         body:JSON.stringify({model:'meta-llama/llama-4-scout-17b-16e-instruct',max_tokens:2000,temperature:.1,response_format:{type:'json_object'},usage_type:'search',
           messages:[{role:'user',content:[{type:'text',text:PROMPT},{type:'image_url',image_url:{url:tmp.toDataURL('image/jpeg',.85)}}]}]})});
+      // (limit se dřív kontroloval uvnitř r.ok → okno o vyčerpaném limitu se nikdy neukázalo)
+      if(r.status===429){
+        const d=await r.json().catch(()=>({}));
+        if(d?.code==='RATE_LIMITED'&&typeof window.showRateLimitModal==='function')window.showRateLimitModal({used:d.used,limit:d.limit,reset:d.reset,usageType:d.usageType||d.usage_type});
+      }
       if(r.ok){
         const d=await r.json();
-        if(r.status===429&&d?.code==='RATE_LIMITED'&&typeof window.showRateLimitModal==='function')window.showRateLimitModal({used:d.used,limit:d.limit,reset:d.reset,usageType:d.usageType||d.usage_type});
         const raw=d?.choices?.[0]?.message?.content||'{}';
         let p;try{p=JSON.parse(raw);}catch{p=JSON.parse(raw.replace(/```json|```/g,'').trim());}
         if(p.cards?.length>0){
@@ -1660,34 +1664,84 @@ document.getElementById('albumModal').addEventListener('click', e => {
 //  ALBUM RETURN (round-trip editing: moje-album → bulk-scan → album)
 // ══════════════════════════════════════════════════════════════════
 let _arbEntry=null;
+// Návrat do alba nebo do fronty. Fronta posílala fotku pod klíčem
+// pkc_queue_to_bulkscan, který tahle stránka dřív vůbec nečetla.
+let _arbZdroj = 'album';
 function initAlbumReturn(){
-  const raw=localStorage.getItem('pkc_album_to_bulkscan'); if(!raw)return;
+  let raw = localStorage.getItem('pkc_album_to_bulkscan'); _arbZdroj = 'album';
+  if (!raw) { raw = localStorage.getItem('pkc_queue_to_bulkscan'); _arbZdroj = 'queue'; }
+  if (!raw) return;
   try{
     _arbEntry=JSON.parse(raw); if(!_arbEntry.photoUrl)return;
     const banner=document.getElementById('albumReturnBanner');
     document.getElementById('arbCardName').textContent=_arbEntry.name||'bez názvu';
+    if (_arbZdroj === 'queue') {
+      document.getElementById('arbLabel').textContent = '📥 Karta z fronty:';
+      document.getElementById('arbSaveBtn').textContent = '✅ Uložit zpět do fronty';
+      document.getElementById('arbMainLbl').style.display = 'none';
+    }
     banner.style.display='flex';
     setTimeout(async()=>{
-      try{toast('⏳ Načítám fotku z alba…','');const resp=await fetch(_arbEntry.photoUrl);const blob=await resp.blob();st('Opravuji rotaci…',true);const img=await loadBlobAutoRotate(blob);onImgReady(img);toast('✅ Fotka načtena — uprav nebo najdi kartu','success');}
+      try{toast('⏳ Načítám fotku…','');const resp=await fetch(_arbEntry.photoUrl);const blob=await resp.blob();st('Opravuji rotaci…',true);const img=await loadBlobAutoRotate(blob);onImgReady(img);toast('✅ Fotka načtena — uprav nebo najdi kartu','success');}
       catch(e){toast('⚠ Foto nelze načíst: '+e.message,'error');}
     },700);
   }catch(e){console.warn('[AlbumReturn]',e);}
 }
-function arbDiscard(){ localStorage.removeItem('pkc_album_to_bulkscan'); document.getElementById('albumReturnBanner').style.display='none'; _arbEntry=null; }
+function arbDiscard(){
+  localStorage.removeItem(_arbZdroj === 'queue' ? 'pkc_queue_to_bulkscan' : 'pkc_album_to_bulkscan');
+  document.getElementById('albumReturnBanner').style.display='none'; _arbEntry=null;
+}
+
+// Fotka do alba → R2 (jako ořez v albu; Supabase Storage zbytečně čerpá limit přenosu).
+// Při výpadku R2 záloha do Supabase Storage.
+async function _arbNahrajDoAlba(blob, nazev){
+  try{
+    const r = await fetch('https://pokedb-api.poketrade.workers.dev/v1/user-photo?filename=' + encodeURIComponent(nazev), {
+      method:'POST', headers:{'Authorization':'Bearer '+TOKEN,'Content-Type':'image/jpeg'}, body: blob });
+    const d = r.ok ? await r.json().catch(()=>({})) : {};
+    if (d.ok && d.url) return { url: d.url, path: d.key || null };
+  }catch(e){ console.warn('[arb R2]', e); }
+  const sp = `${USER_ID}/${nazev}`;
+  const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'image/jpeg','x-upsert':'true'},body:blob});
+  return up.ok ? { url: `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`, path: sp } : null;
+}
+
 async function arbSaveBack(){
   if(!_arbEntry)return;
-  const result={cardLocalId:_arbEntry.cardLocalId,name:_arbEntry.name,setAsMain:document.getElementById('setAsMainChk').checked,apiCard:null,newPhotoUrl:null,storagePath:null};
-  if(results[0]&&TOKEN&&USER_ID){
-    try{
-      const p=results[0];
-      const sp=`${USER_ID}/album_bulkscan_${_arbEntry.cardLocalId}_${Date.now()}.jpg`;
-      const up=await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'image/jpeg','x-upsert':'true'},body:p.blob});
-      if(up.ok){result.newPhotoUrl=`${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}`;result.storagePath=sp;await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Prefer':'return=minimal'},body:JSON.stringify({user_id:USER_ID,user_card_local_id:_arbEntry.cardLocalId,url:result.newPhotoUrl,storage_path:sp,side:'front'})});}
-    }catch(e){console.warn('[arbSaveBack photo]',e);}
-  }
-  localStorage.setItem('pkc_bulkscan_album_result',JSON.stringify(result));
-  localStorage.removeItem('pkc_album_to_bulkscan');
-  document.getElementById('albumReturnBanner').innerHTML='<span style="color:#4fc870">✅ Uloženo! Zavři záložku a obnov album.</span>';
+  if(!results[0]){ toast('⚠ Nejdřív kartu zpracuj (ořez / vylepšení)',''); return; }
+  if(!TOKEN||!USER_ID){ toast('❌ Nejsi přihlášen','error'); return; }
+  const p = results[0];
+  const ac = p.apiCard || null;
+  try{
+    if (_arbZdroj === 'queue') {
+      // Fronta pracuje s fotkami v Supabase Storage → přepsat původní soubor upravenou verzí
+      const sp = _arbEntry.storagePath || '';
+      let newUrl = null;
+      if (sp && sp.startsWith(USER_ID + '/')) {
+        const up = await fetch(`${SUPABASE_URL}/storage/v1/object/card-photo/${sp}`,{method:'PUT',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':p.mime||'image/jpeg','x-upsert':'true'},body:p.blob});
+        if (up.ok) newUrl = `${SUPABASE_URL}/storage/v1/object/public/card-photo/${sp}?t=${Date.now()}`;
+      }
+      if (!newUrl && !ac) { toast('❌ Fotku se nepodařilo uložit','error'); return; }
+      localStorage.setItem('pkc_bulkscan_result', JSON.stringify({
+        queueId: _arbEntry.queueId || null, key: _arbEntry.key || null, gi: _arbEntry.gi,
+        newPhotoUrl: newUrl,
+        name: ac ? ac.name : null, set: ac ? (ac.set && ac.set.name) || null : null, number: ac ? ac.number : null,
+      }));
+      localStorage.removeItem('pkc_queue_to_bulkscan');
+    } else {
+      const nahrano = await _arbNahrajDoAlba(p.blob, `album_bulkscan_${_arbEntry.cardLocalId}_${Date.now()}.jpg`);
+      if (!nahrano) { toast('❌ Fotku se nepodařilo nahrát','error'); return; }
+      await fetch(`${SUPABASE_URL}/rest/v1/user_card_photos`,{method:'POST',headers:{'apikey':SUPABASE_ANON,'Authorization':'Bearer '+TOKEN,'Content-Type':'application/json','Prefer':'return=minimal'},
+        body:JSON.stringify({user_id:USER_ID,user_card_local_id:_arbEntry.cardLocalId,url:nahrano.url,storage_path:nahrano.path,side:'front'})});
+      localStorage.setItem('pkc_bulkscan_album_result', JSON.stringify({
+        cardLocalId:_arbEntry.cardLocalId, name:_arbEntry.name,
+        setAsMain:document.getElementById('setAsMainChk').checked,
+        apiCard:null, newPhotoUrl:nahrano.url, storagePath:nahrano.path,
+      }));
+      localStorage.removeItem('pkc_album_to_bulkscan');
+    }
+  }catch(e){ console.warn('[arbSaveBack]', e); toast('❌ Uložení selhalo: '+e.message,'error'); return; }
+  document.getElementById('albumReturnBanner').innerHTML='<span style="color:#4fc870">✅ Uloženo! Vrať se do původní záložky — změna se projeví sama.</span>';
   _arbEntry=null;
 }
 async function arbShareCommunity(){

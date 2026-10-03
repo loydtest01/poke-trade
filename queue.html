@@ -5492,7 +5492,7 @@ async function searchCommunityImage(gi) {
 // ── Přijmi výsledek z Bulk Scan ──────────────────────────────────
 // Fronta se načítá asynchronně → počkat na karty (max 30 s) a výsledek do té doby
 // nemazat. Kartu hledat podle fotky (queueId), pořadí se mezitím mohlo změnit.
-(function checkBulkScanQueueReturn() {
+function checkBulkScanQueueReturn() {
   if (!localStorage.getItem('pkc_bulkscan_result')) return;
   const start = Date.now();
   (function zkus() {
@@ -5511,6 +5511,11 @@ async function searchCommunityImage(gi) {
     localStorage.removeItem('pkc_bulkscan_result');
     try {
       if (!g.aiResult) g.aiResult = {};
+      // Upravená fotka z Bulk Scanu (přepsaný soubor, nová adresa kvůli mezipaměti)
+      if (res.newPhotoUrl && res.queueId) {
+        const ph = (g.photos || []).find(p => String(p.queueId) === String(res.queueId));
+        if (ph) { ph.url = res.newPhotoUrl; ph.croppedUrl = null; }
+      }
       if (res.name)    { const cn = cleanEnCardName(res.name); g.aiResult.nameEN = cn; g.aiResult.name = cn; }
       if (res.set)     { g.aiResult.set    = res.set; }
       if (res.number)  { g.aiResult.number = res.number; }
@@ -5520,7 +5525,10 @@ async function searchCommunityImage(gi) {
       toast('✅ Karta aktualizována z Bulk Scan', 'ok');
     } catch(e) { console.warn('[BulkScanReturn]', e); }
   })();
-})();
+}
+checkBulkScanQueueReturn();
+// Bulk Scan běží v jiné záložce → výsledek zpracovat hned, jak ho uloží
+window.addEventListener('storage', e => { if (e.key === 'pkc_bulkscan_result' && e.newValue) checkBulkScanQueueReturn(); });
 
 /* ─────────────── QUEUE TABS ─────────────── */
 var _qrGenerated = false;
