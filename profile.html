@@ -1824,8 +1824,10 @@ function renderReviews(tab) {
   empty.style.display = 'none';
 
   list.innerHTML = reviews.map((r, i) => {
-    const uname = r.reviewer_username || 'Trenér';
-    const initials = uname.slice(0,2).toUpperCase();
+    // Jméno hodnotitele zapisuje jeho prohlížeč → ošetřit (jinak šlo podvrhnout HTML/skript)
+    const unameRaw = r.reviewer_username || 'Trenér';
+    const uname = escHtml(unameRaw);
+    const initials = escHtml(unameRaw.slice(0,2).toUpperCase());
     const date = new Date(r.created_at).toLocaleDateString('cs-CZ', { day:'numeric', month:'long', year:'numeric' });
     const sentimentClass = r.is_positive ? 'pos' : r.is_neutral ? 'neu' : 'neg';
     const sentimentLabel = r.is_positive ? '👍 Kladné' : r.is_neutral ? '😐 Neutrální' : '👎 Záporné';
@@ -1863,7 +1865,7 @@ function renderReviews(tab) {
         </div>
         ${r.comment ? `<div class="review-body">${escHtml(r.comment)}</div>` : ''}
         ${catChips ? `<div class="review-cats">${catChips}</div>` : ''}
-        ${r.listing_id ? `<div class="review-listing-ref">📎 K nabídce: <a href="listing.html?id=${r.listing_id}">zobrazit kartu</a></div>` : ''}
+        ${r.listing_id ? `<div class="review-listing-ref">📎 K nabídce: <a href="marketplace.html?open=${encodeURIComponent(r.listing_id)}">zobrazit kartu</a></div>` : ''}
       </div>`;
   }).join('');
 }
@@ -1894,7 +1896,7 @@ function renderMiniStars(val) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str == null ? '' : str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2803,12 +2805,12 @@ async function loadMyListings() {
           <span class="lc-date">${new Date(listing.created_at).toLocaleDateString('cs')}</span>
           <button class="lc-delete" onclick="deleteListing('${listing.id}')" title="Smazat">🗑️</button>
         </div>
-        <div class="lc-title">${listing.title || 'Výměnná nabídka'}</div>
+        <div class="lc-title">${escHtml(listing.title || 'Výměnná nabídka')}</div>
         <div class="lc-cards-preview">
           ${preview.map(c => {
             const apiImg = c.images?.small || c.apiSmall || c.image_url || '';
             const emoji  = getTypeEmoji(Array.isArray(c.types) ? c.types[0] : (c.type || c.supertype || ''));
-            return `<div class="mini-card" title="${c.name || '?'}">${apiImg ? `<img src="${apiImg}" alt="${c.name}" loading="lazy">` : `<div class="mini-card-placeholder">${emoji}</div>`}</div>`;
+            return `<div class="mini-card" title="${escHtml(c.name || '?')}">${apiImg ? `<img src="${escHtml(apiImg)}" alt="${escHtml(c.name)}" loading="lazy">` : `<div class="mini-card-placeholder">${emoji}</div>`}</div>`;
           }).join('')}
           ${cards.length > 4 ? `<div class="mini-card more">+${cards.length - 4}</div>` : ''}
         </div>
@@ -2837,7 +2839,7 @@ async function loadIncomingOffers() {
   container.innerHTML = res.map(offer => `
     <div class="offer-row">
       <div class="offer-info">
-        <span class="offer-from">👤 ${offer.buyer_username || 'Anonym'}</span>
+        <span class="offer-from">👤 ${escHtml(offer.buyer_username || 'Anonym')}</span>
         <span class="offer-price">${offer.offered_price_czk ? offer.offered_price_czk + ' Kč' : 'výměna'}</span>
         <span class="offer-date">${new Date(offer.created_at).toLocaleDateString('cs')}</span>
       </div>
@@ -2955,12 +2957,25 @@ async function deleteListing(id) {
   await supabaseRequest(`rest/v1/listings?id=eq.${id}`, 'DELETE', null, localStorage.getItem('sb_token'));
   loadMyListings();
 }
+// Přijetí/odmítnutí přes databázové funkce: přijetí zároveň rezervuje kartu pro
+// kupujícího (na 3 dny) a pošle mu upozornění. Přímá změna stavu už nejde.
+async function _vyridNabidku(fn, id) {
+  const r = await supabaseRequest('rest/v1/rpc/' + fn, 'POST', { p_offer: id }, localStorage.getItem('sb_token'));
+  if (r === 'ok') return true;
+  const chyby = { obsazeno: 'Karta je už rezervovaná nebo prodaná.', vyrizeno: 'Nabídka už byla vyřízena.',
+                  neni_tvoje: 'Tuhle nabídku nemůžeš vyřídit.', nenalezeno: 'Nabídka nebo inzerát už neexistuje.' };
+  alert('⚠️ ' + (chyby[r] || ('Chyba: ' + ((r && (r.message || (r.error && r.error.message))) || JSON.stringify(r)))));
+  return false;
+}
 async function acceptOffer(id) {
-  await supabaseRequest(`rest/v1/offers?id=eq.${id}`, 'PATCH', { status: 'accepted' }, localStorage.getItem('sb_token'));
-  loadIncomingOffers(); alert('✅ Nabídka přijata!');
+  if (!confirm('Přijmout nabídku? Karta se na 3 dny rezervuje pro kupujícího.')) return;
+  const ok = await _vyridNabidku('prijmi_nabidku', id);
+  loadIncomingOffers();
+  if (ok) alert('✅ Nabídka přijata — karta je rezervovaná pro kupujícího.');
 }
 async function rejectOffer(id) {
-  await supabaseRequest(`rest/v1/offers?id=eq.${id}`, 'PATCH', { status: 'rejected' }, localStorage.getItem('sb_token'));
+  if (!confirm('Odmítnout nabídku?')) return;
+  await _vyridNabidku('odmitni_nabidku', id);
   loadIncomingOffers();
 }
 

@@ -186,7 +186,7 @@ document.getElementById('registerForm').addEventListener('submit', async (e) => 
     const succEl = document.getElementById('authSuccess');
     succEl.innerHTML = `
       ✅ <strong>Účet vytvořen!</strong><br>
-      Zkontroluj svůj e-mail <strong>${email}</strong> a klikni na ověřovací odkaz.<br><br>
+      Zkontroluj svůj e-mail <strong>${email.replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[ch])}</strong> a klikni na ověřovací odkaz.<br><br>
       Po ověření se můžeš <a href="login.html">přihlásit →</a>
     `;
     succEl.style.display = 'block';

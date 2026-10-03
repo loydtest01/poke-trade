@@ -251,7 +251,6 @@ function navratovaStranka() {
 })();
 
 // ── Brute force: max pokusů z jedné IP za hodinu ─────────────
-const BRUTE_FORCE_LIMIT = 5;
 
 async function getClientIP() {
   try {
@@ -298,27 +297,9 @@ async function logSuccessfulLogin(userId, ip) {
   } catch { /* ignoruj */ }
 }
 
-// ── BRUTE FORCE: spočítej failed pokusy za posledních 60 min ─
-async function getRecentFailedCount(ip) {
-  if (ip === 'unknown') return 0;
-  try {
-    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const r = await supabaseRequest(
-      `rest/v1/user_ip_logs?ip_address=eq.${encodeURIComponent(ip)}&action=eq.failed&success=eq.false&logged_at=gte.${since}&select=id`
-    );
-    return Array.isArray(r) ? r.length : 0;
-  } catch { return 0; }
-}
-
-// ── BRUTE FORCE: automaticky zablokuj IP ─────────────────────
-async function autoBlockIP(ip) {
-  try {
-    await supabaseRequest('rest/v1/blocked_ips', 'POST', {
-      ip_address: ip,
-      reason:     `Automaticky zablokováno – ${BRUTE_FORCE_LIMIT}+ neúspěšných pokusů`
-    });
-  } catch { /* IP může být již blokována */ }
-}
+// Ochranu proti zkoušení hesel zajišťuje Supabase (Authentication → Rate Limits)
+// a CAPTCHA. Dřívější „automatická blokace IP" z prohlížeče nefungovala (seznamy
+// jsou od 30. 9. jen pro admina) a šla by obejít — viz UKOLY.md.
 
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -339,14 +320,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     return;
   }
 
-  // 2. Brute force ochrana – zkontroluj počet failed pokusů za hodinu
-  const failedCount = await getRecentFailedCount(clientIP);
-  if (failedCount >= BRUTE_FORCE_LIMIT) {
-    await autoBlockIP(clientIP);
-    showError(`⛔ Příliš mnoho neúspěšných pokusů. Vaše IP byla zablokována. Kontaktuj správce.`);
-    setLoading(false);
-    return;
-  }
 
   // Vymaž staré tokeny
   ['sb_token','sb_user','sb_refresh_token','sb_user_id'].forEach(k => localStorage.removeItem(k));
@@ -411,12 +384,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     // Zaloguj neúspěšný pokus přes RPC (obchází RLS)
     await logFailedAttempt(clientIP);
 
-    // Varuj kolik pokusů zbývá
-    const remaining = BRUTE_FORCE_LIMIT - failedCount - 1;
-    let msg = err.message;
-    if (remaining > 0 && remaining <= 2) {
-      msg += ` (ještě ${remaining} pokus${remaining === 1 ? '' : 'y'} před zablokováním IP)`;
-    }
+    const msg = err.message;
 
     showError('⚠️ ' + msg);
     setLoading(false);
