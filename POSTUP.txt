@@ -1,0 +1,49 @@
+PokéTrade — úklid repozitáře (3. 10. 2026)
+==========================================
+Vše ve vscode.dev: https://github.dev/loydtest01/poke-trade
+
+1) SMAZAT (označit Ctrl+klikem → Delete → potvrdit)
+   Složka:
+     sql            (celá; nová, čistá je v tomto balíku)
+   Soubory v kořeni:
+     KOMPLETNI_SETUP.sql
+     supabase_setup.sql
+     marketplace-schema.sql
+     marketplace-schema-v2.sql
+     ratings-schema.sql          (je v nové sql/)
+     groq.js                     (Vercel používá api/groq.js)
+     shares.js
+     notifications.js
+     demo-cards.js
+     ai-providers-ui.js
+     CHAT_ICON_TOPBAR_v2.html
+     fake-manifest.json
+     icon-fake-192.png
+     icon-fake-512.png
+     CHANGES_FINAL.md            (je v docs/)
+     INTEGRACE_CHAT.md           (je v docs/)
+     NOTIFIKACE_SETUP.md         (je v docs/)
+     push-sender.js              (je v docs/)
+   POZOR: api/groq.js NEMAZAT — maže se jen groq.js v kořeni.
+
+2) NAHRÁT (přetáhnout z Průzkumníka Windows do levého panelu vscode.dev,
+   na prázdné místo pod soubory = kořen)
+     sql/         (46 souborů .sql)
+     docs/        (5 souborů)
+     vercel.json  → při dotazu „Nahradit" potvrdit
+
+3) .gitignore
+   Nový soubor v kořeni s názvem  .gitignore  (s tečkou),
+   vložit obsah z gitignore.txt, Ctrl+S.
+   (Skrytý soubor přes přetažení často neprojde, proto ručně.)
+
+4) Commit
+   Správa zdrojového kódu → zpráva „Uklid: sql, docs, vercel.json"
+   → Potvrdit a nasdílet.
+
+5) Kontrola po nasazení (1–2 min, Ctrl+F5)
+   - https://www.poke-trade.eu/stojan/sestava.png  → obrázek
+   - Skenovat karty → Stojan & podavač → stáhnout „Stojan 15 cm"
+     → soubor má cca 870 kB (ne pár desítek kB)
+   - https://www.poke-trade.eu/sql/login.html → už nesmí ukázat
+     starou přihlašovací stránku

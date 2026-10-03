@@ -69,6 +69,10 @@
       "dest": "/index.html"
     },
     {
+      "src": "/stojan/(.*)",
+      "dest": "/stojan/$1"
+    },
+    {
       "src": "/(.*)\\.html",
       "dest": "/$1.html"
     },
