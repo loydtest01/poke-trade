@@ -94,6 +94,7 @@ export default async function handler(req, res) {
 
     // ── POST /auth/login ─────────────────────────────
     if (path === '/auth/login' && method === 'POST') {
+      await zalogujApiAuth(req, 'login');
       // Zkontroluj blokaci IP
       if (await isIPBlocked()) {
         return jsonError(res, 403, 'Přístup z této IP adresy byl zablokován');
@@ -104,7 +105,8 @@ export default async function handler(req, res) {
       // Najdi uživatele podle username
       const profileRes = await sbFetch(
         `rest/v1/profiles?username=eq.${encodeURIComponent(username)}&select=email`,
-        'GET', null, SUPABASE_ANON
+        // e-maily v profilech nejsou od 30. 9. veřejné → service klíč (jen na serveru)
+        'GET', null, process.env.SUPABASE_SERVICE_KEY || SUPABASE_ANON
       );
       if (!profileRes.length) {
         return jsonError(res, 401, 'Neznámé uživatelské jméno');
@@ -113,7 +115,8 @@ export default async function handler(req, res) {
       // Přihlas se přes Supabase Auth
       const authRes = await sbFetch('auth/v1/token?grant_type=password', 'POST', {
         email: profileRes[0].email,
-        password
+        password,
+        ...captchaPole(body),
       }, SUPABASE_ANON);
 
       if (authRes.error) {
@@ -134,6 +137,7 @@ export default async function handler(req, res) {
 
     // ── POST /auth/register ──────────────────────────
     if (path === '/auth/register' && method === 'POST') {
+      await zalogujApiAuth(req, 'register');
       // Zkontroluj blokaci IP i při registraci
       if (await isIPBlocked()) {
         return jsonError(res, 403, 'Registrace z této IP adresy je zablokována');
@@ -143,7 +147,8 @@ export default async function handler(req, res) {
 
       const signupRes = await sbFetch('auth/v1/signup', 'POST', {
         email, password,
-        data: { username }
+        data: { username },
+        ...captchaPole(body),
       }, SUPABASE_ANON);
 
       if (signupRes.error) {
@@ -511,6 +516,32 @@ export default async function handler(req, res) {
 }
 
 // ═══ HELPERS ═══════════════════════════════════════════
+
+// Kdo používá serverové přihlášení/registraci? Před zapnutím CAPTCHY v Supabase
+// je potřeba vědět, jestli je volá něco mimo web (aplikace) — CAPTCHA by ho zablokovala.
+// Záznam jde do client_logs (kategorie api-auth), vidět v adminu → Logy.
+async function zalogujApiAuth(req, co) {
+  try {
+    const k = process.env.SUPABASE_SERVICE_KEY;
+    if (!k) return;
+    await fetch(`${SUPABASE_URL}/rest/v1/client_logs`, {
+      method: 'POST',
+      headers: { apikey: k, Authorization: 'Bearer ' + k, 'Content-Type': 'application/json', Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        uroven: 'warn', kategorie: 'api-auth',
+        zprava: `Použito /api/v1/auth/${co} (po zapnutí CAPTCHY by přestalo fungovat)`,
+        stranka: '/api/v1/auth/' + co,
+        ua: String(req.headers['user-agent'] || '').slice(0, 300),
+        detail: { origin: req.headers.origin || null, referer: req.headers.referer || null },
+      }),
+    });
+  } catch (e) { /* záznam nesmí shodit přihlášení */ }
+}
+
+// CAPTCHA token od klienta → do Supabase Auth (gotrue_meta_security)
+function captchaPole(body) {
+  return body && body.captcha_token ? { gotrue_meta_security: { captcha_token: body.captcha_token } } : {};
+}
 
 async function sbFetch(path, method, body, token) {
   const headers = {
