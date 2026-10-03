@@ -1343,14 +1343,21 @@ function generatePTCGLExport() {
   const total    = currentDeck.reduce((s,c)=>s+c.count,0);
 
   let lines = [`##${name}`, ''];
-  if (pokemon.length)  { lines.push('Pokémon: ' + pokemon.reduce((s,c)=>s+c.count,0));  pokemon.forEach(c=>lines.push(`${c.count} ${c.name} ${c.set.toUpperCase()} ${c.number}`)); lines.push(''); }
-  if (trainers.length) { lines.push('Trainer: ' + trainers.reduce((s,c)=>s+c.count,0)); trainers.forEach(c=>lines.push(`${c.count} ${c.name} ${c.set.toUpperCase()} ${c.number}`)); lines.push(''); }
-  if (energies.length) { lines.push('Energie: ' + energies.reduce((s,c)=>s+c.count,0)); energies.forEach(c=>lines.push(`${c.count} ${c.name} {${c.set.toUpperCase()}} ${c.number}`)); lines.push(''); }
+  if (pokemon.length)  { lines.push('Pokémon: ' + pokemon.reduce((s,c)=>s+c.count,0));  pokemon.forEach(c=>lines.push(`${c.count} ${c.name} ${String(c.set||'').toUpperCase()} ${c.number}`)); lines.push(''); }
+  if (trainers.length) { lines.push('Trainer: ' + trainers.reduce((s,c)=>s+c.count,0)); trainers.forEach(c=>lines.push(`${c.count} ${c.name} ${String(c.set||'').toUpperCase()} ${c.number}`)); lines.push(''); }
+  if (energies.length) { lines.push('Energie: ' + energies.reduce((s,c)=>s+c.count,0)); energies.forEach(c=>lines.push(`${c.count} ${c.name} {${String(c.set||'').toUpperCase()}} ${c.number}`)); lines.push(''); }
   lines.push(`Celkem: ${total}`);
   return lines.join('\n');
 }
 
 function exportPTCGL() { updateExportBox(); }
+// Tlačítko „📋 Exportovat deck" v záhlaví (funkce dřív chyběla) → záložka Export s hotovým seznamem
+function exportDeck() {
+  const tab = document.querySelector('.db-tab[data-tab="export"]');
+  if (tab) switchTab('export', tab);
+  updateExportBox();
+  if (!currentDeck.length) showToast('Deck je prázdný', true);
+}
 function exportSimple() {
   const box = document.getElementById('export-box');
   if (box) box.textContent = currentDeck.map(c => `${c.count}× ${c.name}`).join('\n');
@@ -1393,7 +1400,8 @@ function _chatAppendMsg(role, text) {
   if (!el) return;
   const div = document.createElement('div');
   div.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
-  div.innerHTML = `<div class="avatar">${role === 'user' ? '🧑' : '🤖'}</div><div class="chat-bubble">${text.replace(/\n/g,'<br>')}</div>`;
+  const bezpecny = String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  div.innerHTML = `<div class="avatar">${role === 'user' ? '🧑' : '🤖'}</div><div class="chat-bubble">${bezpecny.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div>`;
   el.appendChild(div);
   el.scrollTop = el.scrollHeight;
   return div;

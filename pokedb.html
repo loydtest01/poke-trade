@@ -3144,75 +3144,11 @@ window.selFindPrices = function() {
   setTimeout(() => pfSearchMultiple(cards), 100);
 };
 
-// ─── Multi-card price search (extends pfDoSearch) ────────
-window.pfSearchMultiple = async function(cards) {
-  const resultsEl = document.getElementById('pf-results');
-  const headerEl  = document.getElementById('pf-results-header');
-  const filtersEl = document.getElementById('pf-filters-bar');
-  const countEl   = document.getElementById('pf-results-count');
-  if (!resultsEl) return;
-
-  // Hide single search bar state
-  if (filtersEl) filtersEl.style.display = 'flex';
-  if (headerEl)  headerEl.style.display = 'flex';
-
-  // Show badge strip of selected cards at top
-  const badgesHtml = `
-    <div class="pf-sel-header">
-      ${cards.map(c => `
-        <div class="pf-sel-badge" onclick="selRemove('${c.id}');pfSearchMultiple([...window._selCardsRef.values()])">
-          ${c.name} <span class="pf-sel-x">✕</span>
-        </div>`).join('')}
-    </div>`;
-
-  // Expose reference for badge removal
-  window._selCardsRef = _selCards;
-
-  resultsEl.innerHTML = badgesHtml + cards.map(c => `
-    <div id="pfcr-${c.id}" class="pf-card-result">
-      <div class="pf-card-result-header" onclick="pfToggleCard('${c.id}')">
-        ${(c.image_thumb_url || c.image_url)
-          ? `<img class="pf-card-thumb" src="${c.image_thumb_url || c.image_url}" alt="">`
-          : '<div class="pf-card-thumb"></div>'}
-        <div class="pf-card-name-block">
-          <div class="pf-card-result-name">${c.name}</div>
-          <div class="pf-card-result-set">${(c.set_id||'').toUpperCase()} · ${c.number||''}</div>
-          <div class="pf-card-result-summary">
-            <span id="pfbest-${c.id}" style="color:var(--muted);font-size:.8rem">⏳ Načítám ceny…</span>
-            <span class="pf-sources-count" id="pfsrccnt-${c.id}"></span>
-          </div>
-        </div>
-        <span class="pf-expand-icon">▼</span>
-      </div>
-      <div class="pf-prices-body" id="pfpb-${c.id}">
-        <div id="pfptable-${c.id}">${pfRenderPriceTable(c, pfGetPriceRows(c, null))}</div>
-      </div>
-    </div>`).join('');
-
-  if (countEl) countEl.textContent = `${cards.length} ${cards.length === 1 ? 'karta' : cards.length < 5 ? 'karty' : 'karet'} vybrány`;
-
-  // Set internal state for price fetching
-  if (typeof _pfCards !== 'undefined') {
-    _pfCards.length = 0;
-    cards.forEach(c => _pfCards.push(c));
-  }
-
-  // Fetch prices for each card
-  cards.forEach(c => {
-    if (typeof pfFetchCardPricesPublic === 'function') {
-      pfFetchCardPricesPublic(c);
-    } else {
-      // Inline fallback
-      fetch(`https://pokedb-api.poketrade.workers.dev/v1/cards/${c.id}/prices`)
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (!data) return;
-          if (typeof _pfPrices !== 'undefined') _pfPrices[c.id] = data;
-          if (typeof pfUpdateCardPrices === 'function') pfUpdateCardPrices(c.id);
-        }).catch(() => {});
-    }
-  });
-};
+// Hledání cen více karet obstarává pfSearchMultiple() v bloku hledání cen níže.
+// (Tady byla starší kopie volající neexistující funkce; protože se definovala
+// dřív, přepsala ji ta novější — kód byl mrtvý.) Výběr zpřístupníme, aby
+// odebrání jedné karty ze záhlaví výsledků nesmazalo všechny ostatní.
+window._selCardsRef = _selCards;
 
 // ─── Patch renderCards to add checkboxes ─────────────────
 const _origRenderCards = window.renderCards;
@@ -3574,7 +3510,7 @@ window.pfSearchMultiple = async function(cards) {
   if (fb) fb.style.display = 'flex';
 
   // Badge strip
-  window._selCardsRef = typeof _selCards !== 'undefined' ? _selCards : new Map();
+  window._selCardsRef = window._selCardsRef || new Map();   // výběr z bloku výběru karet
   const badgesHtml = `<div class="pf-sel-header" style="margin-bottom:8px">
     ${cards.map(c => `<div class="pf-sel-badge" onclick="selRemove('${c.id}');pfSearchMultiple([...window._selCardsRef.values()])">
       ${c.name} <span class="pf-sel-x">✕</span></div>`).join('')}
