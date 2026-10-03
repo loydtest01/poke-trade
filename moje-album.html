@@ -6787,9 +6787,22 @@ function markPhotoChanged(url) {
   const base = url.replace(/[?&]t=\d+/, '').replace(/\?$/, '');
   window._bustedPhotos.add(base);
 }
+// Pole, která patří řádku tabulky nebo jen běhu stránky — do card_data nepatří
+const _CD_NEUKLADAT = new Set(['id', 'local_id', 'user_id', 'updated_at', 'created_at', 'card_data', 'for_trade_row']);
 function buildCardData(c) {
   if (!c) return {};
-  return {
+  // Nejdřív všechna ostatní uložená pole karty (nameOrig, rozpis stavů „conditions",
+  // allPhotos, enImageUrl, sourceUrl, stav zadní strany…). Dřív se při každé úpravě
+  // v albu zahodila, protože tu byl jen pevný seznam polí.
+  const zbytek = {};
+  for (const k of Object.keys(c)) {
+    if (k.charAt(0) === '_' || _CD_NEUKLADAT.has(k)) continue;
+    const v = c[k];
+    if (typeof v === 'function' || v === undefined) continue;
+    if (typeof v === 'string' && v.startsWith('data:') && v.length > 5000) continue;   // fotka v base64 do DB nepatří
+    zbytek[k] = v;
+  }
+  return Object.assign(zbytek, {
     name: c.name || '', set: c.set || '', number: c.number || '', num: c.num || '',
     condition: c.condition || c.cond || 'NM', category: c.category || 'pokemon',
     type: c.type || '', types: c.types || [], supertype: c.supertype || '',
@@ -6807,11 +6820,12 @@ function buildCardData(c) {
     count: c.count || c.qty || 1, tags: c.tags || [],
     for_trade: c.for_trade || false, for_sell: c.for_sell || false,
     price_czk: c.price_czk || null,
+    qty: c.count || c.qty || 1,
     name_en: c.name_en || '',
     priceSource: c.priceSource || null,
     fake_result: c.fake_result || null,
     ai_condition: c.ai_condition || null,
-  };
+  });
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -10695,10 +10709,10 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       };
       // Fotka zadní strany, pokud je v galerii
       const zada = (_pgmPhotos || []).find((p, i) => i !== _pgmIdx && p.side === 'back');
-      const vysledek = await FakeDetector.analyze(imgEl.src, cardInfo, zada ? zada.url : undefined);
+      const vysledek = await window.FakeDetector.analyze(imgEl.src, cardInfo, zada ? zada.url : undefined);
 
       resultEl.innerHTML = '';
-      FakeDetector.renderResult(vysledek, resultEl);
+      window.FakeDetector.renderResult(vysledek, resultEl);
 
       if (vysledek && vysledek.verdict && vysledek.verdict !== 'unknown' && c.id) {
         const nazev = { real: 'Pravá karta', fake: 'FALZIFIKÁT', suspicious: 'Podezřelá' }[vysledek.verdict] || vysledek.verdict;
@@ -10741,9 +10755,11 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       }
 
       // Tvar, se kterým pracuje potvrzení (name = jak je vytištěno, set = název série)
+      // Stejná podoba jako při zařazení z fronty: name = anglický název,
+      // nameOrig = jak je vytištěno (jen u neanglické karty)
       const identified = {
-        name:      k.name,
-        name_en:   k.nameEN && k.nameEN !== k.name ? k.nameEN : '',
+        name:      k.nameEN || k.name,
+        nameOrig:  k.lang && k.lang !== 'EN' && k.name !== (k.nameEN || k.name) ? k.name : '',
         lang:      k.lang || '',
         set:       k.setName || '',
         setCode:   k.setCode || '',
@@ -10762,7 +10778,7 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       const existing = (typeof allCards !== 'undefined' ? allCards : []).find(x =>
         albumCardIds.includes(String(x.id)) &&
         String(x.id) !== String(_detailCard?.id) &&
-        (norm(x.name) === norm(identified.name) || (identified.name_en && norm(x.name) === norm(identified.name_en))) &&
+        norm(x.name) === norm(identified.name) &&
         norm(x.set) === norm(identified.set) &&
         normCislo(x.number || x.num) === normCislo(identified.number)
       );
@@ -10779,7 +10795,7 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       // Data do window proměnné — NIKDY nevkládat do onclick atributu
       window._pgmAiIdentified = identified;
 
-      const jmeno = esc(identified.name) + (identified.name_en ? ` <span style="color:rgba(209,250,229,0.5);font-weight:400">(${esc(identified.name_en)})</span>` : '');
+      const jmeno = esc(identified.name) + (identified.nameOrig ? ` <span style="color:rgba(209,250,229,0.5);font-weight:400">(${esc(identified.nameOrig)})</span>` : '');
       resultEl.innerHTML = `
         <div style="font-weight:700;font-size:13px;color:#4ade80;margin-bottom:8px;">🔎 AI rozpoznala kartu:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:10px;">
@@ -10851,8 +10867,8 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
     if (identified.subtype) card.subtype = identified.subtype;
     if (identified.lang)    card.lang    = identified.lang;
     if (identified.setCode) card.setCode = identified.setCode;
-    if (identified.name_en) card.name_en = identified.name_en;
-    else if (identified.lang === 'EN') card.name_en = '';
+    if (identified.nameOrig) card.nameOrig = identified.nameOrig;
+    else if (identified.lang === 'EN') delete card.nameOrig;
     card.updated_at = new Date().toISOString();
 
     // ── 3. Jiná karta → zahodit vše, co patřilo té původní (obrázek z API,

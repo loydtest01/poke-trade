@@ -1791,7 +1791,7 @@ function buildGroupEl(g, gi) {
   el.innerHTML = `
     <!-- Header -->
     <div class="cg-header" onclick="toggleGroup(${gi})">
-      <input type="checkbox" class="cg-select-cb" id="cb-${gi}"
+      <input type="checkbox" class="cg-select-cb" id="cb-${gi}" ${selectedGroups.has(g.key) ? 'checked' : ''}
         onclick="event.stopPropagation()"
         onchange="toggleGroupSelect(${gi}, this)">
       ${frontPhoto
@@ -2122,7 +2122,9 @@ async function doAssign(groups, albumId) {
       const rc = g.resolvedCard || (g.cardUrl ? await resolveCardUrl(g.cardUrl).catch(()=>null) : null);
 
       // ── Kontrola duplikátů ──────────────────────────────────────
-      const cardName    = rc?.name   || ai.name   || '';
+      // Stejné jméno, pod jakým se karta níže ukládá (u neanglické karty bez vybrané
+      // karty je to anglický název) — jinak by se duplikát nikdy nenašel.
+      const cardName    = rc?.name   || ai.nameEN || ai.name   || '';
       const cardSet     = rc?.set    || ai.set    || '';
       const cardNumber  = ai.number  || rc?.number || '';
       const cardLang    = ai.lang    || 'EN';  // jazyk varianty (EN/JP/CN/...)
@@ -2142,9 +2144,16 @@ async function doAssign(groups, albumId) {
       if (cardName) {
         // Načti kandidáty jen jednou pro celou dávku (vyhne se cross-match uvnitř dávky)
         if (!dedupCandidates) {
-          dedupCandidates = await sbReq(
-            `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data`
-          ).catch(()=>[]);
+          // Po stránkách — Supabase vrací max 1000 řádků, nad tím by se duplikáty nenašly
+          dedupCandidates = [];
+          for (let od = 0; od < 50000; od += 1000) {
+            const strana = await sbReq(
+              `rest/v1/user_cards?user_id=eq.${userId}&select=local_id,card_data&order=local_id.asc&limit=1000&offset=${od}`
+            ).catch(() => null);
+            if (!Array.isArray(strana)) break;
+            dedupCandidates.push(...strana);
+            if (strana.length < 1000) break;
+          }
         }
         const norm = (s) => (s || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
         const dup = Array.isArray(dedupCandidates) && dedupCandidates.find(r => {
@@ -2183,20 +2192,23 @@ async function doAssign(groups, albumId) {
             if (conditions[c]) { dominantCond = c; break; }  // první nalezený nejhorší
           }
 
-          await sbReq(
+          const novaData = {
+            ...od,
+            count:      newCount,
+            qty:        newCount,
+            condition:  dominantCond,   // nejhorší stav jako "hlavní"
+            conditions: conditions,     // breakdown pro detail
+          };
+          const patchRes = await sbReq(
             `rest/v1/user_cards?local_id=eq.${existingId}&user_id=eq.${userId}`,
             'PATCH',
-            {
-              card_data: {
-                ...od,
-                count:      newCount,
-                qty:        newCount,
-                condition:  dominantCond,   // nejhorší stav jako "hlavní"
-                conditions: conditions,     // breakdown pro detail
-              },
-              updated_at: new Date().toISOString(),
-            }
-          ).catch(e => console.warn('[queue dedup PATCH]', e));
+            { card_data: novaData, updated_at: new Date().toISOString() }
+          ).catch(() => null);
+          // sbReq při chybě vrací null (nevyhodí) → bez kontroly by se fotky označily
+          // jako zpracované a karta by z fronty zmizela, aniž by se počet navýšil.
+          if (!Array.isArray(patchRes) || !patchRes.length) throw new Error('Navýšení počtu u existující karty selhalo');
+          dupCardData = novaData;   // pro případnou úpravu photoUrl níže (dřív se vracel starý počet)
+          od.count = newCount; od.qty = newCount; od.condition = dominantCond; od.conditions = conditions;
         }
       }
       // ────────────────────────────────────────────────────────────
@@ -2259,7 +2271,10 @@ async function doAssign(groups, albumId) {
         for_trade:  false, for_sell: false,
       });
       const newId = existingId || (Array.isArray(res) ? res[0]?.local_id : res?.local_id);
-      if (newId) newCardIds.push(String(newId));
+      // Uložení selhalo → skupina zůstane ve frontě a fotky se NEoznačí jako zpracované
+      // (dřív se karta tiše ztratila: zmizela z fronty a do alba se nedostala).
+      if (!newId) throw new Error('Uložení karty selhalo');
+      newCardIds.push(String(newId));
       // Ulož fotky do user_card_photos (oříznutá verze pokud existuje)
       if (newId) {
         for (const p of g.photos) {
@@ -2303,27 +2318,36 @@ async function doAssign(groups, albumId) {
       }
       // Odstraň ze seznamu
       cardGroups = cardGroups.filter(x => x.key !== g.key);
+      selectedGroups.delete(g.key);
       ok++;
-    } catch { fail++; }
+    } catch (e) { console.warn('[doAssign]', e); fail++; }
   }
 
   // Aktualizuj card_ids v albu
   if (albumId && newCardIds.length) {
+    let albumOk = false;
     try {
       const alb = albums.find(a => a.id === albumId);
-      const existing = alb?.cardIds || alb?.card_ids || [];
-      const merged = [...new Set([...existing, ...newCardIds])];
-      await sbReq(`rest/v1/user_albums?id=eq.${albumId}`, 'PATCH', {
+      // Aktuální obsah alba z databáze — seznam z načtení stránky může být zastaralý
+      // (karty přidané mezitím v jiné záložce nebo na mobilu by se přepsáním ztratily).
+      const cerstve = await sbReq(`rest/v1/user_albums?id=eq.${albumId}&select=card_ids`).catch(() => null);
+      const existing = (Array.isArray(cerstve) && cerstve[0] && Array.isArray(cerstve[0].card_ids))
+        ? cerstve[0].card_ids : (alb?.cardIds || alb?.card_ids || []);
+      const merged = [...new Set([...existing.map(String), ...newCardIds])];
+      const pr = await sbReq(`rest/v1/user_albums?id=eq.${albumId}`, 'PATCH', {
         card_ids: merged,
         updated_at: new Date().toISOString(),
       });
+      albumOk = Array.isArray(pr) && pr.length > 0;
       if (alb) { alb.cardIds = merged; alb.card_ids = merged; }
     } catch {}
+    if (!albumOk) toast('⚠️ Karty jsou uložené, ale nepodařilo se je přidat do alba — najdeš je v albu po obnovení stránky', 'err');
   }
 
   // Re-render
   renderGroups();
   updateBadge();
+  updateBulkBar();
   if (ok)   toast(`✅ ${ok} karet zařazeno${albumId ? ' do alba' : ''}`, 'ok');
   // VIP se uděluje po 5 kartách v albu — zkusit hned, ať gratulace
   // naskočí u páté karty a ne až při dalším načtení stránky.
@@ -2340,20 +2364,25 @@ async function doAssign(groups, albumId) {
 // ── Bulk select ───────────────────────────────────────────────
 let selectedGroups = new Set();
 
+// Výběr se pamatuje podle klíče karty, ne podle pořadí — po zařazení nebo zahození
+// jiné karty se pořadí posune a „Zařadit vybrané" by vzalo jiné karty.
 function toggleGroupSelect(gi, cb) {
   const el = document.getElementById(`group-${gi}`);
+  const key = cardGroups[gi]?.key;
+  if (!key) return;
   if (cb.checked) {
-    selectedGroups.add(gi);
+    selectedGroups.add(key);
     el?.classList.add('group-selected');
   } else {
-    selectedGroups.delete(gi);
+    selectedGroups.delete(key);
     el?.classList.remove('group-selected');
   }
   updateBulkBar();
 }
 
 function clearBulkSelection() {
-  selectedGroups.forEach(gi => {
+  cardGroups.forEach((g, gi) => {
+    if (!selectedGroups.has(g.key)) return;
     document.getElementById(`cb-${gi}`)?.removeAttribute('checked');
     const cb = document.getElementById(`cb-${gi}`);
     if (cb) cb.checked = false;
@@ -2384,7 +2413,7 @@ function updateBulkBar() {
 async function bulkAssignSelected() {
   if (!selectedGroups.size) return;
   const albumId = document.getElementById('bulkAlbumSel')?.value || defaultAlbumId;
-  const groups  = [...selectedGroups].map(gi => cardGroups[gi]).filter(Boolean);
+  const groups  = cardGroups.filter(g => selectedGroups.has(g.key));
   clearBulkSelection();
   await doAssign(groups, albumId || null);
 }
@@ -3245,7 +3274,11 @@ async function tcgSearch(gi, autoMode = false) {
     }
 
     const totalCount = cards.length;
-    const g2 = cardGroups[gi];
+    // Během hledání mohl uživatel jinou kartu zařadit nebo zahodit → pořadí se posunulo
+    // a na pozici gi je jiná karta. Výsledek by se zapsal k ní (i s cenou), proto konec;
+    // po rozbalení se karta vyhledá znovu.
+    if (cardGroups[gi] !== g) { console.warn('[tcgSearch] pořadí karet se změnilo, výsledek zahozen'); return; }
+    const g2 = g;
     const isJP = g2?.aiResult?.lang === 'JP';
 
     // ── KROK 4: Auto-mód – předvyber nejlepší shodu ────────────────────────
@@ -3282,7 +3315,16 @@ async function tcgSearch(gi, autoMode = false) {
         const _better = cards.find(c => !_contradicts(c));
         if (_better) best = _better;
       }
+      // Verze stejné karty se liší JEN číslem (běžná / duhová / alt art) a mají stejný
+      // typ i HP — pojistka výše je nerozliší. Když AI číslo přečetla: předvyber kartu se
+      // stejným číslem; když žádná nesedí, nepředvybírej nic a nech výběr na uživateli
+      // (jinak by se uložila jiná verze i s její cenou — případ Rayquaza 218 × 111).
+      const _cisloSedi = c => String(c.number || '').split('/')[0].replace(/\D/g, '').replace(/^0+/, '') === _aiNum;
+      if (_aiNum && !_cisloSedi(best)) {
+        best = cards.find(c => _cisloSedi(c) && !_contradicts(c)) || null;
+      }
 
+      if (best) {
       const origImg  = g2._origImageSmall || g2._origImage || '';
       const origImgL = g2._origImage || '';
       const displayImg  = origImg  || best.apiSmall || '';
@@ -3337,6 +3379,10 @@ async function tcgSearch(gi, autoMode = false) {
           if (statusEl2) { statusEl2.className='cg-upload-status ok'; statusEl2.textContent='✅ Obrázek karty nalezen'; }
           if (reportBtn && g2._origImage?.includes('community-cards')) reportBtn.style.display='';
         }
+      }
+      } else {
+        statusEl.className = 'cg-search-status';
+        statusEl.textContent = `⚠️ Žádná nalezená karta nemá číslo ${ai.number} — vyber správnou ručně`;
       }
     }
 
@@ -4356,7 +4402,7 @@ async function discardGroup(gi) {
   for (const p of g.photos) {
     sbReq(`rest/v1/photo_queue?id=eq.${p.queueId}`, 'PATCH', { processed: true }).catch(()=>{});
   }
-  selectedGroups.delete(gi);
+  selectedGroups.delete(g.key);
   cardGroups.splice(gi, 1);
   renderGroups();
   updateBadge();
@@ -5409,6 +5455,7 @@ function sendQueueToBulkScan(gi, pi) {
   const entry = {
     source:        'queue',
     gi,
+    key:           g.key,
     queueId:       photo.queueId || null,
     photoUrl:      photo.croppedUrl || photo.url || '',
     storagePath:   photo.storagePath || null,
@@ -5443,24 +5490,36 @@ async function searchCommunityImage(gi) {
 }
 
 // ── Přijmi výsledek z Bulk Scan ──────────────────────────────────
+// Fronta se načítá asynchronně → počkat na karty (max 30 s) a výsledek do té doby
+// nemazat. Kartu hledat podle fotky (queueId), pořadí se mezitím mohlo změnit.
 (function checkBulkScanQueueReturn() {
-  const raw = localStorage.getItem('pkc_bulkscan_result');
-  if (!raw) return;
-  localStorage.removeItem('pkc_bulkscan_result');
-  try {
-    const res = JSON.parse(raw);
-    const gi = res.gi;
-    if (gi == null || !cardGroups[gi]) return;
-    const g = cardGroups[gi];
-    if (!g.aiResult) g.aiResult = {};
-    if (res.name)    { const cn = cleanEnCardName(res.name); g.aiResult.nameEN = cn; g.aiResult.name = cn; }
-    if (res.set)     { g.aiResult.set    = res.set; }
-    if (res.number)  { g.aiResult.number = res.number; }
-    if (res.condition) { g.aiResult.condition = res.condition; }
-    if (res.apiCard) { g.resolvedCard = res.apiCard; g._manuallySelected = true; }
-    if (typeof renderGroup === 'function') renderGroup(gi);
-    showToast?.('✅ Karta aktualizována z Bulk Scan', 'ok');
-  } catch(e) { console.warn('[BulkScanReturn]', e); }
+  if (!localStorage.getItem('pkc_bulkscan_result')) return;
+  const start = Date.now();
+  (function zkus() {
+    const raw = localStorage.getItem('pkc_bulkscan_result');
+    if (!raw) return;
+    let res;
+    try { res = JSON.parse(raw); } catch (e) { localStorage.removeItem('pkc_bulkscan_result'); return; }
+    let g = null;
+    if (res.queueId) g = cardGroups.find(x => (x.photos || []).some(p => String(p.queueId) === String(res.queueId)));
+    if (!g && res.key) g = cardGroups.find(x => x.key === res.key);
+    if (!g) {
+      if (Date.now() - start < 30000) { setTimeout(zkus, 600); return; }
+      localStorage.removeItem('pkc_bulkscan_result');
+      return;
+    }
+    localStorage.removeItem('pkc_bulkscan_result');
+    try {
+      if (!g.aiResult) g.aiResult = {};
+      if (res.name)    { const cn = cleanEnCardName(res.name); g.aiResult.nameEN = cn; g.aiResult.name = cn; }
+      if (res.set)     { g.aiResult.set    = res.set; }
+      if (res.number)  { g.aiResult.number = res.number; }
+      if (res.condition) { g.aiResult.condition = res.condition; }
+      if (res.apiCard) { g.resolvedCard = res.apiCard; g._manuallySelected = true; }
+      renderGroups();
+      toast('✅ Karta aktualizována z Bulk Scan', 'ok');
+    } catch(e) { console.warn('[BulkScanReturn]', e); }
+  })();
 })();
 
 /* ─────────────── QUEUE TABS ─────────────── */
@@ -5502,7 +5561,7 @@ var MOBILE_BASE_Q = (function() {
 })();
 
 function _getMobileUrl() {
-  var uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.id) ? currentUser.id : 'guest';
+  var uid = (typeof userId !== 'undefined' && userId) ? userId : 'guest';
   return MOBILE_BASE_Q + '?uid=' + encodeURIComponent(uid);
 }
 
@@ -5544,13 +5603,13 @@ window.copyMobileUrl = async function copyMobileUrl() {
   var url = _getMobileUrl();
   try {
     await navigator.clipboard.writeText(url);
-    showToast?.('✅ Odkaz zkopírován', 'ok');
+    toast('✅ Odkaz zkopírován', 'ok');
   } catch(e) {
     var ta = document.createElement('textarea');
     ta.value = url; document.body.appendChild(ta);
     ta.select(); document.execCommand('copy');
     document.body.removeChild(ta);
-    showToast?.('✅ Odkaz zkopírován', 'ok');
+    toast('✅ Odkaz zkopírován', 'ok');
   }
 };
 
