@@ -125,6 +125,13 @@ window.TOPBAR_ACTIVE = 'stats';</script>
       <div class="chart-box tall"><canvas id="chValue"></canvas></div>
     </div>
 
+    <div class="chart-card">
+      <h2>📊 Skutečná hodnota sbírky (denní snímky)</h2>
+      <p class="hint">Každou noc se uloží hodnota celé sbírky — vlastní cena v Kč má přednost před Cardmarketem, stejně jako v albu. Na rozdíl od grafu nahoře tu vidíš i pohyb cen karet, které už máš.</p>
+      <div class="chart-box tall"><canvas id="chHistory"></canvas></div>
+      <div class="muted-note" id="historyNote"></div>
+    </div>
+
     <div class="grid-2">
       <div class="chart-card">
         <h2>🃏 Přidané karty</h2>
@@ -180,6 +187,7 @@ const TYPE_COLORS = { Grass:'#4ade80', Fire:'#ff6b4a', Water:'#4f8ef7', Lightnin
   Trenér:'#94a3b8', Energie:'#64748b', Ostatní:'#6b7280' };
 
 let allCards = [];      // {created:Date, value:Number(EUR), set, type, name, apiId, count}
+let historie = [];      // denní snímky hodnoty: {den:Date, trh_eur, vlastni_czk, karet}
 let rangeDays = 365, gran = 'week', histDays = 30;
 let charts = {};
 
@@ -461,9 +469,65 @@ async function renderPriceChart() {
   }
 }
 
+/* ── 0) Skutečná hodnota sbírky — denní snímky (tabulka hodnota_sbirky_historie) ── */
+async function loadHistorie() {
+  const t = token();
+  if (!t) {
+    // Ukázka pro nepřihlášené: vymyšlený vývoj za 60 dní
+    const out = []; let v = 180;
+    for (let i = 60; i >= 0; i--) { v = Math.max(40, v * (1 + (Math.sin(i / 6) * 0.012) + 0.004)); out.push({ den: new Date(Date.now() - i * 86400000), trh_eur: +v.toFixed(2), vlastni_czk: 0, karet: 30 + Math.round((60 - i) / 4) }); }
+    return out;
+  }
+  let uid = '';
+  try { uid = JSON.parse(atob(t.split('.')[1])).sub || ''; } catch {}
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/hodnota_sbirky_historie?user_id=eq.${uid}&select=den,trh_eur,vlastni_czk,karet&order=den.asc&limit=3000`,
+    { headers: { apikey: SUPABASE_ANON, Authorization: 'Bearer ' + t } });
+  if (!r.ok) return [];
+  const rows = await r.json();
+  return Array.isArray(rows) ? rows.map(x => ({ den: new Date(x.den + 'T12:00:00'), trh_eur: +x.trh_eur || 0, vlastni_czk: +x.vlastni_czk || 0, karet: +x.karet || 0 })) : [];
+}
+
+function renderHistoryChart() {
+  const note = document.getElementById('historyNote');
+  destroy('chHistory');
+  const kurz = window._eurRate > 0 ? window._eurRate : 25;
+  const od = rangeDays ? Date.now() - rangeDays * 86400000 : 0;
+  const body = historie.filter(h => h.den.getTime() >= od);
+  if (!body.length) {
+    note.textContent = 'Snímky se ukládají každou noc — první bod se objeví zítra ráno.';
+    return;
+  }
+  const hodnotaEur = h => h.trh_eur + h.vlastni_czk / kurz;
+  const labels = body.map(h => h.den.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'numeric', year: body.length > 200 ? '2-digit' : undefined }));
+  charts.chHistory = new Chart(document.getElementById('chHistory'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Hodnota (' + curSymbol() + ')', data: body.map(h => toDisplay(hodnotaEur(h))),
+      fill: true, tension: 0.25, borderColor: '#4ade80', backgroundColor: 'rgba(74,222,128,0.10)',
+      pointRadius: body.length > 60 ? 0 : 3, pointBackgroundColor: '#4ade80',
+    }]},
+    options: { maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: {
+          label: ctx => ' ' + fmtAxis(ctx.parsed.y),
+          afterLabel: ctx => ' ' + body[ctx.dataIndex].karet.toLocaleString('cs') + ' karet' } } },
+      scales: { y: { ticks: { callback: v => fmtAxis(v) } } } }
+  });
+  const prvni = hodnotaEur(body[0]), posledni = hodnotaEur(body[body.length - 1]);
+  if (body.length === 1) {
+    note.textContent = 'Zatím jeden snímek (' + labels[0] + ') — každý den přibude další bod.';
+  } else {
+    const rozdil = posledni - prvni;
+    const pct = prvni > 0 ? Math.round(rozdil / prvni * 100) : null;
+    note.textContent = `Za zobrazené období: ${rozdil >= 0 ? '+' : '−'}${fmtMoney(Math.abs(rozdil))}` +
+      (pct !== null ? ` (${pct >= 0 ? '+' : ''}${pct} %)` : '') + ` · ${body.length} snímků` +
+      (token() ? '' : ' · ukázková data');
+  }
+}
+
 /* ── render all ── */
 function renderAll() {
-  renderKpis(); renderValueChart(); renderAddedChart(); renderTypesChart(); renderSetsChart();
+  renderKpis(); renderValueChart(); renderHistoryChart(); renderAddedChart(); renderTypesChart(); renderSetsChart();
 }
 
 /* ── segmenty ── */
@@ -485,7 +549,9 @@ document.getElementById('cardFilter').addEventListener('input', fillCardSelect);
 (async () => {
   try {
     await fetchEurRate();               // kurz musí být dřív, než se něco vykreslí
+    const histSlib = loadHistorie().catch(() => []);
     allCards = await loadAlbum();
+    historie = await histSlib;
     document.getElementById('loadState').style.display = 'none';
     if (!allCards.length) { document.getElementById('emptyState').style.display = ''; return; }
     document.getElementById('content').style.display = '';
