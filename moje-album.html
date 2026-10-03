@@ -1913,9 +1913,25 @@ body { background: #06040c; overflow-x: hidden; }
 <body>
 
 <!-- Top bar -->
-<script>window.TOPBAR_ACTIVE = 'moje-album';</script>
+<script>window.TOPBAR_ACTIVE = 'moje-album';
+// Oznámení dole na obrazovce. Album volalo toast()/showToast(), ale ani jedna funkce
+// tu nebyla definovaná → hláška místo zobrazení vyhodila chybu a zbytek akce se nedokončil.
+function toast(msg, type) {
+  var barvy = { ok: '#4ade80', success: '#4ade80', err: '#f87171', error: '#f87171', warn: '#f5c842', info: '#7dd3fc' };
+  var barva = barvy[type] || '#f5c842';
+  var el = document.createElement('div');
+  el.textContent = msg;
+  el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1a1a2e;' +
+    'border:1px solid ' + barva + '66;color:' + barva + ';padding:10px 20px;border-radius:10px;font-size:13px;' +
+    'font-weight:700;z-index:99999;box-shadow:0 4px 20px #000a;pointer-events:none;max-width:92vw;text-align:center;';
+  (document.body || document.documentElement).appendChild(el);
+  setTimeout(function () { el.remove(); }, type === 'err' || type === 'error' ? 4500 : 3000);
+}
+var showToast = toast;
+</script>
 <script src="i18n.js"></script>
   <script src="card-search.js"></script>
+  <script src="ai-rozpoznani.js"></script>
   <script src="translate-local.js"></script>
   <script src="topbar.js"></script>
 <header class="app-topbar">
@@ -4860,24 +4876,12 @@ async function saveCardUpdates(c) {
   if (window._demoRezim) { demoUpozorni(); return; }   // ukázka: změna jen v paměti
   if (!token || !userId || !c.id) return;
   const localId = String(c.id);
+  // Stejná data jako všude jinde (buildCardData). Dřív tu byl vlastní seznam polí bez
+  // cardmarketUrlRucne/cenaPodezrela → ruční odkaz na Cardmarket se po obnovení
+  // stránky přepsal; buildCardData zase neměl fake_result/ai_condition → načtení
+  // ceny smazalo výsledek detektoru a AI stavu.
   const payload = {
-    card_data: {
-      name: c.name, set: c.set, number: c.number, num: c.num,
-      condition: c.condition||c.cond||'NM', category: c.category||'pokemon',
-      type: c.type, types: c.types||[], supertype: c.supertype,
-      subtype: c.subtype||'', variant: c.variant||'', lang: c.lang||'',
-      hp: c.hp, rarity: c.rarity, imageUrl: c.imageUrl,
-      apiSmall: c.apiSmall, apiLarge: c.apiLarge||null, apiId: c.apiId,
-      pMin: c.pMin||0, pTrend: c.pTrend||0, p30d: c.p30d||0,
-      cardmarketUrl: c.cardmarketUrl||'',
-      pricesFetchedAt: c.pricesFetchedAt||null,
-      photoUrl: c.photoUrl||'', note: c.note||'',
-      count: c.count||c.qty||1, tags: c.tags||[],
-      for_trade: c.for_trade||false, for_sell: c.for_sell||false,
-      price_czk: c.price_czk||null,
-      fake_result: c.fake_result||null,
-      ai_condition: c.ai_condition||null,
-    },
+    card_data: buildCardData(c),
     updated_at: new Date().toISOString(),
   };
   await sbReq(
@@ -6803,6 +6807,10 @@ function buildCardData(c) {
     count: c.count || c.qty || 1, tags: c.tags || [],
     for_trade: c.for_trade || false, for_sell: c.for_sell || false,
     price_czk: c.price_czk || null,
+    name_en: c.name_en || '',
+    priceSource: c.priceSource || null,
+    fake_result: c.fake_result || null,
+    ai_condition: c.ai_condition || null,
   };
 }
 
@@ -10401,7 +10409,8 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 
 
     // ── Poslat fotku z galerie do Bulk Scan ──────────────────────
-    function pgmSendToBulkScan() {
+    // (window. — volá ho onclick tlačítka; uvnitř tohoto bloku nebyl vidět)
+    window.pgmSendToBulkScan = function () {
       const photo = _pgmPhotos[_pgmIdx];
       if (!photo) return;
       const c = _detailCard;
@@ -10409,7 +10418,7 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
         source:       'album',
         photoUrl:     photo.croppedUrl || photo.url || '',
         photoId:      photo.id || null,
-        storagePath:  photo.storagePath || null,
+        storagePath:  photo.storagePath || photo.storage_path || null,
         cardLocalId:  c ? (String(c.id || c.local_id || '')) : '',
         name:         c ? (c.name || '') : _pgmCardName || '',
         set:          c ? (c.set  || '') : '',
@@ -10421,67 +10430,56 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
       };
       localStorage.setItem('pkc_album_to_bulkscan', JSON.stringify(entry));
       window.open('/bulk-scan.html', '_blank');
-    }
+    };
 
     // ── Přijmi výsledek z Bulk Scan ──────────────────────────────
+    // Karty se načítají asynchronně, takže se na ně počká (max 30 s). Výsledek
+    // zůstane v prohlížeči, dokud se nezpracuje — dřív se smazal hned a při
+    // ještě nenačteném albu se ztratil. Ukládá se přes saveCardUpdates (celá
+    // data karty); dřívější přímý PATCH by card_data přepsal jen { photoUrl }.
     (function checkBulkScanAlbumReturn() {
-      const raw = localStorage.getItem('pkc_bulkscan_album_result');
-      if (!raw) return;
-      localStorage.removeItem('pkc_bulkscan_album_result');
-      try {
-        const res = JSON.parse(raw);
-        const localId = res.cardLocalId;
-        if (!localId) return;
+      if (!localStorage.getItem('pkc_bulkscan_album_result')) return;
+      const start = Date.now();
+      (function zkus() {
+        const raw = localStorage.getItem('pkc_bulkscan_album_result');
+        if (!raw) return;
+        let res;
+        try { res = JSON.parse(raw); } catch (e) { localStorage.removeItem('pkc_bulkscan_album_result'); return; }
+        const localId = res && res.cardLocalId;
+        if (!localId) { localStorage.removeItem('pkc_bulkscan_album_result'); return; }
 
-        // Najdi kartu a aktualizuj data
-        const card = allCards.find(c => String(c.id || c.local_id) === String(localId));
-        if (!card) { showToast('Karta nenalezena v albu', 'err'); return; }
+        const card = (typeof allCards !== 'undefined' ? allCards : [])
+          .find(c => String(c.id || c.local_id) === String(localId));
+        if (!card) {
+          if (Date.now() - start < 30000) { setTimeout(zkus, 600); return; }
+          localStorage.removeItem('pkc_bulkscan_album_result');
+          toast('Karta z Bulk Scanu nenalezena v albu', 'err');
+          return;
+        }
+        localStorage.removeItem('pkc_bulkscan_album_result');
 
-        // Pokud přišel nový obrázek → ulož jako foto a volitelně jako hlavní
-        if (res.newPhotoUrl) {
-          showToast(`✅ Nová fotka přidána ke kartě ${res.name || ''}`, 'ok');
-          // Pokud uživatel zvolil jako hlavní → aktualizuj card_data.photoUrl
-          if (res.setAsMain) {
-            card.imageUrl = res.newPhotoUrl;
-            if (!card.card_data) card.card_data = {};
-            card.card_data.photoUrl = res.newPhotoUrl;
-            // PATCH do Supabase
-            const userId2 = typeof userId !== 'undefined' ? userId : '';
-            if (userId2 && localId) {
-              sbReq2(`rest/v1/user_cards?user_id=eq.${userId2}&local_id=eq.${localId}`, 'PATCH', {
-                card_data: card.card_data,
-                updated_at: new Date().toISOString()
-              }).catch(()=>{});
-            }
+        try {
+          let zmena = false;
+          if (res.newPhotoUrl) {
+            if (res.setAsMain) { card.imageUrl = res.newPhotoUrl; card.photoUrl = res.newPhotoUrl; zmena = true; }
+            if (!allCardPhotosMap[localId]) allCardPhotosMap[localId] = [];
+            allCardPhotosMap[localId].unshift({ url: res.newPhotoUrl, side: 'front', storagePath: res.storagePath });
+            toast(`✅ Nová fotka přidána ke kartě ${res.name || card.name || ''}`, 'ok');
           }
-          // Přidej do allCardPhotosMap
-          if (!allCardPhotosMap[localId]) allCardPhotosMap[localId] = [];
-          allCardPhotosMap[localId].unshift({ url: res.newPhotoUrl, side: 'front', storagePath: res.storagePath });
-        }
-
-        // Aktualizuj API info pokud přišel
-        if (res.apiCard && card) {
-          const ac = res.apiCard;
-          if (!card.card_data) card.card_data = {};
-          if (ac.name)   { card.name = ac.name; card.card_data.name = ac.name; }
-          if (ac.set?.name) { card.set = ac.set.name; card.card_data.set = ac.set.name; }
-          if (ac.number) { card.number = ac.number; card.card_data.number = ac.number; }
-          if (ac.images?.small) { card.apiSmall = ac.images.small; card.card_data.apiSmall = ac.images.small; }
-          showToast(`✅ API data aktualizována: ${ac.name || ''}`, 'ok');
-        }
-
-        renderCards();
-      } catch(e) { console.warn('[BulkScanAlbumReturn]', e); }
+          if (res.apiCard) {
+            const ac = res.apiCard;
+            if (ac.name)          card.name     = ac.name;
+            if (ac.set?.name)     card.set      = ac.set.name;
+            if (ac.number)        { card.number = ac.number; card.num = ac.number; }
+            if (ac.images?.small) card.apiSmall = ac.images.small;
+            zmena = true;
+            toast(`✅ API data aktualizována: ${ac.name || ''}`, 'ok');
+          }
+          if (zmena) saveCardUpdates(card).catch(() => {});
+          if (typeof render === 'function') render();
+        } catch (e) { console.warn('[BulkScanAlbumReturn]', e); }
+      })();
     })();
-
-    // Helper: sbReq pro album scope
-    async function sbReq2(path, method, body) {
-      const token2 = typeof TOKEN !== 'undefined' ? TOKEN : '';
-      const h = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token2, 'Content-Type': 'application/json' };
-      if (method !== 'GET') h['Prefer'] = 'return=minimal';
-      const r = await fetch(SUPABASE_URL + '/' + path, { method, headers: h, body: body ? JSON.stringify(body) : undefined });
-      return r;
-    }
 
   window.closePhotoGallery = function() {
     document.getElementById('photoGalleryModal').style.display = 'none';
@@ -10551,6 +10549,43 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
 
   // ── Ořez ── spravuje pgmOpenCrop() v globálním scope níže
 
+  // ── Pomocné: obrázek z galerie → base64, líné načtení modulu ────────
+  async function pgmNactiObrazek(src) {
+    try {
+      const r    = await fetch(src);
+      const blob = await r.blob();
+      const mimeType = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
+      const base64 = await new Promise((res, rej) => {
+        const rd = new FileReader();
+        rd.onload  = () => res(String(rd.result).split(',')[1]);
+        rd.onerror = rej;
+        rd.readAsDataURL(blob);
+      });
+      return base64 ? { base64, mimeType } : null;
+    } catch (_) { return null; }
+  }
+
+  const _pgmSkripty = {};
+  function pgmNactiSkript(src, hotovo) {
+    if (hotovo()) return Promise.resolve();
+    if (_pgmSkripty[src]) return _pgmSkripty[src];
+    _pgmSkripty[src] = new Promise((resolve, reject) => {
+      const sc = document.createElement('script');
+      sc.src = src;
+      sc.onload  = () => hotovo() ? resolve() : reject(new Error('Modul ' + src + ' se nenačetl'));
+      sc.onerror = () => { delete _pgmSkripty[src]; reject(new Error('Modul ' + src + ' se nenačetl')); };
+      document.head.appendChild(sc);
+    });
+    return _pgmSkripty[src];
+  }
+
+  // Volný text od AI → bezpečné HTML (bez „přemýšlení" modelu, bez vloženého HTML)
+  function pgmTextAI(text) {
+    return esc(String(text || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim())
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
+
   // ── AI analýza stavu karty ──────────────────────────
   window.pgmRunAI = async function() {
     const imgEl    = document.getElementById('pgmMainImg');
@@ -10564,45 +10599,17 @@ document.getElementById('firstRunModal').addEventListener('click', e => {
     resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.6)">🤖 AI hodnotí stav karty…</span>';
 
     try {
-      let base64Data = null, mediaType = 'image/jpeg';
-      try {
-        const r    = await fetch(imgEl.src);
-        const blob = await r.blob();
-        mediaType  = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
-        base64Data = await new Promise((res, rej) => {
-          const rd = new FileReader();
-          rd.onload  = () => res(rd.result.split(',')[1]);
-          rd.onerror = rej;
-          rd.readAsDataURL(blob);
-        });
-      } catch (_) {}
+      const obr = await pgmNactiObrazek(imgEl.src);
+      // Bez fotky AI nemá co hodnotit — dřív vrátila obecný text a ten se uložil ke kartě jako „stav".
+      if (!obr) throw new Error('Nepodařilo se načíst fotku pro analýzu');
 
       const cardName = _pgmCardName || 'Pokémon karta';
-
       const systemPrompt = `Jsi expert na grading a hodnocení stavu sběratelských Pokémon karet.
 Hodnotíš karty pro sběratele na českém trhu. Odpovídáš vždy česky, věcně a konkrétně.
 Grading škála: NM (Near Mint – jako nová), LP (Lightly Played – lehce hraná),
 MP (Moderately Played – středně hraná), HP (Heavily Played – hodně hraná), D (Damaged – poškozená).`;
 
-      const groqUserContent = base64Data
-        ? [
-            { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
-            { type: 'text', text: `Toto je fotografie karty "${cardName}".
-
-Podrobně ohodnoť stav karty z fotografie:
-1. Celkový grading (NM/LP/MP/HP/D) s odůvodněním
-2. Viditelné poškození: škrábance, ohyby, white spotting, vrypy, opotřebení rohů
-3. Stav povrchu (lesk, matnost, stopy dotyků)
-4. Stav rohů a hran
-5. Centrování tisku (symetrie okrajů)
-6. Krátké doporučení – jaký PSA/BGS grade by mohl dostat
-
-Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená nebo neukazuje celou kartu, upozorni na to.` }
-          ]
-        : [{ type: 'text', text: `Karta "${cardName}" – fotografie není dostupná (CORS omezení). Napiš obecný popis jak vypadá karta v NM stavu, na co si dát pozor při koupi. Odpověz česky, 4–5 vět.` }];
-
       const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
-
       const resp = await fetch('/api/groq', {
         method: 'POST',
         headers: {
@@ -10615,34 +10622,41 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
           usage_type:  'search',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user',   content: groqUserContent },
+            { role: 'user',   content: [
+              { type: 'image_url', image_url: { url: `data:${obr.mimeType};base64,${obr.base64}` } },
+              { type: 'text', text: `Toto je fotografie karty "${cardName}".
+
+Podrobně ohodnoť stav karty z fotografie:
+1. Celkový grading (NM/LP/MP/HP/D) s odůvodněním
+2. Viditelné poškození: škrábance, ohyby, white spotting, vrypy, opotřebení rohů
+3. Stav povrchu (lesk, matnost, stopy dotyků)
+4. Stav rohů a hran
+5. Centrování tisku (symetrie okrajů)
+6. Krátké doporučení – jaký PSA/BGS grade by mohl dostat
+
+Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená nebo neukazuje celou kartu, upozorni na to.` },
+            ]},
           ],
         }),
       });
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'HTTP ' + resp.status);
+        throw new Error(resp.status === 429 ? 'Vyčerpaný denní limit AI' : (err.error || 'HTTP ' + resp.status));
       }
 
       const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content || '';
+      const text = String(data.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 
       if (text) {
-        resultEl.innerHTML = text
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\n/g, '<br>');
-        // Ulož ke kartě
+        resultEl.innerHTML = pgmTextAI(text);
         if (typeof _detailCard !== 'undefined' && _detailCard) {
           _detailCard.ai_condition = text;
-          const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
-          if (idx >= 0) allCards[idx].ai_condition = text;
           saveCardUpdates(_detailCard).catch(() => {});
         }
       } else {
         resultEl.innerHTML = '<span style="color:rgba(167,139,250,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
       }
-
     } catch (e) {
       resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba AI analýzy: ${esc(e.message)}</span>`;
     }
@@ -10651,7 +10665,10 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
     btn.disabled    = false;
   };
 
-  // ── Detekce falzum ──────────────────────────────────
+  // ── Detekce falzum — společný detektor fake-detector.js v4 ─────────
+  // (ověřené znaky, srovnání s oficiálním obrázkem stejného čísla, pojistky
+  //  verdiktu: nikdy „FALZIFIKÁT" s nízkou jistotou). Dřív tu bylo vlastní
+  //  zadání bez pojistek, které mohlo pravou kartu označit za falzum.
   window.pgmRunFake = async function() {
     const imgEl    = document.getElementById('pgmMainImg');
     const btn      = document.getElementById('pgmFakeBtn');
@@ -10664,85 +10681,30 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
     resultEl.innerHTML = '<span style="color:rgba(245,158,11,0.6)">🔍 AI kontroluje pravost karty…</span>';
 
     try {
-      let base64Data = null, mediaType = 'image/jpeg';
-      try {
-        const r    = await fetch(imgEl.src);
-        const blob = await r.blob();
-        mediaType  = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
-        base64Data = await new Promise((res, rej) => {
-          const rd = new FileReader();
-          rd.onload  = () => res(rd.result.split(',')[1]);
-          rd.onerror = rej;
-          rd.readAsDataURL(blob);
-        });
-      } catch (_) {}
+      await pgmNactiSkript('/fake-detector.js', () => !!window.FakeDetector);
+      const c = (typeof _detailCard !== 'undefined' && _detailCard) ? _detailCard : {};
+      const cardInfo = {
+        name:     c.name || _pgmCardName || '',
+        set:      c.set || '',
+        number:   c.number || c.num || '',
+        hp:       c.hp || '',
+        lang:     c.lang || '',
+        apiId:    c.apiId || '',
+        apiSmall: c.apiSmall || c.images?.small || '',
+        apiLarge: c.apiLarge || c.images?.large || '',
+      };
+      // Fotka zadní strany, pokud je v galerii
+      const zada = (_pgmPhotos || []).find((p, i) => i !== _pgmIdx && p.side === 'back');
+      const vysledek = await FakeDetector.analyze(imgEl.src, cardInfo, zada ? zada.url : undefined);
 
-      if (!base64Data) {
-        resultEl.innerHTML = '<span style="color:#f87171">⚠️ Nepodařilo se načíst obrázek pro analýzu.</span>';
-        btn.textContent = '🔍 Detekce falzum';
-        btn.disabled = false;
-        return;
+      resultEl.innerHTML = '';
+      FakeDetector.renderResult(vysledek, resultEl);
+
+      if (vysledek && vysledek.verdict && vysledek.verdict !== 'unknown' && c.id) {
+        const nazev = { real: 'Pravá karta', fake: 'FALZIFIKÁT', suspicious: 'Podezřelá' }[vysledek.verdict] || vysledek.verdict;
+        c.fake_result = `${nazev} (${vysledek.score}/100, jistota ${vysledek.confidence || '?'}): ${vysledek.summary || ''}`.trim();
+        saveCardUpdates(c).catch(() => {});
       }
-
-      const cardName = _pgmCardName || 'Pokémon karta';
-      const systemPrompt = `Jsi expert na detekci falzifikátů sběratelských Pokémon karet.
-Analyzuješ fotografie karet pro sběratele na českém trhu. Odpovídáš vždy česky, věcně a konkrétně.
-Zaměř se na: kvalitu tisku, správnost barev, tloušťku karty (pokud viditelná), holografické efekty,
-textury, fonty, ohraničení, správnost rozvržení textu a symbolů, obecné znaky falzifikátů.`;
-
-      const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
-
-      const resp = await fetch('/api/groq', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
-        },
-        body: JSON.stringify({
-          model:      'qwen/qwen3.6-27b',
-          max_tokens: 800,
-          usage_type: 'search',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: [
-              { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
-              { type: 'text', text: `Toto je fotografie karty "${cardName}".
-
-Zkontroluj pravost této Pokémon karty:
-1. Verdikt: ORIGINÁL / FALZUM / NEJASNÉ (s odůvodněním)
-2. Podezřelé znaky (pokud existují): kvalita tisku, barvy, font, rozvržení, hologram
-3. Co svědčí PRO pravost
-4. Doporučení pro sběratele
-
-Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
-            ]},
-          ],
-        }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'HTTP ' + resp.status);
-      }
-
-      const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content || '';
-
-      if (text) {
-        resultEl.innerHTML = text
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/\n/g, '<br>');
-        // Ulož ke kartě
-        if (typeof _detailCard !== 'undefined' && _detailCard) {
-          _detailCard.fake_result = text;
-          const idx = allCards.findIndex(x => String(x.id) === String(_detailCard.id));
-          if (idx >= 0) allCards[idx].fake_result = text;
-          saveCardUpdates(_detailCard).catch(() => {});
-        }
-      } else {
-        resultEl.innerHTML = '<span style="color:rgba(245,158,11,0.5)">AI nevrátila výsledek. Zkus znovu.</span>';
-      }
-
     } catch (e) {
       resultEl.innerHTML = `<span style="color:#f87171">⚠️ Chyba detekce: ${esc(e.message)}</span>`;
     }
@@ -10751,7 +10713,7 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
     btn.disabled    = false;
   };
 
-  // ── AI Rozpoznání karty ─────────────────────────────
+  // ── AI Rozpoznání karty — společný modul ai-rozpoznani.js ──────────
   window.pgmRunRecognize = async function() {
     const imgEl    = document.getElementById('pgmMainImg');
     const btn      = document.getElementById('pgmRozBtn');
@@ -10764,99 +10726,71 @@ Odpověz česky, 4–6 vět. Buď konkrétní a věcný.` }
     resultEl.innerHTML = '<span style="color:rgba(74,222,128,0.6)">🔎 AI analyzuje kartu na fotce…</span>';
 
     try {
-      // ── Načti obrázek jako base64 ──────────────────────
-      let base64Data = null, mediaType = 'image/jpeg';
-      try {
-        const r    = await fetch(imgEl.src);
-        const blob = await r.blob();
-        mediaType  = (blob.type && blob.type.startsWith('image/')) ? blob.type : 'image/jpeg';
-        base64Data = await new Promise((res, rej) => {
-          const rd = new FileReader();
-          rd.onload  = () => res(rd.result.split(',')[1]);
-          rd.onerror = rej;
-          rd.readAsDataURL(blob);
-        });
-      } catch (_) {}
-
-      if (!base64Data) {
-        resultEl.innerHTML = '<span style="color:#f87171">⚠️ Nepodařilo se načíst obrázek pro rozpoznání.</span>';
-        btn.textContent = '🔎 AI Rozpoznání'; btn.disabled = false; return;
-      }
+      const obr = await pgmNactiObrazek(imgEl.src);
+      if (!obr) throw new Error('Nepodařilo se načíst obrázek pro rozpoznání');
+      await pgmNactiSkript('/ai-rozpoznani.js', () => !!window.PT_AI);
 
       const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
+      const k = await PT_AI.rozpoznejKartu(obr.base64, obr.mimeType, { token: tok, usage: 'search' });
 
-      // ── Pošli do AI – požadujeme JSON s identitou karty ─
-      const resp = await fetch('/api/groq', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tok ? { 'Authorization': `Bearer ${tok}` } : {}),
-        },
-        body: JSON.stringify({
-          model:      'qwen/qwen3.6-27b',
-          max_tokens: 400,
-          usage_type: 'search',
-          messages: [
-            { role: 'system', content: 'Jsi expert na identifikaci Pokémon TCG karet. Analyzuješ fotografii a vracíš POUZE JSON objekt, žádný jiný text.' },
-            { role: 'user', content: [
-              { type: 'image_url', image_url: { url: `data:${mediaType};base64,${base64Data}` } },
-              { type: 'text', text: `Identifikuj tuto Pokémon kartu na fotce. Vrať POUZE tento JSON (žádný jiný text, žádné markdown):
-{"name":"<jméno pokémona nebo trenéra>","set":"<název série>","number":"<číslo karty např. 044/078>","hp":"<HP nebo prázdný string>","type":"<energie typ např. Metal nebo prázdný string>","rarity":"<vzácnost nebo prázdný string>","supertype":"<Pokémon nebo Trainer nebo Energy>"}
-
-Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečitelné"}` }
-            ]},
-          ],
-        }),
-      });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err.error || 'HTTP ' + resp.status);
-      }
-
-      const data = await resp.json();
-      const rawText = (data.choices?.[0]?.message?.content || '').trim();
-
-      // ── Parsuj JSON odpověď ────────────────────────────
-      let identified = null;
-      try {
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) identified = JSON.parse(jsonMatch[0]);
-      } catch (_) {}
-
-      if (!identified || identified.error) {
-        resultEl.innerHTML = `<span style="color:#f87171">⚠️ AI kartu nerozpoznala: ${esc(identified?.error || 'nečitelná fotka')}. Zkus jiný úhel nebo ostřejší záběr.</span>`;
+      if (k.chyba || !k.name) {
+        resultEl.innerHTML = k.chyba
+          ? `<span style="color:#f87171">⚠️ ${esc(k.notes || 'Rozpoznání selhalo')}</span>`
+          : `<span style="color:#f87171">⚠️ AI kartu nerozpoznala: ${esc(k.notes || 'nečitelná fotka')}. Zkus jiný úhel nebo ostřejší záběr.</span>`;
         btn.textContent = '🔎 AI Rozpoznání'; btn.disabled = false; return;
       }
 
-      // ── Zkontroluj jestli karta existuje v albu ────────
+      // Tvar, se kterým pracuje potvrzení (name = jak je vytištěno, set = název série)
+      const identified = {
+        name:      k.name,
+        name_en:   k.nameEN && k.nameEN !== k.name ? k.nameEN : '',
+        lang:      k.lang || '',
+        set:       k.setName || '',
+        setCode:   k.setCode || '',
+        number:    k.number || '',
+        hp:        k.hp || '',
+        rarity:    k.rarity || '',
+        supertype: k.supertype || '',
+        subtype:   k.subtype || '',
+        confidence: k.confidence,
+        notes:     k.notes || '',
+      };
+
+      // ── Je karta v albu už jinde? Verze se liší jen číslem → číslo musí sedět
+      const norm = s => String(s || '').toLowerCase().trim();
       const albumCardIds = getActiveAlbumCardIds() || [];
       const existing = (typeof allCards !== 'undefined' ? allCards : []).find(x =>
         albumCardIds.includes(String(x.id)) &&
         String(x.id) !== String(_detailCard?.id) &&
-        (x.name || '').toLowerCase().trim() === (identified.name || '').toLowerCase().trim() &&
-        (x.set  || '').toLowerCase().trim() === (identified.set  || '').toLowerCase().trim()
+        (norm(x.name) === norm(identified.name) || (identified.name_en && norm(x.name) === norm(identified.name_en))) &&
+        norm(x.set) === norm(identified.set) &&
+        normCislo(x.number || x.num) === normCislo(identified.number)
       );
 
-      // ── Zobraz výsledek s potvrzovacím panelem ─────────
       const dupWarn = existing
         ? `<div style="margin-top:8px;padding:7px 10px;background:rgba(245,200,66,0.12);border:1px solid rgba(245,200,66,0.3);border-radius:7px;font-size:11px;color:#f5c842;">
-            ⚠️ V albu už existuje <strong>${esc(existing.name)}</strong> · ${esc(existing.set||'?')} — po potvrzení se automaticky sloučí.
+            ⚠️ V albu už existuje <strong>${esc(existing.name)}</strong> · ${esc(existing.set||'?')} #${esc(existing.number||existing.num||'?')} — po potvrzení se automaticky sloučí.
+           </div>` : '';
+      const nejiste = identified.confidence === 'low'
+        ? `<div style="margin-top:8px;padding:7px 10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);border-radius:7px;font-size:11px;color:#fca5a5;">
+            ⚠️ AI si není jistá${identified.notes ? ': ' + esc(identified.notes) : ''}. Před potvrzením údaje zkontroluj.
            </div>` : '';
 
-      // Ulož data do window proměnné — NIKDY nevkládej encodeURIComponent do onclick atributu!
+      // Data do window proměnné — NIKDY nevkládat do onclick atributu
       window._pgmAiIdentified = identified;
 
+      const jmeno = esc(identified.name) + (identified.name_en ? ` <span style="color:rgba(209,250,229,0.5);font-weight:400">(${esc(identified.name_en)})</span>` : '');
       resultEl.innerHTML = `
         <div style="font-weight:700;font-size:13px;color:#4ade80;margin-bottom:8px;">🔎 AI rozpoznala kartu:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:10px;">
-          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Název</span><br><strong>${esc(identified.name||'?')}</strong></div>
-          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Série</span><br><strong>${esc(identified.set||'?')}</strong></div>
+          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Název</span><br><strong>${jmeno}</strong></div>
+          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Série</span><br><strong>${esc(identified.set||'?')}</strong>${identified.setCode ? ' · ' + esc(identified.setCode) : ''}</div>
           <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Číslo</span><br>${esc(identified.number||'—')}</div>
-          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">HP / Typ</span><br>${esc(identified.hp||'—')} / ${esc(identified.type||'—')}</div>
+          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">HP / Jazyk</span><br>${esc(identified.hp||'—')} / ${esc(identified.lang||'—')}</div>
           <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Vzácnost</span><br>${esc(identified.rarity||'—')}</div>
-          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Supertyp</span><br>${esc(identified.supertype||'—')}</div>
+          <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Supertyp</span><br>${esc(identified.supertype||'—')}${identified.subtype ? ' · ' + esc(identified.subtype) : ''}</div>
         </div>
+        ${nejiste}
         ${dupWarn}
         <div style="display:flex;gap:8px;margin-top:10px;">
           <button id="pgmRozConfirmBtn" onclick="pgmConfirmRecognize()" style="
@@ -10882,76 +10816,91 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 
   // ── Potvrzení rozpoznání ────────────────────────────
   window.pgmConfirmRecognize = async function() {
-    // Data jsou uložena v window._pgmAiIdentified (ne jako URL-encodovaný parametr)
     const identified = window._pgmAiIdentified;
-    if (!identified) { console.error('[AI Rozpoznání] Chybí data identified'); return; }
-
     const confirmBtn = document.getElementById('pgmRozConfirmBtn');
+    const card = (typeof _detailCard !== 'undefined') ? _detailCard : null;
+    if (!identified || !card) {
+      console.error('[AI Rozpoznání] Chybí rozpoznaná data nebo karta');
+      if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = '✓ Potvrdit a aktualizovat'; }
+      return;
+    }
     if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '⏳ Ukládám…'; }
 
-    const card = (typeof _detailCard !== 'undefined') ? _detailCard : null;
-    if (!card) return;
-
-    // ── 1. Zkontroluj jestli měla karta reálné fotky ──────────────
     const localId = String(card.id || card.local_id || '');
-    const hadRealPhotos = (
-      (typeof allCardPhotosMap !== 'undefined' && (allCardPhotosMap[localId] || []).length > 0) ||
-      (_pgmPhotos && _pgmPhotos.length > 0)
-    );
+    const norm = s => String(s || '').toLowerCase().trim();
 
-    // ── 2. Aktualizuj data karty ───────────────────────────────────
-    const oldName = card.name;
-    card.name      = identified.name  || card.name;
-    card.set       = identified.set   || card.set;
-    card.number    = identified.number|| card.number;
-    card.num       = identified.number|| card.num;
-    card.hp        = identified.hp    || card.hp;
-    card.type      = identified.type  || card.type;
-    card.rarity    = identified.rarity|| card.rarity;
+    // ── 1. Mění se identita karty? (jméno, série nebo číslo)
+    // Stejné číslo/jméno jen jinak zapsané („058" × „58/102") → ponechat původní zápis
+    const stareCislo = card.number || card.num || '';
+    const noveCislo = identified.number && normCislo(identified.number) !== normCislo(stareCislo)
+      ? identified.number : (stareCislo || identified.number || '');
+    const noveJmeno = identified.name && norm(identified.name) !== norm(card.name) ? identified.name : card.name;
+    const jinaKarta =
+      (identified.name   && norm(identified.name) !== norm(card.name)) ||
+      (identified.set    && norm(identified.set)  !== norm(card.set))  ||
+      (identified.number && normCislo(identified.number) !== normCislo(card.number || card.num));
+
+    // ── 2. Aktualizuj údaje karty
+    card.name      = noveJmeno || card.name;
+    card.set       = identified.set       || card.set;
+    card.number    = noveCislo;
+    card.num       = noveCislo;
+    card.hp        = identified.hp        || card.hp;
+    card.rarity    = identified.rarity    || card.rarity;
     card.supertype = identified.supertype || card.supertype;
+    if (identified.subtype) card.subtype = identified.subtype;
+    if (identified.lang)    card.lang    = identified.lang;
+    if (identified.setCode) card.setCode = identified.setCode;
+    if (identified.name_en) card.name_en = identified.name_en;
+    else if (identified.lang === 'EN') card.name_en = '';
     card.updated_at = new Date().toISOString();
 
-    // Pokud karta neměla reálné fotky → vymaž starý API obrázek (byl to jen placeholder)
-    if (!hadRealPhotos) {
-      card.imageUrl  = '';
-      card.apiSmall  = '';
-      card.apiLarge  = '';
-      card.apiId     = '';
-      card.pMin      = 0;
-      card.pTrend    = 0;
-      card.p30d      = 0;
-      card.pricesFetchedAt = null;
-      card.cardmarketUrl   = '';
+    // ── 3. Jiná karta → zahodit vše, co patřilo té původní (obrázek z API,
+    //       ID, ceny, odkaz). Jinak by karta s novým jménem nesla cenu a obrázek
+    //       té staré a pojistka cen by starou cenu dál držela (případ Rayquaza 218/111).
+    //       Vlastní fotky, vlastní cena (Kč) a ručně zadaný odkaz zůstávají.
+    if (jinaKarta) {
+      const stareApi = [card.apiSmall, card.apiLarge, card.images?.small, card.images?.large].filter(Boolean);
+      if (card.imageUrl && (stareApi.includes(card.imageUrl) || /pokemontcg\.io|tcgdex\.net/i.test(card.imageUrl))) {
+        card.imageUrl = '';
+      }
+      card.apiSmall = ''; card.apiLarge = ''; card.apiId = ''; card.images = null;
+      card.pMin = 0; card.pTrend = 0; card.p30d = 0;
+      card.pricesFetchedAt = null; card.priceSource = null; card.cenaPodezrela = null;
+      card._imgTried = false;
+      if (!card.cardmarketUrlRucne) card.cardmarketUrl = '';
     }
 
-    // Aktualizuj v allCards
     if (typeof allCards !== 'undefined') {
       const idx = allCards.findIndex(x => String(x.id) === localId);
       if (idx >= 0) Object.assign(allCards[idx], card);
     }
 
-    // Ulož na server
     if (typeof saveCardUpdates === 'function') await saveCardUpdates(card).catch(() => {});
-    if (typeof saveLocal      === 'function') saveLocal();
 
-    // Aktualizuj název v modalu
     document.getElementById('pgmTitle').textContent = '📷 ' + card.name;
     if (typeof openCardDetail === 'function' && document.getElementById('cardDetailModal')?.classList.contains('open')) {
       openCardDetail(card);
     }
 
-    // ── 3. Sloučit duplicity ────────────────────────────────────────
+    // ── 4. Sloučit duplicity, dotáhnout obrázek nové karty (s kontrolou čísla)
     if (typeof mergeDuplicatesInAlbum === 'function') {
       await mergeDuplicatesInAlbum().catch(() => {});
     }
+    if (jinaKarta && typeof fetchMissingImages === 'function') {
+      fetchMissingImages().then(() => { if (typeof render === 'function') render(); }).catch(() => {});
+    }
 
-    // ── 4. Výsledek: zeptej se jestli pokračovat s další fotkou ────
+    // ── 5. Výsledek
     const remaining = (_pgmPhotos || []).filter((p, i) => i !== (typeof _pgmIdx !== 'undefined' ? _pgmIdx : 0));
     const resultEl  = document.getElementById('pgmRecognizeResult');
+    const ponechano = jinaKarta && (Number(card.price_czk) > 0 || card.cardmarketUrlRucne)
+      ? `<div style="font-size:11px;color:#f5c842;margin-bottom:8px;">ℹ️ Vlastní cena / ručně zadaný odkaz zůstaly z původní karty — zkontroluj je.</div>` : '';
 
     if (resultEl) {
       resultEl.innerHTML = `
         <div style="color:#4ade80;font-weight:700;margin-bottom:8px;">✅ Karta aktualizována: <em>${esc(card.name)}</em></div>
+        ${ponechano}
         ${remaining.length > 0
           ? `<div style="font-size:11px;color:rgba(209,250,229,0.7);margin-bottom:8px;">V galerii je ještě ${remaining.length} foto. Chceš identifikovat další?</div>
              <button onclick="pgmRunRecognize()" style="padding:6px 14px;border-radius:8px;background:rgba(34,197,94,0.15);border:1px solid rgba(34,197,94,0.35);color:#4ade80;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;">🔎 Rozpoznat další</button>`
@@ -11047,6 +10996,7 @@ Pokud není karta čitelná nebo jde o zadní stranu, vrať: {"error":"nečiteln
 
       // 4. Veřejná URL z R2
       const publicUrl = upData.url;
+      const storagePath = upData.key || null;   // klíč v R2 (dřív nedefinovaná proměnná → ořez se nikdy neuložil)
       markPhotoChanged(publicUrl); // ať se nová verze ukáže čerstvá (jednorázový buster)
 
       // 5. Aktualizuj URL v databázi
