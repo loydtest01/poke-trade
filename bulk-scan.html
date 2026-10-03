@@ -312,7 +312,6 @@ details summary::-webkit-details-marker{display:none;}
         <div class="key-grid">
           <div class="key-badge" id="kb-gemini">Gemini <span>—</span></div>
           <div class="key-badge" id="kb-groq">Groq <span>—</span></div>
-          <div class="key-badge" id="kb-xai">Grok/xAI <span>—</span></div>
           <div class="key-badge" id="kb-mistral">Mistral <span>—</span></div>
         </div>
         <details>
@@ -320,7 +319,6 @@ details summary::-webkit-details-marker{display:none;}
           <div style="margin-top:6px">
             <input class="ai-key-inp" id="keyGemini" type="password" placeholder="AIzaSy… (Gemini)">
             <input class="ai-key-inp" id="keyGroq"   type="password" placeholder="gsk_… (Groq)">
-            <input class="ai-key-inp" id="keyGrok"   type="password" placeholder="xai-… (Grok/xAI)">
           </div>
         </details>
       </div>
@@ -488,7 +486,7 @@ function checkManualKeys(){
   if(g)_keys.gemini=[g]; if(r)_keys.groq=[r]; if(x)_keys.xai=[x];
   setKeyBadge('gemini',_keys.gemini.length); setKeyBadge('groq',_keys.groq.length); setKeyBadge('xai',_keys.xai.length);
 }
-['keyGemini','keyGroq','keyGrok'].forEach(id=>{
+['keyGemini','keyGroq'].forEach(id=>{
   document.getElementById(id)?.addEventListener('input',checkManualKeys);
 });
 
@@ -998,7 +996,25 @@ async function detectCanvasMethod(){
     const t0=performance.now();
     const det=detectCardsPureCanvas(srcImg);
     const ms=Math.round(performance.now()-t0);
-    if(!det.length){st(`Canvas: žádné karty (${ms}ms) · zkus AI detekci`);return;}
+    if(!det.length){
+      // Postup bez AI → s AI: 1) canvas (víc karet), 2) CardVision (jedna karta, i natočená),
+      // 3) teprve pak AI detekce jako záloha.
+      try{
+        if(!window.CardVision) await new Promise((ok,ko)=>{const sc=document.createElement('script');sc.src='/card-vision.js';sc.onload=ok;sc.onerror=ko;document.head.appendChild(sc);});
+        const cv=window.CardVision&&window.CardVision.detekuj(srcImg);
+        if(cv&&cv.ok&&cv.rohy&&cv.rohy.length===4){
+          const [lh,ph,pd,ld]=cv.rohy;
+          zones=[makeZone(lh,ph,ld,pd,true)];
+          activeZoneIdx=0; enableProcessBtns();
+          st(cv.jistota ? 'CardVision: nalezena 1 karta · uprav rohy nebo zpracuj' : 'CardVision: 1 karta, ale nejistě — zkontroluj rohy (nebo zkus ✦ AI detekci)');
+          renderZoneList(); drawOverlay();
+          return;
+        }
+      }catch(e){console.warn('[CardVision]',e);}
+      st(`Bez AI nic nenalezeno (${ms}ms) · zkouším AI detekci…`,true);
+      detectBtn.disabled=false;
+      return detectAIMethod();
+    }
     zones=det.map(d=>rectToZone(d.x,d.y,d.w,d.h));
     activeZoneIdx=0; enableProcessBtns();
     st(`Nalezeno ${zones.length} karet (${ms}ms) · uprav rohy nebo zpracuj`);
@@ -1006,11 +1022,11 @@ async function detectCanvasMethod(){
   }catch(e){st('Chyba canvas: '+e.message);}finally{detectBtn.disabled=false;}
 }
 
-// ── AI Detection (Gemini → /api/groq fallback → Grok) ─────────
+// ── AI Detection (Gemini → /api/groq) — záloha, když nenajde canvas ani CardVision ─
 async function detectAIMethod(){
   if(!srcImg)return;
   checkManualKeys();
-  const gemKey=pickKey('gemini'), groqAvail=!!pickKey('groq'), grokKey=pickKey('xai');
+  const gemKey=pickKey('gemini'), groqAvail=!!pickKey('groq');
 
   aiDetectBtn.disabled=true; st('✦ AI detekuje kartičky…',true);
   const MAX=1200,iw=srcImg.naturalWidth,ih=srcImg.naturalHeight;
@@ -1063,15 +1079,6 @@ async function detectAIMethod(){
     }catch(e){console.warn('[/api/groq]',e);}
   }
 
-  // 3. Grok xAI fallback
-  if(!detected&&grokKey){
-    try{
-      const r=await fetch('https://api.x.ai/v1/chat/completions',{method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+grokKey},
-        body:JSON.stringify({model:'grok-2-vision-latest',max_tokens:1024,messages:[{role:'user',content:[{type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},{type:'text',text:prompt}]}]})});
-      if(r.ok){const d=await r.json();const txt=d.choices?.[0]?.message?.content||'';const m=txt.match(/\{[\s\S]*\}/);if(m){const p=JSON.parse(m[0]);if(p.cards?.length>0)detected={cards:p.cards,src:'Grok'};}}
-    }catch(e){console.warn('[Grok]',e);}
-  }
 
   aiDetectBtn.disabled=false;
 
@@ -1258,12 +1265,11 @@ function buildZoneThumb(maxSize=512){
 async function aiEnhance(){
   checkManualKeys();
   const gemKey = pickKey('gemini');
-  const grokKey = pickKey('xai');
 
-  if(!gemKey && !grokKey){
+  if(!gemKey){
     // Show error in result area
     const res = document.getElementById('aiEnhResult');
-    res.innerHTML = '⚠ Žádný vision AI klíč · přidej <b>Gemini</b> nebo <b>Grok/xAI</b> klíč v sekci AI Klíče výše.';
+    res.innerHTML = '⚠ Žádný vision AI klíč · přidej <b>Gemini</b> klíč v sekci AI Klíče výše.';
     res.classList.add('vis');
     return;
   }
@@ -1341,28 +1347,6 @@ Value ranges:
     }catch(e){console.warn('[Gemini enhance]',e);}
   }
 
-  // 2. Grok Vision xAI fallback
-  if(grokKey && !vals){
-    try{
-      const r = await fetch('https://api.x.ai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+grokKey},
-        body:JSON.stringify({
-          model:'grok-2-vision-latest', max_tokens:512, temperature:0.1,
-          messages:[{role:'user',content:[
-            {type:'image_url',image_url:{url:'data:image/jpeg;base64,'+b64}},
-            {type:'text',text:PROMPT}
-          ]}]
-        })
-      });
-      if(r.ok){
-        const d = await r.json();
-        const txt = d.choices?.[0]?.message?.content||'';
-        const m = txt.match(/\{[\s\S]*\}/);
-        if(m){ const p=JSON.parse(m[0]); if(typeof p.brightness==='number'){ vals=p; providerName='Grok Vision'; } }
-      }
-    }catch(e){console.warn('[Grok enhance]',e);}
-  }
 
   btn.disabled=false; btn.classList.remove('loading');
   btn.innerHTML='<span>✦</span> AI znovu vyladit';

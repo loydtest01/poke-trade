@@ -3739,6 +3739,7 @@ async function loadMsgsThread(silent = false) {
     const msgs = await r.json();
     if (Array.isArray(msgs) && msgs.length > 0) {
       _msgsMessages = msgs.reverse();
+      await _mNactiNabidky().catch(() => {});
       renderMsgsThread(silent);
     }
     // Pokud server vrátí prázdné pole, zachováme optimistické zprávy
@@ -3784,6 +3785,7 @@ function renderMsgsThread(silent = false) {
         ? (ref.offer_type === 'trade' ? ' · 🔄 návrh výměny' : (ref.offer_price ? ' · 💸 ' + escHtml(Number(ref.offer_price).toLocaleString('cs')) + ' Kč' : ' · 💸 nabídka'))
         : '';
       txt += `<a href="${odkaz}" target="_blank" style="display:block;margin-top:4px;font-size:12px;opacity:.85;color:inherit">📎 ${nazev}${nabidka}</a>`;
+      if (ref.offer_id) txt += _mNabidkaStav(String(ref.offer_id).replace(/[^A-Za-z0-9-]/g, ''));
     });
 
     // Read receipt – pouze u odeslaných zpráv (isMe)
@@ -3918,6 +3920,60 @@ async function mChatImgSelected(input) {
   input.value = '';
   await loadMsgsThread();
 }
+
+// ── Nabídky ve zprávách (stejné databázové funkce jako Chat na webu) ──
+const _mOffer = {};
+async function _mNactiNabidky() {
+  const ids = new Set();
+  _msgsMessages.forEach(m => (m.listing_refs || []).forEach(r => {
+    const id = String(r.offer_id || '').replace(/[^A-Za-z0-9-]/g, '');
+    if (id && (!_mOffer[id] || ['pending', 'accepted'].includes(_mOffer[id].status))) ids.add(id);
+  }));
+  if (!ids.size) return;
+  const r = await fetch(`${SB_URL}/rest/v1/offers?id=in.(${[...ids].join(',')})&select=id,status,seller_id,buyer_id`,
+    { headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken } });
+  if (!r.ok) return;
+  (await r.json()).forEach(o => { _mOffer[o.id] = o; });
+}
+function _mNabidkaStav(id) {
+  const o = _mOffer[id];
+  if (!o) return '';
+  const stavy = { pending: '⏳ čeká na prodejce', accepted: '✅ přijato — rezervováno', rejected: '❌ odmítnuto', cancelled: '↩️ staženo / vypršelo' };
+  let h = `<div style="font-size:11px;margin-top:3px;opacity:.85">${stavy[o.status] || escHtml(o.status)}</div>`;
+  if (o.status === 'pending' && o.seller_id === _msgsUserId) {
+    h += `<div style="display:flex;gap:6px;margin-top:6px">
+      <button onclick="mNabidkaAkce('${id}','prijmi',this)" style="flex:1;padding:8px 0;border-radius:8px;border:none;background:#16a34a;color:#fff;font-weight:700;font-size:13px">✓ Přijmout</button>
+      <button onclick="mNabidkaAkce('${id}','odmitni',this)" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(248,113,113,.5);background:transparent;color:#f87171;font-size:13px">Odmítnout</button></div>`;
+  } else if (o.status === 'pending' && o.buyer_id === _msgsUserId) {
+    h += `<button onclick="mNabidkaAkce('${id}','zrus',this)" style="margin-top:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:transparent;color:inherit;font-size:12px">Stáhnout nabídku</button>`;
+  }
+  return h;
+}
+window.mNabidkaAkce = async function (id, akce, btn) {
+  const fn = { prijmi: 'prijmi_nabidku', odmitni: 'odmitni_nabidku', zrus: 'zrus_nabidku' }[akce];
+  const otazka = { prijmi: 'Přijmout nabídku? Karta se na 3 dny rezervuje pro kupujícího.', odmitni: 'Odmítnout nabídku?', zrus: 'Stáhnout nabídku?' }[akce];
+  if (!fn || !confirm(otazka)) return;
+  if (btn) btn.disabled = true;
+  let stav = '';
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, { method: 'POST',
+      headers: { 'apikey': SB_ANON, 'Authorization': 'Bearer ' + mobileToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ p_offer: id }) });
+    const d = await r.json().catch(() => null);
+    stav = r.ok ? d : ((d && d.message) || ('chyba ' + r.status));
+  } catch (e) { stav = e.message; }
+  delete _mOffer[id];
+  if (stav !== 'ok') {
+    const chyby = { obsazeno: 'Karta je už rezervovaná nebo prodaná.', vyrizeno: 'Nabídka už byla vyřízena.', neni_tvoje: 'Tuhle nabídku nemůžeš vyřídit.', nenalezeno: 'Nabídka už neexistuje.' };
+    toast('⚠️ ' + (chyby[stav] || stav));
+    await loadMsgsThread(true);
+    return;
+  }
+  const texty = { prijmi: '✅ Nabídku přijímám — karta je pro tebe rezervovaná na 3 dny. Domluvme předání.',
+                  odmitni: '❌ Nabídku bohužel odmítám.', zrus: '↩️ Nabídku stahuji.' };
+  const inp = document.getElementById('chatInputM');
+  if (inp) { inp.value = texty[akce]; await sendMobileMsg(); } else { await loadMsgsThread(true); }
+};
 
 async function sendMobileMsg() {
   const inp = document.getElementById('chatInputM');

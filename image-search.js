@@ -37,6 +37,20 @@
     return _ptAiSlib;
   }
 
+  let _rozpSlib = null;
+  function _nactiRozpoznani() {
+    if (global.PT_ROZPOZNANI) return Promise.resolve(global.PT_ROZPOZNANI);
+    if (_rozpSlib) return _rozpSlib;
+    _rozpSlib = new Promise(resolve => {
+      const sc = document.createElement('script');
+      sc.src = '/rozpoznani-karty.js';
+      sc.onload  = () => resolve(global.PT_ROZPOZNANI || null);
+      sc.onerror = () => { _rozpSlib = null; resolve(null); };
+      document.head.appendChild(sc);
+    });
+    return _rozpSlib;
+  }
+
   // ── Převod File/Blob/URL na base64 ───────────────────────────────────────
   async function _toBase64(source) {
     if (typeof source === 'string') {
@@ -98,11 +112,16 @@
     const token = localStorage.getItem('sb_token') || '';
     const k = await ai.rozpoznejKartu(base64, mimeType, { token, usage: 'search' });
 
+    return _zAI(k);
+  }
+
+  function _zAI(k) {
     if (k.chyba) {
       if (k.status === 401) throw new Error('Pro rozpoznání z fotky se přihlas');
       throw new Error(k.notes || 'Rozpoznání selhalo');
     }
     return Object.assign({}, k, {
+      zdroj:        'ai',
       name:         k.nameEN || k.name,
       nameOriginal: k.name,
       set:          k.setCode || '',
@@ -136,8 +155,30 @@
     const imgData = await _toBase64(source);
     if (!imgData) throw new Error('Nepodařilo se zpracovat obrázek');
 
-    status('🤖 AI rozpoznává kartu…');
-    const recognized = await _rozpoznej(imgData.base64, imgData.mimeType);
+    // Nejdřív bez AI (kolektivní paměť, otisk obrázku), AI až jako záloha
+    let recognized = null;
+    const R = await _nactiRozpoznani();
+    if (R) {
+      status('🔍 Hledám v kolektivní paměti…');
+      const v = await R.rozpoznej(`data:${imgData.mimeType};base64,${imgData.base64}`,
+        { token: localStorage.getItem('sb_token') || '' });
+      if (v.karta) {
+        const k = v.karta;
+        status(`${R.popisek(v.zdroj)}: ${k.name}…`);
+        recognized = { name: k.name, nameOriginal: k.name, nameEN: k.name, set: k.set,
+          number: String(k.number || '').split('/')[0].trim(), numberFull: k.number || '',
+          lang: 'EN', hp: null, rarity: '', zdroj: v.zdroj, apiId: k.apiId, phash: v.phash,
+          confidence: v.jistota >= 0.9 ? 'high' : 'med' };
+      } else if (v.ai) {
+        recognized = _zAI(v.ai);
+        recognized.phash = v.phash;
+      } else {
+        throw new Error(v.chyba || 'Kartu se nepodařilo rozpoznat');
+      }
+    } else {
+      status('🤖 AI rozpoznává kartu…');
+      recognized = await _rozpoznej(imgData.base64, imgData.mimeType);
+    }
 
     console.log('[ImageSearch] Rozpoznáno:', recognized);
 
@@ -164,6 +205,11 @@
       _preResolvedEnName: jeEN ? '' : (recognized.nameEN || ''),
     });
 
+    // Karta z kolektivní paměti / otisku → přesně tuhle dát na první místo
+    if (recognized.apiId && Array.isArray(cards)) {
+      const i = cards.findIndex(c => (c.apiId || c.id) === recognized.apiId);
+      if (i > 0) cards.unshift(cards.splice(i, 1)[0]);
+    }
     return { cards, recognized };
   }
 
@@ -364,7 +410,8 @@
         overlay.querySelector('#imgsRecName').textContent =
           (r.nameOriginal && r.nameOriginal !== r.name ? r.nameOriginal + ' → ' : '') + (r.name || '?') +
           (r.lang && r.lang !== 'EN' ? ' (' + r.lang + ')' : '') +
-          (r.confidence === 'low' ? ' ⚠️ nejisté' : '');
+          (r.confidence === 'low' ? ' ⚠️ nejisté' : '') +
+          (r.zdroj && r.zdroj !== 'ai' ? ' · ' + (global.PT_ROZPOZNANI ? global.PT_ROZPOZNANI.popisek(r.zdroj) : r.zdroj) : '');
         overlay.querySelector('#imgsRecSet').textContent  = r.set || r.setName || '?';
         overlay.querySelector('#imgsRecNum').textContent  = r.numberFull || r.number || '?';
         recBox.style.display = 'block';

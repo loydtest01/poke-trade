@@ -10745,10 +10745,20 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
     try {
       const obr = await pgmNactiObrazek(imgEl.src);
       if (!obr) throw new Error('Nepodařilo se načíst obrázek pro rozpoznání');
-      await pgmNactiSkript('/ai-rozpoznani.js', () => !!window.PT_AI);
-
+      // Nejdřív bez AI (kolektivní paměť, otisk obrázku), AI jen jako záloha
+      await pgmNactiSkript('/rozpoznani-karty.js', () => !!window.PT_ROZPOZNANI);
       const tok = localStorage.getItem('sb_token') || (typeof token !== 'undefined' ? token : null);
-      const k = await PT_AI.rozpoznejKartu(obr.base64, obr.mimeType, { token: tok, usage: 'search' });
+      resultEl.innerHTML = '<span style="color:rgba(74,222,128,0.6)">🔎 Hledám v kolektivní paměti…</span>';
+      const v = await window.PT_ROZPOZNANI.rozpoznej(`data:${obr.mimeType};base64,${obr.base64}`, { token: tok });
+      let k;
+      if (v.karta) {
+        k = { name: v.karta.name, nameEN: v.karta.name, lang: 'EN', number: v.karta.number, setName: v.karta.set,
+              setCode: '', hp: '', rarity: '', supertype: '', subtype: '',
+              confidence: v.jistota >= 0.9 ? 'high' : 'med', notes: '' };
+      } else {
+        k = v.ai || { name: '', chyba: true, notes: v.chyba || 'Kartu se nepodařilo rozpoznat' };
+        if (!k.notes && v.chyba) k.notes = v.chyba;
+      }
 
       if (k.chyba || !k.name) {
         resultEl.innerHTML = k.chyba
@@ -10773,6 +10783,10 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
         subtype:   k.subtype || '',
         confidence: k.confidence,
         notes:     k.notes || '',
+        zdroj:     v.zdroj,
+        apiId:     v.karta ? v.karta.apiId : '',
+        apiImage:  v.karta ? v.karta.imageUrl : '',
+        phash:     v.phash || null,
       };
 
       // ── Je karta v albu už jinde? Verze se liší jen číslem → číslo musí sedět
@@ -10800,7 +10814,7 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
 
       const jmeno = esc(identified.name) + (identified.nameOrig ? ` <span style="color:rgba(209,250,229,0.5);font-weight:400">(${esc(identified.nameOrig)})</span>` : '');
       resultEl.innerHTML = `
-        <div style="font-weight:700;font-size:13px;color:#4ade80;margin-bottom:8px;">🔎 AI rozpoznala kartu:</div>
+        <div style="font-weight:700;font-size:13px;color:#4ade80;margin-bottom:8px;">🔎 Rozpoznáno · ${esc(window.PT_ROZPOZNANI ? window.PT_ROZPOZNANI.popisek(identified.zdroj) : 'AI')}:</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;margin-bottom:10px;">
           <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Název</span><br><strong>${jmeno}</strong></div>
           <div><span style="color:rgba(209,250,229,0.5);font-size:11px;">Série</span><br><strong>${esc(identified.set||'?')}</strong>${identified.setCode ? ' · ' + esc(identified.setCode) : ''}</div>
@@ -10889,6 +10903,14 @@ Odpověz přehledně česky, 5–7 vět. Pokud fotka je špatně zaostřená neb
       card._imgTried = false;
       if (!card.cardmarketUrlRucne) card.cardmarketUrl = '';
     }
+
+    // Karta z kolektivní paměti / otisku má přesné ID a obrázek → rovnou použít
+    if (identified.apiId) {
+      card.apiId = identified.apiId;
+      if (identified.apiImage) { card.apiSmall = identified.apiImage; card.apiLarge = identified.apiImage; }
+    }
+    // Potvrzení učí kolektivní paměť: příště se stejná fotka pozná bez AI
+    if (identified.phash && card.apiId && window.PT_ROZPOZNANI) window.PT_ROZPOZNANI.potvrd(identified.phash, card.apiId);
 
     if (typeof allCards !== 'undefined') {
       const idx = allCards.findIndex(x => String(x.id) === localId);
