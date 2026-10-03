@@ -461,17 +461,6 @@ body::after {
   </div>
 </header>
 
-<!-- ── USERNAME MODAL (pro sdílení) ── -->
-<div class="modal-overlay" id="usernameModal">
-  <div class="modal-box">
-    <h2>Nastav přezdívku</h2>
-    <p>Pro sdílení alb potřebuješ přezdívku. Ostatní tě budou hledat podle ní.</p>
-    <input class="modal-input" id="modalUsernameInput" type="text" placeholder="trener123" maxlength="30">
-    <div class="modal-error" id="modalError"></div>
-    <button class="btn-modal-save" onclick="saveUsername()">Uložit přezdívku</button>
-  </div>
-</div>
-
 <!-- ── TOAST ── -->
 <div class="toast" id="toast"></div>
 
@@ -974,8 +963,8 @@ function runCompare() {
 
   document.getElementById('compareStats').innerHTML = `
     <div class="cstat green"><span>${both.length}</span><small>Máte oba</small></div>
-    <div class="cstat blue"><span>${only1.length}</span><small>Jen ${albumA.name}</small></div>
-    <div class="cstat yellow"><span>${only2.length}</span><small>Jen ${albumB.name}</small></div>
+    <div class="cstat blue"><span>${only1.length}</span><small>Jen ${esc(albumA.name)}</small></div>
+    <div class="cstat yellow"><span>${only2.length}</span><small>Jen ${esc(albumB.name)}</small></div>
     <div class="cstat gray"><span>${albumA.cards.length + albumB.cards.length}</span><small>Celkem karet</small></div>
   `;
   document.getElementById('compareResults').style.display = '';
@@ -1264,14 +1253,14 @@ function _renderCmpPage() {
       <div class="cc-item ${color}">
         <div class="cc-img" style="position:relative">
           ${img
-            ? `<img src="${img}" alt="${card.name||'?'}" loading="lazy">`
+            ? `<img src="${esc(img)}" alt="${esc(card.name||'?')}" loading="lazy">`
             : `<div class="cc-placeholder">${getTypeEmoji(card.types?.[0])}</div>`
           }
-          ${card._fromShare ? `<div class="cc-watermark"><span>@${card._senderUsername||'sdíleno'}</span></div>` : ''}
-          ${img ? `<button onclick="cmpFakeCheck('${img}','${cardJson}')" title="Zkontrolovat falzum" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.7);border:1px solid rgba(245,158,11,.4);border-radius:5px;color:#f59e0b;font-size:10px;padding:2px 5px;cursor:pointer;font-family:inherit" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(0,0,0,.7)'">🤖</button>` : ''}
+          ${card._fromShare ? `<div class="cc-watermark"><span>@${esc(card._senderUsername||'sdíleno')}</span></div>` : ''}
+          ${img ? `<button onclick="cmpFakeCheck('${encodeURIComponent(img)}','${cardJson}')" title="Zkontrolovat falzum" style="position:absolute;bottom:3px;right:3px;background:rgba(0,0,0,.7);border:1px solid rgba(245,158,11,.4);border-radius:5px;color:#f59e0b;font-size:10px;padding:2px 5px;cursor:pointer;font-family:inherit" onmouseover="this.style.background='rgba(245,158,11,.2)'" onmouseout="this.style.background='rgba(0,0,0,.7)'">🤖</button>` : ''}
         </div>
-        <div class="cc-name">${card.name || '?'}</div>
-        ${card.set ? `<div class="cc-set">${card.set}</div>` : ''}
+        <div class="cc-name">${esc(card.name || '?')}</div>
+        ${card.set ? `<div class="cc-set">${esc(card.set)}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -1353,6 +1342,9 @@ async function sbPost(path, body) {
 }
 
 function cmpFakeCheck(imgUrl, cardJson) {
+  // Adresa obrázku přichází zakódovaná — data sdíleného alba jsou cizí, do onclick nesmí jít syrová
+  try { imgUrl = decodeURIComponent(imgUrl || ''); } catch {}
+  if (imgUrl && !/^(https?:|data:image\/)/i.test(imgUrl)) imgUrl = '';
   let cardInfo = {};
   try { cardInfo = JSON.parse(decodeURIComponent(cardJson)); } catch {}
   FakeDetector.openModal(imgUrl || null, cardInfo);

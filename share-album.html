@@ -930,14 +930,14 @@ async function loadIncoming() {
   }
   list.innerHTML = data.map(s => `
     <div class="invite-card" id="invite-${s.id}">
-      <div class="invite-avatar">${s.sender_username[0].toUpperCase()}</div>
+      <div class="invite-avatar">${esc((s.sender_username || '?')[0].toUpperCase())}</div>
       <div class="invite-info">
         <strong>@${esc(s.sender_username)} sdílí album</strong>
         <small>📁 ${esc(s.album_name)} — ${(s.cards_snapshot||[]).length} karet</small>
         <span class="invite-expiry">⏱ Vyprší ${formatExpiry(s.expires_at)}</span>
       </div>
       <div class="invite-btns">
-        <button class="btn-accept" onclick="acceptShare('${s.id}', '${esc(s.sender_username)}', '${esc(s.album_name)}')">Přijmout</button>
+        <button class="btn-accept" onclick="acceptShare(${jsArg(s.id)}, ${jsArg(s.sender_username)}, ${jsArg(s.album_name)})">Přijmout</button>
         <button class="btn-decline" onclick="declineShare('${s.id}')">Odmítnout</button>
       </div>
     </div>
@@ -1057,6 +1057,10 @@ async function loadSent() {
 function esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// Hodnota jako argument v onclick="…" — řetězec v uvozovkách, bezpečný v atributu
+// (esc() nestačí: apostrof ve jméně nebo názvu by vložil vlastní kód)
+function jsArg(v) { return String(JSON.stringify(String(v == null ? '' : v))).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 
 function formatExpiry(iso) {
   const diff = new Date(iso) - Date.now();

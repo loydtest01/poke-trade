@@ -379,6 +379,9 @@ async function sbReq(path, method = 'GET', body = null) {
 }
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// Hodnota jako argument funkce v onclick="…": řetězec v uvozovkách, bezpečný v atributu.
+// (esc() nestačí — apostrof v názvu karty od prodejce by vložil vlastní kód.)
+function jsArg(v) { return esc(JSON.stringify(String(v == null ? '' : v))); }
 function timeAgo(iso) {
   if (!iso) return '';
   const d = (Date.now() - new Date(iso)) / 1000;
@@ -489,8 +492,8 @@ function renderTxCard(tx, myRole, i) {
         <div class="tx-actions">
           ${alreadyReviewed
             ? `<span class="btn-rated">⭐ Hodnoceno</span>`
-            : `<button class="btn-rate" onclick="openReviewModal('${tx.id}','${tx.listing_id||''}','${esc(tx.card_name||'Karta')}','${esc(imgSrc)}','${esc(otherName)}','${myRole==='buyer'?'seller':'buyer'}','${myRole}')">⭐ Ohodnotit</button>`}
-          <a href="marketplace.html?listing=${tx.listing_id||''}" class="btn-relist" style="text-decoration:none;font-size:12px;padding:7px 14px">🃏 Zobrazit inzerát</a>
+            : `<button class="btn-rate" onclick="openReviewModal(${jsArg(tx.id)},${jsArg(tx.listing_id||'')},${jsArg(tx.card_name||'Karta')},${jsArg(imgSrc)},${jsArg(otherName)},${jsArg(myRole==='buyer'?'seller':'buyer')},${jsArg(myRole)})">⭐ Ohodnotit</button>`}
+          <a href="marketplace.html?open=${encodeURIComponent(tx.listing_id||'')}" class="btn-relist" style="text-decoration:none;font-size:12px;padding:7px 14px">🃏 Zobrazit inzerát</a>
         </div>
       </div>
     </div>`;
@@ -550,10 +553,12 @@ function renderReserved() {
           <span class="status-badge status-pending">⏳ Čeká na tvé potvrzení</span>
           <div style="margin-top:10px;font-size:12px;color:var(--text3)">Potvrzením vznikne transakce a oba budete moci zanechat hodnocení.</div>
           <div class="tx-actions">
-            <button class="btn-confirm-sale" onclick="confirmSaleFromList('${l.id}','${esc(l.card_name||first.name||'?')}','${esc(cardImg)}','${esc(l.reserved_by_user_id||'')}','${esc(l.reserved_by_username||'?')}','${l.price_czk||0}')">
+            <!-- Potvrzení prodeje jen jednou cestou (detail inzerátu v obchodě): dohodnutá
+                 cena z přijaté nabídky, zpráva kupujícímu, úklid alb, přesun do „Prodáno" -->
+            <a class="btn-confirm-sale" href="marketplace.html?open=${encodeURIComponent(l.id)}" style="text-decoration:none">
               ✅ Potvrdit prodej
-            </button>
-            <button class="btn-cancel-tx" onclick="relistFromList('${l.id}')">↩️ Vystavit znova</button>
+            </a>
+            <button class="btn-cancel-tx" onclick="relistFromList(${jsArg(l.id)})">↩️ Vystavit znova</button>
           </div>
         </div>
       </div>`;
@@ -561,32 +566,6 @@ function renderReserved() {
 
   html += '</div>';
   return html;
-}
-
-// Potvrdit prodej přímo z transactions stránky
-async function confirmSaleFromList(listingId, cardName, cardImg, buyerId, buyerUsername, priceCzk) {
-  if (!confirm(`Potvrdit prodej karty "${cardName}" pro ${buyerUsername}?`)) return;
-
-  const patchRes = await sbReq(`rest/v1/listings?id=eq.${listingId}`, 'PATCH', { status: 'sold' });
-  if (patchRes._err) { showToast('❌ ' + patchRes._err, 'error'); return; }
-
-  const txRes = await sbReq('rest/v1/transactions', 'POST', {
-    listing_id:      listingId,
-    seller_id:       uid,
-    buyer_id:        buyerId,
-    seller_username: uname,
-    buyer_username:  buyerUsername,
-    card_name:       cardName,
-    card_image_url:  cardImg,
-    price_czk:       parseInt(priceCzk) || null,
-    status:          'completed',
-    seller_reviewed: false,
-    buyer_reviewed:  false,
-  });
-  if (txRes._err) { showToast('⚠️ Transakce se neuložila: ' + txRes._err, 'error'); }
-
-  showToast('✅ Prodej potvrzen! Hodnocení je nyní dostupné.', 'success');
-  await loadAll();
 }
 
 // Vystavit znova (zrušit rezervaci)
@@ -597,6 +576,7 @@ async function relistFromList(listingId) {
     reserved_by_user_id: null,
     reserved_by_username: null,
     reserved_at: null,
+    reserved_offer_id: null,
   });
   if (res._err) { showToast('❌ ' + res._err, 'error'); return; }
   showToast('↩️ Karta znovu vystavena.', 'success');

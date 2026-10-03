@@ -1,4 +1,8 @@
 
+// Hodnota jako argument v onclick="…" — řetězec v uvozovkách, bezpečný v atributu
+// (esc() nestačí: apostrof ve jméně nebo názvu by vložil vlastní kód)
+function jsArg(v) { return String(JSON.stringify(String(v == null ? '' : v))).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 /* ══════════════════════════════════════════════════════════════
    DOPRAVCI — rozšířené způsoby doručení
    Zásilkovna, Balíkovna, Česká pošta, PPL, DPD, GLS, AlzaBox, WEDO
@@ -1083,7 +1087,7 @@ function buildGallery(l, firstCard){
   }
 
   thumbsEl.innerHTML = allImgs.map((src,i)=>
-    `<div class="gallery-thumb ${i===0?'act':''}" onclick="setGalleryImg('${esc(src)}',${i})" ondblclick="openCardZoom(${i})" title="2× klik → detail se lupou">
+    `<div class="gallery-thumb ${i===0?'act':''}" onclick="setGalleryImg(${jsArg(src)},${i})" ondblclick="openCardZoom(${i})" title="2× klik → detail se lupou">
       <img src="${esc(src)}" loading="lazy">
     </div>`
   ).join('') + (allImgs.length===0?'':'');
@@ -1308,10 +1312,8 @@ async function sendOffer(){
       return;
     }
   }
-  // Rezervuj kartu
-  if (!(await rezervujNabidku(l))) return;
-  currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
-  // Ulož nabídku
+  // Nabídka kartu NEREZERVUJE — rezervuje ji až prodejce, když nabídku přijme
+  // (dřív každá nabídka od 50 % ceny kartu zamkla pro všechny ostatní).
   const res = await sbReq('rest/v1/offers','POST',{
     listing_id: l.id,
     seller_id:  l.user_id,
@@ -1322,16 +1324,13 @@ async function sendOffer(){
     message: msg||null,
     status: 'pending',
   },token);
-  if(res && res._err){ showMktToast('❌ Karta je rezervovaná, ale nabídku se nepodařilo uložit: '+res._err); return; }
+  if(!res || res._err){ showMktToast('❌ Nabídku se nepodařilo odeslat: '+(res && res._err || 'neznámá chyba')); return; }
+  const offerId = Array.isArray(res) ? res[0]?.id : res?.id;
   togglePanel('offerPanel');
-  document.getElementById('dBtnBuy').style.display = 'none';
-  document.getElementById('dBtnTrade').style.display = 'none';
-  document.getElementById('dBtnOffer').style.display = 'none';
-  document.getElementById('reservedForMeBanner').style.display = '';
-  showMktToast('💸 Nabídka odeslána! Karta je rezervována.');
+  showMktToast('💸 Nabídka odeslána! Až ji prodejce přijme, karta se rezervuje pro tebe.');
   notifySellerOffer(l, 'price', { price: price||null, msg: msg||null });
   var _price = price, _msg = msg;
-  setTimeout(() => openChat(_price, _msg, 'price', null), 300);
+  setTimeout(() => openChat(_price, _msg, 'price', null, offerId), 300);
 }
 
 async function sendTrade(){
@@ -1340,9 +1339,7 @@ async function sendTrade(){
   const selCards = myCards.filter(c=>selectedTradeIds.has(String(c.id)));
   if(!selCards.length){ showMktToast('⚠️ Vyber alespoň jednu kartu k výměně.'); return; }
   const l=currentListing;
-  // Rezervuj kartu
-  if (!(await rezervujNabidku(l))) return;
-  currentListing = { ...currentListing, status:'reserved', reserved_by_user_id: userId, reserved_by_username: username };
+  // Návrh výměny kartu nerezervuje — až přijetí prodejcem
   // Ulož nabídku výměny
   const res = await sbReq('rest/v1/offers','POST',{
     listing_id: l.id,
@@ -1355,18 +1352,15 @@ async function sendTrade(){
     message: document.getElementById('tradeMsg').value||null,
     status: 'pending',
   },token);
-  if(res && res._err){ showMktToast('❌ Karta je rezervovaná, ale návrh výměny se nepodařilo uložit: '+res._err); return; }
+  if(!res || res._err){ showMktToast('❌ Návrh výměny se nepodařilo odeslat: '+(res && res._err || 'neznámá chyba')); return; }
+  const offerId = Array.isArray(res) ? res[0]?.id : res?.id;
   togglePanel('tradePanel');
   selectedTradeIds.clear();
-  document.getElementById('dBtnBuy').style.display = 'none';
-  document.getElementById('dBtnTrade').style.display = 'none';
-  document.getElementById('dBtnOffer').style.display = 'none';
-  document.getElementById('reservedForMeBanner').style.display = '';
-  showMktToast('🔄 Výměna navržena! Karta je rezervována.');
+  showMktToast('🔄 Výměna navržena! Až ji prodejce přijme, karta se rezervuje pro tebe.');
   notifySellerOffer(l, 'trade', { cards: selCards.map(c=>c.name).join(', '), msg: document.getElementById('tradeMsg').value.trim()||null });
   var _cards = selCards.map(c => c.name).join(', ');
   var _msg   = document.getElementById('tradeMsg').value.trim() || null;
-  setTimeout(() => openChat(null, _msg, 'trade', _cards), 300);
+  setTimeout(() => openChat(null, _msg, 'trade', _cards, offerId), 300);
 }
 
 // ── Messages ──────────────────────────────────────────────────
@@ -2957,7 +2951,7 @@ window.addEventListener('load', function() {
   setTimeout(tryLaunch, 800);
 });
 
-function openChat(offerPrice, offerMsg, offerType, tradeCards) {
+function openChat(offerPrice, offerMsg, offerType, tradeCards, offerId) {
   if(!token){ showMktToast('🔒 Přihlas se pro psaní zpráv.'); return; }
   if(!currentListing) return;
   var l = currentListing;
@@ -2975,6 +2969,7 @@ function openChat(offerPrice, offerMsg, offerType, tradeCards) {
     if (offerMsg)   url += '&offer_msg='   + encodeURIComponent(offerMsg);
     if (offerType)  url += '&offer_type='  + encodeURIComponent(offerType);
     if (tradeCards) url += '&trade_cards=' + encodeURIComponent(tradeCards);
+    if (offerId)    url += '&offer_id='    + encodeURIComponent(offerId);   // chat ukáže tlačítka Přijmout/Odmítnout
   }
   document.getElementById('chatIframeTitle').textContent = 'Chat s ' + sellerName;
   document.getElementById('chatIframe').src = url;
@@ -5241,13 +5236,20 @@ async function loadSellerRating(sellerId) {
 }
 
 // ── Owner actions ─────────────────────────────────────────────
+// Rezervovaná karta → plné potvrzení prodeje (transakce, hodnocení, upozornění
+// kupujícímu, úklid alb). Nerezervovaná → „prodáno mimo PokéTrade": bez transakce,
+// ale s úklidem alb. Dřív se jen přepnul stav a karta zůstala v albu Obchod.
 async function markListingAsSold() {
   if (!currentListing) return;
-  if (!confirm('Označit jako prodáno?\nInzerát zmizí z nabídek.')) return;
-  const res = await sbReq(`rest/v1/listings?id=eq.${currentListing.id}`, 'PATCH', { status: 'sold' }, token);
+  const l = currentListing;
+  if (l.status === 'reserved' && l.reserved_by_user_id) return confirmSale();
+  if (!confirm('Prodáno mimo PokéTrade?\nInzerát zmizí z nabídek. Transakce ani hodnocení nevzniknou.')) return;
+  const res = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', { status: 'sold' }, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
+  await uklidProdanouKartu(l);
   showMktToast('✅ Označeno jako prodáno.');
   showList(); loadListings();
+  setTimeout(() => showSellerAlbumPicker(l), 400);
 }
 
 // ── Edit existujícího inzerátu (cena, stav, popis) ─────────────────────
@@ -5426,57 +5428,9 @@ async function toggleFeaturedListing() {
   }
 }
 
-// Seller potvrdí prodej rezervované karty → vytvoří transakci
-async function confirmSale() {
-  if (!currentListing) return;
-  const l = currentListing;
-  if (!l.reserved_by_user_id) { alert('Karta není rezervována.'); return; }
-  if (!confirm(`Potvrdit prodej pro ${l.reserved_by_username||'kupujícího'}?\nVytvoří se záznam o transakci a oba budete moci ohodnotit.`)) return;
-
-  // 1. Patch listing na sold
-  const patchRes = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', { status: 'sold' }, token);
-  if (patchRes && patchRes._err) { alert('Chyba: ' + patchRes._err); return; }
-
-  // 2. Vytvoř transakci
-  const first = (l.cards_data||[])[0] || {};
-  const cardName = l.card_name || first.name || l.title || '?';
-  const cardImg  = l.api_image_url || first?.images?.small || first?.images?.large || '';
-  const txRes = await sbReq('rest/v1/transactions', 'POST', {
-    listing_id:        l.id,
-    seller_id:         l.user_id,
-    buyer_id:          l.reserved_by_user_id,
-    seller_username:   l.username,
-    buyer_username:    l.reserved_by_username,
-    card_name:         cardName,
-    card_image_url:    cardImg,
-    price_czk:         l.price_czk || null,
-    status:            'completed',
-    seller_reviewed:   false,
-    buyer_reviewed:    false,
-  }, token);
-  if (txRes && txRes._err) {
-    console.warn('Transakce se neuložila:', txRes._err);
-    showMktToast('⚠️ Prodej je potvrzený, ale záznam transakce se neuložil — hodnocení nebude k dispozici.');
-  }
-
-  // 3. Pošli kupujícímu chat zprávu s odkazem na přidání do alba
-  try {
-    const buyerLink = `${location.origin}${location.pathname.replace('marketplace.html','moje-album.html')}?add_from_listing=${encodeURIComponent(l.id)}`;
-    const notifText = `✅ Prodej potvrzen! Karta „${cardName}" je tvoje 🎉\nPřidej ji do své sbírky: ${buyerLink}`;
-    await sbReq('rest/v1/messages', 'POST', {
-      listing_id:        l.id,
-      sender_id:         userId,
-      receiver_id:       l.reserved_by_user_id,
-      sender_username:   username,
-      receiver_username: l.reserved_by_username || '',
-      text:              notifText,
-    }, token);
-  } catch(e) { console.warn('[notif buyer]', e); }
-
-  // 5. Auto-cleanup karty z alba "Obchod" (i kdyby seller zavřel picker)
-  //    Bez tohoto by karta zůstala visut v albu "Obchod" s for_sell=false
-  //    a vypadala by zatuchle. Pokud seller v pickeru vybere konkrétní album,
-  //    showSellerAlbumPicker() to vyřeší samo (řádky 5193+).
+// Po prodeji: zrušit příznaky prodej/výměna u karty a vyndat ji z alb „Obchod" a
+// „Výměna" (ve „Vše" zůstává). Společné pro potvrzený prodej i prodej mimo PokéTrade.
+async function uklidProdanouKartu(l) {
   try {
     if (l.card_local_id) {
       // Odeber for_sell/for_trade flag z karty
@@ -5503,6 +5457,64 @@ async function confirmSale() {
     }
   } catch (e) { console.warn('[confirmSale auto-cleanup]', e); }
 
+}
+
+// Seller potvrdí prodej rezervované karty → vytvoří transakci
+async function confirmSale() {
+  if (!currentListing) return;
+  const l = currentListing;
+  if (!l.reserved_by_user_id) { alert('Karta není rezervována.'); return; }
+  if (!confirm(`Potvrdit prodej pro ${l.reserved_by_username||'kupujícího'}?\nVytvoří se záznam o transakci a oba budete moci ohodnotit.`)) return;
+
+  // 1. Patch listing na sold
+  const patchRes = await sbReq(`rest/v1/listings?id=eq.${l.id}`, 'PATCH', { status: 'sold' }, token);
+  if (patchRes && patchRes._err) { alert('Chyba: ' + patchRes._err); return; }
+
+  // 2. Vytvoř transakci
+  const first = (l.cards_data||[])[0] || {};
+  const cardName = l.card_name || first.name || l.title || '?';
+  const cardImg  = l.api_image_url || first?.images?.small || first?.images?.large || '';
+  // Rezervace z přijaté nabídky → v transakci je dohodnutá cena, ne vypsaná
+  let cenaProdeje = l.price_czk || null;
+  if (l.reserved_offer_id) {
+    const o = await sbReq(`rest/v1/offers?id=eq.${l.reserved_offer_id}&select=offer_type,offered_price_czk`, 'GET', null, token);
+    if (Array.isArray(o) && o[0]) cenaProdeje = o[0].offer_type === 'trade' ? null : (o[0].offered_price_czk || cenaProdeje);
+  }
+  const txRes = await sbReq('rest/v1/transactions', 'POST', {
+    listing_id:        l.id,
+    seller_id:         l.user_id,
+    buyer_id:          l.reserved_by_user_id,
+    seller_username:   l.username,
+    buyer_username:    l.reserved_by_username,
+    card_name:         cardName,
+    card_image_url:    cardImg,
+    price_czk:         cenaProdeje,
+    status:            'completed',
+    seller_reviewed:   false,
+    buyer_reviewed:    false,
+  }, token);
+  if (txRes && txRes._err) {
+    console.warn('Transakce se neuložila:', txRes._err);
+    showMktToast('⚠️ Prodej je potvrzený, ale záznam transakce se neuložil — hodnocení nebude k dispozici.');
+  }
+
+  // 3. Pošli kupujícímu chat zprávu s odkazem na přidání do alba
+  try {
+    const buyerLink = `${location.origin}${location.pathname.replace('marketplace.html','moje-album.html')}?add_from_listing=${encodeURIComponent(l.id)}`;
+    const notifText = `✅ Prodej potvrzen! Karta „${cardName}" je tvoje 🎉\nPřidej ji do své sbírky: ${buyerLink}`;
+    await sbReq('rest/v1/messages', 'POST', {
+      listing_id:        l.id,
+      sender_id:         userId,
+      receiver_id:       l.reserved_by_user_id,
+      sender_username:   username,
+      receiver_username: l.reserved_by_username || '',
+      text:              notifText,
+    }, token);
+  } catch(e) { console.warn('[notif buyer]', e); }
+
+  // 5. Úklid karty z alb Obchod/Výměna
+  await uklidProdanouKartu(l);
+
   showList(); loadListings();
   // 6. Zobraz album picker prodejci — nabízí přesun do alba "Prodáno"
   setTimeout(() => showSellerAlbumPicker(l), 400);
@@ -5517,6 +5529,7 @@ async function relistListing() {
     reserved_by_user_id: null,
     reserved_by_username: null,
     reserved_at: null,
+    reserved_offer_id: null,
   }, token);
   if (res && res._err) { alert('Chyba: ' + res._err); return; }
   showMktToast('↩️ Karta znovu vystavena v nabídkách.');
@@ -5615,14 +5628,12 @@ async function quickCancel(id) {
   renderListings();
 }
 
+// Rychlé tlačítko ve Správě inzerátů → stejná cesta jako v detailu inzerátu
 async function quickConfirmSale(id) {
-  if (!confirm('Označit jako prodáno?')) return;
-  const res = await sbReq(`rest/v1/listings?id=eq.${id}`, 'PATCH', { status: 'sold' }, token);
-  if (res?._err) { alert('Chyba: ' + res._err); return; }
   const l = allListings.find(x => x.id === id);
-  if (l) l.status = 'sold';
-  showMktToast('✅ Označeno jako prodáno.');
-  renderListings();
+  if (!l) return;
+  currentListing = l;
+  return markListingAsSold();
 }
 
 async function quickRelist(id) {
@@ -5632,6 +5643,7 @@ async function quickRelist(id) {
     reserved_by_user_id: null,
     reserved_by_username: null,
     reserved_at: null,
+    reserved_offer_id: null,
   }, token);
   if (res?._err) { alert('Chyba: ' + res._err); return; }
   const l = allListings.find(x => x.id === id);

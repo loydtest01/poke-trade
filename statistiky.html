@@ -73,7 +73,9 @@ body { background: #0a0608; color: #f0ece4; font-family: 'DM Sans', sans-serif; 
 .topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 .nav-lnks img.nav-icon { width:18px!important; height:18px!important; flex-shrink:0!important; object-fit:contain!important; }
 </style>
-<script>window.TOPBAR_ACTIVE = 'stats';</script>
+<script>
+function _escSt(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+window.TOPBAR_ACTIVE = 'stats';</script>
 <script src="i18n.js"></script>
 <script src="topbar.js"></script>
 <script src="pwa-init.js"></script>
@@ -422,7 +424,7 @@ function fillCardSelect() {
     .sort((a, b) => a.name.localeCompare(b.name, 'cs'));
   const cur = sel.value;
   sel.innerHTML = '<option value="">— vyber kartu —</option>' +
-    withId.map(c => `<option value="${c.apiId}">${c.name} ${c.number ? '· ' + c.number : ''} (${c.set})</option>`).join('');
+    withId.map(c => `<option value="${_escSt(c.apiId)}">${_escSt(c.name)} ${c.number ? '· ' + _escSt(c.number) : ''} (${_escSt(c.set)})</option>`).join('');
   if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
 }
 
