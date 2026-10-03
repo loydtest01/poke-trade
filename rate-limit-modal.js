@@ -190,7 +190,10 @@
     overlay.querySelector('.pkt-rlm-cancel').addEventListener('click', close);
     overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
     overlay.querySelector('.pkt-rlm-open').addEventListener('click', () => {
-      window.location.href = 'profile.html#ai-providers';
+      // Vlastní AI klíče se zadávají v Nastavení v horní liště (profil už tu sekci nemá)
+      close();
+      if (typeof window.toggleSettingsDrop === 'function') window.toggleSettingsDrop();
+      else window.location.href = 'profile.html';
     });
     function escHandler(e) {
       if (e.key === 'Escape') {

@@ -6,7 +6,9 @@
      1. zkusí původní tcg-proxy, ale nejvýš 5 s,
      2. při selhání přeloží stejný dotaz do TCGdex (zdarma, bez klíče)
         a odpověď převede do tvaru pokemontcg.io — stránky nic nepoznají,
-     3. po selhání proxy ji 10 min přeskakuje (jde rovnou na TCGdex).
+     3. po selhání proxy ji 60 min přeskakuje (jde rovnou na TCGdex) — platí pro
+        všechny záložky; když se načítá víc karet najednou, proxy zkusí jen první
+        dotaz a ostatní počkají na výsledek (dřív selhalo 8 dotazů současně).
 
    Použití: window.PT_tcgFetch(url) → Promise<Response>
    url = původní adresa https://api.pokemontcg.io/v2/...
@@ -21,7 +23,9 @@
   var PROXY_LIMIT_MS = 5000;
   var TCGDEX_LIMIT_MS = 8000;
   var PAUZA_KLIC = 'pt_tcgproxy_down_until';
-  var PAUZA_MS = 10 * 60 * 1000;
+  var PAUZA_MS = 60 * 60 * 1000;
+  var _sonda = null;        // probíhající zkouška proxy → Promise<boolean>
+  var _proxyOk = false;     // proxy v této stránce už jednou odpověděla
   var MAX_DETAILU = 12;          // kolik karet z hledání doplnit o ceny (1 dotaz na kartu)
 
   // ── Pomocné ─────────────────────────────────────────────────────
@@ -39,10 +43,13 @@
     });
   }
   function proxyPozastavena() {
-    try { return Number(sessionStorage.getItem(PAUZA_KLIC) || 0) > Date.now(); } catch (e) { return false; }
+    try { return Number(localStorage.getItem(PAUZA_KLIC) || 0) > Date.now(); } catch (e) { return false; }
   }
-  function pozastavProxy() {
-    try { sessionStorage.setItem(PAUZA_KLIC, String(Date.now() + PAUZA_MS)); } catch (e) {}
+  function pozastavProxy(duvod) {
+    var uz = proxyPozastavena();
+    try { localStorage.setItem(PAUZA_KLIC, String(Date.now() + PAUZA_MS)); } catch (e) {}
+    // Jedno varování za pauzu (dřív se každý neúspěšný dotaz zapsal jako chyba)
+    if (!uz) { try { window.PTLog && window.PTLog.warn && window.PTLog.warn('tcg-zdroj', 'pokemontcg.io nedostupné (' + duvod + ') — 60 min jen TCGdex'); } catch (e) {} }
   }
   async function tcgdexJson(cesta) {
     var r = await sCasovacem(TCGDEX + cesta, TCGDEX_LIMIT_MS);
@@ -269,15 +276,25 @@
   window.PT_tcgFetch = async function (url) {
     if (!/api\.pokemontcg\.io\/v2\//.test(String(url))) return fetch(url);
 
+    // Proxy už se právě zkouší → počkat na výsledek místo dalšího souběžného pokusu
+    if (!proxyPozastavena() && !_proxyOk && _sonda) await _sonda;
     if (!proxyPozastavena()) {
+      var jeSonda = !_proxyOk && !_sonda, hotovo = null;
+      if (jeSonda) _sonda = new Promise(function (ok) { hotovo = ok; });
       try {
         var r = await sCasovacem(adresaProxy(url), PROXY_LIMIT_MS);
-        if (r.ok || r.status === 404) return r;
+        if (r.ok || r.status === 404) {
+          _proxyOk = true;
+          if (jeSonda) { hotovo(true); _sonda = null; }
+          return r;
+        }
         throw new Error('HTTP ' + r.status);
       } catch (e) {
-        pozastavProxy();
-        console.warn('[tcg-zdroj] tcg-proxy selhala (' + (e.name === 'AbortError' ? 'timeout' : e.message) +
-                     '), 10 min používám TCGdex');
+        var duvod = e.name === 'AbortError' ? 'timeout' : e.message;
+        pozastavProxy(duvod);
+        _proxyOk = false;
+        if (jeSonda) { hotovo(false); _sonda = null; }
+        console.warn('[tcg-zdroj] tcg-proxy selhala (' + duvod + '), 60 min používám TCGdex');
       }
     }
     try {

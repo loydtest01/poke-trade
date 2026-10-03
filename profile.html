@@ -2228,6 +2228,9 @@ function profileUpdateLangUI(lang) {
   const addBtn     = document.getElementById('groqAddBtn');
   const modelSel   = document.getElementById('groqModelSelect');
   const deleteBtn  = document.getElementById('groqDeleteBtn');
+  // Sekce Groq klíčů se přesunula do Nastavení v horní liště — bez ní nic dál
+  // nedělat (dřív tady stránka spadla na chybě „null.style").
+  if (!dot || !statusTxt || !deleteBtn) return;
   const feedback   = document.getElementById('groqFeedback');
   const testWrap   = document.getElementById('groqTestWrap');
   const testBtn    = document.getElementById('groqTestBtn');

@@ -30,6 +30,9 @@
     /\/_vercel\/(insights|speed-insights)\//,
     /api\.ipify\.org/,
     /vitals\.vercel-insights\.com/,
+    // pokemontcg.io přes tcg-proxy: tcg-zdroj.js při selhání přejde na TCGdex
+    // a výpadek zapíše jednou sám — každý jednotlivý dotaz by zaplavil log
+    /\/functions\/v1\/tcg-proxy/,
   ];
   function ignorovat(url) {
     for (var i = 0; i < IGNOROVAT.length; i++) if (IGNOROVAT[i].test(url)) return true;
