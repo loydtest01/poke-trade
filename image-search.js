@@ -1,10 +1,12 @@
 /**
  * image-search.js – Vyhledávání Pokémon karet podle fotografie
  * ============================================================
- * Používá Groq Vision (Llama 4 Scout) k rozpoznání karty z obrázku,
- * pak zavolá PkSearch.search() z card-search.js.
+ * Rozpoznání karty dělá společný modul ai-rozpoznani.js (PT_AI) — stejné
+ * zadání a odolné čtení odpovědi jako v obchodě. Pak volá PkSearch.search()
+ * z card-search.js.
  *
  * POUŽITÍ:
+ *   <script src="ai-rozpoznani.js"></script>   (když chybí, načte se sám)
  *   <script src="card-search.js"></script>
  *   <script src="image-search.js"></script>
  *
@@ -19,25 +21,21 @@
 (function (global) {
   'use strict';
 
-  const GROQ_PROXY = '/api/groq';
-  const GROQ_MODEL = 'qwen/qwen3.6-27b';
-
-  // ── Prompt pro AI rozpoznávání karty ──────────────────────────────────────
-  const RECOGNIZE_PROMPT = `Jsi expert na Pokémon karty. Analyzuj tento obrázek Pokémon karty a vrať JSON.
-
-Povinná pole:
-- "name": anglický název Pokémona (nebo trénera/energii), přesně jak je na kartě (en)
-- "number": číslo karty (jen číslo před lomítkem, např. "025" nebo "SV001")
-- "set": kód série (PTCGO kód nebo ID série, např. "PAL", "OBF", "sv3pt5", "mcd24")
-- "lang": jazyk karty ("EN", "JP", "DE", "FR", "IT", "ES", "PT", "KO")
-
-Volitelná pole:
-- "hp": hodnota HP (číslo jako string, např. "120")
-- "rarity": vzácnost (Common, Uncommon, Rare, etc.)
-- "confidence": tvá jistota 0.0–1.0
-
-Pokud něco nedokážeš přečíst, nastav null.
-Odpověz POUZE validním JSON objektem, bez markdown bloků.`;
+  // ── Společný AI modul (ai-rozpoznani.js) ──────────────────────────────────
+  // Když ho stránka nenačetla, dotáhne se sám — ImageSearch tak funguje všude.
+  let _ptAiSlib = null;
+  function _nactiPtAi() {
+    if (global.PT_AI) return Promise.resolve(global.PT_AI);
+    if (_ptAiSlib) return _ptAiSlib;
+    _ptAiSlib = new Promise((resolve, reject) => {
+      const sc = document.createElement('script');
+      sc.src = '/ai-rozpoznani.js';
+      sc.onload  = () => global.PT_AI ? resolve(global.PT_AI) : reject(new Error('Modul AI rozpoznávání se nenačetl'));
+      sc.onerror = () => { _ptAiSlib = null; reject(new Error('Modul AI rozpoznávání se nenačetl')); };
+      document.head.appendChild(sc);
+    });
+    return _ptAiSlib;
+  }
 
   // ── Převod File/Blob/URL na base64 ───────────────────────────────────────
   async function _toBase64(source) {
@@ -91,45 +89,28 @@ Odpověz POUZE validním JSON objektem, bez markdown bloků.`;
     });
   }
 
-  // ── Volání Groq Vision API ────────────────────────────────────────────────
-  async function _callGroqVision(base64, mimeType) {
+  // ── Rozpoznání přes PT_AI ─────────────────────────────────────────────────
+  // Vrací objekt kompatibilní s dřívější verzí (name, set, number, lang, hp,
+  // rarity) + všechna pole z PT_AI. name = anglický název (pro vyhledávání
+  // a pole hledání v obchodě), nameOriginal = jak je vytištěn na kartě.
+  async function _rozpoznej(base64, mimeType) {
+    const ai = await _nactiPtAi();
     const token = localStorage.getItem('sb_token') || '';
-    const groqKey = localStorage.getItem('groq_key') || localStorage.getItem('pkGroqKey') || '';
+    const k = await ai.rozpoznejKartu(base64, mimeType, { token, usage: 'search' });
 
-    const headers = { 'Content-Type': 'application/json' };
-    if (token)   headers['Authorization'] = 'Bearer ' + token;
-    if (groqKey) headers['X-Groq-Key']    = groqKey;
-
-    const resp = await fetch(GROQ_PROXY, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        usage_type: 'search',
-        model: GROQ_MODEL,
-        max_tokens: 400,
-        temperature: 0.1,
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-            { type: 'text', text: RECOGNIZE_PROMPT }
-          ]
-        }]
-      })
-    });
-
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}));
-      if (resp.status === 401) throw new Error('Neplatný Groq klíč nebo session');
-      if (resp.status === 429) throw new Error('Groq rate limit – počkej chvíli nebo zadej vlastní klíč');
-      throw new Error('Groq chyba: ' + (err?.error || resp.status));
+    if (k.chyba) {
+      if (k.status === 401) throw new Error('Pro rozpoznání z fotky se přihlas');
+      throw new Error(k.notes || 'Rozpoznání selhalo');
     }
-
-    const data = await resp.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    const match = content.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('AI nevrátilo validní JSON');
-    return JSON.parse(match[0]);
+    return Object.assign({}, k, {
+      name:         k.nameEN || k.name,
+      nameOriginal: k.name,
+      set:          k.setCode || '',
+      number:       (k.number || '').split('/')[0].trim(),   // jen číslo před lomítkem
+      numberFull:   k.number || '',
+      lang:         k.lang || 'EN',
+      hp:           k.hp || null,
+    });
   }
 
   // ── Hlavní veřejná funkce ─────────────────────────────────────────────────
@@ -156,7 +137,7 @@ Odpověz POUZE validním JSON objektem, bez markdown bloků.`;
     if (!imgData) throw new Error('Nepodařilo se zpracovat obrázek');
 
     status('🤖 AI rozpoznává kartu…');
-    const recognized = await _callGroqVision(imgData.base64, imgData.mimeType);
+    const recognized = await _rozpoznej(imgData.base64, imgData.mimeType);
 
     console.log('[ImageSearch] Rozpoznáno:', recognized);
 
@@ -170,12 +151,17 @@ Odpověz POUZE validním JSON objektem, bez markdown bloků.`;
       throw new Error('card-search.js není načteno – přidej <script src="card-search.js"> před image-search.js');
     }
 
-    const cards = await PkSearch.search(recognized.name, {
+    // Neanglická karta: hledá se podle vytištěného jména a jazyka, anglický
+    // název od AI se předá jako hotový překlad (PkSearch pak nepřekládá znovu).
+    const jeEN = recognized.lang === 'EN';
+    const cards = await PkSearch.search(jeEN ? recognized.name : (recognized.nameOriginal || recognized.name), {
       set:      recognized.set    || '',
       number:   recognized.number || '',
-      lang:     recognized.lang   || 'EN',
+      lang:     recognized.lang,
       hp:       recognized.hp     || null,
+      rarity:   recognized.rarity || '',
       onStatus: status,
+      _preResolvedEnName: jeEN ? '' : (recognized.nameEN || ''),
     });
 
     return { cards, recognized };
@@ -375,9 +361,12 @@ Odpověz POUZE validním JSON objektem, bez markdown bloků.`;
 
         // Zobraz co AI rozpoznalo
         const r = result.recognized;
-        overlay.querySelector('#imgsRecName').textContent = r.name || '?';
-        overlay.querySelector('#imgsRecSet').textContent  = r.set  || '?';
-        overlay.querySelector('#imgsRecNum').textContent  = r.number || '?';
+        overlay.querySelector('#imgsRecName').textContent =
+          (r.nameOriginal && r.nameOriginal !== r.name ? r.nameOriginal + ' → ' : '') + (r.name || '?') +
+          (r.lang && r.lang !== 'EN' ? ' (' + r.lang + ')' : '') +
+          (r.confidence === 'low' ? ' ⚠️ nejisté' : '');
+        overlay.querySelector('#imgsRecSet').textContent  = r.set || r.setName || '?';
+        overlay.querySelector('#imgsRecNum').textContent  = r.numberFull || r.number || '?';
         recBox.style.display = 'block';
 
         if (!result.cards.length) {
