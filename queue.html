@@ -796,6 +796,7 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
     <button class="qtab qtab-active" id="tabQueue" onclick="switchTab('queue')">📥 Fronta</button>
     <button class="qtab" id="tabQr" onclick="switchTab('qr')">📱 QR kód</button>
     <button class="qtab" id="tabBulk" onclick="switchTab('bulk')">🔍 Bulk Scan</button>
+    <button class="qtab" id="tabStojan" onclick="switchTab('stojan')">📐 Stojan &amp; podavač</button>
   </div>
 
   <!-- QR tab panel -->
@@ -819,6 +820,119 @@ button.btn-nav-outline { background: transparent !important; -webkit-appearance:
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Stojan & podavač: návod a modely ke stažení -->
+  <div id="panelStojan" style="display:none; padding:20px 0;">
+    <style>
+      body.stj-otevreno #loginPrompt { display: none !important; }
+      .stj { max-width: 920px; margin: 0 auto; color: rgba(240,236,228,.82); font-size: 14px; line-height: 1.6; }
+      .stj h2 { font-family: 'Unbounded', sans-serif; font-size: 18px; color: #f0ece4; margin: 0 0 6px; }
+      .stj h3 { font-size: 15px; color: #f5c842; margin: 26px 0 8px; }
+      .stj .stj-lead { color: rgba(240,236,228,.6); margin: 0 0 16px; }
+      .stj-obr { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+      .stj-obr figure { margin: 0; background: #f7f7f7; border-radius: 12px; overflow: hidden; }
+      .stj-obr img { width: 100%; display: block; }
+      .stj-obr figcaption { background: rgba(0,0,0,.75); color: #f0ece4; font-size: 12px; padding: 6px 10px; }
+      .stj-dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+      .stj-dl a { display: block; padding: 12px 14px; border-radius: 12px; text-decoration: none; color: inherit;
+        background: rgba(255,255,255,.04); border: 1px solid rgba(245,200,66,.25); transition: background .15s; }
+      .stj-dl a:hover { background: rgba(245,200,66,.08); }
+      .stj-dl b { display: block; color: #f5c842; font-size: 14px; }
+      .stj-dl span { font-size: 12px; color: rgba(240,236,228,.55); }
+      .stj ol, .stj ul { margin: 6px 0 0 20px; padding: 0; }
+      .stj li { margin: 3px 0; }
+      .stj table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+      .stj th, .stj td { text-align: left; padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,.08); }
+      .stj th { color: rgba(240,236,228,.55); font-weight: 600; }
+      .stj pre { background: rgba(0,0,0,.35); border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.35; overflow-x: auto; }
+      .stj .stj-pozn { font-size: 12px; color: rgba(240,236,228,.5); }
+    </style>
+    <div class="stj">
+      <h2>📐 Stojan a podavač pro rychlé skenování</h2>
+      <p class="stj-lead">Telefon leží 15 cm nad kartou a <b>režim stojanu</b> v mobilní aplikaci karty fotí sám. S podavačem kartu jen pustíš po skluzavce: sjede pod fotoaparát, vyfotí se, a pouštíš další.</p>
+
+      <div class="stj-obr">
+        <figure><img src="stojan/sestava.png" alt="Stojan s podavačem: karta sjíždí po skluzavce do kapsy pod telefonem" loading="lazy"><figcaption>Stojan s podavačem (pohled zezadu, odkud se karty vkládají)</figcaption></figure>
+        <figure><img src="stojan/podavac.png" alt="Podavač: skluzavka a kapsa s komínkem karet" loading="lazy"><figcaption>Podavač: skluzavka a kapsa, karty se skládají na sebe</figcaption></figure>
+      </div>
+
+      <h3>⬇️ Ke stažení — plná verze (jeden díl, nejjednodušší)</h3>
+      <div class="stj-dl">
+        <a href="stojan/poketrade-stojan-150mm.stl" download><b>Stojan 15 cm</b><span>STL · doporučeno · 200 × 172 × 150 mm</span></a>
+        <a href="stojan/poketrade-stojan-200mm.stl" download><b>Stojan 20 cm</b><span>STL · telefony, které neostří zblízka (novější iPhony Pro)</span></a>
+        <a href="stojan/poketrade-podavac.stl" download><b>Podavač</b><span>STL · skluzavka s kapsou · 214 × 130 × 73 mm</span></a>
+        <a href="stojan/poketrade-stojan.scad" download><b>Stojan – upravitelný</b><span>SCAD pro OpenSCAD · vlastní výška</span></a>
+        <a href="stojan/poketrade-podavac.scad" download><b>Podavač – upravitelný</b><span>SCAD · sklon, vůle pro karty v obalech</span></a>
+      </div>
+
+      <h3>🪶 Ke stažení — lehká verze (lepená, asi o polovinu méně materiálu)</h3>
+      <div class="stj-obr">
+        <figure><img src="stojan/stojan-lehky.png" alt="Lehký stojan: deska s drážkami a dvě rámové nohy" loading="lazy"><figcaption>Lehký stojan: deska + 2 rámové nohy vlepené do drážek</figcaption></figure>
+        <figure><img src="stojan/podavac-lehky.png" alt="Lehký podavač: kapsa s bočnicemi a nalepený skluz" loading="lazy"><figcaption>Lehký podavač: kapsa s bočnicemi + nalepený skluz</figcaption></figure>
+      </div>
+      <div class="stj-dl" style="margin-top:10px">
+        <a href="stojan/poketrade-stojan-lehky-deska.stl" download><b>Lehký stojan – deska</b><span>STL · 1× · 200 × 183 mm, žebry nahoru</span></a>
+        <a href="stojan/poketrade-stojan-lehky-noha.stl" download><b>Lehký stojan – noha</b><span>STL · <b>2×</b> · rám 200 × 146 mm, nápisem nahoru</span></a>
+        <a href="stojan/poketrade-podavac-lehky-kapsa.stl" download><b>Lehký podavač – kapsa</b><span>STL · 1× · s bočnicemi, dnem dolů</span></a>
+        <a href="stojan/poketrade-podavac-lehky-skluz.stl" download><b>Lehký podavač – skluz</b><span>STL · 1× · vedením nahoru</span></a>
+        <a href="stojan/poketrade-stojan-lehky.scad" download><b>Lehký stojan – upravitelný</b><span>SCAD · výška, tloušťky</span></a>
+        <a href="stojan/poketrade-podavac-lehky.scad" download><b>Lehký podavač – upravitelný</b><span>SCAD · sklon, vůle</span></a>
+      </div>
+      <p><b>Lepení:</b> vteřinové lepidlo (kyanoakrylát) nebo dvousložkový epoxid. Horní příčky obou noh vlep do drážek na spodku desky, nápisem ven (druhou nohu otoč). Skluz polož drážkami na šikmé hrany bočnic, spodní hranu zarovnej se zadní stěnou kapsy a přilep. Lepidlo nech před použitím zatvrdnout podle návodu. Deska s žebry unese i těžké odolné telefony (kolem 500 g) s velkou rezervou.</p>
+
+      <h3>⚙️ Jak to funguje</h3>
+      <ol>
+        <li><b>Stojan</b> drží telefon displejem nahoru, fotoaparát míří štěrbinou dolů. Nohy jsou po stranách mimo záběr, předek i zadek jsou volné.</li>
+        <li><b>Podavač</b> podsuň pod stojan zezadu. Rýhy na bocích kapsy zarovnej s rýhami na desce stojanu, pak je kapsa přesně pod středem.</li>
+        <li>Na telefonu spusť <b>🎥 Režim stojanu</b> a posuň telefon, aby fotoaparát mířil doprostřed kapsy.</li>
+        <li>Kartu polož lícem nahoru na horní konec skluzavky a pusť. Sjede, dopadne do kapsy a telefon ji sám vyfotí.</li>
+        <li>Pusť další kartu. Dopadne na předchozí a přesně ji zakryje, takže fotoaparát vidí jen tu novou.</li>
+        <li>Po dávce (kapsa pojme asi 45 karet, aplikace bere 50) vyndej komínek výřezy po stranách a v aplikaci karty odešli do fronty.</li>
+      </ol>
+
+      <h3>🖨️ Nastavení tisku</h3>
+      <ul>
+        <li><b>Černý nebo tmavý matný</b> filament (PLA nebo PETG). Světlý plast v záběru mate detekci karty.</li>
+        <li>Vrstva 0,2 mm, 3 obvody, výplň 10–20 %, <b>bez podpěr</b>. Stojan se tiskne deskou dolů (v souboru už je otočený), podavač dnem dolů.</li>
+        <li>Vše se vejde na tiskárnu s podložkou 220 × 220 mm.</li>
+        <li>Karty v obalech: v <code>poketrade-podavac.scad</code> nastav <code>vule = 3.5</code>. Když karta klouže pomalu, zvyš <code>uhel</code> na 32°.</li>
+      </ul>
+
+      <h3>🧱 Stojan z LEGA</h3>
+      <p>Čtyři sloupy z kostek 2×4 nesou dvouvrstvou desku se štěrbinou. <b>15 kostek + 2 vrstvy desek = 150,4 mm</b>. Každá kostka navíc nebo méně posune výšku o 9,6 mm, takže stojan doladíš přesně pro svůj telefon.</p>
+      <table>
+        <tr><th>Díl</th><th>Počet</th><th>K čemu</th></tr>
+        <tr><td>Kostka 2×4</td><td>60</td><td>4 sloupy po 15 kostkách</td></tr>
+        <tr><td>Deska 8×16</td><td>4</td><td>deska stojanu, obě vrstvy</td></tr>
+        <tr><td>Deska 8×8</td><td>6</td><td>deska stojanu + most za štěrbinou</td></tr>
+      </table>
+      <p class="stj-pozn">Deska shora: každý znak = 1 výstupek do šířky, řádek = 4 výstupky do hloubky. Celkem 24 × 24 výstupků (192 mm), mezi sloupy 20 výstupků (160 mm).</p>
+<pre>  zadek
+  ████████████████████████   ← most 8×8 za štěrbinou spojuje obě poloviny
+  ████████████████████████
+  ████████        ████████
+  ████████  štěr- ████████   ← štěrbina 8 výstupků široká, 16 hluboká
+  ████████  bina  ████████
+  ████████        ████████
+  předek</pre>
+      <ol>
+        <li>Desku postav ve dvou vrstvách se střídanými spárami: spodní vrstva 8×16 vpředu a 8×8 vzadu, horní naopak. Vzadu mezi polovinami v obou vrstvách most 8×8.</li>
+        <li>Desku otoč vzhůru nohama a do rohů nasaď sloupy (15 kostek 2×4, delší stranou odpředu dozadu).</li>
+        <li>Otoč stojan zpět a dolaď výšku podle náhledu v aplikaci: rozmazané nebo karta přes okraj → kostka navíc, karta malá → o kostku méně.</li>
+      </ol>
+      <p class="stj-pozn">Podavač se k LEGO stojanu hodí taky (mezi sloupy je 160 mm, podavač má 130 mm). Bez tiskárny poslouží jako skluzavka i ohnutý tvrdý karton se zarážkou z knihy.</p>
+
+      <p class="stj-pozn">© 2026 PokéTrade · poke-trade.eu · Modely jsou pod licencí <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.cs" target="_blank" rel="noopener" style="color:#f5c842">CC BY-NC-SA 4.0</a>: tiskni a sdílej pro sebe s uvedením autora, <b>neprodávej</b> modely ani výtisky. Podrobnosti v <a href="stojan/LICENCE.txt" target="_blank" style="color:#f5c842">LICENCE.txt</a>.</p>
+
+      <h3>💡 Tipy</h3>
+      <ul>
+        <li>Pod stojan dej <b>černou matnou podložku</b> (A4), větší než záběr.</li>
+        <li>Světlo ze dvou stran, ne lampu přímo nad telefonem. Holo karty jinak dělají bílý odlesk.</li>
+        <li>Telefon nech na nabíječce, kamera spotřebuje hodně baterie.</li>
+        <li>Odkaz na mobilní aplikaci najdeš v záložce <a href="#" onclick="switchTab('qr');return false" style="color:#f5c842">📱 QR kód</a>.</li>
+      </ul>
     </div>
   </div>
 
@@ -5354,19 +5468,21 @@ var _qrGenerated = false;
 
 window.switchTab = function switchTab(name) {
   // Panels
-  var panels = { queue: 'contentArea', qr: 'panelQr', bulk: 'panelBulk' };
+  var panels = { queue: 'contentArea', qr: 'panelQr', bulk: 'panelBulk', stojan: 'panelStojan' };
   Object.keys(panels).forEach(function(k) {
     var el = document.getElementById(panels[k]);
     if (el) el.style.display = (k === name) ? '' : 'none';
   });
   // Tabs
-  var tabs = { queue: 'tabQueue', qr: 'tabQr', bulk: 'tabBulk' };
+  var tabs = { queue: 'tabQueue', qr: 'tabQr', bulk: 'tabBulk', stojan: 'tabStojan' };
   Object.keys(tabs).forEach(function(k) {
     var el = document.getElementById(tabs[k]);
     if (el) el.classList.toggle('qtab-active', k === name);
   });
   // Generate QR on first open
   if (name === 'qr' && !_qrGenerated) { _showQrPanel(); _qrGenerated = true; }
+  // Návod ke stojanu je veřejný → přihlašovací okno ho nesmí zakrýt
+  document.body.classList.toggle('stj-otevreno', name === 'stojan');
   // Update URL hash
   try { history.replaceState(null, '', location.pathname + (name !== 'queue' ? '?tab=' + name : '')); } catch(e) {}
 };
@@ -5375,7 +5491,7 @@ window.switchTab = function switchTab(name) {
 ;(function() {
   var p = new URLSearchParams(location.search);
   var t = p.get('tab');
-  if (t === 'qr' || t === 'bulk') { setTimeout(function(){ switchTab(t); }, 400); }
+  if (t === 'qr' || t === 'bulk' || t === 'stojan') { setTimeout(function(){ switchTab(t); }, 400); }
 })();
 
 /* ─────────────── QR PANEL ─────────────── */

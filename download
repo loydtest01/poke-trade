@@ -1,0 +1,23 @@
+# Soubory, ktere nesmi na GitHub
+# Hesla a klice
+.env
+.env.*
+.dev.vars
+*.key
+*.pem
+
+# Nastroje a zavislosti
+node_modules/
+.wrangler/
+.vercel/
+
+# Archivy a zalohy
+*.zip
+*.rar
+*.7z
+*.bak
+
+# Systemove soubory
+Thumbs.db
+desktop.ini
+.DS_Store

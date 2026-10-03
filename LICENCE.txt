@@ -1,0 +1,19 @@
+PokéTrade — stojan a podavač pro skenování karet
+© 2026 PokéTrade · https://www.poke-trade.eu
+
+Tyto modely (soubory .stl a .scad) a obrázky jsou poskytovány pod licencí
+Creative Commons Uveďte původ-Neužívejte komerčně-Zachovejte licenci 4.0
+(CC BY-NC-SA 4.0):  https://creativecommons.org/licenses/by-nc-sa/4.0/deed.cs
+
+SMÍTE:
+  • modely stahovat, tisknout a používat pro sebe,
+  • sdílet je dál a upravovat.
+
+ZA PODMÍNEK:
+  • Uveďte původ — vždy uveďte autora „PokéTrade · poke-trade.eu" a odkaz
+    na licenci. Nápis poke-trade.eu na modelu neodstraňujte.
+  • Neužívejte komerčně — modely ani výtisky z nich neprodávejte a nepoužívejte
+    k výdělku (žádný prodej na e-shopech, bazarech, tržištích s 3D modely apod.).
+  • Zachovejte licenci — upravené verze sdílejte pod stejnou licencí.
+
+O komerční využití (např. prodej výtisků) je možné požádat přes poke-trade.eu.
